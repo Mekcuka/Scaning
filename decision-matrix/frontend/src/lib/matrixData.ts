@@ -1,4 +1,11 @@
-import { LINE_SUBTYPES, POINT_SUBTYPES, SUBTYPE_LABELS, type AnalysisRow, type POI, type Scenario } from './api';
+import {
+  ANALYSIS_LINE_SUBTYPES,
+  POINT_SUBTYPES,
+  SUBTYPE_LABELS,
+  type AnalysisRow,
+  type POI,
+  type Scenario,
+} from './api';
 
 export interface MatrixCell {
   text: string;
@@ -62,7 +69,7 @@ export function buildMatrixRows(
   const poiByColumn = cols.map((s) => pois.find((p) => p.id === s.poi_id) ?? pois[0] ?? null);
 
   const sections: { key: string; subtypes: string[] }[] = [
-    { key: 'Внутренние решения', subtypes: [...LINE_SUBTYPES, 'pads'] },
+    { key: 'Внутренние решения', subtypes: [...ANALYSIS_LINE_SUBTYPES, 'pads'] },
     { key: 'Внешние объекты', subtypes: [...POINT_SUBTYPES] },
   ];
 

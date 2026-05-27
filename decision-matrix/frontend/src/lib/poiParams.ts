@@ -1,5 +1,5 @@
 import type { DistanceDefaults, POI } from './api';
-import { LINE_SUBTYPES, SUBTYPE_LABELS } from './api';
+import { ANALYSIS_LINE_SUBTYPES, SUBTYPE_LABELS } from './api';
 import { formatCoord, parseCoord } from './coords';
 
 export type PoiFormValues = {
@@ -114,13 +114,13 @@ export const THRESHOLD_FIELDS = [
   { key: 'threshold_refinery_km' as const, label: 'НПЗ, км', defaultKey: 'threshold_refinery_km' as const },
 ];
 
-export const KM_PER_PAD_FIELDS = LINE_SUBTYPES.map((subtype) => ({
+export const KM_PER_PAD_FIELDS = ANALYSIS_LINE_SUBTYPES.map((subtype) => ({
   key: `km_per_pad_${subtype}` as keyof PoiFormValues,
   label: SUBTYPE_LABELS[subtype] || subtype,
   defaultKey: `km_per_pad_${subtype}` as keyof DistanceDefaults,
 }));
 
-export const MAX_TOTAL_LINE_FIELDS = LINE_SUBTYPES.map((subtype) => ({
+export const MAX_TOTAL_LINE_FIELDS = ANALYSIS_LINE_SUBTYPES.map((subtype) => ({
   key: `max_total_line_${subtype}_km` as keyof PoiFormValues,
   label: SUBTYPE_LABELS[subtype] || subtype,
   defaultKey: `max_total_line_${subtype}_km` as keyof DistanceDefaults,

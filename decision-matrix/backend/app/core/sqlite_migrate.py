@@ -24,3 +24,9 @@ def patch_sqlite_schema(conn: Connection) -> None:
         "nearest_node_id",
         "nearest_node_id CHAR(32)",
     )
+    _add_column_if_missing(
+        conn,
+        "poi_infrastructure_analysis",
+        "force_construction",
+        "force_construction BOOLEAN DEFAULT 0",
+    )

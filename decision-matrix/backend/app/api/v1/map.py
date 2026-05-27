@@ -3,7 +3,7 @@
 from uuid import UUID
 
 from fastapi import APIRouter, Depends, File, HTTPException, Query, UploadFile, status
-from sqlalchemy import cast, or_, select, String, update
+from sqlalchemy import cast, delete, or_, select, String, update
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.api.deps import get_current_user
@@ -34,7 +34,8 @@ from app.schemas import (
     LayerUpdate,
     POIUpdate,
 )
-from app.services.analysis_override import override_external_analysis, parse_point_wkt
+from app.services.analysis_override import parse_point_wkt, patch_analysis_subtype
+from app.services.infrastructure_analysis import build_enriched_analysis_from_db
 from app.services.graph_builder import build_network_from_lines
 from app.services.import_service import (
     create_pending_import_log,
@@ -346,14 +347,10 @@ async def delete_infra_object(
         .values(overridden_object_id=None)
     )
     await db.execute(
-        update(InfrastructureNode)
-        .where(InfrastructureNode.infrastructure_object_id == object_id)
-        .values(infrastructure_object_id=None)
+        delete(InfrastructureEdge).where(InfrastructureEdge.infrastructure_object_id == object_id)
     )
     await db.execute(
-        update(InfrastructureEdge)
-        .where(InfrastructureEdge.infrastructure_object_id == object_id)
-        .values(infrastructure_object_id=None)
+        delete(InfrastructureNode).where(InfrastructureNode.infrastructure_object_id == object_id)
     )
     await db.delete(obj)
     await db.commit()
@@ -407,43 +404,14 @@ async def get_poi_analysis(
 ):
     await _get_user_project(project_id, user, db)
     poi = await _get_poi(poi_id, project_id, db)
-    rows = (
-        await db.execute(
-            select(PoiInfrastructureAnalysis).where(PoiInfrastructureAnalysis.poi_id == poi.id)
-        )
-    ).scalars().all()
-    if not rows:
+    row_count = await db.scalar(
+        select(PoiInfrastructureAnalysis.id)
+        .where(PoiInfrastructureAnalysis.poi_id == poi.id)
+        .limit(1)
+    )
+    if not row_count:
         raise HTTPException(status_code=404, detail="No analysis found. Run POST .../analyze first.")
-    items = []
-    for row in rows:
-        name = await load_infra_name(db, row.nearest_object_id)
-        anchor_lon = anchor_lat = None
-        if row.param_type == "external":
-            pt = parse_point_wkt(row.anchor_geometry if isinstance(row.anchor_geometry, str) else None)
-            if pt:
-                anchor_lon, anchor_lat = pt
-            elif row.nearest_object_id:
-                obj = await db.get(InfrastructureObject, row.nearest_object_id)
-                if obj:
-                    anchor_lon, anchor_lat = obj.longitude, obj.latitude
-        items.append(
-            {
-                "subtype": row.subtype,
-                "param_type": row.param_type,
-                "status": row.distance_status,
-                "distance_km": row.distance_km,
-                "limit_km": row.max_allowed_distance_km,
-                "distance_source": row.distance_source,
-                "nearest_object_id": str(row.nearest_object_id) if row.nearest_object_id else None,
-                "object_name": name,
-                "anchor_lon": anchor_lon,
-                "anchor_lat": anchor_lat,
-                "anchor_type": row.anchor_type,
-                "is_manually_overridden": row.is_manually_overridden,
-                "nearest_node_id": str(row.nearest_node_id) if row.nearest_node_id else None,
-            }
-        )
-    return {"poi_id": str(poi_id), "rows": items}
+    return await build_enriched_analysis_from_db(db, project_id, poi)
 
 
 @map_router.get("/projects/{project_id}/pois/{poi_id}/candidates", response_model=list[CandidateResponse])
@@ -486,30 +454,25 @@ async def patch_analysis_override(
 ):
     await _get_user_project(project_id, user, db)
     poi = await _get_poi(poi_id, project_id, db)
+    if data.force_construction is None and not data.nearest_object_id and not data.nearest_node_id:
+        raise HTTPException(
+            status_code=400,
+            detail="Provide nearest_object_id, nearest_node_id, or force_construction",
+        )
     try:
-        row = await override_external_analysis(
+        await patch_analysis_subtype(
             db,
             project_id,
             poi,
             subtype,
             nearest_object_id=data.nearest_object_id,
             nearest_node_id=data.nearest_node_id,
+            force_construction=data.force_construction,
         )
     except ValueError as e:
         raise HTTPException(status_code=400, detail=str(e))
     await db.commit()
-    name = await load_infra_name(db, row.nearest_object_id)
-    pt = parse_point_wkt(row.anchor_geometry if isinstance(row.anchor_geometry, str) else None)
-    anchor_lon, anchor_lat = pt if pt else (None, None)
-    return {
-        "subtype": row.subtype,
-        "status": row.distance_status,
-        "distance_km": row.distance_km,
-        "nearest_object_id": str(row.nearest_object_id) if row.nearest_object_id else None,
-        "object_name": name,
-        "anchor_lon": anchor_lon,
-        "anchor_lat": anchor_lat,
-    }
+    return await build_enriched_analysis_from_db(db, project_id, poi)
 
 
 @map_router.get("/import/logs/{log_id}", response_model=ImportLogResponse)

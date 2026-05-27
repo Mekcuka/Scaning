@@ -28,5 +28,8 @@ OIL_PREP_RATE_MAP = {
     "mfns": None,
 }
 
-LINEAR_SUBTYPES = ("autoroad", "oil_pipeline", "gas_pipeline", "water_pipeline", "power_line")
+# FR-6.1.1: 4 internal linear subtypes in environment analysis (gas_pipeline — map/import only)
+ANALYSIS_LINEAR_SUBTYPES = ("autoroad", "oil_pipeline", "water_pipeline", "power_line")
+LINEAR_SUBTYPES = ANALYSIS_LINEAR_SUBTYPES
 EXTERNAL_POINT_SUBTYPES = ("gas_processing", "gtes", "substation", "refinery")
+ANALYSIS_SUBTYPES = (*ANALYSIS_LINEAR_SUBTYPES, *EXTERNAL_POINT_SUBTYPES, "pads")

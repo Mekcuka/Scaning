@@ -7,7 +7,6 @@ export const COST_RATE_GROUPS = [
     rows: [
       { id: 'autoroad', label: 'Автодорога', defaultValue: 5000 },
       { id: 'oil_pipeline', label: 'Нефтепровод', defaultValue: 8000 },
-      { id: 'gas_pipeline', label: 'Газопровод', defaultValue: 7500 },
       { id: 'water_pipeline', label: 'Водопровод', defaultValue: 6000 },
       { id: 'power_line', label: 'ЛЭП', defaultValue: 3000 },
     ],

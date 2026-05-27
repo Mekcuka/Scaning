@@ -18,6 +18,7 @@ interface ObjectDetailPanelProps {
   onDelete: () => void;
   onClose: () => void;
   saving?: boolean;
+  readOnly?: boolean;
 }
 
 export function ObjectDetailPanel({
@@ -27,6 +28,7 @@ export function ObjectDetailPanel({
   onDelete,
   onClose,
   saving,
+  readOnly = false,
 }: ObjectDetailPanelProps) {
   const [name, setName] = useState('');
   const [description, setDescription] = useState('');
@@ -141,17 +143,29 @@ export function ObjectDetailPanel({
             value={poiForm}
             onChange={setPoiForm}
             defaults={defaults}
-            coordsReadOnly={false}
+            readOnly={readOnly}
+            coordsReadOnly={readOnly}
           />
         ) : (
           <>
             <label className="flex flex-col gap-0.5 mb-1.5">
               <span style={{ color: 'var(--text-muted)' }}>Название</span>
-              <input className="input text-xs py-1" value={name} onChange={(e) => setName(e.target.value)} />
+              <input
+                className="input text-xs py-1"
+                value={name}
+                readOnly={readOnly}
+                disabled={readOnly}
+                onChange={(e) => setName(e.target.value)}
+              />
             </label>
             <label className="flex flex-col gap-0.5 mb-1.5">
               <span style={{ color: 'var(--text-muted)' }}>Подтип</span>
-              <select className="input text-xs py-1" value={subtype} onChange={(e) => setSubtype(e.target.value)}>
+              <select
+                className="input text-xs py-1"
+                value={subtype}
+                disabled={readOnly}
+                onChange={(e) => setSubtype(e.target.value)}
+              >
                 {Object.entries(SUBTYPE_LABELS).map(([k, v]) => (
                   <option key={k} value={k}>
                     {v}
@@ -162,7 +176,12 @@ export function ObjectDetailPanel({
             {layers.length > 0 && (
               <label className="flex flex-col gap-0.5 mb-1.5">
                 <span style={{ color: 'var(--text-muted)' }}>Слой</span>
-                <select className="input text-xs py-1" value={layerId} onChange={(e) => setLayerId(e.target.value)}>
+                <select
+                  className="input text-xs py-1"
+                  value={layerId}
+                  disabled={readOnly}
+                  onChange={(e) => setLayerId(e.target.value)}
+                >
                   {layers.map((l) => (
                     <option key={l.id} value={l.id}>
                       {l.name}
@@ -174,11 +193,25 @@ export function ObjectDetailPanel({
             <div className="grid grid-cols-2 gap-1.5 mb-1.5">
               <label className="flex flex-col gap-0.5">
                 <span style={{ color: 'var(--text-muted)' }}>Долгота</span>
-                <input className="input text-xs py-1" value={lon} step="0.001" onChange={(e) => setLon(e.target.value)} />
+                <input
+                  className="input text-xs py-1"
+                  value={lon}
+                  step="0.001"
+                  readOnly={readOnly}
+                  disabled={readOnly}
+                  onChange={(e) => setLon(e.target.value)}
+                />
               </label>
               <label className="flex flex-col gap-0.5">
                 <span style={{ color: 'var(--text-muted)' }}>Широта</span>
-                <input className="input text-xs py-1" value={lat} step="0.001" onChange={(e) => setLat(e.target.value)} />
+                <input
+                  className="input text-xs py-1"
+                  value={lat}
+                  step="0.001"
+                  readOnly={readOnly}
+                  disabled={readOnly}
+                  onChange={(e) => setLat(e.target.value)}
+                />
               </label>
             </div>
             <label className="flex flex-col gap-0.5">
@@ -186,6 +219,8 @@ export function ObjectDetailPanel({
               <textarea
                 className="input text-xs min-h-[40px] py-1"
                 value={description}
+                readOnly={readOnly}
+                disabled={readOnly}
                 onChange={(e) => setDescription(e.target.value)}
               />
             </label>
@@ -193,24 +228,30 @@ export function ObjectDetailPanel({
         )}
       </div>
 
-      <div className="flex gap-1.5 p-2 border-t shrink-0" style={{ borderColor: 'var(--border)' }}>
-        <button
-          type="button"
-          className="btn btn-primary flex-1 text-xs py-1 min-h-[30px] justify-center"
-          disabled={saving}
-          onClick={handleSave}
-        >
-          Сохранить
-        </button>
-        <button
-          type="button"
-          className="btn btn-secondary flex-1 text-xs py-1 min-h-[30px] justify-center"
-          disabled={saving}
-          onClick={onDelete}
-        >
-          Удалить
-        </button>
-      </div>
+      {readOnly ? (
+        <p className="text-[10px] px-2 py-1.5 border-t shrink-0" style={{ borderColor: 'var(--border)', color: 'var(--text-muted)' }}>
+          Включите режим «Редактирование» на панели инструментов карты, чтобы изменять объект.
+        </p>
+      ) : (
+        <div className="flex gap-1.5 p-2 border-t shrink-0" style={{ borderColor: 'var(--border)' }}>
+          <button
+            type="button"
+            className="btn btn-primary flex-1 text-xs py-1 min-h-[30px] justify-center"
+            disabled={saving}
+            onClick={handleSave}
+          >
+            Сохранить
+          </button>
+          <button
+            type="button"
+            className="btn btn-secondary flex-1 text-xs py-1 min-h-[30px] justify-center"
+            disabled={saving}
+            onClick={onDelete}
+          >
+            Удалить
+          </button>
+        </div>
+      )}
     </div>
   );
 }

@@ -7,6 +7,7 @@ import OSM from 'ol/source/OSM';
 import XYZ from 'ol/source/XYZ';
 import VectorSource from 'ol/source/Vector';
 import Cluster from 'ol/source/Cluster';
+import { boundingExtent } from 'ol/extent';
 import { fromLonLat, transform } from 'ol/proj';
 import Feature from 'ol/Feature';
 import Point from 'ol/geom/Point';
@@ -94,6 +95,14 @@ export type MapFeatureSelection =
   | { kind: 'poi'; id: string }
   | { kind: 'infra'; id: string };
 
+/** Pan/zoom target (change nonce to re-run animation). */
+export type MapFocusTarget = {
+  lon: number;
+  lat: number;
+  extentLonLat?: [number, number, number, number];
+  nonce: number;
+};
+
 function resolveFeatureSelection(f: Feature): MapFeatureSelection | null {
   const features = f.get('features') as Feature[] | undefined;
   if (features && features.length > 1) {
@@ -158,6 +167,9 @@ interface MapViewProps {
   nodeCoordLookup?: Record<string, { lon: number; lat: number }>;
   useMapIcons?: boolean;
   layers?: InfraLayer[];
+  mapFocus?: MapFocusTarget | null;
+  /** When false: view-only — no drag-edit of geometries (select/view still allowed). */
+  editMode?: boolean;
 }
 
 function layerOpacityMap(layers: InfraLayer[] | undefined): Record<string, number> {
@@ -321,6 +333,8 @@ export function MapView({
   nodeCoordLookup,
   useMapIcons = true,
   layers = [],
+  mapFocus = null,
+  editMode = false,
 }: MapViewProps) {
   const opacityByLayer = layerOpacityMap(layers);
   const colorByLayer = layerColorMap(layers);
@@ -348,6 +362,7 @@ export function MapView({
   const onFinishLineRef = useRef(onFinishLine);
   const draftLineRef = useRef(draftLine);
   const drawModeRef = useRef(drawMode);
+  const editModeRef = useRef(editMode);
   const selectModeRef = useRef(selectMode);
   const useIconsRef = useRef(useMapIcons);
   const suppressDataSyncRef = useRef(false);
@@ -361,6 +376,7 @@ export function MapView({
   onFinishLineRef.current = onFinishLine;
   draftLineRef.current = draftLine;
   drawModeRef.current = drawMode;
+  editModeRef.current = editMode;
   selectModeRef.current = selectMode;
   useIconsRef.current = useMapIcons;
 
@@ -556,20 +572,29 @@ export function MapView({
     });
 
     modify.on('modifyend', () => {
+      if (!editModeRef.current) {
+        suppressDataSyncRef.current = false;
+        return;
+      }
       const collection = select.getFeatures();
       const f = collection.item(0);
       if (!f) {
         suppressDataSyncRef.current = false;
         return;
       }
-      const features = f.get('features') as Feature[] | undefined;
-      const inner = features?.length === 1 ? features[0] : f;
+      const members = f.get('features') as Feature[] | undefined;
+      const inner = members?.length === 1 ? members[0] : f;
       const kind = inner.get('featureKind') as string;
       const id = inner.get('id') as string;
-      const geom = inner.getGeometry();
+      // Modify updates the selected wrapper (cluster); read geometry from `f`, not stale inner.
+      const geom = f.getGeometry();
       if (!geom || !kind || !id) {
         suppressDataSyncRef.current = false;
         return;
+      }
+      if (members?.length === 1 && inner !== f && geom instanceof Point) {
+        inner.setGeometry(geom.clone());
+        clusterSourceRef.current.refresh();
       }
       const releaseSync = () => {
         suppressDataSyncRef.current = false;
@@ -641,13 +666,16 @@ export function MapView({
       lineLayer.changed();
       if (containerRef.current) {
         const inSelect = drawModeRef.current === 'select';
+        const editing = editModeRef.current;
         containerRef.current.style.cursor = hit
           ? 'pointer'
-          : inSelect
-            ? selectModeRef.current === 'box'
-              ? 'crosshair'
-              : 'default'
-            : 'crosshair';
+          : !editing
+            ? 'default'
+            : inSelect
+              ? selectModeRef.current === 'box'
+                ? 'crosshair'
+                : 'default'
+              : 'crosshair';
       }
     };
 
@@ -706,17 +734,38 @@ export function MapView({
     const isSelect = drawMode === 'select';
     const isSingle = isSelect && selectMode === 'single';
     const isBox = isSelect && selectMode === 'box';
+    const canModify = editMode && isSingle;
     selectRef.current?.setActive(isSingle);
-    modifyRef.current?.setActive(isSingle);
+    modifyRef.current?.setActive(canModify);
     dragBoxRef.current?.setActive(isBox);
     dragPanRef.current?.setActive(!isBox);
     if (containerRef.current) {
-      containerRef.current.style.cursor = isBox ? 'crosshair' : isSelect ? 'default' : 'crosshair';
+      const cursor = !editMode
+        ? 'default'
+        : isBox
+          ? 'crosshair'
+          : isSelect
+            ? 'default'
+            : 'crosshair';
+      containerRef.current.style.cursor = cursor;
     }
     if (!isSelect) {
       selectRef.current?.getFeatures().clear();
     }
-  }, [drawMode, selectMode]);
+  }, [drawMode, selectMode, editMode]);
+
+  useEffect(() => {
+    const layer = pointLayerRef.current;
+    const select = selectRef.current;
+    if (!layer) return;
+    select?.getFeatures().clear();
+    if (editMode) {
+      layer.setSource(pointSourceRef.current);
+    } else {
+      layer.setSource(clusterSourceRef.current);
+      clusterSourceRef.current.refresh();
+    }
+  }, [editMode]);
 
   useEffect(() => {
     if (selectMode !== 'box') return;
@@ -828,9 +877,7 @@ export function MapView({
     source.clear();
     if (!selectedPoi) return;
     const poiCoord = fromLonLat([selectedPoi.lon, selectedPoi.lat]);
-    connectionLines
-      .filter((row) => row.param_type === 'external' && row.anchor_lon != null && row.anchor_lat != null)
-      .forEach((row) => {
+    connectionLines.forEach((row) => {
         source.addFeature(
           new Feature({
             geometry: new LineString([poiCoord, fromLonLat([row.anchor_lon!, row.anchor_lat!])]),
@@ -893,6 +940,28 @@ export function MapView({
       );
     });
   }, [networkNodes, networkEdges, nodeCoordLookup]);
+
+  useEffect(() => {
+    const map = mapRef.current;
+    if (!map || !mapFocus) return;
+    const view = map.getView();
+    if (mapFocus.extentLonLat) {
+      const [minLon, minLat, maxLon, maxLat] = mapFocus.extentLonLat;
+      const padLon = Math.max((maxLon - minLon) * 0.15, 0.008);
+      const padLat = Math.max((maxLat - minLat) * 0.15, 0.008);
+      const ext = boundingExtent([
+        fromLonLat([minLon - padLon, minLat - padLat]),
+        fromLonLat([maxLon + padLon, maxLat + padLat]),
+      ]);
+      view.fit(ext, { padding: [48, 48, 48, 48], maxZoom: 14, duration: 450 });
+      return;
+    }
+    view.animate({
+      center: fromLonLat([mapFocus.lon, mapFocus.lat]),
+      zoom: Math.max(view.getZoom() ?? 9, 12),
+      duration: 450,
+    });
+  }, [mapFocus?.nonce]);
 
   return (
     <div

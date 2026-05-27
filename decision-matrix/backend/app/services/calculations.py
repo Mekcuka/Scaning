@@ -89,12 +89,20 @@ class EngineeringState:
     water_injection_volume: float = 0
 
 
+def is_power_generation(eng_gas: str) -> bool:
+    return eng_gas in ("power_generation", "generation")
+
+
+def format_internal_formula_label(km_per_pad: float, pads_count: int, distance_km: float | None = None) -> str:
+    dist = distance_km if distance_km is not None else pads_count * km_per_pad
+    return f"{km_per_pad} км/КП × {pads_count} КП = {round(dist, 1)} км"
+
+
 def apply_engineering_rules(state: EngineeringState) -> dict[str, str]:
-    """Returns subtype -> status: active | not_required | excluded."""
+    """Returns subtype -> status: active | not_required."""
     statuses: dict[str, str] = {
         "autoroad": "active",
         "oil_pipeline": "active",
-        "gas_pipeline": "active",
         "water_pipeline": "active",
         "power_line": "active",
         "gas_processing": "active",
@@ -127,7 +135,16 @@ def apply_engineering_rules(state: EngineeringState) -> dict[str, str]:
             statuses["oil_pipeline"] = "not_required"
         statuses["refinery"] = "not_required"
     else:
-        statuses["gas_pipeline"] = "not_required"
+        # FR-5.4.1 — oil transport
+        if state.eng_transport == "auto":
+            statuses["oil_pipeline"] = "not_required"
+            statuses["refinery"] = "not_required"
+        elif state.eng_transport == "marine":
+            statuses["oil_pipeline"] = "active"
+            statuses["refinery"] = "not_required"
+        elif state.eng_transport == "pipeline":
+            statuses["oil_pipeline"] = "active"
+            statuses["refinery"] = "active"
 
     return statuses
 
@@ -140,7 +157,7 @@ def calc_engineering_equipment_cost(
         total += rates.get("eq_power", 0)
     if state.eng_injection == "local" and state.water_injection_volume > 0:
         total += rates.get("eq_injection", 0)
-    if state.eng_gas == "generation" and state.eng_power == "internal":
+    if is_power_generation(state.eng_gas) and state.eng_power == "internal":
         total += rates.get("eq_gas", 0)
     if state.fluid_type == "oil" and state.eng_oil_preparation != "mfns":
         from app.services.cost_rates import OIL_PREP_RATE_MAP

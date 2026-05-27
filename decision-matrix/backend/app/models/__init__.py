@@ -199,6 +199,7 @@ class PoiInfrastructureAnalysis(Base):
     distance_status: Mapped[str] = mapped_column(String(20))
     max_allowed_distance_km: Mapped[float] = mapped_column(Float)
     is_manually_overridden: Mapped[bool] = mapped_column(Boolean, default=False)
+    force_construction: Mapped[bool] = mapped_column(Boolean, default=False)
     overridden_object_id: Mapped[uuid.UUID | None] = mapped_column(
         Uuid, ForeignKey("infrastructure_objects.id", ondelete="SET NULL"), nullable=True
     )

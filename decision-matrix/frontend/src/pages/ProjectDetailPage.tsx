@@ -1,15 +1,18 @@
 import { useParams, Link } from 'react-router-dom';
-import { useQuery, useMutation } from '@tanstack/react-query';
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useState, useEffect } from 'react';
 import { api } from '../lib/api';
 import { useAppStore } from '../store';
-import { STATUS_LABELS, SUBTYPE_LABELS } from '../lib/specs';
 import { PoiParamsPanel } from '../components/PoiParamsPanel';
+import {
+  AnalysisEnvironmentTable,
+  AnalysisSummaryHeader,
+} from '../components/AnalysisEnvironmentTable';
 
 export function ProjectDetailPage() {
   const { id } = useParams<{ id: string }>();
+  const queryClient = useQueryClient();
   const setCurrentProjectId = useAppStore((s) => s.setCurrentProjectId);
-  const [analysis, setAnalysis] = useState<Awaited<ReturnType<typeof api.analyzePoi>> | null>(null);
   const [selectedPoiId, setSelectedPoiId] = useState<string | null>(null);
 
   useEffect(() => {
@@ -28,14 +31,33 @@ export function ProjectDetailPage() {
     enabled: !!id,
   });
 
-  const analyzeMut = useMutation({
-    mutationFn: (poiId: string) => api.analyzePoi(id!, poiId),
-    onSuccess: setAnalysis,
-  });
-
   useEffect(() => {
     if (pois.length > 0 && !selectedPoiId) setSelectedPoiId(pois[0].id);
   }, [pois, selectedPoiId]);
+
+  const { data: analysisData } = useQuery({
+    queryKey: ['analysis', id, selectedPoiId],
+    queryFn: () => api.getPoiAnalysis(id!, selectedPoiId!),
+    enabled: !!id && !!selectedPoiId,
+    retry: false,
+  });
+
+  const analyzeMut = useMutation({
+    mutationFn: (poiId: string) => api.analyzePoi(id!, poiId),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['analysis', id, selectedPoiId] });
+    },
+  });
+
+  const constructionMut = useMutation({
+    mutationFn: ({ subtype, force }: { subtype: string; force: boolean }) =>
+      api.overrideAnalysis(id!, selectedPoiId!, subtype, { force_construction: force }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['analysis', id, selectedPoiId] });
+    },
+  });
+
+  const analysisRows = analysisData?.rows ?? [];
 
   return (
     <div>
@@ -87,11 +109,12 @@ export function ProjectDetailPage() {
                         className="btn btn-primary btn-sm"
                         onClick={(e) => {
                           e.stopPropagation();
+                          setSelectedPoiId(poi.id);
                           analyzeMut.mutate(poi.id);
                         }}
                         disabled={analyzeMut.isPending}
                       >
-                        Анализ
+                        Анализировать
                       </button>
                     </td>
                   </tr>
@@ -111,47 +134,18 @@ export function ProjectDetailPage() {
         />
       )}
 
-      {analysis && (
+      {analysisRows.length > 0 && (
         <div className="card">
-          <div className="flex justify-between items-center mb-4">
-            <h2 className="font-semibold">Анализ окружения</h2>
-            <span className="text-lg font-bold">{analysis.total_cost_mln} млн ₽</span>
-          </div>
-          <div className="table-wrap">
-            <table className="data-table">
-              <thead>
-                <tr>
-                  <th>Подтип</th>
-                  <th>Расстояние, км</th>
-                  <th>Статус</th>
-                  <th>Стоимость, млн ₽</th>
-                </tr>
-              </thead>
-              <tbody>
-                {analysis.analysis.map((row, i) => {
-                  const r = row as Record<string, unknown>;
-                  const subtype = String(r.subtype ?? '');
-                  const status = String(r.status ?? '');
-                  return (
-                  <tr key={i}>
-                    <td>{SUBTYPE_LABELS[subtype] || subtype}</td>
-                    <td>{r.distance_km != null ? String(r.distance_km) : '—'}</td>
-                    <td>
-                      <span className={`badge ${
-                        status === 'within_limit' || status === 'computed' ? 'badge-success' :
-                        status === 'exceeds_limit' ? 'badge-danger' :
-                        status === 'not_required' ? 'badge-muted' : 'badge-warning'
-                      }`}>
-                        {STATUS_LABELS[status] || status}
-                      </span>
-                    </td>
-                    <td>{r.cost_mln != null ? String(r.cost_mln) : '—'}</td>
-                  </tr>
-                  );
-                })}
-              </tbody>
-            </table>
-          </div>
+          <AnalysisSummaryHeader
+            totalCostMln={analysisData?.total_cost_mln}
+            overallStatus={analysisData?.overall_status}
+          />
+          <AnalysisEnvironmentTable
+            rows={analysisRows}
+            onToggleConstruction={(subtype, force) =>
+              constructionMut.mutate({ subtype, force })
+            }
+          />
         </div>
       )}
     </div>

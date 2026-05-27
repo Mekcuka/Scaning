@@ -159,6 +159,7 @@ class POIResponse(BaseModel):
 class AnalysisOverrideUpdate(BaseModel):
     nearest_object_id: UUID | None = None
     nearest_node_id: UUID | None = None
+    force_construction: bool | None = None
 
 
 class ImportConnectionCreate(BaseModel):

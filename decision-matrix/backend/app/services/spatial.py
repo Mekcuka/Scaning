@@ -9,6 +9,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.config import settings
 from app.geo.geometry_utils import point_wkt
+from app.services.cost_rates import EXTERNAL_POINT_SUBTYPES
 from app.models import (
     InfrastructureLayer,
     InfrastructureNetwork,
@@ -113,9 +114,10 @@ async def find_nearest_object_by_subtype(
         net = await find_nearest_network_node(db, project_id, poi, subtype)
         if net:
             return net
+    point_only = subtype in EXTERNAL_POINT_SUBTYPES
     if settings.is_sqlite:
-        return await _find_nearest_sqlite(db, project_id, poi, subtype)
-    return await _find_nearest_postgis(db, project_id, poi, subtype)
+        return await _find_nearest_sqlite(db, project_id, poi, subtype, point_only=point_only)
+    return await _find_nearest_postgis(db, project_id, poi, subtype, point_only=point_only)
 
 
 async def _find_nearest_sqlite(
@@ -123,18 +125,23 @@ async def _find_nearest_sqlite(
     project_id: UUID,
     poi: PointOfInterest,
     subtype: str,
+    *,
+    point_only: bool = False,
 ) -> NearestResult | None:
     q = (
         select(InfrastructureObject)
         .join(InfrastructureLayer)
         .where(
             InfrastructureLayer.project_id == project_id,
+            InfrastructureLayer.is_visible.is_(True),
             InfrastructureObject.subtype == subtype,
         )
     )
     objects = (await db.execute(q)).scalars().all()
     best: NearestResult | None = None
     for obj in objects:
+        if point_only and obj.end_longitude is not None:
+            continue
         cand = distance_to_object(poi, obj)
         if best is None or cand.distance_km < best.distance_km:
             best = cand
@@ -146,9 +153,16 @@ async def _find_nearest_postgis(
     project_id: UUID,
     poi: PointOfInterest,
     subtype: str,
+    *,
+    point_only: bool = False,
 ) -> NearestResult | None:
+    geom_filter = (
+        "AND ST_GeometryType(io.geometry) IN ('ST_Point', 'ST_MultiPoint')"
+        if point_only
+        else ""
+    )
     sql = text(
-        """
+        f"""
         SELECT io.id, io.name,
                ST_Distance(
                  poi.geometry::geography,
@@ -160,7 +174,8 @@ async def _find_nearest_postgis(
         FROM infrastructure_objects io
         JOIN infrastructure_layers il ON il.id = io.layer_id
         JOIN points_of_interest poi ON poi.id = :poi_id
-        WHERE il.project_id = :project_id AND io.subtype = :subtype
+        WHERE il.project_id = :project_id AND il.is_visible = true AND io.subtype = :subtype
+        {geom_filter}
         ORDER BY distance_km ASC
         LIMIT 1
         """
@@ -199,22 +214,33 @@ async def list_candidates_by_subtype(
         if nodes:
             return nodes
 
+    point_only = subtype in EXTERNAL_POINT_SUBTYPES
     if settings.is_sqlite:
         q = (
             select(InfrastructureObject)
             .join(InfrastructureLayer)
             .where(
                 InfrastructureLayer.project_id == project_id,
+                InfrastructureLayer.is_visible.is_(True),
                 InfrastructureObject.subtype == subtype,
             )
         )
         objects = (await db.execute(q)).scalars().all()
-        ranked = [distance_to_object(poi, obj) for obj in objects]
+        ranked = [
+            distance_to_object(poi, obj)
+            for obj in objects
+            if not (point_only and obj.end_longitude is not None)
+        ]
         ranked.sort(key=lambda r: r.distance_km)
         return ranked[:limit]
 
+    geom_filter = (
+        "AND ST_GeometryType(io.geometry) IN ('ST_Point', 'ST_MultiPoint')"
+        if point_only
+        else ""
+    )
     sql = text(
-        """
+        f"""
         SELECT io.id, io.name,
                ST_Distance(
                  poi.geometry::geography,
@@ -226,7 +252,8 @@ async def list_candidates_by_subtype(
         FROM infrastructure_objects io
         JOIN infrastructure_layers il ON il.id = io.layer_id
         JOIN points_of_interest poi ON poi.id = :poi_id
-        WHERE il.project_id = :project_id AND io.subtype = :subtype
+        WHERE il.project_id = :project_id AND il.is_visible = true AND io.subtype = :subtype
+        {geom_filter}
         ORDER BY distance_km ASC
         LIMIT :lim
         """
@@ -282,10 +309,10 @@ async def find_nearest_network_node(
     rows = (await db.execute(q)).all()
     best: NearestResult | None = None
     for node, obj in rows:
-        if obj is not None and obj.subtype != subtype:
+        if obj is None or obj.subtype != subtype:
             continue
         d = haversine_km(poi.longitude, poi.latitude, node.longitude, node.latitude)
-        name = obj.name if obj else f"Узел {str(node.id)[:8]}"
+        name = obj.name
         if best is None or d < best.distance_km:
             best = NearestResult(
                 object_id=obj.id if obj else None,
@@ -314,13 +341,13 @@ async def list_network_node_candidates(
     )
     ranked: list[NearestResult] = []
     for node, obj in (await db.execute(q)).all():
-        if obj is not None and obj.subtype != subtype:
+        if obj is None or obj.subtype != subtype:
             continue
         d = haversine_km(poi.longitude, poi.latitude, node.longitude, node.latitude)
         ranked.append(
             NearestResult(
-                object_id=obj.id if obj else None,
-                name=obj.name if obj else f"Узел {str(node.id)[:8]}",
+                object_id=obj.id,
+                name=obj.name,
                 distance_km=d,
                 anchor_type="network_node",
                 anchor_lon=node.longitude,
