@@ -1,32 +1,18 @@
 # Публикация на GitHub Pages
 
-## 1. Создайте репозиторий на GitHub
+## Репозиторий
 
-Пустой репозиторий (без README), например `sppr-mvp`.
+https://github.com/Mekcuka/Cursor_Scan
 
-## 2. Загрузите код
+## Сайт
 
-```powershell
-cd C:\Users\user\Documents\Cursore
-git init
-git branch -M main
-git add .
-git commit -m "Initial commit: СППР MVP + GitHub Pages"
-git remote add origin https://github.com/<ВАШ_ЛОГИН>/<ИМЯ_РЕПО>.git
-git push -u origin main
-```
+**https://mekcuka.github.io/Cursor_Scan/**
 
-## 3. Включите GitHub Pages
+Деплой: workflow `Deploy frontend to GitHub Pages` при push в `main`.
 
-В репозитории: **Settings → Pages → Build and deployment**
+## Включить Pages (один раз)
 
-- **Source:** GitHub Actions
-
-После push workflow `Deploy frontend to GitHub Pages` соберёт фронтенд и опубликует его.
-
-Сайт откроется по адресу:
-
-`https://<ВАШ_ЛОГИН>.github.io/<ИМЯ_РЕПО>/`
+**Settings → Pages → Build and deployment → Source:** **GitHub Actions**
 
 ## 4. API (обязательно для входа и данных)
 
