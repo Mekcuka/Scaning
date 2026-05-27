@@ -1,0 +1,118 @@
+# Ревизия согласованности документации
+
+Дата: май 2026. Проверка комплекта `docs/` (прототип `Cursor_Scan/` вне scope этой ревизии).
+
+## Итог
+
+| Категория | Статус |
+|-----------|--------|
+| Навигация (8 разделов + Admin) | Согласовано |
+| OpenLayers / Lucide | Согласовано |
+| Импорт отдельно от карты | Согласовано |
+| 16 ставок, тыс. ₽ | Согласовано |
+| 9 подтипов vs анализ на карте | Согласовано |
+| Internal linear = pads × km/КП | **Зафиксировано** (FR-5.3.4, calculation-functions §3) |
+| Каталог расчётных функций | **Добавлен** [calculation-functions.md](./calculation-functions.md) |
+| Ранжирование = base + сценарии POI | **Зафиксировано** (FR-9.0.4, TOPSIS/WSM) |
+| `decision_matrices` | **Legacy** (FR-9.0.3, FR-14.1.3) |
+| Backend-стек | **FastAPI** (README, architecture, development-plan) |
+| Пороги external (4) + internal length (4) + км/КП (4) | **mvp** в input-parameters |
+| Экспертные дефолты 5/5/12 | **Зафиксировано** (FR-9.2.6) |
+| Публикация проекта (Viewer) | FR-1.2.6, `projects.visibility` |
+| Admin, audit, import credentials | FR-1.4, FR-1.3.3, FR-2.5.9–10 |
+
+## Карта соответствия разделов и FR
+
+| § в requirements.md | Тема | Префикс FR |
+|----------------------|------|------------|
+| 1 | Пользователи, Admin | FR-1 |
+| 2 | Карта, слои, импорт | FR-2 |
+| 4 | Проекты, POI, ставки | FR-4 |
+| 5 | Инженерные параметры, км/КП | FR-5 |
+| 6 | Анализ окружения | FR-6 |
+| 7 | Варианты и стоимость | FR-7 |
+| 8 | Инфраструктурная матрица | FR-8 |
+| 9 | Ранжирование (TOPSIS/WSM/AHP) | FR-9 |
+| 10 | Визуализация на карте | FR-10 |
+| 11 | Одностраничник | FR-11 |
+| 12 | UI, навигация, таблицы | FR-12 |
+| 13 | Системные (SR) | SR-13 |
+| 14 | Вне scope MVP | — |
+
+## Ревизия: закрытие пробелов документации (май 2026)
+
+### Сделано
+
+1. **[calculation-functions.md](./calculation-functions.md)** — каталог формул, pipeline, internal/external ветки.
+2. **Внутренние линейные:** `distance_km = pads_count × km_per_pad(subtype)`; колонки в `project_distance_defaults` и POI; `distance_source` в `poi_infrastructure_analysis`.
+3. **FR обновлены:** FR-5.3.4, FR-6.1–6.3.5, FR-7.1.1, FR-7.3.1, FR-10.3.1, FR-9.0, FR-1.2.6, FR-1.4, FR-2.5.9–10, FR-11.1.3–11.2.4, §14 post-MVP.
+4. **[input-parameters.md](./input-parameters.md):** `threshold_*`, `km_per_pad_*`, экспертное ранжирование → mvp; `project_visibility`.
+5. **[database-schema.md](./database-schema.md):** `project_ranking_settings`, `import_connections`, `audit_log`, `visibility`, legacy note на `decision_matrices`.
+6. **[architecture.md](./architecture.md):** FastAPI, Ranking module, candidates API.
+7. **[user-flows.md](./user-flows.md), [development-plan.md](./development-plan.md), [map-objects-and-spatial-calculations.md](./map-objects-and-spatial-calculations.md), [calculation-logic-flow.md](./calculation-logic-flow.md)** — синхронизированы.
+
+## Ревизия: продуктовые решения P0 (май 2026)
+
+| Решение | Где зафиксировано |
+|---------|-------------------|
+| Internal: `pads × km_per_pad` vs **`max_total_line_*_km`** | FR-4.1.5, FR-6.2.1b, calculation-functions §4.2, input-parameters §1.5/§2.6 |
+| External: geodesic vs **`max_distance_*`** (4 Point) | FR-4.1.5, FR-6.2.1a; `max_distance_autoroad`…`power` — только карта (FR-10.2) |
+| Ранжирование: **base + scenario** в TOPSIS | FR-9.0.4; `scenario_criterion_values` для каждого `variant_id` |
+| Настройки ранжирования: **`UNIQUE(project_id, poi_id)`** | FR-9.0.2, DDL `project_ranking_settings` |
+| Дефолты экспертных: **5 / 5 / 12 мес.** | FR-9.2.6, `default_expert_values` JSONB |
+
+### P1 (допущения MVP, §14.1)
+
+| Тема | Решение |
+|------|---------|
+| `pads_count = 0` | FR-6.2.1b, FR-14.1.4 |
+| Подтверждение email | Не MVP (FR-14.1.1); user-flows §1 |
+| Legacy `decision_matrices` | Не удалять (FR-14.1.3) |
+| Seed `criteria` | 6 preset, FR-14.1.5 |
+
+### Чеклист: добавление нового параметра
+
+1. Заполнить заявку (шаблон в [input-parameters.md](./input-parameters.md) §10).
+2. Добавить строку в каталог (статус `candidate` → после согласования `mvp`).
+3. Обновить [requirements.md](./requirements.md) — FR-x.y.z.
+4. Обновить [user-flows.md](./user-flows.md) — шаг UI.
+5. При влиянии на расчёт — [calculation-functions.md](./calculation-functions.md) и [calculation-logic-flow.md](./calculation-logic-flow.md).
+6. [database-schema.md](./database-schema.md) — колонка или JSONB.
+7. Запись в этот файл (раздел «Ревизия»).
+
+### Ожидает дальнейших полей
+
+Раздел **§10** input-parameters.md — шаблон для следующих заявок.
+
+## Исправленные расхождения (ранее)
+
+### 1. Дублирование FR-9.x (карта vs отчёт)
+
+Раздел 10 (карта) переведён на **FR-10.x**, отчёт — **FR-11.x**, UI — **FR-12.x**.
+
+### 2. «17 ставок»
+
+Исправлено на **16 показателей** (4+4+1+7 инженерных ставок подготовки).
+
+### 3. Пороги и UI
+
+Ранее `planned` в каталоге при наличии FR — устранено: **mvp** + экраны в user-flows.
+
+### 4. Две модели матрицы
+
+`decision_matrices` — legacy; MVP-ранжирование — `project_ranking_settings` + `implementation_variants`.
+
+## Оставшиеся осознанные отличия
+
+| Тема | Документация prod | Прототип (не в scope) |
+|------|-------------------|------------------------|
+| Internal km formula | FR-5.3.4 | Статический distance в mock |
+| Пороги 4+4 / км/КП в форме | mvp в docs | Planned в alignment |
+| `max_total_line_*` vs geodesic internal | P0 в docs | mock static distance |
+| FastAPI backend | README | HTML only |
+
+## Рекомендации на будущее
+
+1. Новые FR — после строки в [input-parameters.md](./input-parameters.md).
+2. Candidate-поля — JSONB, затем колонки при стабилизации.
+3. Post-MVP — только через §14 requirements или v1.x в development-plan.

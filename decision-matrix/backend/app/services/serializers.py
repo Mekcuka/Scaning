@@ -1,0 +1,90 @@
+"""API response builders for map entities."""
+
+from uuid import UUID
+
+from sqlalchemy.ext.asyncio import AsyncSession
+
+from app.geo.constants import LINE_SUBTYPES
+from app.geo.geometry_utils import geometry_to_wkt_str, parse_linestring_wkt
+from app.models import InfrastructureObject, PointOfInterest
+from app.schemas import AnalysisRowResponse, InfraObjectResponse, POIResponse
+from app.services.calculations import calc_pads_count, calc_wells_total
+
+
+def poi_to_response(poi: PointOfInterest) -> POIResponse:
+    pads = calc_pads_count(poi.planned_production_volume, poi.production_per_well, poi.wells_per_pad)
+    wells = calc_wells_total(poi.planned_production_volume, poi.production_per_well)
+    return POIResponse(
+        id=poi.id,
+        project_id=poi.project_id,
+        name=poi.name,
+        description=poi.description,
+        lon=poi.longitude,
+        lat=poi.latitude,
+        planned_production_volume=poi.planned_production_volume,
+        production_per_well=poi.production_per_well,
+        wells_per_pad=poi.wells_per_pad,
+        fluid_type=poi.fluid_type,
+        water_injection_volume=poi.water_injection_volume,
+        eng_power=poi.eng_power,
+        eng_injection=poi.eng_injection,
+        eng_gas=poi.eng_gas,
+        eng_oil_preparation=poi.eng_oil_preparation,
+        eng_well_gathering=poi.eng_well_gathering,
+        eng_transport=poi.eng_transport,
+        pads_count=pads,
+        wells_total=wells,
+        threshold_gas_processing_km=poi.threshold_gas_processing_km,
+        threshold_gtes_km=poi.threshold_gtes_km,
+        threshold_substation_km=poi.threshold_substation_km,
+        threshold_refinery_km=poi.threshold_refinery_km,
+        max_total_line_autoroad_km=poi.max_total_line_autoroad_km,
+        max_total_line_oil_pipeline_km=poi.max_total_line_oil_pipeline_km,
+        max_total_line_gas_pipeline_km=poi.max_total_line_gas_pipeline_km,
+        max_total_line_water_pipeline_km=poi.max_total_line_water_pipeline_km,
+        max_total_line_power_line_km=poi.max_total_line_power_line_km,
+        km_per_pad_autoroad=poi.km_per_pad_autoroad,
+        km_per_pad_oil_pipeline=poi.km_per_pad_oil_pipeline,
+        km_per_pad_gas_pipeline=poi.km_per_pad_gas_pipeline,
+        km_per_pad_water_pipeline=poi.km_per_pad_water_pipeline,
+        km_per_pad_power_line=poi.km_per_pad_power_line,
+    )
+
+
+def _infra_line_coordinates(obj: InfrastructureObject) -> list[list[float]] | None:
+    if obj.subtype not in LINE_SUBTYPES:
+        return None
+    props = obj.properties or {}
+    raw = props.get("coordinates")
+    if isinstance(raw, list) and len(raw) >= 2:
+        return [[float(c[0]), float(c[1])] for c in raw]
+    parsed = parse_linestring_wkt(geometry_to_wkt_str(obj.geometry))
+    if parsed:
+        return parsed
+    if obj.end_longitude is not None and obj.end_latitude is not None:
+        return [[obj.longitude, obj.latitude], [obj.end_longitude, obj.end_latitude]]
+    return None
+
+
+def infra_to_response(obj: InfrastructureObject) -> InfraObjectResponse:
+    coords = _infra_line_coordinates(obj)
+    return InfraObjectResponse(
+        id=obj.id,
+        layer_id=obj.layer_id,
+        name=obj.name,
+        subtype=obj.subtype,
+        category=obj.category,
+        lon=obj.longitude,
+        lat=obj.latitude,
+        end_lon=obj.end_longitude,
+        end_lat=obj.end_latitude,
+        coordinates=coords,
+        properties=obj.properties or {},
+    )
+
+
+async def load_infra_name(db: AsyncSession, object_id: UUID | None) -> str | None:
+    if not object_id:
+        return None
+    obj = await db.get(InfrastructureObject, object_id)
+    return obj.name if obj else None
