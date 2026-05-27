@@ -186,22 +186,28 @@ async def row_to_analysis_item(
     linked_object: InfrastructureObject | None = None
     if row.nearest_object_id:
         linked_object = await db.get(InfrastructureObject, row.nearest_object_id)
-        if linked_object and project_id:
-            layer = await db.get(InfrastructureLayer, linked_object.layer_id)
-            if not layer or layer.project_id != project_id or not layer.is_visible:
-                linked_object = None
         if linked_object:
             name = linked_object.name
 
+    orphan_network_ref = False
     if row.param_type == "external":
         if row.distance_status == "not_required":
             linked_object = None
-        elif linked_object:
-            anchor_lon, anchor_lat = linked_object.longitude, linked_object.latitude
+            name = None
         else:
             pt = parse_point_wkt(row.anchor_geometry if isinstance(row.anchor_geometry, str) else None)
             if pt:
                 anchor_lon, anchor_lat = pt
+            elif linked_object:
+                anchor_lon, anchor_lat = linked_object.longitude, linked_object.latitude
+            if not linked_object:
+                if row.anchor_type == "network_node" or row.nearest_node_id:
+                    orphan_network_ref = True
+            elif project_id and linked_object:
+                layer = await db.get(InfrastructureLayer, linked_object.layer_id)
+                if not layer or layer.project_id != project_id or not layer.is_visible:
+                    # Object exists but layer hidden — keep name/distance for display, drop map link id.
+                    linked_object = None
 
     st = row.distance_status
     force_construction = getattr(row, "force_construction", False)
@@ -221,12 +227,20 @@ async def row_to_analysis_item(
                 force_construction=True,
             )
 
+    if orphan_network_ref and st != "not_required":
+        st = calc_distance_status_external(
+            None,
+            row.max_allowed_distance_km,
+            object_found=False,
+        )
+
+    dist_km = None if orphan_network_ref else row.distance_km
     cost_th = _subtype_cost_thousand(
         row,
         subtype=row.subtype,
         param_type=row.param_type,
         status=st,
-        distance_km=row.distance_km,
+        distance_km=dist_km,
         rates=rates,
         pads_count=pads_count,
     )
@@ -235,17 +249,21 @@ async def row_to_analysis_item(
         "subtype": row.subtype,
         "param_type": row.param_type,
         "status": st,
-        "distance_km": round(row.distance_km, 1) if row.distance_km is not None else None,
+        "distance_km": round(dist_km, 1) if dist_km is not None else None,
         "limit_km": round(row.max_allowed_distance_km, 1),
         "distance_source": row.distance_source,
-        "nearest_object_id": str(linked_object.id) if linked_object else None,
-        "object_name": name,
+        "nearest_object_id": (
+            str(row.nearest_object_id)
+            if row.nearest_object_id and not orphan_network_ref and name
+            else None
+        ),
+        "object_name": name if not orphan_network_ref else None,
         "anchor_lon": anchor_lon,
         "anchor_lat": anchor_lat,
-        "anchor_type": row.anchor_type,
+        "anchor_type": None if orphan_network_ref else row.anchor_type,
         "is_manually_overridden": row.is_manually_overridden,
         "force_construction": getattr(row, "force_construction", False),
-        "nearest_node_id": str(row.nearest_node_id) if row.nearest_node_id else None,
+        "nearest_node_id": None if orphan_network_ref else (str(row.nearest_node_id) if row.nearest_node_id else None),
         "cost_mln": thousand_to_million_rub(cost_th),
     }
     if row.param_type == "internal" and row.subtype in km_per_pad_map:
@@ -294,6 +312,72 @@ async def build_enriched_analysis_from_db(
     return build_analysis_summary(poi, items, rates=rates, eng=eng)
 
 
+async def _external_item_from_manual_row(
+    db: AsyncSession,
+    poi: PointOfInterest,
+    old: PoiInfrastructureAnalysis,
+    *,
+    limit: float,
+    rates: dict[str, float],
+) -> tuple[PoiInfrastructureAnalysis, dict[str, Any]]:
+    """Re-apply a manually overridden row on re-analyze (FR-6.3)."""
+    st = old.distance_status
+    force_construction = getattr(old, "force_construction", False)
+    if force_construction and st != "not_required":
+        st = calc_distance_status_external(
+            old.distance_km,
+            limit,
+            object_found=old.distance_km is not None,
+            force_construction=True,
+        )
+    name = None
+    anchor_lon = anchor_lat = None
+    if old.nearest_object_id:
+        obj = await db.get(InfrastructureObject, old.nearest_object_id)
+        if obj:
+            name = obj.name
+            anchor_lon, anchor_lat = obj.longitude, obj.latitude
+    if anchor_lon is None:
+        pt = parse_point_wkt(old.anchor_geometry if isinstance(old.anchor_geometry, str) else None)
+        if pt:
+            anchor_lon, anchor_lat = pt
+    row = PoiInfrastructureAnalysis(
+        poi_id=poi.id,
+        param_type="external",
+        subtype=old.subtype,
+        nearest_object_id=old.nearest_object_id,
+        nearest_node_id=old.nearest_node_id,
+        distance_km=old.distance_km,
+        distance_source=old.distance_source,
+        distance_method=old.distance_method,
+        anchor_type=old.anchor_type,
+        anchor_geometry=old.anchor_geometry,
+        distance_status=st,
+        max_allowed_distance_km=limit,
+        is_manually_overridden=True,
+        force_construction=force_construction,
+        overridden_object_id=old.overridden_object_id,
+    )
+    cost = rates.get(old.subtype, 0)
+    item: dict[str, Any] = {
+        "subtype": old.subtype,
+        "param_type": "external",
+        "status": st,
+        "distance_km": round(old.distance_km, 1) if old.distance_km is not None else None,
+        "limit_km": limit,
+        "object_name": name,
+        "nearest_object_id": str(old.nearest_object_id) if old.nearest_object_id else None,
+        "nearest_node_id": str(old.nearest_node_id) if old.nearest_node_id else None,
+        "anchor_lon": anchor_lon,
+        "anchor_lat": anchor_lat,
+        "anchor_type": old.anchor_type,
+        "cost_mln": thousand_to_million_rub(cost),
+        "is_manually_overridden": True,
+        "force_construction": force_construction,
+    }
+    return row, item
+
+
 async def run_poi_analysis(
     db: AsyncSession,
     project_id: UUID,
@@ -312,6 +396,17 @@ async def run_poi_analysis(
     statuses_for_overall: list[str] = []
 
     km_per_pad_map, max_line_map, threshold_map = get_distance_maps(poi, defaults)
+
+    manual_rows = (
+        await db.execute(
+            select(PoiInfrastructureAnalysis).where(
+                PoiInfrastructureAnalysis.poi_id == poi.id,
+                PoiInfrastructureAnalysis.is_manually_overridden.is_(True),
+                PoiInfrastructureAnalysis.param_type == "external",
+            )
+        )
+    ).scalars().all()
+    manual_by_subtype = {r.subtype: r for r in manual_rows}
 
     await db.execute(delete(PoiInfrastructureAnalysis).where(PoiInfrastructureAnalysis.poi_id == poi.id))
     rows_to_save: list[PoiInfrastructureAnalysis] = []
@@ -401,6 +496,16 @@ async def run_poi_analysis(
             )
             continue
 
+        if subtype in manual_by_subtype:
+            row, item = await _external_item_from_manual_row(
+                db, poi, manual_by_subtype[subtype], limit=limit, rates=rates
+            )
+            rows_to_save.append(row)
+            analysis_items.append(item)
+            if item["status"] not in ("not_required", "computed"):
+                statuses_for_overall.append(str(item["status"]))
+            continue
+
         # FR-6.1.2 MVP: external = nearest Point on map (not graph nodes from «Построить сеть»)
         nearest = await find_nearest_object_by_subtype(
             db, project_id, poi, subtype, nearest_policy="point_on_line"
@@ -416,7 +521,7 @@ async def run_poi_analysis(
                     param_type="external",
                     subtype=subtype,
                     nearest_object_id=nearest.object_id,
-                    nearest_node_id=nearest.nearest_node_id,
+                    nearest_node_id=None,
                     distance_km=dist,
                     distance_source="geodesic",
                     distance_method="geodesic",

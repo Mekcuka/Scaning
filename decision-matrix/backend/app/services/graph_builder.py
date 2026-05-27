@@ -3,7 +3,7 @@
 import math
 from uuid import UUID
 
-from sqlalchemy import select
+from sqlalchemy import delete, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.geo.geometry_utils import point_wkt
@@ -25,6 +25,32 @@ def _haversine_km(lon1: float, lat1: float, lon2: float, lat2: float) -> float:
     return r * 2 * math.atan2(math.sqrt(a), math.sqrt(1 - a))
 
 
+async def clear_network_topology(db: AsyncSession, network_id: UUID) -> None:
+    """Remove all nodes and edges before a full rebuild."""
+    await db.execute(delete(InfrastructureEdge).where(InfrastructureEdge.network_id == network_id))
+    await db.execute(delete(InfrastructureNode).where(InfrastructureNode.network_id == network_id))
+
+
+async def prune_disconnected_nodes(db: AsyncSession, network_id: UUID) -> None:
+    """Drop nodes that are not endpoints of any edge (e.g. after line object delete)."""
+    edges = (
+        await db.execute(select(InfrastructureEdge).where(InfrastructureEdge.network_id == network_id))
+    ).scalars().all()
+    if not edges:
+        await db.execute(delete(InfrastructureNode).where(InfrastructureNode.network_id == network_id))
+        return
+    used: set[UUID] = set()
+    for edge in edges:
+        used.add(edge.from_node_id)
+        used.add(edge.to_node_id)
+    nodes = (
+        await db.execute(select(InfrastructureNode).where(InfrastructureNode.network_id == network_id))
+    ).scalars().all()
+    for node in nodes:
+        if node.id not in used:
+            await db.delete(node)
+
+
 async def get_or_create_network(db: AsyncSession, project_id: UUID, name: str = "Сеть") -> InfrastructureNetwork:
     net = await db.scalar(
         select(InfrastructureNetwork).where(InfrastructureNetwork.project_id == project_id).limit(1)
@@ -43,8 +69,9 @@ async def build_network_from_lines(
     *,
     network_name: str = "Сеть",
 ) -> InfrastructureNetwork:
-    """Split line infrastructure into nodes and edges."""
+    """Split line infrastructure into nodes and edges (full rebuild)."""
     net = await get_or_create_network(db, project_id, network_name)
+    await clear_network_topology(db, net.id)
     q = (
         select(InfrastructureObject)
         .join(InfrastructureLayer)

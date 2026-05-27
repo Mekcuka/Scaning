@@ -1,57 +1,64 @@
-import { useState } from 'react';
-import { useMutation } from '@tanstack/react-query';
+import { useMemo, useState } from 'react';
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, Cell } from 'recharts';
 import { api } from '../lib/api';
 import { PoiParamsPanel } from '../components/PoiParamsPanel';
 import { useAppStore } from '../store';
 
-const CRITERIA = [
-  { name: 'Общая стоимость', weight: 0.35, type: 'cost' },
-  { name: 'Общее расстояние', weight: 0.15, type: 'cost' },
-  { name: 'Количество превышений', weight: 0.2, type: 'cost' },
-  { name: 'Риск реализации', weight: 0.1, type: 'cost' },
-  { name: 'Время реализации', weight: 0.1, type: 'cost' },
-  { name: 'Надёжность инфраструктуры', weight: 0.1, type: 'benefit' },
-];
-
-const SCENARIO_NAMES = ['Базовый', 'Сценарий 1', 'Сценарий 2'];
-const DEFAULT_VALUES = [
-  [1659, 450, 2, 6, 24, 7],
-  [1759, 420, 1, 5, 22, 8],
-  [3055, 380, 0, 4, 30, 9],
-];
-
 const COLORS = ['#94a3b8', '#64748b', '#2563eb'];
 
 export function RankingPage() {
   const projectId = useAppStore((s) => s.currentProjectId);
-  const [algorithm, setAlgorithm] = useState('topsis');
-  const [result, setResult] = useState<Awaited<ReturnType<typeof api.calculateRanking>> | null>(null);
+  const queryClient = useQueryClient();
+  const [selectedPoiId, setSelectedPoiId] = useState<string>('');
+  const [result, setResult] = useState<Awaited<ReturnType<typeof api.calculatePoiRanking>> | null>(null);
+  const [sensitivity, setSensitivity] = useState<Awaited<
+    ReturnType<typeof api.calculatePoiRankingSensitivity>
+  > | null>(null);
+
+  const { data: pois = [] } = useQuery({
+    queryKey: ['pois', projectId],
+    queryFn: () => api.getPois(projectId!),
+    enabled: !!projectId,
+  });
+  const activePoiId = selectedPoiId || pois[0]?.id || '';
+
+  const { data: rankingSettings } = useQuery({
+    queryKey: ['ranking-settings', projectId, activePoiId],
+    queryFn: () => api.getPoiRankingSettings(projectId!, activePoiId),
+    enabled: !!projectId && !!activePoiId,
+  });
+
+  const algorithm = rankingSettings?.algorithm || 'topsis';
 
   const calcMut = useMutation({
-    mutationFn: () =>
-      api.calculateRanking({
-        algorithm,
-        criteria_values: DEFAULT_VALUES,
-        criterion_types: CRITERIA.map((c) => c.type),
-        weights: CRITERIA.map((c) => c.weight),
-      }),
+    mutationFn: () => api.calculatePoiRanking(projectId!, activePoiId),
     onSuccess: setResult,
   });
 
-  const chartData = result
-    ? result.ranking
-        .sort((a, b) => a.rank - b.rank)
-        .map((r) => ({
-          name: SCENARIO_NAMES[r.index],
-          score: r.score,
-          rank: r.rank,
-        }))
-    : [
-        { name: 'Сценарий 2', score: 0.72, rank: 1 },
-        { name: 'Базовый', score: 0.58, rank: 2 },
-        { name: 'Сценарий 1', score: 0.51, rank: 3 },
-      ];
+  const settingsMut = useMutation({
+    mutationFn: (nextAlgorithm: string) =>
+      api.updatePoiRankingSettings(projectId!, activePoiId, { algorithm: nextAlgorithm }),
+    onSuccess: () =>
+      queryClient.invalidateQueries({ queryKey: ['ranking-settings', projectId, activePoiId] }),
+  });
+
+  const sensitivityMut = useMutation({
+    mutationFn: (criterionId: string) => api.calculatePoiRankingSensitivity(projectId!, activePoiId, criterionId),
+    onSuccess: setSensitivity,
+  });
+
+  const chartData = useMemo(
+    () =>
+      result
+        ? [...result.alternatives].sort((a, b) => a.rank - b.rank).map((r) => ({
+            name: r.name,
+            score: r.score,
+            rank: r.rank,
+          }))
+        : [],
+    [result]
+  );
 
   return (
     <div>
@@ -64,15 +71,27 @@ export function RankingPage() {
         </div>
         <div className="flex gap-2 items-center">
           <select
+            value={activePoiId}
+            onChange={(e) => setSelectedPoiId(e.target.value)}
+            className="text-sm px-3 py-1.5 rounded-lg border"
+            style={{ borderColor: 'var(--border)', background: 'var(--surface)' }}
+          >
+            {pois.map((poi) => (
+              <option key={poi.id} value={poi.id}>
+                {poi.name}
+              </option>
+            ))}
+          </select>
+          <select
             value={algorithm}
-            onChange={(e) => setAlgorithm(e.target.value)}
+            onChange={(e) => settingsMut.mutate(e.target.value)}
             className="text-sm px-3 py-1.5 rounded-lg border"
             style={{ borderColor: 'var(--border)', background: 'var(--surface)' }}
           >
             <option value="topsis">TOPSIS</option>
             <option value="wsm">WSM</option>
           </select>
-          <button type="button" className="btn btn-primary" onClick={() => calcMut.mutate()}>
+          <button type="button" className="btn btn-primary" disabled={!activePoiId} onClick={() => calcMut.mutate()}>
             Рассчитать
           </button>
         </div>
@@ -91,11 +110,11 @@ export function RankingPage() {
                 </tr>
               </thead>
               <tbody>
-                {CRITERIA.map((c) => (
-                  <tr key={c.name}>
+                {(rankingSettings?.criteria || []).map((c) => (
+                  <tr key={c.id}>
                     <td>{c.name}</td>
                     <td>{c.type === 'cost' ? 'Минимизация' : 'Максимизация'}</td>
-                    <td>{c.weight}</td>
+                    <td>{rankingSettings?.weights?.[c.id] ?? 0}</td>
                   </tr>
                 ))}
               </tbody>
@@ -135,18 +154,35 @@ export function RankingPage() {
                 </tr>
               </thead>
               <tbody>
-                {result.ranking
+                {[...result.alternatives]
                   .sort((a, b) => a.rank - b.rank)
                   .map((r) => (
-                    <tr key={r.index}>
+                    <tr key={r.scenario_id || r.name}>
                       <td><span className="badge badge-success">#{r.rank}</span></td>
-                      <td>{SCENARIO_NAMES[r.index]}</td>
+                      <td>{r.name}</td>
                       <td className="font-mono">{r.score.toFixed(4)}</td>
                     </tr>
                   ))}
               </tbody>
             </table>
           </div>
+          {(rankingSettings?.criteria?.length || 0) > 0 && (
+            <div className="mt-4 flex gap-2 items-center">
+              <span className="text-sm" style={{ color: 'var(--text-muted)' }}>Чувствительность:</span>
+              <button
+                type="button"
+                className="btn btn-secondary"
+                onClick={() => sensitivityMut.mutate(rankingSettings!.criteria[0].id)}
+              >
+                По первому критерию
+              </button>
+            </div>
+          )}
+          {sensitivity && (
+            <div className="mt-3 text-sm" style={{ color: 'var(--text-muted)' }}>
+              Точек анализа: {sensitivity.points.length} (критерий: {sensitivity.criterion_id})
+            </div>
+          )}
         </div>
       )}
 

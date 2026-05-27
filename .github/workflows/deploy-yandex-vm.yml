@@ -1,0 +1,215 @@
+name: Deploy backend to Yandex Cloud VM
+
+on:
+  push:
+    branches: [main, master]
+    paths:
+      - "decision-matrix/backend/**"
+      - "deploy/**"
+      - ".github/workflows/deploy-yandex-vm.yml"
+  workflow_dispatch:
+    inputs:
+      terraform_apply:
+        description: "Run terraform apply before deploy"
+        required: false
+        default: "false"
+        type: choice
+        options:
+          - "false"
+          - "true"
+
+permissions:
+  contents: read
+
+env:
+  IMAGE_NAME: decision-matrix-backend
+  TF_WORKDIR: infra/terraform
+
+jobs:
+  terraform_plan:
+    name: Terraform Plan
+    runs-on: ubuntu-latest
+    if: github.event_name == 'workflow_dispatch' || github.ref_name == 'main' || github.ref_name == 'master'
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Terraform
+        uses: hashicorp/setup-terraform@v3
+
+      - name: Write YC service account key
+        run: |
+          mkdir -p "$RUNNER_TEMP/yc"
+          printf '%s' '${{ secrets.YC_SA_KEY_JSON }}' > "$RUNNER_TEMP/yc/key.json"
+
+      - name: Terraform Init
+        working-directory: ${{ env.TF_WORKDIR }}
+        run: terraform init
+
+      - name: Generate terraform vars
+        working-directory: ${{ env.TF_WORKDIR }}
+        run: |
+          cat > ci-prod.auto.tfvars <<'EOF'
+          environment             = "prod"
+          cloud_id                = "${{ secrets.YC_CLOUD_ID }}"
+          folder_id               = "${{ secrets.YC_FOLDER_ID }}"
+          zone                    = "${{ vars.YC_ZONE || 'ru-central1-a' }}"
+          vpc_cidr                = "${{ vars.YC_VPC_CIDR || '10.20.0.0/24' }}"
+          vm_name                 = "${{ vars.YC_VM_NAME || 'decision-matrix-prod' }}"
+          vm_cores                = ${{ vars.YC_VM_CORES || 4 }}
+          vm_memory_gb            = ${{ vars.YC_VM_MEMORY_GB || 8 }}
+          vm_disk_gb              = ${{ vars.YC_VM_DISK_GB || 50 }}
+          vm_user                 = "${{ secrets.VM_USER }}"
+          ssh_public_key          = "${{ secrets.VM_SSH_PUBLIC_KEY }}"
+          enable_managed_postgres = ${{ vars.ENABLE_MANAGED_POSTGRES || 'false' }}
+          postgres_db_name        = "${{ vars.POSTGRES_DB_NAME || 'sppr' }}"
+          postgres_username       = "${{ vars.POSTGRES_USERNAME || 'sppr' }}"
+          postgres_password       = "${{ secrets.POSTGRES_PASSWORD }}"
+          EOF
+
+      - name: Terraform Validate
+        working-directory: ${{ env.TF_WORKDIR }}
+        run: terraform validate
+
+      - name: Terraform Plan
+        working-directory: ${{ env.TF_WORKDIR }}
+        run: |
+          terraform plan \
+            -var="sa_key_file=$RUNNER_TEMP/yc/key.json" \
+            -out="tfplan"
+
+  terraform_apply:
+    name: Terraform Apply
+    runs-on: ubuntu-latest
+    needs: terraform_plan
+    if: github.event_name == 'workflow_dispatch' && inputs.terraform_apply == 'true'
+    environment: prod
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Terraform
+        uses: hashicorp/setup-terraform@v3
+
+      - name: Write YC service account key
+        run: |
+          mkdir -p "$RUNNER_TEMP/yc"
+          printf '%s' '${{ secrets.YC_SA_KEY_JSON }}' > "$RUNNER_TEMP/yc/key.json"
+
+      - name: Terraform Init
+        working-directory: ${{ env.TF_WORKDIR }}
+        run: terraform init
+
+      - name: Generate terraform vars
+        working-directory: ${{ env.TF_WORKDIR }}
+        run: |
+          cat > ci-prod.auto.tfvars <<'EOF'
+          environment             = "prod"
+          cloud_id                = "${{ secrets.YC_CLOUD_ID }}"
+          folder_id               = "${{ secrets.YC_FOLDER_ID }}"
+          zone                    = "${{ vars.YC_ZONE || 'ru-central1-a' }}"
+          vpc_cidr                = "${{ vars.YC_VPC_CIDR || '10.20.0.0/24' }}"
+          vm_name                 = "${{ vars.YC_VM_NAME || 'decision-matrix-prod' }}"
+          vm_cores                = ${{ vars.YC_VM_CORES || 4 }}
+          vm_memory_gb            = ${{ vars.YC_VM_MEMORY_GB || 8 }}
+          vm_disk_gb              = ${{ vars.YC_VM_DISK_GB || 50 }}
+          vm_user                 = "${{ secrets.VM_USER }}"
+          ssh_public_key          = "${{ secrets.VM_SSH_PUBLIC_KEY }}"
+          enable_managed_postgres = ${{ vars.ENABLE_MANAGED_POSTGRES || 'false' }}
+          postgres_db_name        = "${{ vars.POSTGRES_DB_NAME || 'sppr' }}"
+          postgres_username       = "${{ vars.POSTGRES_USERNAME || 'sppr' }}"
+          postgres_password       = "${{ secrets.POSTGRES_PASSWORD }}"
+          EOF
+
+      - name: Terraform Apply
+        working-directory: ${{ env.TF_WORKDIR }}
+        run: |
+          terraform apply -auto-approve \
+            -var="sa_key_file=$RUNNER_TEMP/yc/key.json"
+
+  deploy_backend:
+    name: Build, Push, and Deploy
+    runs-on: ubuntu-latest
+    needs: terraform_plan
+    environment: prod
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Setup YC CLI
+        uses: yc-actions/yc-cli@v4
+        with:
+          yc-sa-json-credentials: ${{ secrets.YC_SA_KEY_JSON }}
+
+      - name: Get YC IAM token
+        id: yc_token
+        run: |
+          TOKEN="$(yc iam create-token)"
+          echo "::add-mask::$TOKEN"
+          echo "token=$TOKEN" >> "$GITHUB_OUTPUT"
+
+      - name: Docker login to Yandex Container Registry
+        run: |
+          echo "${{ steps.yc_token.outputs.token }}" | docker login \
+            --username iam \
+            --password-stdin \
+            cr.yandex
+
+      - name: Build and push backend image
+        id: image
+        run: |
+          IMAGE_REF="cr.yandex/${{ secrets.YC_REGISTRY_ID }}/${{ env.IMAGE_NAME }}:${GITHUB_SHA}"
+          docker build -t "$IMAGE_REF" "decision-matrix/backend"
+          docker push "$IMAGE_REF"
+          echo "image_ref=$IMAGE_REF" >> "$GITHUB_OUTPUT"
+
+      - name: Start ssh-agent
+        uses: webfactory/ssh-agent@v0.9.0
+        with:
+          ssh-private-key: ${{ secrets.VM_SSH_KEY }}
+
+      - name: Add VM host to known_hosts
+        run: |
+          mkdir -p ~/.ssh
+          ssh-keyscan -H "${{ secrets.VM_HOST }}" >> ~/.ssh/known_hosts
+
+      - name: Upload deploy assets
+        id: upload
+        run: |
+          RELEASE_ID="$(date +%Y%m%d%H%M%S)-${GITHUB_SHA::7}"
+          RELEASE_DIR="/opt/decision-matrix/releases/${RELEASE_ID}"
+          ssh "${{ secrets.VM_USER }}@${{ secrets.VM_HOST }}" "mkdir -p ${RELEASE_DIR}"
+          scp deploy/docker-compose.yml "${{ secrets.VM_USER }}@${{ secrets.VM_HOST }}:${RELEASE_DIR}/docker-compose.yml"
+          scp deploy/Caddyfile "${{ secrets.VM_USER }}@${{ secrets.VM_HOST }}:${RELEASE_DIR}/Caddyfile"
+          scp deploy/rollback.sh "${{ secrets.VM_USER }}@${{ secrets.VM_HOST }}:/opt/decision-matrix/rollback.sh"
+          echo "release_dir=${RELEASE_DIR}" >> "$GITHUB_OUTPUT"
+
+      - name: Deploy release on VM
+        run: |
+          ssh "${{ secrets.VM_USER }}@${{ secrets.VM_HOST }}" "
+            set -euo pipefail
+            chmod +x /opt/decision-matrix/rollback.sh
+            cat > /opt/decision-matrix/shared/deploy.env <<'EOF'
+            IMAGE_REF=${{ steps.image.outputs.image_ref }}
+            APP_DOMAIN=${{ secrets.APP_DOMAIN }}
+            EOF
+            ln -sfn '${{ steps.upload.outputs.release_dir }}' /opt/decision-matrix/current
+            cd /opt/decision-matrix/current
+            set -a
+            . /opt/decision-matrix/shared/deploy.env
+            set +a
+            docker compose pull
+            docker compose up -d --remove-orphans
+          "
+
+      - name: Smoke health check
+        run: |
+          curl --fail --silent --show-error "https://${{ secrets.APP_DOMAIN }}/health" > /dev/null
+
+      - name: Rollback on healthcheck failure
+        if: failure()
+        run: |
+          ssh "${{ secrets.VM_USER }}@${{ secrets.VM_HOST }}" "/opt/decision-matrix/rollback.sh"

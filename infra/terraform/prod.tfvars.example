@@ -1,0 +1,16 @@
+environment              = "prod"
+cloud_id                 = "your-cloud-id"
+folder_id                = "your-folder-id"
+sa_key_file              = "c:/secure/yc-sa-key.json"
+zone                     = "ru-central1-a"
+vpc_cidr                 = "10.20.0.0/24"
+vm_name                  = "decision-matrix-prod"
+vm_cores                 = 4
+vm_memory_gb             = 8
+vm_disk_gb               = 50
+vm_user                  = "deploy"
+ssh_public_key           = "ssh-ed25519 AAAA... your@host"
+enable_managed_postgres  = true
+postgres_db_name         = "sppr"
+postgres_username        = "sppr"
+postgres_password        = "replace-me"

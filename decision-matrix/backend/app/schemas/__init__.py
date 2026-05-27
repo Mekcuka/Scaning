@@ -354,6 +354,51 @@ class RankingResponse(BaseModel):
     ranking: list[dict]
 
 
+class RankingCriterion(BaseModel):
+    id: str
+    name: str
+    type: str = "cost"
+
+
+class RankingSettingsResponse(BaseModel):
+    algorithm: str
+    criteria: list[RankingCriterion]
+    weights: dict[str, float]
+
+
+class RankingSettingsUpdate(BaseModel):
+    algorithm: str | None = None
+    criteria: list[RankingCriterion] | None = None
+    weights: dict[str, float] | None = None
+
+
+class RankingCriterionValuesUpdate(BaseModel):
+    values: dict[str, dict[str, float]]
+
+
+class RankingAlternativeResult(BaseModel):
+    scenario_id: UUID | None = None
+    name: str
+    score: float
+    rank: int
+
+
+class RankingRunResponse(BaseModel):
+    algorithm: str
+    alternatives: list[RankingAlternativeResult]
+
+
+class RankingSensitivityPoint(BaseModel):
+    delta: float
+    alternatives: list[RankingAlternativeResult]
+
+
+class RankingSensitivityResponse(BaseModel):
+    algorithm: str
+    criterion_id: str
+    points: list[RankingSensitivityPoint]
+
+
 class ImportLogResponse(BaseModel):
     id: UUID
     project_id: UUID | None = None

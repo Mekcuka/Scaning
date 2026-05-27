@@ -210,3 +210,20 @@ def calc_topsis_scores(normalized: list[list[float]], weights: list[float]) -> l
 def rank_alternatives(scores: list[float]) -> list[dict[str, Any]]:
     indexed = sorted(enumerate(scores), key=lambda x: x[1], reverse=True)
     return [{"index": i, "score": round(s, 4), "rank": r + 1} for r, (i, s) in enumerate(indexed)]
+
+
+def rebalance_weights(base_weights: dict[str, float], target_id: str, delta: float) -> dict[str, float]:
+    weights = {k: float(v) for k, v in base_weights.items()}
+    if target_id not in weights:
+        raise KeyError(target_id)
+    old_target = weights[target_id]
+    new_target = max(0.01, min(0.95, old_target + delta))
+    remainder_old = max(1e-6, 1.0 - old_target)
+    remainder_new = 1.0 - new_target
+    for key in weights:
+        if key == target_id:
+            weights[key] = new_target
+        else:
+            weights[key] = max(0.0, weights[key] * (remainder_new / remainder_old))
+    total = sum(weights.values())
+    return {k: v / total for k, v in weights.items()}

@@ -14,6 +14,7 @@ from app.models import (
     ImportLog,
     InfrastructureEdge,
     InfrastructureLayer,
+    InfrastructureNetwork,
     InfrastructureNode,
     InfrastructureObject,
     PointOfInterest,
@@ -36,7 +37,7 @@ from app.schemas import (
 )
 from app.services.analysis_override import parse_point_wkt, patch_analysis_subtype
 from app.services.infrastructure_analysis import build_enriched_analysis_from_db
-from app.services.graph_builder import build_network_from_lines
+from app.services.graph_builder import build_network_from_lines, prune_disconnected_nodes
 from app.services.import_service import (
     create_pending_import_log,
     parse_import_content,
@@ -193,6 +194,67 @@ async def list_infra_objects(
     return [infra_to_response(obj) for obj in result.scalars().all()]
 
 
+@map_router.post("/projects/{project_id}/infrastructure/clear")
+async def clear_project_infrastructure(
+    project_id: UUID,
+    user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    """Remove all infrastructure objects and graph data for the project (POIs are kept)."""
+    await _get_user_project(project_id, user, db)
+    layer_ids_sq = select(InfrastructureLayer.id).where(InfrastructureLayer.project_id == project_id)
+    poi_ids_sq = select(PointOfInterest.id).where(PointOfInterest.project_id == project_id)
+    network_ids_sq = select(InfrastructureNetwork.id).where(InfrastructureNetwork.project_id == project_id)
+
+    n_objects = len(
+        (
+            await db.execute(
+                select(InfrastructureObject.id).where(InfrastructureObject.layer_id.in_(layer_ids_sq))
+            )
+        ).all()
+    )
+
+    await db.execute(
+        update(PoiInfrastructureAnalysis)
+        .where(PoiInfrastructureAnalysis.poi_id.in_(poi_ids_sq))
+        .values(
+            nearest_object_id=None,
+            overridden_object_id=None,
+            nearest_node_id=None,
+        )
+    )
+    await db.execute(
+        update(PoiInfrastructureAnalysis)
+        .where(
+            PoiInfrastructureAnalysis.poi_id.in_(poi_ids_sq),
+            PoiInfrastructureAnalysis.param_type == "external",
+            PoiInfrastructureAnalysis.distance_status != "not_required",
+        )
+        .values(
+            distance_km=None,
+            anchor_type=None,
+            anchor_geometry=None,
+            distance_status="construction_required",
+            is_manually_overridden=False,
+        )
+    )
+
+    edge_result = await db.execute(
+        delete(InfrastructureEdge).where(InfrastructureEdge.network_id.in_(network_ids_sq))
+    )
+    node_result = await db.execute(
+        delete(InfrastructureNode).where(InfrastructureNode.network_id.in_(network_ids_sq))
+    )
+    await db.execute(delete(InfrastructureObject).where(InfrastructureObject.layer_id.in_(layer_ids_sq)))
+
+    await db.commit()
+    return {
+        "deleted_objects": n_objects,
+        "deleted_edges": edge_result.rowcount or 0,
+        "deleted_nodes": node_result.rowcount or 0,
+    }
+
+
 @map_router.post("/projects/{project_id}/infrastructure/objects", response_model=InfraObjectResponse, status_code=201)
 async def create_infra_object(
     project_id: UUID,
@@ -346,6 +408,11 @@ async def delete_infra_object(
         .where(PoiInfrastructureAnalysis.overridden_object_id == object_id)
         .values(overridden_object_id=None)
     )
+    network_ids = (
+        await db.execute(
+            select(InfrastructureNetwork.id).where(InfrastructureNetwork.project_id == project_id)
+        )
+    ).scalars().all()
     await db.execute(
         delete(InfrastructureEdge).where(InfrastructureEdge.infrastructure_object_id == object_id)
     )
@@ -353,6 +420,9 @@ async def delete_infra_object(
         delete(InfrastructureNode).where(InfrastructureNode.infrastructure_object_id == object_id)
     )
     await db.delete(obj)
+    await db.flush()
+    for network_id in network_ids:
+        await prune_disconnected_nodes(db, network_id)
     await db.commit()
 
 

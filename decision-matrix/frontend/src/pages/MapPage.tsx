@@ -1,10 +1,24 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { BoxSelect, MapPin, Minus, MousePointer2, Network, Pencil, PenLine, Search, Trash2, X, Zap } from 'lucide-react';
+import { keepPreviousData, useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import {
+  BoxSelect,
+  Loader2,
+  MapPin,
+  Minus,
+  MousePointer2,
+  Network,
+  Pencil,
+  PenLine,
+  Search,
+  Trash2,
+  X,
+  Zap,
+} from 'lucide-react';
 import { CandidatesModal } from '../components/CandidatesModal';
 import { AnalysisEnvironmentTable } from '../components/AnalysisEnvironmentTable';
 import {
   alignAnalysisRowsToMapObjects,
+  buildAnalysisResultMapFocus,
   connectionLinesFromAnalysis,
   resolveAnalysisRowFocus,
 } from '../lib/analysisDisplay';
@@ -51,6 +65,7 @@ export function MapPage() {
   const queryClient = useQueryClient();
   const mapRefreshNonce = useAppStore((s) => s.mapRefreshNonce);
   const [basemap, setBasemap] = useState<'osm' | 'satellite' | 'terrain'>('osm');
+  const [showBasemap, setShowBasemap] = useState(true);
   const [cursor, setCursor] = useState<{ lon: number; lat: number } | null>(null);
   const [drawMode, setDrawMode] = useState<DrawMode>('select');
   const [selectMode, setSelectMode] = useState<SelectMode>('single');
@@ -114,10 +129,11 @@ export function MapPage() {
     if (mapEditEnabled) {
       setFeatureSel(null);
       setFeatureGroupSel([]);
-      setSelectMode('single');
       setSelectMenuOpen(false);
       return;
     }
+    setFeatureSel(null);
+    setFeatureGroupSel([]);
     setDrawMode('select');
     setLineDraft([]);
     setSelectMenuOpen(false);
@@ -153,6 +169,7 @@ export function MapPage() {
     queryFn: () => api.getInfraObjects(projectId!),
     enabled: !!projectId,
     refetchOnMount: 'always',
+    placeholderData: keepPreviousData,
   });
 
   const searchFilteredInfra = useMemo(() => {
@@ -223,33 +240,65 @@ export function MapPage() {
     [layers]
   );
 
+  /** Objects on visible layers (analysis names/refs); independent of subtype filter. */
+  const mapLayerVisibleInfra = useMemo(
+    () => searchFilteredInfra.filter((o) => visibleLayerIds.has(o.layer_id)),
+    [searchFilteredInfra, visibleLayerIds]
+  );
+
   const filteredInfra = useMemo(
     () =>
-      searchFilteredInfra.filter(
-        (o) => subtypeFilter[o.subtype] !== false && visibleLayerIds.has(o.layer_id)
-      ),
-    [searchFilteredInfra, subtypeFilter, visibleLayerIds]
+      mapLayerVisibleInfra.filter((o) => subtypeFilter[o.subtype] !== false),
+    [mapLayerVisibleInfra, subtypeFilter]
   );
 
   const selectedPoi = pois.find((p) => p.id === selectedPoiId) ?? pois[0] ?? null;
 
-  const { data: analysisData, isFetching: analysisFetching } = useQuery({
+  const {
+    data: analysisData,
+    isFetching: analysisFetching,
+    error: analysisQueryError,
+  } = useQuery({
     queryKey: ['analysis', projectId, selectedPoi?.id],
-    queryFn: () => api.getPoiAnalysis(projectId!, selectedPoi!.id),
+    queryFn: async () => {
+      try {
+        const raw = await api.getPoiAnalysis(projectId!, selectedPoi!.id);
+        return normalizePoiAnalysisResponse(raw);
+      } catch (e) {
+        const msg = e instanceof Error ? e.message : String(e);
+        if (/no analysis found|404|not found/i.test(msg)) return null;
+        throw e;
+      }
+    },
     enabled: !!projectId && !!selectedPoi?.id,
     retry: false,
+    staleTime: 60_000,
+    refetchOnWindowFocus: false,
+    placeholderData: keepPreviousData,
   });
 
-  const analysisRowsRaw: AnalysisRow[] = analysisData?.rows ?? analysisData?.analysis ?? [];
+  const analysisRowsRaw: AnalysisRow[] =
+    analysisData?.rows ?? analysisData?.analysis ?? [];
+
+  useEffect(() => {
+    if (!analysisQueryError) return;
+    if (analysisRowsRaw.length > 0) return;
+    if (analyzeError) return;
+    const msg =
+      analysisQueryError instanceof Error
+        ? analysisQueryError.message
+        : 'Не удалось загрузить результат анализа окружения';
+    setAnalyzeError(msg);
+  }, [analysisQueryError, analyzeError, analysisRowsRaw.length]);
 
   const analysisRowsForMap = useMemo(
-    () => alignAnalysisRowsToMapObjects(analysisRowsRaw, filteredInfra),
-    [analysisRowsRaw, filteredInfra]
+    () => alignAnalysisRowsToMapObjects(analysisRowsRaw, mapLayerVisibleInfra),
+    [analysisRowsRaw, mapLayerVisibleInfra]
   );
 
   const connectionLines = useMemo(
-    () => connectionLinesFromAnalysis(analysisRowsForMap, filteredInfra),
-    [analysisRowsForMap, filteredInfra]
+    () => connectionLinesFromAnalysis(analysisRowsForMap, mapLayerVisibleInfra),
+    [analysisRowsForMap, mapLayerVisibleInfra]
   );
 
   const thresholdKm = (subtype: string, fallback: number) => {
@@ -284,7 +333,7 @@ export function MapPage() {
   const { data: networkNodes = [] } = useQuery({
     queryKey: ['network-nodes', projectId, networkId],
     queryFn: () => api.getNetworkNodes(projectId!, networkId!),
-    enabled: !!projectId && !!networkId,
+    enabled: !!projectId && !!networkId && showNetwork,
   });
   const { data: networkEdges = [] } = useQuery({
     queryKey: ['network-edges', projectId, networkId],
@@ -294,7 +343,7 @@ export function MapPage() {
 
   const focusAnalysisObject = useCallback(
     (row: AnalysisRow) => {
-      const focus = resolveAnalysisRowFocus(row, filteredInfra, {
+      const focus = resolveAnalysisRowFocus(row, mapLayerVisibleInfra, {
         poi: selectedPoi ? { lon: selectedPoi.lon, lat: selectedPoi.lat } : null,
         networkNodes,
       });
@@ -308,7 +357,7 @@ export function MapPage() {
         setFeatureSel({ kind: 'infra', id: row.nearest_object_id });
       }
     },
-    [filteredInfra, networkNodes, selectedPoi]
+    [filteredInfra, mapLayerVisibleInfra, networkNodes, selectedPoi]
   );
 
   const groupSelectionDetails = useMemo(() => {
@@ -370,11 +419,47 @@ export function MapPage() {
       }
       return api.analyzePoi(projectId, selectedPoi.id);
     },
-    onMutate: () => setAnalyzeError(null),
-    onSuccess: (data) => {
+    onMutate: async () => {
+      setAnalyzeError(null);
+      if (projectId && selectedPoi) {
+        await queryClient.cancelQueries({
+          queryKey: ['analysis', projectId, selectedPoi.id],
+        });
+      }
+    },
+    onSuccess: async (data) => {
       if (!projectId || !selectedPoi) return;
       const normalized = normalizePoiAnalysisResponse(data);
       queryClient.setQueryData(['analysis', projectId, selectedPoi.id], normalized);
+      setAnalyzeError(null);
+      const rawRows = normalized.rows ?? normalized.analysis ?? [];
+      const infra =
+        queryClient.getQueryData<InfraObject[]>(['infra', projectId]) ?? infraObjects;
+      const layerList = queryClient.getQueryData<typeof layers>(['layers', projectId]) ?? layers;
+      const visibleIds = new Set(
+        (layerList ?? []).filter((l) => l.is_visible).map((l) => l.id)
+      );
+      const onMap = infra.filter((o) => visibleIds.has(o.layer_id));
+      const aligned = alignAnalysisRowsToMapObjects(rawRows, onMap);
+      const focus = buildAnalysisResultMapFocus(
+        { lon: selectedPoi.lon, lat: selectedPoi.lat },
+        aligned
+      );
+      if (focus) setMapFocus({ ...focus, nonce: Date.now() });
+      const firstLinked = aligned.find(
+        (r) =>
+          r.param_type === 'external' &&
+          r.nearest_object_id &&
+          r.object_name &&
+          filteredInfra.some((o) => o.id === r.nearest_object_id)
+      );
+      if (firstLinked?.nearest_object_id) {
+        setFeatureSel({ kind: 'infra', id: firstLinked.nearest_object_id });
+        setDrawMode('select');
+        setSelectMenuOpen(false);
+      }
+      await queryClient.invalidateQueries({ queryKey: ['infra', projectId] });
+      await queryClient.invalidateQueries({ queryKey: ['layers', projectId] });
     },
     onError: (err) => {
       const msg =
@@ -506,7 +591,6 @@ export function MapPage() {
           normalizePoiAnalysisResponse(data as AnalysisResult | PoiAnalysisResponse)
         );
       }
-      void queryClient.invalidateQueries({ queryKey: ['analysis', projectId, selectedPoi?.id] });
     },
     onError: (err) => {
       window.alert(err instanceof Error ? err.message : 'Не удалось обновить анализ');
@@ -515,9 +599,36 @@ export function MapPage() {
 
   const buildNetworkMut = useMutation({
     mutationFn: () => api.buildNetwork(projectId!),
-    onSuccess: () => {
+    onSuccess: async () => {
       setShowNetwork(true);
-      queryClient.invalidateQueries({ queryKey: ['networks', projectId] });
+      if (!projectId) return;
+      await queryClient.invalidateQueries({ queryKey: ['networks', projectId] });
+      await queryClient.invalidateQueries({ queryKey: ['network-nodes', projectId] });
+      await queryClient.invalidateQueries({ queryKey: ['network-edges', projectId] });
+    },
+  });
+
+  const clearMapMut = useMutation({
+    mutationFn: () => api.clearProjectInfrastructure(projectId!),
+    onSuccess: async (result) => {
+      setFeatureSel(null);
+      setFeatureGroupSel([]);
+      setShowNetwork(false);
+      setMapFocus(null);
+      setAnalyzeError(null);
+      if (projectId) {
+        queryClient.setQueryData(['infra', projectId], []);
+        queryClient.setQueriesData({ queryKey: ['network-nodes', projectId] }, []);
+        queryClient.setQueriesData({ queryKey: ['network-edges', projectId] }, []);
+        queryClient.removeQueries({ queryKey: ['analysis', projectId] });
+        await refreshMapQueries(queryClient, projectId);
+      }
+      window.alert(
+        `Удалено объектов: ${result.deleted_objects}, узлов сети: ${result.deleted_nodes}, рёбер: ${result.deleted_edges}.`
+      );
+    },
+    onError: (err) => {
+      window.alert(err instanceof Error ? err.message : 'Не удалось очистить карту');
     },
   });
 
@@ -624,6 +735,33 @@ export function MapPage() {
     createPoiMut.mutate(payload as Parameters<typeof api.createPoi>[1]);
   };
 
+  const analysisRunStatus = useMemo(() => {
+    if (analyzeMut.isPending) {
+      return {
+        tone: 'info' as const,
+        text:
+          analysisRowsForMap.length > 0
+            ? 'Пересчёт окружения…'
+            : 'Выполняется расчёт окружения…',
+      };
+    }
+    if (analysisFetching && analysisRowsForMap.length === 0) {
+      return { tone: 'info' as const, text: 'Загрузка результата…' };
+    }
+    if (analyzeError) {
+      return { tone: 'error' as const, text: analyzeError };
+    }
+    if (analysisFetching) {
+      return { tone: 'info' as const, text: 'Обновление результата…' };
+    }
+    return null;
+  }, [
+    analyzeMut.isPending,
+    analysisFetching,
+    analysisRowsForMap.length,
+    analyzeError,
+  ]);
+
   const submitInfraLine = (coords: number[][]) => {
     if (!projectId) return;
     if (!coords || coords.length < 2) return;
@@ -642,18 +780,52 @@ export function MapPage() {
   return (
     <div>
       <div className="flex flex-wrap items-center justify-between gap-3 mb-4">
-        <h1 className="text-2xl font-bold">Карта</h1>
+        <div className="flex items-center gap-2 flex-wrap min-w-0">
+          <h1 className="text-2xl font-bold shrink-0">Карта</h1>
+          {analysisRunStatus && (
+            <span
+              role="status"
+              aria-live="polite"
+              className={`inline-flex items-center gap-1.5 text-sm px-2.5 py-1 rounded-full border max-w-[min(100%,420px)] ${
+                analysisRunStatus.tone === 'error'
+                  ? 'border-red-300 bg-red-50 text-red-700'
+                  : 'border-amber-300 bg-amber-50 text-amber-900'
+              }`}
+              title={analysisRunStatus.text}
+            >
+              {analysisRunStatus.tone === 'info' && (
+                <Loader2 size={14} className="shrink-0 animate-spin" aria-hidden />
+              )}
+              <span className="truncate">{analysisRunStatus.text}</span>
+            </span>
+          )}
+        </div>
         <div className="flex flex-wrap gap-2 items-center">
           <select
             value={basemap}
             onChange={(e) => setBasemap(e.target.value as typeof basemap)}
-            className="text-sm px-3 py-1.5 rounded-lg border"
+            disabled={!showBasemap}
+            className="text-sm px-3 py-1.5 rounded-lg border disabled:opacity-50"
             style={{ borderColor: 'var(--border)', background: 'var(--surface)' }}
+            title={showBasemap ? 'Тип картографической подложки' : 'Включите подложку'}
           >
             <option value="osm">OpenStreetMap</option>
             <option value="satellite">Satellite</option>
             <option value="terrain">Terrain</option>
           </select>
+          <label
+            className="inline-flex items-center gap-1.5 text-sm px-2.5 py-1.5 rounded-lg border cursor-pointer select-none"
+            style={{ borderColor: 'var(--border)', background: 'var(--surface)' }}
+            title="Скрыть тайловую подложку (объекты и радиусы остаются)"
+          >
+            <input
+              type="checkbox"
+              checked={!showBasemap}
+              onChange={(e) => setShowBasemap(!e.target.checked)}
+              className="rounded"
+            />
+            Без подложки
+          </label>
           {pois.length > 0 && (
             <select
               value={selectedPoiId ?? pois[0].id}
@@ -1000,6 +1172,7 @@ export function MapPage() {
             pois={pois}
             infraObjects={filteredInfra}
             basemap={basemap}
+            showBasemap={showBasemap}
             drawMode={drawMode}
             selectMode={selectMode}
             editMode={mapEditEnabled}
@@ -1020,9 +1193,7 @@ export function MapPage() {
                 : undefined
             }
             onFeatureGroupSelect={
-              drawMode === 'select' && selectMode === 'box' && !mapEditEnabled
-                ? setFeatureGroupSel
-                : undefined
+              drawMode === 'select' && selectMode === 'box' ? setFeatureGroupSel : undefined
             }
             onGeometryChange={mapEditEnabled ? handleGeometryChange : undefined}
             onBboxChange={undefined}
@@ -1061,7 +1232,7 @@ export function MapPage() {
             />
           )}
 
-          {!mapEditEnabled &&
+          {mapEditEnabled &&
             drawMode === 'select' &&
             selectMode === 'box' &&
             groupSelectionDetails.length > 0 && (
@@ -1108,13 +1279,10 @@ export function MapPage() {
 
           </div>
 
-          <div className="flex justify-between mt-2 text-sm" style={{ color: 'var(--text-muted)' }}>
+          <div className="flex justify-start mt-2 text-sm" style={{ color: 'var(--text-muted)' }}>
             <span>
               {cursor ? formatCoordPair(cursor.lon, cursor.lat) : 'Координаты курсора'}
             </span>
-            <a href="/import" className="text-blue-600 hover:underline">
-              Импорт инфраструктуры
-            </a>
           </div>
         </div>
 
@@ -1127,16 +1295,37 @@ export function MapPage() {
           </div>
 
           {projectId && (
-            <div className="card text-sm flex gap-2">
-              <button
-                type="button"
-                className="btn btn-secondary text-sm flex-1"
-                onClick={() => buildNetworkMut.mutate()}
-                disabled={buildNetworkMut.isPending}
-              >
-                <Network size={14} className="inline mr-1" />
-                Построить сеть
-              </button>
+            <div className="card text-sm space-y-2">
+              <div className="flex gap-2">
+                <button
+                  type="button"
+                  className="btn btn-secondary text-xs flex-1 py-1.5 px-2 min-h-0"
+                  onClick={() => buildNetworkMut.mutate()}
+                  disabled={buildNetworkMut.isPending || clearMapMut.isPending}
+                >
+                  <Network size={12} className="inline mr-1" />
+                  {buildNetworkMut.isPending ? 'Построение…' : 'Построить сеть'}
+                </button>
+                <button
+                  type="button"
+                  className="btn btn-secondary text-xs flex-1 py-1.5 px-2 min-h-0"
+                  disabled={clearMapMut.isPending || buildNetworkMut.isPending}
+                  title="Удалить все объекты инфраструктуры с карты и из базы (POI останутся)"
+                  onClick={() => {
+                    if (
+                      !window.confirm(
+                        'Удалить все объекты инфраструктуры с карты и из базы данных?\n\nТочки интереса (POI) не удаляются. Результаты анализа окружения для внешних объектов будут сброшены.'
+                      )
+                    ) {
+                      return;
+                    }
+                    clearMapMut.mutate();
+                  }}
+                >
+                  <Trash2 size={12} className="inline mr-1" />
+                  {clearMapMut.isPending ? 'Очистка…' : 'Очистить'}
+                </button>
+              </div>
               <label className="flex items-center gap-1 text-xs">
                 <input type="checkbox" checked={showNetwork} onChange={(e) => setShowNetwork(e.target.checked)} />
                 Слой сети
@@ -1164,9 +1353,12 @@ export function MapPage() {
             ))}
           </div>
 
-          {(analyzeMut.isPending || analysisFetching || analysisRowsForMap.length > 0 || analyzeError) && (
+          {(analyzeMut.isPending ||
+            analysisFetching ||
+            analysisRowsForMap.length > 0 ||
+            analyzeError) && (
             <div className="card max-h-[min(60vh,480px)] overflow-auto">
-              {analyzeMut.isPending || analysisFetching ? (
+              {(analyzeMut.isPending || analysisFetching) && analysisRowsForMap.length === 0 ? (
                 <p className="text-sm py-2" style={{ color: 'var(--text-muted)' }}>
                   Выполняется анализ 9 подтипов…
                 </p>

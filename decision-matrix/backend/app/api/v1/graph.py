@@ -74,9 +74,16 @@ async def list_nodes(
     db: AsyncSession = Depends(get_db),
 ):
     await _project(project_id, user, db)
-    rows = (
+    nodes = (
         await db.execute(select(InfrastructureNode).where(InfrastructureNode.network_id == network_id))
     ).scalars().all()
+    edges = (
+        await db.execute(select(InfrastructureEdge).where(InfrastructureEdge.network_id == network_id))
+    ).scalars().all()
+    used_node_ids: set[UUID] = set()
+    for edge in edges:
+        used_node_ids.add(edge.from_node_id)
+        used_node_ids.add(edge.to_node_id)
     return [
         NodeResponse(
             id=n.id,
@@ -85,7 +92,8 @@ async def list_nodes(
             lon=n.longitude,
             lat=n.latitude,
         )
-        for n in rows
+        for n in nodes
+        if n.id in used_node_ids
     ]
 
 
@@ -97,6 +105,12 @@ async def list_edges(
     db: AsyncSession = Depends(get_db),
 ):
     await _project(project_id, user, db)
+    node_ids = {
+        row[0]
+        for row in (
+            await db.execute(select(InfrastructureNode.id).where(InfrastructureNode.network_id == network_id))
+        ).all()
+    }
     rows = (
         await db.execute(select(InfrastructureEdge).where(InfrastructureEdge.network_id == network_id))
     ).scalars().all()
@@ -109,4 +123,5 @@ async def list_edges(
             length_km=e.length_km,
         )
         for e in rows
+        if e.from_node_id in node_ids and e.to_node_id in node_ids
     ]

@@ -1,4 +1,6 @@
 import type { AnalysisRow, InfraObject } from './api';
+
+type MapInfraLike = Pick<InfraObject, 'id' | 'subtype' | 'name' | 'lon' | 'lat' | 'end_lon' | 'end_lat'>;
 import { STATUS_LABELS, SUBTYPE_LABELS } from './specs';
 
 export const ANALYSIS_LINE_SUBTYPES = [
@@ -98,26 +100,107 @@ export function resolveAnalysisRowFocus(
   return { lon, lat };
 }
 
-/** Keep analysis object refs in sync with objects actually drawn on the map. */
-export function alignAnalysisRowsToMapObjects(
-  rows: AnalysisRow[],
-  mapObjects: { id: string }[]
-): AnalysisRow[] {
-  const onMap = new Set(mapObjects.map((o) => o.id));
-  return rows.map((row) => {
-    if (row.param_type !== 'external') return row;
-    const id = row.nearest_object_id;
-    if (!id || onMap.has(id)) return row;
-    if (row.status === 'not_required') return row;
+const ORPHAN_NODE_NAME = /^Узел [0-9a-f]{8}$/i;
+
+/** Stale graph-node refs from old analysis (not infrastructure Point objects). */
+export function isOrphanNetworkAnalysisRef(row: AnalysisRow): boolean {
+  if (row.param_type !== 'external') return false;
+  if (row.anchor_type === 'network_node') return true;
+  if (row.nearest_node_id && !row.nearest_object_id) return true;
+  const name = row.object_name?.trim() ?? '';
+  return ORPHAN_NODE_NAME.test(name);
+}
+
+/** Replace stale graph-node refs with a visible infrastructure object of the same subtype. */
+function healExternalNetworkOrphan(row: AnalysisRow, mapObjects: MapInfraLike[]): AnalysisRow {
+  const match = mapObjects.find((o) => o.subtype === row.subtype);
+  if (!match) return clearInvalidExternalRef(row);
+  let anchorLon = match.lon;
+  let anchorLat = match.lat;
+  if (match.end_lon != null && match.end_lat != null) {
+    anchorLon = (match.lon + match.end_lon) / 2;
+    anchorLat = (match.lat + match.end_lat) / 2;
+  }
+  return {
+    ...row,
+    nearest_object_id: match.id,
+    object_name: match.name,
+    nearest_node_id: null,
+    anchor_lon: anchorLon,
+    anchor_lat: anchorLat,
+    anchor_type: 'point_object',
+  };
+}
+
+function clearInvalidExternalRef(row: AnalysisRow): AnalysisRow {
+  if (row.status === 'not_required') {
     return {
       ...row,
       object_name: null,
       nearest_object_id: null,
+      nearest_node_id: null,
       anchor_lon: null,
       anchor_lat: null,
-      distance_km: null,
-      status: 'construction_required',
+      anchor_type: null,
     };
+  }
+  return {
+    ...row,
+    object_name: null,
+    nearest_object_id: null,
+    nearest_node_id: null,
+    anchor_lon: null,
+    anchor_lat: null,
+    anchor_type: null,
+    distance_km: null,
+    status: 'construction_required',
+  };
+}
+
+/** Fit map to POI and external anchors after environment analysis. */
+export function buildAnalysisResultMapFocus(
+  poi: { lon: number; lat: number },
+  rows: AnalysisRow[]
+): AnalysisRowFocus | null {
+  const lons = [poi.lon];
+  const lats = [poi.lat];
+  for (const row of rows) {
+    if (row.param_type !== 'external' || row.status === 'not_required') continue;
+    if (row.anchor_lon == null || row.anchor_lat == null) continue;
+    lons.push(row.anchor_lon);
+    lats.push(row.anchor_lat);
+  }
+  if (lons.length === 1) return { lon: poi.lon, lat: poi.lat };
+  return {
+    lon: (Math.min(...lons) + Math.max(...lons)) / 2,
+    lat: (Math.min(...lats) + Math.max(...lats)) / 2,
+    extentLonLat: [Math.min(...lons), Math.min(...lats), Math.max(...lons), Math.max(...lats)],
+  };
+}
+
+function idKey(id: string): string {
+  return id.trim().toLowerCase();
+}
+
+/** Keep analysis refs for objects on visible layers (not client subtype filter). */
+export function alignAnalysisRowsToMapObjects(
+  rows: AnalysisRow[],
+  mapObjects: MapInfraLike[]
+): AnalysisRow[] {
+  if (mapObjects.length === 0) {
+    // Keep rows while infra/layers query is refetching (empty placeholder).
+    return rows;
+  }
+  const onMap = new Set(mapObjects.map((o) => idKey(o.id)));
+  return rows.map((row) => {
+    if (row.param_type !== 'external') return row;
+    if (isOrphanNetworkAnalysisRef(row)) return healExternalNetworkOrphan(row, mapObjects);
+    const id = row.nearest_object_id;
+    if (!id) return row;
+    if (onMap.has(idKey(id))) return row;
+    // Keep backend result when infra cache is briefly out of sync but analysis has a valid link.
+    if (row.object_name && row.anchor_lon != null && row.anchor_lat != null) return row;
+    return clearInvalidExternalRef(row);
   });
 }
 
@@ -125,14 +208,15 @@ export function connectionLinesFromAnalysis(
   rows: AnalysisRow[],
   infraObjects: { id: string }[]
 ): AnalysisRow[] {
-  const infraIds = new Set(infraObjects.map((o) => o.id));
+  const infraIds = new Set(infraObjects.map((o) => idKey(o.id)));
   return rows.filter((row) => {
     if (row.param_type !== 'external') return false;
     if (row.status === 'not_required' || row.status === 'computed') return false;
-    if (!row.nearest_object_id || !infraIds.has(row.nearest_object_id)) return false;
     if (row.anchor_lon == null || row.anchor_lat == null) return false;
     if (row.distance_km == null || row.distance_km <= 0) return false;
-    return true;
+    if (row.nearest_object_id && infraIds.has(idKey(row.nearest_object_id))) return true;
+    // POI→anchor line when analysis has a hit but infra cache is briefly out of sync.
+    return Boolean(row.object_name);
   });
 }
 

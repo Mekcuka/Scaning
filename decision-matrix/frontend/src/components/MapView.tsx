@@ -145,6 +145,8 @@ interface MapViewProps {
   pois?: POI[];
   infraObjects?: InfraObject[];
   basemap?: 'osm' | 'satellite' | 'terrain';
+  /** When false, tile underlay is hidden (vectors/radii/network remain). */
+  showBasemap?: boolean;
   drawMode?: DrawMode;
   selectMode?: SelectMode;
   onMapClick?: (lon: number, lat: number) => void;
@@ -311,6 +313,7 @@ export function MapView({
   pois = [],
   infraObjects = [],
   basemap = 'osm',
+  showBasemap = true,
   drawMode = 'select',
   selectMode = 'single',
   onMapClick,
@@ -491,7 +494,18 @@ export function MapView({
 
     const map = new OlMap({
       target: containerRef.current,
-      layers: [createBasemap(basemap), radiusLayer, networkLayer, connectionLayer, lineLayer, pointLayer],
+      layers: [
+        (() => {
+          const layer = createBasemap(basemap);
+          layer.setVisible(showBasemap);
+          return layer;
+        })(),
+        radiusLayer,
+        networkLayer,
+        connectionLayer,
+        lineLayer,
+        pointLayer,
+      ],
       interactions: defaultInteractions({ doubleClickZoom: false }),
       view: new View({
         center: fromLonLat([37.6176, 55.7558]),
@@ -560,7 +574,10 @@ export function MapView({
       lineSourceRef.current.forEachFeatureIntersectingExtent(extent, (feature) => {
         addFeature(feature);
       });
-      clusterSourceRef.current.forEachFeatureIntersectingExtent(extent, (feature) => {
+      const pointSource = editModeRef.current
+        ? pointSourceRef.current
+        : clusterSourceRef.current;
+      pointSource.forEachFeatureIntersectingExtent(extent, (feature) => {
         addFeature(feature);
       });
 
@@ -727,8 +744,10 @@ export function MapView({
 
   useEffect(() => {
     if (!mapRef.current) return;
-    mapRef.current.getLayers().setAt(0, createBasemap(basemap));
-  }, [basemap]);
+    const layer = createBasemap(basemap);
+    layer.setVisible(showBasemap);
+    mapRef.current.getLayers().setAt(0, layer);
+  }, [basemap, showBasemap]);
 
   useEffect(() => {
     const isSelect = drawMode === 'select';
@@ -791,18 +810,24 @@ export function MapView({
       }
     }
     collection.clear();
-    const clusterFeatures = clusterSourceRef.current.getFeatures();
-    clusterFeatures.forEach((cf) => {
-      const members = cf.get('features') as Feature[] | undefined;
-      if (members?.some((m) => targetIds.has(m.get('id') as string))) {
-        collection.push(cf);
-      }
-    });
+    if (editMode) {
+      pointSourceRef.current.getFeatures().forEach((f) => {
+        const id = f.get('id') as string;
+        if (targetIds.has(id) && f.get('subtype') !== 'draft') collection.push(f);
+      });
+    } else {
+      clusterSourceRef.current.getFeatures().forEach((cf) => {
+        const members = cf.get('features') as Feature[] | undefined;
+        if (members?.some((m) => targetIds.has(m.get('id') as string))) {
+          collection.push(cf);
+        }
+      });
+    }
     lineSourceRef.current.getFeatures().forEach((f) => {
       const id = f.get('id') as string;
       if (targetIds.has(id) && f.get('subtype') !== 'draft') collection.push(f);
     });
-  }, [selectedFeatureIds, selectMode, pois, infraObjects]);
+  }, [selectedFeatureIds, selectMode, editMode, pois, infraObjects]);
 
   useEffect(() => {
     if (suppressDataSyncRef.current) return;
@@ -916,6 +941,9 @@ export function MapView({
   useEffect(() => {
     const src = networkSourceRef.current;
     src.clear();
+    if (networkNodes.length === 0 && networkEdges.length === 0) {
+      return;
+    }
     const pos: Record<string, { lon: number; lat: number }> = {
       ...Object.fromEntries(networkNodes.map((n) => [n.id, { lon: n.lon, lat: n.lat }])),
       ...nodeCoordLookup,
@@ -967,7 +995,11 @@ export function MapView({
     <div
       ref={containerRef}
       className="map-container rounded-xl overflow-hidden border"
-      style={{ height, borderColor: 'var(--border)' }}
+      style={{
+        height,
+        borderColor: 'var(--border)',
+        background: showBasemap ? undefined : 'var(--bg, #e8ecef)',
+      }}
       data-selected={selectedFeatureId || ''}
     />
   );

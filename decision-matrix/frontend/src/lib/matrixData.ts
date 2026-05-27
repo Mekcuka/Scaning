@@ -10,6 +10,7 @@ import {
 export interface MatrixCell {
   text: string;
   status?: string;
+  badge?: boolean;
 }
 
 export interface MatrixRow {
@@ -17,7 +18,17 @@ export interface MatrixRow {
   section: string;
   cells: MatrixCell[];
   total?: boolean;
+  engineering?: boolean;
 }
+
+const ENGINEERING_LABELS: Record<string, Record<string, string>> = {
+  eng_power: { external: 'Внешнее', internal: 'Внутреннее' },
+  eng_injection: { centralized: 'Централиз.', local: 'Локальное', none: 'Нет' },
+  eng_gas: { well: 'Факел/скважина', power_generation: 'Генерация', flare: 'Факел' },
+  eng_oil_preparation: { mkos: 'МКОС', mfns: 'МФНС', ctp: 'ЦПС' },
+  eng_well_gathering: { single_tube: 'Однотрубная', dual_tube: 'Двухтрубная' },
+  eng_transport: { auto: 'Авто', marine: 'Морской', pipeline: 'Трубопровод' },
+};
 
 function formatItem(item: Record<string, unknown>): string {
   const st = String(item.status || '');
@@ -74,6 +85,28 @@ export function buildMatrixRows(
   ];
 
   const rows: MatrixRow[] = [];
+
+  const engineeringRows: Array<{ key: keyof POI; label: string }> = [
+    { key: 'eng_power', label: 'Электроснабжение' },
+    { key: 'eng_injection', label: 'ППД' },
+    { key: 'eng_gas', label: 'Обращение с газом' },
+    { key: 'eng_oil_preparation', label: 'Подготовка нефти' },
+    { key: 'eng_well_gathering', label: 'Сбор скважин' },
+    { key: 'eng_transport', label: 'Транспорт' },
+  ];
+  for (const rowDef of engineeringRows) {
+    rows.push({
+      label: rowDef.label,
+      section: 'Инженерные решения',
+      engineering: true,
+      cells: cols.map((_, idx) => {
+        const poi = poiByColumn[idx];
+        const raw = String((poi?.[rowDef.key] as string | undefined) || '—');
+        const mapped = ENGINEERING_LABELS[rowDef.key as string]?.[raw] || raw;
+        return { text: mapped, badge: true };
+      }),
+    });
+  }
 
   for (const section of sections) {
     for (const subtype of section.subtypes) {

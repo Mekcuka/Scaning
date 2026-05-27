@@ -155,6 +155,11 @@ export const api = {
       method: 'PATCH',
       body: JSON.stringify(data),
     }),
+  clearProjectInfrastructure: (projectId: string) =>
+    request<{ deleted_objects: number; deleted_edges: number; deleted_nodes: number }>(
+      `/projects/${projectId}/infrastructure/clear`,
+      { method: 'POST' }
+    ),
   deleteInfraObject: (projectId: string, objectId: string) =>
     request<void>(`/projects/${projectId}/infrastructure/objects/${objectId}`, { method: 'DELETE' }),
   importCsv: (projectId: string, file: File) => {
@@ -217,6 +222,31 @@ export const api = {
   getNetworkEdges: (projectId: string, networkId: string) =>
     request<NetworkEdge[]>(`/projects/${projectId}/infrastructure/networks/${networkId}/edges`),
   getScenarios: (projectId: string) => request<Scenario[]>(`/projects/${projectId}/scenarios`),
+  getPoiRankingSettings: (projectId: string, poiId: string) =>
+    request<RankingSettings>(`/projects/${projectId}/pois/${poiId}/ranking`),
+  updatePoiRankingSettings: (projectId: string, poiId: string, data: Partial<RankingSettings>) =>
+    request<RankingSettings>(`/projects/${projectId}/pois/${poiId}/ranking`, {
+      method: 'PUT',
+      body: JSON.stringify(data),
+    }),
+  updatePoiRankingCriterionValues: (
+    projectId: string,
+    poiId: string,
+    values: Record<string, Record<string, number>>
+  ) =>
+    request<{ ok: boolean }>(`/projects/${projectId}/pois/${poiId}/ranking/criterion-values`, {
+      method: 'PUT',
+      body: JSON.stringify({ values }),
+    }),
+  calculatePoiRanking: (projectId: string, poiId: string) =>
+    request<RankingRunResult>(`/projects/${projectId}/pois/${poiId}/ranking/calculate`, {
+      method: 'POST',
+    }),
+  calculatePoiRankingSensitivity: (projectId: string, poiId: string, criterionId: string) =>
+    request<RankingSensitivityResult>(
+      `/projects/${projectId}/pois/${poiId}/ranking/sensitivity?criterion_id=${encodeURIComponent(criterionId)}`,
+      { method: 'POST' }
+    ),
   calculateRanking: (data: RankingRequest) =>
     request<RankingResult>('/ranking/calculate', { method: 'POST', body: JSON.stringify(data) }),
 };
@@ -507,6 +537,41 @@ export interface RankingResult {
   algorithm: string;
   scores: number[];
   ranking: Array<{ index: number; score: number; rank: number }>;
+}
+
+export interface RankingCriterion {
+  id: string;
+  name: string;
+  type: 'cost' | 'benefit' | string;
+}
+
+export interface RankingSettings {
+  algorithm: string;
+  criteria: RankingCriterion[];
+  weights: Record<string, number>;
+}
+
+export interface RankingAlternative {
+  scenario_id?: string | null;
+  name: string;
+  score: number;
+  rank: number;
+}
+
+export interface RankingRunResult {
+  algorithm: string;
+  alternatives: RankingAlternative[];
+}
+
+export interface RankingSensitivityPoint {
+  delta: number;
+  alternatives: RankingAlternative[];
+}
+
+export interface RankingSensitivityResult {
+  algorithm: string;
+  criterion_id: string;
+  points: RankingSensitivityPoint[];
 }
 
 export const POINT_SUBTYPES = ['gas_processing', 'gtes', 'substation', 'refinery'] as const;

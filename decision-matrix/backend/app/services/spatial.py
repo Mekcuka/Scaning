@@ -114,7 +114,9 @@ async def find_nearest_object_by_subtype(
         net = await find_nearest_network_node(db, project_id, poi, subtype)
         if net:
             return net
-    point_only = subtype in EXTERNAL_POINT_SUBTYPES
+    # External subtypes: nearest point on any visible geometry (Point or LineString).
+    # MVP previously skipped lines (point_only=True), so objects drawn/imported as lines were invisible to analysis.
+    point_only = False
     if settings.is_sqlite:
         return await _find_nearest_sqlite(db, project_id, poi, subtype, point_only=point_only)
     return await _find_nearest_postgis(db, project_id, poi, subtype, point_only=point_only)
@@ -214,7 +216,7 @@ async def list_candidates_by_subtype(
         if nodes:
             return nodes
 
-    point_only = subtype in EXTERNAL_POINT_SUBTYPES
+    point_only = False
     if settings.is_sqlite:
         q = (
             select(InfrastructureObject)

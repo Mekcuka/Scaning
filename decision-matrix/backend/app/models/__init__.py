@@ -1,7 +1,7 @@
 import uuid
 from datetime import datetime
 
-from sqlalchemy import JSON, Boolean, DateTime, Float, ForeignKey, Integer, String, Text, Uuid, func
+from sqlalchemy import JSON, Boolean, DateTime, Float, ForeignKey, Integer, String, Text, UniqueConstraint, Uuid, func
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.core.database import Base
@@ -55,6 +55,9 @@ class Project(Base):
         back_populates="project", cascade="all, delete-orphan"
     )
     scenarios: Mapped[list["Scenario"]] = relationship(back_populates="project", cascade="all, delete-orphan")
+    ranking_settings: Mapped[list["ProjectRankingSettings"]] = relationship(
+        back_populates="project", cascade="all, delete-orphan"
+    )
 
 
 class ProjectCostRates(Base):
@@ -132,6 +135,9 @@ class PointOfInterest(Base):
 
     project: Mapped["Project"] = relationship(back_populates="pois")
     analysis_rows: Mapped[list["PoiInfrastructureAnalysis"]] = relationship(
+        back_populates="poi", cascade="all, delete-orphan"
+    )
+    ranking_settings: Mapped[list["ProjectRankingSettings"]] = relationship(
         back_populates="poi", cascade="all, delete-orphan"
     )
 
@@ -228,6 +234,53 @@ class Scenario(Base):
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
 
     project: Mapped["Project"] = relationship(back_populates="scenarios")
+    criterion_values: Mapped[list["ScenarioCriterionValue"]] = relationship(
+        back_populates="scenario", cascade="all, delete-orphan"
+    )
+
+
+class ProjectRankingSettings(Base):
+    __tablename__ = "project_ranking_settings"
+    __table_args__ = (UniqueConstraint("project_id", "poi_id", name="uq_project_ranking_project_poi"),)
+
+    id: Mapped[uuid.UUID] = mapped_column(Uuid, primary_key=True, default=uuid.uuid4)
+    project_id: Mapped[uuid.UUID] = mapped_column(Uuid, ForeignKey("projects.id", ondelete="CASCADE"))
+    poi_id: Mapped[uuid.UUID] = mapped_column(Uuid, ForeignKey("points_of_interest.id", ondelete="CASCADE"))
+    algorithm: Mapped[str] = mapped_column(String(20), default="topsis")
+    criteria: Mapped[list[dict]] = mapped_column(JSON, default=list)
+    weights: Mapped[dict[str, float]] = mapped_column(JSON, default=dict)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now(), onupdate=func.now()
+    )
+
+    project: Mapped["Project"] = relationship(back_populates="ranking_settings")
+    poi: Mapped["PointOfInterest"] = relationship(back_populates="ranking_settings")
+    criterion_values: Mapped[list["ScenarioCriterionValue"]] = relationship(
+        back_populates="ranking_settings", cascade="all, delete-orphan"
+    )
+
+
+class ScenarioCriterionValue(Base):
+    __tablename__ = "scenario_criterion_values"
+    __table_args__ = (
+        UniqueConstraint("ranking_settings_id", "scenario_id", "criterion_id", name="uq_scenario_criterion_value"),
+    )
+
+    id: Mapped[uuid.UUID] = mapped_column(Uuid, primary_key=True, default=uuid.uuid4)
+    ranking_settings_id: Mapped[uuid.UUID] = mapped_column(
+        Uuid, ForeignKey("project_ranking_settings.id", ondelete="CASCADE")
+    )
+    scenario_id: Mapped[uuid.UUID] = mapped_column(Uuid, ForeignKey("scenarios.id", ondelete="CASCADE"))
+    criterion_id: Mapped[str] = mapped_column(String(100))
+    value: Mapped[float] = mapped_column(Float, default=0.0)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now(), onupdate=func.now()
+    )
+
+    ranking_settings: Mapped["ProjectRankingSettings"] = relationship(back_populates="criterion_values")
+    scenario: Mapped["Scenario"] = relationship(back_populates="criterion_values")
 
 
 class ImportLog(Base):

@@ -18,6 +18,8 @@
 .env.local
 **/.env
 !**/.env.example
+deploy/app.env.production
+deploy/*.env.local
 
 # SQLite / local data
 **/data/*.db

@@ -12,6 +12,7 @@ const FALLBACK_SCENARIOS = ['Базовый', 'Сценарий 1', 'Сцена�
 export function MatrixPage() {
   const [viewMode, setViewMode] = useState<'table' | 'cards'>('table');
   const [selectedCol, setSelectedCol] = useState(0);
+  const [showOnlyExceeded, setShowOnlyExceeded] = useState(false);
   const projectId = useAppStore((s) => s.currentProjectId);
 
   const { data: pois = [] } = useQuery({
@@ -38,9 +39,17 @@ export function MatrixPage() {
     enabled: !!projectId,
   });
 
+  const displayedScenarios = useMemo(() => {
+    if (!showOnlyExceeded) return scenarios;
+    return scenarios.filter((scenario) => {
+      const analysis = (scenario.results?.analysis as Array<{ status?: string }> | undefined) || [];
+      return analysis.some((row) => row.status === 'exceeds_limit');
+    });
+  }, [scenarios, showOnlyExceeded]);
+
   const { rows: matrixRows, scenarioNames, poiByColumn } = useMemo(
-    () => buildMatrixRows(scenarios, pois, FALLBACK_SCENARIOS),
-    [scenarios, pois]
+    () => buildMatrixRows(displayedScenarios, pois, FALLBACK_SCENARIOS),
+    [displayedScenarios, pois]
   );
 
   const selectedPoi = poiByColumn[selectedCol] ?? pois[0] ?? null;
@@ -52,12 +61,7 @@ export function MatrixPage() {
     retry: false,
   });
 
-  const connectionLines = connectionLinesForColumn(
-    scenarios,
-    selectedCol,
-    pois,
-    liveAnalysis?.rows
-  );
+  const connectionLines = connectionLinesForColumn(displayedScenarios, selectedCol, pois, liveAnalysis?.rows);
 
   const sections = useMemo(() => {
     const seen = new Set<string>();
@@ -82,6 +86,16 @@ export function MatrixPage() {
           </p>
         </div>
         <div className="flex gap-2">
+          <button
+            type="button"
+            className={`btn ${showOnlyExceeded ? 'btn-primary' : 'btn-secondary'}`}
+            onClick={() => {
+              setShowOnlyExceeded((v) => !v);
+              setSelectedCol(0);
+            }}
+          >
+            Только с превышениями
+          </button>
           <button
             type="button"
             className={`btn ${viewMode === 'table' ? 'btn-primary' : 'btn-secondary'}`}
@@ -138,7 +152,11 @@ export function MatrixPage() {
                                   cell.status === 'exceeds_limit' ? 'text-red-600' : ''
                                 }`}
                               >
-                                {cell.text}
+                                {cell.badge ? (
+                                  <span className="badge badge-secondary">{cell.text}</span>
+                                ) : (
+                                  cell.text
+                                )}
                               </td>
                             ))}
                           </tr>
@@ -151,7 +169,7 @@ export function MatrixPage() {
           ) : (
             <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
               {scenarioNames.map((s, i) => {
-                const total = scenarios[i]?.results?.total_cost_mln;
+                const total = displayedScenarios[i]?.results?.total_cost_mln;
                 return (
                   <div
                     key={s + i}
@@ -164,7 +182,7 @@ export function MatrixPage() {
                     </div>
                     <div className="text-sm space-y-1" style={{ color: 'var(--text-muted)' }}>
                       {poiByColumn[i]?.name && <div>POI: {poiByColumn[i]!.name}</div>}
-                      {!scenarios[i]?.results && (
+                      {!displayedScenarios[i]?.results && (
                         <div className="text-xs">Запустите анализ на карте</div>
                       )}
                     </div>
