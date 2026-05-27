@@ -1,6 +1,12 @@
 const API_BASE = import.meta.env.VITE_API_URL || '/api/v1';
 const REQUEST_TIMEOUT_MS = 12_000;
 
+/** GitHub Pages base path, e.g. /Scaning/ */
+export function appLoginPath(): string {
+  const base = import.meta.env.BASE_URL || '/';
+  return `${base}login`.replace(/\/{2,}/g, '/');
+}
+
 function getToken(): string | null {
   return localStorage.getItem('access_token');
 }
@@ -37,7 +43,7 @@ async function request<T>(path: string, options: RequestOptions = {}): Promise<T
     localStorage.removeItem('access_token');
     localStorage.removeItem('refresh_token');
     if (redirectOn401) {
-      window.location.href = '/login';
+      window.location.href = appLoginPath();
     }
     throw new Error('Unauthorized');
   }
@@ -54,6 +60,7 @@ export const api = {
     request<{ access_token: string; refresh_token: string }>('/auth/login', {
       method: 'POST',
       body: JSON.stringify({ email, password }),
+      redirectOn401: false,
     }),
   register: (email: string, password: string, username: string) =>
     request('/auth/register', {
