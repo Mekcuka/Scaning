@@ -107,6 +107,15 @@ export const ENG_PARAM_GROUPS = [
   },
 ] as const;
 
+export type EngineeringParamKey = (typeof ENG_PARAM_GROUPS)[number]['key'];
+
+export function engineeringOptionsForKey(
+  key: EngineeringParamKey | string
+): { value: string; label: string }[] {
+  const group = ENG_PARAM_GROUPS.find((g) => g.key === key);
+  return group ? group.options.map((o) => ({ ...o })) : [];
+}
+
 export const THRESHOLD_FIELDS = [
   { key: 'threshold_gas_processing_km' as const, label: 'ГКС, км', defaultKey: 'threshold_gas_processing_km' as const },
   { key: 'threshold_gtes_km' as const, label: 'ГТЭС, км', defaultKey: 'threshold_gtes_km' as const },
@@ -130,9 +139,20 @@ export const ENG_LABELS: Record<string, Record<string, string>> = Object.fromEnt
   ENG_PARAM_GROUPS.map((g) => [g.key, Object.fromEntries(g.options.map((o) => [o.value, o.label]))])
 );
 
+/** Next auto name for a new POI: Точка_1, Точка_2, … */
+export function nextPoiAutoName(existing: { name: string }[]): string {
+  const re = /^Точка_([0-9]+)$/;
+  let maxN = 0;
+  for (const p of existing) {
+    const m = (p.name || '').trim().match(re);
+    if (m) maxN = Math.max(maxN, Number(m[1] || 0));
+  }
+  return `Точка_${maxN + 1}`;
+}
+
 export function emptyPoiFormValues(overrides?: Partial<PoiFormValues>): PoiFormValues {
   return {
-    name: 'Новая точка',
+    name: '',
     description: '',
     lon: '',
     lat: '',

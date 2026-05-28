@@ -1,35 +1,23 @@
 import { Fragment, useMemo, useState } from 'react';
-import { useQuery } from '@tanstack/react-query';
-import { LayoutGrid, Table } from 'lucide-react';
-import { api } from '../lib/api';
-import { buildMatrixRows, connectionLinesForColumn } from '../lib/matrixData';
+import { useMutation, useQueries, useQuery, useQueryClient } from '@tanstack/react-query';
+import { LayoutGrid, Table, Zap } from 'lucide-react';
+import { api, normalizePoiAnalysisResponse, type POI } from '../lib/api';
+import { buildMatrixRowsByPois, resolvePoiColumnAnalysis } from '../lib/matrixData';
+import { engineeringOptionsForKey, type EngineeringParamKey } from '../lib/poiParams';
 import { useAppStore } from '../store';
-import { MapView } from '../components/MapView';
-import { PoiParamsPanel } from '../components/PoiParamsPanel';
-
-const FALLBACK_SCENARIOS = ['Базовый', 'Сценарий 1', 'Сценарий 2'];
+import { AppSelect } from '../components/AppSelect';
 
 export function MatrixPage() {
   const [viewMode, setViewMode] = useState<'table' | 'cards'>('table');
   const [selectedCol, setSelectedCol] = useState(0);
   const [showOnlyExceeded, setShowOnlyExceeded] = useState(false);
   const projectId = useAppStore((s) => s.currentProjectId);
+  const queryClient = useQueryClient();
+  const pushToast = useAppStore((s) => s.pushToast);
 
   const { data: pois = [] } = useQuery({
     queryKey: ['pois', projectId],
     queryFn: () => api.getPois(projectId!),
-    enabled: !!projectId,
-  });
-
-  const { data: infraObjects = [] } = useQuery({
-    queryKey: ['infra', projectId],
-    queryFn: () => api.getInfraObjects(projectId!),
-    enabled: !!projectId,
-  });
-
-  const { data: layers = [] } = useQuery({
-    queryKey: ['layers', projectId],
-    queryFn: () => api.getLayers(projectId!),
     enabled: !!projectId,
   });
 
@@ -39,29 +27,46 @@ export function MatrixPage() {
     enabled: !!projectId,
   });
 
-  const displayedScenarios = useMemo(() => {
-    if (!showOnlyExceeded) return scenarios;
-    return scenarios.filter((scenario) => {
-      const analysis = (scenario.results?.analysis as Array<{ status?: string }> | undefined) || [];
-      return analysis.some((row) => row.status === 'exceeds_limit');
-    });
-  }, [scenarios, showOnlyExceeded]);
-
-  const { rows: matrixRows, scenarioNames, poiByColumn } = useMemo(
-    () => buildMatrixRows(displayedScenarios, pois, FALLBACK_SCENARIOS),
-    [displayedScenarios, pois]
-  );
-
-  const selectedPoi = poiByColumn[selectedCol] ?? pois[0] ?? null;
-
-  const { data: liveAnalysis } = useQuery({
-    queryKey: ['analysis', projectId, selectedPoi?.id],
-    queryFn: () => api.getPoiAnalysis(projectId!, selectedPoi!.id),
-    enabled: !!projectId && !!selectedPoi?.id,
-    retry: false,
+  const analysisQueries = useQueries({
+    queries: pois.map((poi) => ({
+      queryKey: ['analysis', projectId, poi.id],
+      queryFn: async () => {
+        const raw = await api.getPoiAnalysis(projectId!, poi.id);
+        return normalizePoiAnalysisResponse(raw);
+      },
+      enabled: !!projectId,
+      retry: false,
+    })),
   });
 
-  const connectionLines = connectionLinesForColumn(displayedScenarios, selectedCol, pois, liveAnalysis?.rows);
+  const analysisByPoiId = useMemo(() => {
+    const map: Record<string, ReturnType<typeof resolvePoiColumnAnalysis>> = {};
+    pois.forEach((poi, i) => {
+      const live = analysisQueries[i]?.data;
+      map[poi.id] = resolvePoiColumnAnalysis(poi, live, scenarios);
+    });
+    return map;
+  }, [pois, analysisQueries, scenarios]);
+
+  const displayedPois = useMemo(() => {
+    if (!showOnlyExceeded) return pois;
+    return pois.filter((poi) => {
+      const rows = analysisByPoiId[poi.id]?.rows ?? [];
+      return rows.some((r) => r.status === 'exceeds_limit');
+    });
+  }, [pois, showOnlyExceeded, analysisByPoiId]);
+
+  const columnAnalysis = useMemo(
+    () => displayedPois.map((poi) => analysisByPoiId[poi.id] ?? { rows: [], total_cost_mln: null }),
+    [displayedPois, analysisByPoiId]
+  );
+
+  const { rows: matrixRows, columnNames, poisByColumn } = useMemo(
+    () => buildMatrixRowsByPois(displayedPois, columnAnalysis),
+    [displayedPois, columnAnalysis]
+  );
+
+  const safeSelectedCol = Math.min(selectedCol, Math.max(0, columnNames.length - 1));
 
   const sections = useMemo(() => {
     const seen = new Set<string>();
@@ -74,18 +79,92 @@ export function MatrixPage() {
     }, []);
   }, [matrixRows]);
 
-  const colCount = scenarioNames.length + 1;
+  const colCount = columnNames.length + 1;
+
+  const analyzeMut = useMutation({
+    mutationFn: () => api.analyzeAllPois(projectId!),
+    onSuccess: async (batch) => {
+      if (!projectId) return;
+      for (const item of batch.results) {
+        queryClient.setQueryData(
+          ['analysis', projectId, item.poi_id],
+          normalizePoiAnalysisResponse(item)
+        );
+      }
+      await queryClient.invalidateQueries({ queryKey: ['scenarios', projectId] });
+      pushToast(
+        'success',
+        batch.analyzed_count === 1
+          ? 'Анализ окружения выполнен для 1 точки'
+          : `Анализ окружения выполнен для ${batch.analyzed_count} точек`
+      );
+    },
+    onError: (err) => {
+      pushToast(
+        'error',
+        err instanceof Error ? err.message : 'Не удалось выполнить анализ окружения'
+      );
+    },
+  });
+
+  const updateEngMut = useMutation({
+    mutationFn: async ({
+      poiId,
+      key,
+      value,
+    }: {
+      poiId: string;
+      key: EngineeringParamKey;
+      value: string;
+    }) => {
+      return api.updatePoi(projectId!, poiId, { [key]: value } as Partial<POI>);
+    },
+    onSuccess: (updated) => {
+      if (!projectId) return;
+      queryClient.setQueryData<POI[]>(['pois', projectId], (prev) =>
+        (prev ?? []).map((p) => (p.id === updated.id ? updated : p))
+      );
+      queryClient.removeQueries({ queryKey: ['analysis', projectId, updated.id] });
+      pushToast('success', 'Изменения сохранены');
+    },
+    onError: (err) => {
+      pushToast(
+        'error',
+        err instanceof Error ? err.message : 'Не удалось сохранить параметр'
+      );
+    },
+  });
 
   return (
     <div>
-      <div className="flex items-center justify-between mb-6">
+      <div className="flex items-center justify-between mb-6 gap-3 flex-wrap">
         <div>
           <h1 className="text-2xl font-bold">Матрица решений</h1>
           <p className="text-sm mt-1" style={{ color: 'var(--text-muted)' }}>
-            Данные из сценариев и анализа POI (FR-8)
+            Сравнение анализа окружения по всем точкам интереса проекта
           </p>
         </div>
-        <div className="flex gap-2">
+        <div className="flex gap-2 flex-wrap justify-end">
+          {projectId && pois.length > 0 && (
+            <button
+              type="button"
+              className="btn btn-primary"
+              onClick={() => analyzeMut.mutate()}
+              disabled={analyzeMut.isPending}
+              title={
+                pois.length > 1
+                  ? `Пересчитать анализ для всех ${pois.length} точек`
+                  : 'Пересчитать анализ окружения'
+              }
+            >
+              <Zap size={16} className="inline mr-1" />
+              {analyzeMut.isPending
+                ? 'Расчёт…'
+                : pois.length > 1
+                  ? `Анализировать все (${pois.length})`
+                  : 'Анализировать окружение'}
+            </button>
+          )}
           <button
             type="button"
             className={`btn ${showOnlyExceeded ? 'btn-primary' : 'btn-secondary'}`}
@@ -113,109 +192,136 @@ export function MatrixPage() {
         </div>
       </div>
 
-      <div className="grid grid-cols-1 xl:grid-cols-3 gap-4">
-        <div className="xl:col-span-2">
-          {viewMode === 'table' ? (
+      <div>
+          {pois.length === 0 ? (
+            <div className="card text-sm" style={{ color: 'var(--text-muted)' }}>
+              В проекте нет точек интереса. Добавьте POI на карте.
+            </div>
+          ) : viewMode === 'table' ? (
             <div className="card p-0 table-wrap">
-              <table className="data-table">
+              <table className="data-table matrix-table">
                 <thead>
                   <tr>
                     <th>Параметр</th>
-                    {scenarioNames.map((s, i) => (
+                    {columnNames.map((name, i) => (
                       <th
-                        key={s + i}
-                        className={`cursor-pointer ${selectedCol === i ? 'bg-blue-50' : ''}`}
+                        key={poisByColumn[i]?.id ?? name + i}
+                        className={`cursor-pointer ${safeSelectedCol === i ? 'bg-blue-50' : ''}`}
                         onClick={() => setSelectedCol(i)}
+                        title={poisByColumn[i]?.name}
                       >
-                        {s}
+                        {name}
                       </th>
                     ))}
                   </tr>
                 </thead>
                 <tbody>
-                  {sections.map((section) => (
-                    <Fragment key={section}>
-                      <tr>
-                        <td colSpan={colCount} className="font-semibold bg-gray-50 text-xs uppercase tracking-wide">
-                          {section}
-                        </td>
-                      </tr>
-                      {matrixRows
-                        .filter((r) => r.section === section)
-                        .map((row) => (
-                          <tr key={row.label}>
-                            <td>{row.label}</td>
-                            {row.cells.map((cell, i) => (
-                              <td
-                                key={i}
-                                className={`${row.total ? 'font-bold' : ''} ${
-                                  cell.status === 'exceeds_limit' ? 'text-red-600' : ''
-                                }`}
-                              >
-                                {cell.badge ? (
-                                  <span className="badge badge-secondary">{cell.text}</span>
-                                ) : (
-                                  cell.text
-                                )}
-                              </td>
-                            ))}
-                          </tr>
-                        ))}
-                    </Fragment>
-                  ))}
+                  {displayedPois.length === 0 ? (
+                    <tr>
+                      <td colSpan={colCount} className="text-center py-6" style={{ color: 'var(--text-muted)' }}>
+                        Нет POI с превышениями лимитов
+                      </td>
+                    </tr>
+                  ) : (
+                    sections.map((section) => (
+                      <Fragment key={section}>
+                        <tr>
+                          <td colSpan={colCount} className="font-semibold bg-gray-50 text-xs uppercase tracking-wide">
+                            {section}
+                          </td>
+                        </tr>
+                        {matrixRows
+                          .filter((r) => r.section === section)
+                          .map((row) => (
+                            <tr key={`${row.section}-${row.label}`}>
+                              <td>{row.label}</td>
+                              {row.cells.map((cell, i) => {
+                                const poi = poisByColumn[i];
+                                const engKey = row.engineeringKey;
+
+                                return (
+                                  <td
+                                    key={poisByColumn[i]?.id ?? i}
+                                    className={`${row.total ? 'font-bold' : ''} ${
+                                      cell.status === 'exceeds_limit' ? 'text-red-600' : ''
+                                    } ${safeSelectedCol === i ? 'bg-blue-50/50' : ''} ${
+                                      engKey && poi ? 'matrix-eng-cell' : ''
+                                    }`}
+                                    onClick={engKey && poi ? (e) => e.stopPropagation() : undefined}
+                                  >
+                                    {engKey && poi ? (
+                                      <AppSelect
+                                        variant="compact"
+                                        fullWidth={false}
+                                        matchMenuWidth
+                                        className="matrix-eng-select"
+                                        ariaLabel={`${row.label}: ${poi.name}`}
+                                        value={String(poi[engKey] ?? '')}
+                                        disabled={updateEngMut.isPending}
+                                        onChange={(value) => {
+                                          if (value === poi[engKey]) return;
+                                          updateEngMut.mutate({
+                                            poiId: poi.id,
+                                            key: engKey,
+                                            value,
+                                          });
+                                        }}
+                                        options={engineeringOptionsForKey(engKey)}
+                                      />
+                                    ) : cell.badge ? (
+                                      <span className="badge badge-secondary">{cell.text}</span>
+                                    ) : cell.subtext ? (
+                                      <div className="matrix-cell-stacked">
+                                        <div className="matrix-cell-cost">{cell.text}</div>
+                                        <div className="matrix-cell-detail">{cell.subtext}</div>
+                                      </div>
+                                    ) : (
+                                      cell.text
+                                    )}
+                                  </td>
+                                );
+                              })}
+                            </tr>
+                          ))}
+                      </Fragment>
+                    ))
+                  )}
                 </tbody>
               </table>
             </div>
           ) : (
             <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-              {scenarioNames.map((s, i) => {
-                const total = displayedScenarios[i]?.results?.total_cost_mln;
-                return (
-                  <div
-                    key={s + i}
-                    className={`card cursor-pointer ${selectedCol === i ? 'ring-2 ring-blue-500' : ''}`}
-                    onClick={() => setSelectedCol(i)}
-                  >
-                    <h3 className="font-semibold mb-3">{s}</h3>
-                    <div className="text-2xl font-bold text-blue-600 mb-2">
-                      {total != null ? `${total} млн ₽` : '—'}
+              {displayedPois.length === 0 ? (
+                <div className="card text-sm" style={{ color: 'var(--text-muted)' }}>
+                  Нет POI с превышениями лимитов
+                </div>
+              ) : (
+                columnNames.map((name, i) => {
+                  const col = columnAnalysis[i];
+                  const hasAnalysis = (col?.rows.length ?? 0) > 0;
+                  return (
+                    <div
+                      key={poisByColumn[i]?.id ?? name + i}
+                      className={`card cursor-pointer ${safeSelectedCol === i ? 'ring-2 ring-blue-500' : ''}`}
+                      onClick={() => setSelectedCol(i)}
+                    >
+                      <h3 className="font-semibold mb-3">{name}</h3>
+                      <div className="text-2xl font-bold text-blue-600 mb-2">
+                        {col?.total_cost_mln != null ? `${col.total_cost_mln} млн ₽` : '—'}
+                      </div>
+                      <div className="text-sm space-y-1" style={{ color: 'var(--text-muted)' }}>
+                        {!hasAnalysis && (
+                          <div className="text-xs">
+                            Нажмите «Анализировать окружение» для расчёта
+                          </div>
+                        )}
+                      </div>
                     </div>
-                    <div className="text-sm space-y-1" style={{ color: 'var(--text-muted)' }}>
-                      {poiByColumn[i]?.name && <div>POI: {poiByColumn[i]!.name}</div>}
-                      {!displayedScenarios[i]?.results && (
-                        <div className="text-xs">Запустите анализ на карте</div>
-                      )}
-                    </div>
-                  </div>
-                );
-              })}
+                  );
+                })
+              )}
             </div>
           )}
-        </div>
-
-        <div>
-          <div className="card mb-4">
-            <h3 className="font-semibold mb-2">
-              Мини-карта: {scenarioNames[selectedCol] || 'Сценарий'}
-              {selectedPoi ? ` · ${selectedPoi.name}` : ''}
-            </h3>
-            <MapView
-              pois={pois}
-              infraObjects={infraObjects}
-              selectedPoi={selectedPoi}
-              connectionLines={connectionLines}
-              height="250px"
-              useMapIcons
-              layers={layers}
-            />
-          </div>
-          <PoiParamsPanel
-            projectId={projectId}
-            poiId={selectedPoi?.id ?? null}
-            onPoiChange={() => {}}
-            className="p-3"
-          />
-        </div>
       </div>
     </div>
   );

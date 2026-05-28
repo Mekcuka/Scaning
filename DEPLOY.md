@@ -1,7 +1,8 @@
 # Deploy: GitHub Pages + Yandex Cloud
 
 Репозиторий: https://github.com/Mekcuka/Scaning  
-Сайт (Pages): https://mekcuka.github.io/Scaning/
+Сайт (Pages): https://mekcuka.github.io/Scaning/  
+API (DuckDNS): https://erascaning.duckdns.org
 
 Этот проект использует два независимых автодеплоя:
 - frontend: GitHub Pages (уже работает);

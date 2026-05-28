@@ -1,4 +1,5 @@
-import { NavLink, Outlet, useNavigate } from 'react-router-dom';
+import { useState } from 'react';
+import { NavLink, Outlet, useLocation, useNavigate, useOutletContext } from 'react-router-dom';
 import {
   LayoutDashboard,
   Map,
@@ -15,6 +16,8 @@ import {
 } from 'lucide-react';
 import { useAuthStore, useAppStore } from '../../store';
 import { useActiveProject } from '../../hooks/useActiveProject';
+import { AppSelect } from '../AppSelect';
+import { ToastStack } from '../ToastStack';
 
 const NAV = [
   { to: '/', icon: LayoutDashboard, label: 'Дашборд' },
@@ -27,11 +30,25 @@ const NAV = [
   { to: '/import', icon: Upload, label: 'Импорт' },
 ];
 
+export type DashboardOutletContext = {
+  projectSearch: string;
+};
+
+export function useDashboardOutlet(): DashboardOutletContext {
+  return useOutletContext<DashboardOutletContext>() ?? { projectSearch: '' };
+}
+
 export function AppLayout() {
   const { user, logout } = useAuthStore();
-  const { theme, toggleTheme } = useAppStore();
+  const { theme, toggleTheme, toasts, dismissToast } = useAppStore();
   const { projects, projectId, setProjectId, hasProjects } = useActiveProject();
   const navigate = useNavigate();
+  const { pathname } = useLocation();
+  const [projectSearch, setProjectSearch] = useState('');
+
+  const isDashboard = pathname === '/';
+  const isMapPage = pathname === '/map';
+  const isProjectsPage = pathname === '/projects';
 
   const handleLogout = () => {
     logout();
@@ -40,6 +57,7 @@ export function AppLayout() {
 
   return (
     <div className="flex h-screen max-h-screen overflow-hidden">
+      <ToastStack toasts={toasts} onDismiss={dismissToast} position="bottom" />
       <aside
         className="w-56 h-screen max-h-screen flex flex-col shrink-0 overflow-hidden"
         style={{ background: 'var(--sidebar-bg)', color: 'var(--sidebar-text)' }}
@@ -84,35 +102,49 @@ export function AppLayout() {
       <div className="flex-1 flex flex-col min-w-0 min-h-0 h-screen overflow-hidden">
         <header
           className="h-14 flex items-center gap-4 px-6 border-b shrink-0"
-          style={{ background: 'var(--surface)', borderColor: 'var(--border)' }}
+          style={{ background: 'var(--surface)', borderColor: 'var(--border)', boxShadow: 'var(--shadow)' }}
         >
-          <div className="flex-1 font-semibold text-sm">Система поддержки принятия решений</div>
-          {hasProjects && (
-            <label className="flex items-center gap-2 text-sm">
-              <span style={{ color: 'var(--text-muted)' }}>Проект:</span>
-              <select
-                className="text-sm px-2 py-1 rounded-lg border max-w-[220px]"
-                style={{ borderColor: 'var(--border)', background: 'var(--surface)' }}
-                value={projectId ?? ''}
-                onChange={(e) => setProjectId(e.target.value || null)}
-              >
-                {projects.map((p) => (
-                  <option key={p.id} value={p.id}>
-                    {p.name}
-                  </option>
-                ))}
-              </select>
-            </label>
-          )}
-          <button type="button" className="btn btn-ghost p-2" onClick={toggleTheme} title="Тема">
-            {theme === 'light' ? <Moon size={18} /> : <Sun size={18} />}
-          </button>
-          <button type="button" className="btn btn-secondary btn-sm" onClick={handleLogout}>
-            <LogOut size={16} /> Выход
-          </button>
+          <div className="flex flex-1 items-center justify-end gap-4 min-w-0">
+            {(isDashboard || isProjectsPage) && (
+              <input
+                type="search"
+                className="topbar-search"
+                placeholder="Поиск проектов..."
+                value={projectSearch}
+                onChange={(e) => setProjectSearch(e.target.value)}
+                aria-label="Поиск проектов"
+              />
+            )}
+            {!isDashboard && !isProjectsPage && hasProjects && (
+              <label className="flex items-center gap-2 text-sm shrink-0">
+                <span style={{ color: 'var(--text-muted)' }}>Проект:</span>
+                <AppSelect
+                  variant="toolbar"
+                  icon={<FolderOpen size={14} aria-hidden />}
+                  ariaLabel="Проект"
+                  value={projectId ?? ''}
+                  onChange={(id) => setProjectId(id || null)}
+                  options={projects.map((p) => ({ value: p.id, label: p.name }))}
+                />
+              </label>
+            )}
+            <button type="button" className="btn btn-ghost p-2 shrink-0" onClick={toggleTheme} title="Тема">
+              {theme === 'light' ? <Moon size={18} /> : <Sun size={18} />}
+            </button>
+            <button type="button" className="btn btn-secondary btn-sm shrink-0" onClick={handleLogout}>
+              <LogOut size={16} /> Выход
+            </button>
+          </div>
         </header>
-        <main className="flex-1 min-h-0 p-6 overflow-y-auto overflow-x-hidden">
-          <Outlet />
+        <main
+          className={
+            isMapPage
+              ? 'flex flex-1 min-h-0 flex-col overflow-hidden p-6'
+              : 'flex-1 min-h-0 overflow-y-auto overflow-x-hidden p-6'
+          }
+          style={{ background: 'var(--bg)' }}
+        >
+          <Outlet context={{ projectSearch } satisfies DashboardOutletContext} />
         </main>
       </div>
     </div>

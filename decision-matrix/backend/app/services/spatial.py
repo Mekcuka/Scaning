@@ -9,7 +9,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.config import settings
 from app.geo.geometry_utils import point_wkt
-from app.services.cost_rates import EXTERNAL_POINT_SUBTYPES
+from app.services.cost_rates import EXTERNAL_LINEAR_SUBTYPES
 from app.models import (
     InfrastructureLayer,
     InfrastructureNetwork,
@@ -363,3 +363,132 @@ async def list_network_node_candidates(
 
 def anchor_point_wkt(lon: float, lat: float):
     return point_wkt(lon, lat)
+
+
+COORD_MATCH_EPS = 1e-6
+
+
+def coords_match(lon_a: float, lat_a: float, lon_b: float, lat_b: float) -> bool:
+    return abs(lon_a - lon_b) <= COORD_MATCH_EPS and abs(lat_a - lat_b) <= COORD_MATCH_EPS
+
+
+def _is_line_infra_object(obj: InfrastructureObject) -> bool:
+    coords = line_coords_from_object(obj)
+    return len(coords) >= 2 or obj.end_longitude is not None
+
+
+def _candidates_from_line_object(poi: PointOfInterest, obj: InfrastructureObject) -> list[NearestResult]:
+    out: list[NearestResult] = [distance_to_object(poi, obj)]
+    coords = line_coords_from_object(obj)
+    if len(coords) < 2:
+        return out
+    for lon, lat in coords:
+        d = haversine_km(poi.longitude, poi.latitude, lon, lat)
+        out.append(
+            NearestResult(
+                object_id=obj.id,
+                name=obj.name,
+                distance_km=d,
+                anchor_type="line_vertex",
+                anchor_lon=lon,
+                anchor_lat=lat,
+            )
+        )
+    return out
+
+
+async def _visible_infra_objects(
+    db: AsyncSession, project_id: UUID, subtype: str | None = None
+) -> list[InfrastructureObject]:
+    q = (
+        select(InfrastructureObject)
+        .join(InfrastructureLayer)
+        .where(
+            InfrastructureLayer.project_id == project_id,
+            InfrastructureLayer.is_visible.is_(True),
+        )
+    )
+    if subtype is not None:
+        q = q.where(InfrastructureObject.subtype == subtype)
+    return list((await db.execute(q)).scalars().all())
+
+
+def _connection_node_candidates(
+    poi: PointOfInterest,
+    line_subtype: str,
+    lines: list[InfrastructureObject],
+    nodes: list[InfrastructureObject],
+) -> list[NearestResult]:
+    out: list[NearestResult] = []
+    for line in lines:
+        if line.subtype != line_subtype or not _is_line_infra_object(line):
+            continue
+        endpoints = [line_coords_from_object(line)[0], line_coords_from_object(line)[-1]]
+        for node in nodes:
+            for ep_lon, ep_lat in endpoints:
+                if coords_match(node.longitude, node.latitude, ep_lon, ep_lat):
+                    d = haversine_km(poi.longitude, poi.latitude, node.longitude, node.latitude)
+                    out.append(
+                        NearestResult(
+                            object_id=line.id,
+                            name=line.name,
+                            distance_km=d,
+                            anchor_type="connection_node",
+                            anchor_lon=node.longitude,
+                            anchor_lat=node.latitude,
+                        )
+                    )
+    return out
+
+
+def _pick_nearest(candidates: list[NearestResult]) -> NearestResult | None:
+    best: NearestResult | None = None
+    for c in candidates:
+        if best is None or c.distance_km < best.distance_km:
+            best = c
+    return best
+
+
+async def find_nearest_external_linear(
+    db: AsyncSession,
+    project_id: UUID,
+    poi: PointOfInterest,
+    subtype: str,
+) -> NearestResult | None:
+    """Nearest vertex / point-on-line / connection node for drawable lines of subtype."""
+    if subtype not in EXTERNAL_LINEAR_SUBTYPES:
+        return None
+    lines = [
+        o
+        for o in await _visible_infra_objects(db, project_id, subtype)
+        if _is_line_infra_object(o)
+    ]
+    nodes = [o for o in await _visible_infra_objects(db, project_id, "node")]
+    candidates: list[NearestResult] = []
+    for line in lines:
+        candidates.extend(_candidates_from_line_object(poi, line))
+    candidates.extend(_connection_node_candidates(poi, subtype, lines, nodes))
+    return _pick_nearest(candidates)
+
+
+async def list_external_linear_candidates(
+    db: AsyncSession,
+    project_id: UUID,
+    poi: PointOfInterest,
+    subtype: str,
+    limit: int = 20,
+) -> list[NearestResult]:
+    if subtype not in EXTERNAL_LINEAR_SUBTYPES:
+        return []
+    lines = [
+        o
+        for o in await _visible_infra_objects(db, project_id, subtype)
+        if _is_line_infra_object(o)
+    ]
+    nodes = [o for o in await _visible_infra_objects(db, project_id, "node")]
+    candidates: list[NearestResult] = []
+    for line in lines:
+        candidates.extend(_candidates_from_line_object(poi, line))
+    candidates.extend(_connection_node_candidates(poi, subtype, lines, nodes))
+    candidates.sort(key=lambda r: r.distance_km)
+    return candidates[:limit]

@@ -43,20 +43,42 @@ export const useAuthStore = create<AuthState>((set) => ({
   },
 }));
 
+export type ToastTone = 'info' | 'success' | 'error';
+
+export type ToastItem = {
+  id: number;
+  tone: ToastTone;
+  text: string;
+};
+
+const TOAST_DISMISS_MS = 5000;
+
 interface AppState {
   theme: 'light' | 'dark';
   currentProjectId: string | null;
   /** Incremented after import / bulk map data changes — MapPage resets bbox filter. */
   mapRefreshNonce: number;
+  toasts: ToastItem[];
   toggleTheme: () => void;
   setCurrentProjectId: (id: string | null) => void;
   bumpMapRefresh: () => void;
+  pushToast: (tone: ToastTone, text: string) => void;
+  dismissToast: (id: number) => void;
 }
 
 export const useAppStore = create<AppState>((set, get) => ({
   theme: (localStorage.getItem('theme') as 'light' | 'dark') || 'light',
   currentProjectId: localStorage.getItem('currentProjectId'),
   mapRefreshNonce: 0,
+  toasts: [],
+  pushToast: (tone, text) => {
+    const id = Date.now() + Math.floor(Math.random() * 1000);
+    set((s) => ({ toasts: [...s.toasts, { id, tone, text }] }));
+    window.setTimeout(() => {
+      set((s) => ({ toasts: s.toasts.filter((t) => t.id !== id) }));
+    }, TOAST_DISMISS_MS);
+  },
+  dismissToast: (id) => set((s) => ({ toasts: s.toasts.filter((t) => t.id !== id) })),
   bumpMapRefresh: () => set((s) => ({ mapRefreshNonce: s.mapRefreshNonce + 1 })),
   toggleTheme: () => {
     const next = get().theme === 'light' ? 'dark' : 'light';

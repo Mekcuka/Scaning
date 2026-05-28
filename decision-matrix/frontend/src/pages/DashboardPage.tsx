@@ -1,90 +1,179 @@
+import { useMemo } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { Link } from 'react-router-dom';
-import { FolderOpen, Map, Grid3X3 } from 'lucide-react';
+import { FileOutput, Grid3X3, MapPin, Map, Plus } from 'lucide-react';
 import { api } from '../lib/api';
-import { PoiParamsPanel } from '../components/PoiParamsPanel';
-import { useAuthStore, useAppStore } from '../store';
+import {
+  filterProjectsByQuery,
+  formatProjectDate,
+  projectStatus,
+  sparklineBars,
+} from '../lib/projectDisplay';
+import { useAuthStore } from '../store';
+import { useDashboardOutlet } from '../components/layout/AppLayout';
+
+function displayName(username: string | undefined): string {
+  if (!username) return 'Engineer';
+  const part = username.trim().split(/\s+/)[0];
+  return part || 'Engineer';
+}
 
 export function DashboardPage() {
   const user = useAuthStore((s) => s.user);
-  const projectId = useAppStore((s) => s.currentProjectId);
+  const { projectSearch = '' } = useDashboardOutlet();
   const { data: projects = [] } = useQuery({ queryKey: ['projects'], queryFn: api.projects });
 
+  const filtered = useMemo(
+    () => filterProjectsByQuery(projects, projectSearch),
+    [projects, projectSearch],
+  );
+
+  const totalPoi = projects.reduce((s, p) => s + p.poi_count, 0);
+  const scenarioEstimate = projects.length * 3;
+  const exceedCount = 0;
+
   return (
-    <div>
-      <div className="card mb-6" style={{ background: 'linear-gradient(135deg, #1e40af 0%, #3b82f6 100%)', color: 'white', border: 'none' }}>
-        <h1 className="text-2xl font-bold mb-1">Добро пожаловать, {user?.username?.split(' ')[0] || 'Engineer'}</h1>
-        <p className="opacity-90 text-sm">MVP системы поддержки принятия решений для нефтегазовой отрасли</p>
-      </div>
+    <div className="dashboard-page">
+      <header className="page-header">
+        <h1>Добро пожаловать, {displayName(user?.username)}</h1>
+        <p className="subtitle">Оценка инфраструктуры и сравнение сценариев реализации</p>
+      </header>
 
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
-        <div className="card">
-          <div className="flex items-center gap-3 mb-2">
-            <FolderOpen size={20} className="text-blue-600" />
-            <span className="font-semibold">Проекты</span>
-          </div>
-          <div className="text-3xl font-bold">{projects.length}</div>
+      <div className="stats-row">
+        <div className="stat-box">
+          <div className="value tabular">{projects.length}</div>
+          <div className="label">Проектов</div>
         </div>
-        <div className="card">
-          <div className="flex items-center gap-3 mb-2">
-            <Map size={20} className="text-green-600" />
-            <span className="font-semibold">POI всего</span>
-          </div>
-          <div className="text-3xl font-bold">{projects.reduce((s, p) => s + p.poi_count, 0)}</div>
+        <div className="stat-box">
+          <div className="value tabular">{totalPoi}</div>
+          <div className="label">Точек интереса</div>
         </div>
-        <div className="card">
-          <div className="flex items-center gap-3 mb-2">
-            <Grid3X3 size={20} className="text-purple-600" />
-            <span className="font-semibold">Активных</span>
-          </div>
-          <div className="text-3xl font-bold">{projects.filter((p) => p.status === 'active').length}</div>
+        <div className="stat-box">
+          <div className="value tabular">{scenarioEstimate}</div>
+          <div className="label">Сценариев</div>
+        </div>
+        <div className={`stat-box${exceedCount > 0 ? ' warning' : ''}`}>
+          <div className="value tabular">{exceedCount}</div>
+          <div className="label">Превышений лимита</div>
         </div>
       </div>
 
-      <div className="card">
-        <h2 className="font-semibold mb-4 text-center">Быстрые действия</h2>
-        <div className="flex flex-wrap gap-3 justify-center">
-          <Link to="/projects" className="btn btn-primary">Проекты</Link>
-          <Link to="/map" className="btn btn-secondary">Карта</Link>
-          <Link to="/matrix" className="btn btn-secondary">Матрица</Link>
-          <Link to="/rates" className="btn btn-secondary">Ставки</Link>
-        </div>
+      <div className="quick-actions">
+        <Link to="/projects" className="quick-card">
+          <div className="icon-wrap">
+            <Plus size={20} />
+          </div>
+          <strong>Новый проект</strong>
+        </Link>
+        <Link to="/map" className="quick-card">
+          <div className="icon-wrap">
+            <Map size={20} />
+          </div>
+          <strong>Открыть карту</strong>
+        </Link>
+        <Link to="/matrix" className="quick-card">
+          <div className="icon-wrap">
+            <Grid3X3 size={20} />
+          </div>
+          <strong>Матрица</strong>
+        </Link>
+        <Link to="/report" className="quick-card">
+          <div className="icon-wrap">
+            <FileOutput size={20} />
+          </div>
+          <strong>Отчёт</strong>
+        </Link>
       </div>
 
-      {projects.length > 0 && (
-        <div className="card mt-4">
-          <h2 className="font-semibold mb-3">Последние проекты</h2>
-          <div className="table-wrap">
+      {filtered.length > 0 && (
+        <>
+          <h2 className="text-base font-semibold mb-3">Проекты</h2>
+          <div className="projects-grid">
+            {filtered.map((p) => {
+              const st = projectStatus(p.status);
+              return (
+                <Link key={p.id} to={`/projects/${p.id}`} className="project-card">
+                  <h3>{p.name}</h3>
+                  <p>{p.description || 'Без описания'}</p>
+                  <div className="project-card-meta">
+                    <span className="flex items-center gap-1">
+                      <MapPin size={14} />
+                      {p.poi_count} POI
+                    </span>
+                    <span className={`status ${st.className}`}>{st.label}</span>
+                  </div>
+                  <div className="sparkline">{sparklineBars(p.id)}</div>
+                </Link>
+              );
+            })}
+          </div>
+        </>
+      )}
+
+      <div className="card card--flush">
+        <div className="card-header">
+          <h2>Все проекты</h2>
+          <Link to="/projects" className="btn btn-primary btn-sm">
+            Список
+          </Link>
+        </div>
+        <div className="table-wrap">
+          {filtered.length === 0 ? (
+            <p className="p-6 text-sm" style={{ color: 'var(--text-muted)' }}>
+              {projects.length === 0
+                ? 'Проектов пока нет. Создайте первый через «Новый проект».'
+                : 'Ничего не найдено по запросу поиска.'}
+            </p>
+          ) : (
             <table className="data-table">
               <thead>
                 <tr>
                   <th>Название</th>
                   <th>POI</th>
                   <th>Статус</th>
+                  <th>Дата</th>
+                  <th>Стоимость</th>
+                  <th />
                 </tr>
               </thead>
               <tbody>
-                {projects.slice(0, 5).map((p) => (
-                  <tr key={p.id}>
-                    <td><Link to={`/projects/${p.id}`} className="text-blue-600 hover:underline">{p.name}</Link></td>
-                    <td>{p.poi_count}</td>
-                    <td><span className="badge badge-muted">{p.status}</span></td>
-                  </tr>
-                ))}
+                {filtered.map((p) => {
+                  const st = projectStatus(p.status);
+                  return (
+                    <tr key={p.id}>
+                      <td>
+                        <Link
+                          to={`/projects/${p.id}`}
+                          className="hover:underline"
+                          style={{ color: 'var(--primary)', fontWeight: 500 }}
+                        >
+                          {p.name}
+                        </Link>
+                      </td>
+                      <td className="tabular">{p.poi_count}</td>
+                      <td>
+                        <span className={`status ${st.className}`}>{st.label}</span>
+                      </td>
+                      <td>{formatProjectDate(p.created_at)}</td>
+                      <td className="tabular" style={{ color: 'var(--text-muted)' }}>
+                        —
+                      </td>
+                      <td>
+                        <Link
+                          to={`/projects/${p.id}`}
+                          className="btn btn-secondary btn-sm"
+                        >
+                          Открыть
+                        </Link>
+                      </td>
+                    </tr>
+                  );
+                })}
               </tbody>
             </table>
-          </div>
+          )}
         </div>
-      )}
-
-      <PoiParamsPanel
-        projectId={projectId}
-        readOnly
-        showSave={false}
-        sections={['basic', 'engineering', 'thresholds']}
-        title="Параметры POI (сводка)"
-        className="mt-4"
-      />
+      </div>
     </div>
   );
 }

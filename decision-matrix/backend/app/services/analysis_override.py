@@ -14,7 +14,7 @@ from app.models import (
     PoiInfrastructureAnalysis,
     PointOfInterest,
 )
-from app.services.calculations import calc_distance_status_external, calc_distance_status_internal
+from app.services.calculations import calc_distance_status_external
 from app.services.spatial import anchor_point_wkt, distance_to_object, haversine_km
 
 
@@ -46,22 +46,16 @@ async def set_force_construction(
     if row.distance_status == "not_required":
         raise ValueError("Subtype is not required")
 
+    if row.param_type == "internal":
+        raise ValueError("Принудительное строительство доступно только для внешних объектов")
     row.force_construction = force
     limit = row.max_allowed_distance_km or 0
-    if row.param_type == "internal":
-        row.distance_status = calc_distance_status_internal(
-            row.distance_km or 0.0,
-            limit,
-            active=True,
-            force_construction=force,
-        )
-    else:
-        row.distance_status = calc_distance_status_external(
-            row.distance_km,
-            limit,
-            object_found=row.distance_km is not None,
-            force_construction=force,
-        )
+    row.distance_status = calc_distance_status_external(
+        row.distance_km,
+        limit,
+        object_found=row.distance_km is not None,
+        force_construction=force,
+    )
     await db.flush()
     return row
 

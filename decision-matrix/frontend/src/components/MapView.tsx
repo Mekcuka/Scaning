@@ -8,21 +8,30 @@ import XYZ from 'ol/source/XYZ';
 import VectorSource from 'ol/source/Vector';
 import Cluster from 'ol/source/Cluster';
 import { boundingExtent } from 'ol/extent';
-import { fromLonLat, transform } from 'ol/proj';
+import { fromLonLat, getPointResolution, transform } from 'ol/proj';
 import Feature from 'ol/Feature';
 import Point from 'ol/geom/Point';
 import LineString from 'ol/geom/LineString';
-import { Circle as CircleGeom } from 'ol/geom';
+import { circular as circularPolygon } from 'ol/geom/Polygon';
 import { Circle as CircleStyle, Fill, Icon, Stroke, Style, Text } from 'ol/style';
-import type { InfraLayer } from '../lib/api';
+import { LINE_SUBTYPES, type InfraLayer } from '../lib/api';
 import Select from 'ol/interaction/Select';
 import Modify from 'ol/interaction/Modify';
 import DragBox from 'ol/interaction/DragBox';
 import DragPan from 'ol/interaction/DragPan';
 import { defaults as defaultInteractions } from 'ol/interaction/defaults';
 import { click } from 'ol/events/condition';
+import Overlay from 'ol/Overlay';
 import type { AnalysisRow, InfraObject, POI } from '../lib/api';
+import { isValidAnalysisAnchor } from '../lib/analysisDisplay';
 import { iconDataUrl } from '../lib/mapIcons';
+import {
+  loadMapViewState,
+  resolveInitialMapView,
+  saveMapViewState,
+  type MapViewStateId,
+} from '../lib/mapViewState';
+import { useAppStore } from '../store';
 import 'ol/ol.css';
 
 function infraLineGeometry(obj: InfraObject): LineString | null {
@@ -63,16 +72,18 @@ function syncFeaturesById(
 }
 
 const SUBTYPE_COLORS: Record<string, string> = {
-  autoroad: '#78909c',
+  autoroad: '#000000',
   oil_pipeline: '#5d4037',
-  gas_pipeline: '#2e7d32',
-  water_pipeline: '#0288d1',
-  power_line: '#fbc02d',
+  gas_pipeline: '#fbc02d',
+  water_pipeline: '#2196f3',
+  power_line: '#2e7d32',
   gas_processing: '#ff6f00',
   gtes: '#d84315',
   substation: '#f9a825',
   refinery: '#455a64',
+  node: '#6a1b9a',
 };
+const LINE_SUBTYPE_SET = new Set<string>(LINE_SUBTYPES as readonly string[]);
 
 const STATUS_LINE_COLOR: Record<string, string> = {
   within_limit: '#4caf50',
@@ -87,7 +98,7 @@ export interface ThresholdCircle {
   visible: boolean;
 }
 
-export type DrawMode = 'select' | 'poi' | 'point' | 'line';
+export type DrawMode = 'select' | 'poi' | 'point' | 'line' | 'ruler';
 
 export type SelectMode = 'single' | 'box';
 
@@ -101,6 +112,12 @@ export type MapFocusTarget = {
   lat: number;
   extentLonLat?: [number, number, number, number];
   nonce: number;
+};
+
+export type MeasureLabel = {
+  lon: number;
+  lat: number;
+  text: string;
 };
 
 function resolveFeatureSelection(f: Feature): MapFeatureSelection | null {
@@ -150,12 +167,16 @@ interface MapViewProps {
   drawMode?: DrawMode;
   selectMode?: SelectMode;
   onMapClick?: (lon: number, lat: number) => void;
-  onFinishLine?: (coords: number[][]) => void;
+  onFinishLine?: (coords: number[][], finishAt?: { lon: number; lat: number }) => void;
+  /** Double-click / finish current measure polyline (ruler mode). */
+  onFinishMeasure?: () => void;
   onPointerMove?: (lon: number, lat: number) => void;
+  onPointerLeave?: () => void;
   onFeatureSelect?: (sel: MapFeatureSelection | null) => void;
   onFeatureGroupSelect?: (sels: MapFeatureSelection[]) => void;
   onGeometryChange?: (sel: MapFeatureSelection, lon: number, lat: number, coords?: number[][]) => void;
   onBboxChange?: (bbox: string) => void;
+  onViewChange?: (info: { zoom: number; scaleLabel: string }) => void;
   height?: string;
   connectionLines?: AnalysisRow[];
   selectedPoi?: POI | null;
@@ -163,6 +184,15 @@ interface MapViewProps {
   selectedFeatureIds?: string[];
   thresholdCircles?: ThresholdCircle[];
   draftLine?: number[][];
+  /** Active measure polyline (lon/lat vertices). */
+  measureLine?: number[][];
+  measurePreview?: [number, number] | null;
+  /** Finished measure polylines (stay on map until reset). */
+  measureCompletedLines?: number[][][];
+  /** Label following cursor while drawing. */
+  measureCursorLabel?: MeasureLabel | null;
+  /** Labels at finished measure endpoints. */
+  measureAnchorLabels?: MeasureLabel[];
   showRadii?: boolean;
   networkNodes?: NetworkNode[];
   networkEdges?: NetworkEdge[];
@@ -172,7 +202,19 @@ interface MapViewProps {
   mapFocus?: MapFocusTarget | null;
   /** When false: view-only — no drag-edit of geometries (select/view still allowed). */
   editMode?: boolean;
+  /** Ghost icon at cursor while placing point infrastructure. */
+  placementPreview?: { subtype: string; lon: number; lat: number } | null;
+  /** Remember pan/zoom per project when leaving the page (main / matrix / report). */
+  viewStateId?: MapViewStateId;
+  /** Optional sub-key (e.g. POI id on the report map). */
+  viewStateScope?: string | null;
 }
+
+type LinkedLineDragState = {
+  sessionId: number;
+  pointId: string;
+  links: { lineId: string; start: boolean; end: boolean }[];
+};
 
 function layerOpacityMap(layers: InfraLayer[] | undefined): Record<string, number> {
   const m: Record<string, number> = {};
@@ -226,6 +268,7 @@ function lineStyleForStatus(status: string): Style {
 const HOVER_GLOW = 'rgba(33, 150, 243, 0.28)';
 const HOVER_RING_FILL = 'rgba(33, 150, 243, 0.1)';
 const HOVER_RING_STROKE = 'rgba(33, 150, 243, 0.45)';
+const LINE_ENDPOINT_FOLLOW_TOLERANCE_M = 250;
 
 function lineStrokeStyles(color: string, width: number, hovered: boolean): Style[] {
   if (!hovered) {
@@ -298,6 +341,18 @@ function fallbackPointStyle(subtype: string, scale = 1): Style {
   });
 }
 
+function placementPreviewStyles(subtype: string, useIcons: boolean): Style[] {
+  const ring = new Style({
+    image: new CircleStyle({
+      radius: 22,
+      fill: new Fill({ color: 'rgba(33, 150, 243, 0.12)' }),
+      stroke: new Stroke({ color: 'rgba(33, 150, 243, 0.55)', width: 2, lineDash: [5, 5] }),
+    }),
+  });
+  const base = useIcons ? pointIconStyle(subtype, 1) : [fallbackPointStyle(subtype, 1)];
+  return [ring, ...base];
+}
+
 function pointFeatureStyles(
   subtype: string,
   scale: number,
@@ -318,18 +373,26 @@ export function MapView({
   selectMode = 'single',
   onMapClick,
   onFinishLine,
+  onFinishMeasure,
   onPointerMove,
+  onPointerLeave,
   onFeatureSelect,
   onFeatureGroupSelect,
   onGeometryChange,
   onBboxChange,
-  height = 'min(70vh, 720px)',
+  onViewChange,
+  height = '100%',
   connectionLines = [],
   selectedPoi = null,
   selectedFeatureId = null,
   selectedFeatureIds = [],
   thresholdCircles = [],
   draftLine = [],
+  measureLine = [],
+  measurePreview = null,
+  measureCompletedLines = [],
+  measureCursorLabel = null,
+  measureAnchorLabels = [],
   showRadii = true,
   networkNodes = [],
   networkEdges = [],
@@ -338,7 +401,11 @@ export function MapView({
   layers = [],
   mapFocus = null,
   editMode = false,
+  placementPreview = null,
+  viewStateId,
+  viewStateScope = null,
 }: MapViewProps) {
+  const projectId = useAppStore((s) => s.currentProjectId);
   const opacityByLayer = layerOpacityMap(layers);
   const colorByLayer = layerColorMap(layers);
   const containerRef = useRef<HTMLDivElement>(null);
@@ -346,8 +413,10 @@ export function MapView({
   const pointSourceRef = useRef(new VectorSource());
   const lineSourceRef = useRef(new VectorSource());
   const networkSourceRef = useRef(new VectorSource());
-  const clusterSourceRef = useRef(new Cluster({ distance: 40, source: pointSourceRef.current }));
+  // Disable clustering so imported points keep their own subtype color/icon.
+  const clusterSourceRef = useRef(new Cluster({ distance: 0, source: pointSourceRef.current }));
   const radiusSourceRef = useRef(new VectorSource());
+  const placementPreviewSourceRef = useRef(new VectorSource());
   const connectionSourceRef = useRef(new VectorSource());
   const selectRef = useRef<Select | null>(null);
   const modifyRef = useRef<Modify | null>(null);
@@ -358,25 +427,45 @@ export function MapView({
   const hoveredIdRef = useRef<string | null>(null);
   const onMapClickRef = useRef(onMapClick);
   const onPointerMoveRef = useRef(onPointerMove);
+  const onPointerLeaveRef = useRef(onPointerLeave);
   const onFeatureSelectRef = useRef(onFeatureSelect);
   const onFeatureGroupSelectRef = useRef(onFeatureGroupSelect);
   const onGeometryChangeRef = useRef(onGeometryChange);
   const onBboxChangeRef = useRef(onBboxChange);
+  const onViewChangeRef = useRef(onViewChange);
   const onFinishLineRef = useRef(onFinishLine);
+  const onFinishMeasureRef = useRef(onFinishMeasure);
   const draftLineRef = useRef(draftLine);
+  const cursorMeasureOverlayRef = useRef<Overlay | null>(null);
+  const anchorMeasureOverlaysRef = useRef<Overlay[]>([]);
   const drawModeRef = useRef(drawMode);
   const editModeRef = useRef(editMode);
   const selectModeRef = useRef(selectMode);
   const useIconsRef = useRef(useMapIcons);
   const suppressDataSyncRef = useRef(false);
+  const linkedLineDragRef = useRef<LinkedLineDragState | null>(null);
+  const modifySessionRef = useRef(0);
+  const suppressMapClickRef = useRef(false);
+  const lineRightClickRef = useRef({ at: 0, x: 0, y: 0 });
+  const viewStateIdRef = useRef(viewStateId);
+  const viewStateScopeRef = useRef(viewStateScope);
+  const projectIdRef = useRef(projectId);
+  const prevProjectIdForViewRef = useRef<string | null | undefined>(undefined);
+
+  viewStateIdRef.current = viewStateId;
+  viewStateScopeRef.current = viewStateScope;
+  projectIdRef.current = projectId;
 
   onMapClickRef.current = onMapClick;
   onPointerMoveRef.current = onPointerMove;
+  onPointerLeaveRef.current = onPointerLeave;
   onFeatureSelectRef.current = onFeatureSelect;
   onFeatureGroupSelectRef.current = onFeatureGroupSelect;
   onGeometryChangeRef.current = onGeometryChange;
   onBboxChangeRef.current = onBboxChange;
+  onViewChangeRef.current = onViewChange;
   onFinishLineRef.current = onFinishLine;
+  onFinishMeasureRef.current = onFinishMeasure;
   draftLineRef.current = draftLine;
   drawModeRef.current = drawMode;
   editModeRef.current = editMode;
@@ -396,12 +485,20 @@ export function MapView({
             stroke: new Stroke({ color: '#2196f3', width: 2, lineDash: [6, 6] }),
           });
         }
+        if (subtype === 'measure') {
+          return new Style({
+            stroke: new Stroke({ color: '#c45c00', width: 2.5, lineDash: [8, 6] }),
+          });
+        }
         const id = feature.get('id') as string;
         const hovered = id && hoveredIdRef.current === id;
         const layerId = feature.get('layer_id') as string | undefined;
         const op = layerId ? opacityByLayer[layerId] ?? 1 : 1;
         const custom = layerId ? colorByLayer[layerId] : undefined;
-        const color = custom || SUBTYPE_COLORS[subtype] || '#666';
+        // For linear objects keep canonical subtype colors; layer color remains for non-line objects.
+        const color = LINE_SUBTYPE_SET.has(subtype)
+          ? (SUBTYPE_COLORS[subtype] || '#666')
+          : (custom || SUBTYPE_COLORS[subtype] || '#666');
         const strokeColor =
           op < 1 && color.startsWith('#')
             ? `${color}${Math.round(op * 255)
@@ -466,6 +563,13 @@ export function MapView({
       },
     });
 
+    const placementPreviewLayer = new VectorLayer({
+      source: placementPreviewSourceRef.current,
+      zIndex: 6,
+      style: (feature) =>
+        placementPreviewStyles(feature.get('subtype') as string, useIconsRef.current),
+    });
+
     const connectionLayer = new VectorLayer({
       source: connectionSourceRef.current,
       zIndex: 5,
@@ -505,12 +609,20 @@ export function MapView({
         connectionLayer,
         lineLayer,
         pointLayer,
+        placementPreviewLayer,
       ],
       interactions: defaultInteractions({ doubleClickZoom: false }),
-      view: new View({
-        center: fromLonLat([37.6176, 55.7558]),
-        zoom: 9,
-      }),
+      view: (() => {
+        const initial = resolveInitialMapView(
+          viewStateIdRef.current,
+          projectIdRef.current,
+          viewStateScopeRef.current
+        );
+        return new View({
+          center: fromLonLat([initial.centerLon, initial.centerLat]),
+          zoom: initial.zoom,
+        });
+      })(),
     });
 
     const dragPan = map
@@ -585,18 +697,61 @@ export function MapView({
     });
 
     modify.on('modifystart', () => {
+      const sessionId = ++modifySessionRef.current;
       suppressDataSyncRef.current = true;
+      linkedLineDragRef.current = null;
+      if (!editModeRef.current) return;
+      const collection = select.getFeatures();
+      const f = collection.item(0);
+      if (!f) return;
+      const members = f.get('features') as Feature[] | undefined;
+      const inner = members?.length === 1 ? members[0] : f;
+      const subtype = inner.get('subtype') as string;
+      const kind = inner.get('featureKind') as string;
+      const id = inner.get('id') as string;
+      const geom = f.getGeometry();
+      if (!id || kind !== 'infra' || !(geom instanceof Point) || LINE_SUBTYPES.includes(subtype as typeof LINE_SUBTYPES[number])) {
+        return;
+      }
+      const pointCoord = geom.getCoordinates();
+      const links: LinkedLineDragState['links'] = [];
+      lineSourceRef.current.getFeatures().forEach((lineFeature) => {
+        const lineId = lineFeature.get('id') as string | undefined;
+        const lineSubtype = lineFeature.get('subtype') as string | undefined;
+        if (!lineId || !lineSubtype || lineSubtype === 'draft' || lineSubtype === 'measure') return;
+        if (!LINE_SUBTYPES.includes(lineSubtype as typeof LINE_SUBTYPES[number])) return;
+        const lineGeom = lineFeature.getGeometry();
+        if (!(lineGeom instanceof LineString)) return;
+        const coords = lineGeom.getCoordinates();
+        if (coords.length < 2) return;
+        const first = coords[0];
+        const last = coords[coords.length - 1];
+        const start = Math.hypot(first[0] - pointCoord[0], first[1] - pointCoord[1]) <= LINE_ENDPOINT_FOLLOW_TOLERANCE_M;
+        const end = Math.hypot(last[0] - pointCoord[0], last[1] - pointCoord[1]) <= LINE_ENDPOINT_FOLLOW_TOLERANCE_M;
+        if (!start && !end) return;
+        links.push({ lineId, start, end });
+      });
+      if (links.length > 0) {
+        linkedLineDragRef.current = { sessionId, pointId: id, links };
+      }
     });
 
     modify.on('modifyend', () => {
-      if (!editModeRef.current) {
+      const sessionId = modifySessionRef.current;
+      const finishSession = () => {
+        // Ignore stale completions from previous drags.
+        if (sessionId !== modifySessionRef.current) return;
+        linkedLineDragRef.current = null;
         suppressDataSyncRef.current = false;
+      };
+      if (!editModeRef.current) {
+        finishSession();
         return;
       }
       const collection = select.getFeatures();
       const f = collection.item(0);
       if (!f) {
-        suppressDataSyncRef.current = false;
+        finishSession();
         return;
       }
       const members = f.get('features') as Feature[] | undefined;
@@ -606,16 +761,13 @@ export function MapView({
       // Modify updates the selected wrapper (cluster); read geometry from `f`, not stale inner.
       const geom = f.getGeometry();
       if (!geom || !kind || !id) {
-        suppressDataSyncRef.current = false;
+        finishSession();
         return;
       }
       if (members?.length === 1 && inner !== f && geom instanceof Point) {
         inner.setGeometry(geom.clone());
         clusterSourceRef.current.refresh();
       }
-      const releaseSync = () => {
-        suppressDataSyncRef.current = false;
-      };
       let save: void | Promise<void>;
       if (geom instanceof Point) {
         const [lon, lat] = transform(geom.getCoordinates(), 'EPSG:3857', 'EPSG:4326');
@@ -632,13 +784,13 @@ export function MapView({
         const [lon, lat] = coords[0];
         save = onGeometryChangeRef.current?.({ kind: 'infra', id }, lon, lat, coords);
       } else {
-        releaseSync();
+        finishSession();
         return;
       }
       if (save != null && typeof (save as Promise<void>).then === 'function') {
-        (save as Promise<void>).finally(releaseSync);
+        (save as Promise<void>).finally(finishSession);
       } else {
-        releaseSync();
+        finishSession();
       }
     });
 
@@ -647,8 +799,76 @@ export function MapView({
     map.addInteraction(dragBox);
     dragBox.setActive(false);
 
+    const DOUBLE_RMB_MS = 650;
+    const DOUBLE_RMB_MAX_PX = 28;
+
+    const finishAtFromPointerEvent = (e: MouseEvent | PointerEvent): { lon: number; lat: number } | null => {
+      const pixel = map.getEventPixel(e as UIEvent);
+      const hit = map.forEachFeatureAtPixel(
+        pixel,
+        (feat, layer) => {
+          if (layer !== pointLayer) return undefined;
+          const features = feat.get('features') as Feature[] | undefined;
+          const inner = features?.length === 1 ? features[0] : feat;
+          const subtype = inner.get('subtype') as string;
+          const kind = inner.get('featureKind') as string;
+          if (!inner.get('id') || subtype === 'draft') return undefined;
+          if (kind !== 'infra') return undefined;
+          const geom = inner.getGeometry();
+          if (!(geom instanceof Point)) return undefined;
+          const [lon, lat] = transform(geom.getCoordinates(), 'EPSG:3857', 'EPSG:4326');
+          return { lon, lat };
+        },
+        { hitTolerance: 20, layerFilter: (l) => l === pointLayer }
+      );
+      if (hit) return hit;
+      const mapCoord = map.getCoordinateFromPixel(pixel);
+      if (!mapCoord) return null;
+      const [lon, lat] = transform(mapCoord, 'EPSG:3857', 'EPSG:4326');
+      return { lon, lat };
+    };
+
+    const tryFinishLineAtPointer = (e: MouseEvent | PointerEvent): boolean => {
+      if (drawModeRef.current !== 'line') return false;
+      const coords = draftLineRef.current || [];
+      if (coords.length < 2) return false;
+      const finishAt = finishAtFromPointerEvent(e);
+      if (!finishAt) return false;
+      onFinishLineRef.current?.(coords, finishAt);
+      return true;
+    };
+
+    const onLineContextMenu = (e: MouseEvent) => {
+      if (drawModeRef.current !== 'line') return;
+      e.preventDefault();
+    };
+
+    const onLinePointerDown = (e: PointerEvent) => {
+      if (e.button !== 2) return;
+      if (drawModeRef.current !== 'line') return;
+      e.preventDefault();
+      suppressMapClickRef.current = true;
+      window.setTimeout(() => {
+        suppressMapClickRef.current = false;
+      }, 450);
+
+      const now = Date.now();
+      const prev = lineRightClickRef.current;
+      const dist = Math.hypot(e.clientX - prev.x, e.clientY - prev.y);
+      if (prev.at > 0 && now - prev.at <= DOUBLE_RMB_MS && dist <= DOUBLE_RMB_MAX_PX) {
+        lineRightClickRef.current = { at: 0, x: 0, y: 0 };
+        tryFinishLineAtPointer(e);
+      } else {
+        lineRightClickRef.current = { at: now, x: e.clientX, y: e.clientY };
+      }
+    };
+
     map.on('click', (evt) => {
-      if (drawModeRef.current !== 'select') {
+      const orig = evt.originalEvent;
+      if (orig instanceof MouseEvent && orig.button !== 0) return;
+      if (suppressMapClickRef.current) return;
+      const mode = drawModeRef.current;
+      if (mode !== 'select') {
         const [lon, lat] = transform(evt.coordinate, 'EPSG:3857', 'EPSG:4326');
         onMapClickRef.current?.(lon, lat);
         return;
@@ -670,11 +890,24 @@ export function MapView({
     });
 
     map.on('dblclick', (evt) => {
-      if (drawModeRef.current !== 'line') return;
-      const coords = draftLineRef.current || [];
-      if (coords.length < 2) return;
+      const mode = drawModeRef.current;
+      if (mode === 'ruler') {
+        evt.preventDefault();
+        onFinishMeasureRef.current?.();
+        return;
+      }
+      if (mode !== 'line') return;
+      if ((draftLineRef.current || []).length < 2) return;
       evt.preventDefault();
-      onFinishLineRef.current?.(coords);
+      const orig = evt.originalEvent;
+      if (orig instanceof MouseEvent) {
+        tryFinishLineAtPointer(orig);
+      } else {
+        const coords = draftLineRef.current || [];
+        if (coords.length < 2) return;
+        const [lon, lat] = transform(evt.coordinate, 'EPSG:3857', 'EPSG:4326');
+        onFinishLineRef.current?.(coords, { lon, lat });
+      }
     });
     const refreshHover = (hit: string | null) => {
       if (hit === hoveredIdRef.current) return;
@@ -682,17 +915,20 @@ export function MapView({
       pointLayer.changed();
       lineLayer.changed();
       if (containerRef.current) {
-        const inSelect = drawModeRef.current === 'select';
+        const mode = drawModeRef.current;
+        const inSelect = mode === 'select';
         const editing = editModeRef.current;
         containerRef.current.style.cursor = hit
           ? 'pointer'
-          : !editing
-            ? 'default'
-            : inSelect
-              ? selectModeRef.current === 'box'
-                ? 'crosshair'
-                : 'default'
-              : 'crosshair';
+          : mode === 'ruler' || mode === 'point' || mode === 'poi'
+            ? 'crosshair'
+            : !editing
+              ? 'default'
+              : inSelect
+                ? selectModeRef.current === 'box'
+                  ? 'crosshair'
+                  : 'default'
+                : 'crosshair';
       }
     };
 
@@ -716,12 +952,71 @@ export function MapView({
       refreshHover(hit);
     });
 
+    map.on('pointerdrag', () => {
+      const dragState = linkedLineDragRef.current;
+      if (!dragState || !editModeRef.current) return;
+      const collection = select.getFeatures();
+      const f = collection.item(0);
+      if (!f) return;
+      const geom = f.getGeometry();
+      if (!(geom instanceof Point)) return;
+      const pointCoord = geom.getCoordinates();
+      for (const link of dragState.links) {
+        const lineFeature = lineSourceRef.current
+          .getFeatures()
+          .find((f) => (f.get('id') as string | undefined) === link.lineId);
+        if (!lineFeature) continue;
+        const lineGeom = lineFeature.getGeometry();
+        if (!(lineGeom instanceof LineString)) continue;
+        const current = lineGeom.getCoordinates();
+        if (current.length < 2) continue;
+        const next = current.map((c) => [c[0], c[1]]);
+        if (link.start) next[0] = [pointCoord[0], pointCoord[1]];
+        if (link.end) next[next.length - 1] = [pointCoord[0], pointCoord[1]];
+        lineFeature.setGeometry(new LineString(next));
+      }
+      lineLayer.changed();
+    });
+
     const viewport = map.getViewport();
-    const onViewportLeave = () => refreshHover(null);
+    const onViewportLeave = () => {
+      refreshHover(null);
+      placementPreviewSourceRef.current.clear();
+      onPointerLeaveRef.current?.();
+    };
     viewport.addEventListener('mouseleave', onViewportLeave);
+    viewport.addEventListener('contextmenu', onLineContextMenu, true);
+    viewport.addEventListener('pointerdown', onLinePointerDown, true);
+
+    const reportView = () => {
+      const view = map.getView();
+      const zoom = view.getZoom() ?? 0;
+      const resolution = view.getResolution();
+      const center = view.getCenter();
+      let scaleLabel = '—';
+      if (resolution != null && center) {
+        const res = getPointResolution('EPSG:3857', resolution, center);
+        const scale = Math.max(1, Math.round(res * 39.37 * 72));
+        scaleLabel = `1:${scale.toLocaleString('ru-RU')}`;
+      }
+      onViewChangeRef.current?.({ zoom, scaleLabel });
+    };
+
+    const persistView = () => {
+      const vid = viewStateIdRef.current;
+      if (!vid) return;
+      const view = map.getView();
+      const center = view.getCenter();
+      const zoom = view.getZoom();
+      if (!center || zoom == null) return;
+      const [centerLon, centerLat] = transform(center, 'EPSG:3857', 'EPSG:4326');
+      saveMapViewState(vid, projectIdRef.current, { centerLon, centerLat, zoom }, viewStateScopeRef.current);
+    };
 
     let bboxTimer: ReturnType<typeof setTimeout> | undefined;
     map.on('moveend', () => {
+      reportView();
+      persistView();
       if (!onBboxChangeRef.current) return;
       clearTimeout(bboxTimer);
       bboxTimer = setTimeout(() => {
@@ -732,15 +1027,72 @@ export function MapView({
         onBboxChangeRef.current?.(`${minLon},${minLat},${maxLon},${maxLat}`);
       }, 300);
     });
+    reportView();
+
+    const preserveViewOnResize = () => {
+      const view = map.getView();
+      const center = view.getCenter();
+      const resolution = view.getResolution();
+      map.updateSize();
+      if (center && resolution != null) {
+        view.setCenter(center);
+        view.setResolution(resolution);
+      }
+    };
+
+    const resizeObserver =
+      typeof ResizeObserver !== 'undefined' && containerRef.current
+        ? new ResizeObserver(() => preserveViewOnResize())
+        : null;
+    resizeObserver?.observe(containerRef.current);
 
     mapRef.current = map;
     return () => {
       clearTimeout(bboxTimer);
+      resizeObserver?.disconnect();
       viewport.removeEventListener('mouseleave', onViewportLeave);
+      viewport.removeEventListener('contextmenu', onLineContextMenu, true);
+      viewport.removeEventListener('pointerdown', onLinePointerDown, true);
       map.setTarget(undefined);
       mapRef.current = null;
     };
   }, []);
+
+  useEffect(() => {
+    const map = mapRef.current;
+    const vid = viewStateId;
+    if (!map || !vid) return;
+
+    if (prevProjectIdForViewRef.current === undefined) {
+      prevProjectIdForViewRef.current = projectId;
+      return;
+    }
+    if (prevProjectIdForViewRef.current === projectId) return;
+    prevProjectIdForViewRef.current = projectId;
+
+    const saved = loadMapViewState(vid, projectId, viewStateScope);
+    const view = map.getView();
+    if (saved) {
+      view.setCenter(fromLonLat([saved.centerLon, saved.centerLat]));
+      view.setZoom(saved.zoom);
+    } else {
+      const initial = resolveInitialMapView(vid, projectId, viewStateScope);
+      view.setCenter(fromLonLat([initial.centerLon, initial.centerLat]));
+      view.setZoom(initial.zoom);
+    }
+  }, [projectId, viewStateId]);
+
+  useEffect(() => {
+    const map = mapRef.current;
+    const vid = viewStateId;
+    if (!map || !vid || !viewStateScope) return;
+
+    const saved = loadMapViewState(vid, projectId, viewStateScope);
+    if (!saved) return;
+    const view = map.getView();
+    view.setCenter(fromLonLat([saved.centerLon, saved.centerLat]));
+    view.setZoom(saved.zoom);
+  }, [viewStateScope, projectId, viewStateId]);
 
   useEffect(() => {
     if (!mapRef.current) return;
@@ -751,6 +1103,7 @@ export function MapView({
 
   useEffect(() => {
     const isSelect = drawMode === 'select';
+    const isRuler = drawMode === 'ruler';
     const isSingle = isSelect && selectMode === 'single';
     const isBox = isSelect && selectMode === 'box';
     const canModify = editMode && isSingle;
@@ -759,13 +1112,16 @@ export function MapView({
     dragBoxRef.current?.setActive(isBox);
     dragPanRef.current?.setActive(!isBox);
     if (containerRef.current) {
-      const cursor = !editMode
-        ? 'default'
-        : isBox
-          ? 'crosshair'
-          : isSelect
-            ? 'default'
-            : 'crosshair';
+      const isPointPlace = drawMode === 'point' || drawMode === 'poi';
+      const cursor = isRuler || isPointPlace
+        ? 'crosshair'
+        : !editMode
+          ? 'default'
+          : isBox
+            ? 'crosshair'
+            : isSelect
+              ? 'default'
+              : 'crosshair';
       containerRef.current.style.cursor = cursor;
     }
     if (!isSelect) {
@@ -868,6 +1224,13 @@ export function MapView({
     syncFeaturesById(lines, lineItems, 'draft');
     syncFeaturesById(points, pointItems);
 
+    clusterSourceRef.current.refresh();
+  }, [pois, infraObjects]);
+
+  useEffect(() => {
+    if (suppressDataSyncRef.current) return;
+    const lines = lineSourceRef.current;
+
     const draftFeature = lines.getFeatures().find((f) => f.get('subtype') === 'draft');
     if (draftLine.length >= 2) {
       const draftGeom = new LineString(draftLine.map((c) => fromLonLat([c[0], c[1]])));
@@ -880,8 +1243,93 @@ export function MapView({
       lines.removeFeature(draftFeature);
     }
 
-    clusterSourceRef.current.refresh();
-  }, [pois, infraObjects, draftLine]);
+    lines
+      .getFeatures()
+      .filter((f) => f.get('subtype') === 'measure')
+      .forEach((f) => lines.removeFeature(f));
+
+    measureCompletedLines.forEach((coords, i) => {
+      if (coords.length < 2) return;
+      lines.addFeature(
+        new Feature({
+          geometry: new LineString(coords.map((c) => fromLonLat([c[0], c[1]]))),
+          subtype: 'measure',
+          id: `measure-done-${i}`,
+          measureFinished: true,
+        })
+      );
+    });
+
+    const activeCoords = [...measureLine];
+    if (measurePreview && activeCoords.length >= 1) {
+      activeCoords.push(measurePreview);
+    }
+    if (activeCoords.length >= 2) {
+      lines.addFeature(
+        new Feature({
+          geometry: new LineString(activeCoords.map((c) => fromLonLat([c[0], c[1]]))),
+          subtype: 'measure',
+          id: 'measure-active',
+          measureFinished: false,
+        })
+      );
+    }
+  }, [draftLine, measureLine, measurePreview, measureCompletedLines]);
+
+  useEffect(() => {
+    const map = mapRef.current;
+    if (!map) return;
+
+    const makeLabelEl = (className: string) => {
+      const el = document.createElement('div');
+      el.className = className;
+      return el;
+    };
+
+    if (!cursorMeasureOverlayRef.current) {
+      const el = makeLabelEl('measure-label measure-label--cursor');
+      const overlay = new Overlay({
+        element: el,
+        positioning: 'center-left',
+        offset: [12, 0],
+        stopEvent: false,
+      });
+      cursorMeasureOverlayRef.current = overlay;
+      map.addOverlay(overlay);
+    }
+
+    const cursorOverlay = cursorMeasureOverlayRef.current;
+    const cursorEl = cursorOverlay.getElement();
+    if (measureCursorLabel && cursorEl) {
+      cursorEl.textContent = measureCursorLabel.text;
+      cursorOverlay.setPosition(fromLonLat([measureCursorLabel.lon, measureCursorLabel.lat]));
+    } else {
+      cursorOverlay.setPosition(undefined);
+    }
+
+    while (anchorMeasureOverlaysRef.current.length > measureAnchorLabels.length) {
+      const extra = anchorMeasureOverlaysRef.current.pop();
+      if (extra) map.removeOverlay(extra);
+    }
+    while (anchorMeasureOverlaysRef.current.length < measureAnchorLabels.length) {
+      const el = makeLabelEl('measure-label measure-label--anchor');
+      const overlay = new Overlay({
+        element: el,
+        positioning: 'bottom-center',
+        offset: [0, -10],
+        stopEvent: false,
+      });
+      anchorMeasureOverlaysRef.current.push(overlay);
+      map.addOverlay(overlay);
+    }
+    measureAnchorLabels.forEach((label, i) => {
+      const overlay = anchorMeasureOverlaysRef.current[i];
+      const el = overlay.getElement();
+      if (!el) return;
+      el.textContent = label.text;
+      overlay.setPosition(fromLonLat([label.lon, label.lat]));
+    });
+  }, [measureCursorLabel, measureAnchorLabels]);
 
   useEffect(() => {
     const select = selectRef.current;
@@ -903,15 +1351,19 @@ export function MapView({
     if (!selectedPoi) return;
     const poiCoord = fromLonLat([selectedPoi.lon, selectedPoi.lat]);
     connectionLines.forEach((row) => {
-        source.addFeature(
-          new Feature({
-            geometry: new LineString([poiCoord, fromLonLat([row.anchor_lon!, row.anchor_lat!])]),
-            status: row.status,
-            subtype: row.subtype,
-            distance_km: row.distance_km,
-          })
-        );
-      });
+      if (!isValidAnalysisAnchor(row.anchor_lon, row.anchor_lat)) return;
+      source.addFeature(
+        new Feature({
+          geometry: new LineString([
+            poiCoord,
+            fromLonLat([row.anchor_lon!, row.anchor_lat!]),
+          ]),
+          status: row.status,
+          subtype: row.subtype,
+          distance_km: row.distance_km,
+        })
+      );
+    });
   }, [connectionLines, selectedPoi]);
 
   useEffect(() => {
@@ -924,13 +1376,18 @@ export function MapView({
     const source = radiusSourceRef.current;
     source.clear();
     if (!showRadii || !selectedPoi) return;
-    const center = fromLonLat([selectedPoi.lon, selectedPoi.lat]);
+    const centerLonLat: [number, number] = [selectedPoi.lon, selectedPoi.lat];
     thresholdCircles
       .filter((c) => c.visible && c.km > 0)
       .forEach((c) => {
+        // Geodesic circle in lon/lat, then transform to map projection.
+        const geom = circularPolygon(centerLonLat, c.km * 1000, 128).transform(
+          'EPSG:4326',
+          'EPSG:3857',
+        );
         source.addFeature(
           new Feature({
-            geometry: new CircleGeom(center, c.km * 1000),
+            geometry: geom,
             color: c.color,
             key: c.key,
           })
@@ -970,6 +1427,18 @@ export function MapView({
   }, [networkNodes, networkEdges, nodeCoordLookup]);
 
   useEffect(() => {
+    const source = placementPreviewSourceRef.current;
+    source.clear();
+    if (!placementPreview) return;
+    source.addFeature(
+      new Feature({
+        geometry: new Point(fromLonLat([placementPreview.lon, placementPreview.lat])),
+        subtype: placementPreview.subtype,
+      })
+    );
+  }, [placementPreview]);
+
+  useEffect(() => {
     const map = mapRef.current;
     if (!map || !mapFocus) return;
     const view = map.getView();
@@ -994,10 +1463,9 @@ export function MapView({
   return (
     <div
       ref={containerRef}
-      className="map-container rounded-xl overflow-hidden border"
+      className="map-container"
       style={{
         height,
-        borderColor: 'var(--border)',
         background: showBasemap ? undefined : 'var(--bg, #e8ecef)',
       }}
       data-selected={selectedFeatureId || ''}

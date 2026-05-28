@@ -53,7 +53,7 @@ from app.api.v1.graph import graph_router
 from app.api.v1.import_connections import connections_router
 from app.api.v1.map import map_router
 from app.geo.geometry_utils import point_wkt
-from app.services.infrastructure_analysis import run_poi_analysis
+from app.services.infrastructure_analysis import link_poi_scenarios, run_poi_analysis, run_project_pois_analysis
 from app.services.serializers import poi_to_response
 
 router = APIRouter()
@@ -321,6 +321,16 @@ async def create_poi(
     return poi_to_response(poi)
 
 
+@router.post("/projects/{project_id}/pois/analyze-all")
+async def analyze_all_pois(
+    project_id: UUID, user: User = Depends(get_current_user), db: AsyncSession = Depends(get_db)
+):
+    await _get_user_project(project_id, user, db)
+    payload = await run_project_pois_analysis(db, project_id)
+    await db.commit()
+    return payload
+
+
 @router.post("/projects/{project_id}/pois/{poi_id}/analyze")
 async def analyze_poi(
     project_id: UUID, poi_id: UUID, user: User = Depends(get_current_user), db: AsyncSession = Depends(get_db)
@@ -328,13 +338,7 @@ async def analyze_poi(
     await _get_user_project(project_id, user, db)
     poi = await _get_poi(poi_id, project_id, db)
     result = await run_poi_analysis(db, project_id, poi)
-    linked = (
-        await db.execute(
-            select(Scenario).where(Scenario.project_id == project_id, Scenario.poi_id == poi.id)
-        )
-    ).scalars().all()
-    for sc in linked:
-        sc.results = result
+    await link_poi_scenarios(db, project_id, poi.id, result)
     await db.commit()
     return result
 

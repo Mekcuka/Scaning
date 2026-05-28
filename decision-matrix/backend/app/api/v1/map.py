@@ -8,6 +8,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.api.deps import get_current_user
 from app.core.database import get_db
+from app.geo.constants import LINE_SUBTYPES
 from app.geo.geometry_utils import build_infra_geometry, line_coordinates_for_storage, point_wkt
 from app.geo.validation import category_for_subtype, validate_subtype_geometry
 from app.models import (
@@ -45,10 +46,12 @@ from app.services.import_service import (
     run_shapefile_import,
     schedule_async_import,
 )
+from app.services.line_endpoint_rules import LineEndpointRuleError, validate_line_endpoint_matrix
 from app.services.serializers import _infra_line_coordinates, infra_to_response, load_infra_name, poi_to_response
 from app.services.spatial import list_candidates_by_subtype
 
 map_router = APIRouter()
+COORD_MATCH_EPS = 1e-6
 
 
 @map_router.get("/projects/{project_id}/infrastructure/layers", response_model=list[LayerResponse])
@@ -227,7 +230,7 @@ async def clear_project_infrastructure(
         update(PoiInfrastructureAnalysis)
         .where(
             PoiInfrastructureAnalysis.poi_id.in_(poi_ids_sq),
-            PoiInfrastructureAnalysis.param_type == "external",
+            PoiInfrastructureAnalysis.param_type.in_(("external", "external_linear")),
             PoiInfrastructureAnalysis.distance_status != "not_required",
         )
         .values(
@@ -301,6 +304,21 @@ async def create_infra_object(
     if line_coords:
         props["coordinates"] = line_coords
 
+    if subtype in LINE_SUBTYPES:
+        try:
+            await validate_line_endpoint_matrix(
+                db,
+                project_id=project_id,
+                line_subtype=subtype,
+                lon=data.lon,
+                lat=data.lat,
+                end_lon=end_lon,
+                end_lat=end_lat,
+                coordinates=line_coords,
+            )
+        except LineEndpointRuleError as e:
+            raise HTTPException(status_code=400, detail=str(e))
+
     obj = InfrastructureObject(
         layer_id=layer.id,
         name=data.name,
@@ -369,6 +387,21 @@ async def update_infra_object(
             props = dict(obj.properties or {})
             props["coordinates"] = line_coords
             obj.properties = props
+        if subtype in LINE_SUBTYPES:
+            try:
+                await validate_line_endpoint_matrix(
+                    db,
+                    project_id=project_id,
+                    line_subtype=subtype,
+                    lon=lon,
+                    lat=lat,
+                    end_lon=end_lon,
+                    end_lat=end_lat,
+                    coordinates=line_coords,
+                    exclude_object_id=obj.id,
+                )
+            except LineEndpointRuleError as e:
+                raise HTTPException(status_code=400, detail=str(e))
 
     if "name" in payload:
         obj.name = payload["name"]
@@ -398,14 +431,41 @@ async def delete_infra_object(
 ):
     await _get_user_project(project_id, user, db)
     obj = await _get_infra_object(object_id, project_id, db)
+    delete_ids: set[UUID] = {object_id}
+    if obj.subtype not in LINE_SUBTYPES:
+        line_rows = (
+            await db.execute(
+                select(InfrastructureObject)
+                .join(InfrastructureLayer)
+                .where(
+                    InfrastructureLayer.project_id == project_id,
+                    InfrastructureObject.subtype.in_(LINE_SUBTYPES),
+                )
+            )
+        ).scalars().all()
+        point_lon = float(obj.longitude)
+        point_lat = float(obj.latitude)
+        for line in line_rows:
+            start_match = (
+                abs(float(line.longitude) - point_lon) <= COORD_MATCH_EPS
+                and abs(float(line.latitude) - point_lat) <= COORD_MATCH_EPS
+            )
+            end_match = (
+                line.end_longitude is not None
+                and line.end_latitude is not None
+                and abs(float(line.end_longitude) - point_lon) <= COORD_MATCH_EPS
+                and abs(float(line.end_latitude) - point_lat) <= COORD_MATCH_EPS
+            )
+            if start_match or end_match:
+                delete_ids.add(line.id)
     await db.execute(
         update(PoiInfrastructureAnalysis)
-        .where(PoiInfrastructureAnalysis.nearest_object_id == object_id)
+        .where(PoiInfrastructureAnalysis.nearest_object_id.in_(delete_ids))
         .values(nearest_object_id=None)
     )
     await db.execute(
         update(PoiInfrastructureAnalysis)
-        .where(PoiInfrastructureAnalysis.overridden_object_id == object_id)
+        .where(PoiInfrastructureAnalysis.overridden_object_id.in_(delete_ids))
         .values(overridden_object_id=None)
     )
     network_ids = (
@@ -414,12 +474,12 @@ async def delete_infra_object(
         )
     ).scalars().all()
     await db.execute(
-        delete(InfrastructureEdge).where(InfrastructureEdge.infrastructure_object_id == object_id)
+        delete(InfrastructureEdge).where(InfrastructureEdge.infrastructure_object_id.in_(delete_ids))
     )
     await db.execute(
-        delete(InfrastructureNode).where(InfrastructureNode.infrastructure_object_id == object_id)
+        delete(InfrastructureNode).where(InfrastructureNode.infrastructure_object_id.in_(delete_ids))
     )
-    await db.delete(obj)
+    await db.execute(delete(InfrastructureObject).where(InfrastructureObject.id.in_(delete_ids)))
     await db.flush()
     for network_id in network_ids:
         await prune_disconnected_nodes(db, network_id)
@@ -491,14 +551,21 @@ async def get_candidates(
     subtype: str = Query(...),
     limit: int = Query(20, ge=1, le=100),
     nearest_policy: str = Query("point_on_line", description="point_on_line | network_node"),
+    param_type: str | None = Query(None, description="external | external_linear"),
     user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
 ):
     await _get_user_project(project_id, user, db)
     poi = await _get_poi(poi_id, project_id, db)
-    candidates = await list_candidates_by_subtype(
-        db, project_id, poi, subtype.lower(), limit, nearest_policy=nearest_policy
-    )
+    st = subtype.lower()
+    if param_type == "external_linear":
+        from app.services.spatial import list_external_linear_candidates
+
+        candidates = await list_external_linear_candidates(db, project_id, poi, st, limit)
+    else:
+        candidates = await list_candidates_by_subtype(
+            db, project_id, poi, st, limit, nearest_policy=nearest_policy
+        )
     return [
         CandidateResponse(
             object_id=c.object_id,
@@ -538,6 +605,7 @@ async def patch_analysis_override(
             nearest_object_id=data.nearest_object_id,
             nearest_node_id=data.nearest_node_id,
             force_construction=data.force_construction,
+            param_type=data.param_type,
         )
     except ValueError as e:
         raise HTTPException(status_code=400, detail=str(e))

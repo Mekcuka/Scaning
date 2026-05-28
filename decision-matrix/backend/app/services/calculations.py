@@ -55,6 +55,7 @@ def calc_distance_status_internal(
     active: bool,
     force_construction: bool = False,
 ) -> str:
+    """Legacy limit check (external environment analysis only)."""
     if not active:
         return "not_required"
     if force_construction:
@@ -62,6 +63,11 @@ def calc_distance_status_internal(
     if distance_km > max_total_line_km:
         return "exceeds_limit"
     return "within_limit"
+
+
+def internal_analysis_status(*, active: bool) -> str:
+    """Internal linear/pads rows: cost via unit rates, not environment distance limits."""
+    return "not_required" if not active else "computed"
 
 
 def calc_overall_status(statuses: list[str]) -> str:
@@ -131,20 +137,7 @@ def apply_engineering_rules(state: EngineeringState) -> dict[str, str]:
             statuses["gtes"] = "not_required"
 
     if state.fluid_type == "gas":
-        if state.eng_transport == "auto":
-            statuses["oil_pipeline"] = "not_required"
         statuses["refinery"] = "not_required"
-    else:
-        # FR-5.4.1 — oil transport
-        if state.eng_transport == "auto":
-            statuses["oil_pipeline"] = "not_required"
-            statuses["refinery"] = "not_required"
-        elif state.eng_transport == "marine":
-            statuses["oil_pipeline"] = "active"
-            statuses["refinery"] = "not_required"
-        elif state.eng_transport == "pipeline":
-            statuses["oil_pipeline"] = "active"
-            statuses["refinery"] = "active"
 
     return statuses
 

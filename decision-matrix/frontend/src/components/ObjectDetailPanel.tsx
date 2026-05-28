@@ -4,6 +4,7 @@ import { X } from 'lucide-react';
 import { formatCoord, parseCoord } from '../lib/coords';
 import { api, SUBTYPE_LABELS, type InfraLayer, type InfraObject, type POI } from '../lib/api';
 import { getLineCoordinates, isLineSubtype } from '../lib/infraGeometry';
+import { AppSelect, selectOptionsFromRecord } from './AppSelect';
 import { PoiParamsForm } from './PoiParamsForm';
 import { formValuesToPoiPayload, poiToFormValues, type PoiFormValues } from '../lib/poiParams';
 
@@ -160,34 +161,24 @@ export function ObjectDetailPanel({
             </label>
             <label className="flex flex-col gap-0.5 mb-1.5">
               <span style={{ color: 'var(--text-muted)' }}>Подтип</span>
-              <select
-                className="input text-xs py-1"
+              <AppSelect
+                variant="compact"
                 value={subtype}
-                disabled={readOnly}
-                onChange={(e) => setSubtype(e.target.value)}
-              >
-                {Object.entries(SUBTYPE_LABELS).map(([k, v]) => (
-                  <option key={k} value={k}>
-                    {v}
-                  </option>
-                ))}
-              </select>
+                readOnly={readOnly}
+                onChange={setSubtype}
+                options={selectOptionsFromRecord(SUBTYPE_LABELS)}
+              />
             </label>
             {layers.length > 0 && (
               <label className="flex flex-col gap-0.5 mb-1.5">
                 <span style={{ color: 'var(--text-muted)' }}>Слой</span>
-                <select
-                  className="input text-xs py-1"
+                <AppSelect
+                  variant="compact"
                   value={layerId}
-                  disabled={readOnly}
-                  onChange={(e) => setLayerId(e.target.value)}
-                >
-                  {layers.map((l) => (
-                    <option key={l.id} value={l.id}>
-                      {l.name}
-                    </option>
-                  ))}
-                </select>
+                  readOnly={readOnly}
+                  onChange={setLayerId}
+                  options={layers.map((l) => ({ value: l.id, label: l.name }))}
+                />
               </label>
             )}
             <div className="grid grid-cols-2 gap-1.5 mb-1.5">

@@ -1,9 +1,16 @@
+import { useEffect, useMemo, useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { Download, FileText } from 'lucide-react';
-import { MapView } from '../components/MapView';
-import { PoiParamsPanel } from '../components/PoiParamsPanel';
+import { AppSelect } from '../components/AppSelect';
+import { MapView, type MapFocusTarget } from '../components/MapView';
 import { engLabel } from '../lib/poiParams';
-import { api } from '../lib/api';
+import { api, normalizePoiAnalysisResponse } from '../lib/api';
+import {
+  alignAnalysisRowsToMapObjects,
+  buildMapFocusForConnectionLines,
+  connectionLinesFromAnalysis,
+} from '../lib/analysisDisplay';
+import { loadMapViewState } from '../lib/mapViewState';
 import { useAppStore } from '../store';
 
 const ROADMAP = [
@@ -17,6 +24,18 @@ const ROADMAP = [
 
 export function ReportPage() {
   const projectId = useAppStore((s) => s.currentProjectId);
+  const [selectedPoiId, setSelectedPoiId] = useState('');
+  const [mapFocus, setMapFocus] = useState<MapFocusTarget | null>(null);
+
+  const { data: project } = useQuery({
+    queryKey: ['project', projectId],
+    queryFn: () => api.getProject(projectId!),
+    enabled: !!projectId,
+  });
+
+  useEffect(() => {
+    setSelectedPoiId('');
+  }, [projectId]);
 
   const { data: pois = [] } = useQuery({
     queryKey: ['pois', projectId],
@@ -36,14 +55,76 @@ export function ReportPage() {
     enabled: !!projectId,
   });
 
-  const selectedPoi = pois[0] ?? null;
+  const activePoiId = selectedPoiId || pois[0]?.id || '';
+  const selectedPoi = pois.find((p) => p.id === activePoiId) ?? pois[0] ?? null;
+
+  useEffect(() => {
+    if (pois.length === 0) {
+      setSelectedPoiId('');
+      return;
+    }
+    if (!activePoiId || !pois.some((p) => p.id === activePoiId)) {
+      setSelectedPoiId(pois[0].id);
+    }
+  }, [pois, activePoiId]);
 
   const { data: analysisData } = useQuery({
     queryKey: ['analysis', projectId, selectedPoi?.id],
-    queryFn: () => api.getPoiAnalysis(projectId!, selectedPoi!.id),
+    queryFn: async () => {
+      const raw = await api.getPoiAnalysis(projectId!, selectedPoi!.id);
+      return normalizePoiAnalysisResponse(raw);
+    },
     enabled: !!projectId && !!selectedPoi?.id,
     retry: false,
   });
+
+  const visibleLayerIds = useMemo(
+    () => new Set(layers.filter((l) => l.is_visible).map((l) => l.id)),
+    [layers]
+  );
+
+  const mapLayerVisibleInfra = useMemo(
+    () => infraObjects.filter((o) => visibleLayerIds.has(o.layer_id)),
+    [infraObjects, visibleLayerIds]
+  );
+
+  const alignedAnalysisRows = useMemo(
+    () => alignAnalysisRowsToMapObjects(analysisData?.rows ?? [], mapLayerVisibleInfra),
+    [analysisData?.rows, mapLayerVisibleInfra]
+  );
+
+  const connectionLines = useMemo(
+    () => connectionLinesFromAnalysis(alignedAnalysisRows, mapLayerVisibleInfra),
+    [alignedAnalysisRows, mapLayerVisibleInfra]
+  );
+
+  const connectionLinesKey = useMemo(
+    () =>
+      connectionLines
+        .map(
+          (r) =>
+            `${r.subtype}:${r.nearest_object_id ?? ''}:${r.anchor_lon ?? ''},${r.anchor_lat ?? ''}`
+        )
+        .join(';'),
+    [connectionLines]
+  );
+
+  useEffect(() => {
+    if (!selectedPoi || !projectId) {
+      setMapFocus(null);
+      return;
+    }
+    if (loadMapViewState('report', projectId, selectedPoi.id)) {
+      setMapFocus(null);
+      return;
+    }
+    const focus = buildMapFocusForConnectionLines(
+      { lon: selectedPoi.lon, lat: selectedPoi.lat },
+      connectionLines,
+      mapLayerVisibleInfra
+    );
+    setMapFocus({ ...focus, nonce: Date.now() });
+  }, [selectedPoi, projectId, connectionLinesKey, connectionLines, mapLayerVisibleInfra]);
 
   return (
     <div>
@@ -54,21 +135,46 @@ export function ReportPage() {
             Отчёт для руководства (FR-11)
           </p>
         </div>
-        <div className="flex gap-2">
-          <button type="button" className="btn btn-secondary">
+        <div className="flex gap-2 flex-wrap items-center justify-end">
+          {pois.length > 0 && (
+            <AppSelect
+              variant="sm"
+              ariaLabel="Точка интереса для отчёта"
+              value={activePoiId}
+              onChange={setSelectedPoiId}
+              options={pois.map((poi) => ({ value: poi.id, label: poi.name }))}
+            />
+          )}
+          <button type="button" className="btn btn-secondary" disabled={!selectedPoi}>
             <Download size={16} /> PDF
           </button>
-          <button type="button" className="btn btn-secondary">
+          <button type="button" className="btn btn-secondary" disabled={!selectedPoi}>
             <FileText size={16} /> PPTX
           </button>
         </div>
       </div>
 
+      {!projectId ? (
+        <div className="card text-sm" style={{ color: 'var(--text-muted)' }}>
+          Выберите проект в шапке приложения.
+        </div>
+      ) : pois.length === 0 ? (
+        <div className="card text-sm" style={{ color: 'var(--text-muted)' }}>
+          В проекте нет точек интереса. Добавьте POI на карте.
+        </div>
+      ) : (
       <div className="card max-w-4xl mx-auto" id="report-content">
         <div className="text-center mb-6 pb-4 border-b" style={{ borderColor: 'var(--border)' }}>
-          <h2 className="text-xl font-bold">Участок Западный — Рекомендуемый вариант</h2>
+          <h2 className="text-xl font-bold">
+            {project?.name ?? 'Проект'}
+            {selectedPoi ? ` — ${selectedPoi.name}` : ''}
+          </h2>
           <p className="text-sm mt-1" style={{ color: 'var(--text-muted)' }}>
-            Сценарий 2 · 3055 млн ₽ · {new Date().toLocaleDateString('ru')}
+            {analysisData?.total_cost_mln != null
+              ? `${analysisData.total_cost_mln} млн ₽`
+              : 'Стоимость не рассчитана'}
+            {' · '}
+            {new Date().toLocaleDateString('ru-RU')}
           </p>
         </div>
 
@@ -76,10 +182,13 @@ export function ReportPage() {
           <div>
             <h3 className="font-semibold mb-2">Карта подключений</h3>
             <MapView
+              viewStateId="report"
+              viewStateScope={selectedPoi?.id ?? null}
               pois={pois}
               infraObjects={infraObjects}
               selectedPoi={selectedPoi}
-              connectionLines={analysisData?.rows ?? []}
+              connectionLines={connectionLines}
+              mapFocus={mapFocus}
               height="220px"
               useMapIcons
               layers={layers}
@@ -90,7 +199,11 @@ export function ReportPage() {
             <div className="space-y-2 text-sm">
               <div className="flex justify-between">
                 <span>Общая стоимость</span>
-                <strong>{analysisData ? '—' : '3055'} млн ₽</strong>
+                <strong>
+                  {analysisData?.total_cost_mln != null
+                    ? `${analysisData.total_cost_mln} млн ₽`
+                    : '—'}
+                </strong>
               </div>
               <div className="flex justify-between">
                 <span>Кустовые площадки</span>
@@ -164,16 +277,7 @@ export function ReportPage() {
           </p>
         </div>
       </div>
-
-      <div className="max-w-4xl mx-auto mt-4">
-        <PoiParamsPanel
-          projectId={projectId}
-          poiId={selectedPoi?.id ?? null}
-          readOnly
-          showSave={false}
-          title="Параметры POI в отчёте"
-        />
-      </div>
+      )}
     </div>
   );
 }

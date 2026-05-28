@@ -2,6 +2,8 @@ import { useEffect, useState } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { Save } from 'lucide-react';
 import { api, type POI } from '../lib/api';
+import { useAppStore } from '../store';
+import { AppSelect } from './AppSelect';
 import { PoiParamsForm } from './PoiParamsForm';
 import {
   emptyPoiFormValues,
@@ -20,6 +22,8 @@ interface PoiParamsPanelProps {
   title?: string;
   showSave?: boolean;
   className?: string;
+  onSaveSuccess?: (message: string) => void;
+  onSaveError?: (message: string) => void;
 }
 
 export function PoiParamsPanel({
@@ -31,11 +35,13 @@ export function PoiParamsPanel({
   title = 'Параметры точки интереса (POI)',
   showSave = true,
   className = '',
+  onSaveSuccess,
+  onSaveError,
 }: PoiParamsPanelProps) {
   const qc = useQueryClient();
+  const pushToast = useAppStore((s) => s.pushToast);
   const [internalPoiId, setInternalPoiId] = useState<string | null>(null);
   const [form, setForm] = useState<PoiFormValues>(emptyPoiFormValues());
-  const [saved, setSaved] = useState(false);
 
   const selectedPoiId = controlledPoiId ?? internalPoiId;
 
@@ -69,8 +75,14 @@ export function PoiParamsPanel({
       api.updatePoi(projectId!, selectedPoi!.id, payload as Partial<POI>),
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ['pois', projectId] });
-      setSaved(true);
-      setTimeout(() => setSaved(false), 2000);
+      const msg = 'Параметры точки сохранены';
+      if (onSaveSuccess) onSaveSuccess(msg);
+      else pushToast('success', msg);
+    },
+    onError: (err: Error) => {
+      const msg = err instanceof Error ? err.message : 'Не удалось сохранить параметры';
+      if (onSaveError) onSaveError(msg);
+      else pushToast('error', msg);
     },
   });
 
@@ -100,18 +112,13 @@ export function PoiParamsPanel({
       <div className="flex flex-wrap items-center justify-between gap-2 mb-3">
         <h2 className="font-semibold text-sm">{title}</h2>
         {pois.length > 1 && (
-          <select
-            className="text-sm px-2 py-1 rounded-lg border max-w-[200px]"
-            style={{ borderColor: 'var(--border)', background: 'var(--surface)' }}
+          <AppSelect
+            variant="sm"
+            ariaLabel="Точка интереса"
             value={selectedPoi?.id ?? ''}
-            onChange={(e) => handlePoiSelect(e.target.value)}
-          >
-            {pois.map((p) => (
-              <option key={p.id} value={p.id}>
-                {p.name}
-              </option>
-            ))}
-          </select>
+            onChange={handlePoiSelect}
+            options={pois.map((p) => ({ value: p.id, label: p.name }))}
+          />
         )}
       </div>
 
@@ -131,7 +138,8 @@ export function PoiParamsPanel({
             disabled={saveMut.isPending}
             onClick={() => saveMut.mutate(formValuesToPoiPayload(form))}
           >
-            <Save size={14} /> {saved ? 'Сохранено!' : 'Сохранить POI'}
+            <Save size={14} />
+            {saveMut.isPending ? 'Сохранение…' : 'Сохранить POI'}
           </button>
         </div>
       )}

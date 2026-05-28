@@ -1,6 +1,7 @@
 import { useState, type ReactNode } from 'react';
 import { ChevronDown } from 'lucide-react';
 import type { DistanceDefaults } from '../lib/api';
+import { AppSelect } from './AppSelect';
 import { EngBadgeGroup } from './EngBadgeGroup';
 import {
   ENG_PARAM_GROUPS,
@@ -94,14 +95,15 @@ export function PoiParamsForm({
             </div>
             <div className="form-group mb-0">
               <label>Флюид (FR-4.2.10)</label>
-              <select
+              <AppSelect
                 value={value.fluid_type}
-                disabled={readOnly}
-                onChange={(e) => patch({ fluid_type: e.target.value as 'oil' | 'gas' })}
-              >
-                <option value="oil">Нефть</option>
-                <option value="gas">Газ</option>
-              </select>
+                readOnly={readOnly}
+                onChange={(v) => patch({ fluid_type: v as 'oil' | 'gas' })}
+                options={[
+                  { value: 'oil', label: 'Нефть' },
+                  { value: 'gas', label: 'Газ' },
+                ]}
+              />
             </div>
             <div className="form-group mb-0">
               <label>{volumeLabel}</label>

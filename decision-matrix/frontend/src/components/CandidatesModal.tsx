@@ -6,14 +6,22 @@ interface CandidatesModalProps {
   projectId: string;
   poiId: string;
   subtype: string;
+  paramType?: 'external' | 'external_linear';
   onClose: () => void;
   onSelect: (candidate: Candidate) => void;
 }
 
-export function CandidatesModal({ projectId, poiId, subtype, onClose, onSelect }: CandidatesModalProps) {
+export function CandidatesModal({
+  projectId,
+  poiId,
+  subtype,
+  paramType = 'external',
+  onClose,
+  onSelect,
+}: CandidatesModalProps) {
   const { data: candidates = [], isLoading } = useQuery({
-    queryKey: ['candidates', projectId, poiId, subtype],
-    queryFn: () => api.getCandidates(projectId, poiId, subtype),
+    queryKey: ['candidates', projectId, poiId, subtype, paramType],
+    queryFn: () => api.getCandidates(projectId, poiId, subtype, 20, paramType),
   });
 
   return (

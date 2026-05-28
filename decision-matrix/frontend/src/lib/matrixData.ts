@@ -1,14 +1,23 @@
 import {
   ANALYSIS_LINE_SUBTYPES,
+  EXTERNAL_LINEAR_SUBTYPES,
   POINT_SUBTYPES,
   SUBTYPE_LABELS,
   type AnalysisRow,
   type POI,
   type Scenario,
 } from './api';
+import type { EngineeringParamKey } from './poiParams';
+
+const INTERNAL_MATRIX_SUBTYPES = new Set<string>([...ANALYSIS_LINE_SUBTYPES, 'pads']);
+
+/** Point subtypes in the comparison matrix (excludes connection nodes on the map). */
+const MATRIX_POINT_SUBTYPES = POINT_SUBTYPES.filter((s) => s !== 'node');
 
 export interface MatrixCell {
   text: string;
+  /** Second line (internal rows: formula / detail), smaller type in matrix UI */
+  subtext?: string;
   status?: string;
   badge?: boolean;
 }
@@ -19,7 +28,19 @@ export interface MatrixRow {
   cells: MatrixCell[];
   total?: boolean;
   engineering?: boolean;
+  /** POI field for inline engineering dropdowns in the matrix table */
+  engineeringKey?: EngineeringParamKey;
 }
+
+/** Row labels in the matrix (may differ from form section titles). */
+const MATRIX_ENGINEERING_ROWS: { key: EngineeringParamKey; label: string }[] = [
+  { key: 'eng_power', label: 'Электроснабжение' },
+  { key: 'eng_injection', label: 'ППД' },
+  { key: 'eng_gas', label: 'Обращение с газом' },
+  { key: 'eng_oil_preparation', label: 'Подготовка нефти' },
+  { key: 'eng_well_gathering', label: 'Сбор скважин' },
+  { key: 'eng_transport', label: 'Транспорт' },
+];
 
 const ENGINEERING_LABELS: Record<string, Record<string, string>> = {
   eng_power: { external: 'Внешнее', internal: 'Внутреннее' },
@@ -30,7 +51,72 @@ const ENGINEERING_LABELS: Record<string, Record<string, string>> = {
   eng_transport: { auto: 'Авто', marine: 'Морской', pipeline: 'Трубопровод' },
 };
 
-function formatItem(item: Record<string, unknown>): string {
+export function internalMatrixCellParts(item: Record<string, unknown>): {
+  text: string;
+  subtext?: string;
+} {
+  const costMln = item.cost_mln;
+  const text =
+    costMln != null && costMln !== '' ? `${costMln} млн ₽` : '0 млн ₽';
+  if (item.subtype === 'pads') {
+    const n = item.pads_count;
+    return { text, subtext: n != null ? `${n} шт.` : undefined };
+  }
+  const formula = item.formula_label as string | undefined;
+  if (formula) return { text, subtext: formula };
+  const dist = item.distance_km;
+  return {
+    text,
+    subtext: dist != null && dist !== '' ? `${dist} км` : undefined,
+  };
+}
+
+function isInternalMatrixItem(item: Record<string, unknown>): boolean {
+  const paramType = String(item.param_type || '');
+  const subtype = String(item.subtype || '');
+  return paramType === 'internal' || INTERNAL_MATRIX_SUBTYPES.has(subtype);
+}
+
+export function externalLinearMatrixCellParts(item: Record<string, unknown>): {
+  text: string;
+  subtext?: string;
+} {
+  const st = String(item.status || '');
+  if (st === 'not_required') return { text: 'Не треб.' };
+  if (st === 'construction_required') return { text: 'Строительство' };
+  const costMln = item.cost_mln;
+  const text =
+    costMln != null && costMln !== '' ? `${costMln} млн ₽` : '0 млн ₽';
+  const dist = item.distance_km;
+  return {
+    text,
+    subtext: dist != null && dist !== '' ? `${dist} км` : undefined,
+  };
+}
+
+function findAnalysisRow(
+  rows: AnalysisRow[],
+  subtype: string,
+  paramType: string
+): AnalysisRow | undefined {
+  return rows.find((a) => a.subtype === subtype && a.param_type === paramType);
+}
+
+function matrixCellFromAnalysisItem(item: AnalysisRow): MatrixCell {
+  const raw = item as unknown as Record<string, unknown>;
+  if (isInternalMatrixItem(raw)) {
+    const { text, subtext } = internalMatrixCellParts(raw);
+    return { text, subtext, status: item.status };
+  }
+  if (item.param_type === 'external_linear') {
+    const { text, subtext } = externalLinearMatrixCellParts(raw);
+    return { text, subtext, status: item.status };
+  }
+  return { text: formatExternalMatrixCell(raw), status: item.status };
+}
+
+function formatExternalMatrixCell(item: Record<string, unknown>): string {
+
   const st = String(item.status || '');
   if (st === 'not_required') return 'Не треб.';
   if (st === 'construction_required') return 'Строительство';
@@ -39,11 +125,10 @@ function formatItem(item: Record<string, unknown>): string {
   if (cost && dist) return `${cost} / ${dist}`;
   if (cost) return cost;
   if (dist) return dist;
-  if (item.pads_count != null) return `${item.pads_count} шт.`;
   return st || '—';
 }
 
-function analysisFromScenario(scenario: Scenario): AnalysisRow[] {
+export function analysisFromScenario(scenario: Scenario): AnalysisRow[] {
   const raw = scenario.results?.analysis;
   if (!Array.isArray(raw)) return [];
   return raw.map((item) => {
@@ -79,30 +164,24 @@ export function buildMatrixRows(
   const scenarioNames = cols.map((s) => s.name);
   const poiByColumn = cols.map((s) => pois.find((p) => p.id === s.poi_id) ?? pois[0] ?? null);
 
-  const sections: { key: string; subtypes: string[] }[] = [
-    { key: 'Внутренние решения', subtypes: [...ANALYSIS_LINE_SUBTYPES, 'pads'] },
-    { key: 'Внешние объекты', subtypes: [...POINT_SUBTYPES] },
+  const sections: { key: string; subtypes: string[]; paramType: string }[] = [
+    { key: 'Внутренние решения', subtypes: [...ANALYSIS_LINE_SUBTYPES, 'pads'], paramType: 'internal' },
+    { key: 'Внешние линейные объекты', subtypes: [...EXTERNAL_LINEAR_SUBTYPES], paramType: 'external_linear' },
+    { key: 'Внешние объекты', subtypes: [...MATRIX_POINT_SUBTYPES], paramType: 'external' },
   ];
 
   const rows: MatrixRow[] = [];
 
-  const engineeringRows: Array<{ key: keyof POI; label: string }> = [
-    { key: 'eng_power', label: 'Электроснабжение' },
-    { key: 'eng_injection', label: 'ППД' },
-    { key: 'eng_gas', label: 'Обращение с газом' },
-    { key: 'eng_oil_preparation', label: 'Подготовка нефти' },
-    { key: 'eng_well_gathering', label: 'Сбор скважин' },
-    { key: 'eng_transport', label: 'Транспорт' },
-  ];
-  for (const rowDef of engineeringRows) {
+  for (const rowDef of MATRIX_ENGINEERING_ROWS) {
     rows.push({
       label: rowDef.label,
       section: 'Инженерные решения',
       engineering: true,
+      engineeringKey: rowDef.key,
       cells: cols.map((_, idx) => {
         const poi = poiByColumn[idx];
         const raw = String((poi?.[rowDef.key] as string | undefined) || '—');
-        const mapped = ENGINEERING_LABELS[rowDef.key as string]?.[raw] || raw;
+        const mapped = ENGINEERING_LABELS[rowDef.key]?.[raw] || raw;
         return { text: mapped, badge: true };
       }),
     });
@@ -113,16 +192,11 @@ export function buildMatrixRows(
       const label = subtype === 'pads' ? 'Кустовые площадки' : SUBTYPE_LABELS[subtype] || subtype;
       const cells: MatrixCell[] = cols.map((sc) => {
         const analysis = analysisFromScenario(sc);
-        const item = analysis.find((a) => a.subtype === subtype);
+        const item = findAnalysisRow(analysis, subtype, section.paramType);
         if (!item) {
           return { text: '—' };
         }
-        const raw = sc.results?.analysis as Record<string, unknown>[] | undefined;
-        const full = raw?.find((r) => r.subtype === subtype) as Record<string, unknown> | undefined;
-        return {
-          text: full ? formatItem(full) : formatItem(item as unknown as Record<string, unknown>),
-          status: item.status,
-        };
+        return matrixCellFromAnalysisItem(item);
       });
       rows.push({ label, section: section.key, cells });
     }
@@ -140,6 +214,93 @@ export function buildMatrixRows(
   rows.push(totalRow);
 
   return { rows, scenarioNames, poiByColumn };
+}
+
+export interface PoiColumnAnalysis {
+  rows: AnalysisRow[];
+  total_cost_mln: number | null;
+}
+
+export function resolvePoiColumnAnalysis(
+  poi: POI,
+  live: { rows?: AnalysisRow[]; total_cost_mln?: number } | undefined,
+  scenarios: Scenario[]
+): PoiColumnAnalysis {
+  if (live?.rows?.length) {
+    return {
+      rows: live.rows,
+      total_cost_mln: live.total_cost_mln ?? null,
+    };
+  }
+  const scenario = scenarios.find((s) => s.poi_id === poi.id && s.results?.analysis);
+  if (scenario) {
+    const rawTotal = scenario.results?.total_cost_mln;
+    const total =
+      typeof rawTotal === 'number' && Number.isFinite(rawTotal)
+        ? rawTotal
+        : rawTotal != null && Number.isFinite(Number(rawTotal))
+          ? Number(rawTotal)
+          : null;
+    return {
+      rows: analysisFromScenario(scenario),
+      total_cost_mln: total,
+    };
+  }
+  return { rows: [], total_cost_mln: null };
+}
+
+/** Matrix columns = one per POI; cells from live analysis or linked scenario. */
+export function buildMatrixRowsByPois(
+  pois: POI[],
+  columnAnalysis: PoiColumnAnalysis[]
+): { rows: MatrixRow[]; columnNames: string[]; poisByColumn: POI[] } {
+  const columnNames = pois.map((p) => p.name);
+  const poisByColumn = pois;
+
+  const sections: { key: string; subtypes: string[]; paramType: string }[] = [
+    { key: 'Внутренние решения', subtypes: [...ANALYSIS_LINE_SUBTYPES, 'pads'], paramType: 'internal' },
+    { key: 'Внешние линейные объекты', subtypes: [...EXTERNAL_LINEAR_SUBTYPES], paramType: 'external_linear' },
+    { key: 'Внешние объекты', subtypes: [...MATRIX_POINT_SUBTYPES], paramType: 'external' },
+  ];
+
+  const rows: MatrixRow[] = [];
+
+  for (const rowDef of MATRIX_ENGINEERING_ROWS) {
+    rows.push({
+      label: rowDef.label,
+      section: 'Инженерные решения',
+      engineering: true,
+      engineeringKey: rowDef.key,
+      cells: pois.map((poi) => {
+        const raw = String((poi[rowDef.key] as string | undefined) || '—');
+        const mapped = ENGINEERING_LABELS[rowDef.key]?.[raw] || raw;
+        return { text: mapped, badge: true };
+      }),
+    });
+  }
+
+  for (const section of sections) {
+    for (const subtype of section.subtypes) {
+      const label = subtype === 'pads' ? 'Кустовые площадки' : SUBTYPE_LABELS[subtype] || subtype;
+      const cells: MatrixCell[] = columnAnalysis.map((col) => {
+        const item = findAnalysisRow(col.rows, subtype, section.paramType);
+        if (!item) return { text: '—' };
+        return matrixCellFromAnalysisItem(item);
+      });
+      rows.push({ label, section: section.key, cells });
+    }
+  }
+
+  rows.push({
+    label: 'Итого',
+    section: 'Внешние объекты',
+    total: true,
+    cells: columnAnalysis.map((col) => ({
+      text: col.total_cost_mln != null ? `${col.total_cost_mln} млн ₽` : '—',
+    })),
+  });
+
+  return { rows, columnNames, poisByColumn };
 }
 
 export function connectionLinesForColumn(

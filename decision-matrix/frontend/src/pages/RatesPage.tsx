@@ -10,9 +10,9 @@ export function RatesPage() {
   const projectId = useAppStore((s) => s.currentProjectId);
   const qc = useQueryClient();
   const [rates, setRates] = useState<Record<string, number>>(buildDefaultRates());
-  const [saved, setSaved] = useState(false);
+  const pushToast = useAppStore((s) => s.pushToast);
 
-  const { data } = useQuery({
+  const { data, isLoading } = useQuery({
     queryKey: ['rates', projectId],
     queryFn: () => api.getRates(projectId!),
     enabled: !!projectId,
@@ -26,62 +26,95 @@ export function RatesPage() {
     mutationFn: () => api.updateRates(projectId!, rates),
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ['rates', projectId] });
-      setSaved(true);
-      setTimeout(() => setSaved(false), 2000);
+      pushToast('success', 'Ставки сохранены');
+    },
+    onError: (err: Error) => {
+      pushToast('error', err.message || 'Не удалось сохранить ставки');
     },
   });
 
-  const handleReset = () => setRates(buildDefaultRates());
+  const handleReset = () => {
+    setRates(buildDefaultRates());
+    if (projectId) {
+      qc.invalidateQueries({ queryKey: ['distanceDefaults', projectId] });
+    }
+  };
 
   if (!projectId) {
     return (
-      <div>
-        <h1 className="text-2xl font-bold mb-4">Ставки стоимости</h1>
-        <div className="card" style={{ color: 'var(--text-muted)' }}>
-          Выберите проект на странице «Проекты» для редактирования ставок (16 показателей, тыс. ₽).
+      <div className="rates-page">
+        <header className="page-header">
+          <h1>Ставки стоимости</h1>
+          <p className="subtitle">16 показателей · параметры расстояний проекта</p>
+        </header>
+        <div className="card text-sm" style={{ color: 'var(--text-muted)' }}>
+          Выберите проект в шапке приложения.
         </div>
       </div>
     );
   }
 
   return (
-    <div>
-      <div className="flex items-center justify-between mb-6">
+    <div className="rates-page">
+      <header className="page-header rates-page-top">
         <div>
-          <h1 className="text-2xl font-bold">Ставки стоимости</h1>
-          <p className="text-sm mt-1" style={{ color: 'var(--text-muted)' }}>
-            16 показателей в тыс. ₽ + параметры расстояний проекта (FR-4.1.2, FR-4.1.5)
-          </p>
+          <h1>Ставки стоимости</h1>
+          <p className="subtitle">16 показателей · расстояния и пороги для POI</p>
         </div>
-        <div className="flex gap-2">
-          <button type="button" className="btn btn-secondary" onClick={handleReset}>
-            <RotateCcw size={16} /> Сброс
+        <div className="rates-actions">
+          <button type="button" className="btn btn-secondary btn-sm" onClick={handleReset}>
+            <RotateCcw size={14} className="inline mr-1" />
+            Сброс
           </button>
-          <button type="button" className="btn btn-primary" onClick={() => saveMut.mutate()}>
-            <Save size={16} /> {saved ? 'Сохранено!' : 'Сохранить'}
+          <button
+            type="button"
+            className="btn btn-primary btn-sm"
+            onClick={() => saveMut.mutate()}
+            disabled={saveMut.isPending || isLoading}
+          >
+            <Save size={14} className="inline mr-1" />
+            {saveMut.isPending ? 'Сохранение…' : 'Сохранить ставки'}
           </button>
         </div>
-      </div>
+      </header>
 
-      {COST_RATE_GROUPS.map((group) => (
-        <div key={group.id} className="card mb-4">
-          <h2 className="font-semibold mb-4">{group.label}</h2>
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            {group.rows.map((row) => (
-              <div key={row.id} className="form-group mb-0">
-                <label>{row.label} ({group.unitLabel})</label>
-                <input
-                  type="number"
-                  value={rates[row.id] ?? row.defaultValue}
-                  onChange={(e) => setRates({ ...rates, [row.id]: +e.target.value })}
-                />
-              </div>
+      <div className="rates-layout">
+        <div className="rates-main">
+          <div className="rates-groups-grid">
+            {COST_RATE_GROUPS.map((group) => (
+              <section key={group.id} className="card card--flush rates-group-card">
+                <div className="rates-group-head">
+                  <h2>{group.label}</h2>
+                  <span className="rates-group-unit">{group.unitLabel}</span>
+                </div>
+                <table className="rates-table">
+                  <tbody>
+                    {group.rows.map((row) => (
+                      <tr key={row.id}>
+                        <th scope="row">{row.label}</th>
+                        <td>
+                          <input
+                            type="number"
+                            className="rates-input"
+                            value={rates[row.id] ?? row.defaultValue}
+                            onChange={(e) =>
+                              setRates({ ...rates, [row.id]: Number(e.target.value) || 0 })
+                            }
+                          />
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </section>
             ))}
           </div>
         </div>
-      ))}
 
-      <ProjectDistanceDefaultsForm projectId={projectId} />
+        <aside className="rates-aside">
+          <ProjectDistanceDefaultsForm projectId={projectId} compact />
+        </aside>
+      </div>
     </div>
   );
 }

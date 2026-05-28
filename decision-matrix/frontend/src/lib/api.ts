@@ -11,10 +11,10 @@ function getToken(): string | null {
   return localStorage.getItem('access_token');
 }
 
-type RequestOptions = RequestInit & { redirectOn401?: boolean };
+type RequestOptions = RequestInit & { redirectOn401?: boolean; timeoutMs?: number };
 
 async function request<T>(path: string, options: RequestOptions = {}): Promise<T> {
-  const { redirectOn401 = true, ...fetchOptions } = options;
+  const { redirectOn401 = true, timeoutMs, ...fetchOptions } = options;
   const headers: Record<string, string> = {
     ...(fetchOptions.headers as Record<string, string>),
   };
@@ -26,7 +26,7 @@ async function request<T>(path: string, options: RequestOptions = {}): Promise<T
   if (token) headers.Authorization = `Bearer ${token}`;
 
   const controller = new AbortController();
-  const timeoutId = setTimeout(() => controller.abort(), REQUEST_TIMEOUT_MS);
+  const timeoutId = setTimeout(() => controller.abort(), timeoutMs ?? REQUEST_TIMEOUT_MS);
   let res: Response;
   try {
     res = await fetch(`${API_BASE}${path}`, { ...fetchOptions, headers, signal: controller.signal });
@@ -75,30 +75,61 @@ export const api = {
   createProject: (name: string, description?: string) =>
     request<Project>('/projects', { method: 'POST', body: JSON.stringify({ name, description }) }),
   getProject: (id: string) => request<Project>(`/projects/${id}`),
+  updateProject: (
+    id: string,
+    data: Partial<Pick<Project, 'name' | 'description' | 'status' | 'visibility'>>
+  ) => request<Project>(`/projects/${id}`, { method: 'PATCH', body: JSON.stringify(data) }),
   deleteProject: (id: string) => request<void>(`/projects/${id}`, { method: 'DELETE' }),
   getRates: (projectId: string) => request<{ project_id: string; rates: Record<string, number> }>(`/projects/${projectId}/rates`),
   updateRates: (projectId: string, rates: Record<string, number>) =>
     request(`/projects/${projectId}/rates`, { method: 'PUT', body: JSON.stringify({ rates }) }),
   getPois: (projectId: string) => request<POI[]>(`/projects/${projectId}/pois`),
-  createPoi: (projectId: string, data: Partial<POI> & { lon: number; lat: number; name: string }) =>
-    request<POI>(`/projects/${projectId}/pois`, { method: 'POST', body: JSON.stringify(data) }),
+  createPoi: (
+    projectId: string,
+    data: Partial<POI> & { lon: number; lat: number; name: string },
+    opts?: { timeoutMs?: number },
+  ) =>
+    request<POI>(`/projects/${projectId}/pois`, {
+      method: 'POST',
+      body: JSON.stringify(data),
+      timeoutMs: opts?.timeoutMs,
+    }),
   updatePoi: (projectId: string, poiId: string, data: Partial<POI> & { lon?: number; lat?: number }) =>
     request<POI>(`/projects/${projectId}/pois/${poiId}`, { method: 'PATCH', body: JSON.stringify(data) }),
   deletePoi: (projectId: string, poiId: string) =>
     request<void>(`/projects/${projectId}/pois/${poiId}`, { method: 'DELETE' }),
   analyzePoi: (projectId: string, poiId: string) =>
     request<AnalysisResult>(`/projects/${projectId}/pois/${poiId}/analyze`, { method: 'POST' }),
+  analyzeAllPois: (projectId: string) =>
+    request<ProjectAnalysisBatchResult>(`/projects/${projectId}/pois/analyze-all`, {
+      method: 'POST',
+    }),
   getPoiAnalysis: (projectId: string, poiId: string) =>
     request<PoiAnalysisResponse>(`/projects/${projectId}/pois/${poiId}/analysis`),
-  getCandidates: (projectId: string, poiId: string, subtype: string, limit = 20) =>
-    request<Candidate[]>(
-      `/projects/${projectId}/pois/${poiId}/candidates?subtype=${encodeURIComponent(subtype)}&limit=${limit}`
-    ),
+  getCandidates: (
+    projectId: string,
+    poiId: string,
+    subtype: string,
+    limit = 20,
+    paramType?: 'external' | 'external_linear'
+  ) => {
+    const qs = new URLSearchParams({
+      subtype,
+      limit: String(limit),
+    });
+    if (paramType) qs.set('param_type', paramType);
+    return request<Candidate[]>(`/projects/${projectId}/pois/${poiId}/candidates?${qs}`);
+  },
   overrideAnalysis: (
     projectId: string,
     poiId: string,
     subtype: string,
-    body: { nearest_object_id?: string; nearest_node_id?: string; force_construction?: boolean }
+    body: {
+      nearest_object_id?: string;
+      nearest_node_id?: string;
+      force_construction?: boolean;
+      param_type?: 'external' | 'external_linear';
+    }
   ) =>
     request<PoiAnalysisResponse>(`/projects/${projectId}/pois/${poiId}/analysis/${subtype}`, {
       method: 'PATCH',
@@ -152,10 +183,15 @@ export const api = {
       `/projects/${projectId}/infrastructure/objects${query ? `?${query}` : ''}`
     );
   },
-  createInfraObject: (projectId: string, data: InfraObjectCreate) =>
+  createInfraObject: (
+    projectId: string,
+    data: InfraObjectCreate,
+    opts?: { timeoutMs?: number },
+  ) =>
     request<InfraObject>(`/projects/${projectId}/infrastructure/objects`, {
       method: 'POST',
       body: JSON.stringify(data),
+      timeoutMs: opts?.timeoutMs,
     }),
   updateInfraObject: (projectId: string, objectId: string, data: Partial<InfraObjectCreate>) =>
     request<InfraObject>(`/projects/${projectId}/infrastructure/objects/${objectId}`, {
@@ -401,6 +437,12 @@ export interface AnalysisResult {
   engineering_status: Record<string, string>;
 }
 
+export interface ProjectAnalysisBatchResult {
+  project_id: string;
+  analyzed_count: number;
+  results: AnalysisResult[];
+}
+
 const EXTERNAL_SUBTYPES = new Set(['gas_processing', 'gtes', 'substation', 'refinery']);
 
 function roundKm(value: unknown): number | null {
@@ -581,11 +623,13 @@ export interface RankingSensitivityResult {
   points: RankingSensitivityPoint[];
 }
 
-export const POINT_SUBTYPES = ['gas_processing', 'gtes', 'substation', 'refinery'] as const;
+export const POINT_SUBTYPES = ['gas_processing', 'gtes', 'substation', 'refinery', 'node'] as const;
 /** Map/import layer filter (includes legacy gas_pipeline). */
 export const LINE_SUBTYPES = ['autoroad', 'oil_pipeline', 'gas_pipeline', 'water_pipeline', 'power_line'] as const;
 /** FR-6: 4 internal linear subtypes in environment analysis. */
 export const ANALYSIS_LINE_SUBTYPES = ['autoroad', 'oil_pipeline', 'water_pipeline', 'power_line'] as const;
+/** Nearest vertex/node on map for all drawable line subtypes. */
+export const EXTERNAL_LINEAR_SUBTYPES = LINE_SUBTYPES;
 
 export const SUBTYPE_LABELS: Record<string, string> = {
   autoroad: 'Автодорога',
@@ -597,4 +641,5 @@ export const SUBTYPE_LABELS: Record<string, string> = {
   gtes: 'ГТЭС/ГПЭС',
   substation: 'ПС/ТП',
   refinery: 'НПЗ',
+  node: 'Узел',
 };

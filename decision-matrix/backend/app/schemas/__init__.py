@@ -157,6 +157,7 @@ class POIResponse(BaseModel):
 
 
 class AnalysisOverrideUpdate(BaseModel):
+    param_type: str | None = None  # external | external_linear
     nearest_object_id: UUID | None = None
     nearest_node_id: UUID | None = None
     force_construction: bool | None = None

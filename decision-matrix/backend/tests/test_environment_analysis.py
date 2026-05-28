@@ -8,6 +8,7 @@ from app.services.calculations import (
     calc_distance_status_external,
     calc_distance_status_internal,
     calc_internal_line_distance_km,
+    internal_analysis_status,
     calc_overall_status,
     calc_pads_count,
     format_internal_formula_label,
@@ -15,28 +16,14 @@ from app.services.calculations import (
 )
 
 
-def test_oil_transport_auto_excludes_pipeline_and_refinery():
-    st = apply_engineering_rules(
-        EngineeringState(fluid_type="oil", eng_transport="auto")
-    )
-    assert st["oil_pipeline"] == "not_required"
-    assert st["refinery"] == "not_required"
-
-
-def test_oil_transport_marine_active_pipeline_only():
-    st = apply_engineering_rules(
-        EngineeringState(fluid_type="oil", eng_transport="marine")
-    )
-    assert st["oil_pipeline"] == "active"
-    assert st["refinery"] == "not_required"
-
-
-def test_oil_transport_pipeline_active_both():
-    st = apply_engineering_rules(
-        EngineeringState(fluid_type="oil", eng_transport="pipeline")
-    )
-    assert st["oil_pipeline"] == "active"
-    assert st["refinery"] == "active"
+def test_oil_transport_does_not_disable_pipeline_or_refinery():
+    """Транспорт (FR-5.4.1) не отключает подтипы — стоимость считается по ставкам/анализу."""
+    for transport in ("auto", "marine", "pipeline"):
+        st = apply_engineering_rules(
+            EngineeringState(fluid_type="oil", eng_transport=transport)
+        )
+        assert st["oil_pipeline"] == "active"
+        assert st["refinery"] == "active"
 
 
 def test_external_power_internal_gtes():
@@ -68,14 +55,37 @@ def test_pads_count_and_internal_distance():
     assert src == "pads_per_pad_formula"
 
 
-def test_internal_status_exceeds_and_within():
+def test_run_project_pois_analysis_empty(monkeypatch):
+    """Batch helper returns zero results when project has no POIs."""
+
+    async def _run():
+        from unittest.mock import AsyncMock, MagicMock
+
+        from app.services.infrastructure_analysis import run_project_pois_analysis
+
+        db = AsyncMock()
+        scalars = MagicMock()
+        scalars.all.return_value = []
+        db.execute = AsyncMock(return_value=MagicMock(scalars=MagicMock(return_value=scalars)))
+        return await run_project_pois_analysis(db, "00000000-0000-0000-0000-000000000001")
+
+    import asyncio
+
+    payload = asyncio.run(_run())
+    assert payload["analyzed_count"] == 0
+    assert payload["results"] == []
+
+
+def test_internal_analysis_status_uses_computed_not_limits():
+    assert internal_analysis_status(active=False) == "not_required"
+    assert internal_analysis_status(active=True) == "computed"
+
+
+def test_legacy_internal_limit_status_helper():
     assert (
         calc_distance_status_internal(60, 50, active=True) == "exceeds_limit"
     )
     assert calc_distance_status_internal(0, 50, active=True) == "within_limit"
-    assert calc_distance_status_internal(10, 50, active=True, force_construction=True) == (
-        "construction_required"
-    )
 
 
 def test_external_status_construction_when_not_found():

@@ -2,19 +2,22 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { keepPreviousData, useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import {
   BoxSelect,
-  Loader2,
   MapPin,
   Minus,
   MousePointer2,
   Network,
   Pencil,
   PenLine,
+  Ruler,
   Search,
   Trash2,
+  Undo2,
   X,
   Zap,
 } from 'lucide-react';
 import { CandidatesModal } from '../components/CandidatesModal';
+import { AnchoredMenu } from '../components/AnchoredMenu';
+import { MapPoiSelect } from '../components/MapPoiSelect';
 import { AnalysisEnvironmentTable } from '../components/AnalysisEnvironmentTable';
 import {
   alignAnalysisRowsToMapObjects,
@@ -25,8 +28,12 @@ import {
 import { SubtypeFilterPanel } from '../components/SubtypeFilterPanel';
 import { ObjectDetailPanel, type SelectedFeature } from '../components/ObjectDetailPanel';
 import { PoiParamsForm } from '../components/PoiParamsForm';
-import { formatCoord, formatCoordPair, parseCoord, roundCoord } from '../lib/coords';
-import { emptyPoiFormValues, formValuesToPoiCreatePayload } from '../lib/poiParams';
+import { formatCoord, parseCoord, roundCoord } from '../lib/coords';
+import {
+  emptyPoiFormValues,
+  formValuesToPoiCreatePayload,
+  nextPoiAutoName,
+} from '../lib/poiParams';
 import {
   MapView,
   type DrawMode,
@@ -46,11 +53,22 @@ import {
   type AnalysisRow,
   type Candidate,
   type InfraObject,
+  type InfraObjectCreate,
   type PoiAnalysisResponse,
   type POI,
 } from '../lib/api';
 import { useActiveProject } from '../hooks/useActiveProject';
 import { refreshMapQueries } from '../lib/mapQueries';
+import { formatLengthMeters, lineLengthMeters } from '../lib/mapMeasure';
+import { resolveLineEndpoint } from '../lib/lineEndpointRules';
+import { linkedLineIdsForPoint } from '../lib/infraLinks';
+import {
+  infraDetailUndo,
+  infraGeometryUndo,
+  poiDetailUndo,
+  poiGeometryUndo,
+  useMapUndo,
+} from '../lib/mapUndo';
 import { useAppStore } from '../store';
 
 const THRESHOLD_META: { subtype: string; color: string; label: string; defaultKm: number }[] = [
@@ -60,13 +78,49 @@ const THRESHOLD_META: { subtype: string; color: string; label: string; defaultKm
   { subtype: 'refinery', color: '#455a64', label: 'НПЗ', defaultKm: 100 },
 ];
 
+const LAYER_GROUPS: { id: string; label: string; subtypes: string[] }[] = [
+  { id: 'roads', label: 'Дороги', subtypes: ['autoroad'] },
+  {
+    id: 'pipelines',
+    label: 'Трубопроводы',
+    subtypes: ['oil_pipeline', 'gas_pipeline', 'water_pipeline', 'power_line'],
+  },
+  {
+    id: 'areas',
+    label: 'Площадные объекты',
+    subtypes: ['gas_processing', 'gtes', 'substation', 'refinery'],
+  },
+  { id: 'nodes', label: 'Узлы', subtypes: ['node'] },
+];
+
+const MOVE_MATCH_EPS = 1e-6;
+
+function sameCoord(a: number, b: number): boolean {
+  return Math.abs(a - b) <= MOVE_MATCH_EPS;
+}
+
+function lineCoordsOrEndpoints(obj: InfraObject): [number, number][] | null {
+  if (obj.coordinates && obj.coordinates.length >= 2) {
+    return obj.coordinates.map(([lon, lat]) => [lon, lat]);
+  }
+  if (obj.end_lon != null && obj.end_lat != null) {
+    return [
+      [obj.lon, obj.lat],
+      [obj.end_lon, obj.end_lat],
+    ];
+  }
+  return null;
+}
+
 export function MapPage() {
   const { projectId } = useActiveProject();
   const queryClient = useQueryClient();
   const mapRefreshNonce = useAppStore((s) => s.mapRefreshNonce);
+  const pushToast = useAppStore((s) => s.pushToast);
   const [basemap, setBasemap] = useState<'osm' | 'satellite' | 'terrain'>('osm');
   const [showBasemap, setShowBasemap] = useState(true);
   const [cursor, setCursor] = useState<{ lon: number; lat: number } | null>(null);
+  const [mapPointerInside, setMapPointerInside] = useState(false);
   const [drawMode, setDrawMode] = useState<DrawMode>('select');
   const [selectMode, setSelectMode] = useState<SelectMode>('single');
   const [selectMenuOpen, setSelectMenuOpen] = useState(false);
@@ -79,18 +133,32 @@ export function MapPage() {
     refinery: true,
   });
   const [lineDraft, setLineDraft] = useState<number[][]>([]);
+  const [rulerPoints, setRulerPoints] = useState<number[][]>([]);
+  const [rulerPreview, setRulerPreview] = useState<[number, number] | null>(null);
+  const [rulerCompleted, setRulerCompleted] = useState<number[][][]>([]);
   const [modal, setModal] = useState<
     | null
     | { type: 'poi'; lon: number; lat: number }
   >(null);
+  const [deleteConfirm, setDeleteConfirm] = useState<{
+    title: string;
+    message: string;
+    onConfirm: () => void;
+  } | null>(null);
   const [poiForm, setPoiForm] = useState(emptyPoiFormValues);
   const [infraForm, setInfraForm] = useState({ subtype: 'gas_processing' });
   const [searchQ, setSearchQ] = useState('');
   const [searchOpen, setSearchOpen] = useState(false);
   const searchBlurRef = useRef<number | null>(null);
+  const selectMenuAnchorRef = useRef<HTMLDivElement>(null);
+  const pointMenuAnchorRef = useRef<HTMLDivElement>(null);
+  const lineMenuAnchorRef = useRef<HTMLDivElement>(null);
+  const searchAnchorRef = useRef<HTMLDivElement>(null);
+  const rulerClickTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const [featureSel, setFeatureSel] = useState<MapFeatureSelection | null>(null);
   const [featureGroupSel, setFeatureGroupSel] = useState<MapFeatureSelection[]>([]);
   const [candidateSubtype, setCandidateSubtype] = useState<string | null>(null);
+  const [candidateParamType, setCandidateParamType] = useState<'external' | 'external_linear'>('external');
   const [pointMenuOpen, setPointMenuOpen] = useState(false);
   const [lineMenuOpen, setLineMenuOpen] = useState(false);
   const [subtypeFilter, setSubtypeFilter] = useState<Record<string, boolean>>({
@@ -98,6 +166,7 @@ export function MapPage() {
     gtes: true,
     substation: true,
     refinery: true,
+    node: true,
     autoroad: true,
     oil_pipeline: true,
     gas_pipeline: true,
@@ -107,8 +176,9 @@ export function MapPage() {
   const [showNetwork, setShowNetwork] = useState(false);
   const [mapFocus, setMapFocus] = useState<MapFocusTarget | null>(null);
   const [mapEditEnabled, setMapEditEnabled] = useState(false);
-  const [analyzeError, setAnalyzeError] = useState<string | null>(null);
-
+  const [showPoisOnMap, setShowPoisOnMap] = useState(true);
+  const [mapScaleLabel, setMapScaleLabel] = useState('—');
+  const [subtypeFilterOpen, setSubtypeFilterOpen] = useState(false);
   useEffect(() => {
     // Map bbox filter disabled (prevents refetch on zoom/pan).
   }, [mapRefreshNonce]);
@@ -134,12 +204,92 @@ export function MapPage() {
     }
     setFeatureSel(null);
     setFeatureGroupSel([]);
-    setDrawMode('select');
+    setDrawMode((m) => (m === 'ruler' ? m : 'select'));
     setLineDraft([]);
     setSelectMenuOpen(false);
     setPointMenuOpen(false);
     setLineMenuOpen(false);
   }, [mapEditEnabled]);
+
+  useEffect(() => {
+    if (drawMode !== 'ruler') {
+      setRulerPoints([]);
+      setRulerPreview(null);
+      setRulerCompleted([]);
+    }
+  }, [drawMode]);
+
+  const cancelDrawingSelection = useCallback(() => {
+    setDrawMode('select');
+    setLineDraft([]);
+    setSelectMenuOpen(false);
+    setPointMenuOpen(false);
+    setLineMenuOpen(false);
+  }, []);
+
+  useEffect(() => {
+    const onKeyDown = (e: KeyboardEvent) => {
+      if (e.key !== 'Escape') return;
+      const target = e.target as HTMLElement | null;
+      if (
+        target &&
+        (target.tagName === 'INPUT' ||
+          target.tagName === 'TEXTAREA' ||
+          target.tagName === 'SELECT' ||
+          target.isContentEditable)
+      ) {
+        return;
+      }
+
+      if (deleteConfirm) {
+        e.preventDefault();
+        setDeleteConfirm(null);
+        return;
+      }
+      if (modal) {
+        e.preventDefault();
+        setModal(null);
+        return;
+      }
+      if (candidateSubtype) {
+        e.preventDefault();
+        setCandidateSubtype(null);
+        setCandidateParamType('external');
+        return;
+      }
+      if (searchOpen) {
+        e.preventDefault();
+        setSearchOpen(false);
+        return;
+      }
+
+      const drawingActive =
+        drawMode !== 'select' || pointMenuOpen || lineMenuOpen || selectMenuOpen;
+      if (drawingActive) {
+        e.preventDefault();
+        cancelDrawingSelection();
+      }
+    };
+    window.addEventListener('keydown', onKeyDown);
+    return () => window.removeEventListener('keydown', onKeyDown);
+  }, [
+    drawMode,
+    pointMenuOpen,
+    lineMenuOpen,
+    selectMenuOpen,
+    modal,
+    deleteConfirm,
+    candidateSubtype,
+    searchOpen,
+    cancelDrawingSelection,
+  ]);
+
+  useEffect(
+    () => () => {
+      if (rulerClickTimerRef.current) clearTimeout(rulerClickTimerRef.current);
+    },
+    [],
+  );
 
   const { data: pois = [] } = useQuery({
     queryKey: ['pois', projectId],
@@ -163,6 +313,25 @@ export function MapPage() {
     enabled: !!projectId,
     refetchOnMount: 'always',
   });
+
+  const layerVisibilityMut = useMutation({
+    mutationFn: ({ layerId, is_visible }: { layerId: string; is_visible: boolean }) =>
+      api.updateLayer(projectId!, layerId, { is_visible }),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['layers', projectId] }),
+  });
+
+  const setGroupSubtypesVisible = useCallback((subtypes: string[], visible: boolean) => {
+    setSubtypeFilter((prev) => {
+      const next = { ...prev };
+      for (const st of subtypes) next[st] = visible;
+      return next;
+    });
+  }, []);
+
+  const isGroupVisible = useCallback(
+    (subtypes: string[]) => subtypes.every((st) => subtypeFilter[st] !== false),
+    [subtypeFilter],
+  );
 
   const { data: infraObjects = [] } = useQuery({
     queryKey: ['infra', projectId],
@@ -254,11 +423,7 @@ export function MapPage() {
 
   const selectedPoi = pois.find((p) => p.id === selectedPoiId) ?? pois[0] ?? null;
 
-  const {
-    data: analysisData,
-    isFetching: analysisFetching,
-    error: analysisQueryError,
-  } = useQuery({
+  const { data: analysisData, error: analysisQueryError } = useQuery({
     queryKey: ['analysis', projectId, selectedPoi?.id],
     queryFn: async () => {
       try {
@@ -283,13 +448,12 @@ export function MapPage() {
   useEffect(() => {
     if (!analysisQueryError) return;
     if (analysisRowsRaw.length > 0) return;
-    if (analyzeError) return;
     const msg =
       analysisQueryError instanceof Error
         ? analysisQueryError.message
         : 'Не удалось загрузить результат анализа окружения';
-    setAnalyzeError(msg);
-  }, [analysisQueryError, analyzeError, analysisRowsRaw.length]);
+    pushToast('error', msg);
+  }, [analysisQueryError, analysisRowsRaw.length, pushToast]);
 
   const analysisRowsForMap = useMemo(
     () => alignAnalysisRowsToMapObjects(analysisRowsRaw, mapLayerVisibleInfra),
@@ -391,102 +555,191 @@ export function MapPage() {
     void refreshMapQueries(queryClient, projectId);
   };
 
+  const { pushUndo, performUndo, canUndo, lastUndoMessage, setLastUndoMessage } = useMapUndo({
+    projectId,
+    enabled: !!projectId,
+    queryClient,
+    invalidateMap,
+    onUndoError: (msg) => pushToast('error', msg),
+  });
+
+  useEffect(() => {
+    if (!lastUndoMessage) return;
+    pushToast('info', lastUndoMessage);
+    setLastUndoMessage(null);
+  }, [lastUndoMessage, setLastUndoMessage, pushToast]);
+
   const createPoiMut = useMutation({
     mutationFn: (data: Parameters<typeof api.createPoi>[1]) => api.createPoi(projectId!, data),
-    onSuccess: () => {
+    onSuccess: (created) => {
+      pushUndo({
+        kind: 'create_poi',
+        poiId: created.id,
+        label: `создание «${created.name}»`,
+      });
+      pushToast('success', `Точка «${created.name}» создана`);
       invalidateMap();
       setModal(null);
       setDrawMode('select');
     },
     onError: (err) => {
-      window.alert(err instanceof Error ? err.message : 'Не удалось сохранить точку интереса');
+      pushToast('error', err instanceof Error ? err.message : 'Не удалось сохранить точку интереса');
     },
   });
 
+  const upsertInfraInCache = useCallback(
+    (created: InfraObject) => {
+      if (!projectId) return;
+      queryClient.setQueryData<InfraObject[]>(['infra', projectId], (prev) => {
+        const list = prev ?? [];
+        const idx = list.findIndex((o) => o.id === created.id);
+        if (idx >= 0) {
+          const next = [...list];
+          next[idx] = created;
+          return next;
+        }
+        return [...list, created];
+      });
+    },
+    [projectId, queryClient],
+  );
+
   const createInfraMut = useMutation({
     mutationFn: (data: Parameters<typeof api.createInfraObject>[1]) => api.createInfraObject(projectId!, data),
-    onSuccess: () => {
-      invalidateMap();
+    onSuccess: (created) => {
+      upsertInfraInCache(created);
+      pushUndo({
+        kind: 'create_infra',
+        objectId: created.id,
+        label: `создание «${created.name}»`,
+      });
+      pushToast('success', `Объект «${created.name}» создан`);
       setModal(null);
       setLineDraft([]);
+    },
+    onError: (err) => {
+      pushToast('error', err instanceof Error ? err.message : 'Не удалось сохранить объект инфраструктуры');
     },
   });
 
   const analyzeMut = useMutation({
     mutationFn: () => {
-      if (!projectId || !selectedPoi) {
-        return Promise.reject(new Error('Выберите проект и точку интереса'));
+      if (!projectId) {
+        return Promise.reject(new Error('Выберите проект'));
       }
-      return api.analyzePoi(projectId, selectedPoi.id);
+      if (pois.length === 0) {
+        return Promise.reject(new Error('Нет точек интереса для анализа'));
+      }
+      return api.analyzeAllPois(projectId);
     },
     onMutate: async () => {
-      setAnalyzeError(null);
-      if (projectId && selectedPoi) {
-        await queryClient.cancelQueries({
-          queryKey: ['analysis', projectId, selectedPoi.id],
-        });
+      if (projectId) {
+        await queryClient.cancelQueries({ queryKey: ['analysis', projectId] });
       }
     },
-    onSuccess: async (data) => {
-      if (!projectId || !selectedPoi) return;
-      const normalized = normalizePoiAnalysisResponse(data);
-      queryClient.setQueryData(['analysis', projectId, selectedPoi.id], normalized);
-      setAnalyzeError(null);
-      const rawRows = normalized.rows ?? normalized.analysis ?? [];
-      const infra =
-        queryClient.getQueryData<InfraObject[]>(['infra', projectId]) ?? infraObjects;
-      const layerList = queryClient.getQueryData<typeof layers>(['layers', projectId]) ?? layers;
-      const visibleIds = new Set(
-        (layerList ?? []).filter((l) => l.is_visible).map((l) => l.id)
-      );
-      const onMap = infra.filter((o) => visibleIds.has(o.layer_id));
-      const aligned = alignAnalysisRowsToMapObjects(rawRows, onMap);
-      const focus = buildAnalysisResultMapFocus(
-        { lon: selectedPoi.lon, lat: selectedPoi.lat },
-        aligned
-      );
-      if (focus) setMapFocus({ ...focus, nonce: Date.now() });
-      const firstLinked = aligned.find(
-        (r) =>
-          r.param_type === 'external' &&
-          r.nearest_object_id &&
-          r.object_name &&
-          filteredInfra.some((o) => o.id === r.nearest_object_id)
-      );
-      if (firstLinked?.nearest_object_id) {
-        setFeatureSel({ kind: 'infra', id: firstLinked.nearest_object_id });
-        setDrawMode('select');
-        setSelectMenuOpen(false);
+    onSuccess: async (batch) => {
+      if (!projectId) return;
+      for (const item of batch.results) {
+        const normalized = normalizePoiAnalysisResponse(item);
+        queryClient.setQueryData(['analysis', projectId, item.poi_id], normalized);
       }
+      const poiForFocus = selectedPoi ?? pois[0];
+      if (poiForFocus) {
+        const normalized =
+          queryClient.getQueryData<PoiAnalysisResponse>([
+            'analysis',
+            projectId,
+            poiForFocus.id,
+          ]) ?? null;
+        const rawRows = normalized?.rows ?? normalized?.analysis ?? [];
+        const infra =
+          queryClient.getQueryData<InfraObject[]>(['infra', projectId]) ?? infraObjects;
+        const layerList = queryClient.getQueryData<typeof layers>(['layers', projectId]) ?? layers;
+        const visibleIds = new Set(
+          (layerList ?? []).filter((l) => l.is_visible).map((l) => l.id)
+        );
+        const onMap = infra.filter((o) => visibleIds.has(o.layer_id));
+        const aligned = alignAnalysisRowsToMapObjects(rawRows, onMap);
+        const focus = buildAnalysisResultMapFocus(
+          { lon: poiForFocus.lon, lat: poiForFocus.lat },
+          aligned
+        );
+        if (focus) setMapFocus({ ...focus, nonce: Date.now() });
+      }
+      pushToast(
+        'success',
+        batch.analyzed_count === 1
+          ? 'Анализ окружения выполнен для 1 точки'
+          : `Анализ окружения выполнен для ${batch.analyzed_count} точек`
+      );
       await queryClient.invalidateQueries({ queryKey: ['infra', projectId] });
       await queryClient.invalidateQueries({ queryKey: ['layers', projectId] });
+      await queryClient.invalidateQueries({ queryKey: ['scenarios', projectId] });
     },
     onError: (err) => {
-      const msg =
-        err instanceof Error ? err.message : 'Не удалось выполнить анализ окружения';
-      setAnalyzeError(msg);
-      window.alert(msg);
+      pushToast(
+        'error',
+        err instanceof Error ? err.message : 'Не удалось выполнить анализ окружения'
+      );
     },
   });
 
   const deleteInfraMut = useMutation({
-    mutationFn: (id: string) => api.deleteInfraObject(projectId!, id),
+    mutationFn: async (id: string) => {
+      const currentInfra = queryClient.getQueryData<InfraObject[]>(['infra', projectId]) ?? infraObjects;
+      const target = currentInfra.find((o) => o.id === id);
+      if (!target) {
+        await api.deleteInfraObject(projectId!, id);
+        return [id];
+      }
+      const linkedLineIds = linkedLineIdsForPoint(target, currentInfra);
+      const deleteIds = Array.from(new Set([id, ...linkedLineIds]));
+      await Promise.all(deleteIds.map((objId) => api.deleteInfraObject(projectId!, objId)));
+      return deleteIds;
+    },
     onMutate: async (id) => {
       await queryClient.cancelQueries({ queryKey: ['infra', projectId] });
+      const currentInfra = queryClient.getQueryData<InfraObject[]>(['infra', projectId]) ?? infraObjects;
+      const deleted =
+        currentInfra.find((o) => o.id === id) ??
+        infraObjects.find((o) => o.id === id);
+      const linkedLineIds = deleted ? linkedLineIdsForPoint(deleted, currentInfra) : [];
+      const deleteIds = new Set([id, ...linkedLineIds]);
+      const deletedGroup = currentInfra
+        .filter((o) => deleteIds.has(o.id))
+        .map((o) => structuredClone(o));
       const snapshots = queryClient.getQueriesData<InfraObject[]>({ queryKey: ['infra', projectId] });
       queryClient.setQueriesData<InfraObject[]>({ queryKey: ['infra', projectId] }, (old) =>
-        old ? old.filter((o) => o.id !== id) : []
+        old ? old.filter((o) => !deleteIds.has(o.id)) : []
       );
-      return { snapshots };
+      return { snapshots, deleted, deletedGroup, deleteIds };
     },
     onError: (err, _id, ctx) => {
       ctx?.snapshots.forEach(([key, data]) => {
         queryClient.setQueryData(key, data);
       });
-      window.alert(err instanceof Error ? err.message : 'Не удалось удалить объект');
+      pushToast('error', err instanceof Error ? err.message : 'Не удалось удалить объект');
     },
-    onSuccess: (_data, id) => {
-      setFeatureSel((sel) => (sel?.id === id ? null : sel));
+    onSuccess: (_deletedIds, id, ctx) => {
+      if (ctx?.deletedGroup && ctx.deletedGroup.length > 1) {
+        pushUndo({
+          kind: 'restore_group',
+          pois: [],
+          infra: ctx.deletedGroup,
+          label: `удаление ${ctx.deletedGroup.length} объектов`,
+        });
+        pushToast('success', `Удалено объектов: ${ctx.deletedGroup.length}`);
+      } else if (ctx?.deleted) {
+        pushUndo({
+          kind: 'restore_infra',
+          snapshot: ctx.deleted,
+          label: `удаление «${ctx.deleted.name}»`,
+        });
+        pushToast('success', `Объект «${ctx.deleted.name}» удалён`);
+      } else {
+        pushToast('success', 'Объект удалён');
+      }
+      setFeatureSel((sel) => (sel && ctx?.deleteIds?.has(sel.id) ? null : sel?.id === id ? null : sel));
     },
     onSettled: async () => {
       await queryClient.invalidateQueries({ queryKey: ['infra', projectId] });
@@ -499,22 +752,85 @@ export function MapPage() {
 
   const deleteGroupMut = useMutation({
     mutationFn: async (items: MapFeatureSelection[]) => {
-      await Promise.all(
-        items.map((sel) =>
-          sel.kind === 'poi'
-            ? api.deletePoi(projectId!, sel.id)
-            : api.deleteInfraObject(projectId!, sel.id)
-        )
-      );
+      const currentInfra = queryClient.getQueryData<InfraObject[]>(['infra', projectId]) ?? infraObjects;
+      const selectedInfraIds = items.filter((sel) => sel.kind === 'infra').map((sel) => sel.id);
+      const extraLineIds = new Set<string>();
+      for (const infraId of selectedInfraIds) {
+        const obj = currentInfra.find((o) => o.id === infraId);
+        if (!obj) continue;
+        for (const lineId of linkedLineIdsForPoint(obj, currentInfra)) extraLineIds.add(lineId);
+      }
+      const allInfraIds = Array.from(new Set([...selectedInfraIds, ...Array.from(extraLineIds)]));
+      const poiIds = items.filter((sel) => sel.kind === 'poi').map((sel) => sel.id);
+
+      await Promise.all([
+        ...poiIds.map((poiId) => api.deletePoi(projectId!, poiId)),
+        ...allInfraIds.map((infraId) => api.deleteInfraObject(projectId!, infraId)),
+      ]);
     },
-    onSuccess: (_data, items) => {
+    onMutate: async (items) => {
+      const currentInfra = queryClient.getQueryData<InfraObject[]>(['infra', projectId]) ?? infraObjects;
+      const poisSnap: POI[] = [];
+      const infraSnap: InfraObject[] = [];
+      const selectedInfraIds = items.filter((sel) => sel.kind === 'infra').map((sel) => sel.id);
+      const extraLineIds = new Set<string>();
+      for (const infraId of selectedInfraIds) {
+        const obj = currentInfra.find((o) => o.id === infraId);
+        if (!obj) continue;
+        for (const lineId of linkedLineIdsForPoint(obj, currentInfra)) extraLineIds.add(lineId);
+      }
+      const allInfraIds = new Set([...selectedInfraIds, ...Array.from(extraLineIds)]);
+      for (const sel of items) {
+        if (sel.kind === 'poi') {
+          const poi = pois.find((p) => p.id === sel.id);
+          if (poi) poisSnap.push(structuredClone(poi));
+        } else {
+          const obj = currentInfra.find((o) => o.id === sel.id) ?? infraObjects.find((o) => o.id === sel.id);
+          if (obj) infraSnap.push(structuredClone(obj));
+        }
+      }
+      for (const infraId of allInfraIds) {
+        if (infraSnap.some((o) => o.id === infraId)) continue;
+        const linked = currentInfra.find((o) => o.id === infraId);
+        if (linked) infraSnap.push(structuredClone(linked));
+      }
+      return { poisSnap, infraSnap };
+    },
+    onSuccess: (_data, items, ctx) => {
+      const poiCount = ctx?.poisSnap.length ?? 0;
+      const infraCount = ctx?.infraSnap.length ?? 0;
+      const total = poiCount + infraCount;
+      if (ctx && total > 0) {
+        pushUndo({
+          kind: 'restore_group',
+          pois: ctx.poisSnap,
+          infra: ctx.infraSnap,
+          label: `удаление ${total} объектов`,
+        });
+      }
+      if (total === 1 && ctx?.poisSnap[0]) {
+        pushToast('success', `Точка «${ctx.poisSnap[0].name}» удалена`);
+      } else if (total === 1 && ctx?.infraSnap[0]) {
+        pushToast('success', `Объект «${ctx.infraSnap[0].name}» удалён`);
+      } else if (total > 0) {
+        const parts: string[] = [];
+        if (poiCount > 0) parts.push(`${poiCount} ${poiCount === 1 ? 'точка' : poiCount < 5 ? 'точки' : 'точек'}`);
+        if (infraCount > 0) {
+          parts.push(
+            `${infraCount} ${infraCount === 1 ? 'объект' : infraCount < 5 ? 'объекта' : 'объектов'}`
+          );
+        }
+        pushToast('success', `Удалено: ${parts.join(', ')}`);
+      } else if (items.length > 0) {
+        pushToast('success', `Удалено объектов: ${items.length}`);
+      }
       const deletedIds = new Set(items.map((s) => s.id));
       setFeatureGroupSel([]);
       setFeatureSel((sel) => (sel && deletedIds.has(sel.id) ? null : sel));
       invalidateMap();
     },
     onError: (err) => {
-      window.alert(err instanceof Error ? err.message : 'Не удалось удалить объекты');
+      pushToast('error', err instanceof Error ? err.message : 'Не удалось удалить объекты');
     },
     onSettled: async () => {
       await queryClient.invalidateQueries({ queryKey: ['pois', projectId] });
@@ -524,14 +840,67 @@ export function MapPage() {
     },
   });
 
-  const handleDeleteGroupSelection = () => {
+  const objectCountLabel = (count: number) =>
+    count === 1 ? 'объект' : count < 5 ? 'объекта' : 'объектов';
+
+  const executeDeleteGroupSelection = () => {
+    if (!projectId || featureGroupSel.length === 0 || deleteGroupMut.isPending) return;
+    deleteGroupMut.mutate(featureGroupSel);
+  };
+
+  const requestDeleteGroupSelection = () => {
     if (!projectId || featureGroupSel.length === 0 || deleteGroupMut.isPending) return;
     const count = featureGroupSel.length;
-    const confirmed = window.confirm(
-      `Удалить ${count} ${count === 1 ? 'объект' : count < 5 ? 'объекта' : 'объектов'}? Это действие нельзя отменить.`
-    );
-    if (!confirmed) return;
-    deleteGroupMut.mutate(featureGroupSel);
+    setDeleteConfirm({
+      title: 'Удалить объекты?',
+      message: `Будет удалено ${count} ${objectCountLabel(count)} с карты и из базы данных.`,
+      onConfirm: executeDeleteGroupSelection,
+    });
+  };
+
+  const selectedOnMapCount =
+    featureGroupSel.length > 0 ? featureGroupSel.length : featureSel ? 1 : 0;
+
+  const executeDeleteSingleSelection = () => {
+    if (!projectId || !featureSel) return;
+    if (featureSel.kind === 'poi') {
+      const poi = pois.find((p) => p.id === featureSel.id);
+      if (!poi) return;
+      api
+        .deletePoi(projectId, poi.id)
+        .then(() => {
+          pushUndo({
+            kind: 'restore_poi',
+            snapshot: poi,
+            label: `удаление «${poi.name}»`,
+          });
+          setFeatureSel(null);
+          invalidateMap();
+        })
+        .catch((err) => {
+          pushToast('error', err instanceof Error ? err.message : 'Не удалось удалить объект');
+        });
+      return;
+    }
+    deleteInfraMut.mutate(featureSel.id);
+  };
+
+  const requestDeleteSelection = () => {
+    if (!projectId || selectedOnMapCount === 0) return;
+    if (featureGroupSel.length > 0) {
+      requestDeleteGroupSelection();
+      return;
+    }
+    if (!featureSel) return;
+    const name =
+      featureSel.kind === 'poi'
+        ? pois.find((p) => p.id === featureSel.id)?.name
+        : infraObjects.find((o) => o.id === featureSel.id)?.name;
+    setDeleteConfirm({
+      title: 'Удалить объект?',
+      message: `«${name || 'объект'}» будет удалён с карты и из базы данных.`,
+      onConfirm: executeDeleteSingleSelection,
+    });
   };
 
   const saveDetailMut = useMutation({
@@ -560,40 +929,77 @@ export function MapPage() {
         ...(data.properties ? { properties: data.properties as Record<string, unknown> } : {}),
       });
     },
-    onSuccess: () => {
+    onMutate: () => {
+      if (!detailSelection) return;
+      if (detailSelection.kind === 'poi') {
+        return {
+          undo: {
+            kind: 'patch_poi_detail' as const,
+            poiId: detailSelection.poi.id,
+            before: poiDetailUndo(detailSelection.poi),
+            label: `изменение «${detailSelection.poi.name}»`,
+          },
+        };
+      }
+      return {
+        undo: {
+          kind: 'patch_infra_detail' as const,
+          objectId: detailSelection.object.id,
+          before: infraDetailUndo(detailSelection.object),
+          label: `изменение «${detailSelection.object.name}»`,
+        },
+      };
+    },
+    onSuccess: (_data, _vars, ctx) => {
+      if (ctx?.undo) pushUndo(ctx.undo);
       invalidateMap();
       if (projectId) {
         void queryClient.invalidateQueries({ queryKey: ['analysis', projectId] });
       }
+      const label =
+        detailSelection?.kind === 'poi'
+          ? detailSelection.poi.name
+          : detailSelection?.kind === 'infra'
+            ? detailSelection.object.name
+            : null;
+      pushToast('success', label ? `Сохранено: «${label}»` : 'Изменения сохранены');
     },
     onError: (err) => {
-      window.alert(err instanceof Error ? err.message : 'Не удалось сохранить');
+      pushToast('error', err instanceof Error ? err.message : 'Не удалось сохранить');
     },
   });
 
   const overrideMut = useMutation({
-    mutationFn: (payload: Candidate | { subtype: string; force_construction: boolean }) => {
+    mutationFn: (
+      payload:
+        | Candidate
+        | { subtype: string; force_construction: boolean; param_type: 'external' | 'external_linear' }
+    ) => {
       if ('force_construction' in payload) {
         return api.overrideAnalysis(projectId!, selectedPoi!.id, payload.subtype, {
           force_construction: payload.force_construction,
+          param_type: payload.param_type,
         });
       }
       return api.overrideAnalysis(projectId!, selectedPoi!.id, candidateSubtype!, {
         nearest_object_id: payload.object_id ?? undefined,
         nearest_node_id: payload.nearest_node_id ?? undefined,
+        param_type: candidateParamType,
       });
     },
     onSuccess: (data) => {
       setCandidateSubtype(null);
+      setCandidateParamType('external');
       if (projectId && selectedPoi && data && typeof data === 'object' && 'rows' in data) {
         queryClient.setQueryData(
           ['analysis', projectId, selectedPoi.id],
           normalizePoiAnalysisResponse(data as AnalysisResult | PoiAnalysisResponse)
         );
       }
+      pushToast('success', 'Анализ обновлён');
     },
     onError: (err) => {
-      window.alert(err instanceof Error ? err.message : 'Не удалось обновить анализ');
+      pushToast('error', err instanceof Error ? err.message : 'Не удалось обновить анализ');
     },
   });
 
@@ -605,6 +1011,10 @@ export function MapPage() {
       await queryClient.invalidateQueries({ queryKey: ['networks', projectId] });
       await queryClient.invalidateQueries({ queryKey: ['network-nodes', projectId] });
       await queryClient.invalidateQueries({ queryKey: ['network-edges', projectId] });
+      pushToast('success', 'Сеть построена');
+    },
+    onError: (err) => {
+      pushToast('error', err instanceof Error ? err.message : 'Не удалось построить сеть');
     },
   });
 
@@ -615,7 +1025,6 @@ export function MapPage() {
       setFeatureGroupSel([]);
       setShowNetwork(false);
       setMapFocus(null);
-      setAnalyzeError(null);
       if (projectId) {
         queryClient.setQueryData(['infra', projectId], []);
         queryClient.setQueriesData({ queryKey: ['network-nodes', projectId] }, []);
@@ -623,12 +1032,13 @@ export function MapPage() {
         queryClient.removeQueries({ queryKey: ['analysis', projectId] });
         await refreshMapQueries(queryClient, projectId);
       }
-      window.alert(
+      pushToast(
+        'success',
         `Удалено объектов: ${result.deleted_objects}, узлов сети: ${result.deleted_nodes}, рёбер: ${result.deleted_edges}.`
       );
     },
     onError: (err) => {
-      window.alert(err instanceof Error ? err.message : 'Не удалось очистить карту');
+      pushToast('error', err instanceof Error ? err.message : 'Не удалось очистить карту');
     },
   });
 
@@ -640,13 +1050,33 @@ export function MapPage() {
       const saveSeq = ++geometrySaveSeqRef.current;
       const rLon = roundCoord(lon);
       const rLat = roundCoord(lat);
+
+      const poiBefore =
+        sel.kind === 'poi'
+          ? queryClient.getQueryData<POI[]>(['pois', projectId])?.find((p) => p.id === sel.id) ??
+            pois.find((p) => p.id === sel.id)
+          : null;
+      const infraBefore =
+        sel.kind === 'infra'
+          ? queryClient.getQueryData<InfraObject[]>(['infra', projectId])?.find((o) => o.id === sel.id) ??
+            infraObjects.find((o) => o.id === sel.id)
+          : null;
+
       try {
         if (sel.kind === 'poi') {
-          await api.updatePoi(projectId, sel.id, { lon: rLon, lat: rLat });
-          if (saveSeq !== geometrySaveSeqRef.current) return;
           queryClient.setQueriesData<POI[]>({ queryKey: ['pois', projectId] }, (old) =>
             old?.map((p) => (p.id === sel.id ? { ...p, lon: rLon, lat: rLat } : p)) ?? []
           );
+          await api.updatePoi(projectId, sel.id, { lon: rLon, lat: rLat });
+          if (saveSeq !== geometrySaveSeqRef.current) return;
+          if (poiBefore) {
+            pushUndo({
+              kind: 'patch_poi_geometry',
+              poiId: sel.id,
+              before: poiGeometryUndo(poiBefore),
+              label: `перемещение «${poiBefore.name}»`,
+            });
+          }
         } else if (coords && coords.length >= 2) {
           const roundedCoords = coords.map(([lo, la]) => [roundCoord(lo), roundCoord(la)] as [number, number]);
           const payload = {
@@ -656,33 +1086,185 @@ export function MapPage() {
             end_lat: roundedCoords[roundedCoords.length - 1][1],
             coordinates: roundedCoords,
           };
-          await api.updateInfraObject(projectId, sel.id, payload);
-          if (saveSeq !== geometrySaveSeqRef.current) return;
           queryClient.setQueriesData<InfraObject[]>({ queryKey: ['infra', projectId] }, (old) =>
             old?.map((o) => (o.id === sel.id ? { ...o, ...payload } : o)) ?? []
           );
-        } else {
-          await api.updateInfraObject(projectId, sel.id, { lon: rLon, lat: rLat });
+          await api.updateInfraObject(projectId, sel.id, payload);
           if (saveSeq !== geometrySaveSeqRef.current) return;
+          if (infraBefore) {
+            pushUndo({
+              kind: 'patch_infra_geometry',
+              objectId: sel.id,
+              before: infraGeometryUndo(infraBefore),
+              label: `изменение геометрии «${infraBefore.name}»`,
+            });
+          }
+        } else {
+          // If a point object is moved, drag connected line endpoints with it.
+          const isMovedPoint = !!infraBefore && !LINE_SUBTYPES.includes(infraBefore.subtype as typeof LINE_SUBTYPES[number]);
+          const updatedLinePayloads: {
+            id: string;
+            payload: Partial<InfraObjectCreate>;
+            before: { lon: number; lat: number; end_lon?: number | null; end_lat?: number | null; coordinates?: number[][] | null };
+          }[] = [];
+          if (isMovedPoint && infraBefore) {
+            const oldLon = roundCoord(infraBefore.lon);
+            const oldLat = roundCoord(infraBefore.lat);
+            const currentInfra =
+              queryClient.getQueryData<InfraObject[]>(['infra', projectId]) ?? infraObjects;
+            const candidateLines = currentInfra.filter((o) => o.id !== sel.id && LINE_SUBTYPES.includes(o.subtype as typeof LINE_SUBTYPES[number]));
+
+            for (const line of candidateLines) {
+              const coords = lineCoordsOrEndpoints(line);
+              if (!coords || coords.length < 2) continue;
+              const first = coords[0]!;
+              const last = coords[coords.length - 1]!;
+              const firstMatches = sameCoord(roundCoord(first[0]), oldLon) && sameCoord(roundCoord(first[1]), oldLat);
+              const lastMatches = sameCoord(roundCoord(last[0]), oldLon) && sameCoord(roundCoord(last[1]), oldLat);
+              if (!firstMatches && !lastMatches) continue;
+
+              const shifted = coords.map(([lo, la], i) => {
+                if (i === 0 && firstMatches) return [rLon, rLat] as [number, number];
+                if (i === coords.length - 1 && lastMatches) return [rLon, rLat] as [number, number];
+                return [roundCoord(lo), roundCoord(la)] as [number, number];
+              });
+              const payload = {
+                lon: shifted[0][0],
+                lat: shifted[0][1],
+                end_lon: shifted[shifted.length - 1][0],
+                end_lat: shifted[shifted.length - 1][1],
+                coordinates: shifted,
+              };
+              updatedLinePayloads.push({
+                id: line.id,
+                payload,
+                before: {
+                  lon: line.lon,
+                  lat: line.lat,
+                  end_lon: line.end_lon,
+                  end_lat: line.end_lat,
+                  coordinates: line.coordinates,
+                },
+              });
+            }
+          }
+
           queryClient.setQueriesData<InfraObject[]>({ queryKey: ['infra', projectId] }, (old) =>
-            old?.map((o) => (o.id === sel.id ? { ...o, lon: rLon, lat: rLat } : o)) ?? []
+            old?.map((o) => {
+              if (o.id === sel.id) return { ...o, lon: rLon, lat: rLat };
+              const linePatch = updatedLinePayloads.find((p) => p.id === o.id);
+              return linePatch ? { ...o, ...linePatch.payload } : o;
+            }) ?? []
           );
+          await api.updateInfraObject(projectId, sel.id, { lon: rLon, lat: rLat });
+          for (const linePatch of updatedLinePayloads) {
+            await api.updateInfraObject(projectId, linePatch.id, linePatch.payload);
+          }
+          if (saveSeq !== geometrySaveSeqRef.current) return;
+          if (infraBefore) {
+            if (updatedLinePayloads.length > 0) {
+              pushUndo({
+                kind: 'patch_infra_batch',
+                entries: [
+                  { objectId: sel.id, before: infraGeometryUndo(infraBefore) },
+                  ...updatedLinePayloads.map((linePatch) => ({
+                    objectId: linePatch.id,
+                    before: linePatch.before,
+                  })),
+                ],
+                label: `перемещение «${infraBefore.name}»`,
+              });
+            } else {
+              pushUndo({
+                kind: 'patch_infra_geometry',
+                objectId: sel.id,
+                before: infraGeometryUndo(infraBefore),
+                label: `перемещение «${infraBefore.name}»`,
+              });
+            }
+          }
         }
       } catch (e) {
         if (saveSeq !== geometrySaveSeqRef.current) return;
-        window.alert(e instanceof Error ? e.message : 'Не удалось сохранить геометрию');
+        pushToast('error', e instanceof Error ? e.message : 'Не удалось сохранить геометрию');
         await refreshMapQueries(queryClient, projectId);
         queryClient.invalidateQueries({ queryKey: ['pois', projectId] });
       }
     },
-    [projectId, queryClient]
+    [projectId, queryClient, pois, infraObjects, pushUndo, pushToast]
   );
+
+  const finishRulerMeasurement = useCallback(
+    (appendPreview = false) => {
+      if (rulerClickTimerRef.current) {
+        clearTimeout(rulerClickTimerRef.current);
+        rulerClickTimerRef.current = null;
+      }
+      let coords = rulerPoints;
+      if (appendPreview && rulerPreview && coords.length >= 1) {
+        coords = [...coords, rulerPreview];
+      }
+      if (coords.length < 2) return;
+      setRulerCompleted((prev) => [...prev, coords]);
+      setRulerPoints([]);
+      setRulerPreview(null);
+    },
+    [rulerPoints, rulerPreview],
+  );
+
+  const handleRulerClick = useCallback((lon: number, lat: number) => {
+    const pt: [number, number] = [roundCoord(lon), roundCoord(lat)];
+    if (rulerClickTimerRef.current) clearTimeout(rulerClickTimerRef.current);
+    rulerClickTimerRef.current = setTimeout(() => {
+      rulerClickTimerRef.current = null;
+      setRulerPoints((prev) => [...prev, pt]);
+      setRulerPreview(null);
+    }, 220);
+  }, []);
+
+  const measureCursorLabel = useMemo(() => {
+    if (drawMode !== 'ruler' || !rulerPreview || rulerPoints.length < 1) return null;
+    const coords = [...rulerPoints, rulerPreview];
+    if (coords.length < 2) return null;
+    return {
+      lon: rulerPreview[0],
+      lat: rulerPreview[1],
+      text: formatLengthMeters(lineLengthMeters(coords)),
+    };
+  }, [drawMode, rulerPoints, rulerPreview]);
+
+  const measureAnchorLabels = useMemo(() => {
+    const labels = rulerCompleted
+      .filter((coords) => coords.length >= 2)
+      .map((coords) => {
+        const last = coords[coords.length - 1]!;
+        return {
+          lon: last[0],
+          lat: last[1],
+          text: formatLengthMeters(lineLengthMeters(coords)),
+        };
+      });
+    if (drawMode === 'ruler' && rulerPoints.length >= 2) {
+      const last = rulerPoints[rulerPoints.length - 1]!;
+      labels.push({
+        lon: last[0],
+        lat: last[1],
+        text: formatLengthMeters(lineLengthMeters(rulerPoints)),
+      });
+    }
+    return labels;
+  }, [drawMode, rulerCompleted, rulerPoints]);
 
   const handleMapClick = useCallback(
     (lon: number, lat: number) => {
+      if (drawMode === 'ruler') {
+        handleRulerClick(lon, lat);
+        return;
+      }
       if (drawMode === 'poi') {
         setPoiForm(
           emptyPoiFormValues({
+            name: nextPoiAutoName(pois),
             lon: formatCoord(lon),
             lat: formatCoord(lat),
           })
@@ -702,28 +1284,146 @@ export function MapPage() {
         return;
       }
       if (drawMode === 'line') {
-        // Polyline drawing: each click adds a vertex; finishing is explicit (see toolbar).
+        // Keep click coordinates while drawing; endpoint snap runs on finish (avoids visible jump on first click).
         setLineDraft((prev) => [...prev, [lon, lat]]);
       }
     },
-    [createInfraMut, drawMode, infraForm.subtype, nextAutoName, projectId]
+    [
+      createInfraMut,
+      drawMode,
+      handleRulerClick,
+      infraForm.subtype,
+      infraObjects,
+      nextAutoName,
+      pois,
+      projectId,
+    ]
   );
+
+  const finishLineDraft = useCallback(
+    async (coords: number[][], finishAt?: { lon: number; lat: number }) => {
+      if (!projectId) return;
+      if (coords.length < 2) {
+        pushToast('info', 'Добавьте минимум 2 точки линии (ЛКМ по карте)');
+        return;
+      }
+      const subtype = infraForm.subtype;
+      const draft = coords.map((c) => [c[0], c[1]] as [number, number]);
+      if (finishAt) {
+        draft[draft.length - 1] = [finishAt.lon, finishAt.lat];
+      }
+
+      let pool =
+        queryClient.getQueryData<InfraObject[]>(['infra', projectId]) ?? infraObjects;
+      const createdNodeIds: string[] = [];
+
+      const applyEndpoint = async (
+        index: number,
+        kind: 'start' | 'finish',
+      ): Promise<boolean> => {
+        const resolved = resolveLineEndpoint(subtype, kind, draft[index], pool);
+        if (!resolved.ok) {
+          pushToast('error', resolved.message);
+          return false;
+        }
+        if (resolved.createNode) {
+          try {
+            const node = await api.createInfraObject(projectId, {
+              name: nextAutoName('node'),
+              subtype: 'node',
+              lon: roundCoord(resolved.lon),
+              lat: roundCoord(resolved.lat),
+            });
+            createdNodeIds.push(node.id);
+            pool = [...pool, node];
+            upsertInfraInCache(node);
+            draft[index] = [node.lon, node.lat];
+          } catch (err) {
+            pushToast(
+              'error',
+              err instanceof Error ? err.message : 'Не удалось создать узел подключения',
+            );
+            return false;
+          }
+        } else {
+          draft[index] = [resolved.lon, resolved.lat];
+        }
+        return true;
+      };
+
+      if (!(await applyEndpoint(0, 'start'))) return;
+      if (!(await applyEndpoint(draft.length - 1, 'finish'))) return;
+
+      const prepared = draft.map(([lo, la]) => [lo, la] as [number, number]);
+      try {
+        await createInfraMut.mutateAsync({
+          name: nextAutoName(subtype),
+          subtype,
+          lon: roundCoord(prepared[0][0]),
+          lat: roundCoord(prepared[0][1]),
+          end_lon: roundCoord(prepared[prepared.length - 1][0]),
+          end_lat: roundCoord(prepared[prepared.length - 1][1]),
+          coordinates: prepared.map(([lo, la]) => [roundCoord(lo), roundCoord(la)]),
+        });
+        setLineDraft([]);
+        if (createdNodeIds.length > 0) {
+          pushToast(
+            'info',
+            createdNodeIds.length === 1
+              ? 'Создан узел подключения и линия'
+              : `Созданы узлы подключения (${createdNodeIds.length}) и линия`,
+          );
+        }
+      } catch (err) {
+        pushToast(
+          'error',
+          err instanceof Error ? err.message : 'Не удалось сохранить линейный объект',
+        );
+      }
+    },
+    [
+      createInfraMut,
+      infraForm.subtype,
+      infraObjects,
+      nextAutoName,
+      projectId,
+      pushToast,
+      upsertInfraInCache,
+    ],
+  );
+
+  useEffect(() => {
+    if (drawMode !== 'line') return;
+    const onKeyDown = (e: KeyboardEvent) => {
+      if (e.key !== 'Enter') return;
+      const target = e.target as HTMLElement | null;
+      if (
+        target &&
+        (target.tagName === 'INPUT' ||
+          target.tagName === 'TEXTAREA' ||
+          target.tagName === 'SELECT' ||
+          target.isContentEditable)
+      ) {
+        return;
+      }
+      e.preventDefault();
+      finishLineDraft(lineDraft);
+    };
+    window.addEventListener('keydown', onKeyDown);
+    return () => window.removeEventListener('keydown', onKeyDown);
+  }, [drawMode, lineDraft, finishLineDraft]);
 
   const submitPoi = () => {
     if (!projectId) {
-      window.alert('Выберите проект в шапке приложения');
+      pushToast('error', 'Выберите проект в шапке приложения');
       return;
     }
     if (!modal || modal.type !== 'poi') return;
-    const name = poiForm.name.trim();
-    if (!name) {
-      window.alert('Укажите название точки интереса');
-      return;
-    }
+    const name = poiForm.name.trim() || nextPoiAutoName(pois);
     const lon = parseCoord(poiForm.lon || formatCoord(modal.lon));
     const lat = parseCoord(poiForm.lat || formatCoord(modal.lat));
     if (!Number.isFinite(lon) || !Number.isFinite(lat)) {
-      window.alert('Укажите корректные координаты');
+      pushToast('error', 'Укажите корректные координаты');
       return;
     }
     const payload = formValuesToPoiCreatePayload({
@@ -735,137 +1435,57 @@ export function MapPage() {
     createPoiMut.mutate(payload as Parameters<typeof api.createPoi>[1]);
   };
 
-  const analysisRunStatus = useMemo(() => {
-    if (analyzeMut.isPending) {
-      return {
-        tone: 'info' as const,
-        text:
-          analysisRowsForMap.length > 0
-            ? 'Пересчёт окружения…'
-            : 'Выполняется расчёт окружения…',
-      };
-    }
-    if (analysisFetching && analysisRowsForMap.length === 0) {
-      return { tone: 'info' as const, text: 'Загрузка результата…' };
-    }
-    if (analyzeError) {
-      return { tone: 'error' as const, text: analyzeError };
-    }
-    if (analysisFetching) {
-      return { tone: 'info' as const, text: 'Обновление результата…' };
-    }
-    return null;
-  }, [
-    analyzeMut.isPending,
-    analysisFetching,
-    analysisRowsForMap.length,
-    analyzeError,
-  ]);
-
-  const submitInfraLine = (coords: number[][]) => {
-    if (!projectId) return;
-    if (!coords || coords.length < 2) return;
-    const subtype = infraForm.subtype;
-    createInfraMut.mutate({
-      name: nextAutoName(subtype),
-      subtype,
-      lon: roundCoord(coords[0][0]),
-      lat: roundCoord(coords[0][1]),
-      end_lon: roundCoord(coords[coords.length - 1][0]),
-      end_lat: roundCoord(coords[coords.length - 1][1]),
-      coordinates: coords.map(([lo, la]) => [roundCoord(lo), roundCoord(la)]),
-    });
-  };
-
   return (
-    <div>
-      <div className="flex flex-wrap items-center justify-between gap-3 mb-4">
-        <div className="flex items-center gap-2 flex-wrap min-w-0">
-          <h1 className="text-2xl font-bold shrink-0">Карта</h1>
-          {analysisRunStatus && (
-            <span
-              role="status"
-              aria-live="polite"
-              className={`inline-flex items-center gap-1.5 text-sm px-2.5 py-1 rounded-full border max-w-[min(100%,420px)] ${
-                analysisRunStatus.tone === 'error'
-                  ? 'border-red-300 bg-red-50 text-red-700'
-                  : 'border-amber-300 bg-amber-50 text-amber-900'
-              }`}
-              title={analysisRunStatus.text}
-            >
-              {analysisRunStatus.tone === 'info' && (
-                <Loader2 size={14} className="shrink-0 animate-spin" aria-hidden />
-              )}
-              <span className="truncate">{analysisRunStatus.text}</span>
-            </span>
-          )}
-        </div>
-        <div className="flex flex-wrap gap-2 items-center">
-          <select
-            value={basemap}
-            onChange={(e) => setBasemap(e.target.value as typeof basemap)}
-            disabled={!showBasemap}
-            className="text-sm px-3 py-1.5 rounded-lg border disabled:opacity-50"
-            style={{ borderColor: 'var(--border)', background: 'var(--surface)' }}
-            title={showBasemap ? 'Тип картографической подложки' : 'Включите подложку'}
+    <div className="map-page flex flex-1 flex-col min-h-0 overflow-hidden">
+      <header className="page-header map-page-header shrink-0">
+        <h1>Карта инфраструктуры</h1>
+        {projectId && pois.length > 0 && (
+          <button
+            type="button"
+            className="btn btn-primary shrink-0"
+            onClick={() => analyzeMut.mutate()}
+            disabled={analyzeMut.isPending}
+            title={
+              pois.length > 1
+                ? `Пересчитать анализ для всех ${pois.length} точек интереса`
+                : 'Пересчитать анализ окружения'
+            }
           >
-            <option value="osm">OpenStreetMap</option>
-            <option value="satellite">Satellite</option>
-            <option value="terrain">Terrain</option>
-          </select>
-          <label
-            className="inline-flex items-center gap-1.5 text-sm px-2.5 py-1.5 rounded-lg border cursor-pointer select-none"
-            style={{ borderColor: 'var(--border)', background: 'var(--surface)' }}
-            title="Скрыть тайловую подложку (объекты и радиусы остаются)"
-          >
-            <input
-              type="checkbox"
-              checked={!showBasemap}
-              onChange={(e) => setShowBasemap(!e.target.checked)}
-              className="rounded"
-            />
-            Без подложки
-          </label>
-          {pois.length > 0 && (
-            <select
-              value={selectedPoiId ?? pois[0].id}
-              onChange={(e) => setSelectedPoiId(e.target.value)}
-              className="text-sm px-3 py-1.5 rounded-lg border max-w-[200px]"
-              style={{ borderColor: 'var(--border)', background: 'var(--surface)' }}
-            >
-              {pois.map((p) => (
-                <option key={p.id} value={p.id}>
-                  {p.name}
-                </option>
-              ))}
-            </select>
-          )}
-          {selectedPoi && projectId && (
-            <button
-              type="button"
-              className="btn btn-primary text-sm"
-              onClick={() => analyzeMut.mutate()}
-              disabled={analyzeMut.isPending || !projectId}
-            >
-              <Zap size={14} className="inline mr-1" />
-              {analyzeMut.isPending ? 'Расчёт…' : 'Анализировать окружение'}
-            </button>
-          )}
-        </div>
-      </div>
+            <Zap size={16} className="inline mr-1" />
+            {analyzeMut.isPending
+              ? 'Расчёт…'
+              : pois.length > 1
+                ? `Анализировать все точки (${pois.length})`
+                : 'Анализировать окружение'}
+          </button>
+        )}
+      </header>
 
       {!projectId && (
-        <div className="card mb-4 text-sm" style={{ color: 'var(--text-muted)' }}>
-          Выберите проект на странице «Проекты».
+        <div className="card mb-3 shrink-0 text-sm" style={{ color: 'var(--text-muted)' }}>
+          Выберите проект в шапке приложения.
         </div>
       )}
 
-      <div className="grid grid-cols-1 lg:grid-cols-[1fr_260px] gap-4">
-        <div>
-          <div className="flex flex-wrap items-center gap-1 mb-2 p-2 rounded-lg border" style={{ borderColor: 'var(--border)' }}>
+      <div className="card map-page-card flex flex-1 flex-col min-h-0 overflow-hidden">
+          <div className="map-tools">
+            {projectId && pois.length > 0 && (
+              <>
+                <MapPoiSelect
+                  pois={pois}
+                  value={selectedPoiId ?? pois[0].id}
+                  onChange={setSelectedPoiId}
+                />
+                <div
+                  className="w-px h-7 mx-0.5 shrink-0"
+                  style={{ background: 'var(--border)' }}
+                  aria-hidden
+                />
+              </>
+            )}
             <button
               type="button"
-              className={`btn text-sm ${mapEditEnabled ? 'btn-primary' : 'btn-secondary'}`}
+              className={`btn btn-sm map-tool-btn ${mapEditEnabled ? 'btn-primary active' : 'btn-secondary'}`}
               title={
                 mapEditEnabled
                   ? 'Выключить редактирование карты'
@@ -873,14 +1493,40 @@ export function MapPage() {
               }
               onClick={() => setMapEditEnabled((on) => !on)}
             >
-              <PenLine size={14} className="inline mr-1" />
-              {mapEditEnabled ? 'Редактирование вкл.' : 'Редактирование'}
+              <PenLine size={14} />
+            </button>
+            <button
+              type="button"
+              className="btn btn-sm map-tool-btn btn-secondary"
+              title="Отменить последнее действие (Ctrl+Z)"
+              disabled={!canUndo}
+              onClick={() => void performUndo()}
+            >
+              <Undo2 size={14} />
+            </button>
+            <button
+              type="button"
+              className="btn btn-sm map-tool-btn btn-secondary"
+              title={
+                selectedOnMapCount > 0
+                  ? `Удалить выбранные объекты (${selectedOnMapCount})`
+                  : 'Выберите объект на карте (клик или рамка)'
+              }
+              disabled={
+                !projectId ||
+                selectedOnMapCount === 0 ||
+                deleteGroupMut.isPending ||
+                deleteInfraMut.isPending
+              }
+              onClick={requestDeleteSelection}
+            >
+              <Trash2 size={14} />
             </button>
             <div className="w-px h-7 mx-0.5 shrink-0" style={{ background: 'var(--border)' }} aria-hidden />
-            <div className="relative inline-block">
+            <div ref={selectMenuAnchorRef} className="inline-block">
               <button
                 type="button"
-                className={`btn text-sm ${drawMode === 'select' || selectMenuOpen ? 'btn-primary' : 'btn-secondary'}`}
+                className={`btn btn-sm map-tool-btn ${drawMode === 'select' || selectMenuOpen ? 'btn-primary active' : 'btn-secondary'}`}
                 onClick={() => {
                   if (drawMode === 'select') {
                     setSelectMenuOpen((open) => !open);
@@ -900,55 +1546,54 @@ export function MapPage() {
                 )}
                 Выбор
               </button>
-              {selectMenuOpen && (
-                <div
-                  className="absolute z-10 mt-1 w-56 rounded-lg border bg-[var(--surface)] shadow-lg text-sm"
-                  style={{ borderColor: 'var(--border)' }}
+              <AnchoredMenu
+                anchorRef={selectMenuAnchorRef}
+                open={selectMenuOpen}
+                onClose={() => setSelectMenuOpen(false)}
+                width={224}
+                className="app-anchored-menu--flat"
+                ariaLabel="Режим выбора"
+              >
+                <button
+                  type="button"
+                  className={`w-full text-left px-3 py-2 hover:bg-[var(--bg)] flex items-center gap-2 ${
+                    drawMode === 'select' && selectMode === 'single' ? 'font-medium' : ''
+                  }`}
+                  onClick={() => {
+                    setSelectMode('single');
+                    setDrawMode('select');
+                    setSelectMenuOpen(false);
+                    setLineDraft([]);
+                    setPointMenuOpen(false);
+                    setLineMenuOpen(false);
+                  }}
                 >
-                  <button
-                    type="button"
-                    className={`w-full text-left px-3 py-2 hover:bg-[var(--bg)] flex items-center gap-2 ${
-                      drawMode === 'select' && selectMode === 'single' ? 'font-medium' : ''
-                    }`}
-                    onClick={() => {
-                      setSelectMode('single');
-                      setDrawMode('select');
-                      setSelectMenuOpen(false);
-                      setLineDraft([]);
-                      setPointMenuOpen(false);
-                      setLineMenuOpen(false);
-                    }}
-                  >
-                    <MousePointer2 size={14} className="shrink-0 opacity-70" />
-                    <span>Один объект</span>
-                  </button>
-                  <button
-                    type="button"
-                    className={`w-full text-left px-3 py-2 hover:bg-[var(--bg)] flex items-center gap-2 ${
-                      drawMode === 'select' && selectMode === 'box' ? 'font-medium' : ''
-                    }`}
-                    onClick={() => {
-                      setSelectMode('box');
-                      setDrawMode('select');
-                      setSelectMenuOpen(false);
-                      setLineDraft([]);
-                      setPointMenuOpen(false);
-                      setLineMenuOpen(false);
-                    }}
-                  >
-                    <BoxSelect size={14} className="shrink-0 opacity-70" />
-                    <span>Группа объектов</span>
-                  </button>
-                </div>
-              )}
+                  <MousePointer2 size={14} className="shrink-0 opacity-70" />
+                  <span>Один объект</span>
+                </button>
+                <button
+                  type="button"
+                  className={`w-full text-left px-3 py-2 hover:bg-[var(--bg)] flex items-center gap-2 ${
+                    drawMode === 'select' && selectMode === 'box' ? 'font-medium' : ''
+                  }`}
+                  onClick={() => {
+                    setSelectMode('box');
+                    setDrawMode('select');
+                    setSelectMenuOpen(false);
+                    setLineDraft([]);
+                    setPointMenuOpen(false);
+                    setLineMenuOpen(false);
+                  }}
+                >
+                  <BoxSelect size={14} className="shrink-0 opacity-70" />
+                  <span>Группа объектов</span>
+                </button>
+              </AnchoredMenu>
             </div>
             <button
               type="button"
-              className={`btn text-sm ${drawMode === 'poi' ? 'btn-primary' : 'btn-secondary'}`}
-              disabled={!mapEditEnabled}
-              title={!mapEditEnabled ? 'Включите режим редактирования' : undefined}
+              className={`btn btn-sm map-tool-btn ${drawMode === 'poi' ? 'btn-primary active' : 'btn-secondary'}`}
               onClick={() => {
-                if (!mapEditEnabled) return;
                 if (drawMode === 'poi') {
                   setDrawMode('select');
                   return;
@@ -963,14 +1608,11 @@ export function MapPage() {
               <MapPin size={14} className="inline mr-1" />
               POI
             </button>
-            <div className="relative inline-block">
+            <div ref={pointMenuAnchorRef} className="inline-block">
               <button
                 type="button"
-                className={`btn text-sm ${drawMode === 'point' || pointMenuOpen ? 'btn-primary' : 'btn-secondary'}`}
-                disabled={!mapEditEnabled}
-                title={!mapEditEnabled ? 'Включите режим редактирования' : undefined}
+                className={`btn btn-sm map-tool-btn ${drawMode === 'point' || pointMenuOpen ? 'btn-primary active' : 'btn-secondary'}`}
                 onClick={() => {
-                  if (!mapEditEnabled) return;
                   if (drawMode === 'point') {
                 setDrawMode('select');
                 setSelectMenuOpen(false);
@@ -990,45 +1632,44 @@ export function MapPage() {
                 <MapPin size={14} className="inline mr-1" />
                 Точка
               </button>
-              {pointMenuOpen && (
-                <div
-                  className="absolute z-10 mt-1 w-44 rounded-lg border bg-[var(--surface)] shadow-lg text-sm"
-                  style={{ borderColor: 'var(--border)' }}
-                >
-                  {POINT_SUBTYPES.map((st) => (
-                    <button
-                      key={st}
-                      type="button"
-                      className={`w-full text-left px-3 py-1.5 hover:bg-[var(--bg)] flex items-center gap-2 ${
-                        infraForm.subtype === st ? 'font-medium' : ''
-                      }`}
-                      onClick={() => {
-                        setInfraForm((f) => ({ ...f, subtype: st }));
-                        setPointMenuOpen(false);
-                        setSelectMenuOpen(false);
-                        setDrawMode('point');
-                      }}
-                    >
-                      <img
-                        src={iconDataUrl(st)}
-                        alt=""
-                        className="w-4 h-4 shrink-0"
-                        draggable={false}
-                      />
-                      <span className="truncate">{SUBTYPE_LABELS[st] || st}</span>
-                    </button>
-                  ))}
-                </div>
-              )}
+              <AnchoredMenu
+                anchorRef={pointMenuAnchorRef}
+                open={pointMenuOpen}
+                onClose={() => setPointMenuOpen(false)}
+                width={176}
+                className="app-anchored-menu--flat"
+                ariaLabel="Тип точечного объекта"
+              >
+                {POINT_SUBTYPES.map((st) => (
+                  <button
+                    key={st}
+                    type="button"
+                    className={`w-full text-left px-3 py-1.5 hover:bg-[var(--bg)] flex items-center gap-2 ${
+                      infraForm.subtype === st ? 'font-medium' : ''
+                    }`}
+                    onClick={() => {
+                      setInfraForm((f) => ({ ...f, subtype: st }));
+                      setPointMenuOpen(false);
+                      setSelectMenuOpen(false);
+                      setDrawMode('point');
+                    }}
+                  >
+                    <img
+                      src={iconDataUrl(st)}
+                      alt=""
+                      className="w-4 h-4 shrink-0"
+                      draggable={false}
+                    />
+                    <span className="truncate">{SUBTYPE_LABELS[st] || st}</span>
+                  </button>
+                ))}
+              </AnchoredMenu>
             </div>
-            <div className="relative inline-block">
+            <div ref={lineMenuAnchorRef} className="inline-block">
             <button
               type="button"
-              className={`btn text-sm ${drawMode === 'line' || lineMenuOpen ? 'btn-primary' : 'btn-secondary'}`}
-              disabled={!mapEditEnabled}
-              title={!mapEditEnabled ? 'Включите режим редактирования' : undefined}
+              className={`btn btn-sm map-tool-btn ${drawMode === 'line' || lineMenuOpen ? 'btn-primary active' : 'btn-secondary'}`}
               onClick={() => {
-                if (!mapEditEnabled) return;
                 if (drawMode === 'line') {
                   setDrawMode('select');
                   setLineDraft([]);
@@ -1048,67 +1689,136 @@ export function MapPage() {
               <Pencil size={14} className="inline mr-1" />
               Линия
             </button>
-            {lineMenuOpen && (
-              <div
-                className="absolute z-10 mt-1 w-44 rounded-lg border bg-[var(--surface)] shadow-lg text-sm"
-                style={{ borderColor: 'var(--border)' }}
-              >
-                {LINE_SUBTYPES.map((st) => (
-                  <button
-                    key={st}
-                    type="button"
-                    className={`w-full text-left px-3 py-1.5 hover:bg-[var(--bg)] flex items-center gap-2 ${
-                      infraForm.subtype === st ? 'font-medium' : ''
-                    }`}
-                    onClick={() => {
-                      setInfraForm((f) => ({ ...f, subtype: st }));
-                      setLineMenuOpen(false);
-                      setSelectMenuOpen(false);
-                      setDrawMode('line');
-                    }}
-                  >
-                    <img src={iconDataUrl(st)} alt="" className="w-4 h-4 shrink-0" draggable={false} />
-                    <span className="truncate">{SUBTYPE_LABELS[st] || st}</span>
-                  </button>
-                ))}
-              </div>
-            )}
+            <AnchoredMenu
+              anchorRef={lineMenuAnchorRef}
+              open={lineMenuOpen}
+              onClose={() => setLineMenuOpen(false)}
+              width={176}
+              className="app-anchored-menu--flat"
+              ariaLabel="Тип линейного объекта"
+            >
+              {LINE_SUBTYPES.map((st) => (
+                <button
+                  key={st}
+                  type="button"
+                  className={`w-full text-left px-3 py-1.5 hover:bg-[var(--bg)] flex items-center gap-2 ${
+                    infraForm.subtype === st ? 'font-medium' : ''
+                  }`}
+                  onClick={() => {
+                    setInfraForm((f) => ({ ...f, subtype: st }));
+                    setLineMenuOpen(false);
+                    setSelectMenuOpen(false);
+                    setDrawMode('line');
+                  }}
+                >
+                  <img src={iconDataUrl(st)} alt="" className="w-4 h-4 shrink-0" draggable={false} />
+                  <span className="truncate">{SUBTYPE_LABELS[st] || st}</span>
+                </button>
+              ))}
+            </AnchoredMenu>
             </div>
-            {drawMode === 'line' && (
+            <div className="w-px h-7 mx-0.5 shrink-0" style={{ background: 'var(--border)' }} aria-hidden />
+            <button
+              type="button"
+              className={`btn btn-sm map-tool-btn ${drawMode === 'ruler' ? 'btn-primary active' : 'btn-secondary'}`}
+              title="Измерить длину ломаной линии на карте (двойной клик — завершить)"
+              onClick={() => {
+                if (drawMode === 'ruler') {
+                  setDrawMode('select');
+                  return;
+                }
+                setLineDraft([]);
+                setRulerPoints([]);
+                setRulerPreview(null);
+                setRulerCompleted([]);
+                setSelectMenuOpen(false);
+                setPointMenuOpen(false);
+                setLineMenuOpen(false);
+                setDrawMode('ruler');
+              }}
+            >
+              <Ruler size={14} className="inline mr-1" />
+              Линейка
+            </button>
+            {drawMode === 'ruler' && (
               <>
-                {lineDraft.length > 0 && (
+                {rulerPoints.length > 0 && (
                   <button
                     type="button"
                     className="btn btn-secondary text-sm"
-                    onClick={() => setLineDraft((d) => d.slice(0, -1))}
-                    title="Удалить последнюю точку"
+                    onClick={() => setRulerPoints((d) => d.slice(0, -1))}
+                    title="Удалить последнюю вершину"
                   >
-                    <Minus size={14} /> Шаг назад
+                    <Minus size={14} className="inline mr-1" />
+                    Шаг назад
                   </button>
                 )}
-                {lineDraft.length >= 2 && (
+                {rulerPoints.length >= 2 && (
                   <button
                     type="button"
                     className="btn btn-primary text-sm"
-                    onClick={() => {
-                      submitInfraLine(lineDraft);
-                      setLineDraft([]);
-                    }}
-                    title="Завершить линию"
+                    onClick={() => finishRulerMeasurement(false)}
+                    title="Завершить измерение (или двойной клик на карте)"
                   >
-                    <Pencil size={14} className="inline mr-1" />
+                    <Ruler size={14} className="inline mr-1" />
                     Готово
                   </button>
                 )}
-                {lineDraft.length > 0 && (
-                  <button type="button" className="btn btn-secondary text-sm" onClick={() => setLineDraft([])}>
-                    <Minus size={14} /> Сброс
+                {(rulerPoints.length > 0 || rulerCompleted.length > 0) && (
+                  <button
+                    type="button"
+                    className="btn btn-secondary text-sm"
+                    onClick={() => {
+                      setRulerPoints([]);
+                      setRulerPreview(null);
+                      setRulerCompleted([]);
+                    }}
+                    title="Сбросить все измерения"
+                  >
+                    <X size={14} className="inline mr-1" />
+                    Сброс
                   </button>
                 )}
               </>
             )}
+            {drawMode === 'line' && (
+              <>
+                <button
+                  type="button"
+                  className="btn btn-secondary text-sm"
+                  disabled={lineDraft.length === 0}
+                  onClick={() => setLineDraft((d) => d.slice(0, -1))}
+                  title="Удалить последнюю точку"
+                >
+                  <Minus size={14} /> Шаг назад
+                </button>
+                <button
+                  type="button"
+                  className="btn btn-primary text-sm"
+                  disabled={lineDraft.length < 2 || createInfraMut.isPending}
+                  onClick={() => {
+                    void finishLineDraft(lineDraft);
+                  }}
+                  title="Завершить линию (узлы подключения создаются автоматически)"
+                >
+                  <Pencil size={14} className="inline mr-1" />
+                  Готово
+                </button>
+                <button
+                  type="button"
+                  className="btn btn-secondary text-sm"
+                  disabled={lineDraft.length === 0}
+                  onClick={() => setLineDraft([])}
+                >
+                  <Minus size={14} /> Сброс
+                </button>
+              </>
+            )}
             {projectId && (
-              <div className="relative ml-auto min-w-[140px] max-w-[220px]">
+              <div
+                ref={searchAnchorRef}
+                className="relative ml-auto min-w-[140px] max-w-[220px]"
+              >
                 <Search size={14} className="absolute left-2 top-1/2 -translate-y-1/2 opacity-40 pointer-events-none" />
                 <input
                   type="search"
@@ -1135,41 +1845,223 @@ export function MapPage() {
                     }
                   }}
                 />
-                {searchOpen && searchQ.trim() && (
-                  <div
-                    className="absolute z-20 top-full left-0 right-0 mt-1 rounded-md border shadow-lg overflow-hidden text-sm"
-                    style={{ background: 'var(--surface)', borderColor: 'var(--border)' }}
-                  >
-                    {searchSuggestions.length === 0 ? (
-                      <div className="px-3 py-2 text-xs" style={{ color: 'var(--text-muted)' }}>
-                        Ничего не найдено
-                      </div>
-                    ) : (
-                      searchSuggestions.map((hit) => (
-                        <button
-                          key={`${hit.kind}-${hit.id}`}
-                          type="button"
-                          className="w-full text-left px-3 py-1.5 hover:bg-[var(--bg)] border-b last:border-b-0"
-                          style={{ borderColor: 'var(--border)' }}
-                          onMouseDown={(e) => e.preventDefault()}
-                          onClick={() => pickSearchResult(hit)}
-                        >
-                          <div className="truncate font-medium">{hit.name}</div>
-                          <div className="truncate text-xs" style={{ color: 'var(--text-muted)' }}>
-                            {hit.subtitle}
-                          </div>
-                        </button>
-                      ))
-                    )}
-                  </div>
-                )}
+                <AnchoredMenu
+                  anchorRef={searchAnchorRef}
+                  open={searchOpen && !!searchQ.trim()}
+                  onClose={() => setSearchOpen(false)}
+                  className="app-anchored-menu--flat"
+                  ariaLabel="Результаты поиска"
+                >
+                  {searchSuggestions.length === 0 ? (
+                    <div className="px-3 py-2 text-xs" style={{ color: 'var(--text-muted)' }}>
+                      Ничего не найдено
+                    </div>
+                  ) : (
+                    searchSuggestions.map((hit) => (
+                      <button
+                        key={`${hit.kind}-${hit.id}`}
+                        type="button"
+                        className="w-full text-left px-3 py-1.5 hover:bg-[var(--bg)] border-b last:border-b-0"
+                        style={{ borderColor: 'var(--border)' }}
+                        onMouseDown={(e) => e.preventDefault()}
+                        onClick={() => pickSearchResult(hit)}
+                      >
+                        <div className="truncate font-medium">{hit.name}</div>
+                        <div className="truncate text-xs" style={{ color: 'var(--text-muted)' }}>
+                          {hit.subtitle}
+                        </div>
+                      </button>
+                    ))
+                  )}
+                </AnchoredMenu>
               </div>
             )}
           </div>
 
-          <div className="relative">
+          <div className="map-layout">
+            <aside className="map-sidebar-panel">
+              <div className="layer-group">
+                <h4>Слои данных</h4>
+                {layers.map((layer) => (
+                  <label key={layer.id} className="layer-item">
+                    <input
+                      type="checkbox"
+                      checked={layer.is_visible}
+                      disabled={layerVisibilityMut.isPending}
+                      onChange={(e) =>
+                        layerVisibilityMut.mutate({
+                          layerId: layer.id,
+                          is_visible: e.target.checked,
+                        })
+                      }
+                    />
+                    <span className="truncate">{layer.name}</span>
+                  </label>
+                ))}
+                {LAYER_GROUPS.map((group) => (
+                  <label key={group.id} className="layer-item">
+                    <input
+                      type="checkbox"
+                      checked={isGroupVisible(group.subtypes)}
+                      onChange={(e) => setGroupSubtypesVisible(group.subtypes, e.target.checked)}
+                    />
+                    <span>{group.label}</span>
+                  </label>
+                ))}
+                <label className="layer-item">
+                  <input
+                    type="checkbox"
+                    checked={showPoisOnMap}
+                    onChange={(e) => setShowPoisOnMap(e.target.checked)}
+                  />
+                  <span>Точки интереса</span>
+                </label>
+              </div>
+
+              <div className="layer-group">
+                <h4>Пороговые радиусы</h4>
+                <label className="layer-item">
+                  <input
+                    type="checkbox"
+                    checked={showRadii}
+                    onChange={(e) => setShowRadii(e.target.checked)}
+                  />
+                  <span>Все радиусы</span>
+                </label>
+                {THRESHOLD_META.map((m) => (
+                  <label key={m.subtype} className="layer-item">
+                    <input
+                      type="checkbox"
+                      checked={radiusVisible[m.subtype] ?? true}
+                      onChange={(e) =>
+                        setRadiusVisible((v) => ({ ...v, [m.subtype]: e.target.checked }))
+                      }
+                    />
+                    <span className="layer-swatch" style={{ background: m.color }} />
+                    <span>
+                      {m.label} {thresholdKm(m.subtype, m.defaultKm)} км
+                    </span>
+                  </label>
+                ))}
+              </div>
+
+              <div className="layer-group">
+                <h4>Базовая карта</h4>
+                {(
+                  [
+                    { value: 'osm', label: 'OSM' },
+                    { value: 'satellite', label: 'Satellite' },
+                    { value: 'terrain', label: 'Terrain' },
+                  ] as const
+                ).map(({ value, label }) => (
+                  <label key={value} className="layer-item">
+                    <input
+                      type="radio"
+                      name="basemap"
+                      value={value}
+                      checked={basemap === value}
+                      disabled={!showBasemap}
+                      onChange={() => setBasemap(value)}
+                    />
+                    <span>{label}</span>
+                  </label>
+                ))}
+                <label className="layer-item">
+                  <input
+                    type="checkbox"
+                    checked={!showBasemap}
+                    onChange={(e) => setShowBasemap(!e.target.checked)}
+                  />
+                  <span>Без подложки</span>
+                </label>
+              </div>
+
+              {projectId && (
+                <div className="map-sidebar-section space-y-2 text-sm">
+                  <div className="flex gap-2">
+                    <button
+                      type="button"
+                      className="btn btn-secondary btn-sm flex-1"
+                      onClick={() => buildNetworkMut.mutate()}
+                      disabled={buildNetworkMut.isPending || clearMapMut.isPending}
+                    >
+                      <Network size={12} className="inline mr-1" />
+                      {buildNetworkMut.isPending ? 'Построение…' : 'Сеть'}
+                    </button>
+                    <button
+                      type="button"
+                      className="btn btn-secondary btn-sm flex-1"
+                      disabled={clearMapMut.isPending || buildNetworkMut.isPending}
+                      title="Удалить объекты инфраструктуры (POI останутся)"
+                      onClick={() => {
+                        if (
+                          !window.confirm(
+                            'Удалить все объекты инфраструктуры с карты и из базы данных?\n\nТочки интереса (POI) не удаляются.'
+                          )
+                        ) {
+                          return;
+                        }
+                        clearMapMut.mutate();
+                      }}
+                    >
+                      <Trash2 size={12} className="inline mr-1" />
+                      {clearMapMut.isPending ? '…' : 'Очистить'}
+                    </button>
+                  </div>
+                  <label className="layer-item" style={{ paddingLeft: 0 }}>
+                    <input
+                      type="checkbox"
+                      checked={showNetwork}
+                      onChange={(e) => setShowNetwork(e.target.checked)}
+                    />
+                    <span>Слой сети</span>
+                  </label>
+                  <button
+                    type="button"
+                    className="btn btn-ghost btn-sm w-full text-left"
+                    onClick={() => setSubtypeFilterOpen((o) => !o)}
+                  >
+                    {subtypeFilterOpen ? 'Скрыть' : 'Показать'} фильтр подтипов
+                  </button>
+                  {subtypeFilterOpen && (
+                    <SubtypeFilterPanel
+                      subtypeFilter={subtypeFilter}
+                      onSubtypeFilterChange={(st, v) =>
+                        setSubtypeFilter((f) => ({ ...f, [st]: v }))
+                      }
+                    />
+                  )}
+                </div>
+              )}
+
+              {analysisRowsForMap.length > 0 && (
+                <div className="map-sidebar-section max-h-[min(40vh,360px)] overflow-auto">
+                  <AnalysisEnvironmentTable
+                    rows={analysisRowsForMap}
+                    compact
+                    sections="mapConnectivity"
+                    onFocusObject={focusAnalysisObject}
+                    onPickCandidate={(subtype, paramType) => {
+                      setCandidateSubtype(subtype);
+                      setCandidateParamType(paramType);
+                    }}
+                    onToggleConstruction={(subtype, force, paramType) =>
+                      overrideMut.mutate({
+                        subtype,
+                        force_construction: force,
+                        param_type: paramType,
+                      })
+                    }
+                  />
+                </div>
+              )}
+            </aside>
+
+            <div className="map-main-column">
+              <div className="map-canvas-wrap">
           <MapView
-            pois={pois}
+            viewStateId="main"
+            pois={showPoisOnMap ? pois : []}
             infraObjects={filteredInfra}
             basemap={basemap}
             showBasemap={showBasemap}
@@ -1177,20 +2069,37 @@ export function MapPage() {
             selectMode={selectMode}
             editMode={mapEditEnabled}
             onMapClick={
-              projectId && mapEditEnabled && drawMode !== 'select' ? handleMapClick : undefined
+              drawMode === 'ruler' || (projectId && drawMode !== 'select')
+                ? handleMapClick
+                : undefined
             }
-            onFinishLine={(coords) => {
-              if (drawMode !== 'line') return;
-              if (coords.length >= 2) {
-                submitInfraLine(coords);
-                setLineDraft([]);
+            onFinishLine={(coords, finishAt) => finishLineDraft(coords, finishAt)}
+            onFinishMeasure={() => {
+              if (drawMode === 'ruler') finishRulerMeasurement(true);
+            }}
+            onPointerMove={(lon, lat) => {
+              const rLon = roundCoord(lon);
+              const rLat = roundCoord(lat);
+              setMapPointerInside(true);
+              setCursor({ lon: rLon, lat: rLat });
+              if (drawMode === 'ruler' && rulerPoints.length >= 1) {
+                setRulerPreview([rLon, rLat]);
+              } else if (rulerPreview) {
+                setRulerPreview(null);
               }
             }}
-            onPointerMove={(lon, lat) => setCursor({ lon: roundCoord(lon), lat: roundCoord(lat) })}
+            onPointerLeave={() => setMapPointerInside(false)}
+            placementPreview={
+              mapPointerInside && cursor
+                ? drawMode === 'point'
+                  ? { subtype: infraForm.subtype, lon: cursor.lon, lat: cursor.lat }
+                  : drawMode === 'poi'
+                    ? { subtype: 'poi', lon: cursor.lon, lat: cursor.lat }
+                    : null
+                : null
+            }
             onFeatureSelect={
-              drawMode === 'select' && selectMode === 'single' && !mapEditEnabled
-                ? setFeatureSel
-                : undefined
+              drawMode === 'select' && selectMode === 'single' ? setFeatureSel : undefined
             }
             onFeatureGroupSelect={
               drawMode === 'select' && selectMode === 'box' ? setFeatureGroupSel : undefined
@@ -1203,12 +2112,18 @@ export function MapPage() {
             selectedFeatureIds={featureGroupSel.map((s) => s.id)}
             thresholdCircles={thresholdCircles}
             draftLine={lineDraft}
+            measureLine={rulerPoints}
+            measurePreview={rulerPreview}
+            measureCompletedLines={rulerCompleted}
+            measureCursorLabel={measureCursorLabel}
+            measureAnchorLabels={measureAnchorLabels}
             showRadii={showRadii}
             useMapIcons
             networkNodes={showNetwork ? networkNodes : []}
             networkEdges={showNetwork ? networkEdges : []}
             layers={layers}
             mapFocus={mapFocus}
+            onViewChange={({ scaleLabel }) => setMapScaleLabel(scaleLabel)}
           />
 
           {detailSelection && !mapEditEnabled && drawMode === 'select' && selectMode === 'single' && (
@@ -1218,17 +2133,7 @@ export function MapPage() {
               saving={saveDetailMut.isPending}
               onClose={() => setFeatureSel(null)}
               onSave={(data) => saveDetailMut.mutate(data)}
-              onDelete={() => {
-                if (!detailSelection || !projectId) return;
-                if (detailSelection.kind === 'poi') {
-                  api.deletePoi(projectId, detailSelection.poi.id).then(() => {
-                    setFeatureSel(null);
-                    invalidateMap();
-                  });
-                } else {
-                  deleteInfraMut.mutate(detailSelection.object.id);
-                }
-              }}
+              onDelete={requestDeleteSelection}
             />
           )}
 
@@ -1267,7 +2172,7 @@ export function MapPage() {
               <button
                 type="button"
                 className="btn btn-secondary text-xs mt-2 shrink-0 w-full py-1.5"
-                onClick={handleDeleteGroupSelection}
+                onClick={requestDeleteGroupSelection}
                 disabled={deleteGroupMut.isPending || !mapEditEnabled}
                 title={!mapEditEnabled ? 'Включите режим редактирования' : undefined}
               >
@@ -1277,112 +2182,84 @@ export function MapPage() {
             </div>
           )}
 
-          </div>
+              </div>
 
-          <div className="flex justify-start mt-2 text-sm" style={{ color: 'var(--text-muted)' }}>
-            <span>
-              {cursor ? formatCoordPair(cursor.lon, cursor.lat) : 'Координаты курсора'}
-            </span>
+              <div className="map-footer">
+                <span>
+                  Координаты:{' '}
+                  <strong className="tabular">
+                    {cursor
+                      ? `${formatCoord(cursor.lat)}, ${formatCoord(cursor.lon)}`
+                      : '—'}
+                  </strong>
+                </span>
+                <span>
+                  Масштаб: <strong>{mapScaleLabel}</strong>
+                </span>
+                {drawMode === 'ruler' && (
+                  <span>
+                    {rulerPoints.length === 0
+                      ? 'Линейка: клик — вершина'
+                      : 'Двойной клик или «Готово» — завершить'}
+                  </span>
+                )}
+                {drawMode === 'line' && (
+                  <span>
+                    {lineDraft.length === 0
+                      ? 'Линия: клик — вершина'
+                      : '«Готово» или Enter — сохранить (узлы у концов создаются сами)'}
+                  </span>
+                )}
+              </div>
+            </div>
+          </div>
+      </div>
+
+      {deleteConfirm && (
+        <div
+          className="fixed inset-0 bg-black/40 flex items-center justify-center z-50 p-4"
+          role="dialog"
+          aria-modal="true"
+          aria-labelledby="delete-confirm-title"
+          onMouseDown={(e) => {
+            if (e.target === e.currentTarget) setDeleteConfirm(null);
+          }}
+        >
+          <div className="card w-full max-w-md">
+            <h3 id="delete-confirm-title" className="font-semibold mb-2">
+              {deleteConfirm.title}
+            </h3>
+            <p className="text-sm mb-2" style={{ color: 'var(--text)' }}>
+              {deleteConfirm.message}
+            </p>
+            <p className="text-xs mb-4" style={{ color: 'var(--text-muted)' }}>
+              Отменить действие можно через Ctrl+Z.
+            </p>
+            <div className="flex gap-2 justify-end">
+              <button
+                type="button"
+                className="btn btn-secondary"
+                onClick={() => setDeleteConfirm(null)}
+                disabled={deleteGroupMut.isPending || deleteInfraMut.isPending}
+              >
+                Отмена
+              </button>
+              <button
+                type="button"
+                className="btn btn-primary"
+                disabled={deleteGroupMut.isPending || deleteInfraMut.isPending}
+                onClick={() => {
+                  const action = deleteConfirm.onConfirm;
+                  setDeleteConfirm(null);
+                  action();
+                }}
+              >
+                {deleteGroupMut.isPending || deleteInfraMut.isPending ? 'Удаление…' : 'Удалить'}
+              </button>
+            </div>
           </div>
         </div>
-
-        <aside className="space-y-3">
-          <div className="card p-0 overflow-hidden">
-            <SubtypeFilterPanel
-              subtypeFilter={subtypeFilter}
-              onSubtypeFilterChange={(st, v) => setSubtypeFilter((f) => ({ ...f, [st]: v }))}
-            />
-          </div>
-
-          {projectId && (
-            <div className="card text-sm space-y-2">
-              <div className="flex gap-2">
-                <button
-                  type="button"
-                  className="btn btn-secondary text-xs flex-1 py-1.5 px-2 min-h-0"
-                  onClick={() => buildNetworkMut.mutate()}
-                  disabled={buildNetworkMut.isPending || clearMapMut.isPending}
-                >
-                  <Network size={12} className="inline mr-1" />
-                  {buildNetworkMut.isPending ? 'Построение…' : 'Построить сеть'}
-                </button>
-                <button
-                  type="button"
-                  className="btn btn-secondary text-xs flex-1 py-1.5 px-2 min-h-0"
-                  disabled={clearMapMut.isPending || buildNetworkMut.isPending}
-                  title="Удалить все объекты инфраструктуры с карты и из базы (POI останутся)"
-                  onClick={() => {
-                    if (
-                      !window.confirm(
-                        'Удалить все объекты инфраструктуры с карты и из базы данных?\n\nТочки интереса (POI) не удаляются. Результаты анализа окружения для внешних объектов будут сброшены.'
-                      )
-                    ) {
-                      return;
-                    }
-                    clearMapMut.mutate();
-                  }}
-                >
-                  <Trash2 size={12} className="inline mr-1" />
-                  {clearMapMut.isPending ? 'Очистка…' : 'Очистить'}
-                </button>
-              </div>
-              <label className="flex items-center gap-1 text-xs">
-                <input type="checkbox" checked={showNetwork} onChange={(e) => setShowNetwork(e.target.checked)} />
-                Слой сети
-              </label>
-            </div>
-          )}
-
-          <div className="card text-sm">
-            <label className="flex items-center gap-2 font-semibold mb-2">
-              <input type="checkbox" checked={showRadii} onChange={(e) => setShowRadii(e.target.checked)} />
-              Пороговые радиусы
-            </label>
-            {THRESHOLD_META.map((m) => (
-              <label key={m.subtype} className="flex items-center gap-2 py-0.5">
-                <input
-                  type="checkbox"
-                  checked={radiusVisible[m.subtype] ?? true}
-                  onChange={(e) =>
-                    setRadiusVisible((v) => ({ ...v, [m.subtype]: e.target.checked }))
-                  }
-                />
-                <span className="w-3 h-3 rounded-full inline-block" style={{ background: m.color }} />
-                {m.label}
-              </label>
-            ))}
-          </div>
-
-          {(analyzeMut.isPending ||
-            analysisFetching ||
-            analysisRowsForMap.length > 0 ||
-            analyzeError) && (
-            <div className="card max-h-[min(60vh,480px)] overflow-auto">
-              {(analyzeMut.isPending || analysisFetching) && analysisRowsForMap.length === 0 ? (
-                <p className="text-sm py-2" style={{ color: 'var(--text-muted)' }}>
-                  Выполняется анализ 9 подтипов…
-                </p>
-              ) : analyzeError ? (
-                <p className="text-sm py-2 text-red-600">{analyzeError}</p>
-              ) : analysisRowsForMap.length > 0 ? (
-                <div className="p-2">
-                  <AnalysisEnvironmentTable
-                    rows={analysisRowsForMap}
-                    compact
-                    sections="external"
-                    onFocusObject={focusAnalysisObject}
-                    onPickCandidate={(subtype) => setCandidateSubtype(subtype)}
-                    onToggleConstruction={(subtype, force) =>
-                      overrideMut.mutate({ subtype, force_construction: force })
-                    }
-                  />
-                </div>
-              ) : null}
-            </div>
-          )}
-
-        </aside>
-      </div>
+      )}
 
       {modal?.type === 'poi' && (
         <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50 p-4">
@@ -1412,7 +2289,11 @@ export function MapPage() {
           projectId={projectId}
           poiId={selectedPoi.id}
           subtype={candidateSubtype}
-          onClose={() => setCandidateSubtype(null)}
+          paramType={candidateParamType}
+          onClose={() => {
+            setCandidateSubtype(null);
+            setCandidateParamType('external');
+          }}
           onSelect={(c) => overrideMut.mutate(c)}
         />
       )}

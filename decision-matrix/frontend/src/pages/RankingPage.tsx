@@ -1,14 +1,15 @@
 import { useMemo, useState } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, Cell } from 'recharts';
+import { AppSelect } from '../components/AppSelect';
 import { api } from '../lib/api';
-import { PoiParamsPanel } from '../components/PoiParamsPanel';
 import { useAppStore } from '../store';
 
 const COLORS = ['#94a3b8', '#64748b', '#2563eb'];
 
 export function RankingPage() {
   const projectId = useAppStore((s) => s.currentProjectId);
+  const pushToast = useAppStore((s) => s.pushToast);
   const queryClient = useQueryClient();
   const [selectedPoiId, setSelectedPoiId] = useState<string>('');
   const [result, setResult] = useState<Awaited<ReturnType<typeof api.calculatePoiRanking>> | null>(null);
@@ -33,19 +34,33 @@ export function RankingPage() {
 
   const calcMut = useMutation({
     mutationFn: () => api.calculatePoiRanking(projectId!, activePoiId),
-    onSuccess: setResult,
+    onSuccess: (data) => {
+      setResult(data);
+      pushToast('success', 'Ранжирование рассчитано');
+    },
+    onError: (err) => {
+      pushToast('error', err instanceof Error ? err.message : 'Не удалось рассчитать ранжирование');
+    },
   });
 
   const settingsMut = useMutation({
     mutationFn: (nextAlgorithm: string) =>
       api.updatePoiRankingSettings(projectId!, activePoiId, { algorithm: nextAlgorithm }),
-    onSuccess: () =>
-      queryClient.invalidateQueries({ queryKey: ['ranking-settings', projectId, activePoiId] }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['ranking-settings', projectId, activePoiId] });
+      pushToast('success', 'Метод ранжирования сохранён');
+    },
+    onError: (err) => {
+      pushToast('error', err instanceof Error ? err.message : 'Не удалось сохранить настройки');
+    },
   });
 
   const sensitivityMut = useMutation({
     mutationFn: (criterionId: string) => api.calculatePoiRankingSensitivity(projectId!, activePoiId, criterionId),
     onSuccess: setSensitivity,
+    onError: (err) => {
+      pushToast('error', err instanceof Error ? err.message : 'Не удалось рассчитать чувствительность');
+    },
   });
 
   const chartData = useMemo(
@@ -70,27 +85,23 @@ export function RankingPage() {
           </p>
         </div>
         <div className="flex gap-2 items-center">
-          <select
+          <AppSelect
+            variant="sm"
+            ariaLabel="Точка интереса"
             value={activePoiId}
-            onChange={(e) => setSelectedPoiId(e.target.value)}
-            className="text-sm px-3 py-1.5 rounded-lg border"
-            style={{ borderColor: 'var(--border)', background: 'var(--surface)' }}
-          >
-            {pois.map((poi) => (
-              <option key={poi.id} value={poi.id}>
-                {poi.name}
-              </option>
-            ))}
-          </select>
-          <select
+            onChange={setSelectedPoiId}
+            options={pois.map((poi) => ({ value: poi.id, label: poi.name }))}
+          />
+          <AppSelect
+            variant="sm"
+            ariaLabel="Алгоритм ранжирования"
             value={algorithm}
-            onChange={(e) => settingsMut.mutate(e.target.value)}
-            className="text-sm px-3 py-1.5 rounded-lg border"
-            style={{ borderColor: 'var(--border)', background: 'var(--surface)' }}
-          >
-            <option value="topsis">TOPSIS</option>
-            <option value="wsm">WSM</option>
-          </select>
+            onChange={(v) => settingsMut.mutate(v)}
+            options={[
+              { value: 'topsis', label: 'TOPSIS' },
+              { value: 'wsm', label: 'WSM' },
+            ]}
+          />
           <button type="button" className="btn btn-primary" disabled={!activePoiId} onClick={() => calcMut.mutate()}>
             Рассчитать
           </button>
@@ -185,15 +196,6 @@ export function RankingPage() {
           )}
         </div>
       )}
-
-      <PoiParamsPanel
-        projectId={projectId}
-        readOnly
-        showSave={false}
-        sections={['basic', 'engineering']}
-        title="Параметры POI для ранжирования"
-        className="mt-4"
-      />
     </div>
   );
 }

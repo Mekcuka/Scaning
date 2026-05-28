@@ -28,8 +28,14 @@ OIL_PREP_RATE_MAP = {
     "mfns": None,
 }
 
-# FR-6.1.1: 4 internal linear subtypes in environment analysis (gas_pipeline — map/import only)
+# FR-6.1.1: 4 internal linear — formula km/КП×кусты; all drawable lines also in external_linear search
 ANALYSIS_LINEAR_SUBTYPES = ("autoroad", "oil_pipeline", "water_pipeline", "power_line")
-LINEAR_SUBTYPES = ANALYSIS_LINEAR_SUBTYPES
+LINEAR_SUBTYPES = ("autoroad", "oil_pipeline", "gas_pipeline", "water_pipeline", "power_line")
+EXTERNAL_LINEAR_SUBTYPES = LINEAR_SUBTYPES
 EXTERNAL_POINT_SUBTYPES = ("gas_processing", "gtes", "substation", "refinery")
-ANALYSIS_SUBTYPES = (*ANALYSIS_LINEAR_SUBTYPES, *EXTERNAL_POINT_SUBTYPES, "pads")
+ANALYSIS_SUBTYPES = (
+    *ANALYSIS_LINEAR_SUBTYPES,
+    *EXTERNAL_LINEAR_SUBTYPES,
+    *EXTERNAL_POINT_SUBTYPES,
+    "pads",
+)

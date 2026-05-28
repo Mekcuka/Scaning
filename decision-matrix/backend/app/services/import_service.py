@@ -18,6 +18,7 @@ from app.core.database import async_session
 from app.geo.geometry_utils import build_infra_geometry
 from app.geo.validation import category_for_subtype, validate_subtype_geometry
 from app.models import ImportLog, InfrastructureLayer, InfrastructureObject
+from app.services.line_endpoint_rules import LineEndpointRuleError, validate_line_endpoint_matrix
 
 
 def _parse_csv_rows(content: str) -> tuple[list[dict], list[str]]:
@@ -132,6 +133,7 @@ def _parse_geojson(content: str) -> tuple[list[dict], list[str]]:
                         "lat": lat,
                         "end_lon": end_lon,
                         "end_lat": end_lat,
+                        "coordinates": coords,
                         "geometry": wkt,
                         "category": category_for_subtype(subtype),
                     }
@@ -149,9 +151,28 @@ async def import_rows_to_layer(
     rows: list[dict],
     *,
     build_network: bool = False,
-) -> int:
+) -> tuple[int, list[str]]:
     count = 0
-    for row in rows:
+    errors: list[str] = []
+    for idx, row in enumerate(rows, start=1):
+        if row.get("end_lon") is not None and row.get("end_lat") is not None:
+            try:
+                await validate_line_endpoint_matrix(
+                    db,
+                    project_id=layer.project_id,
+                    line_subtype=str(row["subtype"]),
+                    lon=float(row["lon"]),
+                    lat=float(row["lat"]),
+                    end_lon=float(row["end_lon"]),
+                    end_lat=float(row["end_lat"]),
+                    coordinates=row.get("coordinates"),
+                )
+            except LineEndpointRuleError as e:
+                errors.append(f"Row {idx} ({row['name']}): {e}")
+                continue
+        props = {}
+        if row.get("coordinates"):
+            props["coordinates"] = row["coordinates"]
         db.add(
             InfrastructureObject(
                 layer_id=layer.id,
@@ -163,7 +184,7 @@ async def import_rows_to_layer(
                 latitude=row["lat"],
                 end_longitude=row.get("end_lon"),
                 end_latitude=row.get("end_lat"),
-                properties={},
+                properties=props,
             )
         )
         count += 1
@@ -171,7 +192,7 @@ async def import_rows_to_layer(
         from app.services.graph_builder import build_network_from_lines
 
         await build_network_from_lines(db, layer.project_id)
-    return count
+    return count, errors
 
 
 def _parse_kml(content: str) -> tuple[list[dict], list[str]]:
@@ -235,6 +256,7 @@ def _parse_kml(content: str) -> tuple[list[dict], list[str]]:
                             "lat": lat,
                             "end_lon": end_lon,
                             "end_lat": end_lat,
+                            "coordinates": coords,
                             "geometry": build_infra_geometry(subtype, lon, lat, coordinates=coords),
                             "category": category_for_subtype(subtype),
                         }
@@ -303,11 +325,14 @@ async def run_file_import(
     await db.flush()
 
     imported = 0
+    import_errors: list[str] = []
     if rows:
-        imported = await import_rows_to_layer(db, layer, rows, build_network=True)
+        imported, import_errors = await import_rows_to_layer(db, layer, rows, build_network=True)
+    if import_errors:
+        log.errors = [*errors, *import_errors]
     log.records_imported = imported
-    log.status = "completed" if not errors else ("completed" if imported else "failed")
-    if errors and imported:
+    log.status = "completed" if not log.errors else ("completed" if imported else "failed")
+    if log.errors and imported:
         log.status = "completed"
     await db.flush()
     return log
@@ -361,11 +386,14 @@ async def process_import_log(
         log.records_total = len(rows) + len(errors)
         log.errors = errors
         imported = 0
+        import_errors: list[str] = []
         if rows:
-            imported = await import_rows_to_layer(db, layer, rows, build_network=True)
+            imported, import_errors = await import_rows_to_layer(db, layer, rows, build_network=True)
+        if import_errors:
+            log.errors = [*errors, *import_errors]
         log.records_imported = imported
-        log.status = "completed" if imported or not errors else "failed"
-        if errors and imported:
+        log.status = "completed" if imported or not log.errors else "failed"
+        if log.errors and imported:
             log.status = "completed"
         await db.commit()
 
@@ -403,7 +431,12 @@ async def run_shapefile_import(
     rows, errors = _parse_geojson(geojson)
     log.errors = errors
     log.records_total = len(rows) + len(errors)
-    imported = await import_rows_to_layer(db, layer, rows) if rows else 0
+    imported = 0
+    import_errors: list[str] = []
+    if rows:
+        imported, import_errors = await import_rows_to_layer(db, layer, rows)
+    if import_errors:
+        log.errors = [*errors, *import_errors]
     log.records_imported = imported
     log.status = "completed" if imported else "failed"
     await db.flush()

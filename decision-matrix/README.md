@@ -4,6 +4,8 @@
 
 Документация проекта: [`../docs/`](../docs/)
 
+Гайд по локальному запуску: [`RUN_GUIDE.md`](./RUN_GUIDE.md)
+
 HTML-прототип (mock): [`../Cursor_Scan/`](../Cursor_Scan/)
 
 ## Стек
@@ -21,25 +23,40 @@ HTML-прототип (mock): [`../Cursor_Scan/`](../Cursor_Scan/)
 
 **Демо-вход:** `engineer@oilgas.ru` / `password123`
 
-- Frontend: http://127.0.0.1:5173
-- Backend API: http://localhost:8000/api/v1 (или через Vite proxy `/api/v1`)
-- Swagger: http://localhost:8000/api/v1/docs
+- Frontend: `http://127.0.0.1:5173`
+- Backend API: `http://localhost:8000/api/v1` (или через Vite proxy `/api/v1`)
+- Swagger: `http://localhost:8000/api/v1/docs`
 
 ### Режим A — SQLite (рекомендуется для первого запуска)
 
 ```powershell
-cd decision-matrix/backend
-python -m venv venv
-.\venv\Scripts\activate
-pip install -r requirements.txt
-python run_local.py
+# 1)
+cd C:\Users\user\Documents\Cursore\decision-matrix\backend
+# 2)
+python -m venv C:\Users\user\Documents\Cursore\decision-matrix\backend\venv
+# 3)
+.\venv\Scripts\Activate.ps1
+# 4)
+python -m pip install -r C:\Users\user\Documents\Cursore\decision-matrix\backend\requirements.txt
+# 5)
+python C:\Users\user\Documents\Cursore\decision-matrix\backend\run_local.py
+```
+
+Проверить, что активен именно `venv`:
+
+```powershell
+python -c "import sys; print(sys.executable)"
+python -m pip -V
 ```
 
 В другом терминале:
 
 ```powershell
-cd decision-matrix/frontend
+# 1)
+cd C:\Users\user\Documents\Cursore\decision-matrix\frontend
+# 2)
 npm install
+# 3)
 npm run dev
 ```
 
@@ -58,11 +75,16 @@ npm run dev
 4. Backend:
 
    ```powershell
-   cd decision-matrix/backend
-   .\venv\Scripts\activate
-   pip install -r requirements.txt
+   # 1)
+   cd C:\Users\user\Documents\Cursore\decision-matrix\backend
+   # 2)
+   .\venv\Scripts\Activate.ps1
+   # 3)
+   python -m pip install -r C:\Users\user\Documents\Cursore\decision-matrix\backend\requirements.txt
+   # 4)
    uvicorn app.main:app --reload --host 127.0.0.1 --port 8000
-   python seed.py
+   # 5)
+   python C:\Users\user\Documents\Cursore\decision-matrix\backend\seed.py
    ```
 
 5. Frontend — как в режиме A (`npm run dev`).

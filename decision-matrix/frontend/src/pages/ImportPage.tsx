@@ -4,14 +4,68 @@ import { Upload, Link as LinkIcon } from 'lucide-react';
 import { api, type ImportConnectionCreate } from '../lib/api';
 import { formatCoord } from '../lib/coords';
 import { useActiveProject } from '../hooks/useActiveProject';
+import { useAppStore } from '../store';
 import { refreshMapQueries } from '../lib/mapQueries';
-import { PoiParamsPanel } from '../components/PoiParamsPanel';
+import { AppSelect } from '../components/AppSelect';
+
+const IMPORT_CSV_TEMPLATE = [
+  'name,type,lat,lon,start_lat,start_lon,end_lat,end_lon',
+  'COMPLEX_NODE_N1,node,56.020,38.060,,,,',
+  'COMPLEX_NODE_N2,node,56.040,38.090,,,,',
+  'COMPLEX_NODE_N3,node,56.060,38.130,,,,',
+  'COMPLEX_NODE_N4,node,56.050,38.170,,,,',
+  'COMPLEX_NODE_N5,node,56.020,38.190,,,,',
+  'COMPLEX_NODE_N6,node,55.995,38.150,,,,',
+  'COMPLEX_NODE_N7,node,55.985,38.105,,,,',
+  'COMPLEX_NODE_N8,node,56.000,38.070,,,,',
+  'COMPLEX_GKS1,gas_processing,56.050,38.045,,,,',
+  'COMPLEX_GKS2,gas_processing,56.075,38.155,,,,',
+  'COMPLEX_GTES1,gtes,56.085,38.115,,,,',
+  'COMPLEX_GTES2,gtes,56.040,38.205,,,,',
+  'COMPLEX_SUB1,substation,56.005,38.035,,,,',
+  'COMPLEX_SUB2,substation,55.980,38.175,,,,',
+  'COMPLEX_REF1,refinery,56.070,38.220,,,,',
+  'COMPLEX_REF2,refinery,56.000,38.210,,,,',
+  'COMPLEX_AUTOROAD_01,autoroad,,,56.050,38.045,56.020,38.060',
+  'COMPLEX_AUTOROAD_02,autoroad,,,56.020,38.060,56.005,38.035',
+  'COMPLEX_AUTOROAD_03,autoroad,,,56.005,38.035,56.000,38.070',
+  'COMPLEX_AUTOROAD_04,autoroad,,,56.000,38.070,55.985,38.105',
+  'COMPLEX_AUTOROAD_05,autoroad,,,55.985,38.105,56.000,38.210',
+  'COMPLEX_AUTOROAD_06,autoroad,,,56.000,38.210,55.995,38.150',
+  'COMPLEX_AUTOROAD_07,autoroad,,,55.995,38.150,56.040,38.205',
+  'COMPLEX_AUTOROAD_08,autoroad,,,56.040,38.205,56.020,38.190',
+  'COMPLEX_AUTOROAD_09,autoroad,,,56.020,38.190,56.070,38.220',
+  'COMPLEX_AUTOROAD_10,autoroad,,,56.070,38.220,56.075,38.155',
+  'COMPLEX_OIL_01,oil_pipeline,,,56.070,38.220,56.050,38.170',
+  'COMPLEX_OIL_02,oil_pipeline,,,56.050,38.170,56.020,38.190',
+  'COMPLEX_OIL_03,oil_pipeline,,,56.020,38.190,56.000,38.210',
+  'COMPLEX_GAS_01,gas_pipeline,,,56.050,38.045,56.040,38.090',
+  'COMPLEX_GAS_02,gas_pipeline,,,56.040,38.090,56.085,38.115',
+  'COMPLEX_GAS_03,gas_pipeline,,,56.085,38.115,56.060,38.130',
+  'COMPLEX_GAS_04,gas_pipeline,,,56.060,38.130,56.075,38.155',
+  'COMPLEX_GAS_05,gas_pipeline,,,56.075,38.155,56.070,38.220',
+  'COMPLEX_WATER_01,water_pipeline,,,56.020,38.060,56.040,38.090',
+  'COMPLEX_WATER_02,water_pipeline,,,56.040,38.090,56.060,38.130',
+  'COMPLEX_WATER_03,water_pipeline,,,56.060,38.130,56.050,38.170',
+  'COMPLEX_WATER_04,water_pipeline,,,56.050,38.170,56.020,38.190',
+  'COMPLEX_WATER_05,water_pipeline,,,56.020,38.190,55.995,38.150',
+  'COMPLEX_WATER_06,water_pipeline,,,55.995,38.150,55.985,38.105',
+  'COMPLEX_WATER_07,water_pipeline,,,55.985,38.105,56.000,38.070',
+  'COMPLEX_WATER_08,water_pipeline,,,56.000,38.070,56.020,38.060',
+  'COMPLEX_POWER_01,power_line,,,56.085,38.115,56.005,38.035',
+  'COMPLEX_POWER_02,power_line,,,56.005,38.035,56.020,38.060',
+  'COMPLEX_POWER_03,power_line,,,56.020,38.060,56.050,38.045',
+  'COMPLEX_POWER_04,power_line,,,56.050,38.045,56.040,38.090',
+  'COMPLEX_POWER_05,power_line,,,56.040,38.090,56.000,38.210',
+  'COMPLEX_POWER_06,power_line,,,56.000,38.210,55.980,38.175',
+  'COMPLEX_POWER_07,power_line,,,55.980,38.175,56.040,38.205',
+].join('\n');
 
 export function ImportPage() {
-  const { projectId, hasProjects, isLoading: projectsLoading, activeProject } = useActiveProject();
+  const { projectId, hasProjects, isLoading: projectsLoading } = useActiveProject();
   const queryClient = useQueryClient();
   const fileInputRef = useRef<HTMLInputElement>(null);
-  const [message, setMessage] = useState<string | null>(null);
+  const pushToast = useAppStore((s) => s.pushToast);
   const [pendingLogId, setPendingLogId] = useState<string | null>(null);
   const [useAsync, setUseAsync] = useState(false);
   const [connForm, setConnForm] = useState<ImportConnectionCreate>({
@@ -51,7 +105,8 @@ export function ImportPage() {
 
   useEffect(() => {
     if (pendingLog?.status === 'completed' || pendingLog?.status === 'failed') {
-      setMessage(
+      pushToast(
+        pendingLog.status === 'completed' ? 'success' : 'error',
         pendingLog.status === 'completed'
           ? `Импортировано ${pendingLog.records_imported} из ${pendingLog.records_total}`
           : `Ошибка: ${(pendingLog.errors || []).join('; ')}`
@@ -62,7 +117,7 @@ export function ImportPage() {
         void refreshMapQueries(queryClient, projectId);
       }
     }
-  }, [pendingLog, projectId, queryClient]);
+  }, [pendingLog, projectId, queryClient, pushToast]);
 
   const importMut = useMutation({
     mutationFn: async ({ file, format }: { file: File; format: string }) => {
@@ -85,34 +140,39 @@ export function ImportPage() {
     onSuccess: (log) => {
       if (log.status === 'pending' || log.status === 'running') {
         setPendingLogId(log.id);
+        pushToast('info', 'Импорт запущен в фоне');
         return;
       }
-      setMessage(`Импортировано ${log.records_imported} из ${log.records_total}`);
+      pushToast('success', `Импортировано ${log.records_imported} из ${log.records_total}`);
       queryClient.invalidateQueries({ queryKey: ['importLogs', projectId] });
       if (projectId) void refreshMapQueries(queryClient, projectId);
     },
-    onError: (e: Error) => setMessage(e.message),
+    onError: (e: Error) => pushToast('error', e.message),
   });
 
   const saveConnMut = useMutation({
     mutationFn: () => api.createImportConnection(projectId!, connForm),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['importConnections', projectId] });
-      setMessage('Подключение сохранено');
+      pushToast('success', 'Подключение сохранено');
     },
+    onError: (e: Error) => pushToast('error', e.message),
   });
 
   const testConnMut = useMutation({
     mutationFn: (id: string) => api.testImportConnection(projectId!, id),
-    onSuccess: (r) => setMessage(r.ok ? 'Подключение успешно' : `Ошибка: ${r.error || r.status_code}`),
+    onSuccess: (r) =>
+      pushToast(r.ok ? 'success' : 'error', r.ok ? 'Подключение успешно' : `Ошибка: ${r.error || r.status_code}`),
+    onError: (e: Error) => pushToast('error', e.message),
   });
 
   const syncConnMut = useMutation({
     mutationFn: (id: string) => api.syncImportConnection(projectId!, id),
     onSuccess: (r) => {
-      setMessage(`Синхронизировано объектов: ${r.imported}`);
+      pushToast('success', `Синхронизировано объектов: ${r.imported}`);
       if (projectId) void refreshMapQueries(queryClient, projectId);
     },
+    onError: (e: Error) => pushToast('error', e.message),
   });
 
   const detectFormat = (file: File): string => {
@@ -136,6 +196,13 @@ export function ImportPage() {
   };
 
   const busy = importMut.isPending || !!pendingLogId;
+  const previewRejected = (preview?.errors ?? [])
+    .map((msg) => {
+      const m = msg.match(/^Row\s+(\d+)\s+\((.+)\):\s+(.+)$/);
+      if (!m) return null;
+      return { row: m[1], name: m[2], reason: m[3] };
+    })
+    .filter(Boolean) as { row: string; name: string; reason: string }[];
 
   return (
     <div>
@@ -145,16 +212,6 @@ export function ImportPage() {
         <div className="card mb-4 text-sm" style={{ color: 'var(--text-muted)' }}>
           Создайте проект на странице «Проекты», затем загрузите CSV.
         </div>
-      )}
-
-      {activeProject && (
-        <div className="card mb-4 text-sm">
-          Импорт в проект: <strong>{activeProject.name}</strong> (можно сменить в шапке страницы)
-        </div>
-      )}
-
-      {message && (
-        <div className="card mb-4 text-sm border-l-4 border-blue-500">{message}</div>
       )}
 
       {pendingLogId && (
@@ -199,14 +256,15 @@ export function ImportPage() {
           </div>
           <div className="form-group">
             <label>Тип аутентификации</label>
-            <select
-              value={connForm.auth_type}
-              onChange={(e) => setConnForm({ ...connForm, auth_type: e.target.value })}
-            >
-              <option value="bearer">Bearer Token</option>
-              <option value="api_key">API Key</option>
-              <option value="basic">Basic (user:password)</option>
-            </select>
+            <AppSelect
+              value={connForm.auth_type || 'bearer'}
+              onChange={(auth_type) => setConnForm({ ...connForm, auth_type })}
+              options={[
+                { value: 'bearer', label: 'Bearer Token' },
+                { value: 'api_key', label: 'API Key' },
+                { value: 'basic', label: 'Basic (user:password)' },
+              ]}
+            />
           </div>
           <div className="form-group">
             <label>Учётные данные</label>
@@ -219,17 +277,15 @@ export function ImportPage() {
           {connections.length > 0 && (
             <div className="form-group">
               <label>Сохранённые подключения</label>
-              <select
+              <AppSelect
+                placeholder="— выберите —"
                 value={selectedConnId ?? ''}
-                onChange={(e) => setSelectedConnId(e.target.value || null)}
-              >
-                <option value="">— выберите —</option>
-                {connections.map((c) => (
-                  <option key={c.id} value={c.id}>
-                    {c.name}
-                  </option>
-                ))}
-              </select>
+                onChange={(id) => setSelectedConnId(id || null)}
+                options={[
+                  { value: '', label: '— выберите —' },
+                  ...connections.map((c) => ({ value: c.id, label: c.name })),
+                ]}
+              />
             </div>
           )}
           <div className="flex flex-wrap gap-2 mt-2">
@@ -307,6 +363,23 @@ export function ImportPage() {
             >
               Превью (dry-run)
             </button>
+            <button
+              type="button"
+              className="btn btn-secondary text-sm"
+              onClick={() => {
+                const blob = new Blob([IMPORT_CSV_TEMPLATE], { type: 'text/csv;charset=utf-8;' });
+                const url = URL.createObjectURL(blob);
+                const link = document.createElement('a');
+                link.href = url;
+                link.download = 'import_template.csv';
+                document.body.appendChild(link);
+                link.click();
+                document.body.removeChild(link);
+                URL.revokeObjectURL(url);
+              }}
+            >
+              Скачать шаблон CSV
+            </button>
           </div>
           {preview && (
             <div className="mt-3 text-xs border rounded-lg p-2 max-h-40 overflow-auto" style={{ borderColor: 'var(--border)' }}>
@@ -314,6 +387,22 @@ export function ImportPage() {
                 Превью: {preview.records_total} строк
                 {preview.errors.length > 0 && `, ошибок: ${preview.errors.length}`}
               </div>
+              {previewRejected.length > 0 && (
+                <div className="mb-2">
+                  <div className="font-medium text-red-700 mb-1">Причины отклонения строк</div>
+                  <table className="w-full">
+                    <tbody>
+                      {previewRejected.slice(0, 6).map((r) => (
+                        <tr key={`${r.row}-${r.name}`}>
+                          <td className="align-top pr-2 whitespace-nowrap text-red-700">#{r.row}</td>
+                          <td className="align-top pr-2">{r.name}</td>
+                          <td className="align-top text-red-700">{r.reason}</td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              )}
               {preview.errors.slice(0, 5).map((e, i) => (
                 <div key={i} className="text-red-600">
                   {e}
@@ -335,8 +424,10 @@ export function ImportPage() {
             </div>
           )}
           <p className="text-xs mt-3" style={{ color: 'var(--text-muted)' }}>
-            CSV: name, type, lat, lon (точечные) или start_lat, start_lon, end_lat, end_lon (линейные).
-            SHP: zip-архив с .shp (требуется ogr2ogr в PATH).
+            CSV: `name`, `type|subtype`, `lat`, `lon` (точечные: ГКС/ГТЭС/ПС/НПЗ/Узел) или
+            `start_lat`, `start_lon`, `end_lat`, `end_lon` (линейные).
+            Для линий при импорте действует матрица допустимых связей (как на карте), ошибки пишутся в лог.
+            SHP: zip-архив с `.shp` (требуется `ogr2ogr` в PATH).
           </p>
         </div>
       </div>
@@ -373,15 +464,6 @@ export function ImportPage() {
           </table>
         </div>
       </div>
-
-      <PoiParamsPanel
-        projectId={projectId}
-        readOnly
-        showSave={false}
-        sections={['basic', 'engineering']}
-        title="Справочник параметров POI проекта"
-        className="mt-4"
-      />
     </div>
   );
 }

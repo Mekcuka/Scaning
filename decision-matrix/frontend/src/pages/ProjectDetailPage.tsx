@@ -1,7 +1,7 @@
 import { useParams, Link } from 'react-router-dom';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useState, useEffect } from 'react';
-import { api } from '../lib/api';
+import { api, normalizePoiAnalysisResponse } from '../lib/api';
 import { useAppStore } from '../store';
 import { PoiParamsPanel } from '../components/PoiParamsPanel';
 import {
@@ -13,6 +13,7 @@ export function ProjectDetailPage() {
   const { id } = useParams<{ id: string }>();
   const queryClient = useQueryClient();
   const setCurrentProjectId = useAppStore((s) => s.setCurrentProjectId);
+  const pushToast = useAppStore((s) => s.pushToast);
   const [selectedPoiId, setSelectedPoiId] = useState<string | null>(null);
 
   useEffect(() => {
@@ -43,17 +44,51 @@ export function ProjectDetailPage() {
   });
 
   const analyzeMut = useMutation({
-    mutationFn: (poiId: string) => api.analyzePoi(id!, poiId),
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['analysis', id, selectedPoiId] });
+    mutationFn: () => api.analyzeAllPois(id!),
+    onSuccess: (batch) => {
+      for (const item of batch.results) {
+        queryClient.setQueryData(
+          ['analysis', id, item.poi_id],
+          normalizePoiAnalysisResponse(item)
+        );
+      }
+      queryClient.invalidateQueries({ queryKey: ['analysis', id] });
+      queryClient.invalidateQueries({ queryKey: ['scenarios', id] });
+      pushToast(
+        'success',
+        batch.analyzed_count === 1
+          ? 'Анализ окружения выполнен для 1 точки'
+          : `Анализ окружения выполнен для ${batch.analyzed_count} точек`
+      );
+    },
+    onError: (err) => {
+      pushToast(
+        'error',
+        err instanceof Error ? err.message : 'Не удалось выполнить анализ окружения'
+      );
     },
   });
 
   const constructionMut = useMutation({
-    mutationFn: ({ subtype, force }: { subtype: string; force: boolean }) =>
-      api.overrideAnalysis(id!, selectedPoiId!, subtype, { force_construction: force }),
+    mutationFn: ({
+      subtype,
+      force,
+      param_type,
+    }: {
+      subtype: string;
+      force: boolean;
+      param_type: 'external' | 'external_linear';
+    }) =>
+      api.overrideAnalysis(id!, selectedPoiId!, subtype, {
+        force_construction: force,
+        param_type,
+      }),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['analysis', id, selectedPoiId] });
+      pushToast('success', 'Анализ обновлён');
+    },
+    onError: (err) => {
+      pushToast('error', err instanceof Error ? err.message : 'Не удалось обновить анализ');
     },
   });
 
@@ -75,7 +110,23 @@ export function ProjectDetailPage() {
       </div>
 
       <div className="card mb-4">
-        <h2 className="font-semibold mb-3">Точки интереса ({pois.length})</h2>
+        <div className="flex items-center justify-between gap-3 mb-3">
+          <h2 className="font-semibold">Точки интереса ({pois.length})</h2>
+          {pois.length > 0 && (
+            <button
+              type="button"
+              className="btn btn-primary btn-sm shrink-0"
+              onClick={() => analyzeMut.mutate()}
+              disabled={analyzeMut.isPending}
+            >
+              {analyzeMut.isPending
+                ? 'Расчёт…'
+                : pois.length > 1
+                  ? `Анализировать все (${pois.length})`
+                  : 'Анализировать окружение'}
+            </button>
+          )}
+        </div>
         {pois.length === 0 ? (
           <p style={{ color: 'var(--text-muted)' }}>Нет точек интереса. Добавьте на карте.</p>
         ) : (
@@ -88,7 +139,6 @@ export function ProjectDetailPage() {
                   <th>КП</th>
                   <th>Скважин</th>
                   <th>Флюид</th>
-                  <th></th>
                 </tr>
               </thead>
               <tbody>
@@ -103,20 +153,6 @@ export function ProjectDetailPage() {
                     <td>{poi.pads_count}</td>
                     <td>{Math.round(poi.wells_total)}</td>
                     <td>{poi.fluid_type === 'oil' ? 'Нефть' : 'Газ'}</td>
-                    <td>
-                      <button
-                        type="button"
-                        className="btn btn-primary btn-sm"
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          setSelectedPoiId(poi.id);
-                          analyzeMut.mutate(poi.id);
-                        }}
-                        disabled={analyzeMut.isPending}
-                      >
-                        Анализировать
-                      </button>
-                    </td>
                   </tr>
                 ))}
               </tbody>
@@ -142,8 +178,8 @@ export function ProjectDetailPage() {
           />
           <AnalysisEnvironmentTable
             rows={analysisRows}
-            onToggleConstruction={(subtype, force) =>
-              constructionMut.mutate({ subtype, force })
+            onToggleConstruction={(subtype, force, param_type) =>
+              constructionMut.mutate({ subtype, force, param_type })
             }
           />
         </div>

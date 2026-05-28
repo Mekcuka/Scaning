@@ -1,6 +1,9 @@
 import type { AnalysisRow, InfraObject } from './api';
 
-type MapInfraLike = Pick<InfraObject, 'id' | 'subtype' | 'name' | 'lon' | 'lat' | 'end_lon' | 'end_lat'>;
+type MapInfraLike = Pick<
+  InfraObject,
+  'id' | 'subtype' | 'name' | 'lon' | 'lat' | 'end_lon' | 'end_lat' | 'coordinates'
+>;
 import { STATUS_LABELS, SUBTYPE_LABELS } from './specs';
 
 export const ANALYSIS_LINE_SUBTYPES = [
@@ -16,6 +19,8 @@ export const ANALYSIS_EXTERNAL_SUBTYPES = [
   'substation',
   'refinery',
 ] as const;
+
+export { EXTERNAL_LINEAR_SUBTYPES } from './api';
 
 export function subtypeDisplayLabel(subtype: string): string {
   return SUBTYPE_LABELS[subtype] || subtype;
@@ -103,8 +108,13 @@ export function resolveAnalysisRowFocus(
 const ORPHAN_NODE_NAME = /^Узел [0-9a-f]{8}$/i;
 
 /** Stale graph-node refs from old analysis (not infrastructure Point objects). */
+export function isExternalLikeAnalysisRow(row: AnalysisRow): boolean {
+  return row.param_type === 'external' || row.param_type === 'external_linear';
+}
+
 export function isOrphanNetworkAnalysisRef(row: AnalysisRow): boolean {
-  if (row.param_type !== 'external') return false;
+  if (!isExternalLikeAnalysisRow(row)) return false;
+  if (row.param_type === 'external_linear') return false;
   if (row.anchor_type === 'network_node') return true;
   if (row.nearest_node_id && !row.nearest_object_id) return true;
   const name = row.object_name?.trim() ?? '';
@@ -165,11 +175,54 @@ export function buildAnalysisResultMapFocus(
   const lons = [poi.lon];
   const lats = [poi.lat];
   for (const row of rows) {
-    if (row.param_type !== 'external' || row.status === 'not_required') continue;
+    if (!isExternalLikeAnalysisRow(row) || row.status === 'not_required') continue;
     if (row.anchor_lon == null || row.anchor_lat == null) continue;
     lons.push(row.anchor_lon);
     lats.push(row.anchor_lat);
   }
+  if (lons.length === 1) return { lon: poi.lon, lat: poi.lat };
+  return {
+    lon: (Math.min(...lons) + Math.max(...lons)) / 2,
+    lat: (Math.min(...lats) + Math.max(...lats)) / 2,
+    extentLonLat: [Math.min(...lons), Math.min(...lats), Math.max(...lons), Math.max(...lats)],
+  };
+}
+
+function pushCoord(lons: number[], lats: number[], lon: number, lat: number) {
+  if (!Number.isFinite(lon) || !Number.isFinite(lat)) return;
+  lons.push(lon);
+  lats.push(lat);
+}
+
+function pushInfraExtent(lons: number[], lats: number[], obj: MapInfraLike) {
+  pushCoord(lons, lats, obj.lon, obj.lat);
+  if (obj.end_lon != null && obj.end_lat != null) {
+    pushCoord(lons, lats, obj.end_lon, obj.end_lat);
+  }
+  if (obj.coordinates) {
+    for (const c of obj.coordinates) pushCoord(lons, lats, c[0], c[1]);
+  }
+}
+
+/** Fit map to POI and every object used in distance connection lines. */
+export function buildMapFocusForConnectionLines(
+  poi: { lon: number; lat: number },
+  lines: AnalysisRow[],
+  infraObjects: MapInfraLike[] = []
+): AnalysisRowFocus {
+  const lons = [poi.lon];
+  const lats = [poi.lat];
+
+  for (const row of lines) {
+    if (isValidAnalysisAnchor(row.anchor_lon, row.anchor_lat)) {
+      pushCoord(lons, lats, row.anchor_lon!, row.anchor_lat!);
+    }
+    if (row.nearest_object_id) {
+      const obj = infraObjects.find((o) => idKey(o.id) === idKey(row.nearest_object_id!));
+      if (obj) pushInfraExtent(lons, lats, obj);
+    }
+  }
+
   if (lons.length === 1) return { lon: poi.lon, lat: poi.lat };
   return {
     lon: (Math.min(...lons) + Math.max(...lons)) / 2,
@@ -193,7 +246,7 @@ export function alignAnalysisRowsToMapObjects(
   }
   const onMap = new Set(mapObjects.map((o) => idKey(o.id)));
   return rows.map((row) => {
-    if (row.param_type !== 'external') return row;
+    if (!isExternalLikeAnalysisRow(row)) return row;
     if (isOrphanNetworkAnalysisRef(row)) return healExternalNetworkOrphan(row, mapObjects);
     const id = row.nearest_object_id;
     if (!id) return row;
@@ -204,16 +257,28 @@ export function alignAnalysisRowsToMapObjects(
   });
 }
 
+/** Valid WGS84 anchor for drawing a POI connection line on the map. */
+export function isValidAnalysisAnchor(
+  lon: number | null | undefined,
+  lat: number | null | undefined
+): boolean {
+  if (lon == null || lat == null) return false;
+  if (!Number.isFinite(lon) || !Number.isFinite(lat)) return false;
+  if (Math.abs(lon) > 180 || Math.abs(lat) > 90) return false;
+  return true;
+}
+
 export function connectionLinesFromAnalysis(
   rows: AnalysisRow[],
   infraObjects: { id: string }[]
 ): AnalysisRow[] {
   const infraIds = new Set(infraObjects.map((o) => idKey(o.id)));
   return rows.filter((row) => {
-    if (row.param_type !== 'external') return false;
+    if (!isExternalLikeAnalysisRow(row)) return false;
     if (row.status === 'not_required' || row.status === 'computed') return false;
-    if (row.anchor_lon == null || row.anchor_lat == null) return false;
+    if (!isValidAnalysisAnchor(row.anchor_lon, row.anchor_lat)) return false;
     if (row.distance_km == null || row.distance_km <= 0) return false;
+    if (isOrphanNetworkAnalysisRef(row)) return false;
     if (row.nearest_object_id && infraIds.has(idKey(row.nearest_object_id))) return true;
     // POI→anchor line when analysis has a hit but infra cache is briefly out of sync.
     return Boolean(row.object_name);
@@ -224,9 +289,10 @@ export function groupAnalysisRows(rows: AnalysisRow[]) {
   const internal = rows.filter(
     (r) => r.param_type === 'internal' && r.subtype !== 'pads'
   );
+  const externalLinear = rows.filter((r) => r.param_type === 'external_linear');
   const external = rows.filter((r) => r.param_type === 'external');
   const pads = rows.filter((r) => r.subtype === 'pads');
-  return { internal, external, pads };
+  return { internal, externalLinear, external, pads };
 }
 
 export function rowCostMln(
