@@ -192,7 +192,7 @@ class PoiInfrastructureAnalysis(Base):
 
     id: Mapped[uuid.UUID] = mapped_column(Uuid, primary_key=True, default=uuid.uuid4)
     poi_id: Mapped[uuid.UUID] = mapped_column(Uuid, ForeignKey("points_of_interest.id", ondelete="CASCADE"))
-    param_type: Mapped[str] = mapped_column(String(20), default="external")
+    param_type: Mapped[str] = mapped_column(String(32), default="external")
     subtype: Mapped[str] = mapped_column(String(50))
     nearest_object_id: Mapped[uuid.UUID | None] = mapped_column(
         Uuid, ForeignKey("infrastructure_objects.id", ondelete="SET NULL"), nullable=True
@@ -202,7 +202,7 @@ class PoiInfrastructureAnalysis(Base):
     distance_method: Mapped[str] = mapped_column(String(20), default="geodesic")
     anchor_type: Mapped[str | None] = mapped_column(String(20), nullable=True)
     anchor_geometry: Mapped[str | object | None] = geometry_point_column(nullable=True)
-    distance_status: Mapped[str] = mapped_column(String(20))
+    distance_status: Mapped[str] = mapped_column(String(32))
     max_allowed_distance_km: Mapped[float] = mapped_column(Float)
     is_manually_overridden: Mapped[bool] = mapped_column(Boolean, default=False)
     force_construction: Mapped[bool] = mapped_column(Boolean, default=False)
