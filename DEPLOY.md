@@ -70,6 +70,14 @@ curl.exe -s https://erascaning.duckdns.org/health
 ssh -i "C:\Users\user\Documents\mykey\ssh-key\ssh-key-1779903372392" -o IdentitiesOnly=yes vovavolgin91@erascaning.duckdns.org "cat /opt/decision-matrix/shared/deploy.env"
 ```
 
+**Перед повторным deploy в GitHub (`prod`):**
+
+```powershell
+Get-Content -Raw "C:\Users\user\Documents\mykey\ssh-key\ssh-key-1779903372392" | Set-Clipboard
+```
+
+→ вставить в `VM_SSH_KEY`. Убедиться: `VM_USER` = `vovavolgin91`, `YC_REGISTRY_ID` = `crp12epg012b892ju68g`.
+
 #### Variables — repository (frontend + опционально backend/terraform)
 
 | Variable | Значение для проекта | Где используется |

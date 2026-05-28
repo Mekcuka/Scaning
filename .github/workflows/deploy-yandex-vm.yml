@@ -234,6 +234,20 @@ jobs:
           scp ${SSH_OPTS} deploy/rollback.sh "${VM_USER}@${VM_HOST}:/opt/decision-matrix/rollback.sh"
           echo "release_dir=${RELEASE_DIR}" >> "$GITHUB_OUTPUT"
 
+      - name: Docker login on VM (Container Registry)
+        shell: bash
+        env:
+          VM_HOST: ${{ secrets.VM_HOST }}
+          VM_USER: ${{ secrets.VM_USER }}
+          YC_SA_KEY_JSON: ${{ secrets.YC_SA_KEY_JSON }}
+        run: |
+          set -euo pipefail
+          SSH_OPTS="-i ${SSH_KEY_PATH} -o BatchMode=yes -o ConnectTimeout=30 -o IdentitiesOnly=yes"
+          printf '%s' "$YC_SA_KEY_JSON" > "$RUNNER_TEMP/yc-sa-key.json"
+          scp ${SSH_OPTS} "$RUNNER_TEMP/yc-sa-key.json" "${VM_USER}@${VM_HOST}:/tmp/yc-sa-key.json"
+          ssh ${SSH_OPTS} "${VM_USER}@${VM_HOST}" \
+            "cat /tmp/yc-sa-key.json | docker login --username json_key --password-stdin cr.yandex && rm -f /tmp/yc-sa-key.json"
+
       - name: Deploy release on VM
         shell: bash
         env:
