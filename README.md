@@ -1,12 +1,15 @@
-# СППР Нефтегаз — Cursor_Scan
+# СППР Нефтегаз — decision-matrix
 
-Репозиторий: [github.com/Mekcuka/Cursor_Scan](https://github.com/Mekcuka/Cursor_Scan)
+**Актуальный репозиторий (код + CI/CD):** [github.com/Mekcuka/Scaning](https://github.com/Mekcuka/Scaning)  
+Локальная папка `decision-matrix/` синхронизирована с веткой `main` этого репозитория (`git remote scaning`).
 
 ## Сайт (GitHub Pages)
 
-**https://mekcuka.github.io/Cursor_Scan/**
+**https://mekcuka.github.io/Scaning/**
 
-Собирается из `decision-matrix/frontend` (React MVP) при push в `main`.
+Собирается из `decision-matrix/frontend` при push в `main` репозитория **Scaning**.
+
+> Старый адрес `mekcuka.github.io/Cursor_Scan/` и репозиторий `Cursor_Scan` **не обновляются** — смотрите **Scaning**.
 
 ## Локальный запуск
 

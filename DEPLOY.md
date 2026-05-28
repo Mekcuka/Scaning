@@ -4,6 +4,9 @@
 Сайт (Pages): https://mekcuka.github.io/Scaning/  
 API (DuckDNS): https://erascaning.duckdns.org
 
+Код приложения: папка `decision-matrix/` в корне репозитория.  
+`git push scaning main` — публикует и фронт (Pages), и бэкенд (при изменениях в `decision-matrix/backend/**`).
+
 Этот проект использует два независимых автодеплоя:
 - frontend: GitHub Pages (уже работает);
 - backend: Yandex Cloud VM через Terraform + GitHub Actions.
