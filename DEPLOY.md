@@ -55,7 +55,8 @@ https://github.com/Mekcuka/Scaning/settings/variables/actions → **Repository v
 | `YC_REGISTRY_ID` | **`crp12epg012b892ju68g`** | Container Registry (имя: **`prod-decision-matrix-registry`**). **Не** путать с folder `b1gjg9687d9afbsfr2nm`. |
 | `VM_HOST` | **`erascaning.duckdns.org`** или **`158.160.228.131`** | A-запись DuckDNS → IP VM (проверено DNS). Для SSH и `ssh-keyscan` в CI. |
 | `VM_USER` | **`vovavolgin91`** | Linux-пользователь на VM (проверено SSH). В Terraform по умолчанию `deploy` — для CI нужен **фактический** логин. |
-| `VM_SSH_KEY` | *(не хранить в git)* | **Приватный** ключ (не `.pub`): `C:\Users\user\Documents\mykey\ssh-key\ssh-key-1779903372392`. В GitHub secret — `Get-Content -Raw` этого файла. Ошибка `libcrypto` — `.pub`, CRLF, passphrase. |
+| `VM_SSH_KEY` | *(не хранить в git)* | **Приватный** ключ (не `.pub`): `C:\Users\user\Documents\mykey\ssh-key\ssh-key-1779903372392`. Первая строка должна быть `-----BEGIN RSA PRIVATE KEY-----`, **не** `ssh-rsa AAAA...`. |
+| `VM_SSH_KEY_B64` | *(опционально, надёжнее)* | Одна строка base64 всего файла — обходит проблемы с переносами в GitHub UI (см. команду ниже). Если задан — используется вместо `VM_SSH_KEY`. |
 | `VM_SSH_PUBLIC_KEY` | *(не хранить в git)* | Публичная часть той же пары (`*.pub`). Должна совпадать с ключом на VM / Terraform `ssh_public_key`. |
 | `APP_DOMAIN` | **`erascaning.duckdns.org`** | Домен для Caddy и smoke-check: `https://erascaning.duckdns.org/health` |
 | `POSTGRES_PASSWORD` | *(не хранить в git)* | Только если `ENABLE_MANAGED_POSTGRES=true`. Сейчас по умолчанию БД в Docker на VM (`ENABLE_MANAGED_POSTGRES=false`) — можно не задавать. |
@@ -72,11 +73,24 @@ ssh -i "C:\Users\user\Documents\mykey\ssh-key\ssh-key-1779903372392" -o Identiti
 
 **Перед повторным deploy в GitHub (`prod`):**
 
+Вариант A — secret **`VM_SSH_KEY_B64`** (рекомендуется, одна строка без переносов):
+
+```powershell
+$b64 = [Convert]::ToBase64String([IO.File]::ReadAllBytes("C:\Users\user\Documents\mykey\ssh-key\ssh-key-1779903372392"))
+$b64 | Set-Clipboard
+```
+
+→ GitHub → `prod` → New secret **`VM_SSH_KEY_B64`** → вставить из буфера.
+
+Вариант B — secret **`VM_SSH_KEY`** (многострочный PEM):
+
 ```powershell
 Get-Content -Raw "C:\Users\user\Documents\mykey\ssh-key\ssh-key-1779903372392" | Set-Clipboard
 ```
 
-→ вставить в `VM_SSH_KEY`. Убедиться: `VM_USER` = `vovavolgin91`, `YC_REGISTRY_ID` = `crp12epg012b892ju68g`.
+→ вставить в **`VM_SSH_KEY`**. **Не** вставлять `ssh-key-1779903372392.pub` (ошибка: `starts with ssh-rsa`).
+
+Также: `VM_USER` = `vovavolgin91`, `YC_REGISTRY_ID` = `crp12epg012b892ju68g`.
 
 #### Variables — repository (frontend + опционально backend/terraform)
 

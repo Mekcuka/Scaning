@@ -194,17 +194,30 @@ jobs:
         shell: bash
         env:
           VM_SSH_KEY: ${{ secrets.VM_SSH_KEY }}
+          VM_SSH_KEY_B64: ${{ secrets.VM_SSH_KEY_B64 }}
         run: |
           set -euo pipefail
           install -m 700 -d ~/.ssh
-          printf '%s\n' "$VM_SSH_KEY" | sed 's/\r$//' > ~/.ssh/deploy_key
+          if [[ -n "${VM_SSH_KEY_B64:-}" ]]; then
+            echo "$VM_SSH_KEY_B64" | tr -d '[:space:]' | base64 -d > ~/.ssh/deploy_key
+          else
+            printf '%s' "$VM_SSH_KEY" | sed 's/\r$//' > ~/.ssh/deploy_key
+            if [[ -n "$(tail -c1 ~/.ssh/deploy_key 2>/dev/null || true)" ]]; then
+              echo >> ~/.ssh/deploy_key
+            fi
+          fi
           chmod 600 ~/.ssh/deploy_key
-          if grep -q '^ssh-' ~/.ssh/deploy_key || ! grep -q 'BEGIN .* PRIVATE KEY' ~/.ssh/deploy_key; then
-            echo "::error::VM_SSH_KEY must be the private key (BEGIN ... PRIVATE KEY), not the .pub file."
+          first_line="$(head -n1 ~/.ssh/deploy_key | tr -d '\r')"
+          if [[ "$first_line" == ssh-* ]]; then
+            echo "::error::VM_SSH_KEY is a PUBLIC key (starts with ${first_line:0:40}...). Use the file WITHOUT .pub, or set secret VM_SSH_KEY_B64 (see DEPLOY.md)."
+            exit 1
+          fi
+          if ! grep -q 'BEGIN .* PRIVATE KEY' ~/.ssh/deploy_key; then
+            echo "::error::VM_SSH_KEY has no BEGIN ... PRIVATE KEY header. Paste the full private key file, or use VM_SSH_KEY_B64."
             exit 1
           fi
           if ! ssh-keygen -y -f ~/.ssh/deploy_key >/dev/null 2>&1; then
-            echo "::error::VM_SSH_KEY is invalid. Re-save the secret: full private key, Unix line endings (LF), one trailing newline, no passphrase."
+            echo "::error::VM_SSH_KEY is invalid. Use VM_SSH_KEY_B64 from DEPLOY.md, or re-paste private key with LF line endings, no passphrase."
             exit 1
           fi
           echo "SSH_KEY_PATH=$HOME/.ssh/deploy_key" >> "$GITHUB_ENV"
