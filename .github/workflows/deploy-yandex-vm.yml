@@ -149,6 +149,10 @@ jobs:
               exit 1
             fi
           done
+          if [[ ! "$YC_REGISTRY_ID" =~ ^crp[a-z0-9]+$ ]]; then
+            echo "::error::YC_REGISTRY_ID must be Container Registry id (crp...), not folder id (b1g...). Console: Container Registry -> copy ID."
+            exit 1
+          fi
         env:
           YC_REGISTRY_ID: ${{ secrets.YC_REGISTRY_ID }}
           VM_HOST: ${{ secrets.VM_HOST }}
@@ -186,10 +190,24 @@ jobs:
           push: true
           tags: ${{ steps.image.outputs.image_ref }}
 
-      - name: Start ssh-agent
-        uses: webfactory/ssh-agent@v0.9.0
-        with:
-          ssh-private-key: ${{ secrets.VM_SSH_KEY }}
+      - name: Setup SSH deploy key
+        shell: bash
+        env:
+          VM_SSH_KEY: ${{ secrets.VM_SSH_KEY }}
+        run: |
+          set -euo pipefail
+          install -m 700 -d ~/.ssh
+          printf '%s\n' "$VM_SSH_KEY" | sed 's/\r$//' > ~/.ssh/deploy_key
+          chmod 600 ~/.ssh/deploy_key
+          if grep -q '^ssh-' ~/.ssh/deploy_key || ! grep -q 'BEGIN .* PRIVATE KEY' ~/.ssh/deploy_key; then
+            echo "::error::VM_SSH_KEY must be the private key (BEGIN ... PRIVATE KEY), not the .pub file."
+            exit 1
+          fi
+          if ! ssh-keygen -y -f ~/.ssh/deploy_key >/dev/null 2>&1; then
+            echo "::error::VM_SSH_KEY is invalid. Re-save the secret: full private key, Unix line endings (LF), one trailing newline, no passphrase."
+            exit 1
+          fi
+          echo "SSH_KEY_PATH=$HOME/.ssh/deploy_key" >> "$GITHUB_ENV"
 
       - name: Add VM host to known_hosts
         shell: bash
@@ -207,7 +225,7 @@ jobs:
           VM_USER: ${{ secrets.VM_USER }}
         run: |
           set -euo pipefail
-          SSH_OPTS="-o BatchMode=yes -o ConnectTimeout=30"
+          SSH_OPTS="-i ${SSH_KEY_PATH} -o BatchMode=yes -o ConnectTimeout=30 -o IdentitiesOnly=yes"
           RELEASE_ID="$(date +%Y%m%d%H%M%S)-${GITHUB_SHA::7}"
           RELEASE_DIR="/opt/decision-matrix/releases/${RELEASE_ID}"
           ssh ${SSH_OPTS} "${VM_USER}@${VM_HOST}" "mkdir -p ${RELEASE_DIR}"
@@ -226,7 +244,7 @@ jobs:
           RELEASE_DIR: ${{ steps.upload.outputs.release_dir }}
         run: |
           set -euo pipefail
-          SSH_OPTS="-o BatchMode=yes -o ConnectTimeout=30"
+          SSH_OPTS="-i ${SSH_KEY_PATH} -o BatchMode=yes -o ConnectTimeout=30 -o IdentitiesOnly=yes"
           ssh ${SSH_OPTS} "${VM_USER}@${VM_HOST}" bash -s <<REMOTE
           set -euo pipefail
           chmod +x /opt/decision-matrix/rollback.sh
@@ -257,5 +275,5 @@ jobs:
           VM_USER: ${{ secrets.VM_USER }}
         run: |
           set -euo pipefail
-          ssh -o BatchMode=yes -o ConnectTimeout=30 "${VM_USER}@${VM_HOST}" \
-            "/opt/decision-matrix/rollback.sh"
+          ssh -i "${SSH_KEY_PATH}" -o BatchMode=yes -o ConnectTimeout=30 -o IdentitiesOnly=yes \
+            "${VM_USER}@${VM_HOST}" "/opt/decision-matrix/rollback.sh"

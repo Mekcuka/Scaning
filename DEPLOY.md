@@ -14,8 +14,8 @@ Workflow: `.github/workflows/deploy-pages.yml`
 
 Проверьте один раз:
 - `Settings -> Pages -> Build and deployment -> Source -> GitHub Actions`.
-- `Settings -> Secrets and variables -> Actions -> Variables -> VITE_API_URL`
-  со значением вида `https://api.your-domain.ru/api/v1`.
+- `Settings -> Secrets and variables -> Actions -> Variables -> VITE_API_URL`:
+  **`https://erascaning.duckdns.org/api/v1`**
 
 ## 2) Backend (Yandex Cloud, fully automated)
 
@@ -35,30 +35,63 @@ Workflow: `.github/workflows/deploy-pages.yml`
 3. Подготовьте домен, который указывает на публичный IP VM (A record).
 4. В GitHub создайте environment `prod` и включите approval (рекомендуется).
 
-### GitHub Secrets (обязательно)
+### GitHub Secrets и Variables
 
-- `YC_SA_KEY_JSON` - JSON ключ service account.
-- `YC_CLOUD_ID` - ID cloud.
-- `YC_FOLDER_ID` - ID folder.
-- `YC_REGISTRY_ID` - **только id** registry (например `crp9abcd1234`), **без** префикса `cr.yandex/`.
-- `VM_HOST` - публичный IP или DNS VM.
-- `VM_USER` - Linux пользователь для SSH (по умолчанию `deploy`).
-- `VM_SSH_KEY` - приватный SSH ключ (PEM/OpenSSH) для деплоя.
-- `VM_SSH_PUBLIC_KEY` - публичный SSH ключ для Terraform metadata.
-- `APP_DOMAIN` - домен backend (например `api.example.ru`).
-- `POSTGRES_PASSWORD` - пароль БД (если managed PostgreSQL включен).
+**Куда вставлять (backend CI):**  
+https://github.com/Mekcuka/Scaning/settings/environments → **prod** → **Environment secrets**  
+Job `deploy_backend` в `.github/workflows/deploy-yandex-vm.yml` использует `environment: prod`.  
+Пустой secret в `prod` **перекрывает** одноимённый secret репозитория.
 
-### GitHub Variables (опционально, с дефолтами)
+**Куда вставлять (frontend):**  
+https://github.com/Mekcuka/Scaning/settings/variables/actions → **Repository variables**
 
-- `YC_ZONE` (default `ru-central1-a`)
-- `YC_VPC_CIDR` (default `10.20.0.0/24`)
-- `YC_VM_NAME` (default `decision-matrix-prod`)
-- `YC_VM_CORES` (default `4`)
-- `YC_VM_MEMORY_GB` (default `8`)
-- `YC_VM_DISK_GB` (default `50`)
-- `ENABLE_MANAGED_POSTGRES` (`true`/`false`, default `false`)
-- `POSTGRES_DB_NAME` (default `sppr`)
-- `POSTGRES_USERNAME` (default `sppr`)
+#### Secrets — environment `prod` (обязательно для backend deploy)
+
+| Secret | Значение для проекта | Статус / откуда взять |
+|--------|----------------------|------------------------|
+| `YC_SA_KEY_JSON` | *(не хранить в git)* | JSON authorized key service account YC. Консоль YC → IAM → Service accounts → ключ. Нужны права: Compute, Container Registry (push). |
+| `YC_CLOUD_ID` | *(заполнить в GitHub)* | Консоль YC → облако → **ID** (формат `b1g...` или `ao...` — это **cloud**, не folder). |
+| `YC_FOLDER_ID` | **`b1gjg9687d9afbsfr2nm`** | ID каталога YC. **Не** подставлять в `YC_REGISTRY_ID`. |
+| `YC_REGISTRY_ID` | **`crp12epg012b892ju68g`** | Container Registry (имя: **`prod-decision-matrix-registry`**). **Не** путать с folder `b1gjg9687d9afbsfr2nm`. |
+| `VM_HOST` | **`erascaning.duckdns.org`** или **`158.160.228.131`** | A-запись DuckDNS → IP VM (проверено DNS). Для SSH и `ssh-keyscan` в CI. |
+| `VM_USER` | **`vovavolgin91`** | Linux-пользователь на VM (проверено SSH). В Terraform по умолчанию `deploy` — для CI нужен **фактический** логин. |
+| `VM_SSH_KEY` | *(не хранить в git)* | **Приватный** ключ (не `.pub`): `C:\Users\user\Documents\mykey\ssh-key\ssh-key-1779903372392`. В GitHub secret — `Get-Content -Raw` этого файла. Ошибка `libcrypto` — `.pub`, CRLF, passphrase. |
+| `VM_SSH_PUBLIC_KEY` | *(не хранить в git)* | Публичная часть той же пары (`*.pub`). Должна совпадать с ключом на VM / Terraform `ssh_public_key`. |
+| `APP_DOMAIN` | **`erascaning.duckdns.org`** | Домен для Caddy и smoke-check: `https://erascaning.duckdns.org/health` |
+| `POSTGRES_PASSWORD` | *(не хранить в git)* | Только если `ENABLE_MANAGED_POSTGRES=true`. Сейчас по умолчанию БД в Docker на VM (`ENABLE_MANAGED_POSTGRES=false`) — можно не задавать. |
+
+**Образ в registry (формирует CI, не secret):**  
+`cr.yandex/crp12epg012b892ju68g/decision-matrix-backend:<git-sha>`
+
+**Проверка после заполнения secrets:**
+
+```powershell
+curl.exe -s https://erascaning.duckdns.org/health
+ssh -i "C:\Users\user\Documents\mykey\ssh-key\ssh-key-1779903372392" -o IdentitiesOnly=yes vovavolgin91@erascaning.duckdns.org "cat /opt/decision-matrix/shared/deploy.env"
+```
+
+#### Variables — repository (frontend + опционально backend/terraform)
+
+| Variable | Значение для проекта | Где используется |
+|----------|----------------------|------------------|
+| `VITE_API_URL` | **`https://erascaning.duckdns.org/api/v1`** | `.github/workflows/deploy-pages.yml` |
+| `YC_ZONE` | `ru-central1-a` | Terraform / workflow (default) |
+| `YC_VPC_CIDR` | `10.20.0.0/24` | Terraform (default) |
+| `YC_VM_NAME` | `decision-matrix-prod` | Terraform → VM name `prod-decision-matrix-prod` |
+| `YC_VM_CORES` | `4` | Terraform (default) |
+| `YC_VM_MEMORY_GB` | `8` | Terraform (default) |
+| `YC_VM_DISK_GB` | `50` | Terraform (default) |
+| `ENABLE_MANAGED_POSTGRES` | `false` | Postgres в Docker на VM (`deploy/docker-compose.yml`) |
+| `POSTGRES_DB_NAME` | `sppr` | Terraform / app |
+| `POSTGRES_USERNAME` | `sppr` | Terraform / app |
+
+#### Runtime на VM (не GitHub; файл `/opt/decision-matrix/shared/app.env`)
+
+| Параметр | Значение для проекта |
+|----------|----------------------|
+| `CORS_ORIGINS` | `https://mekcuka.github.io,http://localhost:5173` (дефолт в `deploy/setup-vm-app-env.ps1`; для Pages-репо **Scaning**: добавьте `https://mekcuka.github.io/Scaning` при необходимости) |
+| `DATABASE_URL` | При `-LocalDb`: `postgresql+asyncpg://sppr:<password>@db:5432/sppr` |
+| Swagger | https://erascaning.duckdns.org/api/v1/docs |
 
 ### Runtime env на VM (один раз)
 
@@ -72,10 +105,11 @@ Workflow: `.github/workflows/deploy-pages.yml`
 ```powershell
 cd C:\Users\user\Documents\Cursore
 .\deploy\setup-vm-app-env.ps1 `
-  -VmHost "<VM_IP_или_DNS>" `
-  -PostgresHost "<FQDN_managed_postgres>" `
-  -PostgresPassword "<пароль>" `
-  -CorsOrigins "https://<login>.github.io,http://localhost:5173"
+  -VmHost "erascaning.duckdns.org" `
+  -VmUser "vovavolgin91" `
+  -KeyPath "C:\Users\user\Documents\mykey\ssh-key\ssh-key-1779903372392" `
+  -LocalDb `
+  -CorsOrigins "https://mekcuka.github.io,https://mekcuka.github.io/Scaning,http://localhost:5173"
 ```
 
 Скрипт: `deploy/setup-vm-app-env.ps1` (SSH-ключ по умолчанию `~/.ssh/yc_deploy_key`).
@@ -83,7 +117,11 @@ cd C:\Users\user\Documents\Cursore
 **Без Managed PostgreSQL (БД в Docker на той же VM):**
 
 ```powershell
-.\deploy\setup-vm-app-env.ps1 -VmHost "<VM_IP>" -VmUser "<ssh_user>" -KeyPath "<path_to_private_key>" -LocalDb
+.\deploy\setup-vm-app-env.ps1 `
+  -VmHost "erascaning.duckdns.org" `
+  -VmUser "vovavolgin91" `
+  -KeyPath "C:\Users\user\Documents\mykey\ssh-key\ssh-key-1779903372392" `
+  -LocalDb
 ```
 
 Скрипт создаёт `app.env` и `db.env`; Postgres+PostGIS поднимается сервисом `db` в `deploy/docker-compose.yml`.
@@ -94,7 +132,7 @@ DATABASE_URL=postgresql+asyncpg://sppr:strong-password@<postgres-host>:6432/sppr
 SECRET_KEY=super-long-random-secret
 ACCESS_TOKEN_EXPIRE_MINUTES=60
 REFRESH_TOKEN_EXPIRE_DAYS=7
-CORS_ORIGINS=https://<your-github-login>.github.io,https://<frontend-domain>
+CORS_ORIGINS=https://mekcuka.github.io,https://mekcuka.github.io/Scaning,https://erascaning.duckdns.org
 ALGORITHM=HS256
 ```
 
@@ -117,7 +155,7 @@ ALGORITHM=HS256
 - пушит его в Yandex Container Registry;
 - копирует release на VM;
 - делает rolling update через `docker compose up -d`;
-- проверяет `https://<APP_DOMAIN>/health`.
+- проверяет `https://erascaning.duckdns.org/health`.
 
 ## 4) Авто-rollback и ручной rollback
 
@@ -126,12 +164,12 @@ ALGORITHM=HS256
 
 Ручной откат:
 ```bash
-ssh <VM_USER>@<VM_HOST>
+ssh -i "C:\Users\user\Documents\mykey\ssh-key\ssh-key-1779903372392" vovavolgin91@erascaning.duckdns.org
 /opt/decision-matrix/rollback.sh
 ```
 
 ## 5) Проверка после релиза
 
-- `curl https://<APP_DOMAIN>/health` -> `{"status":"ok"}`
-- Swagger: `https://<APP_DOMAIN>/api/v1/docs`
+- `curl https://erascaning.duckdns.org/health` -> `{"status":"ok"}`
+- Swagger: `https://erascaning.duckdns.org/api/v1/docs`
 - Frontend использует актуальный `VITE_API_URL`.
