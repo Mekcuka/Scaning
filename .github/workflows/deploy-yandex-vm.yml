@@ -139,24 +139,10 @@ jobs:
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v3
 
-      - name: Setup YC CLI
-        uses: yc-actions/yc-cli@v4
+      - name: Login to Yandex Container Registry
+        uses: yc-actions/yc-cr-login@v3
         with:
           yc-sa-json-credentials: ${{ secrets.YC_SA_KEY_JSON }}
-
-      - name: Get YC IAM token
-        id: yc_token
-        run: |
-          TOKEN="$(yc iam create-token)"
-          echo "::add-mask::$TOKEN"
-          echo "token=$TOKEN" >> "$GITHUB_OUTPUT"
-
-      - name: Docker login to Yandex Container Registry
-        run: |
-          echo "${{ steps.yc_token.outputs.token }}" | docker login \
-            --username iam \
-            --password-stdin \
-            cr.yandex
 
       - name: Build and push backend image
         id: image
