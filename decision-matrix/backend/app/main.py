@@ -1,3 +1,4 @@
+# release: Scaning main (deploy trigger)
 import asyncio
 import logging
 from contextlib import asynccontextmanager
