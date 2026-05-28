@@ -40,7 +40,7 @@ Workflow: `.github/workflows/deploy-pages.yml`
 - `YC_SA_KEY_JSON` - JSON ключ service account.
 - `YC_CLOUD_ID` - ID cloud.
 - `YC_FOLDER_ID` - ID folder.
-- `YC_REGISTRY_ID` - ID Container Registry (если registry уже существует; иначе можно взять из terraform output после apply).
+- `YC_REGISTRY_ID` - **только id** registry (например `crp9abcd1234`), **без** префикса `cr.yandex/`.
 - `VM_HOST` - публичный IP или DNS VM.
 - `VM_USER` - Linux пользователь для SSH (по умолчанию `deploy`).
 - `VM_SSH_KEY` - приватный SSH ключ (PEM/OpenSSH) для деплоя.

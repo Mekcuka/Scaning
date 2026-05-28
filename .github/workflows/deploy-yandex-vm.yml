@@ -139,18 +139,52 @@ jobs:
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v3
 
+      - name: Validate deploy secrets
+        shell: bash
+        run: |
+          set -euo pipefail
+          for name in YC_REGISTRY_ID VM_HOST VM_USER VM_SSH_KEY APP_DOMAIN; do
+            if [[ -z "${!name:-}" ]]; then
+              echo "::error::GitHub secret $name is empty (check environment prod)."
+              exit 1
+            fi
+          done
+        env:
+          YC_REGISTRY_ID: ${{ secrets.YC_REGISTRY_ID }}
+          VM_HOST: ${{ secrets.VM_HOST }}
+          VM_USER: ${{ secrets.VM_USER }}
+          VM_SSH_KEY: ${{ secrets.VM_SSH_KEY }}
+          APP_DOMAIN: ${{ secrets.APP_DOMAIN }}
+
       - name: Login to Yandex Container Registry
         uses: yc-actions/yc-cr-login@v3
         with:
           yc-sa-json-credentials: ${{ secrets.YC_SA_KEY_JSON }}
 
-      - name: Build and push backend image
+      - name: Resolve image reference
         id: image
+        shell: bash
+        env:
+          REGISTRY_RAW: ${{ secrets.YC_REGISTRY_ID }}
         run: |
-          IMAGE_REF="cr.yandex/${{ secrets.YC_REGISTRY_ID }}/${{ env.IMAGE_NAME }}:${GITHUB_SHA}"
-          docker build -t "$IMAGE_REF" "decision-matrix/backend"
-          docker push "$IMAGE_REF"
-          echo "image_ref=$IMAGE_REF" >> "$GITHUB_OUTPUT"
+          set -euo pipefail
+          REGISTRY_ID="${REGISTRY_RAW#cr.yandex/}"
+          REGISTRY_ID="${REGISTRY_ID%%/*}"
+          REGISTRY_ID="$(echo "$REGISTRY_ID" | tr -d '[:space:]')"
+          if [[ -z "$REGISTRY_ID" ]]; then
+            echo "::error::YC_REGISTRY_ID must be Container Registry id (e.g. crpXXXXXXXX), not empty."
+            exit 1
+          fi
+          IMAGE_REF="cr.yandex/${REGISTRY_ID}/${{ env.IMAGE_NAME }}:${GITHUB_SHA}"
+          echo "image_ref=${IMAGE_REF}" >> "$GITHUB_OUTPUT"
+          echo "Pushing to ${IMAGE_REF}"
+
+      - name: Build and push backend image
+        uses: docker/build-push-action@v6
+        with:
+          context: decision-matrix/backend
+          push: true
+          tags: ${{ steps.image.outputs.image_ref }}
 
       - name: Start ssh-agent
         uses: webfactory/ssh-agent@v0.9.0
@@ -158,44 +192,70 @@ jobs:
           ssh-private-key: ${{ secrets.VM_SSH_KEY }}
 
       - name: Add VM host to known_hosts
+        shell: bash
         run: |
+          set -euo pipefail
           mkdir -p ~/.ssh
-          ssh-keyscan -H "${{ secrets.VM_HOST }}" >> ~/.ssh/known_hosts
+          chmod 700 ~/.ssh
+          ssh-keyscan -T 30 -H "${{ secrets.VM_HOST }}" >> ~/.ssh/known_hosts
 
       - name: Upload deploy assets
         id: upload
+        shell: bash
+        env:
+          VM_HOST: ${{ secrets.VM_HOST }}
+          VM_USER: ${{ secrets.VM_USER }}
         run: |
+          set -euo pipefail
+          SSH_OPTS="-o BatchMode=yes -o ConnectTimeout=30"
           RELEASE_ID="$(date +%Y%m%d%H%M%S)-${GITHUB_SHA::7}"
           RELEASE_DIR="/opt/decision-matrix/releases/${RELEASE_ID}"
-          ssh "${{ secrets.VM_USER }}@${{ secrets.VM_HOST }}" "mkdir -p ${RELEASE_DIR}"
-          scp deploy/docker-compose.yml "${{ secrets.VM_USER }}@${{ secrets.VM_HOST }}:${RELEASE_DIR}/docker-compose.yml"
-          scp deploy/Caddyfile "${{ secrets.VM_USER }}@${{ secrets.VM_HOST }}:${RELEASE_DIR}/Caddyfile"
-          scp deploy/rollback.sh "${{ secrets.VM_USER }}@${{ secrets.VM_HOST }}:/opt/decision-matrix/rollback.sh"
+          ssh ${SSH_OPTS} "${VM_USER}@${VM_HOST}" "mkdir -p ${RELEASE_DIR}"
+          scp ${SSH_OPTS} deploy/docker-compose.yml "${VM_USER}@${VM_HOST}:${RELEASE_DIR}/docker-compose.yml"
+          scp ${SSH_OPTS} deploy/Caddyfile "${VM_USER}@${VM_HOST}:${RELEASE_DIR}/Caddyfile"
+          scp ${SSH_OPTS} deploy/rollback.sh "${VM_USER}@${VM_HOST}:/opt/decision-matrix/rollback.sh"
           echo "release_dir=${RELEASE_DIR}" >> "$GITHUB_OUTPUT"
 
       - name: Deploy release on VM
+        shell: bash
+        env:
+          VM_HOST: ${{ secrets.VM_HOST }}
+          VM_USER: ${{ secrets.VM_USER }}
+          IMAGE_REF: ${{ steps.image.outputs.image_ref }}
+          APP_DOMAIN: ${{ secrets.APP_DOMAIN }}
+          RELEASE_DIR: ${{ steps.upload.outputs.release_dir }}
         run: |
-          ssh "${{ secrets.VM_USER }}@${{ secrets.VM_HOST }}" "
-            set -euo pipefail
-            chmod +x /opt/decision-matrix/rollback.sh
-            cat > /opt/decision-matrix/shared/deploy.env <<'EOF'
-            IMAGE_REF=${{ steps.image.outputs.image_ref }}
-            APP_DOMAIN=${{ secrets.APP_DOMAIN }}
-            EOF
-            ln -sfn '${{ steps.upload.outputs.release_dir }}' /opt/decision-matrix/current
-            cd /opt/decision-matrix/current
-            set -a
-            . /opt/decision-matrix/shared/deploy.env
-            set +a
-            docker compose pull
-            docker compose up -d --remove-orphans
-          "
+          set -euo pipefail
+          SSH_OPTS="-o BatchMode=yes -o ConnectTimeout=30"
+          ssh ${SSH_OPTS} "${VM_USER}@${VM_HOST}" bash -s <<REMOTE
+          set -euo pipefail
+          chmod +x /opt/decision-matrix/rollback.sh
+          cat > /opt/decision-matrix/shared/deploy.env <<EOF
+          IMAGE_REF=${IMAGE_REF}
+          APP_DOMAIN=${APP_DOMAIN}
+          EOF
+          ln -sfn '${RELEASE_DIR}' /opt/decision-matrix/current
+          cd /opt/decision-matrix/current
+          set -a
+          . /opt/decision-matrix/shared/deploy.env
+          set +a
+          docker compose pull
+          docker compose up -d --remove-orphans
+          REMOTE
 
       - name: Smoke health check
+        id: healthcheck
         run: |
-          curl --fail --silent --show-error "https://${{ secrets.APP_DOMAIN }}/health" > /dev/null
+          curl --fail --silent --show-error --retry 5 --retry-delay 10 \
+            "https://${{ secrets.APP_DOMAIN }}/health" > /dev/null
 
       - name: Rollback on healthcheck failure
-        if: failure()
+        if: failure() && steps.healthcheck.outcome == 'failure'
+        shell: bash
+        env:
+          VM_HOST: ${{ secrets.VM_HOST }}
+          VM_USER: ${{ secrets.VM_USER }}
         run: |
-          ssh "${{ secrets.VM_USER }}@${{ secrets.VM_HOST }}" "/opt/decision-matrix/rollback.sh"
+          set -euo pipefail
+          ssh -o BatchMode=yes -o ConnectTimeout=30 "${VM_USER}@${VM_HOST}" \
+            "/opt/decision-matrix/rollback.sh"
