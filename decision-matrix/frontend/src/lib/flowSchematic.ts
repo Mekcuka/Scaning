@@ -19,6 +19,8 @@ export interface FlowSchematicNodeDto {
   flow_annual?: number | null;
   flow_unit?: CapacityUnit | string | null;
   over_capacity?: boolean;
+  /** Доля нефти после сепарации, % (только kind=separator). */
+  separation_percent?: number | null;
 }
 
 export interface FlowSchematicEdgeDto {
@@ -99,6 +101,28 @@ export function nodeHasThroughputCapacity(kind: string): boolean {
   return kind !== 'fluid_branch';
 }
 
+/** POI node flow comes from POI params, not from saved schematic capacity. */
+export function nodePersistsThroughputCapacity(kind: string): boolean {
+  return nodeHasThroughputCapacity(kind) && kind !== 'poi';
+}
+
+/** Доля нефтяной фазы после сепарации по умолчанию, %. */
+export const DEFAULT_SEPARATION_PERCENT = 85;
+
+export function resolveSeparationShare(percent: number | null | undefined): number {
+  const p = percent ?? DEFAULT_SEPARATION_PERCENT;
+  if (p <= 0 || p > 100) return DEFAULT_SEPARATION_PERCENT / 100;
+  return p / 100;
+}
+
+export function parseSeparationPercentInput(raw: string): number | null {
+  const trimmed = raw.trim();
+  if (trimmed === '') return null;
+  const n = Number(trimmed.replace(',', '.'));
+  if (Number.isNaN(n) || n <= 0 || n > 100) return null;
+  return Math.round(n * 10) / 10;
+}
+
 export function resolveCapacityUnit(data: {
   fluid?: FluidKind | null;
   capacity_unit?: CapacityUnit | string | null;
@@ -135,6 +159,18 @@ export function formatCapacity(
   return `${formatted} тыс. т/год`;
 }
 
+/** Compact label for edge annotations on the PFD canvas. */
+export function formatEdgeFlow(
+  value: number,
+  unit: string | null | undefined
+): string {
+  const formatted = value.toLocaleString('ru-RU', { maximumFractionDigits: 1 });
+  if (unit === 'thousand_m3_per_year') {
+    return `${formatted} тыс. м³/г`;
+  }
+  return `${formatted} тыс. т/г`;
+}
+
 export function hasSavedPositions(dto: FlowSchematicDto): boolean {
   return dto.nodes.some((n) => n.position_x != null && n.position_y != null);
 }
@@ -152,6 +188,7 @@ export function schematicToFlow(dto: FlowSchematicDto): { nodes: Node[]; edges: 
       flow_annual: n.flow_annual ?? null,
       flow_unit: (n.flow_unit as CapacityUnit | null) ?? null,
       over_capacity: n.over_capacity ?? false,
+      separation_percent: n.kind === 'separator' ? (n.separation_percent ?? DEFAULT_SEPARATION_PERCENT) : null,
     },
     position:
       n.position_x != null && n.position_y != null
@@ -173,6 +210,7 @@ export function schematicToFlow(dto: FlowSchematicDto): { nodes: Node[]; edges: 
 export function edgeFromDto(e: FlowSchematicEdgeDto): Edge {
   return {
     id: e.id,
+    type: 'flowEdge',
     source: e.source,
     target: e.target,
     animated: true,
@@ -205,10 +243,11 @@ export function flowToSchematicDto(
         status: null,
         position_x: n.position.x,
         position_y: n.position.y,
-        throughput_capacity_annual: nodeHasThroughputCapacity(d.kind)
+        throughput_capacity_annual: nodePersistsThroughputCapacity(d.kind)
           ? d.throughput_capacity_annual ?? null
           : null,
-        capacity_unit: nodeHasThroughputCapacity(d.kind) ? d.capacity_unit ?? null : null,
+        capacity_unit: nodePersistsThroughputCapacity(d.kind) ? d.capacity_unit ?? null : null,
+        separation_percent: d.kind === 'separator' ? (d.separation_percent ?? DEFAULT_SEPARATION_PERCENT) : null,
       };
     }),
     edges: edges.map((e) => ({
@@ -259,6 +298,7 @@ export type FlowNodeData = {
   flow_annual?: number | null;
   flow_unit?: CapacityUnit | string | null;
   over_capacity?: boolean;
+  separation_percent?: number | null;
 };
 
 export function newNodeId(): string {

@@ -62,6 +62,10 @@ async def save_flow_schematic(
          if k not in ("flow_annual", "flow_unit", "over_capacity")}
         for n in nodes
     ]
+    for n in payload_nodes:
+        if n.get("kind") == "poi":
+            n.pop("throughput_capacity_annual", None)
+            n.pop("capacity_unit", None)
     payload_edges = [e.model_dump() if hasattr(e, "model_dump") else dict(e) for e in edges]
 
     layout = await db.scalar(

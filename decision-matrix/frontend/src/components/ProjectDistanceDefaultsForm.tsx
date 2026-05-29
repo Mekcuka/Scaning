@@ -4,6 +4,7 @@ import { Save } from 'lucide-react';
 import { api, type DistanceDefaults } from '../lib/api';
 import { useAppStore } from '../store';
 import { KM_PER_PAD_FIELDS, MAX_TOTAL_LINE_FIELDS, THRESHOLD_FIELDS } from '../lib/poiParams';
+import { DeferredNumberInput } from './DeferredNumberInput';
 
 interface ProjectDistanceDefaultsFormProps {
   projectId: string;
@@ -51,8 +52,8 @@ export function ProjectDistanceDefaultsForm({
     );
   }
 
-  const setNum = (key: keyof DistanceDefaults, raw: string) => {
-    setValues((v) => (v ? { ...v, [key]: parseFloat(raw) || 0 } : v));
+  const setField = (key: keyof DistanceDefaults, raw: number | string) => {
+    setValues((v) => (v ? { ...v, [key]: typeof raw === 'number' ? raw : parseFloat(String(raw)) || 0 } : v));
   };
 
   const renderFields = (
@@ -75,13 +76,12 @@ export function ProjectDistanceDefaultsForm({
               {f.label}
               {suffix ? `, ${suffix}` : ''}
             </span>
-            <input
-              type="number"
-              step={0.1}
+            <DeferredNumberInput
               readOnly={readOnly}
               className={compact ? 'rates-input' : undefined}
               value={values[f.defaultKey]}
-              onChange={(e) => setNum(f.defaultKey, e.target.value)}
+              min={0}
+              onCommit={(v) => setField(f.defaultKey, v)}
             />
           </label>
         ))}

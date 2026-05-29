@@ -8,6 +8,8 @@ DEFAULT_COST_RATES: dict[str, float] = {
     "power_line": 3000,
     "gas_processing": 500000,
     "gtes": 600000,
+    "gpes": 600000,
+    "vies": 600000,
     "substation": 200000,
     "refinery": 0,
     "pads": 200000,

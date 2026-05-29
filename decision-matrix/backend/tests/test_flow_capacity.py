@@ -50,6 +50,42 @@ def test_enrich_strips_fluid_branch_capacity():
     assert enriched[0]["throughput_capacity_annual"] is None
 
 
+def test_gas_branch_uses_gas_factor():
+    poi = PointOfInterest(
+        name="Куст",
+        longitude=30.0,
+        latitude=60.0,
+        fluid_type="oil",
+        planned_production_volume=1000.0,
+        gas_factor=200.0,
+    )
+    state = EngineeringState()
+    cap, unit = estimate_node_capacity(
+        poi, state, kind="network_segment", fluid="gas", subtype=None
+    )
+    assert unit == "thousand_m3_per_year"
+    assert cap == round(1000.0 * 0.85 * 200.0 / 1000, 1)
+
+
+def test_gas_branch_default_gas_factor():
+    poi = PointOfInterest(
+        name="Куст",
+        longitude=30.0,
+        latitude=60.0,
+        fluid_type="oil",
+        planned_production_volume=1000.0,
+    )
+    state = EngineeringState()
+    cap_default, _ = estimate_node_capacity(
+        poi, state, kind="network_segment", fluid="gas", subtype=None
+    )
+    poi.gas_factor = 120.0
+    cap_explicit, _ = estimate_node_capacity(
+        poi, state, kind="network_segment", fluid="gas", subtype=None
+    )
+    assert cap_default == cap_explicit == 102.0
+
+
 def test_enrich_fills_missing():
     poi = PointOfInterest(
         name="Куст",

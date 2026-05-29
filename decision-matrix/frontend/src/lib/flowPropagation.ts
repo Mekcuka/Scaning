@@ -1,14 +1,19 @@
 import type { CapacityUnit, FlowSchematicEdgeDto, FlowSchematicNodeDto, FluidKind } from './flowSchematic';
-import { resolveCapacityUnit } from './flowSchematic';
+import { resolveSeparationShare } from './flowSchematic';
 
-const OIL_PHASE_SHARE = 0.85;
-const GAS_M3_PER_TON_OIL = 120;
+const DEFAULT_GAS_FACTOR = 120;
 const FLOW_EPS = 1e-6;
 
 export interface PoiFlowContext {
   fluid_type: string;
   planned_production_volume: number;
   water_injection_volume: number;
+  gas_factor?: number;
+}
+
+function resolveGasFactor(poi: PoiFlowContext): number {
+  const gf = poi.gas_factor ?? 0;
+  return gf > 0 ? gf : DEFAULT_GAS_FACTOR;
 }
 
 export interface NodeFlowState {
@@ -19,13 +24,14 @@ export interface NodeFlowState {
 
 function branchFlowFromPoi(
   poi: PoiFlowContext,
-  fluid: FluidKind
+  fluid: FluidKind,
+  separationShare: number
 ): { flow: number | null; unit: CapacityUnit } {
   const production = poi.planned_production_volume || 0;
   const water = poi.water_injection_volume || 0;
   if (fluid === 'oil') {
     if (poi.fluid_type !== 'oil' || production <= 0) return { flow: null, unit: 'thousand_t_per_year' };
-    return { flow: Math.round(production * OIL_PHASE_SHARE * 10) / 10, unit: 'thousand_t_per_year' };
+    return { flow: Math.round(production * separationShare * 10) / 10, unit: 'thousand_t_per_year' };
   }
   if (fluid === 'water') {
     if (water <= 0) return { flow: null, unit: 'thousand_t_per_year' };
@@ -39,8 +45,9 @@ function branchFlowFromPoi(
       };
     }
     if (production <= 0) return { flow: null, unit: 'thousand_m3_per_year' };
+    const gf = resolveGasFactor(poi);
     return {
-      flow: Math.round(((production * OIL_PHASE_SHARE * GAS_M3_PER_TON_OIL) / 1000) * 10) / 10,
+      flow: Math.round(((production * separationShare * gf) / 1000) * 10) / 10,
       unit: 'thousand_m3_per_year',
     };
   }
@@ -49,14 +56,8 @@ function branchFlowFromPoi(
 
 function poiSourceFlow(
   poi: PoiFlowContext,
-  poiNode: FlowSchematicNodeDto
+  _poiNode: FlowSchematicNodeDto
 ): { flow: number | null; unit: CapacityUnit } {
-  if (poiNode.throughput_capacity_annual != null) {
-    return {
-      flow: poiNode.throughput_capacity_annual,
-      unit: resolveCapacityUnit(poiNode),
-    };
-  }
   const production = poi.planned_production_volume || 0;
   if (poi.fluid_type === 'gas') {
     return { flow: production > 0 ? production : null, unit: 'thousand_m3_per_year' };
@@ -68,27 +69,43 @@ function flowAfterSeparator(
   poi: PoiFlowContext,
   edgeFluid: string | undefined,
   fallbackFlow: number,
-  fallbackUnit: CapacityUnit
+  fallbackUnit: CapacityUnit,
+  separationShare: number
 ): { flow: number; unit: CapacityUnit } {
   if (edgeFluid === 'oil' || edgeFluid === 'water' || edgeFluid === 'gas') {
-    const bf = branchFlowFromPoi(poi, edgeFluid);
+    const bf = branchFlowFromPoi(poi, edgeFluid, separationShare);
     if (bf.flow != null) return { flow: bf.flow, unit: bf.unit };
   }
   return { flow: fallbackFlow, unit: fallbackUnit };
+}
+
+export interface EdgeFlowState {
+  flowAnnual: number | null;
+  flowUnit: CapacityUnit | null;
+}
+
+export interface FlowPropagationResult {
+  nodes: Map<string, NodeFlowState>;
+  edges: Map<string, EdgeFlowState>;
+}
+
+function emptyEdgeFlows(edges: FlowSchematicEdgeDto[]): Map<string, EdgeFlowState> {
+  return new Map(edges.map((e) => [e.id, { flowAnnual: null, flowUnit: null }]));
 }
 
 export function propagateFlows(
   nodes: FlowSchematicNodeDto[],
   edges: FlowSchematicEdgeDto[],
   poi: PoiFlowContext
-): Map<string, NodeFlowState> {
+): FlowPropagationResult {
   const result = new Map<string, NodeFlowState>();
+  const edgeResult = emptyEdgeFlows(edges);
   const nodeById = new Map(nodes.map((n) => [n.id, n]));
-  const outAdj = new Map<string, { target: string; fluid?: string }[]>();
+  const outAdj = new Map<string, { edgeId: string; target: string; fluid?: string }[]>();
   for (const n of nodes) outAdj.set(n.id, []);
   for (const e of edges) {
     const list = outAdj.get(e.source);
-    if (list) list.push({ target: e.target, fluid: e.fluid });
+    if (list) list.push({ edgeId: e.id, target: e.target, fluid: e.fluid });
   }
 
   const poiNodes = nodes.filter((n) => n.kind === 'poi');
@@ -105,22 +122,27 @@ export function propagateFlows(
   let head = 0;
   while (head < queue.length) {
     const curId = queue[head++];
-    const { flow: curFlow, unit: curUnit } = flowAt.get(curId)!;
+    const curAt = flowAt.get(curId);
+    if (!curAt) continue;
+    const { flow: curFlow, unit: curUnit } = curAt;
     const curNode = nodeById.get(curId);
     const curKind = curNode?.kind ?? '';
 
-    for (const { target: tgtId, fluid: edgeFluid } of outAdj.get(curId) ?? []) {
+    for (const { edgeId, target: tgtId, fluid: edgeFluid } of outAdj.get(curId) ?? []) {
       if (!nodeById.has(tgtId)) continue;
       let nextFlow: number;
       let nextUnit: CapacityUnit;
       if (curKind === 'separator') {
-        const n = flowAfterSeparator(poi, edgeFluid, curFlow, curUnit);
+        const share = resolveSeparationShare(curNode?.separation_percent);
+        const n = flowAfterSeparator(poi, edgeFluid, curFlow, curUnit, share);
         nextFlow = n.flow;
         nextUnit = n.unit;
       } else {
         nextFlow = curFlow;
         nextUnit = curUnit;
       }
+
+      edgeResult.set(edgeId, { flowAnnual: nextFlow, flowUnit: nextUnit });
 
       const prev = flowAt.get(tgtId);
       if (!prev) {
@@ -151,7 +173,7 @@ export function propagateFlows(
       overCapacity: over,
     });
   }
-  return result;
+  return { nodes: result, edges: edgeResult };
 }
 
 export function applyFlowStateToNodes<T extends { id: string; data: FlowNodeDataLike }>(

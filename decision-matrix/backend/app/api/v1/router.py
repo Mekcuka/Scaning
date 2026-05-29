@@ -295,6 +295,7 @@ async def create_poi(
         wells_per_pad=data.wells_per_pad,
         fluid_type=data.fluid_type,
         water_injection_volume=data.water_injection_volume,
+        gas_factor=data.gas_factor,
         eng_power=data.eng_power,
         eng_injection=data.eng_injection,
         eng_gas=data.eng_gas,

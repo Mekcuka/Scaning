@@ -2,34 +2,31 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { keepPreviousData, useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import {
   BoxSelect,
+  Layers,
   MapPin,
+  Maximize2,
+  Minimize2,
   Minus,
   MousePointer2,
-  Network,
-  Pencil,
   PenLine,
+  Pencil,
   Ruler,
   Search,
   Trash2,
   Undo2,
   X,
   Zap,
-  Layers,
-  Maximize2,
-  Minimize2,
 } from 'lucide-react';
 import { CandidatesModal } from '../components/CandidatesModal';
 import { AppModal } from '../components/AppModal';
 import { AnchoredMenu } from '../components/AnchoredMenu';
 import { MapPoiSelect } from '../components/MapPoiSelect';
-import { AnalysisEnvironmentTable } from '../components/AnalysisEnvironmentTable';
 import {
   alignAnalysisRowsToMapObjects,
   buildAnalysisResultMapFocus,
   connectionLinesFromAnalysis,
-  resolveAnalysisRowFocus,
 } from '../lib/analysisDisplay';
-import { SubtypeFilterPanel } from '../components/SubtypeFilterPanel';
+import { MapLayersPanel } from '../components/MapLayersPanel';
 import { ObjectDetailPanel, type SelectedFeature } from '../components/ObjectDetailPanel';
 import { PoiParamsForm } from '../components/PoiParamsForm';
 import { formatCoord, parseCoord, roundCoord } from '../lib/coords';
@@ -49,10 +46,10 @@ import {
 import { iconDataUrl } from '../lib/mapIcons';
 import {
   LINE_SUBTYPES,
-  LAYER_VISIBILITY_GROUPS,
   createDefaultSubtypeFilter,
   MAP_DRAWABLE_POINT_SUBTYPES,
   SUBTYPE_LABELS,
+  pointMenuLabel,
   api,
   normalizePoiAnalysisResponse,
   type AnalysisResult,
@@ -79,9 +76,7 @@ import { useAppStore } from '../store';
 
 const THRESHOLD_META: { subtype: string; color: string; label: string; defaultKm: number }[] = [
   { subtype: 'gas_processing', color: '#ff6f00', label: 'ГКС', defaultKm: 80 },
-  { subtype: 'gtes', color: '#d84315', label: 'ГТЭС', defaultKm: 60 },
-  { subtype: 'gpes', color: '#e64a19', label: 'ГПЭС', defaultKm: 60 },
-  { subtype: 'vies', color: '#43a047', label: 'ВИЭС', defaultKm: 60 },
+  { subtype: 'gtes', color: '#d84315', label: 'ИЭ', defaultKm: 60 },
   { subtype: 'substation', color: '#f9a825', label: 'ПС/ТП', defaultKm: 25 },
   { subtype: 'refinery', color: '#455a64', label: 'НПЗ', defaultKm: 100 },
 ];
@@ -106,7 +101,7 @@ function PointSubtypeMenuItem({
       onClick={() => onPick(st)}
     >
       <img src={iconDataUrl(st)} alt="" className="w-4 h-4 shrink-0" draggable={false} />
-      <span className="truncate">{SUBTYPE_LABELS[st] || st}</span>
+      <span className="truncate">{pointMenuLabel(st)}</span>
     </button>
   );
 }
@@ -142,7 +137,7 @@ export function MapPage() {
   const [selectMode, setSelectMode] = useState<SelectMode>('single');
   const [selectMenuOpen, setSelectMenuOpen] = useState(false);
   const [selectedPoiId, setSelectedPoiId] = useState<string | null>(null);
-  const [showRadii, setShowRadii] = useState(true);
+  const [showRadii, setShowRadii] = useState(false);
   const [radiusVisible, setRadiusVisible] = useState<Record<string, boolean>>({
     gas_processing: true,
     gtes: true,
@@ -179,12 +174,10 @@ export function MapPage() {
   const [pointMenuOpen, setPointMenuOpen] = useState(false);
   const [lineMenuOpen, setLineMenuOpen] = useState(false);
   const [subtypeFilter, setSubtypeFilter] = useState(createDefaultSubtypeFilter);
-  const [showNetwork, setShowNetwork] = useState(false);
   const [mapFocus, setMapFocus] = useState<MapFocusTarget | null>(null);
   const [mapEditEnabled, setMapEditEnabled] = useState(false);
   const [showPoisOnMap, setShowPoisOnMap] = useState(true);
   const [mapScaleLabel, setMapScaleLabel] = useState('—');
-  const [subtypeFilterOpen, setSubtypeFilterOpen] = useState(false);
 
   const toggleMapFullscreen = useCallback(async () => {
     const el = mapCanvasRef.current;
@@ -510,42 +503,6 @@ export function MapPage() {
       visible: radiusVisible[m.subtype] ?? true,
     }));
   }, [selectedPoi, radiusVisible, distanceDefaults]);
-
-  const { data: networks = [] } = useQuery({
-    queryKey: ['networks', projectId],
-    queryFn: () => api.getNetworks(projectId!),
-    enabled: !!projectId,
-  });
-  const networkId = networks[0]?.id;
-  const { data: networkNodes = [] } = useQuery({
-    queryKey: ['network-nodes', projectId, networkId],
-    queryFn: () => api.getNetworkNodes(projectId!, networkId!),
-    enabled: !!projectId && !!networkId && showNetwork,
-  });
-  const { data: networkEdges = [] } = useQuery({
-    queryKey: ['network-edges', projectId, networkId],
-    queryFn: () => api.getNetworkEdges(projectId!, networkId!),
-    enabled: !!projectId && !!networkId && showNetwork,
-  });
-
-  const focusAnalysisObject = useCallback(
-    (row: AnalysisRow) => {
-      const focus = resolveAnalysisRowFocus(row, mapLayerVisibleInfra, {
-        poi: selectedPoi ? { lon: selectedPoi.lon, lat: selectedPoi.lat } : null,
-        networkNodes,
-      });
-      if (!focus) return;
-      setMapFocus({ ...focus, nonce: Date.now() });
-      setDrawMode('select');
-      setSelectMenuOpen(false);
-      setPointMenuOpen(false);
-      setLineMenuOpen(false);
-      if (row.nearest_object_id && filteredInfra.some((o) => o.id === row.nearest_object_id)) {
-        setFeatureSel({ kind: 'infra', id: row.nearest_object_id });
-      }
-    },
-    [filteredInfra, mapLayerVisibleInfra, networkNodes, selectedPoi]
-  );
 
   const groupSelectionDetails = useMemo(() => {
     return featureGroupSel
@@ -978,6 +935,11 @@ export function MapPage() {
       invalidateMap();
       if (projectId) {
         void queryClient.invalidateQueries({ queryKey: ['analysis', projectId] });
+        if (detailSelection?.kind === 'poi') {
+          void queryClient.invalidateQueries({
+            queryKey: ['flow-schematic', projectId, detailSelection.poi.id],
+          });
+        }
       }
       const label =
         detailSelection?.kind === 'poi'
@@ -1023,45 +985,6 @@ export function MapPage() {
     },
     onError: (err) => {
       pushToast('error', err instanceof Error ? err.message : 'Не удалось обновить анализ');
-    },
-  });
-
-  const buildNetworkMut = useMutation({
-    mutationFn: () => api.buildNetwork(projectId!),
-    onSuccess: async () => {
-      setShowNetwork(true);
-      if (!projectId) return;
-      await queryClient.invalidateQueries({ queryKey: ['networks', projectId] });
-      await queryClient.invalidateQueries({ queryKey: ['network-nodes', projectId] });
-      await queryClient.invalidateQueries({ queryKey: ['network-edges', projectId] });
-      pushToast('success', 'Сеть построена');
-    },
-    onError: (err) => {
-      pushToast('error', err instanceof Error ? err.message : 'Не удалось построить сеть');
-    },
-  });
-
-  const clearMapMut = useMutation({
-    mutationFn: () => api.clearProjectInfrastructure(projectId!),
-    onSuccess: async (result) => {
-      setFeatureSel(null);
-      setFeatureGroupSel([]);
-      setShowNetwork(false);
-      setMapFocus(null);
-      if (projectId) {
-        queryClient.setQueryData(['infra', projectId], []);
-        queryClient.setQueriesData({ queryKey: ['network-nodes', projectId] }, []);
-        queryClient.setQueriesData({ queryKey: ['network-edges', projectId] }, []);
-        queryClient.removeQueries({ queryKey: ['analysis', projectId] });
-        await refreshMapQueries(queryClient, projectId);
-      }
-      pushToast(
-        'success',
-        `Удалено объектов: ${result.deleted_objects}, узлов сети: ${result.deleted_nodes}, рёбер: ${result.deleted_edges}.`
-      );
-    },
-    onError: (err) => {
-      pushToast('error', err instanceof Error ? err.message : 'Не удалось очистить карту');
     },
   });
 
@@ -1934,176 +1857,28 @@ export function MapPage() {
             <aside
               className={`map-sidebar-panel${mapLayersOpen ? ' map-sidebar-panel--open' : ''}`}
             >
-              <div className="map-sidebar-mobile-header">
-                <span className="font-medium text-sm">Слои и настройки</span>
-                <button
-                  type="button"
-                  className="btn btn-ghost p-1"
-                  aria-label="Закрыть"
-                  onClick={() => setMapLayersOpen(false)}
-                >
-                  <X size={16} />
-                </button>
-              </div>
-              <div className="layer-group">
-                <h4>Слои данных</h4>
-                {layers.map((layer) => (
-                  <label key={layer.id} className="layer-item">
-                    <input
-                      type="checkbox"
-                      checked={layer.is_visible}
-                      disabled={layerVisibilityMut.isPending}
-                      onChange={(e) =>
-                        layerVisibilityMut.mutate({
-                          layerId: layer.id,
-                          is_visible: e.target.checked,
-                        })
-                      }
-                    />
-                    <span className="truncate">{layer.name}</span>
-                  </label>
-                ))}
-                {LAYER_VISIBILITY_GROUPS.map((group) => (
-                  <label key={group.id} className="layer-item">
-                    <input
-                      type="checkbox"
-                      checked={isGroupVisible(group.subtypes)}
-                      onChange={(e) => setGroupSubtypesVisible(group.subtypes, e.target.checked)}
-                    />
-                    <span>{group.label}</span>
-                  </label>
-                ))}
-                <label className="layer-item">
-                  <input
-                    type="checkbox"
-                    checked={showPoisOnMap}
-                    onChange={(e) => setShowPoisOnMap(e.target.checked)}
-                  />
-                  <span>Точки интереса</span>
-                </label>
-              </div>
-
-              <div className="layer-group">
-                <h4>Пороговые радиусы</h4>
-                <label className="layer-item">
-                  <input
-                    type="checkbox"
-                    checked={showRadii}
-                    onChange={(e) => setShowRadii(e.target.checked)}
-                  />
-                  <span>Все радиусы</span>
-                </label>
-                {THRESHOLD_META.map((m) => (
-                  <label key={m.subtype} className="layer-item">
-                    <input
-                      type="checkbox"
-                      checked={radiusVisible[m.subtype] ?? true}
-                      onChange={(e) =>
-                        setRadiusVisible((v) => ({ ...v, [m.subtype]: e.target.checked }))
-                      }
-                    />
-                    <span className="layer-swatch" style={{ background: m.color }} />
-                    <span>
-                      {m.label} {thresholdKm(m.subtype, m.defaultKm)} км
-                    </span>
-                  </label>
-                ))}
-              </div>
-
-              <div className="layer-group">
-                <h4>Базовая карта</h4>
-                <p className="text-xs mb-2" style={{ color: 'var(--text-muted)' }}>
-                  Esri World Imagery
-                </p>
-                <label className="layer-item">
-                  <input
-                    type="checkbox"
-                    checked={!showBasemap}
-                    onChange={(e) => setShowBasemap(!e.target.checked)}
-                  />
-                  <span>Без подложки</span>
-                </label>
-              </div>
-
-              {projectId && (
-                <div className="map-sidebar-section space-y-2 text-sm">
-                  <div className="flex gap-2">
-                    <button
-                      type="button"
-                      className="btn btn-secondary btn-sm flex-1"
-                      onClick={() => buildNetworkMut.mutate()}
-                      disabled={buildNetworkMut.isPending || clearMapMut.isPending}
-                    >
-                      <Network size={12} className="inline mr-1" />
-                      {buildNetworkMut.isPending ? 'Построение…' : 'Сеть'}
-                    </button>
-                    <button
-                      type="button"
-                      className="btn btn-secondary btn-sm flex-1"
-                      disabled={clearMapMut.isPending || buildNetworkMut.isPending}
-                      title="Удалить объекты инфраструктуры (POI останутся)"
-                      onClick={() => {
-                        if (
-                          !window.confirm(
-                            'Удалить все объекты инфраструктуры с карты и из базы данных?\n\nТочки интереса (POI) не удаляются.'
-                          )
-                        ) {
-                          return;
-                        }
-                        clearMapMut.mutate();
-                      }}
-                    >
-                      <Trash2 size={12} className="inline mr-1" />
-                      {clearMapMut.isPending ? '…' : 'Очистить'}
-                    </button>
-                  </div>
-                  <label className="layer-item" style={{ paddingLeft: 0 }}>
-                    <input
-                      type="checkbox"
-                      checked={showNetwork}
-                      onChange={(e) => setShowNetwork(e.target.checked)}
-                    />
-                    <span>Слой сети</span>
-                  </label>
-                  <button
-                    type="button"
-                    className="btn btn-ghost btn-sm w-full text-left"
-                    onClick={() => setSubtypeFilterOpen((o) => !o)}
-                  >
-                    {subtypeFilterOpen ? 'Скрыть' : 'Показать'} фильтр подтипов
-                  </button>
-                  {subtypeFilterOpen && (
-                    <SubtypeFilterPanel
-                      subtypeFilter={subtypeFilter}
-                      onSubtypeFilterChange={(st, v) =>
-                        setSubtypeFilter((f) => ({ ...f, [st]: v }))
-                      }
-                    />
-                  )}
-                </div>
-              )}
-
-              {analysisRowsForMap.length > 0 && (
-                <div className="map-sidebar-section max-h-[min(40vh,360px)] overflow-auto">
-                  <AnalysisEnvironmentTable
-                    rows={analysisRowsForMap}
-                    compact
-                    sections="mapConnectivity"
-                    onFocusObject={focusAnalysisObject}
-                    onPickCandidate={(subtype, paramType) => {
-                      setCandidateSubtype(subtype);
-                      setCandidateParamType(paramType);
-                    }}
-                    onToggleConstruction={(subtype, force, paramType) =>
-                      overrideMut.mutate({
-                        subtype,
-                        force_construction: force,
-                        param_type: paramType,
-                      })
-                    }
-                  />
-                </div>
-              )}
+              <MapLayersPanel
+                layers={layers}
+                isGroupVisible={isGroupVisible}
+                onGroupVisibility={setGroupSubtypesVisible}
+                onLayerVisibility={(layerId, is_visible) =>
+                  layerVisibilityMut.mutate({ layerId, is_visible })
+                }
+                layerVisibilityPending={layerVisibilityMut.isPending}
+                showPoisOnMap={showPoisOnMap}
+                onShowPoisChange={setShowPoisOnMap}
+                showRadii={showRadii}
+                onShowRadiiChange={setShowRadii}
+                radiusVisible={radiusVisible}
+                onRadiusVisibleChange={(subtype, visible) =>
+                  setRadiusVisible((v) => ({ ...v, [subtype]: visible }))
+                }
+                thresholdMeta={THRESHOLD_META}
+                thresholdKm={thresholdKm}
+                showBasemap={showBasemap}
+                onShowBasemapChange={setShowBasemap}
+                onClose={() => setMapLayersOpen(false)}
+              />
             </aside>
 
             <div className="map-main-column">
@@ -2167,8 +1942,8 @@ export function MapPage() {
             measureAnchorLabels={measureAnchorLabels}
             showRadii={showRadii}
             useMapIcons
-            networkNodes={showNetwork ? networkNodes : []}
-            networkEdges={showNetwork ? networkEdges : []}
+            networkNodes={[]}
+            networkEdges={[]}
             layers={layers}
             mapFocus={mapFocus}
             onViewChange={({ scaleLabel }) => setMapScaleLabel(scaleLabel)}

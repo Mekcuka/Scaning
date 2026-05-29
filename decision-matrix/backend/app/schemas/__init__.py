@@ -114,6 +114,7 @@ class POICreate(BaseModel):
     wells_per_pad: int = 4
     fluid_type: str = "oil"
     water_injection_volume: float = 0
+    gas_factor: float = 120
     eng_power: str = "external"
     eng_injection: str = "centralized"
     eng_gas: str = "well"
@@ -134,6 +135,7 @@ class POIResponse(BaseModel):
     wells_per_pad: int
     fluid_type: str
     water_injection_volume: float
+    gas_factor: float = 120
     eng_power: str
     eng_injection: str
     eng_gas: str
@@ -247,6 +249,7 @@ class POIUpdate(BaseModel):
     wells_per_pad: int | None = None
     fluid_type: str | None = None
     water_injection_volume: float | None = None
+    gas_factor: float | None = None
     eng_power: str | None = None
     eng_injection: str | None = None
     eng_gas: str | None = None
@@ -448,6 +451,7 @@ class FlowSchematicNode(BaseModel):
     flow_annual: float | None = None
     flow_unit: str | None = None
     over_capacity: bool = False
+    separation_percent: float | None = None
 
 
 class FlowSchematicEdge(BaseModel):

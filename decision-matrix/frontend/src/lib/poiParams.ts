@@ -10,6 +10,7 @@ export type PoiFormValues = {
   fluid_type: 'oil' | 'gas';
   planned_production_volume: number;
   water_injection_volume: number;
+  gas_factor: number;
   production_per_well: number;
   wells_per_pad: number;
   eng_power: string;
@@ -118,7 +119,7 @@ export function engineeringOptionsForKey(
 
 export const THRESHOLD_FIELDS = [
   { key: 'threshold_gas_processing_km' as const, label: 'ГКС, км', defaultKey: 'threshold_gas_processing_km' as const },
-  { key: 'threshold_gtes_km' as const, label: 'ГТЭС, км', defaultKey: 'threshold_gtes_km' as const },
+  { key: 'threshold_gtes_km' as const, label: 'ИЭ, км', defaultKey: 'threshold_gtes_km' as const },
   { key: 'threshold_substation_km' as const, label: 'ПС, км', defaultKey: 'threshold_substation_km' as const },
   { key: 'threshold_refinery_km' as const, label: 'НПЗ, км', defaultKey: 'threshold_refinery_km' as const },
 ];
@@ -159,6 +160,7 @@ export function emptyPoiFormValues(overrides?: Partial<PoiFormValues>): PoiFormV
     fluid_type: 'oil',
     planned_production_volume: 50,
     water_injection_volume: 0,
+    gas_factor: 120,
     production_per_well: 10,
     wells_per_pad: 4,
     eng_power: 'external',
@@ -195,6 +197,7 @@ export function poiToFormValues(poi: POI): PoiFormValues {
     fluid_type: poi.fluid_type === 'gas' ? 'gas' : 'oil',
     planned_production_volume: poi.planned_production_volume,
     water_injection_volume: poi.water_injection_volume,
+    gas_factor: poi.gas_factor ?? 120,
     production_per_well: poi.production_per_well,
     wells_per_pad: poi.wells_per_pad,
     eng_power: poi.eng_power,
@@ -234,6 +237,7 @@ export function formValuesToPoiPayload(values: PoiFormValues, opts?: { includeCo
     fluid_type: values.fluid_type,
     planned_production_volume: values.planned_production_volume,
     water_injection_volume: values.water_injection_volume,
+    gas_factor: values.gas_factor,
     production_per_well: values.production_per_well,
     wells_per_pad: values.wells_per_pad,
     eng_power: values.eng_power,

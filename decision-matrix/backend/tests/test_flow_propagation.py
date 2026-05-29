@@ -39,3 +39,44 @@ def test_propagate_flags_overloaded_branch():
     assert by_id["branch-oil"]["over_capacity"] is False
     assert by_id["pipe-1"]["over_capacity"] is True
     assert by_id["term-1"]["over_capacity"] is False
+
+
+def test_poi_source_uses_planned_production_not_saved_capacity():
+    poi = PointOfInterest(
+        name="Куст",
+        longitude=30.0,
+        latitude=60.0,
+        fluid_type="oil",
+        planned_production_volume=250.0,
+        water_injection_volume=0,
+    )
+    nodes = [
+        {
+            "id": "poi-1",
+            "kind": "poi",
+            "label": "Куст",
+            "throughput_capacity_annual": 297.0,
+            "capacity_unit": "thousand_t_per_year",
+        },
+        {"id": "sep-1", "kind": "separator", "label": "Сепарация", "throughput_capacity_annual": 1000.0, "capacity_unit": "thousand_t_per_year"},
+    ]
+    edges = [{"id": "e1", "source": "poi-1", "target": "sep-1", "fluid": "oil"}]
+    result = propagate_flows(nodes, edges, poi)
+    by_id = {n["id"]: n for n in result}
+    assert by_id["poi-1"]["flow_annual"] == 250.0
+
+
+def test_propagate_uses_separator_percent():
+    poi = PointOfInterest(
+        name="Куст",
+        longitude=30.0,
+        latitude=60.0,
+        fluid_type="oil",
+        planned_production_volume=1000.0,
+        water_injection_volume=0,
+    )
+    nodes = _mini_chain_nodes()
+    nodes[1]["separation_percent"] = 70.0
+    result = propagate_flows(nodes, _mini_chain_edges(), poi)
+    by_id = {n["id"]: n for n in result}
+    assert by_id["branch-oil"]["flow_annual"] == 700.0

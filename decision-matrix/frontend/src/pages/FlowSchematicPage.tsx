@@ -34,6 +34,20 @@ export function FlowSchematicPage() {
     enabled: !!projectId && !!activePoiId,
   });
 
+  const persistSchematicMut = useMutation({
+    mutationFn: (dto: FlowSchematicDto) =>
+      api.saveFlowSchematic(projectId!, activePoiId, {
+        nodes: dto.nodes,
+        edges: dto.edges,
+      }),
+    onSuccess: () => {
+      void queryClient.invalidateQueries({ queryKey: ['flow-schematic', projectId, activePoiId] });
+    },
+    onError: (err) => {
+      pushToast('error', err instanceof Error ? err.message : 'Не удалось сохранить схему');
+    },
+  });
+
   const saveMut = useMutation({
     mutationFn: (dto: FlowSchematicDto) =>
       api.saveFlowSchematic(projectId!, activePoiId, {
@@ -41,11 +55,23 @@ export function FlowSchematicPage() {
         edges: dto.edges,
       }),
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['flow-schematic', projectId, activePoiId] });
+      void queryClient.invalidateQueries({ queryKey: ['flow-schematic', projectId, activePoiId] });
       pushToast('success', 'Схема потоков сохранена');
     },
     onError: (err) => {
       pushToast('error', err instanceof Error ? err.message : 'Не удалось сохранить схему');
+    },
+  });
+
+  const poiProductionMut = useMutation({
+    mutationFn: (volume: number) =>
+      api.updatePoi(projectId!, activePoiId, { planned_production_volume: volume }),
+    onSuccess: () => {
+      void queryClient.invalidateQueries({ queryKey: ['pois', projectId] });
+      void queryClient.invalidateQueries({ queryKey: ['flow-schematic', projectId, activePoiId] });
+    },
+    onError: (err) => {
+      pushToast('error', err instanceof Error ? err.message : 'Не удалось обновить дебит точки');
     },
   });
 
@@ -148,7 +174,8 @@ export function FlowSchematicPage() {
                 schematic={schematic}
                 poi={pois.find((p) => p.id === activePoiId) ?? null}
                 onSave={(dto) => saveMut.mutate(dto)}
-                onPersistCapacity={(dto) => saveMut.mutate(dto)}
+                onPersistCapacity={(dto) => persistSchematicMut.mutate(dto)}
+                onPlannedProductionChange={(volume) => poiProductionMut.mutate(volume)}
                 onReset={() => resetMut.mutate()}
                 saving={saveMut.isPending}
                 resetting={resetMut.isPending}

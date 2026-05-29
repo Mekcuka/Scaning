@@ -1,6 +1,6 @@
-/** Map icons from lucide-react rendered to data URLs for OpenLayers. */
+/** Map icons from lucide-react and custom SVG for OpenLayers. */
 
-import { createElement } from 'react';
+import { createElement, type ComponentType } from 'react';
 import { renderToStaticMarkup } from 'react-dom/server';
 import {
   CircleDot,
@@ -13,15 +13,19 @@ import {
   Pipette,
   Zap,
 } from 'lucide-react';
+import { IeMapIcon } from './ieSubtypeIcons';
 
-const ICON_MAP: Record<string, typeof Factory> = {
+type MapIconComponent = ComponentType<{ size?: number; color?: string; strokeWidth?: number }>;
+
+const ICON_MAP: Record<string, MapIconComponent> = {
   poi: MapPin,
   gas_processing: Factory,
   ukg: Factory,
   tsg: Factory,
-  gtes: Flame,
-  gpes: Flame,
-  vies: Flame,
+  gtes: IeMapIcon,
+  gpes: IeMapIcon,
+  vies: IeMapIcon,
+  ie: IeMapIcon,
   substation: Zap,
   refinery: Factory,
   node: CircleDot,
@@ -51,6 +55,7 @@ export const MAP_SUBTYPE_COLORS: Record<string, string> = {
   gtes: '#d84315',
   gpes: '#e64a19',
   vies: '#43a047',
+  ie: '#c62828',
   substation: '#f9a825',
   refinery: '#455a64',
   node: '#6a1b9a',
@@ -73,20 +78,29 @@ export const MAP_SUBTYPE_COLORS: Record<string, string> = {
 
 const cache = new Map<string, string>();
 
-export function iconDataUrl(subtype: string): string {
-  const key = ICON_MAP[subtype] ? subtype : 'gas_processing';
-  if (cache.has(key)) return cache.get(key)!;
-  const Icon = ICON_MAP[key] || Factory;
-  const color = MAP_SUBTYPE_COLORS[key] || '#666';
+function renderIconDataUrl(key: string): string {
+  const iconKey = ICON_MAP[key] ? key : 'gas_processing';
+  if (cache.has(iconKey)) return cache.get(iconKey)!;
+  const Icon = ICON_MAP[iconKey] || Factory;
+  const color = MAP_SUBTYPE_COLORS[iconKey] || '#666';
   const svg = renderToStaticMarkup(
     createElement(Icon, {
-      size: key === 'poi' ? 28 : 22,
+      size: iconKey === 'poi' ? 28 : 22,
       color,
       strokeWidth: 2,
-      fill: key === 'poi' ? color : 'none',
+      ...(iconKey === 'poi' ? { fill: color } : {}),
     })
   );
   const url = `data:image/svg+xml;charset=utf-8,${encodeURIComponent(svg)}`;
-  cache.set(key, url);
+  cache.set(iconKey, url);
   return url;
+}
+
+export function iconDataUrl(subtype: string): string {
+  return renderIconDataUrl(ICON_MAP[subtype] ? subtype : 'gas_processing');
+}
+
+/** @deprecated use iconDataUrl — kept for callers; ИЭ subtypes share one icon shape. */
+export function iconMenuDataUrl(subtype: string): string {
+  return iconDataUrl(subtype);
 }

@@ -10,7 +10,7 @@ from sqlalchemy import text
 from app.api.v1.router import router
 from app.core.config import settings
 from app.core.database import Base, engine
-from app.core.sqlite_migrate import patch_sqlite_schema
+from app.core.sqlite_migrate import patch_postgres_schema, patch_sqlite_schema
 
 
 logger = logging.getLogger(__name__)
@@ -29,6 +29,8 @@ async def lifespan(app: FastAPI):
             await conn.run_sync(Base.metadata.create_all)
             if settings.is_sqlite:
                 await conn.run_sync(patch_sqlite_schema)
+            else:
+                await conn.run_sync(patch_postgres_schema)
 
     try:
         await asyncio.wait_for(init_db(), timeout=30.0)

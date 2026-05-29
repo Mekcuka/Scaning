@@ -4,6 +4,7 @@ from app.geo.constants import (
     EXCLUSIVE_POINT_SUBTYPES,
     GKS_CLUSTER_SUBTYPES,
     GTES_CLUSTER_SUBTYPES,
+    IE_DERIVED_POINT_SUBTYPES,
     IMMUTABLE_POINT_SUBTYPES,
     IMPORT_ONLY_POINT_SUBTYPES,
     LINE_SUBTYPES,
@@ -35,6 +36,12 @@ def validate_subtype_geometry(
 def validate_general_infra_create(subtype: str) -> None:
     """НПС и import-only точки — только через POST /facility-objects или импорт Spark."""
     st = subtype.lower().strip()
+    if st in IE_DERIVED_POINT_SUBTYPES:
+        label = SUBTYPE_LABELS.get(st, st)
+        raise ValueError(
+            f"Подтип «{label}»: создайте объект «ИЭ» на карте или импорт Spark; "
+            "уточнение подтипа — в карточке объекта ИЭ."
+        )
     if st in IMPORT_ONLY_POINT_SUBTYPES:
         label = SUBTYPE_LABELS.get(st, st)
         if st in NODE_DERIVED_POINT_SUBTYPES:
@@ -67,7 +74,13 @@ def validate_subtype_change(current: str, new: str) -> None:
         )
     if cur in GTES_CLUSTER_SUBTYPES and nxt not in GTES_CLUSTER_SUBTYPES:
         raise ValueError(
-            "Для энергообъектов ГТЭС допустима смена только между подтипами ГТЭС, ГПЭС и ВИЭС."
+            "Для объектов ИЭ допустима смена только между подтипами ГТЭС, ГПЭС и ВИЭС."
+        )
+    if nxt in IE_DERIVED_POINT_SUBTYPES and cur not in GTES_CLUSTER_SUBTYPES:
+        label = SUBTYPE_LABELS.get(nxt, nxt)
+        raise ValueError(
+            f"Подтип «{label}» доступен только для объектов «ИЭ» "
+            "(импорт Spark или смена подтипа)."
         )
     if nxt in NODE_DERIVED_POINT_SUBTYPES and cur not in NODE_CLUSTER_SUBTYPES:
         label = SUBTYPE_LABELS.get(nxt, nxt)

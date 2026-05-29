@@ -19,6 +19,7 @@ import {
   readThroughputCapacity,
 } from '../lib/infraCapacity';
 import { AppSelect } from './AppSelect';
+import { DeferredNumberInput } from './DeferredNumberInput';
 import { PoiParamsForm } from './PoiParamsForm';
 import { formValuesToPoiPayload, poiToFormValues, type PoiFormValues } from '../lib/poiParams';
 
@@ -252,16 +253,15 @@ export function ObjectDetailPanel({
                 <span style={{ color: 'var(--text-muted)' }}>
                   Пропускная способность ({capacityUnit})
                 </span>
-                <input
-                  type="number"
+                <DeferredNumberInput
+                  allowEmpty
                   min={0}
-                  step="any"
                   className="input text-xs py-1"
                   placeholder="—"
                   value={throughputCapacity}
                   readOnly={readOnly}
                   disabled={readOnly}
-                  onChange={(e) => setThroughputCapacity(e.target.value)}
+                  onCommit={(v) => setThroughputCapacity(v === '' ? '' : String(v))}
                 />
               </label>
             )}

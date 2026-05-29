@@ -87,3 +87,20 @@ def patch_sqlite_schema(conn: Connection) -> None:
         )
         """,
     )
+
+    _add_column_if_missing(
+        conn,
+        "points_of_interest",
+        "gas_factor",
+        "gas_factor FLOAT NOT NULL DEFAULT 120",
+    )
+
+
+def patch_postgres_schema(conn: Connection) -> None:
+    """Incremental patches for PostgreSQL (create_all does not alter existing tables)."""
+    _add_column_if_missing(
+        conn,
+        "points_of_interest",
+        "gas_factor",
+        "gas_factor DOUBLE PRECISION NOT NULL DEFAULT 120",
+    )

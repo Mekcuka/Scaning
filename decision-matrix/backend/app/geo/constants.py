@@ -39,8 +39,11 @@ GKS_CLUSTER_SUBTYPES = frozenset({"gas_processing", "ukg", "tsg"})
 # Узел / узел метанола — смена подтипа только внутри пары.
 NODE_CLUSTER_SUBTYPES = frozenset({"node", "methanol_joint"})
 
-# ГТЭС / ГПЭС / ВИЭС — смена подтипа только внутри тройки.
+# ГТЭС / ГПЭС / ВИЭС — смена подтипа только внутри группы (на карте «Точка» → ИЭ, subtype gtes).
 GTES_CLUSTER_SUBTYPES = frozenset({"gtes", "gpes", "vies"})
+
+# Подтипы без пункта «Точка» — импорт Spark или смена у объекта группы ИЭ.
+IE_DERIVED_POINT_SUBTYPES = frozenset({"gpes", "vies"})
 
 # Point subtypes that cannot be reclassified after creation (UI + API).
 IMMUTABLE_POINT_SUBTYPES = frozenset({

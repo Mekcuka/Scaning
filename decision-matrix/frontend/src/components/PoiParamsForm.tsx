@@ -2,6 +2,7 @@ import { useState, type ReactNode } from 'react';
 import { ChevronDown } from 'lucide-react';
 import type { DistanceDefaults } from '../lib/api';
 import { AppSelect } from './AppSelect';
+import { DeferredNumberInput } from './DeferredNumberInput';
 import { EngBadgeGroup } from './EngBadgeGroup';
 import {
   ENG_PARAM_GROUPS,
@@ -107,46 +108,54 @@ export function PoiParamsForm({
             </div>
             <div className="form-group mb-0">
               <label>{volumeLabel}</label>
-              <input
-                type="number"
+              <DeferredNumberInput
                 min={0}
-                step={0.1}
                 value={value.planned_production_volume}
                 readOnly={readOnly}
-                onChange={(e) => patch({ planned_production_volume: +e.target.value })}
+                onCommit={(v) => patch({ planned_production_volume: v as number })}
               />
             </div>
             <div className="form-group mb-0">
               <label>Объём закачки воды (тыс. т/год)</label>
-              <input
-                type="number"
+              <DeferredNumberInput
                 min={0}
-                step={0.1}
                 value={value.water_injection_volume}
                 readOnly={readOnly}
-                onChange={(e) => patch({ water_injection_volume: +e.target.value })}
+                onCommit={(v) => patch({ water_injection_volume: v as number })}
               />
             </div>
+            {value.fluid_type === 'oil' && (
+              <div className="form-group mb-0">
+                <label>Газовый фактор (м³/т)</label>
+                <DeferredNumberInput
+                  min={0}
+                  integer
+                  value={value.gas_factor}
+                  readOnly={readOnly}
+                  onCommit={(v) => patch({ gas_factor: v as number })}
+                />
+                <p className="text-xs mt-1" style={{ color: 'var(--text-muted)' }}>
+                  Объём попутного газа на тонну нефти; используется в схеме потоков для ветки «Газ»
+                </p>
+              </div>
+            )}
             <div className="form-group mb-0">
               <label>Добыча на 1 скважину (тыс. т/год)</label>
-              <input
-                type="number"
+              <DeferredNumberInput
                 min={0.1}
-                step={0.1}
                 value={value.production_per_well}
                 readOnly={readOnly}
-                onChange={(e) => patch({ production_per_well: +e.target.value })}
+                onCommit={(v) => patch({ production_per_well: v as number })}
               />
             </div>
             <div className="form-group mb-0">
               <label>Скважин на КП</label>
-              <input
-                type="number"
+              <DeferredNumberInput
                 min={1}
-                step={1}
+                integer
                 value={value.wells_per_pad}
                 readOnly={readOnly}
-                onChange={(e) => patch({ wells_per_pad: +e.target.value })}
+                onCommit={(v) => patch({ wells_per_pad: v as number })}
               />
             </div>
             <div className="form-group mb-0 md:col-span-2">
@@ -221,13 +230,12 @@ export function PoiParamsForm({
                     </span>
                   )}
                 </label>
-                <input
-                  type="number"
-                  step={0.1}
+                <DeferredNumberInput
+                  allowEmpty
                   placeholder={defaults ? String(defaults[f.defaultKey]) : ''}
                   value={value[f.key]}
                   readOnly={readOnly}
-                  onChange={(e) => patch({ [f.key]: e.target.value })}
+                  onCommit={(v) => patch({ [f.key]: String(v) })}
                 />
               </div>
             ))}
@@ -251,13 +259,12 @@ export function PoiParamsForm({
                     </span>
                   )}
                 </label>
-                <input
-                  type="number"
-                  step={0.1}
+                <DeferredNumberInput
+                  allowEmpty
                   placeholder={defaults ? String(defaults[f.defaultKey]) : ''}
                   value={value[f.key]}
                   readOnly={readOnly}
-                  onChange={(e) => patch({ [f.key]: e.target.value })}
+                  onCommit={(v) => patch({ [f.key]: String(v) })}
                 />
               </div>
             ))}
@@ -281,13 +288,12 @@ export function PoiParamsForm({
                     </span>
                   )}
                 </label>
-                <input
-                  type="number"
-                  step={0.1}
+                <DeferredNumberInput
+                  allowEmpty
                   placeholder={defaults ? String(defaults[f.defaultKey]) : ''}
                   value={value[f.key]}
                   readOnly={readOnly}
-                  onChange={(e) => patch({ [f.key]: e.target.value })}
+                  onCommit={(v) => patch({ [f.key]: String(v) })}
                 />
               </div>
             ))}

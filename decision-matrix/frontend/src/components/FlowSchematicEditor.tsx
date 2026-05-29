@@ -16,8 +16,12 @@ import {
   useEdgesState,
   useNodesState,
   useReactFlow,
+  BaseEdge,
+  EdgeLabelRenderer,
+  getBezierPath,
   type Connection,
   type Edge,
+  type EdgeProps,
   type Node,
   type NodeProps,
 } from '@xyflow/react';
@@ -36,6 +40,7 @@ import {
 import type { FlowEditorTool, FlowNodeData, FlowSchematicDto, FluidKind } from '../lib/flowSchematic';
 import {
   ADD_NODE_TEMPLATES,
+  DEFAULT_SEPARATION_PERCENT,
   FLUID_COLORS,
   FLUID_LABELS,
   edgeFromDto,
@@ -46,7 +51,9 @@ import {
   newEdgeId,
   newNodeId,
   formatCapacity,
+  formatEdgeFlow,
   nodeHasThroughputCapacity,
+  nodePersistsThroughputCapacity,
   parseCapacityInput,
   resolveCapacityUnit,
   schematicToFlow,
@@ -55,14 +62,28 @@ import type { PoiFlowContext } from '../lib/flowPropagation';
 import { propagateFlows } from '../lib/flowPropagation';
 import {
   FlowPropagationContext,
+  FlowEdgePropagationContext,
   FlowPoiContext,
   FlowSchematicActionsContext,
   useFlowPoi,
   useFlowPropagation,
+  useFlowEdgePropagation,
   useFlowSchematicActions,
 } from '../lib/flowSchematicContext';
 import { useIsMobile } from '../hooks/useMediaQuery';
 import type { POI } from '../lib/api';
+import { DeferredNumberInput } from './DeferredNumberInput';
+
+function capacityValuesEqual(
+  a: number | null | undefined,
+  b: number | null | undefined
+): boolean {
+  const left = a ?? null;
+  const right = b ?? null;
+  if (left === null && right === null) return true;
+  if (left === null || right === null) return false;
+  return Math.abs(left - right) < 1e-9;
+}
 
 function FlowCapacityPopover({
   nodeId,
@@ -83,30 +104,40 @@ function FlowCapacityPopover({
 }) {
   const actions = useFlowSchematicActions();
   const poiCtx = useFlowPoi();
-  const unit = resolveCapacityUnit(data);
+  const isPoiNode = data.kind === 'poi';
+  const unit = isPoiNode
+    ? poiCtx?.fluid_type === 'gas'
+      ? 'thousand_m3_per_year'
+      : 'thousand_t_per_year'
+    : resolveCapacityUnit(data);
   const unitLabel = capacityUnitLabel(unit);
   const [draft, setDraft] = useState('');
   const inputRef = useRef<HTMLInputElement>(null);
+  const productionValue = poiCtx?.planned_production_volume ?? null;
+  const capacitySource = isPoiNode ? productionValue : data.throughput_capacity_annual;
 
   useEffect(() => {
     if (open) {
-      setDraft(
-        data.throughput_capacity_annual != null ? String(data.throughput_capacity_annual) : ''
-      );
-      requestAnimationFrame(() => inputRef.current?.focus());
+      setDraft(capacitySource != null ? String(capacitySource) : '');
     }
-  }, [open, data.throughput_capacity_annual]);
+  }, [open, capacitySource]);
 
   const commit = useCallback(() => {
-    if (!actions) return;
-    const nextVal = parseCapacityInput(draft);
+    if (!actions) return true;
+    const nextVal = draft.trim() === '' ? null : parseCapacityInput(draft);
     if (draft.trim() !== '' && nextVal === null) {
       inputRef.current?.focus();
       return false;
     }
+    const currentVal = capacitySource ?? null;
+    if (capacityValuesEqual(nextVal, currentVal)) return true;
+    if (isPoiNode) {
+      if (nextVal != null) actions.onPoiProductionChange(nextVal);
+      return true;
+    }
     actions.onCapacityChange(nodeId, nextVal, nextVal != null ? unit : data.capacity_unit ?? unit);
     return true;
-  }, [actions, draft, nodeId, unit, data.capacity_unit]);
+  }, [actions, draft, nodeId, unit, data.capacity_unit, isPoiNode, capacitySource]);
 
   const showCapacity = nodeHasThroughputCapacity(data.kind);
   const isWaterFormation =
@@ -116,7 +147,7 @@ function FlowCapacityPopover({
 
   return (
     <div
-      className="absolute z-50 left-1/2 -translate-x-1/2 bottom-full mb-1 w-[240px] rounded-lg border border-[var(--border)] bg-white text-[#0f1c2e] px-3 py-2.5 pb-3 text-left text-xs shadow-lg"
+      className="flow-capacity-popover absolute z-50 left-1/2 -translate-x-1/2 bottom-full mb-1 w-[240px] rounded-lg border border-[var(--border)] bg-white text-[#0f1c2e] px-3 py-2.5 pb-3 text-xs shadow-lg"
       onMouseEnter={() => onOpenChange(true)}
       role="dialog"
       aria-label={showCapacity ? 'Пропускная способность' : 'Поток фазы'}
@@ -124,7 +155,7 @@ function FlowCapacityPopover({
       onPointerDown={(e) => e.stopPropagation()}
     >
       <div className="font-semibold mb-2">
-        {showCapacity ? 'Пропускная способность' : data.label}
+        {showCapacity ? (isPoiNode ? 'Плановый дебит' : 'Пропускная способность') : data.label}
       </div>
       {isWaterFormation && (
         <div className="text-slate-500 mb-2">
@@ -144,24 +175,27 @@ function FlowCapacityPopover({
           )}
         </div>
       )}
-      {data.kind === 'poi' && data.flow_annual != null && (
-        <div className="text-[10px] text-slate-500 mb-2">Исходный поток с куста</div>
+      {data.kind === 'poi' && poiCtx?.fluid_type === 'oil' && (
+        <div className="text-slate-500 mb-2">
+          Газовый фактор:{' '}
+          <span className="text-[#0f1c2e]">{poiCtx.gas_factor ?? 120} м³/т</span>
+        </div>
       )}
       {!showCapacity && !isWaterFormation && (
         <p className="text-[10px] text-slate-500">Фазовая ветка — лимит задаётся на оборудовании ниже по цепочке.</p>
       )}
       {showCapacity && (
-        <>
-          <div className="flex items-center gap-2">
+        <div className="flow-capacity-editor">
+          <label className="flow-capacity-field">
             <input
               ref={inputRef}
-              type="number"
-              min={0}
-              step="any"
-              className="input text-xs py-1 px-2 flex-1 min-w-0"
+              type="text"
+              inputMode="decimal"
+              className="flow-capacity-input"
               placeholder="—"
               value={draft}
               onChange={(e) => setDraft(e.target.value)}
+              onBlur={() => commit()}
               onKeyDown={(e) => {
                 if (e.key === 'Enter') {
                   e.preventDefault();
@@ -173,21 +207,12 @@ function FlowCapacityPopover({
                 }
               }}
             />
-            <span className="text-slate-500 whitespace-nowrap shrink-0">{unitLabel}</span>
-          </div>
-          <div className="flex gap-2 mt-2">
-            <button
-              type="button"
-              className="btn btn-sm btn-primary flex-1"
-              onClick={() => {
-                if (commit()) onOpenChange(false);
-              }}
-            >
-              Применить
-            </button>
-          </div>
-          <p className="text-[10px] text-slate-500 mt-1.5">Сохраняется в схему автоматически</p>
-        </>
+            <span className="flow-capacity-unit">{unitLabel}</span>
+          </label>
+          <p className="text-[10px] text-slate-500 mt-1.5">
+            {isPoiNode ? 'Сохраняется в параметрах точки интереса' : 'Сохраняется в схему автоматически'}
+          </p>
+        </div>
       )}
       <button
         type="button"
@@ -205,8 +230,54 @@ function FlowCapacityPopover({
   );
 }
 
+function FlowEdge({
+  id,
+  sourceX,
+  sourceY,
+  targetX,
+  targetY,
+  sourcePosition,
+  targetPosition,
+  style,
+  markerEnd,
+}: EdgeProps) {
+  const edgeFlowMap = useFlowEdgePropagation();
+  const fs = edgeFlowMap.get(id);
+  const [edgePath, labelX, labelY] = getBezierPath({
+    sourceX,
+    sourceY,
+    targetX,
+    targetY,
+    sourcePosition,
+    targetPosition,
+  });
+  const showLabel = fs?.flowAnnual != null && fs.flowAnnual > 0;
+
+  return (
+    <>
+      <BaseEdge id={id} path={edgePath} style={style} markerEnd={markerEnd} />
+      {showLabel && (
+        <EdgeLabelRenderer>
+          <div
+            className="flow-edge-label nodrag nopan"
+            style={{
+              transform: `translate(-50%, -50%) translate(${labelX}px, ${labelY}px)`,
+              borderColor: (style?.stroke as string) ?? 'var(--border)',
+              color: (style?.stroke as string) ?? 'var(--text)',
+            }}
+            title={formatCapacity(fs.flowAnnual, fs.flowUnit)}
+          >
+            {formatEdgeFlow(fs.flowAnnual!, fs.flowUnit)}
+          </div>
+        </EdgeLabelRenderer>
+      )}
+    </>
+  );
+}
+
 function FlowNode({ id, data, selected }: NodeProps<Node<FlowNodeData>>) {
   const flowMap = useFlowPropagation();
+  const actions = useFlowSchematicActions();
   const fs = flowMap.get(id);
   const flowAnnual = fs?.flowAnnual ?? data.flow_annual ?? null;
   const flowUnit = fs?.flowUnit ?? data.flow_unit ?? null;
@@ -220,6 +291,8 @@ function FlowNode({ id, data, selected }: NodeProps<Node<FlowNodeData>>) {
       ? FLUID_COLORS[data.fluid]
       : style.border;
   const bg = over ? '#fef2f2' : style.bg;
+  const isSeparator = data.kind === 'separator';
+  const separationPercent = data.separation_percent ?? DEFAULT_SEPARATION_PERCENT;
 
   const clearCloseTimer = () => {
     if (closeTimer.current) {
@@ -255,7 +328,9 @@ function FlowNode({ id, data, selected }: NodeProps<Node<FlowNodeData>>) {
         }}
       />
       <div
-        className="flow-schematic-node px-3 py-2 rounded-lg text-sm shadow-sm min-w-[120px] max-w-[220px] text-center cursor-default"
+        className={`flow-schematic-node px-3 py-2 rounded-lg text-sm shadow-sm text-center cursor-default ${
+          isSeparator ? 'min-w-[130px]' : 'min-w-[120px] max-w-[220px]'
+        }`}
         style={{
           background: bg,
           border: `2px solid ${accent}`,
@@ -272,6 +347,26 @@ function FlowNode({ id, data, selected }: NodeProps<Node<FlowNodeData>>) {
       >
         <Handle type="target" position={Position.Left} className="!bg-slate-400 !w-2.5 !h-2.5" />
         <div className="font-medium leading-tight break-words">{data.label}</div>
+        {isSeparator && (
+          <div
+            className="mt-1 flex items-center justify-center gap-1 text-[10px] text-slate-600"
+            onMouseDown={(e) => e.stopPropagation()}
+            onClick={(e) => e.stopPropagation()}
+          >
+            <span className="whitespace-nowrap">Нефть:</span>
+            <DeferredNumberInput
+              value={separationPercent}
+              integer
+              min={1}
+              max={100}
+              className="w-11 px-1 py-0.5 rounded border border-slate-300 text-center text-[10px] bg-white text-[#0f1c2e]"
+              title="Процент сепарации нефти от дебита жидкости"
+              onKeyDown={(e) => e.stopPropagation()}
+              onCommit={(v) => actions?.onSeparationPercentChange(id, v as number)}
+            />
+            <span>%</span>
+          </div>
+        )}
         <Handle type="source" position={Position.Right} className="!bg-slate-400 !w-2.5 !h-2.5" />
       </div>
     </div>
@@ -279,12 +374,14 @@ function FlowNode({ id, data, selected }: NodeProps<Node<FlowNodeData>>) {
 }
 
 const nodeTypes = { flowNode: FlowNode };
+const edgeTypes = { flowEdge: FlowEdge };
 
 type FlowSchematicEditorProps = {
   schematic: FlowSchematicDto;
   poi: POI | null;
   onSave: (dto: FlowSchematicDto) => void;
   onPersistCapacity?: (dto: FlowSchematicDto) => void;
+  onPlannedProductionChange?: (volume: number) => void;
   onReset: () => void;
   saving?: boolean;
   resetting?: boolean;
@@ -296,6 +393,7 @@ function poiFlowContext(poi: POI | null): PoiFlowContext | null {
     fluid_type: poi.fluid_type,
     planned_production_volume: poi.planned_production_volume ?? 0,
     water_injection_volume: poi.water_injection_volume ?? 0,
+    gas_factor: poi.gas_factor ?? 120,
   };
 }
 
@@ -311,10 +409,11 @@ function nodesToDto(nodes: Node<FlowNodeData>[]): FlowSchematicDto['nodes'] {
       status: null,
       position_x: n.position.x,
       position_y: n.position.y,
-      throughput_capacity_annual: nodeHasThroughputCapacity(d.kind)
+      throughput_capacity_annual: nodePersistsThroughputCapacity(d.kind)
         ? d.throughput_capacity_annual ?? null
         : null,
-      capacity_unit: nodeHasThroughputCapacity(d.kind) ? d.capacity_unit ?? null : null,
+      capacity_unit: nodePersistsThroughputCapacity(d.kind) ? d.capacity_unit ?? null : null,
+      separation_percent: d.kind === 'separator' ? (d.separation_percent ?? DEFAULT_SEPARATION_PERCENT) : null,
     };
   });
 }
@@ -324,6 +423,7 @@ function FlowSchematicEditorInner({
   poi,
   onSave,
   onPersistCapacity,
+  onPlannedProductionChange,
   onReset,
   saving,
   resetting,
@@ -382,6 +482,7 @@ function FlowSchematicEditorInner({
           label: template.label,
           kind: template.kind,
           fluid: template.fluid,
+          ...(template.kind === 'separator' ? { separation_percent: DEFAULT_SEPARATION_PERCENT } : {}),
         },
       };
       setNodes((nds) => [...nds, node]);
@@ -429,8 +530,8 @@ function FlowSchematicEditorInner({
 
   const poiCtx = poiFlowContext(poi);
 
-  const flowMap = useMemo(() => {
-    if (!poiCtx) return new Map();
+  const { nodes: flowMap, edges: edgeFlowMap } = useMemo(() => {
+    if (!poiCtx) return { nodes: new Map(), edges: new Map() };
     const dtoEdges = edges.map((e) => ({
       id: e.id,
       source: e.source,
@@ -443,6 +544,8 @@ function FlowSchematicEditorInner({
   const onCapacityChange = useCallback(
     (nodeId: string, value: number | null, unit: string) => {
       setNodes((nds) => {
+        const current = nds.find((n) => n.id === nodeId)?.data.throughput_capacity_annual;
+        if (capacityValuesEqual(value, typeof current === 'number' ? current : null)) return nds;
         const updated = nds.map((n) =>
           n.id === nodeId
             ? {
@@ -466,9 +569,39 @@ function FlowSchematicEditorInner({
     [setNodes, edges, schematic.poi_id, schematic.warnings, onPersistCapacity]
   );
 
+  const onSeparationPercentChange = useCallback(
+    (nodeId: string, value: number) => {
+      setNodes((nds) => {
+        const current = nds.find((n) => n.id === nodeId)?.data.separation_percent;
+        const currentNum = typeof current === 'number' ? current : DEFAULT_SEPARATION_PERCENT;
+        if (capacityValuesEqual(value, currentNum)) return nds;
+        const updated = nds.map((n) =>
+          n.id === nodeId
+            ? { ...n, data: { ...n.data, separation_percent: value } }
+            : n
+        );
+        if (onPersistCapacity) {
+          onPersistCapacity(
+            flowToSchematicDto(schematic.poi_id, updated, edges, schematic.warnings)
+          );
+        }
+        return updated;
+      });
+    },
+    [setNodes, edges, schematic.poi_id, schematic.warnings, onPersistCapacity]
+  );
+
+  const onPoiProductionChange = useCallback(
+    (volume: number) => {
+      if (capacityValuesEqual(volume, poi?.planned_production_volume)) return;
+      onPlannedProductionChange?.(volume);
+    },
+    [onPlannedProductionChange, poi?.planned_production_volume]
+  );
+
   const schematicActions = useMemo(
-    () => ({ onCapacityChange }),
-    [onCapacityChange]
+    () => ({ onCapacityChange, onSeparationPercentChange, onPoiProductionChange }),
+    [onCapacityChange, onSeparationPercentChange, onPoiProductionChange]
   );
 
   const isCustom = schematic.source === 'custom';
@@ -605,6 +738,7 @@ function FlowSchematicEditorInner({
       )}
 
       <FlowPropagationContext.Provider value={flowMap}>
+        <FlowEdgePropagationContext.Provider value={edgeFlowMap}>
         <FlowPoiContext.Provider
           value={
             poi
@@ -612,6 +746,7 @@ function FlowSchematicEditorInner({
                   fluid_type: poi.fluid_type,
                   planned_production_volume: poi.planned_production_volume ?? 0,
                   water_injection_volume: poi.water_injection_volume ?? 0,
+                  gas_factor: poi.gas_factor ?? 120,
                   eng_injection: poi.eng_injection,
                 }
               : null
@@ -628,6 +763,8 @@ function FlowSchematicEditorInner({
               onPaneClick={onPaneClick}
               onNodeDoubleClick={(_e, node) => renameNode(node as Node<FlowNodeData>)}
               nodeTypes={nodeTypes}
+              edgeTypes={edgeTypes}
+              defaultEdgeOptions={{ type: 'flowEdge' }}
               fitView
               fitViewOptions={{ padding: 0.2 }}
               nodesDraggable={!readOnly && tool === 'select'}
@@ -646,6 +783,7 @@ function FlowSchematicEditorInner({
           </div>
           </FlowSchematicActionsContext.Provider>
         </FlowPoiContext.Provider>
+        </FlowEdgePropagationContext.Provider>
       </FlowPropagationContext.Provider>
 
       <p className="text-xs text-[var(--text-muted)]">

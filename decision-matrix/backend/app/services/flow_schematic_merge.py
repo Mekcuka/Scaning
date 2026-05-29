@@ -72,9 +72,11 @@ def merge_auto_schematic_with_layout(
             if saved.get("position_x") is not None and saved.get("position_y") is not None:
                 merged["position_x"] = saved["position_x"]
                 merged["position_y"] = saved["position_y"]
-            if saved.get("throughput_capacity_annual") is not None:
+            if saved.get("throughput_capacity_annual") is not None and node.get("kind") != "poi":
                 merged["throughput_capacity_annual"] = saved["throughput_capacity_annual"]
                 merged["capacity_unit"] = saved.get("capacity_unit")
+            if saved.get("separation_percent") is not None:
+                merged["separation_percent"] = saved["separation_percent"]
         merged_nodes.append(merged)
 
     for node in layout_nodes:

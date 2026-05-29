@@ -26,6 +26,7 @@ def poi_to_response(poi: PointOfInterest) -> POIResponse:
         wells_per_pad=poi.wells_per_pad,
         fluid_type=poi.fluid_type,
         water_injection_volume=poi.water_injection_volume,
+        gas_factor=poi.gas_factor if poi.gas_factor is not None else 120.0,
         eng_power=poi.eng_power,
         eng_injection=poi.eng_injection,
         eng_gas=poi.eng_gas,

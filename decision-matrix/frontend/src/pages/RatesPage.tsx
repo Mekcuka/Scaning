@@ -5,6 +5,7 @@ import { api } from '../lib/api';
 import { useAppStore } from '../store';
 import { COST_RATE_GROUPS, buildDefaultRates } from '../lib/specs';
 import { ProjectDistanceDefaultsForm } from '../components/ProjectDistanceDefaultsForm';
+import { DeferredNumberInput } from '../components/DeferredNumberInput';
 
 export function RatesPage() {
   const projectId = useAppStore((s) => s.currentProjectId);
@@ -94,13 +95,11 @@ export function RatesPage() {
                         <tr key={row.id}>
                           <th scope="row">{row.label}</th>
                           <td>
-                            <input
-                              type="number"
+                            <DeferredNumberInput
                               className="rates-input"
+                              min={0}
                               value={rates[row.id] ?? row.defaultValue}
-                              onChange={(e) =>
-                                setRates({ ...rates, [row.id]: Number(e.target.value) || 0 })
-                              }
+                              onCommit={(v) => setRates({ ...rates, [row.id]: v as number })}
                             />
                           </td>
                         </tr>

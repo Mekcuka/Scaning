@@ -5,15 +5,12 @@ from __future__ import annotations
 from typing import Any
 
 from app.models import PointOfInterest
-from app.services.flow_capacity import NO_CAPACITY_KINDS, _branch_capacity
+from app.services.flow_capacity import NO_CAPACITY_KINDS, _branch_capacity, resolve_separation_share
 
 FLOW_EPS = 1e-6
 
 
-def _poi_source_flow(poi: PointOfInterest, poi_node: dict[str, Any]) -> tuple[float | None, str]:
-    if poi_node.get("throughput_capacity_annual") is not None:
-        unit = poi_node.get("capacity_unit") or "thousand_t_per_year"
-        return float(poi_node["throughput_capacity_annual"]), unit
+def _poi_source_flow(poi: PointOfInterest, _poi_node: dict[str, Any]) -> tuple[float | None, str]:
     production = float(poi.planned_production_volume or 0)
     if poi.fluid_type == "gas":
         return (production if production > 0 else None, "thousand_m3_per_year")
@@ -23,6 +20,7 @@ def _poi_source_flow(poi: PointOfInterest, poi_node: dict[str, Any]) -> tuple[fl
 def _branch_flow_from_poi(
     poi: PointOfInterest,
     fluid: str | None,
+    separation_share: float | None = None,
 ) -> tuple[float | None, str]:
     if fluid not in ("oil", "water", "gas"):
         return (None, "thousand_t_per_year")
@@ -31,6 +29,7 @@ def _branch_flow_from_poi(
         float(poi.planned_production_volume or 0),
         float(poi.water_injection_volume or 0),
         fluid,  # type: ignore[arg-type]
+        separation_share=separation_share,
     )
 
 
@@ -57,9 +56,10 @@ def _flow_after_separator(
     edge_fluid: str | None,
     fallback_flow: float,
     fallback_unit: str,
+    separation_share: float,
 ) -> tuple[float, str]:
     if edge_fluid in ("oil", "water", "gas"):
-        bf, bu = _branch_flow_from_poi(poi, edge_fluid)
+        bf, bu = _branch_flow_from_poi(poi, edge_fluid, separation_share=separation_share)
         if bf is not None:
             return bf, bu
     return fallback_flow, fallback_unit
@@ -104,7 +104,10 @@ def propagate_flows(
             if tgt_id not in node_by_id:
                 continue
             if cur_kind == "separator":
-                next_flow, next_unit = _flow_after_separator(poi, edge_fluid, cur_flow, cur_unit)
+                share = resolve_separation_share(cur_node.get("separation_percent"))
+                next_flow, next_unit = _flow_after_separator(
+                    poi, edge_fluid, cur_flow, cur_unit, separation_share=share
+                )
             else:
                 tgt_node = node_by_id[tgt_id]
                 next_flow, next_unit = _outgoing_flow(
@@ -148,4 +151,3 @@ def _annotate(
     out["flow_unit"] = unit
     out["over_capacity"] = over
     return out
-

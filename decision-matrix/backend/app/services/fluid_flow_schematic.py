@@ -36,7 +36,7 @@ from app.models import (
     PointOfInterest,
 )
 from app.services.calculations import EngineeringState
-from app.services.flow_capacity import enrich_nodes_capacity
+from app.services.flow_capacity import DEFAULT_SEPARATION_PERCENT, enrich_nodes_capacity
 from app.services.flow_propagation import propagate_flows
 from app.services.infrastructure_analysis import engineering_state_from_poi
 
@@ -200,6 +200,7 @@ def _schematic_from_state(
             "fluid": None,
             "subtype": None,
             "status": None,
+            "separation_percent": DEFAULT_SEPARATION_PERCENT,
         }
     )
     edges.append({"id": f"e-poi-sep", "source": poi_id, "target": sep_id, "fluid": "oil"})

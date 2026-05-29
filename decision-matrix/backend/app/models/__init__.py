@@ -108,6 +108,7 @@ class PointOfInterest(Base):
     wells_per_pad: Mapped[int] = mapped_column(Integer, default=4)
     fluid_type: Mapped[str] = mapped_column(String(20), default="oil")
     water_injection_volume: Mapped[float] = mapped_column(Float, default=0)
+    gas_factor: Mapped[float] = mapped_column(Float, default=120.0)
     eng_power: Mapped[str] = mapped_column(String(30), default="external")
     eng_injection: Mapped[str] = mapped_column(String(30), default="centralized")
     eng_gas: Mapped[str] = mapped_column(String(30), default="well")

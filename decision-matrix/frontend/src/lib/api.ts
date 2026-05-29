@@ -351,6 +351,7 @@ export interface POI {
   wells_per_pad: number;
   fluid_type: string;
   water_injection_volume: number;
+  gas_factor: number;
   eng_power: string;
   eng_injection: string;
   eng_gas: string;
@@ -744,7 +745,16 @@ export const GKS_CLUSTER_SUBTYPES = ['gas_processing', 'ukg', 'tsg'] as const;
 /** Узел + узел метанола — смена подтипа только внутри этой пары. */
 export const NODE_CLUSTER_SUBTYPES = ['node', 'methanol_joint'] as const;
 
-/** ГТЭС + ГПЭС + ВИЭС — смена подтипа только внутри этой тройки. */
+/** Подпись в меню «Точка» (если отличается от SUBTYPE_LABELS). */
+export const POINT_MENU_LABELS: Partial<Record<string, string>> = {
+  gtes: 'ИЭ',
+};
+
+export function pointMenuLabel(subtype: string): string {
+  return POINT_MENU_LABELS[subtype] ?? SUBTYPE_LABELS[subtype] ?? subtype;
+}
+
+/** ГТЭС + ГПЭС + ВИЭС — смена подтипа только внутри группы. */
 export const GTES_CLUSTER_SUBTYPES = ['gtes', 'gpes', 'vies'] as const;
 
 /** Sidebar «Слои данных» — each map subtype belongs to exactly one group. */
@@ -756,7 +766,7 @@ export const LAYER_VISIBILITY_GROUPS: { id: string; label: string; subtypes: rea
     subtypes: LINE_SUBTYPES.filter((s) => s !== 'autoroad'),
   },
   { id: 'gks', label: 'ГКС / УКГ / ТСГ', subtypes: GKS_CLUSTER_SUBTYPES },
-  { id: 'gtes', label: 'ГТЭС / ГПЭС / ВИЭС', subtypes: GTES_CLUSTER_SUBTYPES },
+  { id: 'gtes', label: 'ИЭ', subtypes: GTES_CLUSTER_SUBTYPES },
   {
     id: 'energy',
     label: 'Подстанции',
@@ -806,6 +816,8 @@ export const IMMUTABLE_POINT_SUBTYPES = [
 export const IMPORT_ONLY_POINT_SUBTYPES = [
   'ukg',
   'tsg',
+  'gpes',
+  'vies',
   'oil_pumping_station',
   'methanol_facility',
   'methanol_joint',

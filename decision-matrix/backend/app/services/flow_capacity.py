@@ -33,10 +33,26 @@ PIPELINE_CAPACITY_THOUSAND_PER_YEAR: dict[FluidKind, float] = {
 
 # Доля фаз после сепарации (нефтяной куст), доли от дебита жидкости
 OIL_PHASE_SHARE = 0.85
-GAS_M3_PER_TON_OIL = 120.0  # тыс. м³ / (тыс. т нефти) — упрощённо
+DEFAULT_SEPARATION_PERCENT = 85.0
+DEFAULT_GAS_FACTOR = 120.0  # м³/т — газовый фактор попутного газа (нефтяной POI)
+
+
+def resolve_separation_share(percent: float | None) -> float:
+    if percent is None:
+        return OIL_PHASE_SHARE
+    p = float(percent)
+    if p <= 0 or p > 100:
+        return OIL_PHASE_SHARE
+    return p / 100
 
 # Ветки «Нефть / Вода / Газ» — фазовые метки, без пропускной способности
 NO_CAPACITY_KINDS = frozenset({"fluid_branch"})
+
+
+def resolve_gas_factor(poi: PointOfInterest) -> float:
+    """Gas-oil ratio for associated gas, m³ per ton of oil (м³/т)."""
+    gf = float(poi.gas_factor or 0)
+    return gf if gf > 0 else DEFAULT_GAS_FACTOR
 
 
 def node_has_throughput_capacity(kind: str) -> bool:
@@ -117,11 +133,13 @@ def _branch_capacity(
     production: float,
     water: float,
     fluid: FluidKind,
+    separation_share: float | None = None,
 ) -> tuple[float | None, str]:
+    share = separation_share if separation_share is not None else OIL_PHASE_SHARE
     if fluid == "oil":
         if poi.fluid_type != "oil" or production <= 0:
             return (None, "thousand_t_per_year")
-        return (round(production * OIL_PHASE_SHARE, 1), "thousand_t_per_year")
+        return (round(production * share, 1), "thousand_t_per_year")
     if fluid == "water":
         if water <= 0:
             return (None, "thousand_t_per_year")
@@ -131,7 +149,8 @@ def _branch_capacity(
             return (production if production > 0 else None, "thousand_m3_per_year")
         if production <= 0:
             return (None, "thousand_m3_per_year")
-        return (round(production * OIL_PHASE_SHARE * GAS_M3_PER_TON_OIL / 1000, 1), "thousand_m3_per_year")
+        gf = resolve_gas_factor(poi)
+        return (round(production * share * gf / 1000, 1), "thousand_m3_per_year")
     return (None, "thousand_t_per_year")
 
 
@@ -149,7 +168,17 @@ def enrich_nodes_capacity(
             n["capacity_unit"] = None
             out.append(n)
             continue
-        if n.get("throughput_capacity_annual") is None:
+        if n.get("kind") == "poi":
+            cap, unit = estimate_node_capacity(
+                poi,
+                state,
+                kind="poi",
+                fluid=n.get("fluid"),
+                subtype=n.get("subtype"),
+            )
+            n["throughput_capacity_annual"] = cap
+            n["capacity_unit"] = unit
+        elif n.get("throughput_capacity_annual") is None:
             cap, unit = estimate_node_capacity(
                 poi,
                 state,
