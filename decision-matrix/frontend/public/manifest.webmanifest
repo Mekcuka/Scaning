@@ -1,0 +1,26 @@
+{
+  "name": "СППР Нефтегаз",
+  "short_name": "СППР",
+  "description": "Система поддержки принятия решений для нефтегазовой отрасли",
+  "start_url": "./",
+  "scope": "./",
+  "display": "standalone",
+  "orientation": "any",
+  "background_color": "#071a2e",
+  "theme_color": "#0b5cad",
+  "lang": "ru",
+  "icons": [
+    {
+      "src": "pwa-icon.svg",
+      "sizes": "512x512",
+      "type": "image/svg+xml",
+      "purpose": "any"
+    },
+    {
+      "src": "pwa-icon.svg",
+      "sizes": "512x512",
+      "type": "image/svg+xml",
+      "purpose": "maskable"
+    }
+  ]
+}

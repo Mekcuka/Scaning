@@ -5,9 +5,12 @@ import { AppSelect } from '../components/AppSelect';
 import { api } from '../lib/api';
 import { useAppStore } from '../store';
 
+import { useIsMobile } from '../hooks/useMediaQuery';
+
 const COLORS = ['#94a3b8', '#64748b', '#2563eb'];
 
 export function RankingPage() {
+  const isMobile = useIsMobile();
   const projectId = useAppStore((s) => s.currentProjectId);
   const pushToast = useAppStore((s) => s.pushToast);
   const queryClient = useQueryClient();
@@ -77,14 +80,12 @@ export function RankingPage() {
 
   return (
     <div>
-      <div className="flex items-center justify-between mb-6">
-        <div>
-          <h1 className="text-2xl font-bold">Ранжирование</h1>
-          <p className="text-sm mt-1" style={{ color: 'var(--text-muted)' }}>
-            TOPSIS / WSM — многокритериальный анализ (FR-9)
-          </p>
+      <div className="page-toolbar">
+        <div className="page-title-block">
+          <h1 className="page-title">Ранжирование</h1>
+          <p className="page-subtitle">TOPSIS / WSM — многокритериальный анализ (FR-9)</p>
         </div>
-        <div className="flex gap-2 items-center">
+        <div className="page-toolbar-actions">
           <AppSelect
             variant="sm"
             ariaLabel="Точка интереса"
@@ -137,10 +138,11 @@ export function RankingPage() {
           <h2 className="font-semibold mb-4">
             Результат ({result?.algorithm?.toUpperCase() || 'TOPSIS'})
           </h2>
-          <ResponsiveContainer width="100%" height={280}>
-            <BarChart data={chartData} layout="vertical" margin={{ left: 80 }}>
+          <div className="ranking-chart-wrap">
+          <ResponsiveContainer width="100%" height={isMobile ? 240 : 280}>
+            <BarChart data={chartData} layout="vertical" margin={{ left: isMobile ? 8 : 80 }}>
               <XAxis type="number" domain={[0, 1]} />
-              <YAxis type="category" dataKey="name" width={80} />
+              <YAxis type="category" dataKey="name" width={isMobile ? 72 : 80} tick={{ fontSize: isMobile ? 11 : 12 }} />
               <Tooltip formatter={(v) => (typeof v === 'number' ? v.toFixed(3) : String(v))} />
               <Bar dataKey="score" radius={4}>
                 {chartData.map((_, i) => (
@@ -149,6 +151,7 @@ export function RankingPage() {
               </Bar>
             </BarChart>
           </ResponsiveContainer>
+          </div>
         </div>
       </div>
 

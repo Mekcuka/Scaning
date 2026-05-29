@@ -87,25 +87,27 @@ export function RatesPage() {
                   <h2>{group.label}</h2>
                   <span className="rates-group-unit">{group.unitLabel}</span>
                 </div>
-                <table className="rates-table">
-                  <tbody>
-                    {group.rows.map((row) => (
-                      <tr key={row.id}>
-                        <th scope="row">{row.label}</th>
-                        <td>
-                          <input
-                            type="number"
-                            className="rates-input"
-                            value={rates[row.id] ?? row.defaultValue}
-                            onChange={(e) =>
-                              setRates({ ...rates, [row.id]: Number(e.target.value) || 0 })
-                            }
-                          />
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
+                <div className="table-wrap">
+                  <table className="rates-table">
+                    <tbody>
+                      {group.rows.map((row) => (
+                        <tr key={row.id}>
+                          <th scope="row">{row.label}</th>
+                          <td>
+                            <input
+                              type="number"
+                              className="rates-input"
+                              value={rates[row.id] ?? row.defaultValue}
+                              onChange={(e) =>
+                                setRates({ ...rates, [row.id]: Number(e.target.value) || 0 })
+                              }
+                            />
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
               </section>
             ))}
           </div>

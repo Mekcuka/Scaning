@@ -69,25 +69,23 @@ export function FlowSchematicPage() {
   const needsNetwork = schematic?.warnings.includes('network_not_built');
 
   return (
-    <div>
-      <div className="flex flex-wrap items-center justify-between gap-4 mb-6">
-        <div className="flex items-center gap-3">
-          <GitBranch className="text-[var(--accent)]" size={28} />
+    <div className="flow-schematic-page">
+      <div className="page-toolbar">
+        <div className="page-title-block flex items-center gap-3">
+          <GitBranch className="text-[var(--accent)] shrink-0" size={28} />
           <div>
-            <h1 className="text-2xl font-bold">Схема потоков</h1>
-            <p className="text-sm text-[var(--text-muted)]">
-              PFD: редактирование, рисование связей и сохранение схемы
-            </p>
+            <h1 className="page-title">Схема потоков</h1>
+            <p className="page-subtitle">PFD: редактирование, рисование связей и сохранение схемы</p>
           </div>
         </div>
         {projectId && pois.length > 0 && (
-          <div className="flex items-center gap-2">
-            <span className="text-sm text-[var(--text-muted)]">Точка интереса</span>
+          <div className="flow-schematic-page-select flex items-center gap-2 w-full sm:w-auto">
+            <span className="text-sm text-[var(--text-muted)] shrink-0">Точка интереса</span>
             <AppSelect
               value={activePoiId}
               onChange={setSelectedPoiId}
               options={pois.map((p) => ({ value: p.id, label: p.name || p.id }))}
-              className="min-w-[200px]"
+              className="min-w-0 flex-1"
             />
           </div>
         )}

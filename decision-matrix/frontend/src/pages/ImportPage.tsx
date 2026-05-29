@@ -222,7 +222,9 @@ export function ImportPage() {
 
   return (
     <div>
-      <h1 className="text-2xl font-bold mb-6">Импорт данных</h1>
+      <header className="page-header">
+        <h1 className="page-title">Импорт данных</h1>
+      </header>
 
       {!projectsLoading && !hasProjects && (
         <div className="card mb-4 text-sm" style={{ color: 'var(--text-muted)' }}>

@@ -30,6 +30,8 @@ import {
   LayoutGrid,
   Save,
   RotateCcw,
+  Pencil,
+  Eye,
 } from 'lucide-react';
 import type { FlowEditorTool, FlowNodeData, FlowSchematicDto, FluidKind } from '../lib/flowSchematic';
 import {
@@ -59,6 +61,7 @@ import {
   useFlowPropagation,
   useFlowSchematicActions,
 } from '../lib/flowSchematicContext';
+import { useIsMobile } from '../hooks/useMediaQuery';
 import type { POI } from '../lib/api';
 
 function FlowCapacityPopover({
@@ -325,6 +328,9 @@ function FlowSchematicEditorInner({
   saving,
   resetting,
 }: FlowSchematicEditorProps) {
+  const isMobile = useIsMobile();
+  const [mobileEdit, setMobileEdit] = useState(false);
+  const readOnly = isMobile && !mobileEdit;
   const { screenToFlowPosition } = useReactFlow();
   const initial = useMemo(() => schematicToFlow(schematic), [schematic]);
   const [nodes, setNodes, onNodesChange] = useNodesState(initial.nodes);
@@ -468,14 +474,47 @@ function FlowSchematicEditorInner({
   const isCustom = schematic.source === 'custom';
   const overloadCount = [...flowMap.values()].filter((f) => f.overCapacity).length;
 
+  useEffect(() => {
+    if (readOnly) setTool('select');
+  }, [readOnly]);
+
   return (
     <div className="flex flex-col gap-3">
-      <div className="flex flex-wrap items-center gap-2 border-b border-[var(--border)] pb-3">
+      {readOnly ? (
+        <div className="flow-mobile-view-banner">
+          <Eye size={16} className="shrink-0 text-[var(--accent)]" aria-hidden />
+          <span className="flex-1 min-w-0">
+            Режим просмотра на телефоне. Для редактирования схемы используйте компьютер или включите
+            редактирование.
+          </span>
+          <button type="button" className="btn btn-secondary btn-sm shrink-0" onClick={() => setMobileEdit(true)}>
+            <Pencil size={14} className="inline mr-1" />
+            Редактировать
+          </button>
+        </div>
+      ) : isMobile ? (
+        <div className="flow-mobile-view-banner">
+          <Pencil size={16} className="shrink-0 text-[var(--primary)]" aria-hidden />
+          <span className="flex-1 min-w-0">Режим редактирования на телефоне — упрощённая панель инструментов.</span>
+          <button type="button" className="btn btn-ghost btn-sm shrink-0" onClick={() => setMobileEdit(false)}>
+            <Eye size={14} className="inline mr-1" />
+            Только просмотр
+          </button>
+        </div>
+      ) : null}
+
+      <div
+        className={`flow-schematic-toolbar flex flex-wrap items-center gap-2 border-b border-[var(--border)] pb-3${
+          readOnly ? ' flow-schematic-toolbar--readonly' : ''
+        }`}
+      >
         <span className="text-xs text-[var(--text-muted)] mr-1">Инструмент</span>
+        <div className="flow-schematic-edit-tools flex flex-wrap items-center gap-2 flex-1 min-w-0">
         <button
           type="button"
           className={`btn btn-sm ${tool === 'select' ? 'btn-primary' : 'btn-ghost'}`}
           title="Выбор и перемещение"
+          disabled={readOnly}
           onClick={() => setTool('select')}
         >
           <MousePointer2 size={16} />
@@ -552,6 +591,7 @@ function FlowSchematicEditorInner({
           <RotateCcw size={16} />
           {resetting ? 'Пересчёт…' : isCustom ? 'Сброс' : 'Пересчитать'}
         </button>
+        </div>
       </div>
 
       <p className="text-xs text-[var(--text-muted)]">
@@ -590,12 +630,14 @@ function FlowSchematicEditorInner({
               nodeTypes={nodeTypes}
               fitView
               fitViewOptions={{ padding: 0.2 }}
-              nodesDraggable={tool === 'select'}
-              nodesConnectable={tool === 'connect'}
-              elementsSelectable
-              deleteKeyCode={['Backspace', 'Delete']}
-              panOnDrag={tool === 'select'}
-              selectionOnDrag={tool === 'select'}
+              nodesDraggable={!readOnly && tool === 'select'}
+              nodesConnectable={!readOnly && tool === 'connect'}
+              elementsSelectable={!readOnly}
+              deleteKeyCode={readOnly ? null : ['Backspace', 'Delete']}
+              panOnDrag
+              zoomOnPinch
+              zoomOnScroll={!isMobile}
+              selectionOnDrag={!readOnly && tool === 'select'}
               proOptions={{ hideAttribution: true }}
             >
               <Background gap={16} color="var(--border)" />

@@ -13,6 +13,12 @@ function Bootstrap() {
     fetchUser();
   }, [fetchUser, theme]);
 
+  useEffect(() => {
+    if (!('serviceWorker' in navigator)) return;
+    const base = import.meta.env.BASE_URL;
+    navigator.serviceWorker.register(`${base}sw.js`).catch(() => undefined);
+  }, []);
+
   return <App />;
 }
 

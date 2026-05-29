@@ -14,8 +14,12 @@ import {
   Undo2,
   X,
   Zap,
+  Layers,
+  Maximize2,
+  Minimize2,
 } from 'lucide-react';
 import { CandidatesModal } from '../components/CandidatesModal';
+import { AppModal } from '../components/AppModal';
 import { AnchoredMenu } from '../components/AnchoredMenu';
 import { MapPoiSelect } from '../components/MapPoiSelect';
 import { AnalysisEnvironmentTable } from '../components/AnalysisEnvironmentTable';
@@ -127,9 +131,11 @@ function lineCoordsOrEndpoints(obj: InfraObject): [number, number][] | null {
 export function MapPage() {
   const { projectId } = useActiveProject();
   const queryClient = useQueryClient();
-  const mapRefreshNonce = useAppStore((s) => s.mapRefreshNonce);
   const pushToast = useAppStore((s) => s.pushToast);
   const [showBasemap, setShowBasemap] = useState(true);
+  const [mapLayersOpen, setMapLayersOpen] = useState(false);
+  const [mapFullscreen, setMapFullscreen] = useState(false);
+  const mapCanvasRef = useRef<HTMLDivElement>(null);
   const [cursor, setCursor] = useState<{ lon: number; lat: number } | null>(null);
   const [mapPointerInside, setMapPointerInside] = useState(false);
   const [drawMode, setDrawMode] = useState<DrawMode>('select');
@@ -179,9 +185,26 @@ export function MapPage() {
   const [showPoisOnMap, setShowPoisOnMap] = useState(true);
   const [mapScaleLabel, setMapScaleLabel] = useState('—');
   const [subtypeFilterOpen, setSubtypeFilterOpen] = useState(false);
+
+  const toggleMapFullscreen = useCallback(async () => {
+    const el = mapCanvasRef.current;
+    if (!el) return;
+    try {
+      if (!document.fullscreenElement) {
+        await el.requestFullscreen();
+      } else {
+        await document.exitFullscreen();
+      }
+    } catch {
+      /* ignore unsupported fullscreen */
+    }
+  }, []);
+
   useEffect(() => {
-    // Map bbox filter disabled (prevents refetch on zoom/pan).
-  }, [mapRefreshNonce]);
+    const onFullscreenChange = () => setMapFullscreen(document.fullscreenElement === mapCanvasRef.current);
+    document.addEventListener('fullscreenchange', onFullscreenChange);
+    return () => document.removeEventListener('fullscreenchange', onFullscreenChange);
+  }, []);
 
   useEffect(() => {
     if (drawMode !== 'select') {
@@ -1455,8 +1478,18 @@ export function MapPage() {
             {analyzeMut.isPending
               ? 'Расчёт…'
               : pois.length > 1
-                ? `Анализировать все точки (${pois.length})`
-                : 'Анализировать окружение'}
+                ? (
+                  <>
+                    <span className="map-analyze-label">Анализировать все точки ({pois.length})</span>
+                    <span className="map-analyze-label-short">Анализ ({pois.length})</span>
+                  </>
+                )
+                : (
+                  <>
+                    <span className="map-analyze-label">Анализировать окружение</span>
+                    <span className="map-analyze-label-short">Анализ</span>
+                  </>
+                )}
           </button>
         )}
       </header>
@@ -1469,6 +1502,27 @@ export function MapPage() {
 
       <div className="card map-page-card flex flex-1 flex-col min-h-0 overflow-hidden">
           <div className="map-tools">
+            <button
+              type="button"
+              className={`btn btn-sm map-tool-btn btn-secondary map-layers-toggle${
+                mapLayersOpen ? ' btn-primary active' : ''
+              }`}
+              title="Слои и настройки карты"
+              onClick={() => setMapLayersOpen((open) => !open)}
+            >
+              <Layers size={14} className="inline mr-1" />
+              Слои
+            </button>
+            <div className="map-layers-toggle-sep w-px h-7 mx-0.5 shrink-0" style={{ background: 'var(--border)' }} aria-hidden />
+            <button
+              type="button"
+              className="btn btn-sm map-tool-btn btn-secondary map-fullscreen-toggle"
+              title={mapFullscreen ? 'Выйти из полноэкранного режима' : 'Полноэкранная карта'}
+              onClick={() => void toggleMapFullscreen()}
+            >
+              {mapFullscreen ? <Minimize2 size={14} /> : <Maximize2 size={14} />}
+            </button>
+            <div className="map-fullscreen-sep w-px h-7 mx-0.5 shrink-0" style={{ background: 'var(--border)' }} aria-hidden />
             {projectId && pois.length > 0 && (
               <>
                 <MapPoiSelect
@@ -1869,7 +1923,28 @@ export function MapPage() {
           </div>
 
           <div className="map-layout">
-            <aside className="map-sidebar-panel">
+            {mapLayersOpen && (
+              <button
+                type="button"
+                className="map-sidebar-backdrop"
+                aria-label="Закрыть панель слоёв"
+                onClick={() => setMapLayersOpen(false)}
+              />
+            )}
+            <aside
+              className={`map-sidebar-panel${mapLayersOpen ? ' map-sidebar-panel--open' : ''}`}
+            >
+              <div className="map-sidebar-mobile-header">
+                <span className="font-medium text-sm">Слои и настройки</span>
+                <button
+                  type="button"
+                  className="btn btn-ghost p-1"
+                  aria-label="Закрыть"
+                  onClick={() => setMapLayersOpen(false)}
+                >
+                  <X size={16} />
+                </button>
+              </div>
               <div className="layer-group">
                 <h4>Слои данных</h4>
                 {layers.map((layer) => (
@@ -2032,7 +2107,7 @@ export function MapPage() {
             </aside>
 
             <div className="map-main-column">
-              <div className="map-canvas-wrap">
+              <div className="map-canvas-wrap" ref={mapCanvasRef}>
           <MapView
             viewStateId="main"
             pois={showPoisOnMap ? pois : []}
@@ -2115,16 +2190,17 @@ export function MapPage() {
             selectMode === 'box' &&
             groupSelectionDetails.length > 0 && (
             <div
-              className="absolute top-3 left-3 z-10 card p-3 w-64 max-h-72 flex flex-col shadow-lg"
+              className="map-group-panel absolute top-3 left-3 z-10 card p-3 w-64 max-h-72 flex flex-col shadow-lg"
               style={{ background: 'var(--surface)' }}
             >
               <div className="flex items-center justify-between gap-2 mb-2 shrink-0">
                 <h3 className="font-semibold text-sm">Выбрано: {groupSelectionDetails.length}</h3>
                 <button
                   type="button"
-                  className="p-1 rounded hover:bg-[var(--bg)]"
+                  className="btn btn-ghost btn-icon-touch p-1"
                   onClick={() => setFeatureGroupSel([])}
                   title="Сбросить выделение"
+                  aria-label="Сбросить выделение"
                 >
                   <X size={14} />
                 </button>
@@ -2189,26 +2265,13 @@ export function MapPage() {
       </div>
 
       {deleteConfirm && (
-        <div
-          className="fixed inset-0 bg-black/40 flex items-center justify-center z-50 p-4"
-          role="dialog"
-          aria-modal="true"
-          aria-labelledby="delete-confirm-title"
-          onMouseDown={(e) => {
-            if (e.target === e.currentTarget) setDeleteConfirm(null);
-          }}
-        >
-          <div className="card w-full max-w-md">
-            <h3 id="delete-confirm-title" className="font-semibold mb-2">
-              {deleteConfirm.title}
-            </h3>
-            <p className="text-sm mb-2" style={{ color: 'var(--text)' }}>
-              {deleteConfirm.message}
-            </p>
-            <p className="text-xs mb-4" style={{ color: 'var(--text-muted)' }}>
-              Отменить действие можно через Ctrl+Z.
-            </p>
-            <div className="flex gap-2 justify-end">
+        <AppModal
+          title={deleteConfirm.title}
+          titleId="delete-confirm-title"
+          onClose={() => setDeleteConfirm(null)}
+          size="sm"
+          footer={
+            <>
               <button
                 type="button"
                 className="btn btn-secondary"
@@ -2229,32 +2292,39 @@ export function MapPage() {
               >
                 {deleteGroupMut.isPending || deleteInfraMut.isPending ? 'Удаление…' : 'Удалить'}
               </button>
-            </div>
-          </div>
-        </div>
+            </>
+          }
+        >
+          <p className="text-sm mb-2">{deleteConfirm.message}</p>
+          <p className="text-xs" style={{ color: 'var(--text-muted)' }}>
+            Отменить действие можно через Ctrl+Z.
+          </p>
+        </AppModal>
       )}
 
       {modal?.type === 'poi' && (
-        <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50 p-4">
-          <div className="card w-full max-w-2xl max-h-[90vh] flex flex-col">
-            <h3 className="font-semibold mb-3 shrink-0">Новая точка интереса</h3>
-            <div className="flex-1 overflow-y-auto min-h-0">
-              <PoiParamsForm
-                value={poiForm}
-                onChange={setPoiForm}
-                coordsReadOnly={false}
-              />
-            </div>
-            <div className="flex gap-2 justify-end shrink-0 pt-3 border-t mt-3" style={{ borderColor: 'var(--border)' }}>
+        <AppModal
+          title="Новая точка интереса"
+          onClose={() => setModal(null)}
+          size="lg"
+          footer={
+            <>
               <button type="button" className="btn btn-secondary" onClick={() => setModal(null)}>
                 Отмена
               </button>
-              <button type="button" className="btn btn-primary" onClick={submitPoi} disabled={createPoiMut.isPending}>
+              <button
+                type="button"
+                className="btn btn-primary"
+                onClick={submitPoi}
+                disabled={createPoiMut.isPending}
+              >
                 Сохранить точку
               </button>
-            </div>
-          </div>
-        </div>
+            </>
+          }
+        >
+          <PoiParamsForm value={poiForm} onChange={setPoiForm} coordsReadOnly={false} />
+        </AppModal>
       )}
 
       {candidateSubtype && selectedPoi && projectId && (

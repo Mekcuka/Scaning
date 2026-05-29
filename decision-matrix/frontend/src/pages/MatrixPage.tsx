@@ -1,4 +1,4 @@
-import { Fragment, useMemo, useState } from 'react';
+import { Fragment, useEffect, useMemo, useState } from 'react';
 import { useMutation, useQueries, useQuery, useQueryClient } from '@tanstack/react-query';
 import { LayoutGrid, Table, Zap } from 'lucide-react';
 import { api, normalizePoiAnalysisResponse, type POI } from '../lib/api';
@@ -6,14 +6,27 @@ import { buildMatrixRowsByPois, resolvePoiColumnAnalysis } from '../lib/matrixDa
 import { engineeringOptionsForKey, type EngineeringParamKey } from '../lib/poiParams';
 import { useAppStore } from '../store';
 import { AppSelect } from '../components/AppSelect';
+import { useIsMobile } from '../hooks/useMediaQuery';
+
+function initialMatrixViewMode(isMobile: boolean): 'table' | 'cards' {
+  return isMobile ? 'cards' : 'table';
+}
 
 export function MatrixPage() {
-  const [viewMode, setViewMode] = useState<'table' | 'cards'>('table');
+  const isMobile = useIsMobile();
+  const [viewMode, setViewMode] = useState<'table' | 'cards'>(() => initialMatrixViewMode(isMobile));
+  const [viewModeTouched, setViewModeTouched] = useState(false);
   const [selectedCol, setSelectedCol] = useState(0);
   const [showOnlyExceeded, setShowOnlyExceeded] = useState(false);
   const projectId = useAppStore((s) => s.currentProjectId);
   const queryClient = useQueryClient();
   const pushToast = useAppStore((s) => s.pushToast);
+
+  useEffect(() => {
+    if (!viewModeTouched) {
+      setViewMode(isMobile ? 'cards' : 'table');
+    }
+  }, [isMobile, viewModeTouched]);
 
   const { data: pois = [] } = useQuery({
     queryKey: ['pois', projectId],
@@ -137,14 +150,14 @@ export function MatrixPage() {
 
   return (
     <div>
-      <div className="flex items-center justify-between mb-6 gap-3 flex-wrap">
-        <div>
-          <h1 className="text-2xl font-bold">Матрица решений</h1>
-          <p className="text-sm mt-1" style={{ color: 'var(--text-muted)' }}>
+      <div className="page-toolbar">
+        <div className="page-title-block">
+          <h1 className="page-title">Матрица решений</h1>
+          <p className="page-subtitle">
             Сравнение анализа окружения по всем точкам интереса проекта
           </p>
         </div>
-        <div className="flex gap-2 flex-wrap justify-end">
+        <div className="page-toolbar-actions">
           {projectId && pois.length > 0 && (
             <button
               type="button"
@@ -161,8 +174,8 @@ export function MatrixPage() {
               {analyzeMut.isPending
                 ? 'Расчёт…'
                 : pois.length > 1
-                  ? `Анализировать все (${pois.length})`
-                  : 'Анализировать окружение'}
+                  ? `Анализ (${pois.length})`
+                  : 'Анализ'}
             </button>
           )}
           <button
@@ -178,14 +191,20 @@ export function MatrixPage() {
           <button
             type="button"
             className={`btn ${viewMode === 'table' ? 'btn-primary' : 'btn-secondary'}`}
-            onClick={() => setViewMode('table')}
+            onClick={() => {
+              setViewModeTouched(true);
+              setViewMode('table');
+            }}
           >
             <Table size={16} /> Таблица
           </button>
           <button
             type="button"
             className={`btn ${viewMode === 'cards' ? 'btn-primary' : 'btn-secondary'}`}
-            onClick={() => setViewMode('cards')}
+            onClick={() => {
+              setViewModeTouched(true);
+              setViewMode('cards');
+            }}
           >
             <LayoutGrid size={16} /> Карточки
           </button>

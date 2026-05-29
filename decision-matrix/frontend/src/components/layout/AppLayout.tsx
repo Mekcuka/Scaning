@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { NavLink, Outlet, useLocation, useNavigate, useOutletContext } from 'react-router-dom';
 import {
   LayoutDashboard,
@@ -14,6 +14,7 @@ import {
   Moon,
   Sun,
   Layers,
+  Menu,
 } from 'lucide-react';
 import { useAuthStore, useAppStore } from '../../store';
 import { useActiveProject } from '../../hooks/useActiveProject';
@@ -47,21 +48,52 @@ export function AppLayout() {
   const navigate = useNavigate();
   const { pathname } = useLocation();
   const [projectSearch, setProjectSearch] = useState('');
+  const [navOpen, setNavOpen] = useState(false);
 
   const isDashboard = pathname === '/';
   const isMapPage = pathname === '/map';
   const isProjectsPage = pathname === '/projects';
+
+  useEffect(() => {
+    setNavOpen(false);
+  }, [pathname]);
+
+  useEffect(() => {
+    if (!navOpen) return;
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') setNavOpen(false);
+    };
+    const prevOverflow = document.body.style.overflow;
+    document.body.style.overflow = 'hidden';
+    window.addEventListener('keydown', onKey);
+    return () => {
+      document.body.style.overflow = prevOverflow;
+      window.removeEventListener('keydown', onKey);
+    };
+  }, [navOpen]);
 
   const handleLogout = () => {
     logout();
     navigate('/login');
   };
 
+  const closeNav = () => setNavOpen(false);
+
   return (
-    <div className="flex h-screen max-h-screen overflow-hidden">
+    <div className="app-shell flex h-screen max-h-screen overflow-hidden">
       <ToastStack toasts={toasts} onDismiss={dismissToast} position="bottom" />
+      {navOpen && (
+        <button
+          type="button"
+          className="app-sidebar-backdrop"
+          aria-label="Закрыть меню"
+          onClick={closeNav}
+        />
+      )}
       <aside
-        className="w-56 h-screen max-h-screen flex flex-col shrink-0 overflow-hidden"
+        className={`app-sidebar w-56 h-screen max-h-screen flex flex-col shrink-0 overflow-hidden${
+          navOpen ? ' app-sidebar--open' : ''
+        }`}
         style={{ background: 'var(--sidebar-bg)', color: 'var(--sidebar-text)' }}
       >
         <div className="flex items-center gap-3 p-4 border-b border-white/10 shrink-0">
@@ -79,6 +111,7 @@ export function AppLayout() {
               key={to}
               to={to}
               end={to === '/'}
+              onClick={closeNav}
               className={({ isActive }) =>
                 `flex items-center gap-3 px-4 py-2.5 text-sm transition-colors ${
                   isActive ? 'bg-white/10 text-white' : 'hover:bg-white/5'
@@ -101,12 +134,20 @@ export function AppLayout() {
         </div>
       </aside>
 
-      <div className="flex-1 flex flex-col min-w-0 min-h-0 h-screen overflow-hidden">
+      <div className="app-content flex-1 flex flex-col min-w-0 min-h-0 h-screen overflow-hidden">
         <header
-          className="h-14 flex items-center gap-4 px-6 border-b shrink-0"
+          className="app-header h-14 flex items-center gap-3 px-6 border-b shrink-0"
           style={{ background: 'var(--surface)', borderColor: 'var(--border)', boxShadow: 'var(--shadow)' }}
         >
-          <div className="flex flex-1 items-center justify-end gap-4 min-w-0">
+          <button
+            type="button"
+            className="app-sidebar-toggle btn btn-ghost p-2 shrink-0"
+            onClick={() => setNavOpen(true)}
+            aria-label="Открыть меню"
+          >
+            <Menu size={20} />
+          </button>
+          <div className="app-header-toolbar flex flex-1 items-center justify-end gap-3 min-w-0">
             {(isDashboard || isProjectsPage) && (
               <input
                 type="search"
@@ -118,8 +159,10 @@ export function AppLayout() {
               />
             )}
             {!isDashboard && !isProjectsPage && hasProjects && (
-              <label className="flex items-center gap-2 text-sm shrink-0">
-                <span style={{ color: 'var(--text-muted)' }}>Проект:</span>
+              <label className="app-header-project flex items-center gap-2 text-sm shrink-0 min-w-0">
+                <span className="app-header-project-label" style={{ color: 'var(--text-muted)' }}>
+                  Проект:
+                </span>
                 <AppSelect
                   variant="toolbar"
                   icon={<FolderOpen size={14} aria-hidden />}
@@ -134,15 +177,16 @@ export function AppLayout() {
               {theme === 'light' ? <Moon size={18} /> : <Sun size={18} />}
             </button>
             <button type="button" className="btn btn-secondary btn-sm shrink-0" onClick={handleLogout}>
-              <LogOut size={16} /> Выход
+              <LogOut size={16} />
+              <span className="btn-logout-label">Выход</span>
             </button>
           </div>
         </header>
         <main
           className={
             isMapPage
-              ? 'flex flex-1 min-h-0 flex-col overflow-hidden p-6'
-              : 'flex-1 min-h-0 overflow-y-auto overflow-x-hidden p-6'
+              ? 'app-main app-main--map flex flex-1 min-h-0 flex-col overflow-hidden p-6'
+              : 'app-main flex-1 min-h-0 overflow-y-auto overflow-x-hidden p-6'
           }
           style={{ background: 'var(--bg)' }}
         >

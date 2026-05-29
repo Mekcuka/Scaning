@@ -128,14 +128,12 @@ export function ReportPage() {
 
   return (
     <div>
-      <div className="flex items-center justify-between mb-6">
-        <div>
-          <h1 className="text-2xl font-bold">Одностраничник</h1>
-          <p className="text-sm mt-1" style={{ color: 'var(--text-muted)' }}>
-            Отчёт для руководства (FR-11)
-          </p>
+      <div className="page-toolbar">
+        <div className="page-title-block">
+          <h1 className="page-title">Одностраничник</h1>
+          <p className="page-subtitle">Отчёт для руководства (FR-11)</p>
         </div>
-        <div className="flex gap-2 flex-wrap items-center justify-end">
+        <div className="page-toolbar-actions">
           {pois.length > 0 && (
             <AppSelect
               variant="sm"
@@ -181,6 +179,7 @@ export function ReportPage() {
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
           <div>
             <h3 className="font-semibold mb-2">Карта подключений</h3>
+            <div className="report-map-preview">
             <MapView
               viewStateId="report"
               viewStateScope={selectedPoi?.id ?? null}
@@ -193,6 +192,7 @@ export function ReportPage() {
               useMapIcons
               layers={layers}
             />
+            </div>
           </div>
           <div>
             <h3 className="font-semibold mb-2">Ключевые показатели</h3>

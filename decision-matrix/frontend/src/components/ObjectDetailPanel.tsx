@@ -159,7 +159,7 @@ export function ObjectDetailPanel({
 
   return (
     <div
-      className="absolute top-3 right-3 z-20 w-[min(300px,calc(100%-1.5rem))] max-h-[min(70vh,420px)] flex flex-col rounded-lg border shadow-lg overflow-hidden"
+      className="object-detail-panel absolute top-3 right-3 z-20 w-[min(300px,calc(100%-1.5rem))] max-h-[min(70vh,420px)] flex flex-col rounded-lg border shadow-lg overflow-hidden"
       style={{ background: 'var(--surface)', borderColor: 'var(--border)' }}
       role="dialog"
       aria-label={title}
@@ -171,7 +171,7 @@ export function ObjectDetailPanel({
         <span className="font-medium text-xs truncate">{title}</span>
         <button
           type="button"
-          className="btn btn-ghost p-0.5 shrink-0"
+          className="btn btn-ghost btn-icon-touch p-0.5 shrink-0"
           onClick={onClose}
           title="Закрыть"
           aria-label="Закрыть"
