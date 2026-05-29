@@ -36,6 +36,27 @@ def test_external_power_internal_gtes():
     assert st2["power_line"] == "not_required"
 
 
+def test_centralized_injection_activates_bkns():
+    st = apply_engineering_rules(
+        EngineeringState(
+            fluid_type="oil",
+            eng_injection="centralized",
+            water_injection_volume=120.0,
+        )
+    )
+    assert st["ground_pumping_station"] == "active"
+    assert st["water_pipeline"] == "active"
+
+    st_local = apply_engineering_rules(
+        EngineeringState(
+            fluid_type="oil",
+            eng_injection="local",
+            water_injection_volume=120.0,
+        )
+    )
+    assert st_local["ground_pumping_station"] == "not_required"
+
+
 def test_gas_fluid_refinery_not_required():
     st = apply_engineering_rules(EngineeringState(fluid_type="gas"))
     assert st["refinery"] == "not_required"

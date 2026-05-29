@@ -24,6 +24,7 @@ import { MapPoiSelect } from '../components/MapPoiSelect';
 import {
   alignAnalysisRowsToMapObjects,
   buildAnalysisResultMapFocus,
+  buildMapFitAllFocus,
   connectionLinesFromAnalysis,
 } from '../lib/analysisDisplay';
 import { MapLayersPanel } from '../components/MapLayersPanel';
@@ -438,6 +439,16 @@ export function MapPage() {
   );
 
   const selectedPoi = pois.find((p) => p.id === selectedPoiId) ?? pois[0] ?? null;
+
+  const handleFitMapView = useCallback(() => {
+    const visiblePois = showPoisOnMap ? pois : [];
+    const focus = buildMapFitAllFocus(visiblePois, filteredInfra);
+    if (!focus) {
+      pushToast('info', 'На карте нет объектов для отображения');
+      return;
+    }
+    setMapFocus({ ...focus, nonce: Date.now() });
+  }, [pois, filteredInfra, showPoisOnMap, pushToast]);
 
   const { data: analysisData, error: analysisQueryError } = useQuery({
     queryKey: ['analysis', projectId, selectedPoi?.id],
@@ -1946,6 +1957,7 @@ export function MapPage() {
             networkEdges={[]}
             layers={layers}
             mapFocus={mapFocus}
+            onFitView={handleFitMapView}
             onViewChange={({ scaleLabel }) => setMapScaleLabel(scaleLabel)}
           />
 

@@ -14,10 +14,12 @@ from app.models import (
     Project,
     ProjectCostRates,
     ProjectDistanceDefaults,
+    ProjectEconomicParams,
     Scenario,
     User,
 )
 from app.services.cost_rates import DEFAULT_COST_RATES
+from app.services.economic_rates import DEFAULT_ECONOMIC_PARAMS
 
 
 async def seed():
@@ -53,6 +55,7 @@ async def seed():
         await db.flush()
 
         db.add(ProjectCostRates(project_id=project.id, rates=dict(DEFAULT_COST_RATES)))
+        db.add(ProjectEconomicParams(project_id=project.id, params=dict(DEFAULT_ECONOMIC_PARAMS)))
         db.add(ProjectDistanceDefaults(project_id=project.id))
         db.add(Scenario(project_id=project.id, name="Базовый", scenario_type="base"))
         db.add(Scenario(project_id=project.id, name="Сценарий 1", scenario_type="scenario"))

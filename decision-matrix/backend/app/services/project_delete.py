@@ -17,6 +17,7 @@ from app.models import (
     Project,
     ProjectCostRates,
     ProjectDistanceDefaults,
+    ProjectEconomicParams,
     Scenario,
 )
 
@@ -36,6 +37,7 @@ async def delete_project_cascade(db: AsyncSession, project_id: UUID) -> bool:
     await db.execute(delete(Scenario).where(Scenario.project_id == project_id))
     await db.execute(delete(ImportConnection).where(ImportConnection.project_id == project_id))
     await db.execute(delete(ProjectCostRates).where(ProjectCostRates.project_id == project_id))
+    await db.execute(delete(ProjectEconomicParams).where(ProjectEconomicParams.project_id == project_id))
     await db.execute(delete(ProjectDistanceDefaults).where(ProjectDistanceDefaults.project_id == project_id))
 
     result = await db.execute(delete(Project).where(Project.id == project_id))

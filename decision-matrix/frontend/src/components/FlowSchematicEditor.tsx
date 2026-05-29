@@ -380,6 +380,8 @@ type FlowSchematicEditorProps = {
   onReset: () => void;
   saving?: boolean;
   resetting?: boolean;
+  /** Tailwind height class for the canvas, e.g. h-[min(40vh,400px)] */
+  canvasHeightClass?: string;
 };
 
 function poiFlowContext(poi: POI | null): PoiFlowContext | null {
@@ -422,6 +424,7 @@ function FlowSchematicEditorInner({
   onReset,
   saving,
   resetting,
+  canvasHeightClass = 'h-[min(70vh,560px)]',
 }: FlowSchematicEditorProps) {
   const isMobile = useIsMobile();
   const [mobileEdit, setMobileEdit] = useState(false);
@@ -654,7 +657,9 @@ function FlowSchematicEditorInner({
         >
           <FlowSchematicActionsContext.Provider value={schematicActions}>
             <div className="flow-schematic-stage">
-              <div className="flow-schematic-canvas w-full h-[min(70vh,560px)] rounded-lg border border-[var(--border)] bg-[var(--bg)]">
+              <div
+                className={`flow-schematic-canvas w-full rounded-lg border border-[var(--border)] bg-[var(--bg)] ${canvasHeightClass}`}
+              >
                 <ReactFlow
                   nodes={nodes}
                   edges={edges}
@@ -813,12 +818,6 @@ function FlowSchematicEditorInner({
         </FlowPoiContext.Provider>
         </FlowEdgePropagationContext.Provider>
       </FlowPropagationContext.Provider>
-
-      <p className="text-xs text-[var(--text-muted)]">
-        {isCustom
-          ? 'Сохранена пользовательская схема. «Сброс» удалит правки и пересчитает схему по POI и сети.'
-          : '«Пересчитать» обновит схему после изменения параметров POI или инфраструктуры на карте.'}
-      </p>
     </div>
   );
 }

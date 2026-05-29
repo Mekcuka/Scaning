@@ -21,6 +21,10 @@ export interface FlowSchematicNodeDto {
   over_capacity?: boolean;
   /** Доля нефти после сепарации, % (только kind=separator). */
   separation_percent?: number | null;
+  /** Длина сегмента сети, км (kind=network_segment). */
+  length_km?: number | null;
+  /** Связь с объектом инфраструктуры на карте (kind=terminal). */
+  infrastructure_object_id?: string | null;
 }
 
 export interface FlowSchematicEdgeDto {

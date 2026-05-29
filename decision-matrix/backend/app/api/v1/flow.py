@@ -9,7 +9,12 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.api.deps import get_current_user
 from app.core.database import get_db
 from app.models import PointOfInterest, Project, User
-from app.schemas import FlowSchematicResponse, FlowSchematicSave
+from app.schemas import (
+    EconomicFlowResponse,
+    FlowSchematicResponse,
+    FlowSchematicSave,
+)
+from app.services.economic_flow_schematic import get_economic_flow_schematic
 from app.services.flow_schematic_store import (
     delete_flow_schematic_layout,
     get_flow_schematic,
@@ -88,7 +93,21 @@ async def reset_flow_schematic(
 ):
     await _project(project_id, user, db)
     poi = await _poi(project_id, poi_id, db)
-    await delete_flow_schematic_layout(db, poi_id)
-    await db.commit()
     data = await get_flow_schematic(db, project_id, poi)
     return FlowSchematicResponse(**data)
+
+
+@flow_router.get(
+    "/projects/{project_id}/pois/{poi_id}/economic-flow-schematic",
+    response_model=EconomicFlowResponse,
+)
+async def get_economic_flow_schematic_endpoint(
+    project_id: UUID,
+    poi_id: UUID,
+    user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    await _project(project_id, user, db)
+    poi = await _poi(project_id, poi_id, db)
+    data = await get_economic_flow_schematic(db, project_id, poi)
+    return EconomicFlowResponse(**data)

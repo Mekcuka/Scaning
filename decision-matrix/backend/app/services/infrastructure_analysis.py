@@ -84,6 +84,7 @@ def get_distance_maps(
         "gtes": poi.threshold_gtes_km or (defaults.threshold_gtes_km if defaults else 60),
         "substation": poi.threshold_substation_km or (defaults.threshold_substation_km if defaults else 25),
         "refinery": poi.threshold_refinery_km or (defaults.threshold_refinery_km if defaults else 100),
+        "ground_pumping_station": 50.0,
     }
     return km_per_pad_map, max_line_map, threshold_map
 

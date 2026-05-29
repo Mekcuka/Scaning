@@ -68,6 +68,15 @@ class CostRatesResponse(BaseModel):
     rates: dict[str, float]
 
 
+class EconomicParamsUpdate(BaseModel):
+    params: dict[str, float]
+
+
+class EconomicParamsResponse(BaseModel):
+    project_id: UUID
+    params: dict[str, float]
+
+
 class DistanceDefaultsUpdate(BaseModel):
     threshold_gas_processing_km: float | None = None
     threshold_gtes_km: float | None = None
@@ -452,6 +461,8 @@ class FlowSchematicNode(BaseModel):
     flow_unit: str | None = None
     over_capacity: bool = False
     separation_percent: float | None = None
+    length_km: float | None = None
+    infrastructure_object_id: UUID | None = None
 
 
 class FlowSchematicEdge(BaseModel):
@@ -472,6 +483,37 @@ class FlowSchematicResponse(BaseModel):
 class FlowSchematicSave(BaseModel):
     nodes: list[FlowSchematicNode]
     edges: list[FlowSchematicEdge]
+
+
+class EconomicFlowNode(BaseModel):
+    id: str
+    kind: str
+    label: str
+    fluid: str | None = None
+    position_x: float | None = None
+    position_y: float | None = None
+    flow_annual: float | None = None
+    flow_unit: str | None = None
+    capex_thousand_rub: float | None = None
+    opex_thousand_rub_per_year: float | None = None
+    revenue_thousand_rub_per_year: float | None = None
+    net_thousand_rub_per_year: float | None = None
+    formula_label: str | None = None
+
+
+class EconomicFlowSummary(BaseModel):
+    total_capex_mln: float
+    total_opex_mln_per_year: float
+    total_revenue_mln_per_year: float
+    net_mln_per_year: float
+
+
+class EconomicFlowResponse(BaseModel):
+    poi_id: UUID
+    nodes: list[EconomicFlowNode]
+    edges: list[FlowSchematicEdge]
+    summary: EconomicFlowSummary
+    warnings: list[str]
 
 
 class ImportJobResponse(BaseModel):

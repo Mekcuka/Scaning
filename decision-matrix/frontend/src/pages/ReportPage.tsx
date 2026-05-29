@@ -1,10 +1,10 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { Download, FileText } from 'lucide-react';
 import { AppSelect } from '../components/AppSelect';
 import { MapView, type MapFocusTarget } from '../components/MapView';
 import { engLabel } from '../lib/poiParams';
-import { api, normalizePoiAnalysisResponse } from '../lib/api';
+import { api, normalizePoiAnalysisResponse, type InfraLayer, type InfraObject, type POI } from '../lib/api';
 import {
   alignAnalysisRowsToMapObjects,
   buildMapFocusForConnectionLines,
@@ -22,6 +22,10 @@ const ROADMAP = [
   { phase: 'Эксплуатация', months: '36+', status: 'pending' },
 ];
 
+const EMPTY_POIS: POI[] = [];
+const EMPTY_LAYERS: InfraLayer[] = [];
+const EMPTY_INFRA: InfraObject[] = [];
+
 export function ReportPage() {
   const projectId = useAppStore((s) => s.currentProjectId);
   const [selectedPoiId, setSelectedPoiId] = useState('');
@@ -37,19 +41,19 @@ export function ReportPage() {
     setSelectedPoiId('');
   }, [projectId]);
 
-  const { data: pois = [] } = useQuery({
+  const { data: pois = EMPTY_POIS } = useQuery({
     queryKey: ['pois', projectId],
     queryFn: () => api.getPois(projectId!),
     enabled: !!projectId,
   });
 
-  const { data: infraObjects = [] } = useQuery({
+  const { data: infraObjects = EMPTY_INFRA } = useQuery({
     queryKey: ['infra', projectId],
     queryFn: () => api.getInfraObjects(projectId!),
     enabled: !!projectId,
   });
 
-  const { data: layers = [] } = useQuery({
+  const { data: layers = EMPTY_LAYERS } = useQuery({
     queryKey: ['layers', projectId],
     queryFn: () => api.getLayers(projectId!),
     enabled: !!projectId,
@@ -60,13 +64,13 @@ export function ReportPage() {
 
   useEffect(() => {
     if (pois.length === 0) {
-      setSelectedPoiId('');
+      if (selectedPoiId) setSelectedPoiId('');
       return;
     }
-    if (!activePoiId || !pois.some((p) => p.id === activePoiId)) {
+    if (!selectedPoiId || !pois.some((p) => p.id === selectedPoiId)) {
       setSelectedPoiId(pois[0].id);
     }
-  }, [pois, activePoiId]);
+  }, [pois, selectedPoiId]);
 
   const { data: analysisData } = useQuery({
     queryKey: ['analysis', projectId, selectedPoi?.id],
@@ -109,6 +113,9 @@ export function ReportPage() {
     [connectionLines]
   );
 
+  const mapFocusInputRef = useRef({ connectionLines, mapLayerVisibleInfra });
+  mapFocusInputRef.current = { connectionLines, mapLayerVisibleInfra };
+
   useEffect(() => {
     if (!selectedPoi || !projectId) {
       setMapFocus(null);
@@ -118,13 +125,18 @@ export function ReportPage() {
       setMapFocus(null);
       return;
     }
+    const { connectionLines: lines, mapLayerVisibleInfra: visibleInfra } = mapFocusInputRef.current;
     const focus = buildMapFocusForConnectionLines(
       { lon: selectedPoi.lon, lat: selectedPoi.lat },
-      connectionLines,
-      mapLayerVisibleInfra
+      lines,
+      visibleInfra
     );
-    setMapFocus({ ...focus, nonce: Date.now() });
-  }, [selectedPoi, projectId, connectionLinesKey, connectionLines, mapLayerVisibleInfra]);
+    const focusKey = `${selectedPoi.id}:${connectionLinesKey}:${focus.lon},${focus.lat}`;
+    setMapFocus((prev) => {
+      if (prev?.focusKey === focusKey) return prev;
+      return { ...focus, nonce: Date.now(), focusKey };
+    });
+  }, [selectedPoi?.id, selectedPoi?.lon, selectedPoi?.lat, projectId, connectionLinesKey]);
 
   return (
     <div>

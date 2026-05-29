@@ -71,6 +71,18 @@ def patch_sqlite_schema(conn: Connection) -> None:
     )
     _create_table_if_missing(
         conn,
+        "project_economic_params",
+        """
+        CREATE TABLE project_economic_params (
+            id CHAR(32) PRIMARY KEY,
+            project_id CHAR(32) NOT NULL UNIQUE,
+            params JSON NOT NULL DEFAULT '{}',
+            FOREIGN KEY(project_id) REFERENCES projects(id) ON DELETE CASCADE
+        )
+        """,
+    )
+    _create_table_if_missing(
+        conn,
         "scenario_criterion_values",
         """
         CREATE TABLE scenario_criterion_values (

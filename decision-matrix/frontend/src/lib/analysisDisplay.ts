@@ -18,6 +18,7 @@ export const ANALYSIS_EXTERNAL_SUBTYPES = [
   'gtes',
   'substation',
   'refinery',
+  'ground_pumping_station',
 ] as const;
 
 export { EXTERNAL_LINEAR_SUBTYPES } from './api';
@@ -202,6 +203,24 @@ function pushInfraExtent(lons: number[], lats: number[], obj: MapInfraLike) {
   if (obj.coordinates) {
     for (const c of obj.coordinates) pushCoord(lons, lats, c[0], c[1]);
   }
+}
+
+/** Fit map to all visible POIs and infrastructure on the main map. */
+export function buildMapFitAllFocus(
+  pois: { lon: number; lat: number }[],
+  infraObjects: MapInfraLike[]
+): AnalysisRowFocus | null {
+  const lons: number[] = [];
+  const lats: number[] = [];
+  for (const p of pois) pushCoord(lons, lats, p.lon, p.lat);
+  for (const obj of infraObjects) pushInfraExtent(lons, lats, obj);
+  if (lons.length === 0) return null;
+  if (lons.length === 1) return { lon: lons[0], lat: lats[0] };
+  return {
+    lon: (Math.min(...lons) + Math.max(...lons)) / 2,
+    lat: (Math.min(...lats) + Math.max(...lats)) / 2,
+    extentLonLat: [Math.min(...lons), Math.min(...lats), Math.max(...lons), Math.max(...lats)],
+  };
 }
 
 /** Fit map to POI and every object used in distance connection lines. */

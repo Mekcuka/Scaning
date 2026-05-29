@@ -200,8 +200,15 @@ table.data-table th {
   letter-spacing: 0.03em;
 }
 
-table.data-table.matrix-table thead th {
+table.data-table.matrix-table thead th:first-child,
+table.data-table.matrix-table tbody td:first-child {
+  text-align: left;
+}
+
+table.data-table.matrix-table thead th:not(:first-child),
+table.data-table.matrix-table tbody td:not(:first-child) {
   text-align: center;
+  vertical-align: middle;
 }
 
 table.data-table.matrix-table td.matrix-eng-cell {
@@ -235,6 +242,8 @@ table.data-table.matrix-table .matrix-cell-stacked {
   gap: 0.2rem;
   line-height: 1.25;
   min-width: 0;
+  align-items: center;
+  text-align: center;
 }
 
 table.data-table.matrix-table .matrix-cell-cost {
@@ -526,6 +535,18 @@ table.data-table--projects .col-status {
   flex: 1;
   min-height: 0;
   min-width: 0;
+}
+
+.map-container .ol-zoom .ol-fit-view {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  line-height: 1;
+}
+
+.map-container .ol-zoom .ol-fit-view svg {
+  display: block;
+  pointer-events: none;
 }
 
 .map-tools {
@@ -929,6 +950,28 @@ table.data-table--projects .col-status {
   gap: 12px;
 }
 
+.rates-economic-section {
+  grid-column: 1 / -1;
+  margin-top: 4px;
+}
+
+.rates-section-title {
+  font-size: 1.05rem;
+  font-weight: 600;
+  color: var(--text);
+}
+
+.economic-flow-summary {
+  padding: 0.75rem 1rem;
+  border-radius: 8px;
+  background: var(--surface-2);
+  border: 1px solid var(--border);
+}
+
+.economic-flow-summary strong {
+  color: var(--text);
+}
+
 .rates-group-card {
   overflow: hidden;
 }
@@ -943,7 +986,8 @@ table.data-table--projects .col-status {
   border-bottom: 1px solid var(--border);
 }
 
-.rates-group-head h2 {
+.rates-group-head h2,
+.rates-group-head h3 {
   margin: 0;
   font-size: 0.8125rem;
   font-weight: 600;
@@ -1690,6 +1734,25 @@ tr:hover .inline-table-edit-trigger,
 
 .flow-schematic-stage {
   position: relative;
+}
+
+.flow-schematic-windows {
+  margin-bottom: 1rem;
+}
+
+.flow-schematic-window-title {
+  margin: 0;
+  font-size: 1.0625rem;
+  font-weight: 600;
+  letter-spacing: -0.01em;
+}
+
+.flow-schematic-window-subtitle {
+  margin: 0;
+}
+
+.flow-schematic-canvas--placeholder {
+  min-height: 200px;
 }
 
 .flow-schematic-edit-panel {

@@ -94,7 +94,9 @@ def subtypes_for_nearest_search(subtype: str) -> frozenset[str]:
 
 
 # FR-6.1.2 autosearch — only classic external facilities
-EXTERNAL_POINT_SUBTYPES = frozenset({"gas_processing", "gtes", "substation", "refinery"})
+EXTERNAL_POINT_SUBTYPES = frozenset(
+    {"gas_processing", "gtes", "substation", "refinery", "ground_pumping_station"}
+)
 
 LINEAR_SUBTYPES = LINE_SUBTYPES
 

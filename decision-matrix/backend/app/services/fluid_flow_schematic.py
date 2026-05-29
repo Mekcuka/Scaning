@@ -57,6 +57,7 @@ class _Graph:
     node_subtype: dict[UUID, str | None] = field(default_factory=dict)
     node_name: dict[UUID, str | None] = field(default_factory=dict)
     node_properties: dict[UUID, dict] = field(default_factory=dict)
+    node_object_id: dict[UUID, UUID | None] = field(default_factory=dict)
     terminal_nodes: dict[FluidKind, set[UUID]] = field(default_factory=dict)
 
 
@@ -148,6 +149,7 @@ def build_graph_from_rows(
             graph.node_properties[node.id] = dict(obj.properties or {})
         graph.node_subtype[node.id] = subtype
         graph.node_name[node.id] = name
+        graph.node_object_id[node.id] = node.infrastructure_object_id
         for fluid, terminal_subtypes in FLUID_TERMINAL_SUBTYPES.items():
             if subtype and subtype in terminal_subtypes:
                 graph.terminal_nodes[fluid].add(node.id)
@@ -378,6 +380,7 @@ def _append_network_path(
             "fluid": fluid,
             "subtype": PIPELINE_SUBTYPE_BY_FLUID[fluid],
             "status": None,
+            "length_km": round(length_km, 2),
         }
     )
     link_id = f"e-net-{fluid}-{poi_uuid}"
@@ -391,6 +394,7 @@ def _append_network_path(
     term_props = graph.node_properties.get(terminal_node_id) or {}
     term_cap = term_props.get("throughput_capacity_annual")
     term_unit = term_props.get("capacity_unit")
+    term_obj_id = graph.node_object_id.get(terminal_node_id)
     nodes.append(
         {
             "id": term_id,
@@ -401,6 +405,7 @@ def _append_network_path(
             "status": None,
             "throughput_capacity_annual": float(term_cap) if term_cap is not None else None,
             "capacity_unit": term_unit,
+            "infrastructure_object_id": str(term_obj_id) if term_obj_id else None,
         }
     )
     edges.append(

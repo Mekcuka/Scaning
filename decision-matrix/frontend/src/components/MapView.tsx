@@ -99,6 +99,8 @@ export type MapFocusTarget = {
   lat: number;
   extentLonLat?: [number, number, number, number];
   nonce: number;
+  /** Internal dedupe key (ReportPage). */
+  focusKey?: string;
 };
 
 export type MeasureLabel = {
@@ -186,6 +188,8 @@ interface MapViewProps {
   useMapIcons?: boolean;
   layers?: InfraLayer[];
   mapFocus?: MapFocusTarget | null;
+  /** Fit map extent to all visible objects (button under OL zoom controls). */
+  onFitView?: () => void;
   /** When false: view-only — no drag-edit of geometries (select/view still allowed). */
   editMode?: boolean;
   /** Ghost icon at cursor while placing point infrastructure. */
@@ -393,6 +397,7 @@ export function MapView({
   useMapIcons = true,
   layers = [],
   mapFocus = null,
+  onFitView,
   editMode = false,
   placementPreview = null,
   viewStateId,
@@ -425,6 +430,7 @@ export function MapView({
   const onGeometryChangeRef = useRef(onGeometryChange);
   const onBboxChangeRef = useRef(onBboxChange);
   const onViewChangeRef = useRef(onViewChange);
+  const onFitViewRef = useRef(onFitView);
   const onFinishLineRef = useRef(onFinishLine);
   const onFinishMeasureRef = useRef(onFinishMeasure);
   const draftLineRef = useRef(draftLine);
@@ -456,6 +462,7 @@ export function MapView({
   onGeometryChangeRef.current = onGeometryChange;
   onBboxChangeRef.current = onBboxChange;
   onViewChangeRef.current = onViewChange;
+  onFitViewRef.current = onFitView;
   onFinishLineRef.current = onFinishLine;
   onFinishMeasureRef.current = onFinishMeasure;
   draftLineRef.current = draftLine;
@@ -1027,13 +1034,32 @@ export function MapView({
     resizeObserver?.observe(containerRef.current);
 
     mapRef.current = map;
+
+    const zoomEl = containerRef.current.querySelector('.ol-zoom');
+    if (zoomEl && !zoomEl.querySelector('.ol-fit-view')) {
+      const fitBtn = document.createElement('button');
+      fitBtn.type = 'button';
+      fitBtn.className = 'ol-fit-view';
+      fitBtn.title = 'Показать все объекты';
+      fitBtn.setAttribute('aria-label', 'Показать все объекты');
+      fitBtn.innerHTML =
+        '<svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 7V5a2 2 0 0 1 2-2h2"/><path d="M17 3h2a2 2 0 0 1 2 2v2"/><path d="M21 17v2a2 2 0 0 1-2 2h-2"/><path d="M7 21H5a2 2 0 0 1-2-2v-2"/><circle cx="12" cy="12" r="3"/></svg>';
+      fitBtn.addEventListener('click', (e) => {
+        e.preventDefault();
+        onFitViewRef.current?.();
+      });
+      zoomEl.appendChild(fitBtn);
+    }
+
     return () => {
       clearTimeout(bboxTimer);
       resizeObserver?.disconnect();
       viewport.removeEventListener('mouseleave', onViewportLeave);
       viewport.removeEventListener('contextmenu', onLineContextMenu, true);
       viewport.removeEventListener('pointerdown', onLinePointerDown, true);
+      containerRef.current?.querySelector('.ol-fit-view')?.remove();
       map.setTarget(undefined);
+      map.dispose();
       mapRef.current = null;
       basemapLayerRef.current = null;
     };

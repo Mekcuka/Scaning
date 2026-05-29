@@ -12,6 +12,7 @@ from app.models import (
     Project,
     ProjectCostRates,
     ProjectDistanceDefaults,
+    ProjectEconomicParams,
     ProjectRankingSettings,
     Scenario,
     ScenarioCriterionValue,
@@ -22,6 +23,8 @@ from app.schemas import (
     CostRatesUpdate,
     DistanceDefaultsResponse,
     DistanceDefaultsUpdate,
+    EconomicParamsResponse,
+    EconomicParamsUpdate,
     POICreate,
     POIResponse,
     ProjectCreate,
@@ -48,6 +51,7 @@ from app.services.calculations import (
     rank_alternatives,
 )
 from app.services.cost_rates import DEFAULT_COST_RATES
+from app.services.economic_rates import DEFAULT_ECONOMIC_PARAMS
 from app.services.project_delete import delete_project_cascade
 from app.api.v1.flow import flow_router
 from app.api.v1.graph import graph_router
@@ -144,6 +148,7 @@ async def create_project(data: ProjectCreate, user: User = Depends(get_current_u
     db.add(project)
     await db.flush()
     db.add(ProjectCostRates(project_id=project.id, rates=dict(DEFAULT_COST_RATES)))
+    db.add(ProjectEconomicParams(project_id=project.id, params=dict(DEFAULT_ECONOMIC_PARAMS)))
     db.add(ProjectDistanceDefaults(project_id=project.id))
     db.add(Scenario(project_id=project.id, name="Базовый", scenario_type="base"))
     await db.commit()
@@ -265,6 +270,42 @@ async def update_rates(
         rates_row.rates = {**DEFAULT_COST_RATES, **rates_row.rates, **data.rates}
     await db.commit()
     return CostRatesResponse(project_id=project_id, rates={**DEFAULT_COST_RATES, **rates_row.rates})
+
+
+@router.get("/projects/{project_id}/economic-params", response_model=EconomicParamsResponse)
+async def get_economic_params(
+    project_id: UUID, user: User = Depends(get_current_user), db: AsyncSession = Depends(get_db)
+):
+    await _get_user_project(project_id, user, db)
+    result = await db.execute(
+        select(ProjectEconomicParams).where(ProjectEconomicParams.project_id == project_id)
+    )
+    row = result.scalar_one_or_none()
+    params = {**DEFAULT_ECONOMIC_PARAMS, **(row.params if row else {})}
+    return EconomicParamsResponse(project_id=project_id, params=params)
+
+
+@router.put("/projects/{project_id}/economic-params", response_model=EconomicParamsResponse)
+async def update_economic_params(
+    project_id: UUID,
+    data: EconomicParamsUpdate,
+    user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    await _get_user_project(project_id, user, db)
+    result = await db.execute(
+        select(ProjectEconomicParams).where(ProjectEconomicParams.project_id == project_id)
+    )
+    row = result.scalar_one_or_none()
+    if not row:
+        row = ProjectEconomicParams(project_id=project_id, params=data.params)
+        db.add(row)
+    else:
+        row.params = {**DEFAULT_ECONOMIC_PARAMS, **row.params, **data.params}
+    await db.commit()
+    return EconomicParamsResponse(
+        project_id=project_id, params={**DEFAULT_ECONOMIC_PARAMS, **row.params}
+    )
 
 
 @router.get("/projects/{project_id}/pois", response_model=list[POIResponse])

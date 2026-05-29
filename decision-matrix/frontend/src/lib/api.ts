@@ -326,6 +326,19 @@ export const api = {
       `/projects/${projectId}/pois/${poiId}/flow-schematic`,
       { method: 'DELETE' }
     ),
+  getEconomicFlowSchematic: (projectId: string, poiId: string) =>
+    request<import('./economicFlowSchematic').EconomicFlowSchematicDto>(
+      `/projects/${projectId}/pois/${poiId}/economic-flow-schematic`
+    ),
+  getEconomicParams: (projectId: string) =>
+    request<import('./economicFlowSchematic').EconomicParamsDto>(
+      `/projects/${projectId}/economic-params`
+    ),
+  updateEconomicParams: (projectId: string, params: Record<string, number>) =>
+    request<import('./economicFlowSchematic').EconomicParamsDto>(
+      `/projects/${projectId}/economic-params`,
+      { method: 'PUT', body: JSON.stringify({ params }) }
+    ),
 };
 
 export interface Project {
@@ -492,7 +505,13 @@ export interface ProjectAnalysisBatchResult {
   results: AnalysisResult[];
 }
 
-const EXTERNAL_SUBTYPES = new Set(['gas_processing', 'gtes', 'substation', 'refinery']);
+const EXTERNAL_SUBTYPES = new Set([
+  'gas_processing',
+  'gtes',
+  'substation',
+  'refinery',
+  'ground_pumping_station',
+]);
 
 function roundKm(value: unknown): number | null {
   if (value == null) return null;

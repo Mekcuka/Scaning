@@ -44,6 +44,9 @@ class Project(Base):
     cost_rates: Mapped["ProjectCostRates | None"] = relationship(
         back_populates="project", uselist=False, cascade="all, delete-orphan"
     )
+    economic_params: Mapped["ProjectEconomicParams | None"] = relationship(
+        back_populates="project", uselist=False, cascade="all, delete-orphan"
+    )
     distance_defaults: Mapped["ProjectDistanceDefaults | None"] = relationship(
         back_populates="project", uselist=False, cascade="all, delete-orphan"
     )
@@ -68,6 +71,16 @@ class ProjectCostRates(Base):
     rates: Mapped[dict] = mapped_column(JSON, default=dict)
 
     project: Mapped["Project"] = relationship(back_populates="cost_rates")
+
+
+class ProjectEconomicParams(Base):
+    __tablename__ = "project_economic_params"
+
+    id: Mapped[uuid.UUID] = mapped_column(Uuid, primary_key=True, default=uuid.uuid4)
+    project_id: Mapped[uuid.UUID] = mapped_column(Uuid, ForeignKey("projects.id", ondelete="CASCADE"), unique=True)
+    params: Mapped[dict] = mapped_column(JSON, default=dict)
+
+    project: Mapped["Project"] = relationship(back_populates="economic_params")
 
 
 class ProjectDistanceDefaults(Base):

@@ -12,6 +12,7 @@ DEFAULT_COST_RATES: dict[str, float] = {
     "vies": 600000,
     "substation": 200000,
     "refinery": 0,
+    "ground_pumping_station": 400000,
     "pads": 200000,
     "eq_power": 450000,
     "eq_injection": 150000,
@@ -34,7 +35,13 @@ OIL_PREP_RATE_MAP = {
 ANALYSIS_LINEAR_SUBTYPES = ("autoroad", "oil_pipeline", "water_pipeline", "power_line")
 LINEAR_SUBTYPES = ("autoroad", "oil_pipeline", "gas_pipeline", "water_pipeline", "power_line")
 EXTERNAL_LINEAR_SUBTYPES = LINEAR_SUBTYPES
-EXTERNAL_POINT_SUBTYPES = ("gas_processing", "gtes", "substation", "refinery")
+EXTERNAL_POINT_SUBTYPES = (
+    "gas_processing",
+    "gtes",
+    "substation",
+    "refinery",
+    "ground_pumping_station",
+)
 ANALYSIS_SUBTYPES = (
     *ANALYSIS_LINEAR_SUBTYPES,
     *EXTERNAL_LINEAR_SUBTYPES,

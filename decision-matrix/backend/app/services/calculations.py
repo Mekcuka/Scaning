@@ -115,6 +115,7 @@ def apply_engineering_rules(state: EngineeringState) -> dict[str, str]:
         "gtes": "active",
         "substation": "active",
         "refinery": "active",
+        "ground_pumping_station": "not_required",
         "pads": "active",
     }
 
@@ -127,6 +128,8 @@ def apply_engineering_rules(state: EngineeringState) -> dict[str, str]:
 
     if state.eng_injection == "centralized":
         statuses["water_pipeline"] = "active"
+        if state.water_injection_volume > 0:
+            statuses["ground_pumping_station"] = "active"
     elif state.water_injection_volume > 0 and state.eng_injection == "local":
         statuses["water_pipeline"] = "active"
     else:

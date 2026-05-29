@@ -175,7 +175,15 @@
 
 ---
 
-## 8. Ограничения MVP
+## 8. Экономический поток
+
+На той же странице `/flows` ниже технологической PFD отображается **экономическая схема**: те же узлы и рёбра с CAPEX, OPEX и выручкой.
+
+Подробное описание формул, API и ставок: **[economic-flow-schematic.md](./economic-flow-schematic.md)**.
+
+---
+
+## 9. Ограничения MVP
 
 - Одна схема на **один POI** (не сводная по проекту).
 - Направление на ребре = порядок вершин в геометрии линии, не гидравлический расчёт.
@@ -184,11 +192,11 @@
 
 ---
 
-## 9. Frontend / Backend
+## 10. Frontend / Backend
 
 | Слой | Комponent / модуль |
 |------|-------------------|
-| UI | `/flows`, `FlowSchematicPage`, `FlowSchematicEditor` |
+| UI | `/flows`, `FlowSchematicPage`, `FlowSchematicEditor`, `EconomicFlowSchematic` |
 | Граф | `@xyflow/react`, раскладка `dagre` |
 | API-клиент | `api.getFlowSchematic`, `saveFlowSchematic`, `resetFlowSchematic` |
 | Backend | `app/api/v1/flow.py`, `flow_schematic_store.py`, `fluid_flow_schematic.py` |
