@@ -128,3 +128,15 @@ def patch_postgres_schema(conn: Connection) -> None:
         "gas_factor",
         "gas_factor DOUBLE PRECISION NOT NULL DEFAULT 120",
     )
+    _add_column_if_missing(
+        conn,
+        "project_ranking_settings",
+        "default_expert_values",
+        "default_expert_values JSON NOT NULL DEFAULT '{\"risk\": 5, \"reliability\": 5, \"time_months\": 12}'",
+    )
+    _add_column_if_missing(
+        conn,
+        "project_ranking_settings",
+        "ahp_pairwise",
+        "ahp_pairwise JSON NOT NULL DEFAULT '{}'",
+    )
