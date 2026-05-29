@@ -10,6 +10,10 @@ import sqlalchemy as sa
 
 
 def upgrade() -> None:
+    bind = op.get_bind()
+    insp = sa.inspect(bind)
+    if "project_economic_params" in insp.get_table_names():
+        return
     op.create_table(
         "project_economic_params",
         sa.Column("id", sa.Uuid(), nullable=False),

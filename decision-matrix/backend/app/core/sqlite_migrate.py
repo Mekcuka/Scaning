@@ -122,6 +122,32 @@ def patch_sqlite_schema(conn: Connection) -> None:
 
 def patch_postgres_schema(conn: Connection) -> None:
     """Incremental patches for PostgreSQL (create_all does not alter existing tables)."""
+    for table in ("project_distance_defaults", "points_of_interest"):
+        _add_column_if_missing(
+            conn,
+            table,
+            "max_total_line_gas_pipeline_km",
+            "max_total_line_gas_pipeline_km DOUBLE PRECISION",
+        )
+        _add_column_if_missing(
+            conn,
+            table,
+            "km_per_pad_gas_pipeline",
+            "km_per_pad_gas_pipeline DOUBLE PRECISION",
+        )
+
+    _add_column_if_missing(
+        conn,
+        "poi_infrastructure_analysis",
+        "nearest_node_id",
+        "nearest_node_id UUID REFERENCES infrastructure_nodes(id) ON DELETE SET NULL",
+    )
+    _add_column_if_missing(
+        conn,
+        "poi_infrastructure_analysis",
+        "force_construction",
+        "force_construction BOOLEAN NOT NULL DEFAULT FALSE",
+    )
     _add_column_if_missing(
         conn,
         "points_of_interest",

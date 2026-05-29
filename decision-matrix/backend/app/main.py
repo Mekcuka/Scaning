@@ -1,7 +1,10 @@
 # release: Scaning main (deploy trigger)
 import asyncio
 import logging
+import subprocess
+import sys
 from contextlib import asynccontextmanager
+from pathlib import Path
 
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
@@ -14,13 +17,29 @@ from app.core.sqlite_migrate import patch_postgres_schema, patch_sqlite_schema
 
 
 logger = logging.getLogger(__name__)
+BACKEND_ROOT = Path(__file__).resolve().parent.parent
+
+
+def run_alembic_upgrade() -> None:
+    proc = subprocess.run(
+        [sys.executable, "-m", "alembic", "upgrade", "head"],
+        cwd=BACKEND_ROOT,
+        capture_output=True,
+        text=True,
+    )
+    if proc.returncode != 0:
+        logger.error("Alembic upgrade failed: %s", (proc.stderr or proc.stdout).strip())
+        raise RuntimeError("Alembic upgrade failed")
+    if proc.stdout.strip():
+        logger.info("Alembic: %s", proc.stdout.strip())
 
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     if settings.is_sqlite:
-        from pathlib import Path
         Path("data").mkdir(exist_ok=True)
+    elif not settings.is_sqlite:
+        run_alembic_upgrade()
 
     async def init_db() -> None:
         async with engine.begin() as conn:
