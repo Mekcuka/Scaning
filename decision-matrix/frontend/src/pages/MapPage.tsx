@@ -45,7 +45,9 @@ import {
 import { iconDataUrl } from '../lib/mapIcons';
 import {
   LINE_SUBTYPES,
-  POINT_SUBTYPES,
+  LAYER_VISIBILITY_GROUPS,
+  createDefaultSubtypeFilter,
+  MAP_DRAWABLE_POINT_SUBTYPES,
   SUBTYPE_LABELS,
   api,
   normalizePoiAnalysisResponse,
@@ -74,26 +76,36 @@ import { useAppStore } from '../store';
 const THRESHOLD_META: { subtype: string; color: string; label: string; defaultKm: number }[] = [
   { subtype: 'gas_processing', color: '#ff6f00', label: 'ГКС', defaultKm: 80 },
   { subtype: 'gtes', color: '#d84315', label: 'ГТЭС', defaultKm: 60 },
+  { subtype: 'gpes', color: '#e64a19', label: 'ГПЭС', defaultKm: 60 },
+  { subtype: 'vies', color: '#43a047', label: 'ВИЭС', defaultKm: 60 },
   { subtype: 'substation', color: '#f9a825', label: 'ПС/ТП', defaultKm: 25 },
   { subtype: 'refinery', color: '#455a64', label: 'НПЗ', defaultKm: 100 },
 ];
 
-const LAYER_GROUPS: { id: string; label: string; subtypes: string[] }[] = [
-  { id: 'roads', label: 'Дороги', subtypes: ['autoroad'] },
-  {
-    id: 'pipelines',
-    label: 'Трубопроводы',
-    subtypes: ['oil_pipeline', 'gas_pipeline', 'water_pipeline', 'power_line'],
-  },
-  {
-    id: 'areas',
-    label: 'Площадные объекты',
-    subtypes: ['gas_processing', 'gtes', 'substation', 'refinery'],
-  },
-  { id: 'nodes', label: 'Узлы', subtypes: ['node'] },
-];
-
 const MOVE_MATCH_EPS = 1e-6;
+
+function PointSubtypeMenuItem({
+  st,
+  selected,
+  onPick,
+}: {
+  st: string;
+  selected: boolean;
+  onPick: (st: string) => void;
+}) {
+  return (
+    <button
+      type="button"
+      className={`w-full text-left px-3 py-1.5 hover:bg-[var(--bg)] flex items-center gap-2 ${
+        selected ? 'font-medium' : ''
+      }`}
+      onClick={() => onPick(st)}
+    >
+      <img src={iconDataUrl(st)} alt="" className="w-4 h-4 shrink-0" draggable={false} />
+      <span className="truncate">{SUBTYPE_LABELS[st] || st}</span>
+    </button>
+  );
+}
 
 function sameCoord(a: number, b: number): boolean {
   return Math.abs(a - b) <= MOVE_MATCH_EPS;
@@ -117,7 +129,6 @@ export function MapPage() {
   const queryClient = useQueryClient();
   const mapRefreshNonce = useAppStore((s) => s.mapRefreshNonce);
   const pushToast = useAppStore((s) => s.pushToast);
-  const [basemap, setBasemap] = useState<'osm' | 'satellite' | 'terrain'>('osm');
   const [showBasemap, setShowBasemap] = useState(true);
   const [cursor, setCursor] = useState<{ lon: number; lat: number } | null>(null);
   const [mapPointerInside, setMapPointerInside] = useState(false);
@@ -161,18 +172,7 @@ export function MapPage() {
   const [candidateParamType, setCandidateParamType] = useState<'external' | 'external_linear'>('external');
   const [pointMenuOpen, setPointMenuOpen] = useState(false);
   const [lineMenuOpen, setLineMenuOpen] = useState(false);
-  const [subtypeFilter, setSubtypeFilter] = useState<Record<string, boolean>>({
-    gas_processing: true,
-    gtes: true,
-    substation: true,
-    refinery: true,
-    node: true,
-    autoroad: true,
-    oil_pipeline: true,
-    gas_pipeline: true,
-    water_pipeline: true,
-    power_line: true,
-  });
+  const [subtypeFilter, setSubtypeFilter] = useState(createDefaultSubtypeFilter);
   const [showNetwork, setShowNetwork] = useState(false);
   const [mapFocus, setMapFocus] = useState<MapFocusTarget | null>(null);
   const [mapEditEnabled, setMapEditEnabled] = useState(false);
@@ -320,7 +320,7 @@ export function MapPage() {
     onSuccess: () => queryClient.invalidateQueries({ queryKey: ['layers', projectId] }),
   });
 
-  const setGroupSubtypesVisible = useCallback((subtypes: string[], visible: boolean) => {
+  const setGroupSubtypesVisible = useCallback((subtypes: readonly string[], visible: boolean) => {
     setSubtypeFilter((prev) => {
       const next = { ...prev };
       for (const st of subtypes) next[st] = visible;
@@ -329,7 +329,7 @@ export function MapPage() {
   }, []);
 
   const isGroupVisible = useCallback(
-    (subtypes: string[]) => subtypes.every((st) => subtypeFilter[st] !== false),
+    (subtypes: readonly string[]) => subtypes.every((st) => subtypeFilter[st] !== false),
     [subtypeFilter],
   );
 
@@ -1636,32 +1636,22 @@ export function MapPage() {
                 anchorRef={pointMenuAnchorRef}
                 open={pointMenuOpen}
                 onClose={() => setPointMenuOpen(false)}
-                width={176}
+                width={220}
                 className="app-anchored-menu--flat"
                 ariaLabel="Тип точечного объекта"
               >
-                {POINT_SUBTYPES.map((st) => (
-                  <button
+                {MAP_DRAWABLE_POINT_SUBTYPES.map((st) => (
+                  <PointSubtypeMenuItem
                     key={st}
-                    type="button"
-                    className={`w-full text-left px-3 py-1.5 hover:bg-[var(--bg)] flex items-center gap-2 ${
-                      infraForm.subtype === st ? 'font-medium' : ''
-                    }`}
-                    onClick={() => {
-                      setInfraForm((f) => ({ ...f, subtype: st }));
+                    st={st}
+                    selected={infraForm.subtype === st}
+                    onPick={(subtype) => {
+                      setInfraForm((f) => ({ ...f, subtype }));
                       setPointMenuOpen(false);
                       setSelectMenuOpen(false);
                       setDrawMode('point');
                     }}
-                  >
-                    <img
-                      src={iconDataUrl(st)}
-                      alt=""
-                      className="w-4 h-4 shrink-0"
-                      draggable={false}
-                    />
-                    <span className="truncate">{SUBTYPE_LABELS[st] || st}</span>
-                  </button>
+                  />
                 ))}
               </AnchoredMenu>
             </div>
@@ -1693,7 +1683,7 @@ export function MapPage() {
               anchorRef={lineMenuAnchorRef}
               open={lineMenuOpen}
               onClose={() => setLineMenuOpen(false)}
-              width={176}
+              width={200}
               className="app-anchored-menu--flat"
               ariaLabel="Тип линейного объекта"
             >
@@ -1898,7 +1888,7 @@ export function MapPage() {
                     <span className="truncate">{layer.name}</span>
                   </label>
                 ))}
-                {LAYER_GROUPS.map((group) => (
+                {LAYER_VISIBILITY_GROUPS.map((group) => (
                   <label key={group.id} className="layer-item">
                     <input
                       type="checkbox"
@@ -1947,25 +1937,9 @@ export function MapPage() {
 
               <div className="layer-group">
                 <h4>Базовая карта</h4>
-                {(
-                  [
-                    { value: 'osm', label: 'OSM' },
-                    { value: 'satellite', label: 'Satellite' },
-                    { value: 'terrain', label: 'Terrain' },
-                  ] as const
-                ).map(({ value, label }) => (
-                  <label key={value} className="layer-item">
-                    <input
-                      type="radio"
-                      name="basemap"
-                      value={value}
-                      checked={basemap === value}
-                      disabled={!showBasemap}
-                      onChange={() => setBasemap(value)}
-                    />
-                    <span>{label}</span>
-                  </label>
-                ))}
+                <p className="text-xs mb-2" style={{ color: 'var(--text-muted)' }}>
+                  Esri World Imagery
+                </p>
                 <label className="layer-item">
                   <input
                     type="checkbox"
@@ -2063,7 +2037,6 @@ export function MapPage() {
             viewStateId="main"
             pois={showPoisOnMap ? pois : []}
             infraObjects={filteredInfra}
-            basemap={basemap}
             showBasemap={showBasemap}
             drawMode={drawMode}
             selectMode={selectMode}

@@ -3,10 +3,9 @@ import OlMap from 'ol/Map';
 import View from 'ol/View';
 import TileLayer from 'ol/layer/Tile';
 import VectorLayer from 'ol/layer/Vector';
-import OSM from 'ol/source/OSM';
 import XYZ from 'ol/source/XYZ';
+import type { Options as XyzOptions } from 'ol/source/XYZ';
 import VectorSource from 'ol/source/Vector';
-import Cluster from 'ol/source/Cluster';
 import { boundingExtent } from 'ol/extent';
 import { fromLonLat, getPointResolution, transform } from 'ol/proj';
 import Feature from 'ol/Feature';
@@ -24,7 +23,7 @@ import { click } from 'ol/events/condition';
 import Overlay from 'ol/Overlay';
 import type { AnalysisRow, InfraObject, POI } from '../lib/api';
 import { isValidAnalysisAnchor } from '../lib/analysisDisplay';
-import { iconDataUrl } from '../lib/mapIcons';
+import { MAP_SUBTYPE_COLORS, iconDataUrl } from '../lib/mapIcons';
 import {
   loadMapViewState,
   resolveInitialMapView,
@@ -71,18 +70,6 @@ function syncFeaturesById(
   });
 }
 
-const SUBTYPE_COLORS: Record<string, string> = {
-  autoroad: '#000000',
-  oil_pipeline: '#5d4037',
-  gas_pipeline: '#fbc02d',
-  water_pipeline: '#2196f3',
-  power_line: '#2e7d32',
-  gas_processing: '#ff6f00',
-  gtes: '#d84315',
-  substation: '#f9a825',
-  refinery: '#455a64',
-  node: '#6a1b9a',
-};
 const LINE_SUBTYPE_SET = new Set<string>(LINE_SUBTYPES as readonly string[]);
 
 const STATUS_LINE_COLOR: Record<string, string> = {
@@ -161,8 +148,7 @@ export interface NetworkEdge {
 interface MapViewProps {
   pois?: POI[];
   infraObjects?: InfraObject[];
-  basemap?: 'osm' | 'satellite' | 'terrain';
-  /** When false, tile underlay is hidden (vectors/radii/network remain). */
+  /** When false, Esri tile underlay is hidden (vectors/radii/network remain). */
   showBasemap?: boolean;
   drawMode?: DrawMode;
   selectMode?: SelectMode;
@@ -219,7 +205,7 @@ type LinkedLineDragState = {
 function layerOpacityMap(layers: InfraLayer[] | undefined): Record<string, number> {
   const m: Record<string, number> = {};
   layers?.forEach((l) => {
-    if (l.is_visible) m[l.id] = l.opacity ?? 1;
+    m[l.id] = l.is_visible ? (l.opacity ?? 1) : 0;
   });
   return m;
 }
@@ -233,24 +219,32 @@ function layerColorMap(layers: InfraLayer[] | undefined): Record<string, string>
   return m;
 }
 
-function createBasemap(type: string): TileLayer {
-  if (type === 'satellite') {
-    return new TileLayer({
-      source: new XYZ({
-        url: 'https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}',
-        attributions: 'Esri',
-      }),
+/** Fast tile defaults: no fade-in; subdomains {a-d} for parallel HTTP/2 requests. */
+const XYZ_TILE_DEFAULTS: Pick<XyzOptions, 'crossOrigin' | 'transition' | 'maxZoom'> = {
+  crossOrigin: 'anonymous',
+  transition: 0,
+  maxZoom: 19,
+};
+
+let esriBasemapSource: XYZ | null = null;
+
+function getEsriBasemapSource(): XYZ {
+  if (!esriBasemapSource) {
+    esriBasemapSource = new XYZ({
+      ...XYZ_TILE_DEFAULTS,
+      url: 'https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}',
+      attributions: 'Tiles © Esri',
     });
   }
-  if (type === 'terrain') {
-    return new TileLayer({
-      source: new XYZ({
-        url: 'https://tile.opentopomap.org/{z}/{x}/{y}.png',
-        attributions: 'OpenTopoMap',
-      }),
-    });
-  }
-  return new TileLayer({ source: new OSM() });
+  return esriBasemapSource;
+}
+
+function createBasemapLayer(): TileLayer {
+  return new TileLayer({
+    source: getEsriBasemapSource(),
+    preload: 2,
+    cacheSize: 512,
+  });
 }
 
 function lineStyleForStatus(status: string): Style {
@@ -331,7 +325,7 @@ function pointIconStyle(subtype: string, scale = 1): Style[] {
 }
 
 function fallbackPointStyle(subtype: string, scale = 1): Style {
-  const color = subtype === 'poi' ? '#e53935' : SUBTYPE_COLORS[subtype] || '#666';
+  const color = subtype === 'poi' ? '#e53935' : MAP_SUBTYPE_COLORS[subtype] || '#666';
   return new Style({
     image: new CircleStyle({
       radius: (subtype === 'poi' ? 10 : 7) * scale,
@@ -367,7 +361,6 @@ function pointFeatureStyles(
 export function MapView({
   pois = [],
   infraObjects = [],
-  basemap = 'osm',
   showBasemap = true,
   drawMode = 'select',
   selectMode = 'single',
@@ -406,15 +399,13 @@ export function MapView({
   viewStateScope = null,
 }: MapViewProps) {
   const projectId = useAppStore((s) => s.currentProjectId);
-  const opacityByLayer = layerOpacityMap(layers);
-  const colorByLayer = layerColorMap(layers);
+  const layersRef = useRef(layers);
+  layersRef.current = layers;
   const containerRef = useRef<HTMLDivElement>(null);
   const mapRef = useRef<OlMap | null>(null);
   const pointSourceRef = useRef(new VectorSource());
   const lineSourceRef = useRef(new VectorSource());
   const networkSourceRef = useRef(new VectorSource());
-  // Disable clustering so imported points keep their own subtype color/icon.
-  const clusterSourceRef = useRef(new Cluster({ distance: 0, source: pointSourceRef.current }));
   const radiusSourceRef = useRef(new VectorSource());
   const placementPreviewSourceRef = useRef(new VectorSource());
   const connectionSourceRef = useRef(new VectorSource());
@@ -424,6 +415,7 @@ export function MapView({
   const dragPanRef = useRef<DragPan | null>(null);
   const pointLayerRef = useRef<VectorLayer<VectorSource> | null>(null);
   const lineLayerRef = useRef<VectorLayer<VectorSource> | null>(null);
+  const basemapLayerRef = useRef<TileLayer | null>(null);
   const hoveredIdRef = useRef<string | null>(null);
   const onMapClickRef = useRef(onMapClick);
   const onPointerMoveRef = useRef(onPointerMove);
@@ -493,12 +485,14 @@ export function MapView({
         const id = feature.get('id') as string;
         const hovered = id && hoveredIdRef.current === id;
         const layerId = feature.get('layer_id') as string | undefined;
+        const opacityByLayer = layerOpacityMap(layersRef.current);
+        const colorByLayer = layerColorMap(layersRef.current);
         const op = layerId ? opacityByLayer[layerId] ?? 1 : 1;
         const custom = layerId ? colorByLayer[layerId] : undefined;
         // For linear objects keep canonical subtype colors; layer color remains for non-line objects.
         const color = LINE_SUBTYPE_SET.has(subtype)
-          ? (SUBTYPE_COLORS[subtype] || '#666')
-          : (custom || SUBTYPE_COLORS[subtype] || '#666');
+          ? (MAP_SUBTYPE_COLORS[subtype] || '#666')
+          : (custom || MAP_SUBTYPE_COLORS[subtype] || '#666');
         const strokeColor =
           op < 1 && color.startsWith('#')
             ? `${color}${Math.round(op * 255)
@@ -523,24 +517,13 @@ export function MapView({
     });
 
     const pointLayer = new VectorLayer({
-      source: clusterSourceRef.current,
+      source: pointSourceRef.current,
       zIndex: 4,
       style: (feature) => {
-        const features = feature.get('features') as Feature[] | undefined;
-        const inner = features?.length === 1 ? features[0] : feature;
-        const size = features?.length ?? 1;
-        if (size > 1) {
-          return new Style({
-            image: new CircleStyle({
-              radius: 12,
-              fill: new Fill({ color: '#607d8b' }),
-              stroke: new Stroke({ color: '#fff', width: 2 }),
-            }),
-          });
-        }
-        const subtype = inner.get('subtype') as string;
-        const id = inner.get('id') as string;
-        const layerId = inner.get('layer_id') as string | undefined;
+        const subtype = feature.get('subtype') as string;
+        const id = feature.get('id') as string;
+        const layerId = feature.get('layer_id') as string | undefined;
+        const opacityByLayer = layerOpacityMap(layersRef.current);
         const op = layerId ? opacityByLayer[layerId] ?? 1 : 1;
         const scale = (op < 0.5 ? 0.85 : 1);
         if (op <= 0) return new Style({});
@@ -596,14 +579,14 @@ export function MapView({
       },
     });
 
+    const basemapLayer = createBasemapLayer();
+    basemapLayer.setVisible(showBasemap);
+    basemapLayerRef.current = basemapLayer;
+
     const map = new OlMap({
       target: containerRef.current,
       layers: [
-        (() => {
-          const layer = createBasemap(basemap);
-          layer.setVisible(showBasemap);
-          return layer;
-        })(),
+        basemapLayer,
         radiusLayer,
         networkLayer,
         connectionLayer,
@@ -686,10 +669,7 @@ export function MapView({
       lineSourceRef.current.forEachFeatureIntersectingExtent(extent, (feature) => {
         addFeature(feature);
       });
-      const pointSource = editModeRef.current
-        ? pointSourceRef.current
-        : clusterSourceRef.current;
-      pointSource.forEachFeatureIntersectingExtent(extent, (feature) => {
+      pointSourceRef.current.forEachFeatureIntersectingExtent(extent, (feature) => {
         addFeature(feature);
       });
 
@@ -758,7 +738,7 @@ export function MapView({
       const inner = members?.length === 1 ? members[0] : f;
       const kind = inner.get('featureKind') as string;
       const id = inner.get('id') as string;
-      // Modify updates the selected wrapper (cluster); read geometry from `f`, not stale inner.
+      // Read geometry from the selected feature (`f`).
       const geom = f.getGeometry();
       if (!geom || !kind || !id) {
         finishSession();
@@ -766,7 +746,7 @@ export function MapView({
       }
       if (members?.length === 1 && inner !== f && geom instanceof Point) {
         inner.setGeometry(geom.clone());
-        clusterSourceRef.current.refresh();
+        pointLayerRef.current?.changed();
       }
       let save: void | Promise<void>;
       if (geom instanceof Point) {
@@ -1055,6 +1035,7 @@ export function MapView({
       viewport.removeEventListener('pointerdown', onLinePointerDown, true);
       map.setTarget(undefined);
       mapRef.current = null;
+      basemapLayerRef.current = null;
     };
   }, []);
 
@@ -1095,11 +1076,10 @@ export function MapView({
   }, [viewStateScope, projectId, viewStateId]);
 
   useEffect(() => {
-    if (!mapRef.current) return;
-    const layer = createBasemap(basemap);
+    const layer = basemapLayerRef.current;
+    if (!layer) return;
     layer.setVisible(showBasemap);
-    mapRef.current.getLayers().setAt(0, layer);
-  }, [basemap, showBasemap]);
+  }, [showBasemap]);
 
   useEffect(() => {
     const isSelect = drawMode === 'select';
@@ -1130,17 +1110,8 @@ export function MapView({
   }, [drawMode, selectMode, editMode]);
 
   useEffect(() => {
-    const layer = pointLayerRef.current;
-    const select = selectRef.current;
-    if (!layer) return;
-    select?.getFeatures().clear();
-    if (editMode) {
-      layer.setSource(pointSourceRef.current);
-    } else {
-      layer.setSource(clusterSourceRef.current);
-      clusterSourceRef.current.refresh();
-    }
-  }, [editMode]);
+    pointLayerRef.current?.changed();
+  }, [layers]);
 
   useEffect(() => {
     if (selectMode !== 'box') return;
@@ -1166,19 +1137,10 @@ export function MapView({
       }
     }
     collection.clear();
-    if (editMode) {
-      pointSourceRef.current.getFeatures().forEach((f) => {
-        const id = f.get('id') as string;
-        if (targetIds.has(id) && f.get('subtype') !== 'draft') collection.push(f);
-      });
-    } else {
-      clusterSourceRef.current.getFeatures().forEach((cf) => {
-        const members = cf.get('features') as Feature[] | undefined;
-        if (members?.some((m) => targetIds.has(m.get('id') as string))) {
-          collection.push(cf);
-        }
-      });
-    }
+    pointSourceRef.current.getFeatures().forEach((f) => {
+      const id = f.get('id') as string;
+      if (targetIds.has(id) && f.get('subtype') !== 'draft') collection.push(f);
+    });
     lineSourceRef.current.getFeatures().forEach((f) => {
       const id = f.get('id') as string;
       if (targetIds.has(id) && f.get('subtype') !== 'draft') collection.push(f);
@@ -1224,7 +1186,7 @@ export function MapView({
     syncFeaturesById(lines, lineItems, 'draft');
     syncFeaturesById(points, pointItems);
 
-    clusterSourceRef.current.refresh();
+    pointLayerRef.current?.changed();
   }, [pois, infraObjects]);
 
   useEffect(() => {

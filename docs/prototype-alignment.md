@@ -28,6 +28,7 @@
 |-------------|---------|--------------|
 | Dashboard | `dashboard` | FR-12.2.1, user-flow §Dashboard |
 | Карта | `map` | FR-2.1–2.4, FR-2.5.6–2.5.7, FR-10.x (визуализация) |
+| **Потоки (PFD)** | — (только prod UI) | [fluid-flow-schematic.md](./fluid-flow-schematic.md), user-flows §3.9 |
 | **Импорт** | `import` | FR-2.5.1–2.5.5, FR-2.5.8 |
 | Проекты | `projects`, `project` | FR-4.x, FR-5.x |
 | **Ставки** | `rates` | FR-4.1.2 |

@@ -19,6 +19,7 @@ from app.geo.geometry_utils import build_infra_geometry
 from app.geo.validation import category_for_subtype, validate_subtype_geometry
 from app.models import ImportLog, InfrastructureLayer, InfrastructureObject
 from app.services.line_endpoint_rules import LineEndpointRuleError, validate_line_endpoint_matrix
+from app.services.spark_import import is_spark_project_export, parse_spark_project
 
 
 def _parse_csv_rows(content: str) -> tuple[list[dict], list[str]]:
@@ -151,11 +152,16 @@ async def import_rows_to_layer(
     rows: list[dict],
     *,
     build_network: bool = False,
+    skip_line_endpoint_validation: bool = False,
 ) -> tuple[int, list[str]]:
     count = 0
     errors: list[str] = []
     for idx, row in enumerate(rows, start=1):
-        if row.get("end_lon") is not None and row.get("end_lat") is not None:
+        if (
+            not skip_line_endpoint_validation
+            and row.get("end_lon") is not None
+            and row.get("end_lat") is not None
+        ):
             try:
                 await validate_line_endpoint_matrix(
                     db,
@@ -170,7 +176,7 @@ async def import_rows_to_layer(
             except LineEndpointRuleError as e:
                 errors.append(f"Row {idx} ({row['name']}): {e}")
                 continue
-        props = {}
+        props: dict = dict(row.get("properties") or {})
         if row.get("coordinates"):
             props["coordinates"] = row["coordinates"]
         db.add(
@@ -290,11 +296,37 @@ def _shapefile_zip_to_geojson_bytes(data: bytes) -> tuple[str | None, str | None
         return out.read_text(encoding="utf-8"), None
 
 
+def detect_import_format(content: str, filename: str = "") -> str:
+    """Choose parser: csv, kml, spark, or geojson."""
+    lower = filename.lower()
+    if lower.endswith(".csv"):
+        return "csv"
+    if lower.endswith((".kml", ".kmz")):
+        return "kml"
+    try:
+        data = json.loads(content)
+        if is_spark_project_export(data):
+            return "spark"
+    except json.JSONDecodeError:
+        pass
+    return "geojson"
+
+
 def parse_import_content(content: str, format: str) -> tuple[list[dict], list[str]]:
     if format == "csv":
         return _parse_csv_rows(content)
     if format == "kml":
         return _parse_kml(content)
+    if format == "spark":
+        return parse_spark_project(content)
+    if format == "geojson":
+        try:
+            data = json.loads(content)
+            if is_spark_project_export(data):
+                return parse_spark_project(content)
+        except json.JSONDecodeError:
+            pass
+        return _parse_geojson(content)
     return _parse_geojson(content)
 
 
@@ -327,7 +359,13 @@ async def run_file_import(
     imported = 0
     import_errors: list[str] = []
     if rows:
-        imported, import_errors = await import_rows_to_layer(db, layer, rows, build_network=True)
+        imported, import_errors = await import_rows_to_layer(
+            db,
+            layer,
+            rows,
+            build_network=True,
+            skip_line_endpoint_validation=(format == "spark"),
+        )
     if import_errors:
         log.errors = [*errors, *import_errors]
     log.records_imported = imported
@@ -388,7 +426,13 @@ async def process_import_log(
         imported = 0
         import_errors: list[str] = []
         if rows:
-            imported, import_errors = await import_rows_to_layer(db, layer, rows, build_network=True)
+            imported, import_errors = await import_rows_to_layer(
+                db,
+                layer,
+                rows,
+                build_network=True,
+                skip_line_endpoint_validation=(format == "spark"),
+            )
         if import_errors:
             log.errors = [*errors, *import_errors]
         log.records_imported = imported

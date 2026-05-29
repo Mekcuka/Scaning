@@ -70,6 +70,18 @@
 | Legacy `decision_matrices` | Не удалять (FR-14.1.3) |
 | Seed `criteria` | 6 preset, FR-14.1.5 |
 
+## Ревизия: схема потоков PFD (май 2026)
+
+| Решение | Где зафиксировано |
+|---------|-------------------|
+| Вкладка «Потоки» `/flows`, React Flow + API flow-schematic | [fluid-flow-schematic.md](./fluid-flow-schematic.md) §9, user-flows §3.9 |
+| Ветка «Вода» всегда для `fluid_type = oil` | fluid-flow-schematic §3.1, `active_fluids` |
+| Локальная закачка → «В пласт»; централизованная → БКНС → «В пласт» | fluid-flow-schematic §3.3, map-objects §1.6 |
+| `water_injection_volume` POI — popover блока «В пласт» | fluid-flow-schematic §3.3, input-parameters `poi_water_injection_volume` |
+| Пропускная способность на карте (`properties`) + PFD | map-objects §1.6, input-parameters `infra_throughput_*` |
+| Слияние layout с расчётной топологией | fluid-flow-schematic §6, `flow_schematic_merge.py` |
+| PFD vs анализ: разные правила активации водопровода | fluid-flow-schematic §3.3 (примечание) |
+
 ### Чеклист: добавление нового параметра
 
 1. Заполнить заявку (шаблон в [input-parameters.md](./input-parameters.md) §10).

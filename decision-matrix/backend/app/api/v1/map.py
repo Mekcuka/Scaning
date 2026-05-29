@@ -10,7 +10,12 @@ from app.api.deps import get_current_user
 from app.core.database import get_db
 from app.geo.constants import LINE_SUBTYPES
 from app.geo.geometry_utils import build_infra_geometry, line_coordinates_for_storage, point_wkt
-from app.geo.validation import category_for_subtype, validate_subtype_geometry
+from app.geo.validation import (
+    category_for_subtype,
+    validate_general_infra_create,
+    validate_subtype_change,
+    validate_subtype_geometry,
+)
 from app.models import (
     ImportLog,
     InfrastructureEdge,
@@ -28,6 +33,7 @@ from app.schemas import (
     CandidateResponse,
     ImportLogResponse,
     ImportPreviewResponse,
+    FacilityInfraObjectCreate,
     InfraObjectCreate,
     InfraObjectResponse,
     InfraObjectUpdate,
@@ -41,6 +47,7 @@ from app.services.infrastructure_analysis import build_enriched_analysis_from_db
 from app.services.graph_builder import build_network_from_lines, prune_disconnected_nodes
 from app.services.import_service import (
     create_pending_import_log,
+    detect_import_format,
     parse_import_content,
     run_file_import,
     run_shapefile_import,
@@ -258,33 +265,31 @@ async def clear_project_infrastructure(
     }
 
 
-@map_router.post("/projects/{project_id}/infrastructure/objects", response_model=InfraObjectResponse, status_code=201)
-async def create_infra_object(
+async def _create_infra_object_record(
+    db: AsyncSession,
+    *,
     project_id: UUID,
     data: InfraObjectCreate,
-    user: User = Depends(get_current_user),
-    db: AsyncSession = Depends(get_db),
-):
-    await _get_user_project(project_id, user, db)
-    subtype = data.subtype.lower().strip()
+    layer_source_type: str = "manual",
+) -> InfrastructureObject:
+    from app.geo.constants import normalize_infra_subtype
+
+    subtype = normalize_infra_subtype(data.subtype)
     has_line = data.end_lon is not None or (data.coordinates and len(data.coordinates) >= 2)
     validate_subtype_geometry(subtype, has_line_endpoints=has_line, coordinate_count=len(data.coordinates or [1]))
-    try:
-        geom = build_infra_geometry(
-            subtype,
-            data.lon,
-            data.lat,
-            end_lon=data.end_lon,
-            end_lat=data.end_lat,
-            coordinates=data.coordinates,
-        )
-    except ValueError as e:
-        raise HTTPException(status_code=400, detail=str(e))
+    geom = build_infra_geometry(
+        subtype,
+        data.lon,
+        data.lat,
+        end_lon=data.end_lon,
+        end_lat=data.end_lat,
+        coordinates=data.coordinates,
+    )
 
     if data.layer_id:
         layer = await _get_layer(data.layer_id, project_id, db)
     else:
-        layer = await _get_or_create_default_layer(project_id, db, source_type="manual")
+        layer = await _get_or_create_default_layer(project_id, db, source_type=layer_source_type)
 
     props = dict(data.properties)
     if data.description:
@@ -305,19 +310,16 @@ async def create_infra_object(
         props["coordinates"] = line_coords
 
     if subtype in LINE_SUBTYPES:
-        try:
-            await validate_line_endpoint_matrix(
-                db,
-                project_id=project_id,
-                line_subtype=subtype,
-                lon=data.lon,
-                lat=data.lat,
-                end_lon=end_lon,
-                end_lat=end_lat,
-                coordinates=line_coords,
-            )
-        except LineEndpointRuleError as e:
-            raise HTTPException(status_code=400, detail=str(e))
+        await validate_line_endpoint_matrix(
+            db,
+            project_id=project_id,
+            line_subtype=subtype,
+            lon=data.lon,
+            lat=data.lat,
+            end_lon=end_lon,
+            end_lat=end_lat,
+            coordinates=line_coords,
+        )
 
     obj = InfrastructureObject(
         layer_id=layer.id,
@@ -335,6 +337,59 @@ async def create_infra_object(
     await db.flush()
     if obj.end_longitude is not None:
         await build_network_from_lines(db, project_id)
+    return obj
+
+
+@map_router.post("/projects/{project_id}/infrastructure/objects", response_model=InfraObjectResponse, status_code=201)
+async def create_infra_object(
+    project_id: UUID,
+    data: InfraObjectCreate,
+    user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    await _get_user_project(project_id, user, db)
+    subtype = data.subtype.lower().strip()
+    try:
+        validate_general_infra_create(subtype)
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e)) from e
+    try:
+        obj = await _create_infra_object_record(db, project_id=project_id, data=data)
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e)) from e
+    except LineEndpointRuleError as e:
+        raise HTTPException(status_code=400, detail=str(e)) from e
+    await db.commit()
+    await db.refresh(obj)
+    return infra_to_response(obj)
+
+
+@map_router.post(
+    "/projects/{project_id}/infrastructure/facility-objects",
+    response_model=InfraObjectResponse,
+    status_code=201,
+)
+async def create_facility_infra_object(
+    project_id: UUID,
+    data: FacilityInfraObjectCreate,
+    user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    """Создать НПЗ или НПС — в теле обязательно поле subtype."""
+    await _get_user_project(project_id, user, db)
+    payload = InfraObjectCreate(
+        name=data.name,
+        subtype=data.subtype,
+        lon=data.lon,
+        lat=data.lat,
+        layer_id=data.layer_id,
+        properties=data.properties,
+        description=data.description,
+    )
+    try:
+        obj = await _create_infra_object_record(db, project_id=project_id, data=payload)
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e)) from e
     await db.commit()
     await db.refresh(obj)
     return infra_to_response(obj)
@@ -362,9 +417,16 @@ async def update_infra_object(
         k in payload for k in ("lon", "lat", "end_lon", "end_lat", "coordinates", "subtype")
     ):
         coords = _infra_line_coordinates(obj)
-    subtype = payload.get("subtype", obj.subtype).lower()
+    from app.geo.constants import normalize_infra_subtype
+
+    subtype = normalize_infra_subtype(payload.get("subtype", obj.subtype))
 
     if any(k in payload for k in ("lon", "lat", "end_lon", "end_lat", "coordinates", "subtype")):
+        if "subtype" in payload:
+            try:
+                validate_subtype_change(normalize_infra_subtype(obj.subtype), subtype)
+            except ValueError as e:
+                raise HTTPException(status_code=400, detail=str(e)) from e
         has_line = end_lon is not None or (coords and len(coords) >= 2)
         validate_subtype_geometry(subtype, has_line_endpoints=has_line)
         try:
@@ -631,7 +693,7 @@ async def preview_import(
     user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
     file: UploadFile = File(...),
-    format: str = Query("csv", pattern="^(csv|geojson|kml)$"),
+    format: str = Query("csv", pattern="^(csv|geojson|kml|spark)$"),
 ):
     await _get_user_project(project_id, user, db)
     raw = await file.read()
@@ -648,9 +710,9 @@ async def preview_import(
         else:
             content = raw.decode("utf-8", errors="replace")
             fmt = "kml"
-    elif format == "geojson" or name.endswith((".geojson", ".json")):
+    elif format in ("geojson", "spark") or name.endswith((".geojson", ".json")):
         content = raw.decode("utf-8", errors="replace")
-        fmt = "geojson"
+        fmt = format if format == "spark" else detect_import_format(content, name)
     else:
         content = raw.decode("utf-8-sig")
         fmt = "csv"
@@ -855,6 +917,54 @@ async def import_kml_async(
     await db.commit()
     await db.refresh(log)
     schedule_async_import(log.id, layer_id=layer.id, content=content, format="kml")
+    return log
+
+
+@map_router.post("/projects/{project_id}/import/spark", response_model=ImportLogResponse)
+async def import_spark(
+    project_id: UUID,
+    user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+    file: UploadFile = File(...),
+):
+    await _get_user_project(project_id, user, db)
+    content = (await file.read()).decode("utf-8")
+    layer = await _get_or_create_default_layer(project_id, db, source_type="spark_import", name="Импорт Spark")
+    log = await run_file_import(
+        db,
+        user_id=user.id,
+        project_id=project_id,
+        layer=layer,
+        source_type="spark_import",
+        file_name=file.filename or "export.json",
+        content=content,
+        format="spark",
+    )
+    await db.commit()
+    await db.refresh(log)
+    return log
+
+
+@map_router.post("/projects/{project_id}/import/spark/async", response_model=ImportLogResponse, status_code=202)
+async def import_spark_async(
+    project_id: UUID,
+    user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+    file: UploadFile = File(...),
+):
+    await _get_user_project(project_id, user, db)
+    content = (await file.read()).decode("utf-8")
+    layer = await _get_or_create_default_layer(project_id, db, source_type="spark_import", name="Импорт Spark")
+    log = await create_pending_import_log(
+        db,
+        user_id=user.id,
+        project_id=project_id,
+        source_type="spark_import",
+        file_name=file.filename or "export.json",
+    )
+    await db.commit()
+    await db.refresh(log)
+    schedule_async_import(log.id, layer_id=layer.id, content=content, format="spark")
     return log
 
 

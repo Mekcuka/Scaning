@@ -8,6 +8,7 @@ from sqlalchemy import select, text
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.config import settings
+from app.geo.constants import subtypes_for_nearest_search
 from app.geo.geometry_utils import point_wkt
 from app.services.cost_rates import EXTERNAL_LINEAR_SUBTYPES
 from app.models import (
@@ -117,16 +118,17 @@ async def find_nearest_object_by_subtype(
     # External subtypes: nearest point on any visible geometry (Point or LineString).
     # MVP previously skipped lines (point_only=True), so objects drawn/imported as lines were invisible to analysis.
     point_only = False
+    subtypes = subtypes_for_nearest_search(subtype)
     if settings.is_sqlite:
-        return await _find_nearest_sqlite(db, project_id, poi, subtype, point_only=point_only)
-    return await _find_nearest_postgis(db, project_id, poi, subtype, point_only=point_only)
+        return await _find_nearest_sqlite(db, project_id, poi, subtypes, point_only=point_only)
+    return await _find_nearest_postgis(db, project_id, poi, subtypes, point_only=point_only)
 
 
 async def _find_nearest_sqlite(
     db: AsyncSession,
     project_id: UUID,
     poi: PointOfInterest,
-    subtype: str,
+    subtypes: frozenset[str],
     *,
     point_only: bool = False,
 ) -> NearestResult | None:
@@ -136,7 +138,7 @@ async def _find_nearest_sqlite(
         .where(
             InfrastructureLayer.project_id == project_id,
             InfrastructureLayer.is_visible.is_(True),
-            InfrastructureObject.subtype == subtype,
+            InfrastructureObject.subtype.in_(subtypes),
         )
     )
     objects = (await db.execute(q)).scalars().all()
@@ -154,7 +156,7 @@ async def _find_nearest_postgis(
     db: AsyncSession,
     project_id: UUID,
     poi: PointOfInterest,
-    subtype: str,
+    subtypes: frozenset[str],
     *,
     point_only: bool = False,
 ) -> NearestResult | None:
@@ -163,6 +165,9 @@ async def _find_nearest_postgis(
         if point_only
         else ""
     )
+    subtype_list = sorted(subtypes)
+    in_clause = ", ".join(f":st_{i}" for i in range(len(subtype_list)))
+    bind = {f"st_{i}": st for i, st in enumerate(subtype_list)}
     sql = text(
         f"""
         SELECT io.id, io.name,
@@ -176,7 +181,7 @@ async def _find_nearest_postgis(
         FROM infrastructure_objects io
         JOIN infrastructure_layers il ON il.id = io.layer_id
         JOIN points_of_interest poi ON poi.id = :poi_id
-        WHERE il.project_id = :project_id AND il.is_visible = true AND io.subtype = :subtype
+        WHERE il.project_id = :project_id AND il.is_visible = true AND io.subtype IN ({in_clause})
         {geom_filter}
         ORDER BY distance_km ASC
         LIMIT 1
@@ -185,7 +190,7 @@ async def _find_nearest_postgis(
     row = (
         await db.execute(
             sql,
-            {"project_id": str(project_id), "poi_id": str(poi.id), "subtype": subtype},
+            {"project_id": str(project_id), "poi_id": str(poi.id), **bind},
         )
     ).first()
     if not row:

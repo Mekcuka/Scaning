@@ -548,7 +548,9 @@ table.data-table--projects .col-status {
 
 .app-anchored-menu--flat {
   padding: 0;
-  overflow: hidden;
+  /* Keep scroll from .app-anchored-menu; overflow:hidden clipped long subtype lists. */
+  overflow-x: hidden;
+  overflow-y: auto;
   font-size: 0.875rem;
 }
 

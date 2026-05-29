@@ -53,18 +53,7 @@ export function buildDefaultRates(): Record<string, number> {
   return rates;
 }
 
-export const SUBTYPE_LABELS: Record<string, string> = {
-  autoroad: 'Автодорога',
-  oil_pipeline: 'Нефтепровод',
-  gas_pipeline: 'Газопровод',
-  water_pipeline: 'Водопровод',
-  power_line: 'ЛЭП',
-  gas_processing: 'ГКС',
-  gtes: 'ГТЭС',
-  substation: 'ПС/ТП',
-  refinery: 'НПЗ',
-  pads: 'Кустовые площадки',
-};
+export { SUBTYPE_LABELS } from './api';
 
 export const STATUS_LABELS: Record<string, string> = {
   within_limit: 'В пределах',

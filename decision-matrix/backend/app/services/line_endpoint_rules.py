@@ -1,4 +1,4 @@
-"""Validation of allowed start/end object types for linear infrastructure."""
+"""Validation that line endpoints snap to a nearby point infrastructure object."""
 
 from __future__ import annotations
 
@@ -8,52 +8,16 @@ from uuid import UUID
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.geo.constants import LINE_SUBTYPES, SUBTYPE_CATEGORY
+from app.geo.constants import LINE_SUBTYPES, SUBTYPE_LABELS
 from app.models import InfrastructureLayer, InfrastructureObject
 from app.services.spatial import haversine_km
 
 # Endpoint must be close to an infrastructure point object to be considered connected.
 ENDPOINT_SNAP_TOLERANCE_KM = 0.3
 
-LINE_ENDPOINT_RULES: dict[str, tuple[set[str], set[str]]] = {
-    "autoroad": (
-        {"node", "gas_processing", "gtes", "substation", "refinery"},
-        {"node", "gas_processing", "gtes", "substation", "refinery"},
-    ),
-    "oil_pipeline": (
-        {"node", "refinery"},
-        {"node", "refinery"},
-    ),
-    "gas_pipeline": (
-        {"node", "gas_processing", "gtes", "refinery"},
-        {"node", "gas_processing", "gtes", "refinery"},
-    ),
-    "water_pipeline": (
-        {"node"},
-        {"node"},
-    ),
-    "power_line": (
-        {"node", "gas_processing", "gtes", "substation", "refinery"},
-        {"node", "gas_processing", "gtes", "substation", "refinery"},
-    ),
-}
-
-SUBTYPE_LABELS: dict[str, str] = {
-    "autoroad": "Автодорога",
-    "oil_pipeline": "Нефтепровод",
-    "gas_pipeline": "Газопровод",
-    "water_pipeline": "Водопровод",
-    "power_line": "ЛЭП",
-    "gas_processing": "ГКС",
-    "gtes": "ГТЭС/ГПЭС",
-    "substation": "ПС/ТП",
-    "refinery": "НПЗ",
-    "node": "Узел",
-}
-
 
 class LineEndpointRuleError(ValueError):
-    """Raised when line endpoint types violate configured matrix."""
+    """Raised when line endpoints are not snapped to a nearby point object."""
 
 
 @dataclass
@@ -84,10 +48,6 @@ def _label(subtype: str) -> str:
     return SUBTYPE_LABELS.get(subtype, subtype)
 
 
-def _allowed_labels(subtypes: set[str]) -> str:
-    return ", ".join(sorted(_label(s) for s in subtypes))
-
-
 def _nearest_for_point(
     point: tuple[float, float], candidates: list[InfrastructureObject]
 ) -> _NearestPointObject | None:
@@ -112,16 +72,14 @@ async def validate_line_endpoint_matrix(
     coordinates: list[list[float]] | None,
     exclude_object_id: UUID | None = None,
 ) -> None:
+    """Ensure both line ends are within snap tolerance of any point infrastructure object."""
     subtype = line_subtype.lower().strip()
     if subtype not in LINE_SUBTYPES:
-        return
-    if subtype not in LINE_ENDPOINT_RULES:
         return
 
     start, finish = _line_endpoints(
         lon=lon, lat=lat, end_lon=end_lon, end_lat=end_lat, coordinates=coordinates
     )
-    allowed_start, allowed_finish = LINE_ENDPOINT_RULES[subtype]
 
     q = (
         select(InfrastructureObject)
@@ -156,18 +114,3 @@ async def validate_line_endpoint_matrix(
             f"Ближайший объект: {finish_obj.name} ({_label(finish_obj.subtype)}), "
             f"{round(finish_obj.distance_km, 2)} км. Допуск: {ENDPOINT_SNAP_TOLERANCE_KM} км."
         )
-
-    if start_obj.subtype not in allowed_start:
-        raise LineEndpointRuleError(
-            f"Недопустимый тип начальной точки для {_label(subtype)}: {_label(start_obj.subtype)}. "
-            f"Разрешено: {_allowed_labels(allowed_start)}."
-        )
-    if finish_obj.subtype not in allowed_finish:
-        raise LineEndpointRuleError(
-            f"Недопустимый тип конечной точки для {_label(subtype)}: {_label(finish_obj.subtype)}. "
-            f"Разрешено: {_allowed_labels(allowed_finish)}."
-        )
-
-    # Guard against unknown subtype categories in case of inconsistent data.
-    if start_obj.subtype not in SUBTYPE_CATEGORY or finish_obj.subtype not in SUBTYPE_CATEGORY:
-        raise LineEndpointRuleError("Обнаружен объект с неподдерживаемым подтипом в концах линии.")

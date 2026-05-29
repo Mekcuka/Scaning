@@ -57,6 +57,20 @@ def patch_sqlite_schema(conn: Connection) -> None:
     )
     _create_table_if_missing(
         conn,
+        "poi_flow_schematic_layouts",
+        """
+        CREATE TABLE poi_flow_schematic_layouts (
+            id CHAR(32) PRIMARY KEY,
+            poi_id CHAR(32) NOT NULL UNIQUE,
+            nodes JSON NOT NULL DEFAULT '[]',
+            edges JSON NOT NULL DEFAULT '[]',
+            updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+            FOREIGN KEY(poi_id) REFERENCES points_of_interest(id) ON DELETE CASCADE
+        )
+        """,
+    )
+    _create_table_if_missing(
+        conn,
         "scenario_criterion_values",
         """
         CREATE TABLE scenario_criterion_values (

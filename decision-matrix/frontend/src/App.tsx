@@ -12,6 +12,7 @@ import { RatesPage } from './pages/RatesPage';
 import { MatrixPage } from './pages/MatrixPage';
 import { RankingPage } from './pages/RankingPage';
 import { ReportPage } from './pages/ReportPage';
+import { FlowSchematicPage } from './pages/FlowSchematicPage';
 
 const queryClient = new QueryClient({
   defaultOptions: { queries: { retry: 1, staleTime: 30_000 } },
@@ -34,6 +35,7 @@ export default function App() {
               <Route path="/matrix" element={<MatrixPage />} />
               <Route path="/ranking" element={<RankingPage />} />
               <Route path="/report" element={<ReportPage />} />
+              <Route path="/flows" element={<FlowSchematicPage />} />
             </Route>
           </Route>
           <Route path="*" element={<Navigate to="/" replace />} />

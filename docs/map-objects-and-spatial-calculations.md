@@ -2,7 +2,7 @@
 
 Единая спецификация геометрии объектов на карте, якорей расчёта расстояний и операций PostGIS. Используется при реализации Map Module, анализа окружения и визуализации линий подключения.
 
-**Связанные документы:** [requirements.md](./requirements.md) (FR-2.3, FR-2.4, FR-6, FR-10), [database-schema.md](./database-schema.md), [input-parameters.md](./input-parameters.md), [calculation-logic-flow.md](./calculation-logic-flow.md), [architecture.md](./architecture.md).
+**Связанные документы:** [requirements.md](./requirements.md) (FR-2.3, FR-2.4, FR-6, FR-10), [database-schema.md](./database-schema.md), [input-parameters.md](./input-parameters.md), [calculation-logic-flow.md](./calculation-logic-flow.md), [fluid-flow-schematic.md](./fluid-flow-schematic.md), [architecture.md](./architecture.md).
 
 **Дата актуализации:** май 2026.
 
@@ -45,7 +45,63 @@
 
 ### 1.4 Справочник: точечные и линейные подтипы
 
-**Правило:** один `subtype` = один тип геометрии. Смешанные типы для одного подтипа запрещены (`chk_io_geometry_by_subtype` в [database-schema.md](./database-schema.md)). **Polygon / MultiPolygon** для площадных объектов в MVP **не допускаются** — только маркер `POINT`.
+**Правило:** один `subtype` = один тип геометрии. Смешанные типы для одного подтипа запрещены (`chk_io_geometry_by_subtype` в [database-schema.md](./database-schema.md)). **Polygon / MultiPolygon** для площадных объектов в MVP **не допускаются** — только маркер `POINT` (при импорте Spark полигон сводится к центроиду).
+
+#### 1.5 Зависимость подтипа от вида объекта на карте
+
+**Вид на карте** — способ создания и отображения в UI (`MapPage`, панель инструментов и карточка объекта). Подтип (`subtype`) жёстко привязан к геометрии: точечный подтип нельзя сохранить как линию и наоборот.
+
+| `subtype` | Название UI | Вид на карте | Геометрия | `category` | Инструмент | Концы линии (300 м) | Автопоиск FR-6 | Анализ (км) | Порог POI |
+|-----------|-------------|--------------|-----------|------------|------------|---------------------|----------------|-------------|-----------|
+| — | Точка интереса | **POI** | `POINT` | — | «POI» | — | — | все параметры POI | — |
+| `gas_processing` | ГКС | **Точка** | `POINT` | `area_facility` | «Точка» | — | да | external | 80 км |
+| `ukg` | УКГ | **Точка** | `POINT` | `area_facility` | импорт Spark | — | нет | — | — |
+| `tsg` | ТСГ | **Точка** | `POINT` | `area_facility` | импорт Spark | — | нет | — | — |
+| `gtes` | ГТЭС | **Точка** | `POINT` | `area_facility` | «Точка» / импорт Spark | — | да (с `gpes`, `vies`) | external | 60 км |
+| `gpes` | ГПЭС | **Точка** | `POINT` | `area_facility` | «Точка» / импорт Spark | — | да (с `gtes`, `vies`) | external | 60 км |
+| `vies` | ВИЭС | **Точка** | `POINT` | `area_facility` | «Точка» | — | да (с `gtes`, `gpes`) | external | 60 км |
+| `substation` | ПС/ТП | **Точка** | `POINT` | `electricity` | «Точка» | — | да | external | 25 км |
+| `refinery` | НПЗ | **Точка** | `POINT` | `area_facility` | «Точка» / импорт Spark (`DeliveryAcceptancePoint`, `CentralProcessingFacility`) | — | да | external | 100 км |
+| `node` | Узел | **Точка** | `POINT` | `network` | «Точка» / авто при рисовании линии | — | да (с `methanol_joint`) | — | — |
+| `pad` | Куст | **Точка** | `POINT` | `pad` | «Точка» | — | нет | — | — |
+| `preliminary_water_discharge_station` | УПСВ | **Точка** | `POINT` | `area_facility` | «Точка» | — | нет | — | — |
+| `booster_pumping_station` | ДНС | **Точка** | `POINT` | `area_facility` | «Точка» | — | нет | — | — |
+| `oil_pumping_station` | НПС | **Точка** | `POINT` | `area_facility` | импорт Spark | — | нет | — | — |
+| `ground_pumping_station` | БКНС | **Точка** | `POINT` | `area_facility` | «Точка» | — | нет | — | — |
+| `sand_quarry` | Карьер песка | **Точка** | `POINT` | `area_facility` | «Точка» / импорт Spark | — | нет (только этот подтип) | — | — |
+| `methanol_facility` | Объект метанола | **Точка** | `POINT` | `area_facility` | импорт Spark | — | нет | — | — |
+| `methanol_joint` | Узел метанола | **Точка** | `POINT` | `network` | импорт Spark / смена у «Узел» | — | да (с `node`) | — | — |
+| `autoroad` | Автодорога | **Линия** | `LINESTRING` | `road` | «Линия» | любая **Точка** | нет | internal (4 типа) | — |
+| `oil_pipeline` | Нефтепровод | **Линия** | `LINESTRING` | `pipeline` | «Линия» | любая **Точка** | нет | internal | — |
+| `gas_pipeline` | Газопровод | **Линия** | `LINESTRING` | `pipeline` | «Линия» | любая **Точка** | нет | — | — |
+| `water_pipeline` | Водопровод | **Линия** | `LINESTRING` | `pipeline` | «Линия» | любая **Точка** | нет | internal | — |
+| `power_line` | ЛЭП | **Линия** | `LINESTRING` | `electricity` | «Линия» | любая **Точка** | нет | internal | — |
+| `methanol_pipeline` | Метанолопровод | **Линия** | `LINESTRING` | `pipeline` | «Линия» | любая **Точка** | нет | — | — |
+| `pads` | Кустовые площадки | **не на карте** | — | `pad` | расчёт POI | — | нет | internal | — |
+
+**Пояснения:**
+
+- **Вид «Точка» / «Линия»** — пункты меню на панели карты. В меню «Точка» нет **УКГ**, **ТСГ**, **НПС**, **объекта метанола**, отдельного пункта **узел метанола** (подтип `methanol_joint` — импорт Spark или смена у **Узел**). В меню есть **Узел** (`node`). **ГКС** и **НПЗ** (`refinery`) — в меню «Точка». Spark **ПСП** (`DeliveryAcceptancePoint`) импортируется как **НПЗ** (`refinery`).
+- **API площадных объектов НПЗ / НПС:** `POST /projects/{project_id}/infrastructure/facility-objects` — в теле **обязательно** `subtype`: `refinery` | `oil_pumping_station` (схема `FacilityInfraObjectCreate`). Общий `POST .../objects` для НПС вернёт 400 с подсказкой использовать этот endpoint.
+- **Карточка объекта** (`ObjectDetailPanel`, поле «Подтип»): линейные ↔ только линейные; точечные ↔ точечные. **Группа ГКС:** `gas_processing` / `ukg` / `tsg` → только **ГКС, УКГ, ТСГ**. **Группа ГТЭС:** `gtes` / `gpes` / `vies` → только **ГТЭС, ГПЭС, ВИЭС** (анализ POI по-прежнему одна строка «ГТЭС», ближайший — любой из трёх). **Группа узлов:** `node` / `methanol_joint` → **Узел**, **Узел метанола**. **Эксклюзивные** (не в списке у других): карьер песка, объект метанола. **Фиксированные:** `sand_quarry`, `ground_pumping_station`, НПС, объект метанола.
+- **Концы линии:** в пределах **0,3 км** от ближайшего точечного объекта любого подтипа; иначе при рисовании создаётся `node` (`line_endpoint_rules.ts`, `lineEndpointRules.ts`).
+- **Анализ (км):** `autoroad`, `oil_pipeline`, `water_pipeline`, `power_line` — нормы км/КП; внешние Point — поиск в окружении; `gas_pipeline` / метанол / насосные станции в матрице анализа MVP не задействованы.
+- **Импорт Spark:** полигоны площадных типов → `POINT` (центроид); см. [spark-import-mapping.md](./spark-import-mapping.md).
+
+```mermaid
+flowchart TB
+  subgraph tools [Инструменты MapPage]
+    POI[POI]
+    PT[Точка]
+    LN[Линия]
+  end
+  POI --> poiTable[(points_of_interest)]
+  PT --> pointSub[14 point subtypes]
+  LN --> lineSub[6 line subtypes]
+  pointSub --> geomP[POINT]
+  lineSub --> geomL[LINESTRING]
+  geomL --> snap["Концы: любая точка ≤ 300 м или node"]
+```
 
 #### 1.4.1 Инфраструктура на карте (8 подтипов)
 
@@ -106,6 +162,25 @@ flowchart LR
 | Линейный подтип с `lat`/`lon` без концов отрезка | `type=autoroad`, только `lat`, `lon` |
 | Точечный подтип с координатами отрезка | `type=gas_processing`, `start_lat`, `end_lat` |
 | Polygon для площадного подтипа | GeoJSON `Polygon` для `refinery` |
+
+### 1.6 Пропускная способность точечных объектов (PFD и карта)
+
+Для части **точечных** подтипов в `ObjectDetailPanel` доступно поле **«Пропускная способность»**. Значения хранятся в JSONB `infrastructure_objects.properties`:
+
+| Ключ | Тип | Единица |
+|------|-----|---------|
+| `throughput_capacity_annual` | number | тыс. т/год или тыс. м³/год |
+| `capacity_unit` | string | `thousand_t_per_year` (default) \| `thousand_m3_per_year` |
+
+**Поле показывается** для всех точечных подтипов, **кроме:** `node`, `pad`, `sand_quarry`, `substation`, `vies`, `gtes`, `gpes`.
+
+**Роль на схеме потоков ([fluid-flow-schematic.md](./fluid-flow-schematic.md)):**
+
+- **`ground_pumping_station` (БКНС)** — единственный терминал водной ветки при централизованной закачке; далее узел **«В пласт»**.
+- Лимит терминала на авто-схеме подтягивается из `properties` связанного объекта карты.
+- **Объём закачки** (`water_injection_volume` POI) отображается на блоке **«В пласт»**, не в карточке БКНС.
+
+Код frontend: `lib/infraCapacity.ts`, `ObjectDetailPanel.tsx`. Backend: `flow_capacity.py`, `fluid_flow_schematic.py`.
 
 ---
 

@@ -126,6 +126,7 @@ export function ImportPage() {
         let log;
         if (format === 'csv') log = await api.importCsvAsync(projectId, file);
         else if (format === 'kml') log = await api.importKmlAsync(projectId, file);
+        else if (format === 'spark') log = await api.importSparkAsync(projectId, file);
         else if (format === 'geojson') log = await api.importGeojsonAsync(projectId, file);
         else {
           return api.importShapefile(projectId, file);
@@ -135,6 +136,7 @@ export function ImportPage() {
       if (format === 'csv') return api.importCsv(projectId, file);
       if (format === 'kml') return api.importKml(projectId, file);
       if (format === 'shp') return api.importShapefile(projectId, file);
+      if (format === 'spark') return api.importSpark(projectId, file);
       return api.importGeojson(projectId, file);
     },
     onSuccess: (log) => {
@@ -175,17 +177,31 @@ export function ImportPage() {
     onError: (e: Error) => pushToast('error', e.message),
   });
 
-  const detectFormat = (file: File): string => {
+  const detectFormat = async (file: File): Promise<string> => {
     const lower = file.name.toLowerCase();
     if (lower.endsWith('.csv')) return 'csv';
     if (lower.endsWith('.kml') || lower.endsWith('.kmz')) return 'kml';
     if (lower.endsWith('.zip')) return 'shp';
+    if (lower.endsWith('.json') || lower.endsWith('.geojson')) {
+      try {
+        const head = await file.slice(0, 8192).text();
+        if (
+          head.includes('"type"') &&
+          head.includes('"project"') &&
+          head.includes('"objects"')
+        ) {
+          return 'spark';
+        }
+      } catch {
+        /* use geojson */
+      }
+    }
     return 'geojson';
   };
 
   const onFile = async (file: File | null, commit = true) => {
     if (!file || !projectId) return;
-    const format = detectFormat(file);
+    const format = await detectFormat(file);
     if (!commit) {
       const p = await api.previewImport(projectId, file, format === 'shp' ? 'csv' : format);
       setPreview(p);
@@ -340,7 +356,7 @@ export function ImportPage() {
               {busy ? 'Импорт…' : 'Перетащите файл или нажмите для выбора'}
             </p>
             <p className="text-xs mt-1" style={{ color: 'var(--text-muted)' }}>
-              CSV, GeoJSON, KML/KMZ, ZIP (Shapefile)
+              CSV, GeoJSON, Spark export (.json), KML/KMZ, ZIP (Shapefile)
             </p>
           </div>
           <input

@@ -1,6 +1,8 @@
 from datetime import datetime
 from uuid import UUID
 
+from typing import Literal
+
 from pydantic import BaseModel, EmailStr, Field
 
 
@@ -253,14 +255,32 @@ class POIUpdate(BaseModel):
     eng_transport: str | None = None
 
 
+FacilityPointSubtype = Literal["refinery", "oil_pumping_station"]
+
+
 class InfraObjectCreate(BaseModel):
     name: str
-    subtype: str
+    subtype: str = Field(..., min_length=1, description="Код подтипа инфраструктуры (обязательно)")
     lon: float
     lat: float
     end_lon: float | None = None
     end_lat: float | None = None
     coordinates: list[list[float]] | None = None
+    layer_id: UUID | None = None
+    properties: dict = Field(default_factory=dict)
+    description: str | None = None
+
+
+class FacilityInfraObjectCreate(BaseModel):
+    """НПЗ / НПС — подтип обязателен в теле запроса (refinery | oil_pumping_station)."""
+
+    name: str = Field(..., min_length=1)
+    subtype: FacilityPointSubtype = Field(
+        ...,
+        description="Обязательно: refinery (НПЗ), oil_pumping_station (НПС)",
+    )
+    lon: float
+    lat: float
     layer_id: UUID | None = None
     properties: dict = Field(default_factory=dict)
     description: str | None = None
@@ -412,6 +432,42 @@ class ImportLogResponse(BaseModel):
     created_at: datetime
 
     model_config = {"from_attributes": True}
+
+
+class FlowSchematicNode(BaseModel):
+    id: str
+    kind: str
+    label: str
+    fluid: str | None = None
+    subtype: str | None = None
+    status: str | None = None
+    position_x: float | None = None
+    position_y: float | None = None
+    throughput_capacity_annual: float | None = None
+    capacity_unit: str | None = None
+    flow_annual: float | None = None
+    flow_unit: str | None = None
+    over_capacity: bool = False
+
+
+class FlowSchematicEdge(BaseModel):
+    id: str
+    source: str
+    target: str
+    fluid: str
+
+
+class FlowSchematicResponse(BaseModel):
+    poi_id: UUID
+    nodes: list[FlowSchematicNode]
+    edges: list[FlowSchematicEdge]
+    warnings: list[str]
+    source: str = "auto"
+
+
+class FlowSchematicSave(BaseModel):
+    nodes: list[FlowSchematicNode]
+    edges: list[FlowSchematicEdge]
 
 
 class ImportJobResponse(BaseModel):

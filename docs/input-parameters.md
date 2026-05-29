@@ -147,7 +147,7 @@ Geodesic-расстояние от POI до Point-объекта. Таблица
 | `poi_geometry` | mvp | geometry | WGS84 | `points_of_interest.geometry` | Карта (клик), `#poi-coords` readonly | FR-4.2.2 | да (поиск объектов) |
 | `poi_fluid_type` | mvp | enum | — | `fluid_type` | `#poi-fluid-type`, `#map-poi-fluid-type` | FR-4.2.10, FR-5.1.5 | да |
 | `poi_planned_production_volume` | mvp | number | тыс. т/год | `planned_production_volume` | `#poi-volume`, `#map-poi-volume` | FR-4.2.3, FR-4.2.8 | да (КП) |
-| `poi_water_injection_volume` | mvp | number | тыс. т/год | `water_injection_volume` | `#poi-water-injection`, `#map-poi-water-injection` | FR-4.2.11, FR-5.2.6 | да |
+| `poi_water_injection_volume` | mvp | number | тыс. т/год | `water_injection_volume` | `#poi-water-injection`, `#map-poi-water-injection` | FR-4.2.11, FR-5.2.6 | да (КП локальная; **PFD** — popover «В пласт») |
 | `poi_production_per_well` | mvp | number | тыс. т/год | `production_per_well` | `#poi-well-production` | FR-4.2.4, FR-5.3 | да (КП) |
 | `poi_wells_per_pad` | mvp | number | шт. | `wells_per_pad` | `#poi-wells-per-pad` | FR-4.2.4, FR-5.3 | да (КП) |
 | `poi_production_unit` | mvp | enum | — | `production_unit` | — (фикс. MVP) | FR-4.2.8 | нет |
@@ -228,7 +228,11 @@ Geodesic-расстояние от POI до Point-объекта. Таблица
 | `infra_object_category` | mvp | enum | `category` | Авто по `type` | FR-2.3.2 |
 | `infra_object_subtype` | mvp | enum | `subtype` | 8 подтипов + КП (без `marine_terminal`) | FR-6.1.1 |
 | `infra_object_properties` | mvp | json | `properties` | — | FR-2.3.2 |
+| `infra_throughput_capacity_annual` | mvp | number | `properties.throughput_capacity_annual` | Карта → карточка точечного объекта | [fluid-flow-schematic.md](./fluid-flow-schematic.md) §7 |
+| `infra_capacity_unit` | mvp | enum | `properties.capacity_unit` | то же | `thousand_t_per_year` \| `thousand_m3_per_year` |
 | `infra_network_id` | planned | uuid | `infrastructure_nodes.network_id` | — | FR-2.4.5 |
+
+Ключи пропускной способности — только для **точечных** подтипов, кроме: `node`, `pad`, `sand_quarry`, `substation`, `vies`, `gtes`, `gpes`. См. [map-objects-and-spatial-calculations.md](./map-objects-and-spatial-calculations.md) §1.6.
 
 Значения `infra_object_geometry_type`: `point` (`ST_Point`), `linestring` (`ST_LineString` / `ST_MultiLineString`). Соответствие подтипу — [map-objects-and-spatial-calculations.md](./map-objects-and-spatial-calculations.md) §1.4.
 

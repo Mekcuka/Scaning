@@ -1,6 +1,18 @@
 """Validate subtype vs geometry (FR-2.3.9, FR-2.5.4)."""
 
-from app.geo.constants import LINE_SUBTYPES, POINT_SUBTYPES
+from app.geo.constants import (
+    EXCLUSIVE_POINT_SUBTYPES,
+    GKS_CLUSTER_SUBTYPES,
+    GTES_CLUSTER_SUBTYPES,
+    IMMUTABLE_POINT_SUBTYPES,
+    IMPORT_ONLY_POINT_SUBTYPES,
+    LINE_SUBTYPES,
+    NODE_CLUSTER_SUBTYPES,
+    NODE_DERIVED_POINT_SUBTYPES,
+    POINT_SUBTYPES,
+    SPARK_EXCLUSIVE_POINT_SUBTYPES,
+    SUBTYPE_LABELS,
+)
 
 
 def validate_subtype_geometry(
@@ -18,6 +30,62 @@ def validate_subtype_geometry(
             raise ValueError(f"Subtype {st} requires line geometry (start/end or coordinates)")
     else:
         raise ValueError(f"Unknown infrastructure subtype: {subtype}")
+
+
+def validate_general_infra_create(subtype: str) -> None:
+    """НПС и import-only точки — только через POST /facility-objects или импорт Spark."""
+    st = subtype.lower().strip()
+    if st in IMPORT_ONLY_POINT_SUBTYPES:
+        label = SUBTYPE_LABELS.get(st, st)
+        if st in NODE_DERIVED_POINT_SUBTYPES:
+            raise ValueError(
+                f"Подтип «{label}»: импорт Spark или смена подтипа у объекта «Узел»."
+            )
+        if st in SPARK_EXCLUSIVE_POINT_SUBTYPES:
+            raise ValueError(f"Подтип «{label}» создаётся только импортом Spark.")
+        raise ValueError(
+            f"Подтип «{label}»: укажите subtype в теле запроса "
+            "POST /projects/{project_id}/infrastructure/facility-objects "
+            f"(subtype: {st})."
+        )
+
+
+def validate_subtype_change(current: str, new: str) -> None:
+    """Reject invalid point subtype reclassification."""
+    cur = current.lower().strip()
+    nxt = new.lower().strip()
+    if cur in IMMUTABLE_POINT_SUBTYPES and nxt != cur:
+        label = SUBTYPE_LABELS.get(cur, cur)
+        raise ValueError(f"Подтип «{label}» нельзя изменить на другой.")
+    if cur in GKS_CLUSTER_SUBTYPES and nxt not in GKS_CLUSTER_SUBTYPES:
+        raise ValueError(
+            "Для объектов ГКС/УКГ/ТСГ допустима смена только между подтипами ГКС, УКГ и ТСГ."
+        )
+    if cur in NODE_CLUSTER_SUBTYPES and nxt not in NODE_CLUSTER_SUBTYPES:
+        raise ValueError(
+            "Для узлов допустима смена только между подтипами «Узел» и «Узел метанола»."
+        )
+    if cur in GTES_CLUSTER_SUBTYPES and nxt not in GTES_CLUSTER_SUBTYPES:
+        raise ValueError(
+            "Для энергообъектов ГТЭС допустима смена только между подтипами ГТЭС, ГПЭС и ВИЭС."
+        )
+    if nxt in NODE_DERIVED_POINT_SUBTYPES and cur not in NODE_CLUSTER_SUBTYPES:
+        label = SUBTYPE_LABELS.get(nxt, nxt)
+        raise ValueError(
+            f"Подтип «{label}» доступен только для объектов «Узел» "
+            "(импорт Spark или смена подтипа)."
+        )
+    if nxt in EXCLUSIVE_POINT_SUBTYPES and cur != nxt:
+        label = SUBTYPE_LABELS.get(nxt, nxt)
+        if nxt in SPARK_EXCLUSIVE_POINT_SUBTYPES:
+            raise ValueError(
+                f"Подтип «{label}» задаётся только при импорте Spark, "
+                "смена с другого подтипа недоступна."
+            )
+        raise ValueError(
+            f"Подтип «{label}» доступен только для объектов «{label}», "
+            "смена с другого подтипа недоступна."
+        )
 
 
 def category_for_subtype(subtype: str) -> str:

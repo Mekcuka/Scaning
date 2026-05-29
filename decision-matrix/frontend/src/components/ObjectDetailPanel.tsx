@@ -2,9 +2,23 @@ import { useEffect, useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { X } from 'lucide-react';
 import { formatCoord, parseCoord } from '../lib/coords';
-import { api, SUBTYPE_LABELS, type InfraLayer, type InfraObject, type POI } from '../lib/api';
+import {
+  api,
+  infraSubtypeSelectOptions,
+  isImmutablePointSubtype,
+  type InfraLayer,
+  type InfraObject,
+  type POI,
+} from '../lib/api';
 import { getLineCoordinates, isLineSubtype } from '../lib/infraGeometry';
-import { AppSelect, selectOptionsFromRecord } from './AppSelect';
+import {
+  capacityUnitLabel,
+  defaultCapacityUnitForSubtype,
+  mergeThroughputCapacity,
+  pointShowsThroughputCapacity,
+  readThroughputCapacity,
+} from '../lib/infraCapacity';
+import { AppSelect } from './AppSelect';
 import { PoiParamsForm } from './PoiParamsForm';
 import { formValuesToPoiPayload, poiToFormValues, type PoiFormValues } from '../lib/poiParams';
 
@@ -37,6 +51,7 @@ export function ObjectDetailPanel({
   const [layerId, setLayerId] = useState('');
   const [lon, setLon] = useState('');
   const [lat, setLat] = useState('');
+  const [throughputCapacity, setThroughputCapacity] = useState('');
   const [poiForm, setPoiForm] = useState<PoiFormValues | null>(null);
 
   const projectId = selection.kind === 'poi' ? selection.poi.project_id : null;
@@ -59,6 +74,8 @@ export function ObjectDetailPanel({
     setLayerId(o.layer_id);
     setLon(formatCoord(o.lon));
     setLat(formatCoord(o.lat));
+    const cap = readThroughputCapacity(o.properties);
+    setThroughputCapacity(cap.value != null ? String(cap.value) : '');
     setPoiForm(null);
   }, [selection]);
 
@@ -73,6 +90,21 @@ export function ObjectDetailPanel({
   const isPoi = selection.kind === 'poi';
   const title = isPoi ? 'Точка интереса' : 'Объект';
 
+  const infraSubtypeOptions =
+    selection.kind === 'infra' ? infraSubtypeSelectOptions(selection.object) : [];
+  const subtypeLocked =
+    selection.kind === 'infra' && isImmutablePointSubtype(selection.object.subtype);
+
+  const showThroughputCapacity =
+    selection.kind === 'infra' && pointShowsThroughputCapacity(selection.object.subtype);
+  const capacityUnit =
+    selection.kind === 'infra'
+      ? capacityUnitLabel(
+          readThroughputCapacity(selection.object.properties).unit ||
+            defaultCapacityUnitForSubtype(selection.object.subtype)
+        )
+      : '';
+
   const handleSave = () => {
     if (isPoi && poiForm) {
       onSave(formValuesToPoiPayload(poiForm));
@@ -86,7 +118,17 @@ export function ObjectDetailPanel({
     };
 
     if (selection.kind === 'infra') {
-      const props = { ...(selection.object.properties ?? {}), description };
+      let props: Record<string, unknown> = { ...(selection.object.properties ?? {}), description };
+      if (pointShowsThroughputCapacity(subtype)) {
+        const trimmed = throughputCapacity.trim();
+        const val = trimmed === '' ? null : Number(trimmed.replace(',', '.'));
+        const unit = defaultCapacityUnitForSubtype(subtype);
+        props = mergeThroughputCapacity(
+          props,
+          val != null && !Number.isNaN(val) && val >= 0 ? val : null,
+          unit
+        );
+      }
       payload.properties = props;
 
       if (isLineSubtype(subtype)) {
@@ -164,9 +206,9 @@ export function ObjectDetailPanel({
               <AppSelect
                 variant="compact"
                 value={subtype}
-                readOnly={readOnly}
+                readOnly={readOnly || subtypeLocked}
                 onChange={setSubtype}
-                options={selectOptionsFromRecord(SUBTYPE_LABELS)}
+                options={infraSubtypeOptions}
               />
             </label>
             {layers.length > 0 && (
@@ -205,6 +247,24 @@ export function ObjectDetailPanel({
                 />
               </label>
             </div>
+            {showThroughputCapacity && (
+              <label className="flex flex-col gap-0.5 mb-1.5">
+                <span style={{ color: 'var(--text-muted)' }}>
+                  Пропускная способность ({capacityUnit})
+                </span>
+                <input
+                  type="number"
+                  min={0}
+                  step="any"
+                  className="input text-xs py-1"
+                  placeholder="—"
+                  value={throughputCapacity}
+                  readOnly={readOnly}
+                  disabled={readOnly}
+                  onChange={(e) => setThroughputCapacity(e.target.value)}
+                />
+              </label>
+            )}
             <label className="flex flex-col gap-0.5">
               <span style={{ color: 'var(--text-muted)' }}>Описание</span>
               <textarea

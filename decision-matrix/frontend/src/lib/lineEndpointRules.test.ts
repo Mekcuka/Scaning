@@ -2,11 +2,11 @@ import { describe, expect, it } from 'vitest';
 import type { InfraObject } from './api';
 import { nearestAllowedLineEndpoint, resolveLineEndpoint } from './lineEndpointRules';
 
-const gks = (id: string, lon: number, lat: number): InfraObject =>
+const pointObj = (id: string, subtype: string, lon: number, lat: number): InfraObject =>
   ({
     id,
-    name: `GKS_${id}`,
-    subtype: 'gas_processing',
+    name: `obj_${id}`,
+    subtype,
     category: 'point',
     lon,
     lat,
@@ -16,17 +16,17 @@ const gks = (id: string, lon: number, lat: number): InfraObject =>
   }) as InfraObject;
 
 describe('nearestAllowedLineEndpoint', () => {
-  it('finds gas_processing within tolerance for gas_pipeline finish', () => {
-    const objects = [gks('1', 37.6, 55.75)];
-    const nearest = nearestAllowedLineEndpoint('gas_pipeline', 'finish', [37.6001, 55.7501], objects);
+  it('snaps to nearest point object regardless of line subtype', () => {
+    const objects = [pointObj('1', 'pad', 37.6, 55.75)];
+    const nearest = nearestAllowedLineEndpoint('oil_pipeline', 'finish', [37.6001, 55.7501], objects);
     expect(nearest).not.toBeNull();
-    expect(nearest!.object.id).toBe('1');
+    expect(nearest!.object.subtype).toBe('pad');
     expect(nearest!.distanceKm).toBeLessThan(0.3);
   });
 
   it('plans node creation when no object within tolerance', () => {
-    const objects = [gks('1', 37.6, 55.75)];
-    const resolved = resolveLineEndpoint('gas_pipeline', 'finish', [38.0, 56.0], objects);
+    const objects = [pointObj('1', 'gas_processing', 37.6, 55.75)];
+    const resolved = resolveLineEndpoint('autoroad', 'finish', [38.0, 56.0], objects);
     expect(resolved.ok).toBe(true);
     if (resolved.ok) {
       expect(resolved.createNode).toBe(true);

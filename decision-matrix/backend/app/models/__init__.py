@@ -140,6 +140,27 @@ class PointOfInterest(Base):
     ranking_settings: Mapped[list["ProjectRankingSettings"]] = relationship(
         back_populates="poi", cascade="all, delete-orphan"
     )
+    flow_schematic_layout: Mapped["PoiFlowSchematicLayout | None"] = relationship(
+        back_populates="poi", cascade="all, delete-orphan", uselist=False
+    )
+
+
+class PoiFlowSchematicLayout(Base):
+    """User-edited PFD layout per POI (nodes, edges, positions)."""
+
+    __tablename__ = "poi_flow_schematic_layouts"
+
+    id: Mapped[uuid.UUID] = mapped_column(Uuid, primary_key=True, default=uuid.uuid4)
+    poi_id: Mapped[uuid.UUID] = mapped_column(
+        Uuid, ForeignKey("points_of_interest.id", ondelete="CASCADE"), unique=True
+    )
+    nodes: Mapped[list] = mapped_column(JSON, default=list)
+    edges: Mapped[list] = mapped_column(JSON, default=list)
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now(), onupdate=func.now()
+    )
+
+    poi: Mapped["PointOfInterest"] = relationship(back_populates="flow_schematic_layout")
 
 
 class InfrastructureLayer(Base):

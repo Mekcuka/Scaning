@@ -49,6 +49,7 @@ from app.services.calculations import (
 )
 from app.services.cost_rates import DEFAULT_COST_RATES
 from app.services.project_delete import delete_project_cascade
+from app.api.v1.flow import flow_router
 from app.api.v1.graph import graph_router
 from app.api.v1.import_connections import connections_router
 from app.api.v1.map import map_router
@@ -59,6 +60,7 @@ from app.services.serializers import poi_to_response
 router = APIRouter()
 router.include_router(map_router)
 router.include_router(graph_router)
+router.include_router(flow_router)
 router.include_router(connections_router)
 
 DEFAULT_RANKING_CRITERIA = [

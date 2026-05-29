@@ -2,7 +2,8 @@
 
 > **Параметры ввода:** [input-parameters.md](./input-parameters.md). Актуальная SQL-схема — [database-schema.md](./database-schema.md).  
 > **Геометрия и пространственные расчёты:** [map-objects-and-spatial-calculations.md](./map-objects-and-spatial-calculations.md).  
-> **Расчётные функции:** [calculation-functions.md](./calculation-functions.md).
+> **Расчётные функции:** [calculation-functions.md](./calculation-functions.md).  
+> **Схема потоков (PFD):** [fluid-flow-schematic.md](./fluid-flow-schematic.md) — отдельный визуальный поток от анализа окружения; использует граф сети и POI, не таблицу `poi_infrastructure_analysis`.
 
 ## Общая архитектура
 

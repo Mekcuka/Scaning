@@ -193,6 +193,12 @@ export const api = {
       body: JSON.stringify(data),
       timeoutMs: opts?.timeoutMs,
     }),
+  /** НПЗ (refinery), НПС (oil_pumping_station) — subtype в теле обязателен. */
+  createFacilityInfraObject: (projectId: string, data: FacilityInfraObjectCreate) =>
+    request<InfraObject>(`/projects/${projectId}/infrastructure/facility-objects`, {
+      method: 'POST',
+      body: JSON.stringify(data),
+    }),
   updateInfraObject: (projectId: string, objectId: string, data: Partial<InfraObjectCreate>) =>
     request<InfraObject>(`/projects/${projectId}/infrastructure/objects/${objectId}`, {
       method: 'PATCH',
@@ -214,6 +220,16 @@ export const api = {
     const fd = new FormData();
     fd.append('file', file);
     return request<ImportLog>(`/projects/${projectId}/import/geojson`, { method: 'POST', body: fd });
+  },
+  importSpark: (projectId: string, file: File) => {
+    const fd = new FormData();
+    fd.append('file', file);
+    return request<ImportLog>(`/projects/${projectId}/import/spark`, { method: 'POST', body: fd });
+  },
+  importSparkAsync: (projectId: string, file: File) => {
+    const fd = new FormData();
+    fd.append('file', file);
+    return request<ImportLog>(`/projects/${projectId}/import/spark/async`, { method: 'POST', body: fd });
   },
   importKml: (projectId: string, file: File) => {
     const fd = new FormData();
@@ -292,6 +308,24 @@ export const api = {
     ),
   calculateRanking: (data: RankingRequest) =>
     request<RankingResult>('/ranking/calculate', { method: 'POST', body: JSON.stringify(data) }),
+  getFlowSchematic: (projectId: string, poiId: string) =>
+    request<import('./flowSchematic').FlowSchematicDto>(
+      `/projects/${projectId}/pois/${poiId}/flow-schematic`
+    ),
+  saveFlowSchematic: (
+    projectId: string,
+    poiId: string,
+    body: { nodes: import('./flowSchematic').FlowSchematicNodeDto[]; edges: import('./flowSchematic').FlowSchematicEdgeDto[] }
+  ) =>
+    request<import('./flowSchematic').FlowSchematicDto>(
+      `/projects/${projectId}/pois/${poiId}/flow-schematic`,
+      { method: 'PUT', body: JSON.stringify(body) }
+    ),
+  resetFlowSchematic: (projectId: string, poiId: string) =>
+    request<import('./flowSchematic').FlowSchematicDto>(
+      `/projects/${projectId}/pois/${poiId}/flow-schematic`,
+      { method: 'DELETE' }
+    ),
 };
 
 export interface Project {
@@ -386,12 +420,26 @@ export interface InfraObject {
 
 export interface InfraObjectCreate {
   name: string;
+  /** Код подтипа (обязательно). */
   subtype: string;
   lon: number;
   lat: number;
   end_lon?: number;
   end_lat?: number;
   coordinates?: number[][];
+  layer_id?: string;
+  description?: string;
+  properties?: Record<string, unknown>;
+}
+
+/** НПЗ / НПС — subtype обязателен и только из этого списка. */
+export type FacilityPointSubtype = 'refinery' | 'oil_pumping_station';
+
+export interface FacilityInfraObjectCreate {
+  name: string;
+  subtype: FacilityPointSubtype;
+  lon: number;
+  lat: number;
   layer_id?: string;
   description?: string;
   properties?: Record<string, unknown>;
@@ -623,9 +671,38 @@ export interface RankingSensitivityResult {
   points: RankingSensitivityPoint[];
 }
 
-export const POINT_SUBTYPES = ['gas_processing', 'gtes', 'substation', 'refinery', 'node'] as const;
-/** Map/import layer filter (includes legacy gas_pipeline). */
-export const LINE_SUBTYPES = ['autoroad', 'oil_pipeline', 'gas_pipeline', 'water_pipeline', 'power_line'] as const;
+export const POINT_SUBTYPES = [
+  'gas_processing',
+  'ukg',
+  'tsg',
+  'gtes',
+  'gpes',
+  'vies',
+  'substation',
+  'refinery',
+  'node',
+  'pad',
+  'preliminary_water_discharge_station',
+  'booster_pumping_station',
+  'oil_pumping_station',
+  'ground_pumping_station',
+  'sand_quarry',
+  'methanol_facility',
+  'methanol_joint',
+] as const;
+
+/** Map/import layer filter (includes gas_pipeline). */
+export const LINE_SUBTYPES = [
+  'autoroad',
+  'oil_pipeline',
+  'gas_pipeline',
+  'water_pipeline',
+  'power_line',
+  'methanol_pipeline',
+] as const;
+
+export const ALL_MAP_SUBTYPES = [...POINT_SUBTYPES, ...LINE_SUBTYPES] as const;
+
 /** FR-6: 4 internal linear subtypes in environment analysis. */
 export const ANALYSIS_LINE_SUBTYPES = ['autoroad', 'oil_pipeline', 'water_pipeline', 'power_line'] as const;
 /** Nearest vertex/node on map for all drawable line subtypes. */
@@ -637,9 +714,153 @@ export const SUBTYPE_LABELS: Record<string, string> = {
   gas_pipeline: 'Газопровод',
   water_pipeline: 'Водопровод',
   power_line: 'ЛЭП',
+  methanol_pipeline: 'Метанолопровод',
   gas_processing: 'ГКС',
-  gtes: 'ГТЭС/ГПЭС',
+  ukg: 'УКГ',
+  tsg: 'ТСГ',
+  gtes: 'ГТЭС',
+  gpes: 'ГПЭС',
+  vies: 'ВИЭС',
   substation: 'ПС/ТП',
   refinery: 'НПЗ',
   node: 'Узел',
+  pad: 'Куст',
+  preliminary_water_discharge_station: 'УПСВ',
+  booster_pumping_station: 'ДНС',
+  oil_pumping_station: 'НПС',
+  ground_pumping_station: 'БКНС',
+  sand_quarry: 'Карьер песка',
+  methanol_facility: 'Объект метанола',
+  methanol_joint: 'Узел метанола',
 };
+
+export function createDefaultSubtypeFilter(): Record<string, boolean> {
+  return Object.fromEntries(ALL_MAP_SUBTYPES.map((s) => [s, true]));
+}
+
+/** ГКС + УКГ + ТСГ — смена подтипа только внутри этой группы. */
+export const GKS_CLUSTER_SUBTYPES = ['gas_processing', 'ukg', 'tsg'] as const;
+
+/** Узел + узел метанола — смена подтипа только внутри этой пары. */
+export const NODE_CLUSTER_SUBTYPES = ['node', 'methanol_joint'] as const;
+
+/** ГТЭС + ГПЭС + ВИЭС — смена подтипа только внутри этой тройки. */
+export const GTES_CLUSTER_SUBTYPES = ['gtes', 'gpes', 'vies'] as const;
+
+/** Sidebar «Слои данных» — each map subtype belongs to exactly one group. */
+export const LAYER_VISIBILITY_GROUPS: { id: string; label: string; subtypes: readonly string[] }[] = [
+  { id: 'roads', label: 'Дороги', subtypes: ['autoroad'] },
+  {
+    id: 'pipelines',
+    label: 'Трубопроводы',
+    subtypes: LINE_SUBTYPES.filter((s) => s !== 'autoroad'),
+  },
+  { id: 'gks', label: 'ГКС / УКГ / ТСГ', subtypes: GKS_CLUSTER_SUBTYPES },
+  { id: 'gtes', label: 'ГТЭС / ГПЭС / ВИЭС', subtypes: GTES_CLUSTER_SUBTYPES },
+  {
+    id: 'energy',
+    label: 'Подстанции',
+    subtypes: ['substation'],
+  },
+  {
+    id: 'industrial',
+    label: 'НПЗ / насосные',
+    subtypes: [
+      'refinery',
+      'oil_pumping_station',
+      'preliminary_water_discharge_station',
+      'booster_pumping_station',
+      'ground_pumping_station',
+    ],
+  },
+  { id: 'pads_quarry', label: 'Кусты и карьер', subtypes: ['pad', 'sand_quarry'] },
+  { id: 'methanol_facility', label: 'Объект метанола', subtypes: ['methanol_facility'] },
+  { id: 'nodes', label: 'Узлы', subtypes: NODE_CLUSTER_SUBTYPES },
+];
+
+const GKS_CLUSTER_SET = new Set<string>(GKS_CLUSTER_SUBTYPES);
+const NODE_CLUSTER_SET = new Set<string>(NODE_CLUSTER_SUBTYPES);
+const GTES_CLUSTER_SET = new Set<string>(GTES_CLUSTER_SUBTYPES);
+
+export function isGksClusterSubtype(subtype: string): boolean {
+  return GKS_CLUSTER_SET.has(subtype);
+}
+
+export function isNodeClusterSubtype(subtype: string): boolean {
+  return NODE_CLUSTER_SET.has(subtype);
+}
+
+export function isGtesClusterSubtype(subtype: string): boolean {
+  return GTES_CLUSTER_SET.has(subtype);
+}
+
+/** Point subtypes that cannot be changed after the object is created. */
+export const IMMUTABLE_POINT_SUBTYPES = [
+  'sand_quarry',
+  'ground_pumping_station',
+  'oil_pumping_station',
+  'methanol_facility',
+] as const;
+
+/** Spark/import only — not in map «Точка» menu or general POST /objects. */
+export const IMPORT_ONLY_POINT_SUBTYPES = [
+  'ukg',
+  'tsg',
+  'oil_pumping_station',
+  'methanol_facility',
+  'methanol_joint',
+] as const;
+
+const IMPORT_ONLY_POINT_SET = new Set<string>(IMPORT_ONLY_POINT_SUBTYPES);
+
+/** Нельзя выбрать в карточке другого объекта (кроме самого подтипа). */
+export const EXCLUSIVE_POINT_SUBTYPES = ['sand_quarry', 'methanol_facility'] as const;
+
+const EXCLUSIVE_POINT_SET = new Set<string>(EXCLUSIVE_POINT_SUBTYPES);
+
+export const MAP_DRAWABLE_POINT_SUBTYPES = POINT_SUBTYPES.filter(
+  (s) => !IMPORT_ONLY_POINT_SET.has(s),
+);
+
+export function isImmutablePointSubtype(subtype: string): boolean {
+  return (IMMUTABLE_POINT_SUBTYPES as readonly string[]).includes(subtype);
+}
+
+/** Subtype options for ObjectDetailPanel / edits (respects line vs point and immutable subtypes). */
+export function infraSubtypeSelectOptions(object: InfraObject): { value: string; label: string }[] {
+  if (isImmutablePointSubtype(object.subtype)) {
+    return [{ value: object.subtype, label: SUBTYPE_LABELS[object.subtype] || object.subtype }];
+  }
+  if (isGksClusterSubtype(object.subtype)) {
+    return GKS_CLUSTER_SUBTYPES.map((value) => ({
+      value,
+      label: SUBTYPE_LABELS[value] || value,
+    }));
+  }
+  if (isNodeClusterSubtype(object.subtype)) {
+    return NODE_CLUSTER_SUBTYPES.map((value) => ({
+      value,
+      label: SUBTYPE_LABELS[value] || value,
+    }));
+  }
+  if (isGtesClusterSubtype(object.subtype)) {
+    return GTES_CLUSTER_SUBTYPES.map((value) => ({
+      value,
+      label: SUBTYPE_LABELS[value] || value,
+    }));
+  }
+  const isLine =
+    (LINE_SUBTYPES as readonly string[]).includes(object.subtype) ||
+    (object.coordinates != null && object.coordinates.length >= 2) ||
+    (object.end_lon != null && object.end_lat != null);
+  const keys = isLine
+    ? LINE_SUBTYPES
+    : POINT_SUBTYPES.filter(
+        (s) =>
+          !IMPORT_ONLY_POINT_SET.has(s) &&
+          !EXCLUSIVE_POINT_SET.has(s) &&
+          !GTES_CLUSTER_SET.has(s) &&
+          !NODE_CLUSTER_SET.has(s),
+      );
+  return keys.map((value) => ({ value, label: SUBTYPE_LABELS[value] || value }));
+}

@@ -547,6 +547,23 @@ CREATE INDEX idx_points_of_interest_project_id ON points_of_interest(project_id)
 CREATE INDEX idx_points_of_interest_geometry ON points_of_interest USING GIST (geometry);
 ```
 
+### Таблица poi_flow_schematic_layouts (макет PFD на POI)
+
+Пользовательский макет схемы потоков: позиции узлов, ручные блоки, сохранённые лимиты. Расчётная топология пересобирается при GET (см. [fluid-flow-schematic.md](./fluid-flow-schematic.md) §6).
+
+```sql
+CREATE TABLE poi_flow_schematic_layouts (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    poi_id UUID NOT NULL UNIQUE REFERENCES points_of_interest(id) ON DELETE CASCADE,
+    nodes JSONB NOT NULL DEFAULT '[]',
+    edges JSONB NOT NULL DEFAULT '[]',
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+);
+```
+
+Поля `flow_annual`, `flow_unit`, `over_capacity` в узлах layout **не сохраняются** — вычисляются при каждом запросе.
+
 ### Таблица infrastructure_layers (слои инфраструктуры проекта)
 ```sql
 CREATE TABLE infrastructure_layers (
@@ -606,6 +623,8 @@ CREATE INDEX idx_infrastructure_objects_layer_id ON infrastructure_objects(layer
 CREATE INDEX idx_infrastructure_objects_subtype ON infrastructure_objects(subtype);
 CREATE INDEX idx_infrastructure_objects_geometry ON infrastructure_objects USING GIST (geometry);
 ```
+
+**Ключи `properties` для PFD (MVP):** `throughput_capacity_annual` (number), `capacity_unit` (`thousand_t_per_year` | `thousand_m3_per_year`) — см. [map-objects-and-spatial-calculations.md](./map-objects-and-spatial-calculations.md) §1.6.
 
 ### Таблица poi_infrastructure_analysis (анализ окружения точки — 9 подтипов)
 

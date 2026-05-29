@@ -67,12 +67,15 @@ def _infra_line_coordinates(obj: InfrastructureObject) -> list[list[float]] | No
 
 
 def infra_to_response(obj: InfrastructureObject) -> InfraObjectResponse:
+    from app.geo.constants import normalize_infra_subtype
+
     coords = _infra_line_coordinates(obj)
+    subtype = normalize_infra_subtype(obj.subtype)
     return InfraObjectResponse(
         id=obj.id,
         layer_id=obj.layer_id,
         name=obj.name,
-        subtype=obj.subtype,
+        subtype=subtype,
         category=obj.category,
         lon=obj.longitude,
         lat=obj.latitude,

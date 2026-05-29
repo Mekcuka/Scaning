@@ -123,7 +123,7 @@ decision-matrix/
 | TOPSIS / WSM ранжирование | ✅ |
 | Карта OpenLayers (рисование, радиусы, линии POI→external) | ✅ |
 | Матрица (таблица + карточки) | ✅ UI |
-| Импорт CSV / GeoJSON | ✅ |
+| Импорт CSV / GeoJSON / Spark export | ✅ |
 | Одностраничник / PDF | ✅ UI |
 
 ## API
@@ -146,6 +146,7 @@ GET  /api/v1/projects/:id/pois/:poiId/analysis
 GET  /api/v1/projects/:id/pois/:poiId/candidates?subtype=
 POST /api/v1/projects/:id/import/csv
 POST /api/v1/projects/:id/import/geojson
+POST /api/v1/projects/:id/import/spark
 GET  /api/v1/import/logs?project_id=
 POST /api/v1/ranking/calculate
 ```
