@@ -25,7 +25,7 @@ export function LoginPage() {
   };
 
   return (
-    <div className="min-h-screen flex items-center justify-center" style={{ background: 'var(--bg)' }}>
+    <div className="flex flex-1 min-h-0 items-center justify-center overflow-y-auto" style={{ background: 'var(--bg)' }}>
       <div className="card w-full max-w-md mx-4">
         <div className="flex items-center gap-3 mb-6">
           <div className="w-10 h-10 rounded-lg bg-blue-600 flex items-center justify-center text-white font-bold">

@@ -10,7 +10,10 @@ import { ProjectsPage } from './pages/ProjectsPage';
 import { ProjectDetailPage } from './pages/ProjectDetailPage';
 import { RatesPage } from './pages/RatesPage';
 import { MatrixPage } from './pages/MatrixPage';
-import { RankingPage } from './pages/RankingPage';
+import { RankingLayout } from './components/layout/RankingLayout';
+import { RankingResultsPage } from './pages/ranking/RankingResultsPage';
+import { RankingCriteriaPage } from './pages/ranking/RankingCriteriaPage';
+import { RankingSensitivityPage } from './pages/ranking/RankingSensitivityPage';
 import { ReportPage } from './pages/ReportPage';
 import { FlowSchematicLayout } from './pages/flows/FlowSchematicLayout';
 import { FlowTechnologyPage } from './pages/flows/FlowTechnologyPage';
@@ -24,9 +27,10 @@ const queryClient = new QueryClient({
 
 export default function App() {
   return (
-    <QueryClientProvider client={queryClient}>
-      <BrowserRouter basename={import.meta.env.BASE_URL}>
-        <Routes>
+    <div className="app-viewport">
+      <QueryClientProvider client={queryClient}>
+        <BrowserRouter basename={import.meta.env.BASE_URL}>
+          <Routes>
           <Route path="/login" element={<LoginPage />} />
           <Route element={<ProtectedRoute />}>
             <Route element={<AppLayout />}>
@@ -42,7 +46,12 @@ export default function App() {
               <Route path="/projects" element={<ProjectsPage />} />
               <Route path="/projects/:id" element={<ProjectDetailPage />} />
               <Route path="/matrix" element={<MatrixPage />} />
-              <Route path="/ranking" element={<RankingPage />} />
+              <Route path="/ranking" element={<RankingLayout />}>
+                <Route index element={<Navigate to="results" replace />} />
+                <Route path="results" element={<RankingResultsPage />} />
+                <Route path="criteria" element={<RankingCriteriaPage />} />
+                <Route path="sensitivity" element={<RankingSensitivityPage />} />
+              </Route>
               <Route path="/report" element={<ReportPage />} />
               <Route path="/flows" element={<FlowSchematicLayout />}>
                 <Route index element={<Navigate to="technology" replace />} />
@@ -55,5 +64,6 @@ export default function App() {
         </Routes>
       </BrowserRouter>
     </QueryClientProvider>
+    </div>
   );
 }

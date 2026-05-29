@@ -170,16 +170,17 @@ export function ProjectsPage() {
             </div>
           )}
 
-          <div className="card card--flush">
-            <div className="card-header">
-              <h2>Таблица проектов</h2>
+          <div className="card card--flush projects-table-card">
+            <div className="card-header projects-table-card__header">
+              <h2 className="projects-table-card__title">Таблица проектов</h2>
               <button
                 type="button"
                 className="btn btn-primary btn-sm"
+                aria-label="Новый проект"
                 onClick={() => setShowForm((v) => !v)}
               >
-                <Plus size={14} className="inline mr-1" />
-                Новый
+                <Plus size={14} className="inline projects-table-card__btn-icon" />
+                <span className="projects-table-card__btn-label">Новый</span>
               </button>
             </div>
             <div className="table-wrap">
@@ -199,7 +200,7 @@ export function ProjectsPage() {
                       <th className="col-center col-status">Статус</th>
                       <th className="col-center col-date">Дата</th>
                       <th className="col-center col-cost">Стоимость</th>
-                      <th />
+                      <th className="col-actions" aria-label="Действия" />
                     </tr>
                   </thead>
                   <tbody>
@@ -266,8 +267,8 @@ export function ProjectsPage() {
                         >
                           —
                         </td>
-                        <td>
-                          <div className="flex items-center justify-end gap-2">
+                        <td className="col-actions">
+                          <div className="projects-table-actions">
                             <Link
                               to={`/projects/${p.id}`}
                               className="btn btn-secondary btn-sm"

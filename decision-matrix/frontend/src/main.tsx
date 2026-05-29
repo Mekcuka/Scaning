@@ -22,8 +22,26 @@ function Bootstrap() {
   return <App />;
 }
 
-createRoot(document.getElementById('root')!).render(
+const rootEl = document.getElementById('root');
+if (!rootEl) {
+  throw new Error('Root element #root not found');
+}
+
+type RootHandle = ReturnType<typeof createRoot>;
+const rootKey = '__spprReactRoot';
+const existingRoot = (rootEl as HTMLElement & { [rootKey]?: RootHandle })[rootKey];
+const root = existingRoot ?? createRoot(rootEl);
+(rootEl as HTMLElement & { [rootKey]?: RootHandle })[rootKey] = root;
+
+root.render(
   <StrictMode>
     <Bootstrap />
-  </StrictMode>
+  </StrictMode>,
 );
+
+if (import.meta.hot) {
+  import.meta.hot.dispose(() => {
+    root.unmount();
+    delete (rootEl as HTMLElement & { [rootKey]?: RootHandle })[rootKey];
+  });
+}

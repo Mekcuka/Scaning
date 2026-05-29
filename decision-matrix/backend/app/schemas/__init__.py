@@ -391,34 +391,66 @@ class RankingCriterion(BaseModel):
     id: str
     name: str
     type: str = "cost"
+    value_source: str = "computed"
 
 
 class RankingSettingsResponse(BaseModel):
     algorithm: str
     criteria: list[RankingCriterion]
     weights: dict[str, float]
+    default_expert_values: dict[str, float] = Field(default_factory=lambda: {"risk": 5, "reliability": 5, "time_months": 12})
+    ahp_pairwise: dict[str, dict[str, float]] = Field(default_factory=dict)
 
 
 class RankingSettingsUpdate(BaseModel):
     algorithm: str | None = None
     criteria: list[RankingCriterion] | None = None
     weights: dict[str, float] | None = None
+    default_expert_values: dict[str, float] | None = None
+    ahp_pairwise: dict[str, dict[str, float]] | None = None
 
 
 class RankingCriterionValuesUpdate(BaseModel):
     values: dict[str, dict[str, float]]
 
 
+class RankingScenarioSummary(BaseModel):
+    id: str
+    name: str
+    scenario_type: str
+
+
+class RankingMatrixResponse(BaseModel):
+    scenarios: list[RankingScenarioSummary]
+    criteria: list[RankingCriterion]
+    values: dict[str, dict[str, float]]
+    normalized_values: dict[str, dict[str, float]] = Field(default_factory=dict)
+
+
 class RankingAlternativeResult(BaseModel):
+    poi_id: UUID | None = None
     scenario_id: UUID | None = None
     name: str
     score: float
     rank: int
+    scenario_type: str | None = None
 
 
 class RankingRunResponse(BaseModel):
     algorithm: str
     alternatives: list[RankingAlternativeResult]
+    matrix: RankingMatrixResponse | None = None
+    ranking_unit: str = "scenario"
+    skipped_pois: list[str] = Field(default_factory=list)
+
+
+class RankingAhpCalculateRequest(BaseModel):
+    ahp_pairwise: dict[str, dict[str, float]]
+
+
+class RankingAhpCalculateResponse(BaseModel):
+    weights: dict[str, float]
+    consistency_ratio: float
 
 
 class RankingSensitivityPoint(BaseModel):

@@ -1,4 +1,4 @@
-const CACHE = 'sppr-shell-v1';
+const CACHE = 'sppr-shell-v2';
 
 self.addEventListener('install', (event) => {
   event.waitUntil(

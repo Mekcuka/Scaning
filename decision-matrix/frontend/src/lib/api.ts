@@ -301,11 +301,27 @@ export const api = {
     request<RankingRunResult>(`/projects/${projectId}/pois/${poiId}/ranking/calculate`, {
       method: 'POST',
     }),
+  calculateProjectPoisRanking: (projectId: string, settingsPoiId: string) =>
+    request<RankingRunResult>(
+      `/projects/${projectId}/ranking/pois/calculate?settings_poi_id=${encodeURIComponent(settingsPoiId)}`,
+      { method: 'POST' }
+    ),
   calculatePoiRankingSensitivity: (projectId: string, poiId: string, criterionId: string) =>
     request<RankingSensitivityResult>(
       `/projects/${projectId}/pois/${poiId}/ranking/sensitivity?criterion_id=${encodeURIComponent(criterionId)}`,
       { method: 'POST' }
     ),
+  getPoiRankingMatrix: (projectId: string, poiId: string) =>
+    request<RankingMatrix>(`/projects/${projectId}/pois/${poiId}/ranking/matrix`),
+  calculatePoiRankingAhp: (
+    projectId: string,
+    poiId: string,
+    ahpPairwise: Record<string, Record<string, number>>
+  ) =>
+    request<RankingAhpResult>(`/projects/${projectId}/pois/${poiId}/ranking/ahp/calculate`, {
+      method: 'POST',
+      body: JSON.stringify({ ahp_pairwise: ahpPairwise }),
+    }),
   calculateRanking: (data: RankingRequest) =>
     request<RankingResult>('/ranking/calculate', { method: 'POST', body: JSON.stringify(data) }),
   getFlowSchematic: (projectId: string, poiId: string) =>
@@ -656,28 +672,57 @@ export interface RankingResult {
   ranking: Array<{ index: number; score: number; rank: number }>;
 }
 
+export const USER_CRITERIA_IDS = ['risk', 'time_months', 'reliability'] as const;
+export const RANKING_DEFAULT_EXPERT = { risk: 5, reliability: 5, time_months: 12 };
+
 export interface RankingCriterion {
   id: string;
   name: string;
   type: 'cost' | 'benefit' | string;
+  value_source?: 'computed' | 'user' | string;
 }
 
 export interface RankingSettings {
   algorithm: string;
   criteria: RankingCriterion[];
   weights: Record<string, number>;
+  default_expert_values: Record<string, number>;
+  ahp_pairwise: Record<string, Record<string, number>>;
+}
+
+export interface RankingScenarioSummary {
+  id: string;
+  name: string;
+  scenario_type: string;
+}
+
+export interface RankingMatrix {
+  scenarios: RankingScenarioSummary[];
+  criteria: RankingCriterion[];
+  values: Record<string, Record<string, number>>;
+  normalized_values: Record<string, Record<string, number>>;
 }
 
 export interface RankingAlternative {
+  poi_id?: string | null;
   scenario_id?: string | null;
   name: string;
   score: number;
   rank: number;
+  scenario_type?: string | null;
 }
 
 export interface RankingRunResult {
   algorithm: string;
   alternatives: RankingAlternative[];
+  matrix?: RankingMatrix | null;
+  ranking_unit?: 'poi' | 'scenario' | string;
+  skipped_pois?: string[];
+}
+
+export interface RankingAhpResult {
+  weights: Record<string, number>;
+  consistency_ratio: number;
 }
 
 export interface RankingSensitivityPoint {

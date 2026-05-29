@@ -736,8 +736,48 @@ async def link_poi_scenarios(
             select(Scenario).where(Scenario.project_id == project_id, Scenario.poi_id == poi_id)
         )
     ).scalars().all()
-    for sc in linked:
-        sc.results = result
+    if linked:
+        for sc in linked:
+            if sc.scenario_type == "base" or sc.results is None:
+                sc.results = result
+        return
+
+    orphans = (
+        await db.execute(
+            select(Scenario).where(
+                Scenario.project_id == project_id,
+                Scenario.poi_id.is_(None),
+            )
+        )
+    ).scalars().all()
+
+    if orphans:
+        for template in orphans:
+            db.add(
+                Scenario(
+                    project_id=project_id,
+                    poi_id=poi_id,
+                    name=template.name,
+                    scenario_type=template.scenario_type,
+                    is_manual=template.is_manual,
+                    engineering_overrides=dict(template.engineering_overrides or {}),
+                    cost_overrides=dict(template.cost_overrides or {}),
+                    results=result if template.scenario_type == "base" else (template.results or result),
+                )
+            )
+        await db.flush()
+        return
+
+    db.add(
+        Scenario(
+            project_id=project_id,
+            poi_id=poi_id,
+            name="Базовый",
+            scenario_type="base",
+            results=result,
+        )
+    )
+    await db.flush()
 
 
 async def run_project_pois_analysis(db: AsyncSession, project_id: UUID) -> dict[str, Any]:

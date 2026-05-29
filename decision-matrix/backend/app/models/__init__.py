@@ -284,6 +284,8 @@ class ProjectRankingSettings(Base):
     algorithm: Mapped[str] = mapped_column(String(20), default="topsis")
     criteria: Mapped[list[dict]] = mapped_column(JSON, default=list)
     weights: Mapped[dict[str, float]] = mapped_column(JSON, default=dict)
+    default_expert_values: Mapped[dict[str, float]] = mapped_column(JSON, default=dict)
+    ahp_pairwise: Mapped[dict[str, dict[str, float]]] = mapped_column(JSON, default=dict)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
     updated_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), server_default=func.now(), onupdate=func.now()

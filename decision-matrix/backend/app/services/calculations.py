@@ -208,6 +208,65 @@ def rank_alternatives(scores: list[float]) -> list[dict[str, Any]]:
     return [{"index": i, "score": round(s, 4), "rank": r + 1} for r, (i, s) in enumerate(indexed)]
 
 
+# Saaty random index for consistency ratio (n = 1..15)
+_AHP_RANDOM_INDEX = [0.0, 0.0, 0.58, 0.90, 1.12, 1.24, 1.32, 1.41, 1.45, 1.49, 1.51, 1.48, 1.56, 1.57, 1.59]
+
+
+def calc_ahp_weights(pairwise: dict[str, dict[str, float]]) -> dict[str, float]:
+    """Derive normalized weights from pairwise comparison matrix (row geometric mean method)."""
+    import numpy as np
+
+    ids = list(pairwise.keys())
+    if not ids:
+        return {}
+    n = len(ids)
+    mat = np.ones((n, n), dtype=float)
+    for i, a in enumerate(ids):
+        for j, b in enumerate(ids):
+            if i == j:
+                mat[i, j] = 1.0
+            else:
+                val = pairwise.get(a, {}).get(b)
+                if val is None or val <= 0:
+                    val = 1.0 / max(pairwise.get(b, {}).get(a, 1.0), 1e-9)
+                mat[i, j] = float(val)
+    row_products = np.prod(mat, axis=1) ** (1.0 / n)
+    total = row_products.sum()
+    if total <= 0:
+        return {cid: 1.0 / n for cid in ids}
+    weights = row_products / total
+    return {ids[i]: float(weights[i]) for i in range(n)}
+
+
+def calc_ahp_consistency_ratio(pairwise: dict[str, dict[str, float]]) -> float:
+    """Consistency ratio; values > 0.1 indicate inconsistent judgments."""
+    import numpy as np
+
+    ids = list(pairwise.keys())
+    n = len(ids)
+    if n < 2:
+        return 0.0
+    weights = calc_ahp_weights(pairwise)
+    w = np.array([weights[cid] for cid in ids], dtype=float)
+    mat = np.ones((n, n), dtype=float)
+    for i, a in enumerate(ids):
+        for j, b in enumerate(ids):
+            if i != j:
+                val = pairwise.get(a, {}).get(b)
+                if val is None or val <= 0:
+                    val = 1.0 / max(pairwise.get(b, {}).get(a, 1.0), 1e-9)
+                mat[i, j] = float(val)
+    aw = mat @ w
+    with np.errstate(divide="ignore", invalid="ignore"):
+        lambdas = np.where(w > 1e-12, aw / w, 0.0)
+    lambda_max = float(np.mean(lambdas))
+    ci = (lambda_max - n) / max(n - 1, 1)
+    ri = _AHP_RANDOM_INDEX[min(n, len(_AHP_RANDOM_INDEX) - 1)]
+    if ri <= 0:
+        return 0.0
+    return float(ci / ri)
+
+
 def rebalance_weights(base_weights: dict[str, float], target_id: str, delta: float) -> dict[str, float]:
     weights = {k: float(v) for k, v in base_weights.items()}
     if target_id not in weights:

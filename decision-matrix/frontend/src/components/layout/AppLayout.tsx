@@ -80,7 +80,7 @@ export function AppLayout() {
   const closeNav = () => setNavOpen(false);
 
   return (
-    <div className="app-shell flex h-screen max-h-screen overflow-hidden">
+    <div className="app-shell">
       <ToastStack toasts={toasts} onDismiss={dismissToast} position="bottom" />
       {navOpen && (
         <button
@@ -91,7 +91,7 @@ export function AppLayout() {
         />
       )}
       <aside
-        className={`app-sidebar w-56 h-screen max-h-screen flex flex-col shrink-0 overflow-hidden${
+        className={`app-sidebar w-56 h-full max-h-full flex flex-col shrink-0 overflow-hidden${
           navOpen ? ' app-sidebar--open' : ''
         }`}
         style={{ background: 'var(--sidebar-bg)', color: 'var(--sidebar-text)' }}
@@ -134,9 +134,9 @@ export function AppLayout() {
         </div>
       </aside>
 
-      <div className="app-content flex-1 flex flex-col min-w-0 min-h-0 h-screen overflow-hidden">
+      <div className="app-content">
         <header
-          className="app-header h-14 flex items-center gap-3 px-6 border-b shrink-0"
+          className="app-header"
           style={{ background: 'var(--surface)', borderColor: 'var(--border)', boxShadow: 'var(--shadow)' }}
         >
           <button
@@ -147,7 +147,31 @@ export function AppLayout() {
           >
             <Menu size={20} />
           </button>
-          <div className="app-header-toolbar flex flex-1 items-center justify-end gap-3 min-w-0">
+          <div className="app-header-toolbar">
+            <div className="app-header-actions">
+              {!isDashboard && !isProjectsPage && hasProjects && (
+                <label className="app-header-project flex items-center gap-2 text-sm min-w-0">
+                  <span className="app-header-project-label" style={{ color: 'var(--text-muted)' }}>
+                    Проект:
+                  </span>
+                  <AppSelect
+                    variant="toolbar"
+                    icon={<FolderOpen size={14} aria-hidden />}
+                    ariaLabel="Проект"
+                    value={projectId ?? ''}
+                    onChange={(id) => setProjectId(id || null)}
+                    options={projects.map((p) => ({ value: p.id, label: p.name }))}
+                  />
+                </label>
+              )}
+              <button type="button" className="btn btn-ghost p-2 shrink-0" onClick={toggleTheme} title="Тема">
+                {theme === 'light' ? <Moon size={18} /> : <Sun size={18} />}
+              </button>
+              <button type="button" className="btn btn-secondary btn-sm shrink-0" onClick={handleLogout}>
+                <LogOut size={16} />
+                <span className="btn-logout-label">Выход</span>
+              </button>
+            </div>
             {(isDashboard || isProjectsPage) && (
               <input
                 type="search"
@@ -158,28 +182,6 @@ export function AppLayout() {
                 aria-label="Поиск проектов"
               />
             )}
-            {!isDashboard && !isProjectsPage && hasProjects && (
-              <label className="app-header-project flex items-center gap-2 text-sm shrink-0 min-w-0">
-                <span className="app-header-project-label" style={{ color: 'var(--text-muted)' }}>
-                  Проект:
-                </span>
-                <AppSelect
-                  variant="toolbar"
-                  icon={<FolderOpen size={14} aria-hidden />}
-                  ariaLabel="Проект"
-                  value={projectId ?? ''}
-                  onChange={(id) => setProjectId(id || null)}
-                  options={projects.map((p) => ({ value: p.id, label: p.name }))}
-                />
-              </label>
-            )}
-            <button type="button" className="btn btn-ghost p-2 shrink-0" onClick={toggleTheme} title="Тема">
-              {theme === 'light' ? <Moon size={18} /> : <Sun size={18} />}
-            </button>
-            <button type="button" className="btn btn-secondary btn-sm shrink-0" onClick={handleLogout}>
-              <LogOut size={16} />
-              <span className="btn-logout-label">Выход</span>
-            </button>
           </div>
         </header>
         <main

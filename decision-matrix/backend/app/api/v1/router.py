@@ -1,6 +1,6 @@
 from uuid import UUID
 
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, Query, status
 from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -13,7 +13,6 @@ from app.models import (
     ProjectCostRates,
     ProjectDistanceDefaults,
     ProjectEconomicParams,
-    ProjectRankingSettings,
     Scenario,
     ScenarioCriterionValue,
     User,
@@ -37,6 +36,9 @@ from app.schemas import (
     RankingSettingsResponse,
     RankingSettingsUpdate,
     RankingCriterionValuesUpdate,
+    RankingMatrixResponse,
+    RankingAhpCalculateRequest,
+    RankingAhpCalculateResponse,
     ScenarioResponse,
     TokenResponse,
     UserCreate,
@@ -49,6 +51,19 @@ from app.services.calculations import (
     calc_wsm_scores,
     normalize_matrix,
     rank_alternatives,
+    calc_ahp_weights,
+    calc_ahp_consistency_ratio,
+)
+from app.services.ranking_service import (
+    DEFAULT_RANKING_WEIGHTS,
+    build_ranking_matrix,
+    compute_project_pois_ranking,
+    compute_ranking_for_scenarios,
+    get_or_create_ranking_settings,
+    list_scenarios_for_ranking,
+    load_stored_criterion_values,
+    settings_to_response,
+    validate_weights,
 )
 from app.services.cost_rates import DEFAULT_COST_RATES, merge_project_cost_rates
 from app.services.economic_rates import DEFAULT_ECONOMIC_PARAMS
@@ -66,24 +81,6 @@ router.include_router(map_router)
 router.include_router(graph_router)
 router.include_router(flow_router)
 router.include_router(connections_router)
-
-DEFAULT_RANKING_CRITERIA = [
-    {"id": "total_cost_mln", "name": "Общая стоимость", "type": "cost"},
-    {"id": "total_distance_km", "name": "Общее расстояние", "type": "cost"},
-    {"id": "exceed_count", "name": "Количество превышений", "type": "cost"},
-    {"id": "risk", "name": "Риск реализации", "type": "cost"},
-    {"id": "time_months", "name": "Время реализации", "type": "cost"},
-    {"id": "reliability", "name": "Надежность инфраструктуры", "type": "benefit"},
-]
-DEFAULT_RANKING_WEIGHTS = {
-    "total_cost_mln": 0.35,
-    "total_distance_km": 0.15,
-    "exceed_count": 0.2,
-    "risk": 0.1,
-    "time_months": 0.1,
-    "reliability": 0.1,
-}
-DEFAULT_EXPERT_VALUES = {"risk": 5.0, "time_months": 12.0, "reliability": 5.0}
 
 
 @router.post("/auth/register", response_model=UserResponse, status_code=status.HTTP_201_CREATED)
@@ -407,13 +404,9 @@ async def get_ranking_settings(
 ):
     await _get_user_project(project_id, user, db)
     await _get_poi(poi_id, project_id, db)
-    row = await _get_or_create_ranking_settings(db, project_id, poi_id)
+    row = await get_or_create_ranking_settings(db, project_id, poi_id)
     await db.commit()
-    return RankingSettingsResponse(
-        algorithm=row.algorithm,
-        criteria=row.criteria or DEFAULT_RANKING_CRITERIA,
-        weights=row.weights or DEFAULT_RANKING_WEIGHTS,
-    )
+    return RankingSettingsResponse(**settings_to_response(row))
 
 
 @router.put(
@@ -429,22 +422,62 @@ async def update_ranking_settings(
 ):
     await _get_user_project(project_id, user, db)
     await _get_poi(poi_id, project_id, db)
-    row = await _get_or_create_ranking_settings(db, project_id, poi_id)
+    row = await get_or_create_ranking_settings(db, project_id, poi_id)
     payload = data.model_dump(exclude_unset=True)
     if "algorithm" in payload and payload["algorithm"]:
         row.algorithm = str(payload["algorithm"]).lower()
     if "criteria" in payload and payload["criteria"] is not None:
-        row.criteria = payload["criteria"]
+        row.criteria = [c.model_dump() if hasattr(c, "model_dump") else c for c in payload["criteria"]]
     if "weights" in payload and payload["weights"] is not None:
-        _validate_weights(payload["weights"])
+        validate_weights(payload["weights"])
         row.weights = payload["weights"]
+    if "default_expert_values" in payload and payload["default_expert_values"] is not None:
+        row.default_expert_values = payload["default_expert_values"]
+    if "ahp_pairwise" in payload and payload["ahp_pairwise"] is not None:
+        row.ahp_pairwise = payload["ahp_pairwise"]
     await db.commit()
     await db.refresh(row)
-    return RankingSettingsResponse(
-        algorithm=row.algorithm,
-        criteria=row.criteria or DEFAULT_RANKING_CRITERIA,
-        weights=row.weights or DEFAULT_RANKING_WEIGHTS,
-    )
+    return RankingSettingsResponse(**settings_to_response(row))
+
+
+@router.post(
+    "/projects/{project_id}/pois/{poi_id}/ranking/ahp/calculate",
+    response_model=RankingAhpCalculateResponse,
+)
+async def calculate_ranking_ahp_weights(
+    project_id: UUID,
+    poi_id: UUID,
+    data: RankingAhpCalculateRequest,
+    user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    await _get_user_project(project_id, user, db)
+    await _get_poi(poi_id, project_id, db)
+    row = await get_or_create_ranking_settings(db, project_id, poi_id)
+    weights = calc_ahp_weights(data.ahp_pairwise)
+    cr = calc_ahp_consistency_ratio(data.ahp_pairwise)
+    validate_weights(weights)
+    row.ahp_pairwise = data.ahp_pairwise
+    row.weights = weights
+    await db.commit()
+    return RankingAhpCalculateResponse(weights=weights, consistency_ratio=round(cr, 4))
+
+
+@router.get(
+    "/projects/{project_id}/pois/{poi_id}/ranking/matrix",
+    response_model=RankingMatrixResponse,
+)
+async def get_ranking_matrix(
+    project_id: UUID, poi_id: UUID, user: User = Depends(get_current_user), db: AsyncSession = Depends(get_db)
+):
+    await _get_user_project(project_id, user, db)
+    await _get_poi(poi_id, project_id, db)
+    settings = await get_or_create_ranking_settings(db, project_id, poi_id)
+    scenarios = await list_scenarios_for_ranking(db, project_id, poi_id)
+    values_map = await load_stored_criterion_values(db, settings.id)
+    matrix = build_ranking_matrix(scenarios, settings, values_map)
+    await db.commit()
+    return RankingMatrixResponse(**matrix)
 
 
 @router.put("/projects/{project_id}/pois/{poi_id}/ranking/criterion-values")
@@ -457,8 +490,8 @@ async def update_ranking_criterion_values(
 ):
     await _get_user_project(project_id, user, db)
     await _get_poi(poi_id, project_id, db)
-    ranking = await _get_or_create_ranking_settings(db, project_id, poi_id)
-    scenarios = await _list_scenarios_for_ranking(db, project_id, poi_id)
+    ranking = await get_or_create_ranking_settings(db, project_id, poi_id)
+    scenarios = await list_scenarios_for_ranking(db, project_id, poi_id)
     scenario_map = {str(sc.id): sc for sc in scenarios}
 
     for scenario_id, criterion_map in data.values.items():
@@ -488,6 +521,24 @@ async def update_ranking_criterion_values(
 
 
 @router.post(
+    "/projects/{project_id}/ranking/pois/calculate",
+    response_model=RankingRunResponse,
+)
+async def calculate_project_pois_ranking(
+    project_id: UUID,
+    settings_poi_id: UUID = Query(..., description="POI whose weights/algorithm apply to all POIs"),
+    user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    """Rank all POIs in the project (base scenario per POI) using weights from settings_poi_id."""
+    await _get_user_project(project_id, user, db)
+    await _get_poi(settings_poi_id, project_id, db)
+    result = await compute_project_pois_ranking(db, project_id, settings_poi_id)
+    await db.commit()
+    return RankingRunResponse(**result)
+
+
+@router.post(
     "/projects/{project_id}/pois/{poi_id}/ranking/calculate",
     response_model=RankingRunResponse,
 )
@@ -495,13 +546,13 @@ async def calculate_poi_ranking(
     project_id: UUID, poi_id: UUID, user: User = Depends(get_current_user), db: AsyncSession = Depends(get_db)
 ):
     await _get_user_project(project_id, user, db)
-    poi = await _get_poi(poi_id, project_id, db)
-    settings = await _get_or_create_ranking_settings(db, project_id, poi_id)
-    scenarios = await _list_scenarios_for_ranking(db, project_id, poi_id)
-    values_map = await _load_stored_criterion_values(db, settings.id)
-    ranking = _compute_ranking_for_scenarios(poi, scenarios, settings, values_map)
+    await _get_poi(poi_id, project_id, db)
+    settings = await get_or_create_ranking_settings(db, project_id, poi_id)
+    scenarios = await list_scenarios_for_ranking(db, project_id, poi_id)
+    values_map = await load_stored_criterion_values(db, settings.id)
+    result = compute_ranking_for_scenarios(scenarios, settings, values_map)
     await db.commit()
-    return ranking
+    return RankingRunResponse(**result)
 
 
 @router.post(
@@ -516,18 +567,18 @@ async def calculate_poi_ranking_sensitivity(
     db: AsyncSession = Depends(get_db),
 ):
     await _get_user_project(project_id, user, db)
-    poi = await _get_poi(poi_id, project_id, db)
-    settings = await _get_or_create_ranking_settings(db, project_id, poi_id)
-    scenarios = await _list_scenarios_for_ranking(db, project_id, poi_id)
-    values_map = await _load_stored_criterion_values(db, settings.id)
+    await _get_poi(poi_id, project_id, db)
+    settings = await get_or_create_ranking_settings(db, project_id, poi_id)
+    scenarios = await list_scenarios_for_ranking(db, project_id, poi_id)
+    values_map = await load_stored_criterion_values(db, settings.id)
     points = []
     base_weights = dict(settings.weights or DEFAULT_RANKING_WEIGHTS)
     if criterion_id not in base_weights:
         raise HTTPException(status_code=400, detail="Unknown criterion_id")
     for delta in (-0.2, -0.1, 0.0, 0.1, 0.2):
         weights = rebalance_weights(base_weights, criterion_id, delta)
-        ranking_result = _compute_ranking_for_scenarios(poi, scenarios, settings, values_map, custom_weights=weights)
-        points.append({"delta": delta, "alternatives": ranking_result.alternatives})
+        ranking_result = compute_ranking_for_scenarios(scenarios, settings, values_map, custom_weights=weights)
+        points.append({"delta": delta, "alternatives": ranking_result["alternatives"]})
     await db.commit()
     return RankingSensitivityResponse(
         algorithm=settings.algorithm,
@@ -548,132 +599,6 @@ async def calculate_ranking(data: RankingRequest, user: User = Depends(get_curre
         scores=scores,
         ranking=rank_alternatives(scores),
     )
-
-
-def _validate_weights(weights: dict[str, float]) -> None:
-    total = sum(float(v) for v in weights.values())
-    if abs(total - 1.0) > 0.001:
-        raise HTTPException(status_code=400, detail="Weights sum must be 1.0")
-
-
-def _scenario_metric_value(
-    scenario: Scenario, poi: PointOfInterest, criterion_id: str, scenario_values: dict[str, float]
-) -> float:
-    results = scenario.results or {}
-    analysis = results.get("analysis") if isinstance(results, dict) else None
-    analysis_rows = analysis if isinstance(analysis, list) else []
-    if criterion_id == "total_cost_mln":
-        return float(results.get("total_cost_mln", 0.0))
-    if criterion_id == "total_distance_km":
-        return float(
-            sum(float(row.get("distance_km", 0.0) or 0.0) for row in analysis_rows if isinstance(row, dict))
-        )
-    if criterion_id == "exceed_count":
-        return float(
-            sum(1 for row in analysis_rows if isinstance(row, dict) and row.get("status") == "exceeds_limit")
-        )
-    if criterion_id == "risk":
-        return float(scenario_values.get("risk", DEFAULT_EXPERT_VALUES["risk"]))
-    if criterion_id == "time_months":
-        return float(scenario_values.get("time_months", DEFAULT_EXPERT_VALUES["time_months"]))
-    if criterion_id == "reliability":
-        return float(scenario_values.get("reliability", DEFAULT_EXPERT_VALUES["reliability"]))
-    if criterion_id in scenario_values:
-        return float(scenario_values[criterion_id])
-    return float((scenario.results or {}).get(criterion_id, 0.0))
-
-
-def _compute_ranking_for_scenarios(
-    poi: PointOfInterest,
-    scenarios: list[Scenario],
-    settings: ProjectRankingSettings,
-    values_map: dict[tuple[str, str], float],
-    *,
-    custom_weights: dict[str, float] | None = None,
-) -> RankingRunResponse:
-    criteria = settings.criteria or DEFAULT_RANKING_CRITERIA
-    criterion_ids = [str(c.get("id")) for c in criteria]
-    criterion_types = [str(c.get("type", "cost")) for c in criteria]
-    weights_map = custom_weights or (settings.weights or DEFAULT_RANKING_WEIGHTS)
-    _validate_weights(weights_map)
-    weights = [float(weights_map.get(cid, 0.0)) for cid in criterion_ids]
-    matrix: list[list[float]] = []
-    for sc in scenarios:
-        scenario_values = {
-            criterion_id: value
-            for (scenario_id, criterion_id), value in values_map.items()
-            if scenario_id == str(sc.id)
-        }
-        row = [_scenario_metric_value(sc, poi, cid, scenario_values) for cid in criterion_ids]
-        matrix.append(row)
-
-    normalized = normalize_matrix(matrix, criterion_types)
-    if (settings.algorithm or "topsis").lower() == "wsm":
-        scores = calc_wsm_scores(normalized, weights)
-    else:
-        scores = calc_topsis_scores(normalized, weights)
-    ranked = rank_alternatives(scores)
-    ranked_map = {entry["index"]: entry for entry in ranked}
-    alternatives = []
-    for idx, scenario in enumerate(scenarios):
-        rank_item = ranked_map[idx]
-        alternatives.append(
-            {
-                "scenario_id": scenario.id,
-                "name": scenario.name,
-                "score": rank_item["score"],
-                "rank": rank_item["rank"],
-            }
-        )
-    return RankingRunResponse(algorithm=settings.algorithm, alternatives=alternatives)
-
-
-async def _get_or_create_ranking_settings(
-    db: AsyncSession, project_id: UUID, poi_id: UUID
-) -> ProjectRankingSettings:
-    row = await db.scalar(
-        select(ProjectRankingSettings).where(
-            ProjectRankingSettings.project_id == project_id, ProjectRankingSettings.poi_id == poi_id
-        )
-    )
-    if row:
-        return row
-    row = ProjectRankingSettings(
-        project_id=project_id,
-        poi_id=poi_id,
-        algorithm="topsis",
-        criteria=list(DEFAULT_RANKING_CRITERIA),
-        weights=dict(DEFAULT_RANKING_WEIGHTS),
-    )
-    db.add(row)
-    await db.flush()
-    return row
-
-
-async def _list_scenarios_for_ranking(db: AsyncSession, project_id: UUID, poi_id: UUID) -> list[Scenario]:
-    rows = (
-        await db.execute(
-            select(Scenario)
-            .where(Scenario.project_id == project_id, Scenario.poi_id == poi_id)
-            .order_by(Scenario.created_at.asc())
-        )
-    ).scalars().all()
-    if not rows:
-        raise HTTPException(status_code=404, detail="No scenarios for POI. Run analyze first.")
-    return rows
-
-
-async def _load_stored_criterion_values(
-    db: AsyncSession, ranking_settings_id: UUID
-) -> dict[tuple[str, str], float]:
-    rows = (
-        await db.execute(
-            select(ScenarioCriterionValue).where(
-                ScenarioCriterionValue.ranking_settings_id == ranking_settings_id
-            )
-        )
-    ).scalars().all()
-    return {(str(r.scenario_id), r.criterion_id): float(r.value) for r in rows}
 
 
 async def _get_user_project(project_id: UUID, user: User, db: AsyncSession) -> Project:

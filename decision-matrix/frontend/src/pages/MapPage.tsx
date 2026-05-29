@@ -67,6 +67,10 @@ import { formatLengthMeters, lineLengthMeters } from '../lib/mapMeasure';
 import { resolveLineEndpoint } from '../lib/lineEndpointRules';
 import { linkedLineIdsForPoint } from '../lib/infraLinks';
 import {
+  defaultCapacityUnitForSubtype,
+  mergeThroughputCapacity,
+} from '../lib/infraCapacity';
+import {
   infraDetailUndo,
   infraGeometryUndo,
   poiDetailUndo,
@@ -941,27 +945,65 @@ export function MapPage() {
         },
       };
     },
-    onSuccess: (_data, _vars, ctx) => {
+    onSuccess: (updated, _vars, ctx) => {
       if (ctx?.undo) pushUndo(ctx.undo);
-      invalidateMap();
-      if (projectId) {
+      if (!projectId || !updated || !detailSelection) return;
+      if (detailSelection.kind === 'poi') {
+        queryClient.setQueryData<POI[]>(['pois', projectId], (old) =>
+          old?.map((p) => (p.id === updated.id ? { ...p, ...updated } : p)) ?? []
+        );
         void queryClient.invalidateQueries({ queryKey: ['analysis', projectId] });
-        if (detailSelection?.kind === 'poi') {
-          void queryClient.invalidateQueries({
-            queryKey: ['flow-schematic', projectId, detailSelection.poi.id],
-          });
-        }
+        void queryClient.invalidateQueries({
+          queryKey: ['flow-schematic', projectId, updated.id],
+        });
+      } else {
+        queryClient.setQueryData<InfraObject[]>(['infra', projectId], (old) =>
+          old?.map((o) => (o.id === updated.id ? { ...o, ...updated } : o)) ?? []
+        );
       }
       const label =
-        detailSelection?.kind === 'poi'
+        detailSelection.kind === 'poi'
           ? detailSelection.poi.name
-          : detailSelection?.kind === 'infra'
-            ? detailSelection.object.name
-            : null;
+          : detailSelection.object.name;
       pushToast('success', label ? `Сохранено: «${label}»` : 'Изменения сохранены');
     },
     onError: (err) => {
       pushToast('error', err instanceof Error ? err.message : 'Не удалось сохранить');
+    },
+  });
+
+  const saveCapacityMut = useMutation({
+    mutationFn: async ({ object, value }: { object: InfraObject; value: number | null }) => {
+      const unit = defaultCapacityUnitForSubtype(object.subtype);
+      return api.updateInfraObject(projectId!, object.id, {
+        properties: mergeThroughputCapacity(object.properties, value, unit),
+      });
+    },
+    onMutate: ({ object, value }) => {
+      if (!projectId) return { previous: object };
+      const unit = defaultCapacityUnitForSubtype(object.subtype);
+      queryClient.setQueryData<InfraObject[]>(['infra', projectId], (old) =>
+        old?.map((o) =>
+          o.id === object.id
+            ? { ...o, properties: mergeThroughputCapacity(o.properties, value, unit) }
+            : o
+        ) ?? []
+      );
+      return { previous: object };
+    },
+    onSuccess: (updated) => {
+      if (!projectId || !updated) return;
+      queryClient.setQueryData<InfraObject[]>(['infra', projectId], (old) =>
+        old?.map((o) => (o.id === updated.id ? { ...o, ...updated } : o)) ?? []
+      );
+      pushToast('success', 'Пропускная способность сохранена');
+    },
+    onError: (err, _vars, ctx) => {
+      if (!projectId || !ctx?.previous) return;
+      queryClient.setQueryData<InfraObject[]>(['infra', projectId], (old) =>
+        old?.map((o) => (o.id === ctx.previous.id ? ctx.previous : o)) ?? []
+      );
+      pushToast('error', err instanceof Error ? err.message : 'Не удалось сохранить пропускную способность');
     },
   });
 
@@ -1966,8 +2008,15 @@ export function MapPage() {
               selection={detailSelection}
               layers={layers}
               saving={saveDetailMut.isPending}
+              capacitySaving={saveCapacityMut.isPending}
               onClose={() => setFeatureSel(null)}
               onSave={(data) => saveDetailMut.mutate(data)}
+              onSaveCapacity={
+                detailSelection.kind === 'infra'
+                  ? (value) =>
+                      saveCapacityMut.mutate({ object: detailSelection.object, value })
+                  : undefined
+              }
               onDelete={requestDeleteSelection}
             />
           )}

@@ -573,20 +573,12 @@ function FlowSchematicEditorInner({
         const current = nds.find((n) => n.id === nodeId)?.data.separation_percent;
         const currentNum = typeof current === 'number' ? current : DEFAULT_SEPARATION_PERCENT;
         if (capacityValuesEqual(value, currentNum)) return nds;
-        const updated = nds.map((n) =>
-          n.id === nodeId
-            ? { ...n, data: { ...n.data, separation_percent: value } }
-            : n
+        return nds.map((n) =>
+          n.id === nodeId ? { ...n, data: { ...n.data, separation_percent: value } } : n
         );
-        if (onPersistCapacity) {
-          onPersistCapacity(
-            flowToSchematicDto(schematic.poi_id, updated, edges, schematic.warnings)
-          );
-        }
-        return updated;
       });
     },
-    [setNodes, edges, schematic.poi_id, schematic.warnings, onPersistCapacity]
+    [setNodes]
   );
 
   const onPoiProductionChange = useCallback(

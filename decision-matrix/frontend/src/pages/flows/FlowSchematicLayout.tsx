@@ -3,7 +3,7 @@ import { Link, NavLink, Outlet } from 'react-router-dom';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { GitBranch, Coins, Workflow } from 'lucide-react';
 import { AppSelect } from '../../components/AppSelect';
-import { api } from '../../lib/api';
+import { api, type POI } from '../../lib/api';
 import type { FlowSchematicDto } from '../../lib/flowSchematic';
 import { WARNING_LABELS } from '../../lib/flowSchematic';
 import { useAppStore } from '../../store';
@@ -49,11 +49,8 @@ export function FlowSchematicLayout() {
         nodes: dto.nodes,
         edges: dto.edges,
       }),
-    onSuccess: () => {
-      void queryClient.invalidateQueries({ queryKey: ['flow-schematic', projectId, activePoiId] });
-      void queryClient.invalidateQueries({
-        queryKey: ['economic-flow-schematic', projectId, activePoiId],
-      });
+    onSuccess: (data) => {
+      queryClient.setQueryData(['flow-schematic', projectId, activePoiId], data);
     },
     onError: (err) => {
       pushToast('error', err instanceof Error ? err.message : 'Не удалось сохранить схему');
@@ -81,12 +78,10 @@ export function FlowSchematicLayout() {
   const poiProductionMut = useMutation({
     mutationFn: (volume: number) =>
       api.updatePoi(projectId!, activePoiId, { planned_production_volume: volume }),
-    onSuccess: () => {
-      void queryClient.invalidateQueries({ queryKey: ['pois', projectId] });
-      void queryClient.invalidateQueries({ queryKey: ['flow-schematic', projectId, activePoiId] });
-      void queryClient.invalidateQueries({
-        queryKey: ['economic-flow-schematic', projectId, activePoiId],
-      });
+    onSuccess: (updated) => {
+      queryClient.setQueryData<POI[]>(['pois', projectId], (old) =>
+        old?.map((p) => (p.id === updated.id ? { ...p, ...updated } : p)) ?? []
+      );
     },
     onError: (err) => {
       pushToast('error', err instanceof Error ? err.message : 'Не удалось обновить дебит точки');

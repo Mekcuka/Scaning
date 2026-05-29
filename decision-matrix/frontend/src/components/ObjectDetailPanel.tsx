@@ -16,7 +16,14 @@ import { iconDataUrl } from '../lib/mapIcons';
 import { formatLengthMeters, lineLengthMeters } from '../lib/mapMeasure';
 import { formValuesToPoiPayload, poiToFormValues, type PoiFormValues } from '../lib/poiParams';
 import { useAppStore } from '../store';
+import {
+  capacityUnitLabel,
+  defaultCapacityUnitForSubtype,
+  effectiveThroughputCapacity,
+  pointShowsThroughputCapacity,
+} from '../lib/infraCapacity';
 import { AppSelect } from './AppSelect';
+import { InfraCapacityModal } from './InfraCapacityModal';
 import { PoiParamsForm } from './PoiParamsForm';
 
 export type SelectedFeature =
@@ -27,9 +34,11 @@ interface ObjectDetailPanelProps {
   selection: SelectedFeature;
   layers: InfraLayer[];
   onSave: (data: Record<string, unknown>) => void;
+  onSaveCapacity?: (value: number | null) => void;
   onDelete: () => void;
   onClose: () => void;
   saving?: boolean;
+  capacitySaving?: boolean;
   readOnly?: boolean;
 }
 
@@ -50,12 +59,15 @@ export function ObjectDetailPanel({
   selection,
   layers,
   onSave,
+  onSaveCapacity,
   onDelete,
   onClose,
   saving,
+  capacitySaving,
   readOnly = false,
 }: ObjectDetailPanelProps) {
   const pushToast = useAppStore((s) => s.pushToast);
+  const [capacityModalOpen, setCapacityModalOpen] = useState(false);
   const [name, setName] = useState('');
   const [description, setDescription] = useState('');
   const [subtype, setSubtype] = useState('');
@@ -183,6 +195,13 @@ export function ObjectDetailPanel({
     selection.kind === 'infra' ? infraSubtypeSelectOptions(selection.object) : [];
   const subtypeLocked =
     selection.kind === 'infra' && isImmutablePointSubtype(selection.object.subtype);
+
+  const showThroughputCapacity =
+    selection.kind === 'infra' && pointShowsThroughputCapacity(selection.object.subtype);
+  const throughputCapacity = useMemo(() => {
+    if (!infraObject) return null;
+    return effectiveThroughputCapacity(infraObject.subtype, infraObject.properties);
+  }, [infraObject]);
 
   const isDirty = useMemo(() => {
     if (isPoi && poiForm) {
@@ -374,6 +393,30 @@ export function ObjectDetailPanel({
             </PanelSection>
 
             <PanelSection title="Дополнительно">
+              {showThroughputCapacity && throughputCapacity && (
+                <div className="object-detail-panel__field mb-3">
+                  <FieldLabel>Пропускная способность</FieldLabel>
+                  <div className="flex items-center gap-2 flex-wrap">
+                    <span className="text-sm tabular-nums">
+                      {throughputCapacity.value != null
+                        ? `${throughputCapacity.value.toLocaleString('ru-RU')} ${capacityUnitLabel(
+                            throughputCapacity.unit || defaultCapacityUnitForSubtype(subtype)
+                          )}`
+                        : 'Не задана'}
+                    </span>
+                    {!readOnly && onSaveCapacity && (
+                      <button
+                        type="button"
+                        className="btn btn-secondary btn-sm"
+                        disabled={capacitySaving}
+                        onClick={() => setCapacityModalOpen(true)}
+                      >
+                        Изменить…
+                      </button>
+                    )}
+                  </div>
+                </div>
+              )}
               <label className="object-detail-panel__field">
                 <FieldLabel>Описание</FieldLabel>
                 <textarea
@@ -416,6 +459,21 @@ export function ObjectDetailPanel({
           </>
         )}
       </footer>
+
+      {showThroughputCapacity && infraObject && onSaveCapacity && (
+        <InfraCapacityModal
+          open={capacityModalOpen}
+          objectName={infraObject.name}
+          subtype={infraObject.subtype}
+          properties={infraObject.properties}
+          saving={capacitySaving}
+          onClose={() => setCapacityModalOpen(false)}
+          onApply={(value) => {
+            onSaveCapacity(value);
+            setCapacityModalOpen(false);
+          }}
+        />
+      )}
     </div>
   );
 }
