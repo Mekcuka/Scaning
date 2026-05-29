@@ -284,6 +284,9 @@ jobs:
           set -a
           . /opt/decision-matrix/shared/deploy.env
           set +a
+          df -h /
+          docker image prune -af
+          df -h /
           docker compose pull
           docker compose up -d --remove-orphans
           REMOTE
