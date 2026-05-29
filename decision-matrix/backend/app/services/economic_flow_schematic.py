@@ -15,7 +15,7 @@ from app.services.calculations import (
     calc_pads_count,
     thousand_to_million_rub,
 )
-from app.services.cost_rates import DEFAULT_COST_RATES, EXTERNAL_POINT_SUBTYPES, OIL_PREP_RATE_MAP
+from app.services.cost_rates import DEFAULT_COST_RATES, EXTERNAL_POINT_SUBTYPES, OIL_PREP_RATE_MAP, merge_project_cost_rates
 from app.services.economic_rates import (
     DEFAULT_ECONOMIC_PARAMS,
     OPEX_EQUIPMENT_KEYS,
@@ -46,7 +46,7 @@ def _parse_length_km(node: dict[str, Any]) -> float | None:
 
 
 def _merged_cost_rates(row: ProjectCostRates | None) -> dict[str, float]:
-    return {**DEFAULT_COST_RATES, **(row.rates if row else {})}
+    return merge_project_cost_rates(row.rates if row else None)
 
 
 def _merged_economic_params(row: ProjectEconomicParams | None) -> dict[str, float]:

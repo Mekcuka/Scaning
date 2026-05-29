@@ -130,6 +130,34 @@ def test_formula_label():
     assert label == "3.0 км/КП × 2 КП = 6.0 км"
 
 
+def test_get_distance_maps_covers_all_external_linear():
+    from types import SimpleNamespace
+
+    from app.services.cost_rates import EXTERNAL_LINEAR_SUBTYPES
+    from app.services.infrastructure_analysis import get_distance_maps
+
+    poi = SimpleNamespace(
+        km_per_pad_autoroad=None,
+        km_per_pad_oil_pipeline=None,
+        km_per_pad_gas_pipeline=None,
+        km_per_pad_water_pipeline=None,
+        km_per_pad_power_line=None,
+        max_total_line_autoroad_km=None,
+        max_total_line_oil_pipeline_km=None,
+        max_total_line_gas_pipeline_km=None,
+        max_total_line_water_pipeline_km=None,
+        max_total_line_power_line_km=None,
+        threshold_gas_processing_km=None,
+        threshold_gtes_km=None,
+        threshold_substation_km=None,
+        threshold_refinery_km=None,
+    )
+    _, max_line_map, _ = get_distance_maps(poi, None)
+    for subtype in EXTERNAL_LINEAR_SUBTYPES:
+        assert subtype in max_line_map
+        assert max_line_map[subtype] > 0
+
+
 def test_gas_processing_distance_status_with_poi_threshold():
     """Порог ГКС с POI (например 20 км): 8.4 км — в пределах, 25 км — превышение."""
     assert (

@@ -709,6 +709,8 @@ export const POINT_SUBTYPES = [
   'sand_quarry',
   'methanol_facility',
   'methanol_joint',
+  'offplot',
+  'additional_facility',
 ] as const;
 
 /** Map/import layer filter (includes gas_pipeline). */
@@ -719,6 +721,7 @@ export const LINE_SUBTYPES = [
   'water_pipeline',
   'power_line',
   'methanol_pipeline',
+  'additional_line',
 ] as const;
 
 export const ALL_MAP_SUBTYPES = [...POINT_SUBTYPES, ...LINE_SUBTYPES] as const;
@@ -752,6 +755,9 @@ export const SUBTYPE_LABELS: Record<string, string> = {
   sand_quarry: 'Карьер песка',
   methanol_facility: 'Объект метанола',
   methanol_joint: 'Узел метанола',
+  additional_line: 'Доп. линия',
+  additional_facility: 'Доп. объект',
+  offplot: 'ВО',
 };
 
 export function createDefaultSubtypeFilter(): Record<string, boolean> {
@@ -803,6 +809,9 @@ export const LAYER_VISIBILITY_GROUPS: { id: string; label: string; subtypes: rea
     ],
   },
   { id: 'pads_quarry', label: 'Кусты и карьер', subtypes: ['pad', 'sand_quarry'] },
+  { id: 'offplot', label: 'ВО', subtypes: ['offplot'] },
+  { id: 'additional_facility', label: 'Доп. объекты', subtypes: ['additional_facility'] },
+  { id: 'additional_linear', label: 'Доп. линии', subtypes: ['additional_line'] },
   { id: 'methanol_facility', label: 'Объект метанола', subtypes: ['methanol_facility'] },
   { id: 'nodes', label: 'Узлы', subtypes: NODE_CLUSTER_SUBTYPES },
 ];
@@ -829,6 +838,8 @@ export const IMMUTABLE_POINT_SUBTYPES = [
   'ground_pumping_station',
   'oil_pumping_station',
   'methanol_facility',
+  'offplot',
+  'additional_facility',
 ] as const;
 
 /** Spark/import only — not in map «Точка» menu or general POST /objects. */
@@ -845,7 +856,7 @@ export const IMPORT_ONLY_POINT_SUBTYPES = [
 const IMPORT_ONLY_POINT_SET = new Set<string>(IMPORT_ONLY_POINT_SUBTYPES);
 
 /** Нельзя выбрать в карточке другого объекта (кроме самого подтипа). */
-export const EXCLUSIVE_POINT_SUBTYPES = ['sand_quarry', 'methanol_facility'] as const;
+export const EXCLUSIVE_POINT_SUBTYPES = ['sand_quarry', 'methanol_facility', 'offplot', 'additional_facility'] as const;
 
 const EXCLUSIVE_POINT_SET = new Set<string>(EXCLUSIVE_POINT_SUBTYPES);
 

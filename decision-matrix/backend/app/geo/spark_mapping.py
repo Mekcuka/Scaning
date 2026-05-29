@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-# None = skip import (informational message in import log).
 SPARK_TYPE_TO_SUBTYPE: dict[str, str | None] = {
     # Network joints
     "ProductionJoint": "node",
@@ -20,7 +19,7 @@ SPARK_TYPE_TO_SUBTYPE: dict[str, str | None] = {
     "SingleWiredEnergeticsLine": "power_line",
     "DoubleWiredEnergeticsLine": "power_line",
     "MethanolPipeLine": "methanol_pipeline",
-    "AdditionalLine": None,
+    "AdditionalLine": "additional_line",
     # Area facilities → point at polygon centroid
     "CentralGatheringFacility": "gas_processing",
     "CentralProcessingFacility": "refinery",
@@ -52,13 +51,9 @@ SPARK_TYPE_TO_SUBTYPE: dict[str, str | None] = {
     "GroundPumpingStation": "ground_pumping_station",
     "Sandpit": "sand_quarry",
     "MethanolFacility": "methanol_facility",
-    # Explicit skip
-    "AdditionalFacility": None,
-    "Offplot": None,
+    # Spark extras
+    "AdditionalFacility": "additional_facility",
+    "Offplot": "offplot",
 }
 
-SPARK_SKIP_REASON: dict[str, str] = {
-    "AdditionalLine": "no generic line subtype in MVP",
-    "AdditionalFacility": "not mapped for map",
-    "Offplot": "not mapped for map",
-}
+SPARK_SKIP_REASON: dict[str, str] = {}

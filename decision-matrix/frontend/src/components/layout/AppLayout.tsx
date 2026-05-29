@@ -5,7 +5,6 @@ import {
   Map,
   Upload,
   FolderOpen,
-  Coins,
   Grid3X3,
   BarChart3,
   FileText,
@@ -15,6 +14,7 @@ import {
   Sun,
   Layers,
   Menu,
+  SlidersHorizontal,
 } from 'lucide-react';
 import { useAuthStore, useAppStore } from '../../store';
 import { useActiveProject } from '../../hooks/useActiveProject';
@@ -22,16 +22,16 @@ import { AppSelect } from '../AppSelect';
 import { ToastStack } from '../ToastStack';
 
 const NAV = [
-  { to: '/', icon: LayoutDashboard, label: 'Дашборд' },
-  { to: '/projects', icon: FolderOpen, label: 'Проекты' },
-  { to: '/map', icon: Map, label: 'Карта' },
-  { to: '/flows', icon: GitBranch, label: 'Потоки' },
-  { to: '/matrix', icon: Grid3X3, label: 'Матрица' },
-  { to: '/report', icon: FileText, label: 'Отчёты' },
-  { to: '/rates', icon: Coins, label: 'Ставки' },
-  { to: '/ranking', icon: BarChart3, label: 'Ранжирование' },
-  { to: '/import', icon: Upload, label: 'Импорт' },
-];
+  { to: '/', icon: LayoutDashboard, label: 'Дашборд', end: true },
+  { to: '/projects', icon: FolderOpen, label: 'Проекты', end: true },
+  { to: '/map', icon: Map, label: 'Карта', end: true },
+  { to: '/parameters', icon: SlidersHorizontal, label: 'Параметры', end: false },
+  { to: '/flows', icon: GitBranch, label: 'Потоки', end: false },
+  { to: '/matrix', icon: Grid3X3, label: 'Матрица', end: true },
+  { to: '/report', icon: FileText, label: 'Отчёты', end: true },
+  { to: '/ranking', icon: BarChart3, label: 'Ранжирование', end: true },
+  { to: '/import', icon: Upload, label: 'Импорт', end: true },
+] as const;
 
 export type DashboardOutletContext = {
   projectSearch: string;
@@ -106,11 +106,11 @@ export function AppLayout() {
           </div>
         </div>
         <nav className="flex-1 min-h-0 overflow-y-auto py-3">
-          {NAV.map(({ to, icon: Icon, label }) => (
+          {NAV.map(({ to, icon: Icon, label, end }) => (
             <NavLink
               key={to}
               to={to}
-              end={to === '/'}
+              end={end}
               onClick={closeNav}
               className={({ isActive }) =>
                 `flex items-center gap-3 px-4 py-2.5 text-sm transition-colors ${

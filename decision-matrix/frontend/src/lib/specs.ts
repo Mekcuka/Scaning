@@ -12,6 +12,13 @@ export const COST_RATE_GROUPS = [
     ],
   },
   {
+    id: 'additional_linear',
+    label: 'Дополнительные линии (Spark)',
+    unit: 'per_km',
+    unitLabel: 'тыс. ₽/км',
+    rows: [{ id: 'additional_line', label: 'Доп. линия', defaultValue: 5000 }],
+  },
+  {
     id: 'area_external',
     label: 'Площадные внешние (Outside POI)',
     unit: 'fixed',
@@ -20,8 +27,10 @@ export const COST_RATE_GROUPS = [
       { id: 'gas_processing', label: 'ГКС', defaultValue: 500000 },
       { id: 'gtes', label: 'ГТЭС / ГПЭС', defaultValue: 600000 },
       { id: 'substation', label: 'ПС / ТП', defaultValue: 200000 },
-      { id: 'refinery', label: 'НПЗ', defaultValue: 0 },
+      { id: 'refinery', label: 'НПЗ', defaultValue: 500000 },
       { id: 'ground_pumping_station', label: 'БКНС', defaultValue: 400000 },
+      { id: 'offplot', label: 'ВО', defaultValue: 150000 },
+      { id: 'additional_facility', label: 'Доп. объект', defaultValue: 200000 },
     ],
   },
   {
@@ -39,7 +48,7 @@ export const COST_RATE_GROUPS = [
     rows: [
       { id: 'eq_power', label: 'Электроснабжение — внутреннее', defaultValue: 450000 },
       { id: 'eq_injection', label: 'Закачка — локальная', defaultValue: 150000 },
-      { id: 'eq_gas', label: 'Утилизация газа — электрогенерация', defaultValue: 0 },
+      { id: 'eq_gas', label: 'Утилизация газа — электрогенерация', defaultValue: 450000 },
       { id: 'eq_mkos', label: 'Подготовка нефти — МКОС', defaultValue: 100000 },
       { id: 'eq_bmupn', label: 'Подготовка нефти — БМУПН', defaultValue: 120000 },
       { id: 'eq_cps', label: 'Подготовка нефти — ЦПС(УПН)', defaultValue: 150000 },
@@ -52,6 +61,18 @@ export function buildDefaultRates(): Record<string, number> {
   const rates: Record<string, number> = {};
   COST_RATE_GROUPS.forEach((g) => g.rows.forEach((r) => (rates[r.id] = r.defaultValue)));
   return rates;
+}
+
+/** Use catalog default when API/store returned 0 for a known rate. */
+export function effectiveCostRate(
+  rates: Record<string, number>,
+  rateId: string,
+  fallback = 0
+): number {
+  const value = rates[rateId];
+  if (value != null && value !== 0) return value;
+  const defaults = buildDefaultRates();
+  return defaults[rateId] ?? fallback;
 }
 
 export const ECONOMIC_PARAM_GROUPS = [

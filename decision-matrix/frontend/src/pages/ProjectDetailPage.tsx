@@ -103,7 +103,7 @@ export function ProjectDetailPage() {
       <p className="mb-6" style={{ color: 'var(--text-muted)' }}>{project?.description}</p>
 
       <div className="flex gap-3 mb-6">
-        <Link to="/rates" className="btn btn-secondary">Ставки</Link>
+        <Link to="/parameters/rates" className="btn btn-secondary">Ставки</Link>
         <Link to="/map" className="btn btn-secondary">Карта</Link>
         <Link to="/matrix" className="btn btn-secondary">Матрица</Link>
         <Link to="/import" className="btn btn-secondary">Импорт</Link>

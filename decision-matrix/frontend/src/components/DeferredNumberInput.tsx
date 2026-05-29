@@ -13,11 +13,27 @@ export type DeferredNumberInputProps = {
   integer?: boolean;
   title?: string;
   onKeyDown?: (event: KeyboardEvent<HTMLInputElement>) => void;
+  /** Display spaces as thousands separators (e.g. 500 000). */
+  groupDigits?: boolean;
 };
 
-function formatDraft(value: number | string): string {
+function stripNumericInput(raw: string): string {
+  return raw.replace(/\s/g, '').replace(',', '.');
+}
+
+function formatGroupedNumber(value: number | string): string {
   if (value === '' || value === null || value === undefined) return '';
-  return String(value);
+  const normalized = stripNumericInput(String(value));
+  if (normalized === '') return '';
+  const [intPart, fracPart] = normalized.split('.');
+  const groupedInt = intPart.replace(/\B(?=(\d{3})+(?!\d))/g, ' ');
+  if (fracPart == null || fracPart === '') return groupedInt;
+  return `${groupedInt}.${fracPart}`;
+}
+
+function formatDraft(value: number | string, groupDigits?: boolean): string {
+  if (value === '' || value === null || value === undefined) return '';
+  return groupDigits ? formatGroupedNumber(value) : String(value);
 }
 
 function parseDraft(
@@ -26,7 +42,7 @@ function parseDraft(
 ): number | string | null {
   const trimmed = raw.trim();
   if (trimmed === '') return options.allowEmpty ? '' : null;
-  const n = Number(trimmed.replace(',', '.'));
+  const n = Number(stripNumericInput(trimmed));
   if (Number.isNaN(n)) return null;
   const val = options.integer ? Math.round(n) : n;
   if (options.min != null && val < options.min) return null;
@@ -37,8 +53,8 @@ function parseDraft(
 function valuesEqual(a: number | string, b: number | string): boolean {
   if (a === '' && b === '') return true;
   if (a === '' || b === '') return false;
-  const na = Number(String(a).replace(',', '.'));
-  const nb = Number(String(b).replace(',', '.'));
+  const na = Number(stripNumericInput(String(a)));
+  const nb = Number(stripNumericInput(String(b)));
   if (Number.isFinite(na) && Number.isFinite(nb)) return Math.abs(na - nb) < 1e-9;
   return String(a).trim() === String(b).trim();
 }
@@ -56,27 +72,32 @@ export function DeferredNumberInput({
   integer = false,
   title,
   onKeyDown,
+  groupDigits = false,
 }: DeferredNumberInputProps) {
-  const [draft, setDraft] = useState(() => formatDraft(value));
+  const [draft, setDraft] = useState(() => formatDraft(value, groupDigits));
   const [editing, setEditing] = useState(false);
 
   useEffect(() => {
-    if (!editing) setDraft(formatDraft(value));
-  }, [value, editing]);
+    if (!editing) setDraft(formatDraft(value, groupDigits));
+  }, [value, editing, groupDigits]);
 
   const commit = () => {
     setEditing(false);
     const parsed = parseDraft(draft, { allowEmpty, integer, min, max });
     if (parsed === null) {
-      setDraft(formatDraft(value));
+      setDraft(formatDraft(value, groupDigits));
       return;
     }
-    if (valuesEqual(parsed, value)) return;
+    if (valuesEqual(parsed, value)) {
+      setDraft(formatDraft(parsed, groupDigits));
+      return;
+    }
     onCommit(parsed);
+    setDraft(formatDraft(parsed, groupDigits));
   };
 
   const cancel = () => {
-    setDraft(formatDraft(value));
+    setDraft(formatDraft(value, groupDigits));
     setEditing(false);
   };
 
@@ -88,7 +109,7 @@ export function DeferredNumberInput({
         disabled={disabled}
         className={className}
         title={title}
-        value={formatDraft(value)}
+        value={formatDraft(value, groupDigits)}
       />
     );
   }

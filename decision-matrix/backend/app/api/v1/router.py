@@ -50,7 +50,7 @@ from app.services.calculations import (
     normalize_matrix,
     rank_alternatives,
 )
-from app.services.cost_rates import DEFAULT_COST_RATES
+from app.services.cost_rates import DEFAULT_COST_RATES, merge_project_cost_rates
 from app.services.economic_rates import DEFAULT_ECONOMIC_PARAMS
 from app.services.project_delete import delete_project_cascade
 from app.api.v1.flow import flow_router
@@ -252,7 +252,7 @@ async def get_rates(project_id: UUID, user: User = Depends(get_current_user), db
     await _get_user_project(project_id, user, db)
     result = await db.execute(select(ProjectCostRates).where(ProjectCostRates.project_id == project_id))
     rates_row = result.scalar_one_or_none()
-    rates = {**DEFAULT_COST_RATES, **(rates_row.rates if rates_row else {})}
+    rates = merge_project_cost_rates(rates_row.rates if rates_row else None)
     return CostRatesResponse(project_id=project_id, rates=rates)
 
 
@@ -269,7 +269,11 @@ async def update_rates(
     else:
         rates_row.rates = {**DEFAULT_COST_RATES, **rates_row.rates, **data.rates}
     await db.commit()
-    return CostRatesResponse(project_id=project_id, rates={**DEFAULT_COST_RATES, **rates_row.rates})
+    await db.refresh(rates_row)
+    return CostRatesResponse(
+        project_id=project_id,
+        rates=merge_project_cost_rates(rates_row.rates),
+    )
 
 
 @router.get("/projects/{project_id}/economic-params", response_model=EconomicParamsResponse)

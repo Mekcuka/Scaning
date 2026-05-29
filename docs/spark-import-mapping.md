@@ -44,7 +44,7 @@
 | `SingleWiredEnergeticsLine` | `power_line` | `electricity` | LineString | Одноцепная ЛЭП |
 | `DoubleWiredEnergeticsLine` | `power_line` | `electricity` | LineString | Двухцепная ЛЭП |
 | `MethanolPipeLine` | `methanol_pipeline` | `pipeline` | LineString | |
-| `AdditionalLine` | — | — | — | **Пропуск** |
+| `AdditionalLine` | `additional_line` | `other` | LineString | Доп. линия |
 | **Площадные → точка (центроид)** |
 | `CentralGatheringFacility` | `gas_processing` | `area_facility` | Polygon→Point | ЦПС |
 | `CentralProcessingFacility` | `refinery` | `area_facility` | Polygon→Point | УПН |
@@ -74,9 +74,8 @@
 | `GroundPumpingStation` | `ground_pumping_station` | `area_facility` | Polygon→Point | БКНС |
 | `Sandpit` | `sand_quarry` | `area_facility` | Polygon→Point | Карьер песка |
 | `MethanolFacility` | `methanol_facility` | `area_facility` | Polygon→Point | |
-| **Пропуск** |
-| `AdditionalFacility` | — | — | — | |
-| `Offplot` | — | — | — | |
+| `AdditionalFacility` | `additional_facility` | `area_facility` | Polygon→Point | Доп. объект |
+| `Offplot` | `offplot` | `area_facility` | Polygon→Point | ВО (внеплощадочный объект) |
 
 ## Импорт линий и валидация концов
 

@@ -12,7 +12,11 @@ import { RatesPage } from './pages/RatesPage';
 import { MatrixPage } from './pages/MatrixPage';
 import { RankingPage } from './pages/RankingPage';
 import { ReportPage } from './pages/ReportPage';
-import { FlowSchematicPage } from './pages/FlowSchematicPage';
+import { FlowSchematicLayout } from './pages/flows/FlowSchematicLayout';
+import { FlowTechnologyPage } from './pages/flows/FlowTechnologyPage';
+import { FlowEconomicPage } from './pages/flows/FlowEconomicPage';
+import { ParametersPage } from './pages/ParametersPage';
+import { ParametersLayout } from './components/layout/ParametersLayout';
 
 const queryClient = new QueryClient({
   defaultOptions: { queries: { retry: 1, staleTime: 30_000 } },
@@ -28,14 +32,23 @@ export default function App() {
             <Route element={<AppLayout />}>
               <Route path="/" element={<DashboardPage />} />
               <Route path="/map" element={<MapPage />} />
+              <Route path="/parameters" element={<ParametersLayout />}>
+                <Route index element={<Navigate to="capacity" replace />} />
+                <Route path="capacity" element={<ParametersPage />} />
+                <Route path="rates" element={<RatesPage />} />
+              </Route>
+              <Route path="/rates" element={<Navigate to="/parameters/rates" replace />} />
               <Route path="/import" element={<ImportPage />} />
               <Route path="/projects" element={<ProjectsPage />} />
               <Route path="/projects/:id" element={<ProjectDetailPage />} />
-              <Route path="/rates" element={<RatesPage />} />
               <Route path="/matrix" element={<MatrixPage />} />
               <Route path="/ranking" element={<RankingPage />} />
               <Route path="/report" element={<ReportPage />} />
-              <Route path="/flows" element={<FlowSchematicPage />} />
+              <Route path="/flows" element={<FlowSchematicLayout />}>
+                <Route index element={<Navigate to="technology" replace />} />
+                <Route path="technology" element={<FlowTechnologyPage />} />
+                <Route path="economic" element={<FlowEconomicPage />} />
+              </Route>
             </Route>
           </Route>
           <Route path="*" element={<Navigate to="/" replace />} />

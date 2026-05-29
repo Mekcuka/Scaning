@@ -1476,8 +1476,8 @@ export function MapPage() {
               className={`btn btn-sm map-tool-btn ${mapEditEnabled ? 'btn-primary active' : 'btn-secondary'}`}
               title={
                 mapEditEnabled
-                  ? 'Выключить редактирование карты'
-                  : 'Включить редактирование: перемещение объектов, создание POI и линий'
+                  ? 'Выключить редактирование на карте'
+                  : 'Редактирование на карте: перемещение объектов, создание точек и линий'
               }
               onClick={() => setMapEditEnabled((on) => !on)}
             >
@@ -1961,7 +1961,7 @@ export function MapPage() {
             onViewChange={({ scaleLabel }) => setMapScaleLabel(scaleLabel)}
           />
 
-          {detailSelection && !mapEditEnabled && drawMode === 'select' && selectMode === 'single' && (
+          {detailSelection && drawMode === 'select' && selectMode === 'single' && (
             <ObjectDetailPanel
               selection={detailSelection}
               layers={layers}

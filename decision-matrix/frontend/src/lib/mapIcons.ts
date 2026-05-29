@@ -37,12 +37,15 @@ const ICON_MAP: Record<string, MapIconComponent> = {
   sand_quarry: Mountain,
   methanol_facility: Pipette,
   methanol_joint: CircleDot,
+  offplot: MapPin,
+  additional_facility: Factory,
   autoroad: Minus,
   oil_pipeline: Minus,
   gas_pipeline: Flame,
   water_pipeline: Minus,
   power_line: Zap,
   methanol_pipeline: Pipette,
+  additional_line: Minus,
   network_node: CircleDot,
 };
 
@@ -67,12 +70,15 @@ export const MAP_SUBTYPE_COLORS: Record<string, string> = {
   sand_quarry: '#8d6e63',
   methanol_facility: '#7b1fa2',
   methanol_joint: '#9c27b0',
+  offplot: '#546e7a',
+  additional_facility: '#78909c',
   autoroad: '#000000',
   oil_pipeline: '#5d4037',
   gas_pipeline: '#fbc02d',
   water_pipeline: '#2196f3',
   power_line: '#2e7d32',
   methanol_pipeline: '#6a1b9a',
+  additional_line: '#8d6e63',
   network_node: '#7b1fa2',
 };
 

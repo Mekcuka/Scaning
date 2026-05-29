@@ -38,6 +38,7 @@ from app.services.cost_rates import (
     DEFAULT_COST_RATES,
     EXTERNAL_LINEAR_SUBTYPES,
     EXTERNAL_POINT_SUBTYPES,
+    merge_project_cost_rates,
 )
 from app.services.spatial import (
     anchor_point_wkt,
@@ -78,6 +79,14 @@ def get_distance_maps(
         or (defaults.max_total_line_water_pipeline_km if defaults else 30),
         "power_line": poi.max_total_line_power_line_km or (defaults.max_total_line_power_line_km if defaults else 30),
     }
+    # External-only linear subtypes (no POI km-per-pad fields) — search threshold for nearest line.
+    _external_linear_default_km = {
+        "methanol_pipeline": 40.0,
+        "additional_line": 50.0,
+    }
+    for subtype in EXTERNAL_LINEAR_SUBTYPES:
+        if subtype not in max_line_map:
+            max_line_map[subtype] = _external_linear_default_km.get(subtype, 40.0)
     threshold_map = {
         "gas_processing": poi.threshold_gas_processing_km
         or (defaults.threshold_gas_processing_km if defaults else 80),
@@ -291,7 +300,7 @@ async def build_enriched_analysis_from_db(
         select(ProjectDistanceDefaults).where(ProjectDistanceDefaults.project_id == project_id)
     )
     rates_row = await db.scalar(select(ProjectCostRates).where(ProjectCostRates.project_id == project_id))
-    rates = {**DEFAULT_COST_RATES, **(rates_row.rates if rates_row else {})}
+    rates = merge_project_cost_rates(rates_row.rates if rates_row else None)
     km_per_pad_map, _, _ = get_distance_maps(poi, defaults)
     pads = calc_pads_count(poi.planned_production_volume, poi.production_per_well, poi.wells_per_pad)
     eng = engineering_state_from_poi(poi)
@@ -461,7 +470,7 @@ async def run_poi_analysis(
         select(ProjectDistanceDefaults).where(ProjectDistanceDefaults.project_id == project_id)
     )
     rates_row = await db.scalar(select(ProjectCostRates).where(ProjectCostRates.project_id == project_id))
-    rates = {**DEFAULT_COST_RATES, **(rates_row.rates if rates_row else {})}
+    rates = merge_project_cost_rates(rates_row.rates if rates_row else None)
 
     pads = calc_pads_count(poi.planned_production_volume, poi.production_per_well, poi.wells_per_pad)
     eng = engineering_state_from_poi(poi)

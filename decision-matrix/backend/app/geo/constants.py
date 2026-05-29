@@ -19,6 +19,8 @@ POINT_SUBTYPES = frozenset(
         "sand_quarry",
         "methanol_facility",
         "methanol_joint",
+        "offplot",
+        "additional_facility",
     }
 )
 LINE_SUBTYPES = frozenset(
@@ -29,6 +31,7 @@ LINE_SUBTYPES = frozenset(
         "water_pipeline",
         "power_line",
         "methanol_pipeline",
+        "additional_line",
     }
 )
 ALL_INFRA_SUBTYPES = POINT_SUBTYPES | LINE_SUBTYPES
@@ -51,13 +54,15 @@ IMMUTABLE_POINT_SUBTYPES = frozenset({
     "ground_pumping_station",
     "oil_pumping_station",
     "methanol_facility",
+    "offplot",
+    "additional_facility",
 })
 
 # Только импорт Spark; нельзя нарисовать «Точку» и нельзя переклассифицировать другие объекты.
 SPARK_EXCLUSIVE_POINT_SUBTYPES = frozenset({"methanol_facility"})
 
 # Нельзя назначить другому объекту (создание карьера — «Точка» или импорт Spark).
-EXCLUSIVE_POINT_SUBTYPES = frozenset({"sand_quarry", *SPARK_EXCLUSIVE_POINT_SUBTYPES})
+EXCLUSIVE_POINT_SUBTYPES = frozenset({"sand_quarry", "offplot", "additional_facility", *SPARK_EXCLUSIVE_POINT_SUBTYPES})
 
 # НПЗ / НПС — отдельный POST .../facility-objects (subtype обязателен в теле).
 FACILITY_POINT_SUBTYPES = frozenset({"refinery", "oil_pumping_station"})
@@ -107,6 +112,7 @@ SUBTYPE_CATEGORY: dict[str, str] = {
     "water_pipeline": "pipeline",
     "power_line": "electricity",
     "methanol_pipeline": "pipeline",
+    "additional_line": "other",
     "gas_processing": "area_facility",
     "ukg": "area_facility",
     "tsg": "area_facility",
@@ -124,6 +130,8 @@ SUBTYPE_CATEGORY: dict[str, str] = {
     "sand_quarry": "area_facility",
     "methanol_facility": "area_facility",
     "methanol_joint": "network",
+    "offplot": "area_facility",
+    "additional_facility": "area_facility",
 }
 
 SUBTYPE_LABELS: dict[str, str] = {
@@ -150,4 +158,7 @@ SUBTYPE_LABELS: dict[str, str] = {
     "sand_quarry": "Карьер песка",
     "methanol_facility": "Объект метанола",
     "methanol_joint": "Узел метанола",
+    "additional_line": "Доп. линия",
+    "additional_facility": "Доп. объект",
+    "offplot": "ВО",
 }

@@ -217,7 +217,7 @@ export function MatrixPage() {
               В проекте нет точек интереса. Добавьте POI на карте.
             </div>
           ) : viewMode === 'table' ? (
-            <div className="card p-0 table-wrap">
+            <div className="card p-0 table-wrap matrix-table-wrap">
               <table className="data-table matrix-table">
                 <thead>
                   <tr>
@@ -271,8 +271,6 @@ export function MatrixPage() {
                                     {engKey && poi ? (
                                       <AppSelect
                                         variant="compact"
-                                        fullWidth={false}
-                                        matchMenuWidth
                                         className="matrix-eng-select"
                                         ariaLabel={`${row.label}: ${poi.name}`}
                                         value={String(poi[engKey] ?? '')}

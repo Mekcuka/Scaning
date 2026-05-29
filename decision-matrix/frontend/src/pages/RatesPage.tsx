@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { RotateCcw, Save } from 'lucide-react';
 import { api } from '../lib/api';
@@ -8,6 +8,7 @@ import {
   ECONOMIC_PARAM_GROUPS,
   buildDefaultEconomicParams,
   buildDefaultRates,
+  effectiveCostRate,
 } from '../lib/specs';
 import { ProjectDistanceDefaultsForm } from '../components/ProjectDistanceDefaultsForm';
 import { DeferredNumberInput } from '../components/DeferredNumberInput';
@@ -18,6 +19,7 @@ export function RatesPage() {
   const [rates, setRates] = useState<Record<string, number>>(buildDefaultRates());
   const [econParams, setEconParams] = useState<Record<string, number>>(buildDefaultEconomicParams());
   const pushToast = useAppStore((s) => s.pushToast);
+  const backfillRef = useRef(false);
 
   const { data, isLoading } = useQuery({
     queryKey: ['rates', projectId],
@@ -32,8 +34,35 @@ export function RatesPage() {
   });
 
   useEffect(() => {
-    if (data?.rates) setRates(data.rates);
+    backfillRef.current = false;
+  }, [projectId]);
+
+  useEffect(() => {
+    if (!data?.rates) return;
+    setRates(data.rates);
   }, [data]);
+
+  useEffect(() => {
+    if (!projectId || !data?.rates || backfillRef.current) return;
+    const defaults = buildDefaultRates();
+    const patch: Record<string, number> = {};
+    for (const [key, defaultVal] of Object.entries(defaults)) {
+      if ((data.rates[key] ?? 0) === 0 && defaultVal !== 0) {
+        patch[key] = defaultVal;
+      }
+    }
+    if (Object.keys(patch).length === 0) {
+      backfillRef.current = true;
+      return;
+    }
+    backfillRef.current = true;
+    const normalized = { ...data.rates, ...patch };
+    setRates(normalized);
+    void api.updateRates(projectId, normalized).then(() => {
+      void qc.invalidateQueries({ queryKey: ['rates', projectId] });
+      void qc.invalidateQueries({ queryKey: ['economic-flow-schematic', projectId] });
+    });
+  }, [projectId, data, qc]);
 
   useEffect(() => {
     if (econData?.params) setEconParams(econData.params);
@@ -66,10 +95,6 @@ export function RatesPage() {
   if (!projectId) {
     return (
       <div className="rates-page">
-        <header className="page-header">
-          <h1>Ставки стоимости</h1>
-          <p className="subtitle">CAPEX, OPEX и цены продукции · параметры расстояний проекта</p>
-        </header>
         <div className="card text-sm" style={{ color: 'var(--text-muted)' }}>
           Выберите проект в шапке приложения.
         </div>
@@ -79,11 +104,10 @@ export function RatesPage() {
 
   return (
     <div className="rates-page">
-      <header className="page-header rates-page-top">
-        <div>
-          <h1>Ставки стоимости</h1>
-          <p className="subtitle">CAPEX · экономика потока (OPEX и цены) · расстояния POI</p>
-        </div>
+      <header className="parameters-section-head rates-page-top">
+        <p className="parameters-section-head__subtitle">
+          CAPEX · экономика потока (OPEX и цены) · расстояния POI
+        </p>
         <div className="rates-actions">
           <button type="button" className="btn btn-secondary btn-sm" onClick={handleReset}>
             <RotateCcw size={14} className="inline mr-1" />
@@ -120,7 +144,8 @@ export function RatesPage() {
                             <DeferredNumberInput
                               className="rates-input"
                               min={0}
-                              value={rates[row.id] ?? row.defaultValue}
+                              groupDigits
+                              value={effectiveCostRate(rates, row.id, row.defaultValue)}
                               onCommit={(v) => setRates({ ...rates, [row.id]: v as number })}
                             />
                           </td>
@@ -151,6 +176,7 @@ export function RatesPage() {
                                 <DeferredNumberInput
                                   className="rates-input"
                                   min={0}
+                                  groupDigits
                                   value={econParams[row.id] ?? row.defaultValue}
                                   onCommit={(v) =>
                                     setEconParams({ ...econParams, [row.id]: v as number })
