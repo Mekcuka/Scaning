@@ -328,7 +328,7 @@ function FlowNode({ id, data, selected }: NodeProps<Node<FlowNodeData>>) {
         }}
       />
       <div
-        className={`flow-schematic-node px-3 py-2 rounded-lg text-sm shadow-sm text-center cursor-default ${
+        className={`flow-schematic-node px-3 py-2 rounded-lg text-sm shadow-sm text-center ${
           isSeparator ? 'min-w-[130px]' : 'min-w-[120px] max-w-[220px]'
         }`}
         style={{
@@ -338,11 +338,6 @@ function FlowNode({ id, data, selected }: NodeProps<Node<FlowNodeData>>) {
           outline: selected ? `2px solid var(--accent)` : undefined,
           outlineOffset: 2,
           color: 'var(--text)',
-        }}
-        onClick={(e) => {
-          e.stopPropagation();
-          clearCloseTimer();
-          setPopoverOpen(true);
         }}
       >
         <Handle type="target" position={Position.Left} className="!bg-slate-400 !w-2.5 !h-2.5" />
@@ -636,101 +631,6 @@ function FlowSchematicEditorInner({
         </div>
       ) : null}
 
-      <div
-        className={`flow-schematic-toolbar flex flex-wrap items-center gap-2 border-b border-[var(--border)] pb-3${
-          readOnly ? ' flow-schematic-toolbar--readonly' : ''
-        }`}
-      >
-        <span className="text-xs text-[var(--text-muted)] mr-1">Инструмент</span>
-        <div className="flow-schematic-edit-tools flex flex-wrap items-center gap-2 flex-1 min-w-0">
-        <button
-          type="button"
-          className={`btn btn-sm ${tool === 'select' ? 'btn-primary' : 'btn-ghost'}`}
-          title="Выбор и перемещение"
-          disabled={readOnly}
-          onClick={() => setTool('select')}
-        >
-          <MousePointer2 size={16} />
-          Выбор
-        </button>
-        <button
-          type="button"
-          className={`btn btn-sm ${tool === 'connect' ? 'btn-primary' : 'btn-ghost'}`}
-          title="Соединить блоки"
-          onClick={() => setTool('connect')}
-        >
-          <Link2 size={16} />
-          Связь
-        </button>
-        <button
-          type="button"
-          className={`btn btn-sm ${tool === 'add' ? 'btn-primary' : 'btn-ghost'}`}
-          title="Клик по полю — добавить блок"
-          onClick={() => setTool('add')}
-        >
-          <Plus size={16} />
-          Блок
-        </button>
-
-        {tool === 'connect' && (
-          <AppSelectFluid value={connectFluid} onChange={setConnectFluid} />
-        )}
-
-        {tool === 'add' && (
-          <select
-            className="input text-sm py-1 px-2 max-w-[180px]"
-            value={addTemplateIndex}
-            onChange={(e) => setAddTemplateIndex(Number(e.target.value))}
-          >
-            {ADD_NODE_TEMPLATES.map((t, i) => (
-              <option key={`${t.kind}-${t.label}-${i}`} value={i}>
-                {t.label}
-              </option>
-            ))}
-          </select>
-        )}
-
-        <span className="flex-1" />
-
-        <button type="button" className="btn btn-sm btn-ghost" onClick={editSelectedLabel} title="Переименовать">
-          Подпись…
-        </button>
-        <button type="button" className="btn btn-sm btn-ghost" onClick={autoLayout} title="Авто-раскладка">
-          <LayoutGrid size={16} />
-        </button>
-        <button type="button" className="btn btn-sm btn-ghost" onClick={deleteSelected} title="Удалить выбранное">
-          <Trash2 size={16} />
-        </button>
-        <button
-          type="button"
-          className="btn btn-sm btn-primary"
-          onClick={handleSave}
-          disabled={saving}
-        >
-          <Save size={16} />
-          {saving ? 'Сохранение…' : 'Сохранить'}
-        </button>
-        <button
-          type="button"
-          className="btn btn-sm btn-ghost"
-          onClick={onReset}
-          disabled={resetting || saving}
-          title={
-            isCustom
-              ? 'Удалить пользовательскую схему и пересчитать по POI и сети'
-              : 'Пересчитать схему по текущим параметрам POI и сети'
-          }
-        >
-          <RotateCcw size={16} />
-          {resetting ? 'Пересчёт…' : isCustom ? 'Сброс' : 'Пересчитать'}
-        </button>
-        </div>
-      </div>
-
-      <p className="text-xs text-[var(--text-muted)]">
-        Поток идёт от POI (исходное значение) по цепочке. Блоки с потоком выше пропускной способности
-        подсвечиваются красным. Во всплывающем окне — поток и лимит. Двойной клик — переименование.
-      </p>
       {overloadCount > 0 && (
         <p className="text-xs text-red-600 font-medium">
           Перегрузка: {overloadCount} блок(ов) — пропускная способность ниже входящего потока.
@@ -753,34 +653,162 @@ function FlowSchematicEditorInner({
           }
         >
           <FlowSchematicActionsContext.Provider value={schematicActions}>
-          <div className="flow-schematic-canvas w-full h-[min(70vh,560px)] rounded-lg border border-[var(--border)] bg-[var(--bg)]">
-            <ReactFlow
-              nodes={nodes}
-              edges={edges}
-              onNodesChange={onNodesChange}
-              onEdgesChange={onEdgesChange}
-              onConnect={onConnect}
-              onPaneClick={onPaneClick}
-              onNodeDoubleClick={(_e, node) => renameNode(node as Node<FlowNodeData>)}
-              nodeTypes={nodeTypes}
-              edgeTypes={edgeTypes}
-              defaultEdgeOptions={{ type: 'flowEdge' }}
-              fitView
-              fitViewOptions={{ padding: 0.2 }}
-              nodesDraggable={!readOnly && tool === 'select'}
-              nodesConnectable={!readOnly && tool === 'connect'}
-              elementsSelectable={!readOnly}
-              deleteKeyCode={readOnly ? null : ['Backspace', 'Delete']}
-              panOnDrag
-              zoomOnPinch
-              zoomOnScroll={!isMobile}
-              selectionOnDrag={!readOnly && tool === 'select'}
-              proOptions={{ hideAttribution: true }}
-            >
-              <Background gap={16} color="var(--border)" />
-              <Controls showInteractive={false} />
-            </ReactFlow>
-          </div>
+            <div className="flow-schematic-stage">
+              <div className="flow-schematic-canvas w-full h-[min(70vh,560px)] rounded-lg border border-[var(--border)] bg-[var(--bg)]">
+                <ReactFlow
+                  nodes={nodes}
+                  edges={edges}
+                  onNodesChange={onNodesChange}
+                  onEdgesChange={onEdgesChange}
+                  onConnect={onConnect}
+                  onPaneClick={onPaneClick}
+                  onNodeDoubleClick={(_e, node) => renameNode(node as Node<FlowNodeData>)}
+                  nodeTypes={nodeTypes}
+                  edgeTypes={edgeTypes}
+                  defaultEdgeOptions={{ type: 'flowEdge' }}
+                  fitView
+                  fitViewOptions={{ padding: 0.2 }}
+                  nodesDraggable={!readOnly && tool === 'select'}
+                  nodesConnectable={!readOnly && tool === 'connect'}
+                  elementsSelectable={!readOnly}
+                  deleteKeyCode={readOnly ? null : ['Backspace', 'Delete']}
+                  panOnDrag
+                  zoomOnPinch
+                  zoomOnScroll={!isMobile}
+                  selectionOnDrag={false}
+                  selectionKeyCode="Shift"
+                  proOptions={{ hideAttribution: true }}
+                >
+                  <Background gap={16} color="var(--border)" />
+                  <Controls showInteractive={false} position="bottom-left" />
+                </ReactFlow>
+              </div>
+
+              {!readOnly && (
+                <aside className="flow-schematic-edit-panel" aria-label="Редактирование схемы">
+                  <div className="flow-schematic-edit-panel-head">
+                    <h3 className="flow-schematic-edit-panel-title">Редактирование</h3>
+                  </div>
+
+                  <div className="flow-schematic-edit-panel-section">
+                    <span className="flow-schematic-edit-panel-label">Инструмент</span>
+                    <button
+                      type="button"
+                      className={`btn btn-sm w-full justify-start ${tool === 'select' ? 'btn-primary' : 'btn-ghost'}`}
+                      title="Выбор и перемещение"
+                      onClick={() => setTool('select')}
+                    >
+                      <MousePointer2 size={16} />
+                      Выбор
+                    </button>
+                    <button
+                      type="button"
+                      className={`btn btn-sm w-full justify-start ${tool === 'connect' ? 'btn-primary' : 'btn-ghost'}`}
+                      title="Соединить блоки"
+                      onClick={() => setTool('connect')}
+                    >
+                      <Link2 size={16} />
+                      Связь
+                    </button>
+                    <button
+                      type="button"
+                      className={`btn btn-sm w-full justify-start ${tool === 'add' ? 'btn-primary' : 'btn-ghost'}`}
+                      title="Клик по полю — добавить блок"
+                      onClick={() => setTool('add')}
+                    >
+                      <Plus size={16} />
+                      Блок
+                    </button>
+                  </div>
+
+                  {tool === 'connect' && (
+                    <div className="flow-schematic-edit-panel-section">
+                      <span className="flow-schematic-edit-panel-label">Флюид связи</span>
+                      <AppSelectFluid value={connectFluid} onChange={setConnectFluid} />
+                    </div>
+                  )}
+
+                  {tool === 'add' && (
+                    <div className="flow-schematic-edit-panel-section">
+                      <span className="flow-schematic-edit-panel-label">Тип блока</span>
+                      <select
+                        className="input text-sm py-1.5 px-2 w-full"
+                        value={addTemplateIndex}
+                        onChange={(e) => setAddTemplateIndex(Number(e.target.value))}
+                      >
+                        {ADD_NODE_TEMPLATES.map((t, i) => (
+                          <option key={`${t.kind}-${t.label}-${i}`} value={i}>
+                            {t.label}
+                          </option>
+                        ))}
+                      </select>
+                    </div>
+                  )}
+
+                  <div className="flow-schematic-edit-panel-section">
+                    <span className="flow-schematic-edit-panel-label">Действия</span>
+                    <button
+                      type="button"
+                      className="btn btn-sm btn-ghost w-full justify-start"
+                      onClick={editSelectedLabel}
+                      title="Переименовать"
+                    >
+                      Подпись…
+                    </button>
+                    <button
+                      type="button"
+                      className="btn btn-sm btn-ghost w-full justify-start"
+                      onClick={autoLayout}
+                      title="Авто-раскладка"
+                    >
+                      <LayoutGrid size={16} />
+                      Раскладка
+                    </button>
+                    <button
+                      type="button"
+                      className="btn btn-sm btn-ghost w-full justify-start"
+                      onClick={deleteSelected}
+                      title="Удалить выбранное"
+                    >
+                      <Trash2 size={16} />
+                      Удалить
+                    </button>
+                  </div>
+
+                  <div className="flow-schematic-edit-panel-section">
+                    <span className="flow-schematic-edit-panel-label">Схема</span>
+                    <button
+                      type="button"
+                      className="btn btn-sm btn-primary w-full justify-start"
+                      onClick={handleSave}
+                      disabled={saving}
+                    >
+                      <Save size={16} />
+                      {saving ? 'Сохранение…' : 'Сохранить'}
+                    </button>
+                    <button
+                      type="button"
+                      className="btn btn-sm btn-ghost w-full justify-start"
+                      onClick={onReset}
+                      disabled={resetting || saving}
+                      title={
+                        isCustom
+                          ? 'Удалить пользовательскую схему и пересчитать по POI и сети'
+                          : 'Пересчитать схему по текущим параметрам POI и сети'
+                      }
+                    >
+                      <RotateCcw size={16} />
+                      {resetting ? 'Пересчёт…' : isCustom ? 'Сброс' : 'Пересчитать'}
+                    </button>
+                  </div>
+
+                  <p className="flow-schematic-edit-panel-hint">
+                    Перетаскивание по полю — перемещение схемы. Shift + перетаскивание — выделение рамкой.
+                    Двойной клик — переименование. Delete — удалить выделенное.
+                  </p>
+                </aside>
+              )}
+            </div>
           </FlowSchematicActionsContext.Provider>
         </FlowPoiContext.Provider>
         </FlowEdgePropagationContext.Provider>
@@ -804,7 +832,7 @@ function AppSelectFluid({
 }) {
   return (
     <select
-      className="input text-sm py-1 px-2"
+      className="input text-sm py-1.5 px-2 w-full"
       value={value}
       onChange={(e) => onChange(e.target.value as FluidKind)}
       title="Тип флюида для новой связи"
