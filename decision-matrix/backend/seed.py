@@ -9,8 +9,8 @@ os.environ.setdefault("DATABASE_URL", "sqlite+aiosqlite:///./data/sppr.db")
 
 from app.core.config import settings
 from app.core.database import async_session
-from app.core.security import get_password_hash
 from app.geo.geometry_utils import build_infra_geometry, point_wkt
+from app.services.demo_users import DEMO_USERS, ensure_demo_users
 from app.models import (
     InfrastructureLayer,
     InfrastructureObject,
@@ -25,14 +25,6 @@ from app.models.enums import UserRole
 from app.services.cost_rates import DEFAULT_COST_RATES
 from app.services.economic_rates import DEFAULT_ECONOMIC_PARAMS
 
-DEMO_USERS = [
-    ("engineer@oilgas.ru", "Иванов И.И.", UserRole.analyst, "password123"),
-    ("admin@oilgas.ru", "Админ Системы", UserRole.admin, "admin1234"),
-    ("data@oilgas.ru", "Петров Д.М.", UserRole.data_manager, "data12345"),
-    ("viewer@oilgas.ru", "Сидоров В.П.", UserRole.viewer, "viewer123"),
-]
-
-
 async def seed():
     from app.core.database import Base, engine
 
@@ -42,23 +34,12 @@ async def seed():
         await conn.run_sync(Base.metadata.create_all)
 
     async with async_session() as db:
+        created_users = await ensure_demo_users(db)
         users: dict[str, User] = {}
-        created_users: list[str] = []
-        for email, username, role, password in DEMO_USERS:
-            existing = await db.scalar(select(User).where(User.email == email))
-            if existing:
-                users[email] = existing
-                continue
-            user = User(
-                email=email,
-                username=username,
-                password_hash=get_password_hash(password),
-                role=role.value,
-            )
-            db.add(user)
-            await db.flush()
-            users[email] = user
-            created_users.append(email)
+        for email, _, _, _ in DEMO_USERS:
+            user = await db.scalar(select(User).where(User.email == email))
+            if user:
+                users[email] = user
 
         analyst = users["engineer@oilgas.ru"]
         existing_project = await db.scalar(select(Project).where(Project.user_id == analyst.id).limit(1))

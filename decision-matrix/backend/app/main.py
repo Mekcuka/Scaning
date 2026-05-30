@@ -14,7 +14,8 @@ from sqlalchemy import text
 
 from app.api.v1.router import router
 from app.core.config import settings
-from app.core.database import Base, engine
+from app.core.database import Base, async_session, engine
+from app.services.demo_users import ensure_demo_users
 from app.core.rate_limit import limiter
 from app.core.sqlite_migrate import patch_postgres_schema, patch_sqlite_schema
 
@@ -56,6 +57,12 @@ async def lifespan(app: FastAPI):
 
     try:
         await asyncio.wait_for(init_db(), timeout=30.0)
+        if not settings.is_sqlite:
+            async with async_session() as db:
+                created = await ensure_demo_users(db)
+                await db.commit()
+                if created:
+                    logger.info("Created demo users: %s", ", ".join(created))
     except TimeoutError:
         logger.error("Database init timed out after 30s")
         raise

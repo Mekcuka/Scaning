@@ -67,7 +67,8 @@ GET   /api/v1/admin/stats        — агрегаты (users, projects, pois)
 
 ## Демо-учётки
 
-После `python seed.py` или `run_local.py` (SQLite `backend/data/sppr.db`):
+После `python seed.py` или `run_local.py` (SQLite `backend/data/sppr.db`).  
+На **PostgreSQL (прод)** при старте API создаются только **отсутствующие** демо-учётки (`ensure_demo_users`); пароли существующих пользователей не меняются.
 
 | Email | Пароль | Роль |
 |-------|--------|------|

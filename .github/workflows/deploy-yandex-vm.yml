@@ -316,6 +316,7 @@ jobs:
           df -h /
           docker compose pull
           docker compose up -d --remove-orphans
+          docker compose exec -T api python seed.py || true
           REMOTE
 
       - name: Smoke health check
