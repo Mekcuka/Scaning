@@ -22,6 +22,19 @@ import {
   effectiveThroughputCapacity,
   pointShowsThroughputCapacity,
 } from '../lib/infraCapacity';
+import {
+  isSandConsumerSubtype,
+  isSandQuarrySubtype,
+  mergeQuarryVolumes,
+  mergeSandDemandM3,
+  readQuarryVolumes,
+  readSandDemandM3,
+} from '../lib/infraSandVolumes';
+import {
+  mergeEntryDate,
+  objectShowsEntryDate,
+  readEntryDateIso,
+} from '../lib/infraEntryDate';
 import { AppSelect } from './AppSelect';
 import { InfraCapacityModal } from './InfraCapacityModal';
 import { PoiParamsForm } from './PoiParamsForm';
@@ -75,6 +88,10 @@ export function ObjectDetailPanel({
   const [lon, setLon] = useState('');
   const [lat, setLat] = useState('');
   const [poiForm, setPoiForm] = useState<PoiFormValues | null>(null);
+  const [sandInitialM3, setSandInitialM3] = useState('');
+  const [sandCurrentM3, setSandCurrentM3] = useState('');
+  const [sandDemandM3, setSandDemandM3] = useState('');
+  const [entryDate, setEntryDate] = useState('');
 
   const projectId = selection.kind === 'poi' ? selection.poi.project_id : null;
   const { data: defaults } = useQuery({
@@ -97,6 +114,22 @@ export function ObjectDetailPanel({
     setLon(formatCoord(o.lon));
     setLat(formatCoord(o.lat));
     setPoiForm(null);
+    const { initial, current } = readQuarryVolumes(o.properties);
+    if (isSandQuarrySubtype(o.subtype)) {
+      setSandInitialM3(initial > 0 ? String(initial) : '');
+      setSandCurrentM3(current > 0 ? String(current) : '');
+      setSandDemandM3('');
+    } else if (isSandConsumerSubtype(o.subtype) && !isLineSubtype(o.subtype)) {
+      const d = readSandDemandM3(o.properties);
+      setSandDemandM3(d > 0 ? String(d) : '');
+      setSandInitialM3('');
+      setSandCurrentM3('');
+    } else {
+      setSandInitialM3('');
+      setSandCurrentM3('');
+      setSandDemandM3('');
+    }
+    setEntryDate(objectShowsEntryDate(o.subtype) ? readEntryDateIso(o.properties) : '');
   }, [selection]);
 
   const isPoi = selection.kind === 'poi';
@@ -116,7 +149,18 @@ export function ObjectDetailPanel({
     };
 
     if (selection.kind === 'infra') {
-      const props: Record<string, unknown> = { ...(selection.object.properties ?? {}), description };
+      let props: Record<string, unknown> = { ...(selection.object.properties ?? {}), description };
+      if (isSandQuarrySubtype(subtype) && !isLineSubtype(subtype)) {
+        const initial = sandInitialM3.trim() ? parseFloat(sandInitialM3) : null;
+        const current = sandCurrentM3.trim() ? parseFloat(sandCurrentM3) : null;
+        props = mergeQuarryVolumes(props, initial, current);
+      } else if (isSandConsumerSubtype(subtype) && !isLineSubtype(subtype)) {
+        const demand = sandDemandM3.trim() ? parseFloat(sandDemandM3) : null;
+        props = mergeSandDemandM3(props, demand);
+      }
+      if (objectShowsEntryDate(subtype)) {
+        props = mergeEntryDate(props, entryDate.trim() || null);
+      }
       payload.properties = props;
 
       if (isLineSubtype(subtype)) {
@@ -155,6 +199,10 @@ export function ObjectDetailPanel({
     lon,
     lat,
     selection,
+    sandInitialM3,
+    sandCurrentM3,
+    sandDemandM3,
+    entryDate,
   ]);
 
   useEffect(() => {
@@ -198,6 +246,16 @@ export function ObjectDetailPanel({
 
   const showThroughputCapacity =
     selection.kind === 'infra' && pointShowsThroughputCapacity(selection.object.subtype);
+  const showSandQuarryFields =
+    selection.kind === 'infra' && isSandQuarrySubtype(subtype) && !isLine;
+  const showSandDemandField =
+    selection.kind === 'infra' && isSandConsumerSubtype(subtype) && !isLine;
+  const showEntryDateField = selection.kind === 'infra' && objectShowsEntryDate(subtype);
+  const quarryVolumeWarning =
+    showSandQuarryFields &&
+    sandInitialM3.trim() &&
+    sandCurrentM3.trim() &&
+    parseFloat(sandCurrentM3) > parseFloat(sandInitialM3);
   const throughputCapacity = useMemo(() => {
     if (!infraObject) return null;
     return effectiveThroughputCapacity(infraObject.subtype, infraObject.properties);
@@ -210,13 +268,30 @@ export function ObjectDetailPanel({
     }
     if (!infraObject) return false;
     const origDesc = (infraObject.properties?.description as string) || '';
+    const origQ = readQuarryVolumes(infraObject.properties);
+    const sandDirty =
+      (isSandQuarrySubtype(infraObject.subtype) &&
+        !isLine &&
+        (sandInitialM3 !== (origQ.initial > 0 ? String(origQ.initial) : '') ||
+          sandCurrentM3 !== (origQ.current > 0 ? String(origQ.current) : ''))) ||
+      (isSandConsumerSubtype(infraObject.subtype) &&
+        !isLine &&
+        sandDemandM3 !==
+          (readSandDemandM3(infraObject.properties) > 0
+            ? String(readSandDemandM3(infraObject.properties))
+            : ''));
+    const entryDirty =
+      objectShowsEntryDate(infraObject.subtype) &&
+      entryDate !== readEntryDateIso(infraObject.properties);
     return (
       name !== infraObject.name ||
       description !== origDesc ||
       subtype !== infraObject.subtype ||
       layerId !== infraObject.layer_id ||
       lon !== formatCoord(infraObject.lon) ||
-      lat !== formatCoord(infraObject.lat)
+      lat !== formatCoord(infraObject.lat) ||
+      sandDirty ||
+      entryDirty
     );
   }, [
     isPoi,
@@ -229,6 +304,11 @@ export function ObjectDetailPanel({
     layerId,
     lon,
     lat,
+    isLine,
+    sandInitialM3,
+    sandCurrentM3,
+    sandDemandM3,
+    entryDate,
   ]);
 
   const copyCoordinates = async () => {
@@ -342,6 +422,19 @@ export function ObjectDetailPanel({
                   Искра: <span className="font-mono">{sparkType}</span>
                 </p>
               )}
+              {showEntryDateField && (
+                <label className="object-detail-panel__field">
+                  <FieldLabel>Дата ввода</FieldLabel>
+                  <input
+                    className="input object-detail-panel__input"
+                    type="date"
+                    value={entryDate}
+                    readOnly={readOnly}
+                    disabled={readOnly}
+                    onChange={(e) => setEntryDate(e.target.value)}
+                  />
+                </label>
+              )}
             </PanelSection>
 
             <PanelSection title={isLine ? 'Геометрия линии' : 'Координаты'}>
@@ -391,6 +484,61 @@ export function ObjectDetailPanel({
                 </p>
               )}
             </PanelSection>
+
+            {(showSandQuarryFields || showSandDemandField) && (
+              <PanelSection title="Песок">
+                {showSandQuarryFields && (
+                  <div className="object-detail-panel__coord-grid">
+                    <label className="object-detail-panel__field">
+                      <FieldLabel>Изначальный объём, м³</FieldLabel>
+                      <input
+                        className="input object-detail-panel__input"
+                        type="number"
+                        min={0}
+                        step="any"
+                        value={sandInitialM3}
+                        readOnly={readOnly}
+                        disabled={readOnly}
+                        onChange={(e) => setSandInitialM3(e.target.value)}
+                      />
+                    </label>
+                    <label className="object-detail-panel__field">
+                      <FieldLabel>Текущий объём, м³</FieldLabel>
+                      <input
+                        className="input object-detail-panel__input"
+                        type="number"
+                        min={0}
+                        step="any"
+                        value={sandCurrentM3}
+                        readOnly={readOnly}
+                        disabled={readOnly}
+                        onChange={(e) => setSandCurrentM3(e.target.value)}
+                      />
+                    </label>
+                  </div>
+                )}
+                {showSandDemandField && (
+                  <label className="object-detail-panel__field">
+                    <FieldLabel>Объём песка (спрос), м³</FieldLabel>
+                    <input
+                      className="input object-detail-panel__input"
+                      type="number"
+                      min={0}
+                      step="any"
+                      value={sandDemandM3}
+                      readOnly={readOnly}
+                      disabled={readOnly}
+                      onChange={(e) => setSandDemandM3(e.target.value)}
+                    />
+                  </label>
+                )}
+                {quarryVolumeWarning && (
+                  <p className="object-detail-panel__hint text-amber-600">
+                    Текущий объём больше изначального.
+                  </p>
+                )}
+              </PanelSection>
+            )}
 
             <PanelSection title="Дополнительно">
               {showThroughputCapacity && throughputCapacity && (

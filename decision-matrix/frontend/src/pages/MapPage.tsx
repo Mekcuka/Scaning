@@ -3,6 +3,7 @@ import { keepPreviousData, useMutation, useQuery, useQueryClient } from '@tansta
 import {
   BoxSelect,
   Layers,
+  GitBranch,
   MapPin,
   Maximize2,
   Minimize2,
@@ -27,6 +28,7 @@ import {
   buildMapFitAllFocus,
   connectionLinesFromAnalysis,
 } from '../lib/analysisDisplay';
+import { loadSandLogisticsFromSession } from '../lib/sandLogisticsResult';
 import { MapLayersPanel } from '../components/MapLayersPanel';
 import { ObjectDetailPanel, type SelectedFeature } from '../components/ObjectDetailPanel';
 import { PoiParamsForm } from '../components/PoiParamsForm';
@@ -70,6 +72,7 @@ import {
   defaultCapacityUnitForSubtype,
   mergeThroughputCapacity,
 } from '../lib/infraCapacity';
+import { withDefaultInfraProperties } from '../lib/infraEntryDate';
 import {
   infraDetailUndo,
   infraGeometryUndo,
@@ -352,6 +355,46 @@ export function MapPage() {
     refetchOnMount: 'always',
   });
 
+  const { data: networks = [] } = useQuery({
+    queryKey: ['networks', projectId],
+    queryFn: () => api.getNetworks(projectId!),
+    enabled: !!projectId,
+  });
+  const primaryNetworkId = networks[0]?.id;
+  const { data: networkNodes = [] } = useQuery({
+    queryKey: ['network-nodes', projectId, primaryNetworkId],
+    queryFn: () => api.getNetworkNodes(projectId!, primaryNetworkId!),
+    enabled: !!projectId && !!primaryNetworkId,
+  });
+  const { data: networkEdges = [] } = useQuery({
+    queryKey: ['network-edges', projectId, primaryNetworkId],
+    queryFn: () => api.getNetworkEdges(projectId!, primaryNetworkId!),
+    enabled: !!projectId && !!primaryNetworkId,
+  });
+
+  /** После расчёта логистики песка граф не рисуем на карте — он на вкладке «Логистика». */
+  const { data: sandLogisticsResult } = useQuery({
+    queryKey: ['sand-logistics', projectId],
+    queryFn: () => (projectId ? loadSandLogisticsFromSession(projectId) : null),
+    enabled: !!projectId,
+    staleTime: Infinity,
+    gcTime: Infinity,
+  });
+  const mapNetworkNodes = sandLogisticsResult ? [] : networkNodes;
+  const mapNetworkEdges = sandLogisticsResult ? [] : networkEdges;
+
+  const buildNetworkMut = useMutation({
+    mutationFn: () => api.buildNetwork(projectId!),
+    onSuccess: async () => {
+      if (!projectId) return;
+      await refreshMapQueries(queryClient, projectId);
+      pushToast('success', 'Топологическая сеть построена');
+    },
+    onError: (err) => {
+      pushToast('error', err instanceof Error ? err.message : 'Не удалось построить сеть');
+    },
+  });
+
   const layerVisibilityMut = useMutation({
     mutationFn: ({ layerId, is_visible }: { layerId: string; is_visible: boolean }) =>
       api.updateLayer(projectId!, layerId, { is_visible }),
@@ -617,7 +660,11 @@ export function MapPage() {
   );
 
   const createInfraMut = useMutation({
-    mutationFn: (data: Parameters<typeof api.createInfraObject>[1]) => api.createInfraObject(projectId!, data),
+    mutationFn: (data: Parameters<typeof api.createInfraObject>[1]) =>
+      api.createInfraObject(projectId!, {
+        ...data,
+        properties: withDefaultInfraProperties(data.subtype, data.properties),
+      }),
     onSuccess: (created) => {
       upsertInfraInCache(created);
       pushUndo({
@@ -1773,6 +1820,16 @@ export function MapPage() {
             <div className="w-px h-7 mx-0.5 shrink-0" style={{ background: 'var(--border)' }} aria-hidden />
             <button
               type="button"
+              className="btn btn-sm btn-secondary map-tool-btn"
+              title="Построить топологическую сеть по узлам и линиям (для логистики песка)"
+              disabled={!projectId || buildNetworkMut.isPending}
+              onClick={() => buildNetworkMut.mutate()}
+            >
+              <GitBranch size={14} className="inline mr-1" />
+              {buildNetworkMut.isPending ? 'Сеть…' : 'Построить сеть'}
+            </button>
+            <button
+              type="button"
               className={`btn btn-sm map-tool-btn ${drawMode === 'ruler' ? 'btn-primary active' : 'btn-secondary'}`}
               title="Измерить длину ломаной линии на карте (двойной клик — завершить)"
               onClick={() => {
@@ -2029,8 +2086,8 @@ export function MapPage() {
             measureAnchorLabels={measureAnchorLabels}
             showRadii={showRadii}
             useMapIcons
-            networkNodes={[]}
-            networkEdges={[]}
+            networkNodes={mapNetworkNodes}
+            networkEdges={mapNetworkEdges}
             layers={layers}
             mapFocus={mapFocus}
             onFitView={handleFitMapView}

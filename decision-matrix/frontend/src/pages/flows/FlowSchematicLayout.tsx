@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { Link, NavLink, Outlet } from 'react-router-dom';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { GitBranch, Coins, Workflow } from 'lucide-react';
+import { GitBranch, Coins, Truck, Workflow } from 'lucide-react';
 import { AppSelect } from '../../components/AppSelect';
 import { api, type POI } from '../../lib/api';
 import type { FlowSchematicDto } from '../../lib/flowSchematic';
@@ -12,6 +12,7 @@ import { FlowSchematicProvider } from './flowSchematicContext';
 const TABS = [
   { to: '/flows/technology', label: 'Технологический поток', icon: Workflow },
   { to: '/flows/economic', label: 'Экономический поток', icon: Coins },
+  { to: '/flows/logistics', label: 'Логистика', icon: Truck },
 ] as const;
 
 export function FlowSchematicLayout() {
@@ -135,7 +136,7 @@ export function FlowSchematicLayout() {
             <div className="min-w-0">
               <h1 className="parameters-layout__title">Схема потоков</h1>
               <p className="parameters-layout__subtitle">
-                Технологический и экономический потоки по точке интереса
+                Технологический, экономический потоки и логистика по точке интереса
               </p>
             </div>
           </div>

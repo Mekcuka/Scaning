@@ -176,7 +176,13 @@ async def import_rows_to_layer(
             except LineEndpointRuleError as e:
                 errors.append(f"Row {idx} ({row['name']}): {e}")
                 continue
-        props: dict = dict(row.get("properties") or {})
+        from app.geo.entry_date import apply_default_entry_date
+        from app.geo.sand_properties import apply_default_sand_volumes
+
+        props: dict = apply_default_entry_date(
+            str(row["subtype"]),
+            apply_default_sand_volumes(str(row["subtype"]), dict(row.get("properties") or {})),
+        )
         if row.get("coordinates"):
             props["coordinates"] = row["coordinates"]
         db.add(

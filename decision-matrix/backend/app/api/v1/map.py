@@ -293,7 +293,12 @@ async def _create_infra_object_record(
     else:
         layer = await _get_or_create_default_layer(project_id, db, source_type=layer_source_type)
 
-    props = dict(data.properties)
+    from app.geo.entry_date import apply_default_entry_date
+    from app.geo.sand_properties import apply_default_sand_volumes
+
+    props = apply_default_entry_date(
+        subtype, apply_default_sand_volumes(subtype, dict(data.properties))
+    )
     if data.description:
         props["description"] = data.description
 

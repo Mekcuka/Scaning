@@ -33,6 +33,33 @@ import {
 import { useAppStore } from '../store';
 import 'ol/ol.css';
 
+function coordKey(lon: number, lat: number, precision = 5): string {
+  return `${lon.toFixed(precision)},${lat.toFixed(precision)}`;
+}
+
+/** Point infrastructure objects (not lines). */
+function isPointInfraObject(obj: InfraObject): boolean {
+  return obj.end_lon == null && obj.end_lat == null;
+}
+
+function buildPointObjectCoordKeys(objects: InfraObject[]): Set<string> {
+  const keys = new Set<string>();
+  for (const obj of objects) {
+    if (!isPointInfraObject(obj)) continue;
+    keys.add(coordKey(obj.lon, obj.lat, 5));
+    keys.add(coordKey(obj.lon, obj.lat, 4));
+  }
+  return keys;
+}
+
+function isNetworkNodeOnPointObject(
+  lon: number,
+  lat: number,
+  pointCoordKeys: Set<string>
+): boolean {
+  return pointCoordKeys.has(coordKey(lon, lat, 5)) || pointCoordKeys.has(coordKey(lon, lat, 4));
+}
+
 function infraLineGeometry(obj: InfraObject): LineString | null {
   if (obj.coordinates && obj.coordinates.length >= 2) {
     return new LineString(obj.coordinates.map((c) => fromLonLat([c[0], c[1]])));
@@ -1399,6 +1426,7 @@ export function MapView({
       ...Object.fromEntries(networkNodes.map((n) => [n.id, { lon: n.lon, lat: n.lat }])),
       ...nodeCoordLookup,
     };
+    const pointObjectCoordKeys = buildPointObjectCoordKeys(infraObjects);
     networkEdges.forEach((e) => {
       const a = pos[e.from_node_id];
       const b = pos[e.to_node_id];
@@ -1411,6 +1439,7 @@ export function MapView({
       );
     });
     networkNodes.forEach((n) => {
+      if (isNetworkNodeOnPointObject(n.lon, n.lat, pointObjectCoordKeys)) return;
       src.addFeature(
         new Feature({
           geometry: new Point(fromLonLat([n.lon, n.lat])),
@@ -1418,7 +1447,7 @@ export function MapView({
         })
       );
     });
-  }, [networkNodes, networkEdges, nodeCoordLookup]);
+  }, [networkNodes, networkEdges, nodeCoordLookup, infraObjects]);
 
   useEffect(() => {
     const source = placementPreviewSourceRef.current;

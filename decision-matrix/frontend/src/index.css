@@ -1777,7 +1777,9 @@ table.data-table--projects .col-actions {
   color: var(--text-muted);
   font-size: 0.8125rem;
   font-weight: 500;
+  font-family: inherit;
   text-decoration: none;
+  cursor: pointer;
   transition:
     background 0.15s ease,
     border-color 0.15s ease,
@@ -2407,7 +2409,6 @@ tr:hover .inline-table-edit-trigger,
 }
 
 .flow-edge-label {
-  position: absolute;
   pointer-events: none;
   padding: 2px 7px;
   border-radius: 999px;
@@ -2419,6 +2420,21 @@ tr:hover .inline-table-edit-trigger,
   line-height: 1.25;
   white-space: nowrap;
   box-shadow: var(--shadow);
+}
+
+/* Подписи на рёбрах React Flow — absolute только внутри канвы */
+.react-flow__edgelabel-renderer .flow-edge-label {
+  position: absolute;
+}
+
+/* Пример подписи в тексте подсказки — без absolute, иначе «липнет» при скролле страницы */
+.flow-edge-label-inline {
+  display: inline-block;
+  vertical-align: middle;
+  padding: 0 6px;
+  font-size: 0.65rem;
+  border-color: #b45309;
+  color: #b45309;
 }
 
 .flow-capacity-popover {

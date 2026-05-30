@@ -234,6 +234,20 @@ Geodesic-расстояние от POI до Point-объекта. Таблица
 
 Ключи пропускной способности — только для **точечных** подтипов, кроме: `node`, `pad`, `sand_quarry`, `substation`, `vies`, `gtes`, `gpes`. См. [map-objects-and-spatial-calculations.md](./map-objects-and-spatial-calculations.md) §1.6.
 
+| ID | Статус | Тип | Хранение | UI | Примечание |
+|----|--------|-----|----------|-----|------------|
+| `sand_volume_initial_m3` | mvp | number | `properties` | Карта → карьер песка | Начальный запас, м³ |
+| `sand_volume_current_m3` | mvp | number | `properties` | то же | Текущий остаток, м³; рекомендуется ≤ initial |
+| `sand_volume_m3` | mvp | number | `properties` | Карта → точечный объект (кроме `node`, `sand_quarry`) | Спрос потребителя, м³ |
+
+См. [map-objects-and-spatial-calculations.md](./map-objects-and-spatial-calculations.md) §1.7, расчёт — вкладка **Потоки → Логистика**.
+
+| ID | Статус | Тип | Хранение | UI | Примечание |
+|----|--------|-----|----------|-----|------------|
+| `infra_entry_date` | mvp | date (ISO) | `properties.entry_date` | Карта, **Параметры → Дата ввода** | Все подтипы кроме `node`; default `2020-01-01` |
+
+См. [map-objects-and-spatial-calculations.md](./map-objects-and-spatial-calculations.md) §1.8.
+
 Значения `infra_object_geometry_type`: `point` (`ST_Point`), `linestring` (`ST_LineString` / `ST_MultiLineString`). Соответствие подтипу — [map-objects-and-spatial-calculations.md](./map-objects-and-spatial-calculations.md) §1.4.
 
 #### Распределение подтипов по геометрии (FR-2.3.9)

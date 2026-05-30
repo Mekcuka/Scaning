@@ -18,7 +18,10 @@ import { ReportNewPage, ReportDetailPage } from './pages/report/ReportDetailPage
 import { FlowSchematicLayout } from './pages/flows/FlowSchematicLayout';
 import { FlowTechnologyPage } from './pages/flows/FlowTechnologyPage';
 import { FlowEconomicPage } from './pages/flows/FlowEconomicPage';
+import { FlowLogisticsPage } from './pages/flows/FlowLogisticsPage';
 import { ParametersPage } from './pages/ParametersPage';
+import { SandParametersPage } from './pages/SandParametersPage';
+import { EntryDatesParametersPage } from './pages/EntryDatesParametersPage';
 import { ParametersLayout } from './components/layout/ParametersLayout';
 
 const queryClient = new QueryClient({
@@ -40,6 +43,8 @@ export default function App() {
               <Route path="/parameters" element={<ParametersLayout />}>
                 <Route index element={<Navigate to="capacity" replace />} />
                 <Route path="capacity" element={<ParametersPage />} />
+                <Route path="sand" element={<SandParametersPage />} />
+                <Route path="entry-dates" element={<EntryDatesParametersPage />} />
                 <Route path="rates" element={<RatesPage />} />
               </Route>
               <Route path="/rates" element={<Navigate to="/parameters/rates" replace />} />
@@ -56,6 +61,7 @@ export default function App() {
                 <Route index element={<Navigate to="technology" replace />} />
                 <Route path="technology" element={<FlowTechnologyPage />} />
                 <Route path="economic" element={<FlowEconomicPage />} />
+                <Route path="logistics" element={<FlowLogisticsPage />} />
               </Route>
               <Route element={<RoleProtectedRoute roles={['admin']} />}>
                 <Route path="/admin" element={<AdminUsersPage />} />

@@ -1,8 +1,10 @@
 import { NavLink, Outlet } from 'react-router-dom';
-import { Coins, Gauge } from 'lucide-react';
+import { Calendar, Coins, Gauge, Mountain } from 'lucide-react';
 
 const TABS = [
   { to: '/parameters/capacity', label: 'Пропускная способность', icon: Gauge },
+  { to: '/parameters/sand', label: 'Объём песка', icon: Mountain },
+  { to: '/parameters/entry-dates', label: 'Дата ввода', icon: Calendar },
   { to: '/parameters/rates', label: 'Ставки', icon: Coins },
 ] as const;
 
@@ -11,7 +13,9 @@ export function ParametersLayout() {
     <div className="parameters-layout">
       <header className="parameters-layout__head">
         <h1 className="parameters-layout__title">Параметры</h1>
-        <p className="parameters-layout__subtitle">Пропускная способность объектов и ставки стоимости проекта</p>
+        <p className="parameters-layout__subtitle">
+          Пропускная способность, объёмы песка, даты ввода и ставки проекта
+        </p>
       </header>
       <nav className="parameters-subnav" aria-label="Разделы параметров">
         {TABS.map(({ to, label, icon: Icon }) => (

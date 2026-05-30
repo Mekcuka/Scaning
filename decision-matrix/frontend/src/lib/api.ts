@@ -483,6 +483,10 @@ export const api = {
     request<NetworkNode[]>(`/projects/${projectId}/infrastructure/networks/${networkId}/nodes`),
   getNetworkEdges: (projectId: string, networkId: string) =>
     request<NetworkEdge[]>(`/projects/${projectId}/infrastructure/networks/${networkId}/edges`),
+  analyzeSandLogistics: (projectId: string) =>
+    request<SandLogisticsResult>(`/projects/${projectId}/sand-logistics/analyze`, {
+      method: 'POST',
+    }),
   getFlowSchematic: (projectId: string, poiId: string) =>
     request<import('./flowSchematic').FlowSchematicDto>(
       `/projects/${projectId}/pois/${poiId}/flow-schematic`
@@ -821,6 +825,85 @@ export interface NetworkEdge {
   from_node_id: string;
   to_node_id: string;
   length_km: number;
+}
+
+export interface SandLogisticsNetworkNode {
+  id: string;
+  lon: number;
+  lat: number;
+}
+
+export interface SandLogisticsNetworkEdge {
+  id: string;
+  from_node_id: string;
+  to_node_id: string;
+  length_km: number;
+}
+
+export interface SandLogisticsProportionalPart {
+  quarry_id: string;
+  quarry_name: string;
+  allocated_m3: number;
+}
+
+export interface SandLogisticsQuarryRow {
+  object_id: string;
+  name: string;
+  lon: number;
+  lat: number;
+  snap_node_id?: string | null;
+  entry_date: string;
+  in_service: boolean;
+  initial_m3: number;
+  current_m3: number;
+  greedy_allocated_m3: number;
+  greedy_remaining_m3: number;
+  proportional_allocated_m3: number;
+  proportional_exceeds_capacity: boolean;
+}
+
+export interface SandLogisticsConsumerRow {
+  object_id: string;
+  name: string;
+  subtype: string;
+  lon: number;
+  lat: number;
+  snap_node_id?: string | null;
+  demand_m3: number;
+  entry_date: string;
+  in_service: boolean;
+  nearest_quarry_id: string | null;
+  nearest_quarry_name: string | null;
+  distance_km: number | null;
+  snap_to_node_km: number | null;
+  greedy_quarry_id: string | null;
+  greedy_quarry_name: string | null;
+  greedy_allocated_m3: number;
+  proportional_allocations: SandLogisticsProportionalPart[];
+}
+
+export interface SandLogisticsSubnet {
+  subnet_index: number;
+  name: string;
+  autoroad_edge_count: number;
+  quarry_count: number;
+  consumer_count: number;
+  network_nodes: SandLogisticsNetworkNode[];
+  network_edges: SandLogisticsNetworkEdge[];
+  quarries: SandLogisticsQuarryRow[];
+  consumers: SandLogisticsConsumerRow[];
+  warnings: string[];
+}
+
+export interface SandLogisticsResult {
+  project_id: string;
+  as_of: string;
+  network_id: string;
+  subnet_count: number;
+  subnets: SandLogisticsSubnet[];
+  warnings: string[];
+  /** Имена всех карьеров/потребителей (в т.ч. вне подсетей) для подписей предупреждений */
+  object_names: Record<string, string>;
 }
 
 export interface ImportLog {

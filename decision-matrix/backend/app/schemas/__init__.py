@@ -506,6 +506,85 @@ class EconomicFlowResponse(BaseModel):
     warnings: list[str]
 
 
+class SandLogisticsNetworkNode(BaseModel):
+    id: str
+    lon: float
+    lat: float
+
+
+class SandLogisticsNetworkEdge(BaseModel):
+    id: str
+    from_node_id: str
+    to_node_id: str
+    length_km: float
+
+
+class SandLogisticsProportionalPart(BaseModel):
+    quarry_id: str
+    quarry_name: str
+    allocated_m3: float
+
+
+class SandLogisticsConsumerRow(BaseModel):
+    object_id: str
+    name: str
+    subtype: str
+    lon: float
+    lat: float
+    snap_node_id: str | None = None
+    demand_m3: float
+    entry_date: str = "2020-01-01"
+    in_service: bool = True
+    nearest_quarry_id: str | None = None
+    nearest_quarry_name: str | None = None
+    distance_km: float | None = None
+    snap_to_node_km: float | None = None
+    distances_to_quarries_km: dict[str, float | None] = Field(default_factory=dict)
+    greedy_quarry_id: str | None = None
+    greedy_quarry_name: str | None = None
+    greedy_allocated_m3: float = 0.0
+    proportional_allocations: list[SandLogisticsProportionalPart] = Field(default_factory=list)
+
+
+class SandLogisticsQuarryRow(BaseModel):
+    object_id: str
+    name: str
+    lon: float
+    lat: float
+    snap_node_id: str | None = None
+    entry_date: str = "2020-01-01"
+    in_service: bool = True
+    initial_m3: float
+    current_m3: float
+    greedy_allocated_m3: float
+    greedy_remaining_m3: float
+    proportional_allocated_m3: float
+    proportional_exceeds_capacity: bool = False
+
+
+class SandLogisticsSubnetResult(BaseModel):
+    subnet_index: int
+    name: str
+    autoroad_edge_count: int
+    quarry_count: int
+    consumer_count: int
+    network_nodes: list[SandLogisticsNetworkNode] = Field(default_factory=list)
+    network_edges: list[SandLogisticsNetworkEdge] = Field(default_factory=list)
+    quarries: list[SandLogisticsQuarryRow] = Field(default_factory=list)
+    consumers: list[SandLogisticsConsumerRow] = Field(default_factory=list)
+    warnings: list[str] = Field(default_factory=list)
+
+
+class SandLogisticsAnalyzeResponse(BaseModel):
+    project_id: str
+    as_of: str = "2020-01-01"
+    network_id: str
+    subnet_count: int = 0
+    subnets: list[SandLogisticsSubnetResult] = Field(default_factory=list)
+    warnings: list[str] = Field(default_factory=list)
+    object_names: dict[str, str] = Field(default_factory=dict)
+
+
 class ImportJobResponse(BaseModel):
     id: UUID
     status: str
