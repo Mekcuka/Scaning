@@ -195,6 +195,33 @@ body {
   margin-bottom: 4px;
   color: var(--text-muted);
 }
+.password-field {
+  position: relative;
+}
+.password-field input {
+  width: 100%;
+  padding-right: 40px;
+}
+.password-field__toggle {
+  position: absolute;
+  right: 8px;
+  top: 50%;
+  transform: translateY(-50%);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 4px;
+  border: none;
+  background: transparent;
+  color: var(--text-muted);
+  cursor: pointer;
+  border-radius: 4px;
+}
+.password-field__toggle:hover {
+  color: var(--text);
+  background: var(--bg-hover, rgba(0, 0, 0, 0.05));
+}
+
 .form-group input,
 .form-group select,
 .form-group textarea {

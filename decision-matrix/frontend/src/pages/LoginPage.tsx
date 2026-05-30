@@ -1,5 +1,6 @@
 import { zodResolver } from '@hookform/resolvers/zod';
-import { useEffect } from 'react';
+import { Eye, EyeOff } from 'lucide-react';
+import { useEffect, useState } from 'react';
 import { useForm } from 'react-hook-form';
 import { Link, useNavigate } from 'react-router-dom';
 import { z } from 'zod';
@@ -15,6 +16,7 @@ type FormData = z.infer<typeof schema>;
 export function LoginPage() {
   const { login, user, isLoading } = useAuthStore();
   const navigate = useNavigate();
+  const [showPassword, setShowPassword] = useState(false);
   const {
     register,
     handleSubmit,
@@ -22,7 +24,7 @@ export function LoginPage() {
     setError,
   } = useForm<FormData>({
     resolver: zodResolver(schema),
-    defaultValues: { email: 'engineer@oilgas.ru', password: 'password123' },
+    defaultValues: { email: '', password: '' },
   });
 
   useEffect(() => {
@@ -64,13 +66,29 @@ export function LoginPage() {
         </div>
         <form onSubmit={handleSubmit(onSubmit)}>
           <div className="form-group">
-            <label>Email</label>
-            <input type="email" {...register('email')} />
+            <label htmlFor="login-email">Email</label>
+            <input id="login-email" type="email" autoComplete="email" {...register('email')} />
             {errors.email && <p className="text-red-500 text-xs mt-1">{errors.email.message}</p>}
           </div>
           <div className="form-group">
-            <label>Пароль</label>
-            <input type="password" {...register('password')} />
+            <label htmlFor="login-password">Пароль</label>
+            <div className="password-field">
+              <input
+                id="login-password"
+                type={showPassword ? 'text' : 'password'}
+                autoComplete="current-password"
+                {...register('password')}
+              />
+              <button
+                type="button"
+                className="password-field__toggle"
+                onClick={() => setShowPassword((v) => !v)}
+                aria-label={showPassword ? 'Скрыть пароль' : 'Показать пароль'}
+                tabIndex={-1}
+              >
+                {showPassword ? <EyeOff size={18} aria-hidden /> : <Eye size={18} aria-hidden />}
+              </button>
+            </div>
             {errors.password && <p className="text-red-500 text-xs mt-1">{errors.password.message}</p>}
           </div>
           {errors.root && <p className="text-red-500 text-sm mb-3">{errors.root.message}</p>}
@@ -83,9 +101,6 @@ export function LoginPage() {
           <Link to="/register" className="text-blue-600 hover:underline">
             Регистрация
           </Link>
-        </p>
-        <p className="text-xs mt-4 text-center" style={{ color: 'var(--text-muted)' }}>
-          Демо: engineer@oilgas.ru / password123
         </p>
       </div>
     </div>
