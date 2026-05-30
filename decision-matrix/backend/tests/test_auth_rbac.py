@@ -65,12 +65,24 @@ def _csrf_headers(client: TestClient) -> dict[str, str]:
 def test_register_login_sets_cookies(client: TestClient):
     res = _register(client, "analyst@test.ru", "Analyst User")
     assert res.status_code == 201
+    body = res.json()
+    assert body.get("access_token")
+    assert body.get("refresh_token")
     assert client.cookies.get("access_token")
     assert client.cookies.get("refresh_token")
     assert client.cookies.get("csrf_token")
     me = client.get("/api/v1/auth/me")
     assert me.status_code == 200
     assert me.json()["role"] == "analyst"
+
+
+def test_me_with_bearer_without_cookies(client: TestClient):
+    res = _register(client, "bearer@test.ru", "Bearer User")
+    token = res.json()["access_token"]
+    client.cookies.clear()
+    me = client.get("/api/v1/auth/me", headers={"Authorization": f"Bearer {token}"})
+    assert me.status_code == 200
+    assert me.json()["email"] == "bearer@test.ru"
 
 
 def test_csrf_blocks_mutating_without_header(client: TestClient):

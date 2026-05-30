@@ -1,6 +1,17 @@
+import {
+  clearAuthTokens,
+  getAccessToken,
+  getRefreshToken,
+  persistAuthTokens,
+  type AuthSessionTokens,
+} from './authSession';
+
 const API_BASE = import.meta.env.VITE_API_URL || '/api/v1';
 const REQUEST_TIMEOUT_MS = 12_000;
 const MUTATING_METHODS = new Set(['POST', 'PUT', 'PATCH', 'DELETE']);
+
+export type AuthUser = { id: string; email: string; username: string; role: string };
+export type AuthSession = AuthUser & AuthSessionTokens & { token_type?: string };
 
 /** GitHub Pages base path, e.g. /Scaning/ */
 export function appLoginPath(): string {
@@ -19,9 +30,14 @@ export function clearStoredCsrf(): void {
   sessionStorage.removeItem(CSRF_STORAGE_KEY);
 }
 
+function clearClientAuth(): void {
+  clearStoredCsrf();
+  clearAuthTokens();
+}
+
 /** End server session and local CSRF (switch account / logout). */
 export async function clearServerSession(): Promise<void> {
-  clearStoredCsrf();
+  clearClientAuth();
   try {
     await request<{ message: string }>('/auth/logout', {
       method: 'POST',
@@ -46,11 +62,21 @@ async function tryRefreshSession(): Promise<boolean> {
     refreshInFlight = (async () => {
       try {
         const csrf = getCsrfToken();
+        const refreshToken = getRefreshToken();
+        const headers: Record<string, string> = { 'Content-Type': 'application/json' };
+        if (csrf) headers['X-CSRF-Token'] = csrf;
+        const access = getAccessToken();
+        if (access) headers.Authorization = `Bearer ${access}`;
         const res = await fetch(`${API_BASE}/auth/refresh`, {
           method: 'POST',
           credentials: 'include',
-          headers: csrf ? { 'X-CSRF-Token': csrf } : {},
+          headers,
+          body: refreshToken ? JSON.stringify({ refresh_token: refreshToken }) : undefined,
         });
+        if (res.ok) {
+          const data = (await res.json()) as AuthSession;
+          persistAuthTokens(data);
+        }
         storeCsrfFromResponse(res);
         return res.ok;
       } catch {
@@ -103,6 +129,8 @@ async function request<T>(path: string, options: RequestOptions = {}): Promise<T
     const csrf = getCsrfToken();
     if (csrf) headers['X-CSRF-Token'] = csrf;
   }
+  const accessToken = getAccessToken();
+  if (accessToken) headers.Authorization = `Bearer ${accessToken}`;
 
   const controller = new AbortController();
   const timeoutId = setTimeout(() => controller.abort(), timeoutMs ?? REQUEST_TIMEOUT_MS);
@@ -131,15 +159,16 @@ async function request<T>(path: string, options: RequestOptions = {}): Promise<T
       }
     }
     if (redirectOn401) {
-      clearStoredCsrf();
+      clearClientAuth();
       window.dispatchEvent(new CustomEvent('sppr:auth-lost'));
-      const path = window.location.pathname;
-      const onAuthPage = /\/(login|register)\/?$/.test(path);
+      const pathName = window.location.pathname;
+      const onAuthPage = /\/(login|register)\/?$/.test(pathName);
       if (!onAuthPage) {
         window.location.href = appLoginPath();
       }
     }
-    throw new Error('Unauthorized');
+    const err = await res.json().catch(() => ({ detail: null }));
+    throw new Error(formatApiError(err.detail, 'Unauthorized'));
   }
   if (res.status === 403) {
     const err = await res.json().catch(() => ({ detail: null }));
@@ -167,6 +196,8 @@ async function requestBlob(path: string, options: RequestOptions = {}): Promise<
     const csrf = getCsrfToken();
     if (csrf) headers['X-CSRF-Token'] = csrf;
   }
+  const accessToken = getAccessToken();
+  if (accessToken) headers.Authorization = `Bearer ${accessToken}`;
   if (!(fetchOptions.body instanceof FormData)) {
     headers['Content-Type'] = 'application/json';
   }
@@ -194,21 +225,29 @@ async function requestBlob(path: string, options: RequestOptions = {}): Promise<
   return res.blob();
 }
 
-export type AuthUser = { id: string; email: string; username: string; role: string };
+function applyAuthSession(session: AuthSession): AuthUser {
+  persistAuthTokens(session);
+  const { access_token: _a, refresh_token: _r, token_type: _t, ...user } = session;
+  return user;
+}
 
 export const api = {
-  login: (email: string, password: string) =>
-    request<AuthUser>('/auth/login', {
+  login: async (email: string, password: string) => {
+    const session = await request<AuthSession>('/auth/login', {
       method: 'POST',
       body: JSON.stringify({ email, password }),
       redirectOn401: false,
-    }),
-  register: (email: string, password: string, username: string) =>
-    request<AuthUser>('/auth/register', {
+    });
+    return applyAuthSession(session);
+  },
+  register: async (email: string, password: string, username: string) => {
+    const session = await request<AuthSession>('/auth/register', {
       method: 'POST',
       body: JSON.stringify({ email, password, username }),
       redirectOn401: false,
-    }),
+    });
+    return applyAuthSession(session);
+  },
   logout: () =>
     request<{ message: string }>('/auth/logout', {
       method: 'POST',

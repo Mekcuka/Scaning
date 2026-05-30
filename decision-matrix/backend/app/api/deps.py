@@ -16,6 +16,7 @@ CSRF_EXEMPT_PATHS = {
     "/api/v1/auth/login",
     "/api/v1/auth/register",
     "/api/v1/auth/logout",
+    "/api/v1/auth/refresh",
 }
 
 
@@ -25,6 +26,9 @@ async def verify_csrf(request: Request) -> None:
     path = request.url.path.rstrip("/") or "/"
     exempt = {p.rstrip("/") for p in CSRF_EXEMPT_PATHS}
     if path in exempt:
+        return
+    auth = request.headers.get("Authorization") or ""
+    if auth.lower().startswith("bearer "):
         return
     csrf_cookie = request.cookies.get(CSRF_COOKIE)
     csrf_header = request.headers.get("X-CSRF-Token")

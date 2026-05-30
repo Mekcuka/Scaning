@@ -46,6 +46,20 @@ class UserResponse(BaseModel):
     model_config = {"from_attributes": True}
 
 
+class RefreshTokenBody(BaseModel):
+    """For cross-origin SPA when refresh cookie is blocked (e.g. incognito)."""
+
+    refresh_token: str | None = None
+
+
+class AuthSessionResponse(UserResponse):
+    """Login/register/refresh: cookies + tokens for Bearer auth (GitHub Pages → API)."""
+
+    access_token: str
+    refresh_token: str
+    token_type: str = "bearer"
+
+
 class UserAdminResponse(BaseModel):
     id: UUID
     email: str

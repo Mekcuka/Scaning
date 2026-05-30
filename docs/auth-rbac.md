@@ -100,14 +100,23 @@ cd decision-matrix\backend
 .\venv\Scripts\python.exe seed.py
 ```
 
+## Cross-origin (GitHub Pages + API)
+
+Прод: frontend `https://mekcuka.github.io`, API `https://erascaning.duckdns.org`.  
+Cookies `SameSite=None` могут **не сохраняться** в режиме инкогнито (блокировка сторонних cookie).
+
+После login/register API возвращает `access_token` и `refresh_token` в JSON; клиент хранит их в `sessionStorage` и шлёт `Authorization: Bearer …`.  
+Локально через Vite proxy cookies по-прежнему работают.
+
 ## Устранение неполадок
 
 | Симптом | Решение |
 |---------|---------|
 | `Invalid credentials` для admin | Запустите `seed.py` для SQLite; проверьте email/пароль |
-| `Request failed` / 401 после входа | Очистите cookies `localhost`; откройте `http://localhost:5173` |
-| CORS | В `.env`: `CORS_ORIGINS` должен включать порт frontend (5173/5174) |
-| CSRF validation failed | Перелогиньтесь; проверьте, что mutating запросы идут через proxy |
+| 401 после входа на проде / в инкогнито | Обновите frontend+backend (Bearer tokens); жёсткое обновление страницы |
+| `Request failed` / 401 после входа (localhost) | Очистите cookies; откройте `http://localhost:5173` (proxy) |
+| CORS | В `.env`: `CORS_ORIGINS` должен включать URL frontend |
+| CSRF validation failed | Перелогиньтесь; при Bearer-auth CSRF не требуется |
 
 ## Тесты
 

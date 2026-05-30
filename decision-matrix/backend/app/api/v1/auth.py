@@ -11,7 +11,14 @@ from app.core.rate_limit import get_client_ip, limiter
 from app.core.security import create_access_token, get_password_hash, verify_password
 from app.models import User
 from app.models.enums import UserRole
-from app.schemas import AuthMessageResponse, UserCreate, UserLogin, UserResponse
+from app.schemas import (
+    AuthMessageResponse,
+    AuthSessionResponse,
+    RefreshTokenBody,
+    UserCreate,
+    UserLogin,
+    UserResponse,
+)
 from app.services.auth_tokens import issue_refresh_token, revoke_refresh_token, rotate_refresh_token
 
 auth_router = APIRouter(prefix="/auth", tags=["auth"])
@@ -26,15 +33,20 @@ def _validate_password(password: str) -> str:
     return password
 
 
-async def _issue_session(user: User, db: AsyncSession, response: Response) -> UserResponse:
+async def _issue_session(user: User, db: AsyncSession, response: Response) -> AuthSessionResponse:
     access = create_access_token(str(user.id), role=user.role)
     refresh = await issue_refresh_token(db, user.id)
     await db.commit()
     set_auth_cookies(response, access_token=access, refresh_token=refresh)
-    return UserResponse.model_validate(user)
+    base = UserResponse.model_validate(user)
+    return AuthSessionResponse(
+        **base.model_dump(),
+        access_token=access,
+        refresh_token=refresh,
+    )
 
 
-@auth_router.post("/register", response_model=UserResponse, status_code=status.HTTP_201_CREATED)
+@auth_router.post("/register", response_model=AuthSessionResponse, status_code=status.HTTP_201_CREATED)
 async def register(
     data: UserCreate,
     response: Response,
@@ -55,7 +67,7 @@ async def register(
     return await _issue_session(user, db, response)
 
 
-@auth_router.post("/login", response_model=UserResponse)
+@auth_router.post("/login", response_model=AuthSessionResponse)
 @limiter.limit("30/minute", key_func=get_client_ip)
 async def login(
     request: Request,
@@ -72,14 +84,16 @@ async def login(
     return await _issue_session(user, db, response)
 
 
-@auth_router.post("/refresh", response_model=UserResponse)
+@auth_router.post("/refresh", response_model=AuthSessionResponse)
 async def refresh_session(
     request: Request,
     response: Response,
+    data: RefreshTokenBody | None = None,
     db: AsyncSession = Depends(get_db),
-    _: None = Depends(verify_csrf),
 ):
     raw_refresh = request.cookies.get(REFRESH_COOKIE)
+    if not raw_refresh and data and data.refresh_token:
+        raw_refresh = data.refresh_token
     if not raw_refresh:
         raise HTTPException(status_code=401, detail="Not authenticated")
     rotated = await rotate_refresh_token(db, raw_refresh)
@@ -90,7 +104,12 @@ async def refresh_session(
     access = create_access_token(str(user.id), role=user.role)
     await db.commit()
     set_auth_cookies(response, access_token=access, refresh_token=new_refresh)
-    return UserResponse.model_validate(user)
+    base = UserResponse.model_validate(user)
+    return AuthSessionResponse(
+        **base.model_dump(),
+        access_token=access,
+        refresh_token=new_refresh,
+    )
 
 
 @auth_router.post("/logout", response_model=AuthMessageResponse)
