@@ -8,20 +8,19 @@ from pathlib import Path
 
 from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
-from slowapi import Limiter, _rate_limit_exceeded_handler
+from slowapi import _rate_limit_exceeded_handler
 from slowapi.errors import RateLimitExceeded
-from slowapi.util import get_remote_address
 from sqlalchemy import text
 
 from app.api.v1.router import router
 from app.core.config import settings
 from app.core.database import Base, engine
+from app.core.rate_limit import limiter
 from app.core.sqlite_migrate import patch_postgres_schema, patch_sqlite_schema
 
 
 logger = logging.getLogger(__name__)
 BACKEND_ROOT = Path(__file__).resolve().parent.parent
-limiter = Limiter(key_func=get_remote_address)
 
 
 def run_alembic_upgrade() -> None:
