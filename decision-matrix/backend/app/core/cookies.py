@@ -1,6 +1,7 @@
 """HTTP cookie helpers for JWT auth."""
 
 import secrets
+from datetime import datetime, timedelta, timezone
 
 from fastapi import Response
 
@@ -62,12 +63,24 @@ def set_auth_cookies(
 
 
 def clear_auth_cookies(response: Response) -> None:
+    """Expire auth cookies (delete_cookie is unreliable for SameSite=None)."""
     secure = settings.use_secure_cookies
     samesite: str = "none" if secure else "lax"
-    response.headers.pop("X-CSRF-Token", None)
-    for key, path in (
-        (ACCESS_COOKIE, ACCESS_PATH),
-        (REFRESH_COOKIE, REFRESH_PATH),
-        (CSRF_COOKIE, "/"),
+    expired = datetime.now(timezone.utc) - timedelta(days=1)
+    if "x-csrf-token" in response.headers:
+        del response.headers["x-csrf-token"]
+    for key, path, httponly in (
+        (ACCESS_COOKIE, ACCESS_PATH, True),
+        (REFRESH_COOKIE, REFRESH_PATH, True),
+        (CSRF_COOKIE, "/", False),
     ):
-        response.delete_cookie(key=key, path=path, secure=secure, samesite=samesite)
+        response.set_cookie(
+            key=key,
+            value="",
+            max_age=0,
+            expires=expired,
+            path=path,
+            httponly=httponly,
+            secure=secure,
+            samesite=samesite,
+        )

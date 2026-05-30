@@ -28,12 +28,16 @@ def test_set_auth_cookies_local_uses_samesite_lax(monkeypatch):
         assert call.kwargs["samesite"] == "lax"
 
 
-def test_clear_auth_cookies_matches_secure_mode(monkeypatch):
+def test_clear_auth_cookies_expires_cookies(monkeypatch):
     monkeypatch.setattr(settings, "COOKIE_SECURE", True)
     response = MagicMock()
 
     clear_auth_cookies(response)
 
-    for call in response.delete_cookie.call_args_list:
+    assert response.delete_cookie.call_count == 0
+    assert response.set_cookie.call_count == 3
+    for call in response.set_cookie.call_args_list:
+        assert call.kwargs["max_age"] == 0
         assert call.kwargs["secure"] is True
         assert call.kwargs["samesite"] == "none"
+        assert call.kwargs["value"] == ""

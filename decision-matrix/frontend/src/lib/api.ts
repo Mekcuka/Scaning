@@ -19,6 +19,19 @@ export function clearStoredCsrf(): void {
   sessionStorage.removeItem(CSRF_STORAGE_KEY);
 }
 
+/** End server session and local CSRF (switch account / logout). */
+export async function clearServerSession(): Promise<void> {
+  clearStoredCsrf();
+  try {
+    await request<{ message: string }>('/auth/logout', {
+      method: 'POST',
+      redirectOn401: false,
+    });
+  } catch {
+    /* ignore — cookies may already be gone */
+  }
+}
+
 function getCsrfToken(): string | null {
   const stored = sessionStorage.getItem(CSRF_STORAGE_KEY);
   if (stored) return stored;

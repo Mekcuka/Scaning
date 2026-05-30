@@ -93,7 +93,8 @@ def test_refresh_and_logout(client: TestClient):
     _register(client, "sess@test.ru", "Session User")
     refresh = client.post("/api/v1/auth/refresh", headers=_csrf_headers(client))
     assert refresh.status_code == 200
-    logout = client.post("/api/v1/auth/logout", headers=_csrf_headers(client))
+    # Logout works without X-CSRF-Token (sessionStorage may be empty after reload)
+    logout = client.post("/api/v1/auth/logout")
     assert logout.status_code == 200
     me = client.get("/api/v1/auth/me")
     assert me.status_code == 401

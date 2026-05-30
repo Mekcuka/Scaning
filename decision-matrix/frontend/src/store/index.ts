@@ -1,5 +1,5 @@
 import { create } from 'zustand';
-import { api, clearStoredCsrf, type AuthUser } from '../lib/api';
+import { api, clearServerSession, type AuthUser } from '../lib/api';
 
 interface AuthState {
   user: AuthUser | null;
@@ -14,21 +14,18 @@ export const useAuthStore = create<AuthState>((set) => ({
   user: null,
   isLoading: true,
   login: async (email, password) => {
+    await clearServerSession();
     const user = await api.login(email, password);
     set({ user, isLoading: false });
   },
   register: async (email, password, username) => {
+    await clearServerSession();
     const user = await api.register(email, password, username);
     set({ user, isLoading: false });
   },
   logout: async () => {
-    try {
-      await api.logout();
-    } catch {
-      /* clear local state even if server unreachable */
-    }
-    clearStoredCsrf();
-    set({ user: null });
+    await clearServerSession();
+    set({ user: null, isLoading: false });
   },
   fetchUser: async () => {
     try {
