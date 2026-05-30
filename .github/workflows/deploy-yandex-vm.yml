@@ -190,6 +190,26 @@ jobs:
           push: true
           tags: ${{ steps.image.outputs.image_ref }}
 
+      - name: Install YC CLI
+        run: |
+          curl -sSL https://storage.yandexcloud.net/yandexcloud-yc/install.sh | bash -s -- -i "$HOME/yandex-cloud" -n
+          echo "$HOME/yandex-cloud/bin" >> "$GITHUB_PATH"
+
+      - name: Prune old registry images
+        shell: bash
+        env:
+          YC_SA_KEY_JSON: ${{ secrets.YC_SA_KEY_JSON }}
+          YC_CLOUD_ID: ${{ secrets.YC_CLOUD_ID }}
+          YC_FOLDER_ID: ${{ secrets.YC_FOLDER_ID }}
+          YC_REGISTRY_ID: ${{ secrets.YC_REGISTRY_ID }}
+        run: |
+          set -euo pipefail
+          printf '%s' "$YC_SA_KEY_JSON" > "$RUNNER_TEMP/yc-sa-key.json"
+          export YC_SERVICE_ACCOUNT_KEY_FILE="$RUNNER_TEMP/yc-sa-key.json"
+          yc config set cloud-id "$YC_CLOUD_ID"
+          yc config set folder-id "$YC_FOLDER_ID"
+          bash deploy/prune-registry-images.sh "$YC_REGISTRY_ID" "${{ env.IMAGE_NAME }}" 5
+
       - name: Setup SSH deploy key
         shell: bash
         env:
@@ -245,6 +265,7 @@ jobs:
           scp ${SSH_OPTS} deploy/docker-compose.yml "${VM_USER}@${VM_HOST}:${RELEASE_DIR}/docker-compose.yml"
           scp ${SSH_OPTS} deploy/Caddyfile "${VM_USER}@${VM_HOST}:${RELEASE_DIR}/Caddyfile"
           scp ${SSH_OPTS} deploy/rollback.sh "${VM_USER}@${VM_HOST}:/opt/decision-matrix/rollback.sh"
+          scp ${SSH_OPTS} deploy/prune-vm-docker-images.sh "${VM_USER}@${VM_HOST}:/opt/decision-matrix/prune-vm-docker-images.sh"
           echo "release_dir=${RELEASE_DIR}" >> "$GITHUB_OUTPUT"
 
       - name: Docker login on VM (Container Registry)
@@ -274,18 +295,24 @@ jobs:
           SSH_OPTS="-i ${SSH_KEY_PATH} -o BatchMode=yes -o ConnectTimeout=30 -o IdentitiesOnly=yes"
           ssh ${SSH_OPTS} "${VM_USER}@${VM_HOST}" bash -s <<REMOTE
           set -euo pipefail
-          chmod +x /opt/decision-matrix/rollback.sh
+          chmod +x /opt/decision-matrix/rollback.sh /opt/decision-matrix/prune-vm-docker-images.sh
+          if [[ -f /opt/decision-matrix/shared/deploy.env ]]; then
+            grep '^IMAGE_REF=' /opt/decision-matrix/shared/deploy.env | cut -d= -f2- \
+              > /opt/decision-matrix/shared/previous_image_ref || true
+          fi
           cat > /opt/decision-matrix/shared/deploy.env <<EOF
           IMAGE_REF=${IMAGE_REF}
           APP_DOMAIN=${APP_DOMAIN}
           EOF
+          echo "${IMAGE_REF}" > '${RELEASE_DIR}/.image-ref'
           ln -sfn '${RELEASE_DIR}' /opt/decision-matrix/current
           cd /opt/decision-matrix/current
           set -a
           . /opt/decision-matrix/shared/deploy.env
           set +a
           df -h /
-          docker image prune -af
+          docker image prune -f
+          /opt/decision-matrix/prune-vm-docker-images.sh
           df -h /
           docker compose pull
           docker compose up -d --remove-orphans
@@ -296,6 +323,17 @@ jobs:
         run: |
           curl --fail --silent --show-error --retry 5 --retry-delay 10 \
             "https://${{ secrets.APP_DOMAIN }}/health" > /dev/null
+
+      - name: Prune old Docker images on VM
+        if: success()
+        shell: bash
+        env:
+          VM_HOST: ${{ secrets.VM_HOST }}
+          VM_USER: ${{ secrets.VM_USER }}
+        run: |
+          set -euo pipefail
+          SSH_OPTS="-i ${SSH_KEY_PATH} -o BatchMode=yes -o ConnectTimeout=30 -o IdentitiesOnly=yes"
+          ssh ${SSH_OPTS} "${VM_USER}@${VM_HOST}" /opt/decision-matrix/prune-vm-docker-images.sh
 
       - name: Rollback on healthcheck failure
         if: failure() && steps.healthcheck.outcome == 'failure'
