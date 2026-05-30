@@ -10,8 +10,8 @@ HTML-прототип (mock): [`../Cursor_Scan/`](../Cursor_Scan/)
 
 ## Стек
 
-- **Backend:** FastAPI, SQLAlchemy 2.0, PostgreSQL + PostGIS или SQLite, JWT
-- **Frontend:** React 18, TypeScript, Vite, Tailwind CSS, OpenLayers, TanStack Query, Zustand
+- **Backend:** FastAPI, SQLAlchemy 2.0, PostgreSQL + PostGIS или SQLite, JWT (httpOnly cookies + RBAC)
+- **Frontend:** React 18, TypeScript, Vite, Tailwind CSS, OpenLayers, TanStack Query, Zustand, React Hook Form + Zod
 
 ## GitHub Pages
 
@@ -21,7 +21,19 @@ HTML-прототип (mock): [`../Cursor_Scan/`](../Cursor_Scan/)
 
 ## Быстрый старт
 
-**Демо-вход:** `engineer@oilgas.ru` / `password123`
+**Демо-учётки** (после `seed.py`):
+
+| Email | Пароль | Роль |
+|-------|--------|------|
+| `engineer@oilgas.ru` | `password123` | analyst |
+| `admin@oilgas.ru` | `admin1234` | admin |
+| `data@oilgas.ru` | `data12345` | data_manager |
+| `viewer@oilgas.ru` | `viewer123` | viewer |
+
+> Демо-проект «Участок Западный» опубликован (`visibility=published`) — доступен viewer.
+
+Аутентификация: JWT в **httpOnly cookies** + CSRF double-submit. Refresh rotation через `POST /auth/refresh`, выход — `POST /auth/logout`.  
+Роли и права: [docs/auth-rbac.md](../docs/auth-rbac.md).
 
 - Frontend: `http://127.0.0.1:5173`
 - Backend API: `http://localhost:8000/api/v1` (или через Vite proxy `/api/v1`)
@@ -62,6 +74,8 @@ npm run dev
 
 Скрипт `run_local.py` создаёт БД в `backend/data/sppr.db`, выполняет seed и запускает API.
 
+> **Важно:** `run_local.py` всегда использует SQLite. Файл `backend/.env` с PostgreSQL применяется только при запуске через `uvicorn` напрямую. `seed.py` по умолчанию пишет в SQLite (как `run_local.py`).
+
 ### Режим B — PostgreSQL + PostGIS (полная карта FR-2)
 
 1. Установите PostgreSQL с расширением [PostGIS](https://postgis.net/install/) локально.
@@ -97,43 +111,64 @@ npm run dev
 decision-matrix/
 ├── backend/
 │   ├── app/
-│   │   ├── main.py              # FastAPI entry
-│   │   ├── api/v1/router.py     # REST endpoints
-│   │   ├── models/              # SQLAlchemy models
-│   │   ├── schemas/             # Pydantic schemas
-│   │   └── services/            # Расчёты (TOPSIS, WSM, стоимость)
-│   ├── run_local.py             # SQLite: init + seed + uvicorn
-│   └── seed.py                  # Демо-данные
+│   │   ├── main.py                    # FastAPI entry
+│   │   ├── api/v1/
+│   │   │   ├── router.py              # Projects, POI, one-pagers
+│   │   │   ├── auth.py                # Login, register, refresh, logout
+│   │   │   ├── admin.py               # User management (admin)
+│   │   │   └── map.py                 # Карта, импорт, инфраструктура
+│   │   ├── api/rbac.py                # require_roles
+│   │   ├── services/project_access.py # RBAC по проектам
+│   │   ├── models/                    # SQLAlchemy models
+│   │   └── schemas/                   # Pydantic schemas
+│   ├── run_local.py                   # SQLite: init + seed + uvicorn
+│   └── seed.py                        # Демо-пользователи и проект
 └── frontend/
     └── src/
-        ├── pages/               # Dashboard, Карта, Проекты, Матрица...
-        ├── components/          # Layout, MapView (OpenLayers)
-        └── lib/                 # API client, specs
+        ├── pages/                     # Login, Register, Admin, Dashboard...
+        ├── lib/permissions.ts         # Матрица прав UI
+        └── hooks/usePermissions.ts
 ```
 
 ## Реализованные модули (MVP)
 
 | Модуль | Статус |
 |--------|--------|
-| Auth (JWT) | ✅ |
+| Auth (JWT cookies, CSRF, refresh, logout) | ✅ |
+| RBAC (4 роли, project access, admin API) | ✅ |
+| Auth UI (login, register, admin page) | ✅ |
 | Проекты, POI | ✅ |
 | Ставки (16 показателей) | ✅ |
 | Инфраструктура + PostGIS (geometry, слои) | ✅ |
 | Анализ окружения POI (persist + candidates) | ✅ |
-| TOPSIS / WSM ранжирование | ✅ |
 | Карта OpenLayers (рисование, радиусы, линии POI→external) | ✅ |
 | Матрица (таблица + карточки) | ✅ UI |
 | Импорт CSV / GeoJSON / Spark export | ✅ |
-| Одностраничник / PDF | ✅ UI |
+| Одностраничник (FR-11: CRUD, PDF print, PPTX export) | ✅ |
 
 ## API
+
+### Auth и Admin
 
 ```
 POST /api/v1/auth/register
 POST /api/v1/auth/login
+POST /api/v1/auth/refresh
+POST /api/v1/auth/logout
 GET  /api/v1/auth/me
+GET  /api/v1/admin/users
+PATCH /api/v1/admin/users/:id
+GET  /api/v1/admin/stats
+```
+
+### Projects и данные
+
+```
 GET  /api/v1/projects
 POST /api/v1/projects
+GET  /api/v1/projects/:id
+PATCH /api/v1/projects/:id
+DELETE /api/v1/projects/:id
 GET  /api/v1/projects/:id/rates
 PUT  /api/v1/projects/:id/rates
 GET  /api/v1/projects/:id/pois
@@ -148,5 +183,14 @@ POST /api/v1/projects/:id/import/csv
 POST /api/v1/projects/:id/import/geojson
 POST /api/v1/projects/:id/import/spark
 GET  /api/v1/import/logs?project_id=
-POST /api/v1/ranking/calculate
+GET  /api/v1/projects/:id/one-pagers
+POST /api/v1/projects/:id/one-pagers
+GET  /api/v1/projects/:id/one-pagers/:opId
+PUT  /api/v1/projects/:id/one-pagers/:opId
+DELETE /api/v1/projects/:id/one-pagers/:opId
+POST /api/v1/projects/:id/one-pagers/:opId/export/pptx
 ```
+
+PDF генерируется на клиенте (`window.print()` + print CSS). PPTX — backend (`python-pptx`), снимок карты передаётся как `map_snapshot_base64`.
+
+Полное описание auth/RBAC: [docs/auth-rbac.md](../docs/auth-rbac.md).

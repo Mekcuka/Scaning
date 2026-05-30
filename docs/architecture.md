@@ -11,7 +11,7 @@
 ┌─────────────────────────────────────────────────────────────────┐
 │                      Frontend (React 18 + Vite)                  │
 │  ┌─────────────┐  ┌─────────────┐  ┌─────────────────────────┐  │
-│  │   Map View  │  │   Matrix    │  │    Scenarios/Reports    │  │
+│  │   Map View  │  │   Matrix    │  │   Reports & Dashboard   │  │
 │  │ (OpenLayers)│  │   Table &   │  │      & Dashboard        │  │
 │  │  + Import   │  │   Cards     │  │                         │  │
 │  │             │  │  Visuals    │  │                         │  │
@@ -26,10 +26,10 @@
 │  │   Auth   │ │   Map    │ │  Matrix  │ │    Projects       │  │
 │  │  Module  │ │  Module  │ │  Module  │ │    Module         │  │
 │  └──────────┘ └──────────┘ └──────────┘ └───────────────────┘  │
-│  ┌──────────┐ ┌──────────┐ ┌──────────┐ ┌───────────────────┐  │
-│  │Scenarios │ │  Reports │ │ Criteria │ │    User Mgmt      │  │
-│  │  Module  │ │  Module  │ │  Module  │ │      Module       │  │
-│  └──────────┘ └──────────┘ └──────────┘ └───────────────────┘  │
+│  ┌──────────┐ ┌──────────┐ ┌───────────────────────────────┐  │
+│  │  Reports │ │ Criteria │ │         User Mgmt             │  │
+│  │  Module  │ │  Module  │ │           Module              │  │
+│  └──────────┘ └──────────┘ └───────────────────────────────┘  │
 └─────────────────────────────────────────────────────────────────┘
                               │
                               ▼
@@ -44,39 +44,40 @@
 ## Модульная структура Backend
 
 ### 1. Auth Module
-**Ответственность**: Аутентификация, авторизация, управление сессиями
+**Ответственность**: Аутентификация, авторизация (RBAC), управление сессиями
+
+**Реализация (FastAPI):**
 
 ```
-auth/
-├── controllers/
-│   ├── auth.controller.ts
-│   └── users.controller.ts
-├── services/
-│   ├── auth.service.ts
-│   ├── jwt.service.ts
-│   └── users.service.ts
-├── dto/
-│   ├── login.dto.ts
-│   ├── register.dto.ts
-│   └── refresh-token.dto.ts
-├── guards/
-│   ├── jwt-auth.guard.ts
-│   └── roles.guard.ts
-├── strategies/
-│   └── jwt.strategy.ts
-└── entities/
-    ├── user.entity.ts
-    └── role.entity.ts
+backend/app/
+├── api/v1/auth.py           # register, login, refresh, logout, me
+├── api/v1/admin.py          # users list, patch role/is_active, stats
+├── api/rbac.py              # require_roles, require_admin
+├── api/deps.py              # get_current_user (cookie/Bearer), verify_csrf
+├── core/cookies.py          # Set-Cookie httpOnly + csrf_token
+├── core/security.py         # JWT, bcrypt
+├── services/auth_tokens.py  # refresh rotation, revoke
+└── services/project_access.py  # resolve_project, list_accessible_projects
+
+frontend/src/
+├── pages/LoginPage.tsx, RegisterPage.tsx, AdminUsersPage.tsx
+├── lib/permissions.ts, hooks/usePermissions.ts
+└── components/RoleProtectedRoute.tsx
 ```
 
-**API Endpoints**:
+**API Endpoints** (`/api/v1/...`):
 ```
-POST   /api/auth/register          - Регистрация
-POST   /api/auth/login             - Вход
-POST   /api/auth/refresh           - Обновление токена
-POST   /api/auth/logout            - Выход
-GET    /api/auth/me                - Текущий пользователь
+POST   /auth/register          - Регистрация (role=analyst)
+POST   /auth/login             - Вход (Set-Cookie)
+POST   /auth/refresh           - Обновление токена (rotation)
+POST   /auth/logout            - Выход (revoke)
+GET    /auth/me                - Текущий пользователь
+GET    /admin/users            - Список пользователей (admin)
+PATCH  /admin/users/:id        - Роль, is_active (admin)
+GET    /admin/stats            - Агрегаты (admin)
 ```
+
+Подробнее: [auth-rbac.md](./auth-rbac.md)
 
 ---
 
@@ -206,8 +207,8 @@ interface Criterion {
 
 ---
 
-### 5. Matrix Module
-**Ответственность**: Расчёт матрицы решений
+### 5. Matrix Module (legacy / post-MVP)
+**Ответственность**: Универсальные матрицы решений (`decision_matrices`). **Не используется** инфраструктурной матрицей MVP (FR-8).
 
 ```
 matrix/
@@ -308,39 +309,7 @@ function calculateScores(distances: Array<{d_ideal: number, d_anti: number}>) {
 
 ---
 
-### 6. Scenarios Module
-**Ответственность**: Управление сценариями, сравнение вариантов
-
-```
-scenarios/
-├── controllers/
-│   └── scenarios.controller.ts
-├── services/
-│   ├── scenarios.service.ts
-│   └── comparison.service.ts
-├── dto/
-│   ├── create-scenario.dto.ts
-│   └── compare-scenarios.dto.ts
-├── entities/
-│   ├── scenario.entity.ts
-│   └── scenario-comparison.entity.ts
-└── utils/
-    └── scenario-builder.ts
-```
-
-**API Endpoints**:
-```
-GET    /api/scenarios              - Список сценариев
-POST   /api/scenarios              - Создать сценарий
-PUT    /api/scenarios/:id          - Обновить сценарий
-DELETE /api/scenarios/:id          - Удалить сценарий
-POST   /api/scenarios/compare      - Сравнить сценарии
-GET    /api/scenarios/:id/results  - Результаты сценария
-```
-
----
-
-### 7. Reports Module
+### 6. Reports Module
 **Ответственность**: Генерация отчётов, экспорт данных
 
 ```
@@ -377,8 +346,8 @@ POST   /api/export/excel           - Экспорт Excel
 
 ---
 
-### 8. Projects Module
-**Ответственность**: Управление проектами, точками интереса, инфраструктурой (9 подтипов), вариантами и сценариями
+### 7. Projects Module
+**Ответственность**: Управление проектами, точками интереса, инфраструктурой (9 подтипов), анализом и одностраничниками
 
 ```
 projects/
@@ -394,14 +363,12 @@ projects/
 │   ├── infrastructure-analysis.service.ts
 │   ├── infrastructure-objects.service.ts
 │   ├── variants-generation.service.ts
-│   ├── scenarios.service.ts
 │   ├── cost-calculation.service.ts
 │   └── one-pager.service.ts
 ├── dto/
 │   ├── create-project.dto.ts
 │   ├── create-poi.dto.ts
 │   ├── analyze-infrastructure.dto.ts
-│   ├── create-scenario.dto.ts
 │   ├── adjust-cost.dto.ts
 │   └── create-one-pager.dto.ts
 ├── entities/
@@ -450,16 +417,15 @@ DELETE /api/projects/:id/points/:pid    - Удалить точку
 POST   /api/projects/:id/points/:pid/analyze         - Анализ окружения (9 подтипов)
 GET    /api/projects/:id/points/:pid/candidates      - Кандидаты внешних Point (?subtype, limit)
 PUT    /api/projects/:id/points/:pid/analysis/:subtype/override - Переопределить внешний объект
-PATCH  /api/projects/:id/variants/:vid/items/:subtype - Override distance_km / km_per_pad (сценарий)
+PATCH  /api/projects/:id/variants/:vid/items/:subtype - Override distance_km / km_per_pad (ручная корректировка)
 
 GET    /api/projects/:id/infrastructure              - Слои инфраструктуры
 POST   /api/projects/:id/infrastructure              - Добавить слой
 GET    /api/projects/:id/infrastructure/objects      - Объекты инфраструктуры
 POST   /api/projects/:id/infrastructure/objects      - Добавить объект
 
-GET    /api/projects/:id/variants                    - Варианты (базовый + сценарии)
+GET    /api/projects/:id/variants                    - Базовые варианты по POI
 POST   /api/projects/:id/variants/calculate          - Рассчитать базовый вариант
-POST   /api/projects/:id/variants/:vid/scenarios     - Создать сценарий
 PUT    /api/projects/:id/variants/:vid/cost          - Скорректировать стоимость
 
 GET    /api/projects/:id/one-pagers                  - Список одностраничников
@@ -468,25 +434,9 @@ GET    /api/projects/:id/one-pagers/:opid            - Получить одно
 PUT    /api/projects/:id/one-pagers/:opid            - Обновить одностраничник
 POST   /api/projects/:id/one-pagers/:opid/export/pdf  - Экспорт PDF
 POST   /api/projects/:id/one-pagers/:opid/export/pptx - Экспорт PowerPoint
-
-GET    /api/projects/:id/pois/:poiId/ranking         - Настройки ранжирования (FR-9.0)
-PUT    /api/projects/:id/pois/:poiId/ranking         - Веса, алгоритм, AHP
-POST   /api/projects/:id/pois/:poiId/ranking/calculate - TOPSIS/WSM по сценариям
-PUT    /api/projects/:id/pois/:poiId/ranking/criterion-values - Экспертные оценки (FR-9.2.4)
 ```
 
-### 8.1 Ranking Module (MVP)
-
-**Ответственность:** ранжирование `implementation_variants` для `(project_id, poi_id)`; не путать с legacy `decision_matrices`.
-
-```
-app/services/ranking_service.py
-app/api/v1/endpoints/ranking.py
-```
-
-См. [calculation-functions.md](./calculation-functions.md) §6, [requirements.md](./requirements.md) FR-9.0.
-
-### 9. Analytics Engine (post-MVP)
+### 8. Analytics Engine (post-MVP)
 **Ответственность**: Аналитические расчёты, ML-модели (опционально, не входит в MVP)
 
 ```
@@ -552,7 +502,7 @@ components/cost-rates/
 ```
 components/matrix/
 ├── MatrixTable.tsx          # Вертикальная таблица (FR-8.1.1)
-├── MatrixCardView.tsx       # Карточный вид сценариев
+├── MatrixCardView.tsx       # Карточный вид POI
 ├── CriteriaPanel.tsx        # Панель критериев
 ├── WeightsEditor.tsx        # Редактор весов
 ├── AlternativesEditor.tsx   # Редактор альтернатив
@@ -568,7 +518,6 @@ store/
 ├── map.store.ts             # Состояние карты (центр, зум, слои)
 ├── matrix.store.ts          # Состояние матрицы (критерии, альтернативы)
 ├── criteria.store.ts        # Состояние критериев
-├── scenarios.store.ts       # Состояние сценариев
 ├── user.store.ts            # Состояние пользователя
 └── ui.store.ts              # UI состояние (модалки, уведомления)
 ```
@@ -675,24 +624,9 @@ CREATE TABLE decision_matrices (
 );
 ```
 
-### Таблица scenarios
-```sql
-CREATE TABLE scenarios (
-  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  user_id UUID REFERENCES users(id),
-  name VARCHAR(255) NOT NULL,
-  description TEXT,
-  matrix_id UUID REFERENCES decision_matrices(id),
-  parameters JSONB,
-  results JSONB,
-  created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-  updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-);
-```
-
 ### Таблицы проекта и POI
 
-Полные определения: [database-schema.md](./database-schema.md) — `projects`, `project_distance_defaults`, `project_cost_rates` (`rate_thousand_rub`), `points_of_interest` (`production_per_well`, `wells_per_pad`, `extended_params`, 5 инженерных полей, 9 порогов), `scenario_criterion_values`.
+Полные определения: [database-schema.md](./database-schema.md) — `projects`, `project_distance_defaults`, `project_cost_rates` (`rate_thousand_rub`), `points_of_interest` (`production_per_well`, `wells_per_pad`, `extended_params`, 5 инженерных полей, 9 порогов), `poi_infrastructure_analysis`, `one_pagers` (`poi_id`).
 
 ### Таблица infrastructure_layers
 ```sql
@@ -742,8 +676,7 @@ CREATE TABLE implementation_variants (
   matrix_id UUID REFERENCES decision_matrices(id) ON DELETE SET NULL,
   name VARCHAR(255) NOT NULL,
   description TEXT,
-  variant_type VARCHAR(20) NOT NULL DEFAULT 'base' CHECK (variant_type IN ('base', 'scenario')),
-  parent_variant_id UUID REFERENCES implementation_variants(id) ON DELETE SET NULL,
+  variant_type VARCHAR(20) NOT NULL DEFAULT 'base' CHECK (variant_type IN ('base')),
   -- инженерные параметры берутся из POI; здесь только факт применённой конфигурации (snapshot)
   applied_params JSONB NOT NULL DEFAULT '{}',
   -- стоимость

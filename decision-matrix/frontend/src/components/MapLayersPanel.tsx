@@ -22,6 +22,8 @@ type MapLayersPanelProps = {
   thresholdKm: (subtype: string, fallback: number) => number;
   showBasemap: boolean;
   onShowBasemapChange: (visible: boolean) => void;
+  /** When true, layer visibility toggles are disabled (persisted server-side). */
+  layerVisibilityReadOnly?: boolean;
   onClose?: () => void;
 };
 
@@ -72,6 +74,7 @@ export function MapLayersPanel({
   thresholdKm,
   showBasemap,
   onShowBasemapChange,
+  layerVisibilityReadOnly = false,
   onClose,
 }: MapLayersPanelProps) {
   const [openSections, setOpenSections] = useState<Record<string, boolean>>({
@@ -172,7 +175,7 @@ export function MapLayersPanel({
               <input
                 type="checkbox"
                 checked={layer.is_visible}
-                disabled={layerVisibilityPending}
+                disabled={layerVisibilityPending || layerVisibilityReadOnly}
                 onChange={(e) => onLayerVisibility(layer.id, e.target.checked)}
               />
             </label>

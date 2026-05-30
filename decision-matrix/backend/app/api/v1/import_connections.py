@@ -11,8 +11,10 @@ from app.api.deps import get_current_user
 from app.core.crypto import decrypt_secret, encrypt_secret
 from app.core.database import get_db
 from app.models import ImportConnection, InfrastructureLayer, Project, User
+from app.models.enums import AccessLevel, WriteScope
 from app.schemas import ImportConnectionCreate, ImportConnectionResponse, ImportConnectionUpdate
 from app.services.import_service import import_rows_to_layer
+from app.services.project_access import resolve_project
 
 connections_router = APIRouter()
 
@@ -30,11 +32,14 @@ def _http_auth(c: ImportConnection, token: str) -> tuple[dict[str, str], httpx.A
     return headers, auth
 
 
-async def _project(project_id: UUID, user: User, db: AsyncSession) -> Project:
-    row = await db.scalar(select(Project).where(Project.id == project_id, Project.user_id == user.id))
-    if not row:
-        raise HTTPException(status_code=404, detail="Project not found")
-    return row
+async def _project(
+    project_id: UUID,
+    user: User,
+    db: AsyncSession,
+    *,
+    min_access: AccessLevel = AccessLevel.read,
+) -> Project:
+    return await resolve_project(project_id, user, db, min_access=min_access, write_scope=WriteScope.infra)
 
 
 def _conn_response(c: ImportConnection) -> ImportConnectionResponse:
@@ -72,7 +77,7 @@ async def create_connection(
     user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
 ):
-    await _project(project_id, user, db)
+    await _project(project_id, user, db, min_access=AccessLevel.write)
     c = ImportConnection(
         user_id=user.id,
         project_id=project_id,
@@ -98,7 +103,7 @@ async def update_connection(
     user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
 ):
-    await _project(project_id, user, db)
+    await _project(project_id, user, db, min_access=AccessLevel.write)
     c = await db.get(ImportConnection, connection_id)
     if not c or c.project_id != project_id or c.user_id != user.id:
         raise HTTPException(status_code=404, detail="Connection not found")
@@ -119,7 +124,7 @@ async def delete_connection(
     user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
 ):
-    await _project(project_id, user, db)
+    await _project(project_id, user, db, min_access=AccessLevel.write)
     c = await db.get(ImportConnection, connection_id)
     if not c or c.project_id != project_id:
         raise HTTPException(status_code=404, detail="Connection not found")
@@ -134,7 +139,7 @@ async def test_connection(
     user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
 ):
-    await _project(project_id, user, db)
+    await _project(project_id, user, db, min_access=AccessLevel.write)
     c = await db.get(ImportConnection, connection_id)
     if not c or c.project_id != project_id:
         raise HTTPException(status_code=404, detail="Connection not found")
@@ -155,7 +160,7 @@ async def sync_connection(
     user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
 ):
-    await _project(project_id, user, db)
+    await _project(project_id, user, db, min_access=AccessLevel.write)
     c = await db.get(ImportConnection, connection_id)
     if not c or c.project_id != project_id:
         raise HTTPException(status_code=404, detail="Connection not found")

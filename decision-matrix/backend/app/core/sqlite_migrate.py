@@ -38,25 +38,6 @@ def patch_sqlite_schema(conn: Connection) -> None:
     )
     _create_table_if_missing(
         conn,
-        "project_ranking_settings",
-        """
-        CREATE TABLE project_ranking_settings (
-            id CHAR(32) PRIMARY KEY,
-            project_id CHAR(32) NOT NULL,
-            poi_id CHAR(32) NOT NULL,
-            algorithm VARCHAR(20) NOT NULL DEFAULT 'topsis',
-            criteria JSON NOT NULL DEFAULT '[]',
-            weights JSON NOT NULL DEFAULT '{}',
-            created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-            updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-            UNIQUE(project_id, poi_id),
-            FOREIGN KEY(project_id) REFERENCES projects(id) ON DELETE CASCADE,
-            FOREIGN KEY(poi_id) REFERENCES points_of_interest(id) ON DELETE CASCADE
-        )
-        """,
-    )
-    _create_table_if_missing(
-        conn,
         "poi_flow_schematic_layouts",
         """
         CREATE TABLE poi_flow_schematic_layouts (
@@ -81,24 +62,6 @@ def patch_sqlite_schema(conn: Connection) -> None:
         )
         """,
     )
-    _create_table_if_missing(
-        conn,
-        "scenario_criterion_values",
-        """
-        CREATE TABLE scenario_criterion_values (
-            id CHAR(32) PRIMARY KEY,
-            ranking_settings_id CHAR(32) NOT NULL,
-            scenario_id CHAR(32) NOT NULL,
-            criterion_id VARCHAR(100) NOT NULL,
-            value FLOAT NOT NULL DEFAULT 0,
-            created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-            updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-            UNIQUE(ranking_settings_id, scenario_id, criterion_id),
-            FOREIGN KEY(ranking_settings_id) REFERENCES project_ranking_settings(id) ON DELETE CASCADE,
-            FOREIGN KEY(scenario_id) REFERENCES scenarios(id) ON DELETE CASCADE
-        )
-        """,
-    )
 
     _add_column_if_missing(
         conn,
@@ -106,18 +69,88 @@ def patch_sqlite_schema(conn: Connection) -> None:
         "gas_factor",
         "gas_factor FLOAT NOT NULL DEFAULT 120",
     )
-    _add_column_if_missing(
+    _create_table_if_missing(
         conn,
-        "project_ranking_settings",
-        "default_expert_values",
-        "default_expert_values JSON NOT NULL DEFAULT '{\"risk\": 5, \"reliability\": 5, \"time_months\": 12}'",
+        "refresh_tokens",
+        """
+        CREATE TABLE refresh_tokens (
+            id CHAR(32) PRIMARY KEY,
+            user_id CHAR(32) NOT NULL,
+            token_hash VARCHAR(64) NOT NULL UNIQUE,
+            expires_at DATETIME NOT NULL,
+            revoked_at DATETIME,
+            created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+            FOREIGN KEY(user_id) REFERENCES users(id) ON DELETE CASCADE
+        )
+        """,
     )
-    _add_column_if_missing(
+    _create_table_if_missing(
         conn,
-        "project_ranking_settings",
-        "ahp_pairwise",
-        "ahp_pairwise JSON NOT NULL DEFAULT '{}'",
+        "one_pagers",
+        """
+        CREATE TABLE one_pagers (
+            id CHAR(32) PRIMARY KEY,
+            project_id CHAR(32) NOT NULL,
+            poi_id CHAR(32) NOT NULL,
+            title VARCHAR(255) NOT NULL,
+            coordinates VARCHAR(100),
+            engineer_name VARCHAR(255),
+            report_date DATE,
+            final_variant_data JSON NOT NULL DEFAULT '{}',
+            engineering_params JSON NOT NULL DEFAULT '{}',
+            roadmap JSON NOT NULL DEFAULT '[]',
+            recommendation_text TEXT,
+            is_recommendation_edited BOOLEAN DEFAULT 0,
+            map_snapshot_base64 TEXT,
+            pdf_file_path VARCHAR(500),
+            pptx_file_path VARCHAR(500),
+            generation_status VARCHAR(20) NOT NULL DEFAULT 'pending',
+            created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+            updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+            FOREIGN KEY(project_id) REFERENCES projects(id) ON DELETE CASCADE,
+            FOREIGN KEY(poi_id) REFERENCES points_of_interest(id) ON DELETE CASCADE
+        )
+        """,
     )
+
+    insp = inspect(conn)
+    if "one_pagers" in insp.get_table_names():
+        cols = {c["name"] for c in insp.get_columns("one_pagers")}
+        if "scenario_id" in cols:
+            conn.execute(text("DROP TABLE one_pagers"))
+            conn.execute(
+                text(
+                    """
+                    CREATE TABLE one_pagers (
+                        id CHAR(32) PRIMARY KEY,
+                        project_id CHAR(32) NOT NULL,
+                        poi_id CHAR(32) NOT NULL,
+                        title VARCHAR(255) NOT NULL,
+                        coordinates VARCHAR(100),
+                        engineer_name VARCHAR(255),
+                        report_date DATE,
+                        final_variant_data JSON NOT NULL DEFAULT '{}',
+                        engineering_params JSON NOT NULL DEFAULT '{}',
+                        roadmap JSON NOT NULL DEFAULT '[]',
+                        recommendation_text TEXT,
+                        is_recommendation_edited BOOLEAN DEFAULT 0,
+                        map_snapshot_base64 TEXT,
+                        pdf_file_path VARCHAR(500),
+                        pptx_file_path VARCHAR(500),
+                        generation_status VARCHAR(20) NOT NULL DEFAULT 'pending',
+                        created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+                        updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+                        FOREIGN KEY(project_id) REFERENCES projects(id) ON DELETE CASCADE,
+                        FOREIGN KEY(poi_id) REFERENCES points_of_interest(id) ON DELETE CASCADE
+                    )
+                    """
+                )
+            )
+
+    if "scenarios" in insp.get_table_names():
+        conn.execute(text("DROP TABLE scenarios"))
+    if "scenario_criterion_values" in insp.get_table_names():
+        conn.execute(text("DROP TABLE scenario_criterion_values"))
 
 
 def patch_postgres_schema(conn: Connection) -> None:
@@ -153,16 +186,4 @@ def patch_postgres_schema(conn: Connection) -> None:
         "points_of_interest",
         "gas_factor",
         "gas_factor DOUBLE PRECISION NOT NULL DEFAULT 120",
-    )
-    _add_column_if_missing(
-        conn,
-        "project_ranking_settings",
-        "default_expert_values",
-        "default_expert_values JSON NOT NULL DEFAULT '{\"risk\": 5, \"reliability\": 5, \"time_months\": 12}'",
-    )
-    _add_column_if_missing(
-        conn,
-        "project_ranking_settings",
-        "ahp_pairwise",
-        "ahp_pairwise JSON NOT NULL DEFAULT '{}'",
     )

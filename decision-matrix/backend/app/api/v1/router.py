@@ -4,19 +4,20 @@ from fastapi import APIRouter, Depends, HTTPException, Query, status
 from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.api.deps import get_current_user
+from app.api.deps import get_current_user, verify_csrf
+from app.api.rbac import require_roles
+from app.api.v1.admin import admin_router
+from app.api.v1.auth import auth_router
 from app.core.database import get_db
-from app.core.security import create_access_token, create_refresh_token, decode_token, get_password_hash, verify_password
 from app.models import (
     PointOfInterest,
     Project,
     ProjectCostRates,
     ProjectDistanceDefaults,
     ProjectEconomicParams,
-    Scenario,
-    ScenarioCriterionValue,
     User,
 )
+from app.models.enums import AccessLevel, UserRole, WriteScope
 from app.schemas import (
     CostRatesResponse,
     CostRatesUpdate,
@@ -29,98 +30,33 @@ from app.schemas import (
     ProjectCreate,
     ProjectResponse,
     ProjectUpdate,
-    RankingRequest,
-    RankingResponse,
-    RankingRunResponse,
-    RankingSensitivityResponse,
-    RankingSettingsResponse,
-    RankingSettingsUpdate,
-    RankingCriterionValuesUpdate,
-    RankingMatrixResponse,
-    RankingAhpCalculateRequest,
-    RankingAhpCalculateResponse,
-    ScenarioResponse,
-    TokenResponse,
-    UserCreate,
-    UserLogin,
-    UserResponse,
-)
-from app.services.calculations import (
-    rebalance_weights,
-    calc_topsis_scores,
-    calc_wsm_scores,
-    normalize_matrix,
-    rank_alternatives,
-    calc_ahp_weights,
-    calc_ahp_consistency_ratio,
-)
-from app.services.ranking_service import (
-    DEFAULT_RANKING_WEIGHTS,
-    build_ranking_matrix,
-    compute_project_pois_ranking,
-    compute_ranking_for_scenarios,
-    get_or_create_ranking_settings,
-    list_scenarios_for_ranking,
-    load_stored_criterion_values,
-    settings_to_response,
-    validate_weights,
 )
 from app.services.cost_rates import DEFAULT_COST_RATES, merge_project_cost_rates
 from app.services.economic_rates import DEFAULT_ECONOMIC_PARAMS
 from app.services.project_delete import delete_project_cascade
+from app.services.project_access import list_accessible_projects, resolve_project
 from app.api.v1.flow import flow_router
 from app.api.v1.graph import graph_router
 from app.api.v1.import_connections import connections_router
 from app.api.v1.map import map_router
+from app.api.v1.one_pagers import one_pagers_router
 from app.geo.geometry_utils import point_wkt
-from app.services.infrastructure_analysis import link_poi_scenarios, run_poi_analysis, run_project_pois_analysis
+from app.services.infrastructure_analysis import run_poi_analysis, run_project_pois_analysis
 from app.services.serializers import poi_to_response
 
-router = APIRouter()
+router = APIRouter(dependencies=[Depends(verify_csrf)])
+router.include_router(auth_router)
+router.include_router(admin_router)
+router.include_router(one_pagers_router)
 router.include_router(map_router)
 router.include_router(graph_router)
 router.include_router(flow_router)
 router.include_router(connections_router)
 
 
-@router.post("/auth/register", response_model=UserResponse, status_code=status.HTTP_201_CREATED)
-async def register(data: UserCreate, db: AsyncSession = Depends(get_db)):
-    existing = await db.execute(select(User).where(User.email == data.email))
-    if existing.scalar_one_or_none():
-        raise HTTPException(status_code=400, detail="Email already registered")
-    user = User(
-        email=data.email,
-        username=data.username,
-        password_hash=get_password_hash(data.password),
-        role="analyst",
-    )
-    db.add(user)
-    await db.commit()
-    await db.refresh(user)
-    return user
-
-
-@router.post("/auth/login", response_model=TokenResponse)
-async def login(data: UserLogin, db: AsyncSession = Depends(get_db)):
-    result = await db.execute(select(User).where(User.email == data.email))
-    user = result.scalar_one_or_none()
-    if not user or not verify_password(data.password, user.password_hash):
-        raise HTTPException(status_code=401, detail="Invalid credentials")
-    return TokenResponse(
-        access_token=create_access_token(str(user.id)),
-        refresh_token=create_refresh_token(str(user.id)),
-    )
-
-
-@router.get("/auth/me", response_model=UserResponse)
-async def me(user: User = Depends(get_current_user)):
-    return user
-
-
 @router.get("/projects", response_model=list[ProjectResponse])
 async def list_projects(user: User = Depends(get_current_user), db: AsyncSession = Depends(get_db)):
-    result = await db.execute(select(Project).where(Project.user_id == user.id).order_by(Project.created_at.desc()))
-    projects = result.scalars().all()
+    projects = await list_accessible_projects(user, db)
     out = []
     for p in projects:
         cnt = await db.scalar(select(func.count()).select_from(PointOfInterest).where(PointOfInterest.project_id == p.id))
@@ -140,14 +76,17 @@ async def list_projects(user: User = Depends(get_current_user), db: AsyncSession
 
 
 @router.post("/projects", response_model=ProjectResponse, status_code=201)
-async def create_project(data: ProjectCreate, user: User = Depends(get_current_user), db: AsyncSession = Depends(get_db)):
+async def create_project(
+    data: ProjectCreate,
+    user: User = Depends(require_roles(UserRole.admin, UserRole.analyst)),
+    db: AsyncSession = Depends(get_db),
+):
     project = Project(user_id=user.id, name=data.name, description=data.description, status="draft")
     db.add(project)
     await db.flush()
     db.add(ProjectCostRates(project_id=project.id, rates=dict(DEFAULT_COST_RATES)))
     db.add(ProjectEconomicParams(project_id=project.id, params=dict(DEFAULT_ECONOMIC_PARAMS)))
     db.add(ProjectDistanceDefaults(project_id=project.id))
-    db.add(Scenario(project_id=project.id, name="Базовый", scenario_type="base"))
     await db.commit()
     await db.refresh(project)
     return ProjectResponse(
@@ -180,7 +119,7 @@ async def update_distance_defaults(
     user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
 ):
-    await _get_user_project(project_id, user, db)
+    await _get_user_project(project_id, user, db, min_access=AccessLevel.write)
     row = await db.scalar(select(ProjectDistanceDefaults).where(ProjectDistanceDefaults.project_id == project_id))
     if not row:
         raise HTTPException(status_code=404, detail="Distance defaults not found")
@@ -213,7 +152,7 @@ async def get_project(project_id: UUID, user: User = Depends(get_current_user), 
 async def update_project(
     project_id: UUID, data: ProjectUpdate, user: User = Depends(get_current_user), db: AsyncSession = Depends(get_db)
 ):
-    project = await _get_user_project(project_id, user, db)
+    project = await _get_user_project(project_id, user, db, min_access=AccessLevel.write)
     for field, value in data.model_dump(exclude_unset=True).items():
         setattr(project, field, value)
     await db.commit()
@@ -235,11 +174,7 @@ async def update_project(
 
 @router.delete("/projects/{project_id}", status_code=204)
 async def delete_project(project_id: UUID, user: User = Depends(get_current_user), db: AsyncSession = Depends(get_db)):
-    owned = await db.scalar(
-        select(Project.id).where(Project.id == project_id, Project.user_id == user.id)
-    )
-    if not owned:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Project not found")
+    await _get_user_project(project_id, user, db, min_access=AccessLevel.owner)
     await delete_project_cascade(db, project_id)
     await db.commit()
 
@@ -257,7 +192,7 @@ async def get_rates(project_id: UUID, user: User = Depends(get_current_user), db
 async def update_rates(
     project_id: UUID, data: CostRatesUpdate, user: User = Depends(get_current_user), db: AsyncSession = Depends(get_db)
 ):
-    await _get_user_project(project_id, user, db)
+    await _get_user_project(project_id, user, db, min_access=AccessLevel.write)
     result = await db.execute(select(ProjectCostRates).where(ProjectCostRates.project_id == project_id))
     rates_row = result.scalar_one_or_none()
     if not rates_row:
@@ -293,7 +228,7 @@ async def update_economic_params(
     user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
 ):
-    await _get_user_project(project_id, user, db)
+    await _get_user_project(project_id, user, db, min_access=AccessLevel.write)
     result = await db.execute(
         select(ProjectEconomicParams).where(ProjectEconomicParams.project_id == project_id)
     )
@@ -321,7 +256,7 @@ async def list_pois(project_id: UUID, user: User = Depends(get_current_user), db
 async def create_poi(
     project_id: UUID, data: POICreate, user: User = Depends(get_current_user), db: AsyncSession = Depends(get_db)
 ):
-    await _get_user_project(project_id, user, db)
+    await _get_user_project(project_id, user, db, min_access=AccessLevel.write)
     defaults = await db.scalar(
         select(ProjectDistanceDefaults).where(ProjectDistanceDefaults.project_id == project_id)
     )
@@ -370,7 +305,7 @@ async def create_poi(
 async def analyze_all_pois(
     project_id: UUID, user: User = Depends(get_current_user), db: AsyncSession = Depends(get_db)
 ):
-    await _get_user_project(project_id, user, db)
+    await _get_user_project(project_id, user, db, min_access=AccessLevel.write)
     payload = await run_project_pois_analysis(db, project_id)
     await db.commit()
     return payload
@@ -380,233 +315,24 @@ async def analyze_all_pois(
 async def analyze_poi(
     project_id: UUID, poi_id: UUID, user: User = Depends(get_current_user), db: AsyncSession = Depends(get_db)
 ):
-    await _get_user_project(project_id, user, db)
+    await _get_user_project(project_id, user, db, min_access=AccessLevel.write)
     poi = await _get_poi(poi_id, project_id, db)
     result = await run_poi_analysis(db, project_id, poi)
-    await link_poi_scenarios(db, project_id, poi.id, result)
     await db.commit()
     return result
 
 
-@router.get("/projects/{project_id}/scenarios", response_model=list[ScenarioResponse])
-async def list_scenarios(project_id: UUID, user: User = Depends(get_current_user), db: AsyncSession = Depends(get_db)):
-    await _get_user_project(project_id, user, db)
-    result = await db.execute(select(Scenario).where(Scenario.project_id == project_id))
-    return result.scalars().all()
-
-
-@router.get(
-    "/projects/{project_id}/pois/{poi_id}/ranking",
-    response_model=RankingSettingsResponse,
-)
-async def get_ranking_settings(
-    project_id: UUID, poi_id: UUID, user: User = Depends(get_current_user), db: AsyncSession = Depends(get_db)
-):
-    await _get_user_project(project_id, user, db)
-    await _get_poi(poi_id, project_id, db)
-    row = await get_or_create_ranking_settings(db, project_id, poi_id)
-    await db.commit()
-    return RankingSettingsResponse(**settings_to_response(row))
-
-
-@router.put(
-    "/projects/{project_id}/pois/{poi_id}/ranking",
-    response_model=RankingSettingsResponse,
-)
-async def update_ranking_settings(
+async def _get_user_project(
     project_id: UUID,
-    poi_id: UUID,
-    data: RankingSettingsUpdate,
-    user: User = Depends(get_current_user),
-    db: AsyncSession = Depends(get_db),
-):
-    await _get_user_project(project_id, user, db)
-    await _get_poi(poi_id, project_id, db)
-    row = await get_or_create_ranking_settings(db, project_id, poi_id)
-    payload = data.model_dump(exclude_unset=True)
-    if "algorithm" in payload and payload["algorithm"]:
-        row.algorithm = str(payload["algorithm"]).lower()
-    if "criteria" in payload and payload["criteria"] is not None:
-        row.criteria = [c.model_dump() if hasattr(c, "model_dump") else c for c in payload["criteria"]]
-    if "weights" in payload and payload["weights"] is not None:
-        validate_weights(payload["weights"])
-        row.weights = payload["weights"]
-    if "default_expert_values" in payload and payload["default_expert_values"] is not None:
-        row.default_expert_values = payload["default_expert_values"]
-    if "ahp_pairwise" in payload and payload["ahp_pairwise"] is not None:
-        row.ahp_pairwise = payload["ahp_pairwise"]
-    await db.commit()
-    await db.refresh(row)
-    return RankingSettingsResponse(**settings_to_response(row))
-
-
-@router.post(
-    "/projects/{project_id}/pois/{poi_id}/ranking/ahp/calculate",
-    response_model=RankingAhpCalculateResponse,
-)
-async def calculate_ranking_ahp_weights(
-    project_id: UUID,
-    poi_id: UUID,
-    data: RankingAhpCalculateRequest,
-    user: User = Depends(get_current_user),
-    db: AsyncSession = Depends(get_db),
-):
-    await _get_user_project(project_id, user, db)
-    await _get_poi(poi_id, project_id, db)
-    row = await get_or_create_ranking_settings(db, project_id, poi_id)
-    weights = calc_ahp_weights(data.ahp_pairwise)
-    cr = calc_ahp_consistency_ratio(data.ahp_pairwise)
-    validate_weights(weights)
-    row.ahp_pairwise = data.ahp_pairwise
-    row.weights = weights
-    await db.commit()
-    return RankingAhpCalculateResponse(weights=weights, consistency_ratio=round(cr, 4))
-
-
-@router.get(
-    "/projects/{project_id}/pois/{poi_id}/ranking/matrix",
-    response_model=RankingMatrixResponse,
-)
-async def get_ranking_matrix(
-    project_id: UUID, poi_id: UUID, user: User = Depends(get_current_user), db: AsyncSession = Depends(get_db)
-):
-    await _get_user_project(project_id, user, db)
-    await _get_poi(poi_id, project_id, db)
-    settings = await get_or_create_ranking_settings(db, project_id, poi_id)
-    scenarios = await list_scenarios_for_ranking(db, project_id, poi_id)
-    values_map = await load_stored_criterion_values(db, settings.id)
-    matrix = build_ranking_matrix(scenarios, settings, values_map)
-    await db.commit()
-    return RankingMatrixResponse(**matrix)
-
-
-@router.put("/projects/{project_id}/pois/{poi_id}/ranking/criterion-values")
-async def update_ranking_criterion_values(
-    project_id: UUID,
-    poi_id: UUID,
-    data: RankingCriterionValuesUpdate,
-    user: User = Depends(get_current_user),
-    db: AsyncSession = Depends(get_db),
-):
-    await _get_user_project(project_id, user, db)
-    await _get_poi(poi_id, project_id, db)
-    ranking = await get_or_create_ranking_settings(db, project_id, poi_id)
-    scenarios = await list_scenarios_for_ranking(db, project_id, poi_id)
-    scenario_map = {str(sc.id): sc for sc in scenarios}
-
-    for scenario_id, criterion_map in data.values.items():
-        scenario = scenario_map.get(scenario_id)
-        if not scenario:
-            continue
-        for criterion_id, value in criterion_map.items():
-            row = await db.scalar(
-                select(ScenarioCriterionValue).where(
-                    ScenarioCriterionValue.ranking_settings_id == ranking.id,
-                    ScenarioCriterionValue.scenario_id == scenario.id,
-                    ScenarioCriterionValue.criterion_id == criterion_id,
-                )
-            )
-            if row is None:
-                row = ScenarioCriterionValue(
-                    ranking_settings_id=ranking.id,
-                    scenario_id=scenario.id,
-                    criterion_id=criterion_id,
-                    value=float(value),
-                )
-                db.add(row)
-            else:
-                row.value = float(value)
-    await db.commit()
-    return {"ok": True}
-
-
-@router.post(
-    "/projects/{project_id}/ranking/pois/calculate",
-    response_model=RankingRunResponse,
-)
-async def calculate_project_pois_ranking(
-    project_id: UUID,
-    settings_poi_id: UUID = Query(..., description="POI whose weights/algorithm apply to all POIs"),
-    user: User = Depends(get_current_user),
-    db: AsyncSession = Depends(get_db),
-):
-    """Rank all POIs in the project (base scenario per POI) using weights from settings_poi_id."""
-    await _get_user_project(project_id, user, db)
-    await _get_poi(settings_poi_id, project_id, db)
-    result = await compute_project_pois_ranking(db, project_id, settings_poi_id)
-    await db.commit()
-    return RankingRunResponse(**result)
-
-
-@router.post(
-    "/projects/{project_id}/pois/{poi_id}/ranking/calculate",
-    response_model=RankingRunResponse,
-)
-async def calculate_poi_ranking(
-    project_id: UUID, poi_id: UUID, user: User = Depends(get_current_user), db: AsyncSession = Depends(get_db)
-):
-    await _get_user_project(project_id, user, db)
-    await _get_poi(poi_id, project_id, db)
-    settings = await get_or_create_ranking_settings(db, project_id, poi_id)
-    scenarios = await list_scenarios_for_ranking(db, project_id, poi_id)
-    values_map = await load_stored_criterion_values(db, settings.id)
-    result = compute_ranking_for_scenarios(scenarios, settings, values_map)
-    await db.commit()
-    return RankingRunResponse(**result)
-
-
-@router.post(
-    "/projects/{project_id}/pois/{poi_id}/ranking/sensitivity",
-    response_model=RankingSensitivityResponse,
-)
-async def calculate_poi_ranking_sensitivity(
-    project_id: UUID,
-    poi_id: UUID,
-    criterion_id: str,
-    user: User = Depends(get_current_user),
-    db: AsyncSession = Depends(get_db),
-):
-    await _get_user_project(project_id, user, db)
-    await _get_poi(poi_id, project_id, db)
-    settings = await get_or_create_ranking_settings(db, project_id, poi_id)
-    scenarios = await list_scenarios_for_ranking(db, project_id, poi_id)
-    values_map = await load_stored_criterion_values(db, settings.id)
-    points = []
-    base_weights = dict(settings.weights or DEFAULT_RANKING_WEIGHTS)
-    if criterion_id not in base_weights:
-        raise HTTPException(status_code=400, detail="Unknown criterion_id")
-    for delta in (-0.2, -0.1, 0.0, 0.1, 0.2):
-        weights = rebalance_weights(base_weights, criterion_id, delta)
-        ranking_result = compute_ranking_for_scenarios(scenarios, settings, values_map, custom_weights=weights)
-        points.append({"delta": delta, "alternatives": ranking_result["alternatives"]})
-    await db.commit()
-    return RankingSensitivityResponse(
-        algorithm=settings.algorithm,
-        criterion_id=criterion_id,
-        points=points,
+    user: User,
+    db: AsyncSession,
+    *,
+    min_access: AccessLevel = AccessLevel.read,
+    write_scope: WriteScope = WriteScope.project,
+) -> Project:
+    return await resolve_project(
+        project_id, user, db, min_access=min_access, write_scope=write_scope
     )
-
-
-@router.post("/ranking/calculate", response_model=RankingResponse)
-async def calculate_ranking(data: RankingRequest, user: User = Depends(get_current_user)):
-    normalized = normalize_matrix(data.criteria_values, data.criterion_types)
-    if data.algorithm.lower() == "wsm":
-        scores = calc_wsm_scores(normalized, data.weights)
-    else:
-        scores = calc_topsis_scores(normalized, data.weights)
-    return RankingResponse(
-        algorithm=data.algorithm,
-        scores=scores,
-        ranking=rank_alternatives(scores),
-    )
-
-
-async def _get_user_project(project_id: UUID, user: User, db: AsyncSession) -> Project:
-    result = await db.execute(select(Project).where(Project.id == project_id, Project.user_id == user.id))
-    project = result.scalar_one_or_none()
-    if not project:
-        raise HTTPException(status_code=404, detail="Project not found")
-    return project
 
 
 async def _get_poi(poi_id: UUID, project_id: UUID, db: AsyncSession) -> PointOfInterest:

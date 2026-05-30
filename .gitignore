@@ -24,6 +24,7 @@ deploy/*.env.local
 # SQLite / local data
 **/data/*.db
 **/data/*.db-*
+**/data/exports/
 
 # IDE & OS
 .idea/

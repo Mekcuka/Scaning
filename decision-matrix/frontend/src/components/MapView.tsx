@@ -198,6 +198,8 @@ interface MapViewProps {
   viewStateId?: MapViewStateId;
   /** Optional sub-key (e.g. POI id on the report map). */
   viewStateScope?: string | null;
+  /** When false, do not restore or save pan/zoom (report preview always fits via mapFocus). */
+  persistViewState?: boolean;
 }
 
 type LinkedLineDragState = {
@@ -402,6 +404,7 @@ export function MapView({
   placementPreview = null,
   viewStateId,
   viewStateScope = null,
+  persistViewState = true,
 }: MapViewProps) {
   const projectId = useAppStore((s) => s.currentProjectId);
   const layersRef = useRef(layers);
@@ -445,6 +448,8 @@ export function MapView({
   const modifySessionRef = useRef(0);
   const suppressMapClickRef = useRef(false);
   const lineRightClickRef = useRef({ at: 0, x: 0, y: 0 });
+  const persistViewStateRef = useRef(persistViewState);
+  persistViewStateRef.current = persistViewState;
   const viewStateIdRef = useRef(viewStateId);
   const viewStateScopeRef = useRef(viewStateScope);
   const projectIdRef = useRef(projectId);
@@ -990,6 +995,7 @@ export function MapView({
     };
 
     const persistView = () => {
+      if (!persistViewStateRef.current) return;
       const vid = viewStateIdRef.current;
       if (!vid) return;
       const view = map.getView();
@@ -1068,7 +1074,7 @@ export function MapView({
   useEffect(() => {
     const map = mapRef.current;
     const vid = viewStateId;
-    if (!map || !vid) return;
+    if (!map || !vid || !persistViewState) return;
 
     if (prevProjectIdForViewRef.current === undefined) {
       prevProjectIdForViewRef.current = projectId;
@@ -1087,19 +1093,19 @@ export function MapView({
       view.setCenter(fromLonLat([initial.centerLon, initial.centerLat]));
       view.setZoom(initial.zoom);
     }
-  }, [projectId, viewStateId]);
+  }, [projectId, viewStateId, persistViewState]);
 
   useEffect(() => {
     const map = mapRef.current;
     const vid = viewStateId;
-    if (!map || !vid || !viewStateScope) return;
+    if (!map || !vid || !viewStateScope || !persistViewState) return;
 
     const saved = loadMapViewState(vid, projectId, viewStateScope);
     if (!saved) return;
     const view = map.getView();
     view.setCenter(fromLonLat([saved.centerLon, saved.centerLat]));
     view.setZoom(saved.zoom);
-  }, [viewStateScope, projectId, viewStateId]);
+  }, [viewStateScope, projectId, viewStateId, persistViewState]);
 
   useEffect(() => {
     const layer = basemapLayerRef.current;

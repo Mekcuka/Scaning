@@ -1,5 +1,6 @@
 const API_BASE = import.meta.env.VITE_API_URL || '/api/v1';
 const REQUEST_TIMEOUT_MS = 12_000;
+const MUTATING_METHODS = new Set(['POST', 'PUT', 'PATCH', 'DELETE']);
 
 /** GitHub Pages base path, e.g. /Scaning/ */
 export function appLoginPath(): string {
@@ -7,14 +8,62 @@ export function appLoginPath(): string {
   return `${base}login`.replace(/\/{2,}/g, '/');
 }
 
-function getToken(): string | null {
-  return localStorage.getItem('access_token');
+function getCsrfToken(): string | null {
+  const match = document.cookie.match(/(?:^|;\s*)csrf_token=([^;]+)/);
+  return match ? decodeURIComponent(match[1]) : null;
 }
 
-type RequestOptions = RequestInit & { redirectOn401?: boolean; timeoutMs?: number };
+let refreshInFlight: Promise<boolean> | null = null;
+
+async function tryRefreshSession(): Promise<boolean> {
+  if (!refreshInFlight) {
+    refreshInFlight = (async () => {
+      try {
+        const csrf = getCsrfToken();
+        const res = await fetch(`${API_BASE}/auth/refresh`, {
+          method: 'POST',
+          credentials: 'include',
+          headers: csrf ? { 'X-CSRF-Token': csrf } : {},
+        });
+        return res.ok;
+      } catch {
+        return false;
+      } finally {
+        refreshInFlight = null;
+      }
+    })();
+  }
+  return refreshInFlight;
+}
+
+type RequestOptions = RequestInit & {
+  redirectOn401?: boolean;
+  timeoutMs?: number;
+  _retry?: boolean;
+  /** Return null instead of throwing on HTTP 404. */
+  allowNotFound?: boolean;
+};
+
+function formatApiError(detail: unknown, fallback: string): string {
+  if (typeof detail === 'string') {
+    if (detail === 'Insufficient permissions') return fallback;
+    return detail;
+  }
+  if (Array.isArray(detail)) {
+    const parts = detail.map((item) => {
+      if (item && typeof item === 'object' && 'msg' in item) {
+        return String((item as { msg: string }).msg);
+      }
+      return JSON.stringify(item);
+    });
+    return parts.join('; ') || fallback;
+  }
+  if (detail && typeof detail === 'object') return JSON.stringify(detail);
+  return fallback;
+}
 
 async function request<T>(path: string, options: RequestOptions = {}): Promise<T> {
-  const { redirectOn401 = true, timeoutMs, ...fetchOptions } = options;
+  const { redirectOn401 = true, timeoutMs, _retry = false, allowNotFound = false, ...fetchOptions } = options;
   const headers: Record<string, string> = {
     ...(fetchOptions.headers as Record<string, string>),
   };
@@ -22,14 +71,22 @@ async function request<T>(path: string, options: RequestOptions = {}): Promise<T
   if (!isForm) {
     headers['Content-Type'] = 'application/json';
   }
-  const token = getToken();
-  if (token) headers.Authorization = `Bearer ${token}`;
+  const method = (fetchOptions.method ?? 'GET').toUpperCase();
+  if (MUTATING_METHODS.has(method)) {
+    const csrf = getCsrfToken();
+    if (csrf) headers['X-CSRF-Token'] = csrf;
+  }
 
   const controller = new AbortController();
   const timeoutId = setTimeout(() => controller.abort(), timeoutMs ?? REQUEST_TIMEOUT_MS);
   let res: Response;
   try {
-    res = await fetch(`${API_BASE}${path}`, { ...fetchOptions, headers, signal: controller.signal });
+    res = await fetch(`${API_BASE}${path}`, {
+      ...fetchOptions,
+      headers,
+      credentials: 'include',
+      signal: controller.signal,
+    });
   } catch (err) {
     if (err instanceof DOMException && err.name === 'AbortError') {
       throw new Error('Сервер не отвечает. Запустите API (backend) и базу данных.');
@@ -40,37 +97,97 @@ async function request<T>(path: string, options: RequestOptions = {}): Promise<T
   }
 
   if (res.status === 401) {
-    localStorage.removeItem('access_token');
-    localStorage.removeItem('refresh_token');
+    if (!_retry && redirectOn401 && !path.startsWith('/auth/')) {
+      const refreshed = await tryRefreshSession();
+      if (refreshed) {
+        return request<T>(path, { ...options, _retry: true });
+      }
+    }
     if (redirectOn401) {
       window.location.href = appLoginPath();
     }
     throw new Error('Unauthorized');
   }
+  if (res.status === 403) {
+    const err = await res.json().catch(() => ({ detail: null }));
+    throw new Error(formatApiError(err.detail, 'Недостаточно прав для этого действия'));
+  }
+  if (res.status === 404 && allowNotFound) {
+    return null as T;
+  }
   if (!res.ok) {
     const err = await res.json().catch(() => ({ detail: res.statusText }));
-    throw new Error(typeof err.detail === 'string' ? err.detail : JSON.stringify(err.detail) || 'Request failed');
+    throw new Error(formatApiError(err.detail, res.statusText || 'Request failed'));
   }
   if (res.status === 204) return undefined as T;
   return res.json();
 }
 
+async function requestBlob(path: string, options: RequestOptions = {}): Promise<Blob> {
+  const { redirectOn401 = true, timeoutMs, _retry = false, ...fetchOptions } = options;
+  const headers: Record<string, string> = {
+    ...(fetchOptions.headers as Record<string, string>),
+  };
+  const method = (fetchOptions.method ?? 'GET').toUpperCase();
+  if (MUTATING_METHODS.has(method)) {
+    const csrf = getCsrfToken();
+    if (csrf) headers['X-CSRF-Token'] = csrf;
+  }
+  if (!(fetchOptions.body instanceof FormData)) {
+    headers['Content-Type'] = 'application/json';
+  }
+  const controller = new AbortController();
+  const timeoutId = setTimeout(() => controller.abort(), timeoutMs ?? REQUEST_TIMEOUT_MS);
+  let res: Response;
+  try {
+    res = await fetch(`${API_BASE}${path}`, {
+      ...fetchOptions,
+      headers,
+      credentials: 'include',
+      signal: controller.signal,
+    });
+  } finally {
+    clearTimeout(timeoutId);
+  }
+  if (res.status === 401 && !_retry && redirectOn401) {
+    const refreshed = await tryRefreshSession();
+    if (refreshed) return requestBlob(path, { ...options, _retry: true });
+  }
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({ detail: res.statusText }));
+    throw new Error(formatApiError(err.detail, res.statusText || 'Request failed'));
+  }
+  return res.blob();
+}
+
+export type AuthUser = { id: string; email: string; username: string; role: string };
+
 export const api = {
   login: (email: string, password: string) =>
-    request<{ access_token: string; refresh_token: string }>('/auth/login', {
+    request<AuthUser>('/auth/login', {
       method: 'POST',
       body: JSON.stringify({ email, password }),
       redirectOn401: false,
     }),
   register: (email: string, password: string, username: string) =>
-    request('/auth/register', {
+    request<AuthUser>('/auth/register', {
       method: 'POST',
       body: JSON.stringify({ email, password, username }),
-    }),
-  me: () =>
-    request<{ id: string; email: string; username: string; role: string }>('/auth/me', {
       redirectOn401: false,
     }),
+  logout: () =>
+    request<{ message: string }>('/auth/logout', {
+      method: 'POST',
+      redirectOn401: false,
+    }),
+  me: () => request<AuthUser>('/auth/me', { redirectOn401: false }),
+  adminUsers: () =>
+    request<
+      Array<{ id: string; email: string; username: string; role: string; is_active: boolean; created_at: string }>
+    >('/admin/users'),
+  updateAdminUser: (id: string, data: { role?: string; is_active?: boolean }) =>
+    request(`/admin/users/${id}`, { method: 'PATCH', body: JSON.stringify(data) }),
+  adminStats: () => request<{ users: number; projects: number; pois: number }>('/admin/stats'),
   projects: () => request<Project[]>('/projects'),
   createProject: (name: string, description?: string) =>
     request<Project>('/projects', { method: 'POST', body: JSON.stringify({ name, description }) }),
@@ -280,50 +397,6 @@ export const api = {
     request<NetworkNode[]>(`/projects/${projectId}/infrastructure/networks/${networkId}/nodes`),
   getNetworkEdges: (projectId: string, networkId: string) =>
     request<NetworkEdge[]>(`/projects/${projectId}/infrastructure/networks/${networkId}/edges`),
-  getScenarios: (projectId: string) => request<Scenario[]>(`/projects/${projectId}/scenarios`),
-  getPoiRankingSettings: (projectId: string, poiId: string) =>
-    request<RankingSettings>(`/projects/${projectId}/pois/${poiId}/ranking`),
-  updatePoiRankingSettings: (projectId: string, poiId: string, data: Partial<RankingSettings>) =>
-    request<RankingSettings>(`/projects/${projectId}/pois/${poiId}/ranking`, {
-      method: 'PUT',
-      body: JSON.stringify(data),
-    }),
-  updatePoiRankingCriterionValues: (
-    projectId: string,
-    poiId: string,
-    values: Record<string, Record<string, number>>
-  ) =>
-    request<{ ok: boolean }>(`/projects/${projectId}/pois/${poiId}/ranking/criterion-values`, {
-      method: 'PUT',
-      body: JSON.stringify({ values }),
-    }),
-  calculatePoiRanking: (projectId: string, poiId: string) =>
-    request<RankingRunResult>(`/projects/${projectId}/pois/${poiId}/ranking/calculate`, {
-      method: 'POST',
-    }),
-  calculateProjectPoisRanking: (projectId: string, settingsPoiId: string) =>
-    request<RankingRunResult>(
-      `/projects/${projectId}/ranking/pois/calculate?settings_poi_id=${encodeURIComponent(settingsPoiId)}`,
-      { method: 'POST' }
-    ),
-  calculatePoiRankingSensitivity: (projectId: string, poiId: string, criterionId: string) =>
-    request<RankingSensitivityResult>(
-      `/projects/${projectId}/pois/${poiId}/ranking/sensitivity?criterion_id=${encodeURIComponent(criterionId)}`,
-      { method: 'POST' }
-    ),
-  getPoiRankingMatrix: (projectId: string, poiId: string) =>
-    request<RankingMatrix>(`/projects/${projectId}/pois/${poiId}/ranking/matrix`),
-  calculatePoiRankingAhp: (
-    projectId: string,
-    poiId: string,
-    ahpPairwise: Record<string, Record<string, number>>
-  ) =>
-    request<RankingAhpResult>(`/projects/${projectId}/pois/${poiId}/ranking/ahp/calculate`, {
-      method: 'POST',
-      body: JSON.stringify({ ahp_pairwise: ahpPairwise }),
-    }),
-  calculateRanking: (data: RankingRequest) =>
-    request<RankingResult>('/ranking/calculate', { method: 'POST', body: JSON.stringify(data) }),
   getFlowSchematic: (projectId: string, poiId: string) =>
     request<import('./flowSchematic').FlowSchematicDto>(
       `/projects/${projectId}/pois/${poiId}/flow-schematic`
@@ -355,6 +428,26 @@ export const api = {
       `/projects/${projectId}/economic-params`,
       { method: 'PUT', body: JSON.stringify({ params }) }
     ),
+  getOnePagers: (projectId: string) => request<OnePager[]>(`/projects/${projectId}/one-pagers`),
+  getOnePager: (projectId: string, id: string) =>
+    request<OnePager>(`/projects/${projectId}/one-pagers/${id}`),
+  createOnePager: (projectId: string, body: OnePagerCreatePayload) =>
+    request<OnePager>(`/projects/${projectId}/one-pagers`, {
+      method: 'POST',
+      body: JSON.stringify(body),
+    }),
+  updateOnePager: (projectId: string, id: string, body: OnePagerUpdatePayload) =>
+    request<OnePager>(`/projects/${projectId}/one-pagers/${id}`, {
+      method: 'PUT',
+      body: JSON.stringify(body),
+    }),
+  deleteOnePager: (projectId: string, id: string) =>
+    request<void>(`/projects/${projectId}/one-pagers/${id}`, { method: 'DELETE' }),
+  exportOnePagerPptx: (projectId: string, id: string, mapSnapshotBase64?: string | null) =>
+    requestBlob(`/projects/${projectId}/one-pagers/${id}/export/pptx`, {
+      method: 'POST',
+      body: JSON.stringify({ map_snapshot_base64: mapSnapshotBase64 ?? null }),
+    }),
 };
 
 export interface Project {
@@ -650,90 +743,43 @@ export interface ImportLog {
   created_at: string;
 }
 
-export interface Scenario {
+export interface OnePagerRoadmapStage {
+  stage: string;
+  duration_months: number | null;
+}
+
+export interface OnePager {
   id: string;
-  name: string;
-  scenario_type: string;
-  is_manual: boolean;
-  poi_id?: string | null;
-  results: Record<string, unknown> | null;
+  project_id: string;
+  poi_id: string;
+  title: string;
+  coordinates: string | null;
+  engineer_name: string | null;
+  report_date: string | null;
+  final_variant_data: Record<string, unknown>;
+  engineering_params: Record<string, unknown>;
+  roadmap: OnePagerRoadmapStage[];
+  recommendation_text: string | null;
+  is_recommendation_edited: boolean;
+  generation_status: string;
+  poi_name: string | null;
+  created_at: string | null;
+  updated_at: string | null;
 }
 
-export interface RankingRequest {
-  algorithm: string;
-  criteria_values: number[][];
-  criterion_types: string[];
-  weights: number[];
+export interface OnePagerCreatePayload {
+  poi_id: string;
+  engineer_name?: string | null;
+  roadmap?: OnePagerRoadmapStage[] | null;
+  recommendation_text?: string | null;
+  map_snapshot_base64?: string | null;
 }
 
-export interface RankingResult {
-  algorithm: string;
-  scores: number[];
-  ranking: Array<{ index: number; score: number; rank: number }>;
-}
-
-export const USER_CRITERIA_IDS = ['risk', 'time_months', 'reliability'] as const;
-export const RANKING_DEFAULT_EXPERT = { risk: 5, reliability: 5, time_months: 12 };
-
-export interface RankingCriterion {
-  id: string;
-  name: string;
-  type: 'cost' | 'benefit' | string;
-  value_source?: 'computed' | 'user' | string;
-}
-
-export interface RankingSettings {
-  algorithm: string;
-  criteria: RankingCriterion[];
-  weights: Record<string, number>;
-  default_expert_values: Record<string, number>;
-  ahp_pairwise: Record<string, Record<string, number>>;
-}
-
-export interface RankingScenarioSummary {
-  id: string;
-  name: string;
-  scenario_type: string;
-}
-
-export interface RankingMatrix {
-  scenarios: RankingScenarioSummary[];
-  criteria: RankingCriterion[];
-  values: Record<string, Record<string, number>>;
-  normalized_values: Record<string, Record<string, number>>;
-}
-
-export interface RankingAlternative {
-  poi_id?: string | null;
-  scenario_id?: string | null;
-  name: string;
-  score: number;
-  rank: number;
-  scenario_type?: string | null;
-}
-
-export interface RankingRunResult {
-  algorithm: string;
-  alternatives: RankingAlternative[];
-  matrix?: RankingMatrix | null;
-  ranking_unit?: 'poi' | 'scenario' | string;
-  skipped_pois?: string[];
-}
-
-export interface RankingAhpResult {
-  weights: Record<string, number>;
-  consistency_ratio: number;
-}
-
-export interface RankingSensitivityPoint {
-  delta: number;
-  alternatives: RankingAlternative[];
-}
-
-export interface RankingSensitivityResult {
-  algorithm: string;
-  criterion_id: string;
-  points: RankingSensitivityPoint[];
+export interface OnePagerUpdatePayload {
+  recommendation_text?: string | null;
+  roadmap?: OnePagerRoadmapStage[] | null;
+  map_snapshot_base64?: string | null;
+  engineer_name?: string | null;
 }
 
 export const POINT_SUBTYPES = [

@@ -5,6 +5,7 @@ import { api, normalizePoiAnalysisResponse, type POI } from '../lib/api';
 import { buildMatrixRowsByPois, resolvePoiColumnAnalysis } from '../lib/matrixData';
 import { engineeringOptionsForKey, type EngineeringParamKey } from '../lib/poiParams';
 import { useAppStore } from '../store';
+import { usePermissions } from '../hooks/usePermissions';
 import { AppSelect } from '../components/AppSelect';
 import { useIsMobile } from '../hooks/useMediaQuery';
 
@@ -13,6 +14,7 @@ function initialMatrixViewMode(isMobile: boolean): 'table' | 'cards' {
 }
 
 export function MatrixPage() {
+  const { canWriteProject } = usePermissions();
   const isMobile = useIsMobile();
   const [viewMode, setViewMode] = useState<'table' | 'cards'>(() => initialMatrixViewMode(isMobile));
   const [viewModeTouched, setViewModeTouched] = useState(false);
@@ -34,12 +36,6 @@ export function MatrixPage() {
     enabled: !!projectId,
   });
 
-  const { data: scenarios = [] } = useQuery({
-    queryKey: ['scenarios', projectId],
-    queryFn: () => api.getScenarios(projectId!),
-    enabled: !!projectId,
-  });
-
   const analysisQueries = useQueries({
     queries: pois.map((poi) => ({
       queryKey: ['analysis', projectId, poi.id],
@@ -56,10 +52,10 @@ export function MatrixPage() {
     const map: Record<string, ReturnType<typeof resolvePoiColumnAnalysis>> = {};
     pois.forEach((poi, i) => {
       const live = analysisQueries[i]?.data;
-      map[poi.id] = resolvePoiColumnAnalysis(poi, live, scenarios);
+      map[poi.id] = resolvePoiColumnAnalysis(poi, live);
     });
     return map;
-  }, [pois, analysisQueries, scenarios]);
+  }, [pois, analysisQueries]);
 
   const displayedPois = useMemo(() => {
     if (!showOnlyExceeded) return pois;
@@ -104,7 +100,6 @@ export function MatrixPage() {
           normalizePoiAnalysisResponse(item)
         );
       }
-      await queryClient.invalidateQueries({ queryKey: ['scenarios', projectId] });
       pushToast(
         'success',
         batch.analyzed_count === 1
@@ -158,7 +153,7 @@ export function MatrixPage() {
           </p>
         </div>
         <div className="page-toolbar-actions">
-          {projectId && pois.length > 0 && (
+          {projectId && pois.length > 0 && canWriteProject && (
             <button
               type="button"
               className="btn btn-primary"
@@ -274,7 +269,8 @@ export function MatrixPage() {
                                         className="matrix-eng-select"
                                         ariaLabel={`${row.label}: ${poi.name}`}
                                         value={String(poi[engKey] ?? '')}
-                                        disabled={updateEngMut.isPending}
+                                        readOnly={!canWriteProject}
+                                        disabled={updateEngMut.isPending || !canWriteProject}
                                         onChange={(value) => {
                                           if (value === poi[engKey]) return;
                                           updateEngMut.mutate({

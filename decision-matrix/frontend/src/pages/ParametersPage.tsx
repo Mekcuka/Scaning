@@ -13,6 +13,7 @@ import {
   readThroughputCapacity,
 } from '../lib/infraCapacity';
 import { useAppStore } from '../store';
+import { usePermissions } from '../hooks/usePermissions';
 import { DeferredNumberInput } from '../components/DeferredNumberInput';
 
 function capacityDisplayValue(obj: InfraObject): number | '' {
@@ -21,6 +22,7 @@ function capacityDisplayValue(obj: InfraObject): number | '' {
 }
 
 export function ParametersPage() {
+  const { canWriteProject } = usePermissions();
   const projectId = useAppStore((s) => s.currentProjectId);
   const pushToast = useAppStore((s) => s.pushToast);
   const queryClient = useQueryClient();
@@ -64,7 +66,7 @@ export function ParametersPage() {
   }, [projectId]);
 
   useEffect(() => {
-    if (!projectId || isLoading || defaultsAppliedRef.current) return;
+    if (!projectId || isLoading || defaultsAppliedRef.current || !canWriteProject) return;
 
     const toFill = capacityObjects.filter((o) => {
       if (readThroughputCapacity(o.properties).value != null) return false;
@@ -92,7 +94,7 @@ export function ParametersPage() {
         pushToast('error', err instanceof Error ? err.message : 'Не удалось задать стандартные значения');
       }
     })();
-  }, [projectId, isLoading, capacityObjects, queryClient, pushToast]);
+  }, [projectId, isLoading, capacityObjects, queryClient, pushToast, canWriteProject]);
 
   const saveMut = useMutation({
     mutationFn: async ({
@@ -147,7 +149,7 @@ export function ParametersPage() {
     <div className="parameters-page">
       <div className="parameters-page-top">
         <p className="parameters-page__hint" style={{ color: 'var(--text-muted)' }}>
-          Сохранение при выходе из поля или Enter
+          {canWriteProject ? 'Сохранение при выходе из поля или Enter' : 'Просмотр пропускной способности объектов'}
         </p>
         <Link to="/map" className="btn btn-secondary btn-sm shrink-0">
           <MapPin size={14} className="inline mr-1" />
@@ -213,7 +215,8 @@ export function ParametersPage() {
                               : 'Стандартное значение для подтипа (сохраняется автоматически)'
                           }
                           value={capacityDisplayValue(obj)}
-                          disabled={isSaving}
+                          readOnly={!canWriteProject}
+                          disabled={isSaving || !canWriteProject}
                           onCommit={(v) => {
                             saveMut.mutate({
                               object: obj,

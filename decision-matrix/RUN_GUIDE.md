@@ -96,10 +96,30 @@ npm run dev
 
 ## 4) Доступы и полезные URL
 
-- Демо-вход: `engineer@oilgas.ru` / `password123`
-- Frontend: `http://127.0.0.1:5173`
-- Backend API: `http://localhost:8000/api/v1`
-- Swagger: `http://localhost:8000/api/v1/docs`
+### Демо-учётки (SQLite, после seed)
+
+| Email | Пароль | Роль |
+|-------|--------|------|
+| `engineer@oilgas.ru` | `password123` | analyst |
+| `admin@oilgas.ru` | `admin1234` | admin |
+| `data@oilgas.ru` | `data12345` | data_manager |
+| `viewer@oilgas.ru` | `viewer123` | viewer |
+
+- Frontend: `http://127.0.0.1:5173` (или `:5174`, если 5173 занят)
+- Backend API: `http://127.0.0.1:8000/api/v1`
+- Swagger: `http://127.0.0.1:8000/api/v1/docs`
+- Страницы: `/login`, `/register`, `/admin` (только admin)
+
+Аутентификация через **httpOnly cookies** (не localStorage). Подробнее: [docs/auth-rbac.md](../docs/auth-rbac.md).
+
+### Пересоздание demo-пользователей
+
+```powershell
+cd C:\Users\user\Documents\Cursore\decision-matrix\backend
+.\venv\Scripts\python.exe seed.py
+```
+
+`seed.py` дополняет отсутствующих пользователей в SQLite (`data/sppr.db`).
 
 ## 5) Полный режим карты (PostgreSQL + PostGIS)
 
@@ -113,8 +133,10 @@ npm run dev
 ```env
 DATABASE_URL=postgresql+asyncpg://sppr:sppr_secret@localhost:5432/sppr
 SECRET_KEY=change-me-in-production
-CORS_ORIGINS=http://localhost:5173,http://127.0.0.1:5173
+CORS_ORIGINS=http://localhost:5173,http://localhost:5174,http://127.0.0.1:5173
 ```
+
+> Для Postgres `seed.py` использует `DATABASE_URL` из `.env`. Для SQLite-dev используйте `run_local.py` + `seed.py` (override на SQLite внутри скрипта).
 
 5. Запустите backend:
 
@@ -151,8 +173,14 @@ npm run dev
 
 ## 7) Частые проблемы
 
+- **Не входит admin / Invalid credentials**  
+  Demo-пользователи могли не попасть в SQLite. Запустите `python seed.py` в `backend/`. Убедитесь, что backend запущен через `run_local.py` (SQLite), а не только через `.env` Postgres.
+
+- **Request failed / 401 после входа**  
+  Очистите cookies для `localhost`. Используйте frontend через Vite proxy (`http://localhost:5173`), не задавайте `VITE_API_URL` на прямой backend в dev.
+
 - Порт `5173` или `8000` занят  
-  Освободите порт или запустите сервис на другом порту.
+  Освободите порт или запустите сервис на другом порту. Добавьте новый порт frontend в `CORS_ORIGINS`.
 
 - `pip install` падает на зависимостях  
   Обновите pip: `python -m pip install --upgrade pip`.
@@ -161,4 +189,7 @@ npm run dev
   Убедитесь, что backend запущен и доступен по `http://127.0.0.1:8000`.
 
 - Ошибка CORS  
-  Проверьте `CORS_ORIGINS` в `C:\Users\user\Documents\Cursore\decision-matrix\backend\.env`.
+  Проверьте `CORS_ORIGINS` в `backend/.env` — должен совпадать с URL frontend (включая порт).
+
+- CSRF validation failed  
+  Перелогиньтесь. Mutating запросы должны идти с cookie `csrf_token` и заголовком `X-CSRF-Token`.

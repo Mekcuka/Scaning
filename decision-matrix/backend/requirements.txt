@@ -14,4 +14,5 @@ numpy>=2.1.0
 httpx>=0.28.0
 greenlet>=3.1.0
 cryptography>=43.0.0
-pyproj>=3.7.0
+slowapi>=0.1.9
+python-pptx>=1.0.2

@@ -6,9 +6,9 @@ import {
   Upload,
   FolderOpen,
   Grid3X3,
-  BarChart3,
   FileText,
   GitBranch,
+  Shield,
   LogOut,
   Moon,
   Sun,
@@ -17,9 +17,12 @@ import {
   SlidersHorizontal,
 } from 'lucide-react';
 import { useAuthStore, useAppStore } from '../../store';
+import { usePermissions } from '../../hooks/usePermissions';
+import { canSeeNav, ROLE_LABELS } from '../../lib/permissions';
 import { useActiveProject } from '../../hooks/useActiveProject';
 import { AppSelect } from '../AppSelect';
 import { ToastStack } from '../ToastStack';
+import { ReadOnlyBanner } from '../ReadOnlyBanner';
 
 const NAV = [
   { to: '/', icon: LayoutDashboard, label: 'Дашборд', end: true },
@@ -29,8 +32,8 @@ const NAV = [
   { to: '/flows', icon: GitBranch, label: 'Потоки', end: false },
   { to: '/matrix', icon: Grid3X3, label: 'Матрица', end: true },
   { to: '/report', icon: FileText, label: 'Отчёты', end: true },
-  { to: '/ranking', icon: BarChart3, label: 'Ранжирование', end: true },
   { to: '/import', icon: Upload, label: 'Импорт', end: true },
+  { to: '/admin', icon: Shield, label: 'Администрирование', end: true },
 ] as const;
 
 export type DashboardOutletContext = {
@@ -43,6 +46,7 @@ export function useDashboardOutlet(): DashboardOutletContext {
 
 export function AppLayout() {
   const { user, logout } = useAuthStore();
+  const { role } = usePermissions();
   const { theme, toggleTheme, toasts, dismissToast } = useAppStore();
   const { projects, projectId, setProjectId, hasProjects } = useActiveProject();
   const navigate = useNavigate();
@@ -72,10 +76,12 @@ export function AppLayout() {
     };
   }, [navOpen]);
 
-  const handleLogout = () => {
-    logout();
+  const handleLogout = async () => {
+    await logout();
     navigate('/login');
   };
+
+  const visibleNav = NAV.filter(({ to }) => canSeeNav(role, to));
 
   const closeNav = () => setNavOpen(false);
 
@@ -106,7 +112,7 @@ export function AppLayout() {
           </div>
         </div>
         <nav className="flex-1 min-h-0 overflow-y-auto py-3">
-          {NAV.map(({ to, icon: Icon, label, end }) => (
+          {visibleNav.map(({ to, icon: Icon, label, end }) => (
             <NavLink
               key={to}
               to={to}
@@ -129,7 +135,7 @@ export function AppLayout() {
           </div>
           <div className="flex-1 min-w-0">
             <div className="text-sm text-white truncate">{user?.username}</div>
-            <div className="text-xs opacity-60 capitalize">{user?.role}</div>
+            <div className="text-xs opacity-60">{ROLE_LABELS[role] ?? user?.role}</div>
           </div>
         </div>
       </aside>
@@ -184,6 +190,7 @@ export function AppLayout() {
             )}
           </div>
         </header>
+        <ReadOnlyBanner />
         <main
           className={
             isMapPage

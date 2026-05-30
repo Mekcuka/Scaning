@@ -137,7 +137,7 @@ distance_km(subtype) = pads_count × km_per_pad(subtype)
 
 | | |
 |--|--|
-| **Входы** | `pads_count`, `km_per_pad`, опционально `distance_km_override` (сценарий) |
+| **Входы** | `pads_count`, `km_per_pad`, опционально `distance_km_override` (ручная корректировка) |
 | **Выход** | `distance_km`, `distance_source` |
 | **FR** | FR-5.3.4, FR-7.3.1 |
 
@@ -241,37 +241,6 @@ total_thousand_rub = Σ subtype_costs (активные) + engineering_equipment
 
 ---
 
-## §6. Ранжирование сценариев (computed-критерии)
-
-Привязка: `(project_id, poi_id)`; альтернативы = `implementation_variants` (FR-9.0).
-
-### `calc_rank_total_cost`
-
-Сумма `total_thousand_rub` варианта / 1000 → млн ₽. **Cost** (меньше лучше).
-
-### `calc_rank_total_distance`
-
-```
-total_distance_km = Σ distance_km по активным подтипам
-```
-
-Включает **internal** (pads formula) и **external** (geodesic). **Cost** (меньше лучше).
-
-### `calc_rank_exceed_count`
-
-Количество подтипов со статусом `exceeds_limit`. **Cost**.
-
-### `apply_topsis` / `apply_wsm` / `calc_ahp_weights`
-
-| | |
-|--|--|
-| **FR** | FR-9.3.1–9.3.2 |
-| **Модуль** | `ranking_service` |
-
-Экспертные критерии (`risk`, `time`, `reliability`) — ввод пользователя, не функции расчёта из геоданных.
-
----
-
 ## §7. Порядок вызова (pipeline)
 
 ```mermaid
@@ -302,8 +271,7 @@ sequenceDiagram
 5. Для каждого **активного internal linear** → `calc_internal_line_distance_km` → `calc_distance_status` (internal).
 6. `calc_pads_cost`, `calc_internal_line_cost`, внешние фиксированные ставки, `calc_engineering_equipment_cost`.
 7. `calc_variant_total_cost` → сохранить `implementation_variants` + `variant_infrastructure_items`.
-8. Сценарии: копия базового + overrides (внешний объект / `construction_required` / `distance_km` / `km_per_pad` / cost override).
-9. Ранжирование: `calc_rank_*` + TOPSIS/WSM.
+8. Сравнение POI в инфраструктурной матрице; одностраничник формируется по выбранной `poi_id`.
 
 ---
 
@@ -321,11 +289,6 @@ sequenceDiagram
 | `calc_distance_status` | Статус подтипа | да |
 | `calc_engineering_equipment_cost` | 5 инженерных ставок | да |
 | `calc_variant_total_cost` | Итог варианта | да |
-| `calc_rank_total_cost` | Критерий ранжирования | да |
-| `calc_rank_total_distance` | Критерий ранжирования | да |
-| `calc_rank_exceed_count` | Критерий ранжирования | да |
-| `apply_topsis` / `apply_wsm` | Ранжирование | да |
-| `calc_ahp_weights` | Веса из парных сравнений | да |
 | `find_nearest_on_linestring` | Якорь на линии | post-MVP |
 | `route_along_network` | Расстояние по графу | planned |
 

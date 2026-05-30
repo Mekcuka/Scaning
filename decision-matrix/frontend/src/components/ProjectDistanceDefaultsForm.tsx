@@ -3,6 +3,7 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { Save } from 'lucide-react';
 import { api, type DistanceDefaults } from '../lib/api';
 import { useAppStore } from '../store';
+import { usePermissions } from '../hooks/usePermissions';
 import { KM_PER_PAD_FIELDS, MAX_TOTAL_LINE_FIELDS, THRESHOLD_FIELDS } from '../lib/poiParams';
 import { DeferredNumberInput } from './DeferredNumberInput';
 
@@ -18,6 +19,8 @@ export function ProjectDistanceDefaultsForm({
   readOnly,
   compact = false,
 }: ProjectDistanceDefaultsFormProps) {
+  const { canWriteProject } = usePermissions();
+  const effectiveReadOnly = readOnly ?? !canWriteProject;
   const qc = useQueryClient();
   const pushToast = useAppStore((s) => s.pushToast);
   const [values, setValues] = useState<DistanceDefaults | null>(null);
@@ -77,7 +80,7 @@ export function ProjectDistanceDefaultsForm({
               {suffix ? `, ${suffix}` : ''}
             </span>
             <DeferredNumberInput
-              readOnly={readOnly}
+              readOnly={effectiveReadOnly}
               className={compact ? 'rates-input' : undefined}
               value={values[f.defaultKey]}
               min={0}
@@ -105,7 +108,7 @@ export function ProjectDistanceDefaultsForm({
           {renderFields('Нормы, км/КП', '§1.4', KM_PER_PAD_FIELDS)}
           {renderFields('Макс. internal, км', '§1.5', MAX_TOTAL_LINE_FIELDS)}
         </div>
-        {!readOnly && (
+        {!effectiveReadOnly && (
           <div className="rates-distance-footer">
             <button
               type="button"
@@ -128,7 +131,7 @@ export function ProjectDistanceDefaultsForm({
       {renderFields('Нормы линейной инфраструктуры (км/КП)', '§1.4 — копируются в POI при создании', KM_PER_PAD_FIELDS, 'км/КП')}
       {renderFields('Макс. суммарная длина internal (км)', '§1.5 — лимиты для internal linear (FR-4.2.13)', MAX_TOTAL_LINE_FIELDS, 'км')}
 
-      {!readOnly && (
+      {!effectiveReadOnly && (
         <button
           type="button"
           className="btn btn-primary"

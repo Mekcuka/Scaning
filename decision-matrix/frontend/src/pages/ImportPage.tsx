@@ -4,6 +4,7 @@ import { Upload, Link as LinkIcon } from 'lucide-react';
 import { api, type ImportConnectionCreate } from '../lib/api';
 import { formatCoord } from '../lib/coords';
 import { useActiveProject } from '../hooks/useActiveProject';
+import { usePermissions } from '../hooks/usePermissions';
 import { useAppStore } from '../store';
 import { refreshMapQueries } from '../lib/mapQueries';
 import { AppSelect } from '../components/AppSelect';
@@ -62,6 +63,7 @@ const IMPORT_CSV_TEMPLATE = [
 ].join('\n');
 
 export function ImportPage() {
+  const { canWriteInfra } = usePermissions();
   const { projectId, hasProjects, isLoading: projectsLoading } = useActiveProject();
   const queryClient = useQueryClient();
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -212,6 +214,7 @@ export function ImportPage() {
   };
 
   const busy = importMut.isPending || !!pendingLogId;
+  const readOnly = !canWriteInfra;
   const previewRejected = (preview?.errors ?? [])
     .map((msg) => {
       const m = msg.match(/^Row\s+(\d+)\s+\((.+)\):\s+(.+)$/);
@@ -224,6 +227,11 @@ export function ImportPage() {
     <div>
       <header className="page-header">
         <h1 className="page-title">Импорт данных</h1>
+        {readOnly && (
+          <p className="subtitle" style={{ color: 'var(--text-muted)' }}>
+            Импорт недоступен в режиме просмотра
+          </p>
+        )}
       </header>
 
       {!projectsLoading && !hasProjects && (
@@ -261,6 +269,7 @@ export function ImportPage() {
             <label>Название</label>
             <input
               value={connForm.name}
+              disabled={readOnly}
               onChange={(e) => setConnForm({ ...connForm, name: e.target.value })}
             />
           </div>
@@ -268,6 +277,7 @@ export function ImportPage() {
             <label>URL REST API</label>
             <input
               value={connForm.api_url}
+              disabled={readOnly}
               onChange={(e) => setConnForm({ ...connForm, api_url: e.target.value })}
               placeholder="https://api.example.com/v1/infrastructure"
             />
@@ -276,6 +286,7 @@ export function ImportPage() {
             <label>Тип аутентификации</label>
             <AppSelect
               value={connForm.auth_type || 'bearer'}
+              readOnly={readOnly}
               onChange={(auth_type) => setConnForm({ ...connForm, auth_type })}
               options={[
                 { value: 'bearer', label: 'Bearer Token' },
@@ -289,6 +300,7 @@ export function ImportPage() {
             <input
               type="password"
               value={connForm.credentials}
+              disabled={readOnly}
               onChange={(e) => setConnForm({ ...connForm, credentials: e.target.value })}
             />
           </div>
@@ -298,6 +310,7 @@ export function ImportPage() {
               <AppSelect
                 placeholder="— выберите —"
                 value={selectedConnId ?? ''}
+                readOnly={readOnly}
                 onChange={(id) => setSelectedConnId(id || null)}
                 options={[
                   { value: '', label: '— выберите —' },
@@ -310,7 +323,7 @@ export function ImportPage() {
             <button
               type="button"
               className="btn btn-primary text-sm"
-              disabled={!projectId}
+              disabled={!projectId || readOnly}
               onClick={() => saveConnMut.mutate()}
             >
               Сохранить
@@ -318,7 +331,7 @@ export function ImportPage() {
             <button
               type="button"
               className="btn btn-secondary text-sm"
-              disabled={!projectId || !selectedConnId}
+              disabled={!projectId || !selectedConnId || readOnly}
               onClick={() => selectedConnId && testConnMut.mutate(selectedConnId)}
             >
               Тест
@@ -326,7 +339,7 @@ export function ImportPage() {
             <button
               type="button"
               className="btn btn-secondary text-sm"
-              disabled={!projectId || !selectedConnId}
+              disabled={!projectId || !selectedConnId || readOnly}
               onClick={() => selectedConnId && syncConnMut.mutate(selectedConnId)}
             >
               Синхронизировать
@@ -340,14 +353,14 @@ export function ImportPage() {
             <h2 className="font-semibold">Импорт файлов</h2>
           </div>
           <label className="flex items-center gap-2 text-sm mb-3">
-            <input type="checkbox" checked={useAsync} onChange={(e) => setUseAsync(e.target.checked)} />
+            <input type="checkbox" checked={useAsync} disabled={readOnly} onChange={(e) => setUseAsync(e.target.checked)} />
             Фоновый импорт (CSV / GeoJSON / KML, polling)
           </label>
           <div
             role="button"
-            tabIndex={0}
+            tabIndex={readOnly ? -1 : 0}
             className={`border-2 border-dashed rounded-xl p-8 text-center transition-colors ${
-              busy ? 'opacity-50 pointer-events-none' : 'cursor-pointer hover:border-blue-400'
+              busy || readOnly ? 'opacity-50 pointer-events-none' : 'cursor-pointer hover:border-blue-400'
             }`}
             style={{ borderColor: 'var(--border)' }}
             onClick={() => !busy && fileInputRef.current?.click()}
@@ -366,14 +379,14 @@ export function ImportPage() {
             type="file"
             accept=".csv,.geojson,.json,.kml,.kmz,.zip"
             className="hidden"
-            disabled={busy}
+            disabled={busy || readOnly}
             onChange={(e) => onFile(e.target.files?.[0] ?? null)}
           />
           <div className="flex gap-2 mt-3">
             <button
               type="button"
               className="btn btn-secondary text-sm flex-1"
-              disabled={busy}
+              disabled={busy || readOnly}
               onClick={() => {
                 const f = fileInputRef.current?.files?.[0];
                 if (f) void onFile(f, false);

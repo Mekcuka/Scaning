@@ -29,14 +29,13 @@ export function DashboardPage() {
   );
 
   const totalPoi = projects.reduce((s, p) => s + p.poi_count, 0);
-  const scenarioEstimate = projects.length * 3;
   const exceedCount = 0;
 
   return (
     <div className="dashboard-page">
       <header className="page-header">
         <h1>Добро пожаловать, {displayName(user?.username)}</h1>
-        <p className="subtitle">Оценка инфраструктуры и сравнение сценариев реализации</p>
+        <p className="subtitle">Оценка инфраструктуры и сравнение точек интереса</p>
       </header>
 
       <div className="stats-row">
@@ -47,10 +46,6 @@ export function DashboardPage() {
         <div className="stat-box">
           <div className="value tabular">{totalPoi}</div>
           <div className="label">Точек интереса</div>
-        </div>
-        <div className="stat-box">
-          <div className="value tabular">{scenarioEstimate}</div>
-          <div className="label">Сценариев</div>
         </div>
         <div className={`stat-box${exceedCount > 0 ? ' warning' : ''}`}>
           <div className="value tabular">{exceedCount}</div>

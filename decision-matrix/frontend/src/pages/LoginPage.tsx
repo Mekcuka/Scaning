@@ -1,28 +1,52 @@
-import { useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { zodResolver } from '@hookform/resolvers/zod';
+import { useEffect } from 'react';
+import { useForm } from 'react-hook-form';
+import { Link, useNavigate } from 'react-router-dom';
+import { z } from 'zod';
 import { useAuthStore } from '../store';
 
-export function LoginPage() {
-  const [email, setEmail] = useState('engineer@oilgas.ru');
-  const [password, setPassword] = useState('password123');
-  const [error, setError] = useState('');
-  const [loading, setLoading] = useState(false);
-  const login = useAuthStore((s) => s.login);
-  const navigate = useNavigate();
+const schema = z.object({
+  email: z.string().email('Некорректный email'),
+  password: z.string().min(1, 'Введите пароль'),
+});
 
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    setLoading(true);
-    setError('');
+type FormData = z.infer<typeof schema>;
+
+export function LoginPage() {
+  const { login, user, isLoading } = useAuthStore();
+  const navigate = useNavigate();
+  const {
+    register,
+    handleSubmit,
+    formState: { errors, isSubmitting },
+    setError,
+  } = useForm<FormData>({
+    resolver: zodResolver(schema),
+    defaultValues: { email: 'engineer@oilgas.ru', password: 'password123' },
+  });
+
+  useEffect(() => {
+    if (!isLoading && user) {
+      navigate('/', { replace: true });
+    }
+  }, [isLoading, user, navigate]);
+
+  const onSubmit = async (data: FormData) => {
     try {
-      await login(email, password);
+      await login(data.email, data.password);
       navigate('/');
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Ошибка входа');
-    } finally {
-      setLoading(false);
+      setError('root', { message: err instanceof Error ? err.message : 'Ошибка входа' });
     }
   };
+
+  if (isLoading) {
+    return (
+      <div className="flex flex-1 min-h-0 items-center justify-center" style={{ color: 'var(--text-muted)' }}>
+        Загрузка...
+      </div>
+    );
+  }
 
   return (
     <div className="flex flex-1 min-h-0 items-center justify-center overflow-y-auto" style={{ background: 'var(--bg)' }}>
@@ -38,20 +62,28 @@ export function LoginPage() {
             </p>
           </div>
         </div>
-        <form onSubmit={handleSubmit}>
+        <form onSubmit={handleSubmit(onSubmit)}>
           <div className="form-group">
             <label>Email</label>
-            <input type="email" value={email} onChange={(e) => setEmail(e.target.value)} required />
+            <input type="email" {...register('email')} />
+            {errors.email && <p className="text-red-500 text-xs mt-1">{errors.email.message}</p>}
           </div>
           <div className="form-group">
             <label>Пароль</label>
-            <input type="password" value={password} onChange={(e) => setPassword(e.target.value)} required />
+            <input type="password" {...register('password')} />
+            {errors.password && <p className="text-red-500 text-xs mt-1">{errors.password.message}</p>}
           </div>
-          {error && <p className="text-red-500 text-sm mb-3">{error}</p>}
-          <button type="submit" className="btn btn-primary w-full" disabled={loading}>
-            {loading ? 'Вход...' : 'Войти'}
+          {errors.root && <p className="text-red-500 text-sm mb-3">{errors.root.message}</p>}
+          <button type="submit" className="btn btn-primary w-full" disabled={isSubmitting}>
+            {isSubmitting ? 'Вход...' : 'Войти'}
           </button>
         </form>
+        <p className="text-sm mt-4 text-center" style={{ color: 'var(--text-muted)' }}>
+          Нет аккаунта?{' '}
+          <Link to="/register" className="text-blue-600 hover:underline">
+            Регистрация
+          </Link>
+        </p>
         <p className="text-xs mt-4 text-center" style={{ color: 'var(--text-muted)' }}>
           Демо: engineer@oilgas.ru / password123
         </p>

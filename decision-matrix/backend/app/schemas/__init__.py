@@ -1,9 +1,10 @@
-from datetime import datetime
+from datetime import date, datetime
 from uuid import UUID
 
+import re
 from typing import Literal
 
-from pydantic import BaseModel, EmailStr, Field
+from pydantic import BaseModel, EmailStr, Field, field_validator
 
 
 class TokenResponse(BaseModel):
@@ -12,10 +13,21 @@ class TokenResponse(BaseModel):
     token_type: str = "bearer"
 
 
+class AuthMessageResponse(BaseModel):
+    message: str
+
+
 class UserCreate(BaseModel):
     email: EmailStr
     password: str = Field(min_length=8)
     username: str = Field(min_length=2)
+
+    @field_validator("password")
+    @classmethod
+    def password_strength(cls, v: str) -> str:
+        if len(v) < 8 or not re.search(r"[A-Za-z]", v) or not re.search(r"\d", v):
+            raise ValueError("Password must be 8+ chars with letter and digit")
+        return v
 
 
 class UserLogin(BaseModel):
@@ -32,6 +44,28 @@ class UserResponse(BaseModel):
     created_at: datetime
 
     model_config = {"from_attributes": True}
+
+
+class UserAdminResponse(BaseModel):
+    id: UUID
+    email: str
+    username: str
+    role: str
+    is_active: bool
+    created_at: datetime
+
+    model_config = {"from_attributes": True}
+
+
+class AdminUserUpdate(BaseModel):
+    role: str | None = None
+    is_active: bool | None = None
+
+
+class AdminStatsResponse(BaseModel):
+    users: int
+    projects: int
+    pois: int
 
 
 class ProjectCreate(BaseModel):
@@ -357,111 +391,10 @@ class CandidateResponse(BaseModel):
     anchor_type: str | None = None
 
 
-class ScenarioResponse(BaseModel):
-    id: UUID
-    name: str
-    scenario_type: str
-    is_manual: bool
-    poi_id: UUID | None = None
-    results: dict | None = None
-
-    model_config = {"from_attributes": True}
-
-
 class ImportPreviewResponse(BaseModel):
     rows: list[dict]
     errors: list[str]
     records_total: int
-
-
-class RankingRequest(BaseModel):
-    algorithm: str = "topsis"
-    criteria_values: list[list[float]]
-    criterion_types: list[str]
-    weights: list[float]
-
-
-class RankingResponse(BaseModel):
-    algorithm: str
-    scores: list[float]
-    ranking: list[dict]
-
-
-class RankingCriterion(BaseModel):
-    id: str
-    name: str
-    type: str = "cost"
-    value_source: str = "computed"
-
-
-class RankingSettingsResponse(BaseModel):
-    algorithm: str
-    criteria: list[RankingCriterion]
-    weights: dict[str, float]
-    default_expert_values: dict[str, float] = Field(default_factory=lambda: {"risk": 5, "reliability": 5, "time_months": 12})
-    ahp_pairwise: dict[str, dict[str, float]] = Field(default_factory=dict)
-
-
-class RankingSettingsUpdate(BaseModel):
-    algorithm: str | None = None
-    criteria: list[RankingCriterion] | None = None
-    weights: dict[str, float] | None = None
-    default_expert_values: dict[str, float] | None = None
-    ahp_pairwise: dict[str, dict[str, float]] | None = None
-
-
-class RankingCriterionValuesUpdate(BaseModel):
-    values: dict[str, dict[str, float]]
-
-
-class RankingScenarioSummary(BaseModel):
-    id: str
-    name: str
-    scenario_type: str
-
-
-class RankingMatrixResponse(BaseModel):
-    scenarios: list[RankingScenarioSummary]
-    criteria: list[RankingCriterion]
-    values: dict[str, dict[str, float]]
-    normalized_values: dict[str, dict[str, float]] = Field(default_factory=dict)
-
-
-class RankingAlternativeResult(BaseModel):
-    poi_id: UUID | None = None
-    scenario_id: UUID | None = None
-    name: str
-    score: float
-    rank: int
-    scenario_type: str | None = None
-
-
-class RankingRunResponse(BaseModel):
-    algorithm: str
-    alternatives: list[RankingAlternativeResult]
-    matrix: RankingMatrixResponse | None = None
-    ranking_unit: str = "scenario"
-    skipped_pois: list[str] = Field(default_factory=list)
-
-
-class RankingAhpCalculateRequest(BaseModel):
-    ahp_pairwise: dict[str, dict[str, float]]
-
-
-class RankingAhpCalculateResponse(BaseModel):
-    weights: dict[str, float]
-    consistency_ratio: float
-
-
-class RankingSensitivityPoint(BaseModel):
-    delta: float
-    alternatives: list[RankingAlternativeResult]
-
-
-class RankingSensitivityResponse(BaseModel):
-    algorithm: str
-    criterion_id: str
-    points: list[RankingSensitivityPoint]
 
 
 class ImportLogResponse(BaseModel):
@@ -554,3 +487,44 @@ class ImportJobResponse(BaseModel):
     records_total: int
     records_imported: int
     errors: list
+
+
+class OnePagerCreate(BaseModel):
+    poi_id: UUID
+    engineer_name: str | None = None
+    roadmap: list[dict] | None = None
+    recommendation_text: str | None = None
+    map_snapshot_base64: str | None = None
+
+
+class OnePagerUpdate(BaseModel):
+    recommendation_text: str | None = None
+    roadmap: list[dict] | None = None
+    map_snapshot_base64: str | None = None
+    engineer_name: str | None = None
+
+
+class OnePagerExportPptxRequest(BaseModel):
+    map_snapshot_base64: str | None = None
+
+
+class OnePagerResponse(BaseModel):
+    id: UUID
+    project_id: UUID
+    poi_id: UUID
+    title: str
+    coordinates: str | None = None
+    engineer_name: str | None = None
+    report_date: date | None = None
+    final_variant_data: dict = Field(default_factory=dict)
+    engineering_params: dict = Field(default_factory=dict)
+    roadmap: list = Field(default_factory=list)
+    recommendation_text: str | None = None
+    is_recommendation_edited: bool = False
+    generation_status: str = "pending"
+    poi_name: str | None = None
+    created_at: datetime | None = None
+    updated_at: datetime | None = None
+
+    model_config = {"from_attributes": True}
+

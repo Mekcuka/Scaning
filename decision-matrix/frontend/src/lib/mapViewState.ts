@@ -1,6 +1,6 @@
 /** Persisted OpenLayers view per UI surface and project. */
 
-export type MapViewStateId = 'main' | 'matrix' | 'report' | 'ranking';
+export type MapViewStateId = 'main' | 'matrix' | 'report';
 
 export type SavedMapViewState = {
   centerLon: number;

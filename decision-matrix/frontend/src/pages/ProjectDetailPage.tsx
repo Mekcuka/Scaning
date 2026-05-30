@@ -3,6 +3,7 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useState, useEffect } from 'react';
 import { api, normalizePoiAnalysisResponse } from '../lib/api';
 import { useAppStore } from '../store';
+import { usePermissions } from '../hooks/usePermissions';
 import { PoiParamsPanel } from '../components/PoiParamsPanel';
 import {
   AnalysisEnvironmentTable,
@@ -10,6 +11,7 @@ import {
 } from '../components/AnalysisEnvironmentTable';
 
 export function ProjectDetailPage() {
+  const { canWriteProject, can } = usePermissions();
   const { id } = useParams<{ id: string }>();
   const queryClient = useQueryClient();
   const setCurrentProjectId = useAppStore((s) => s.setCurrentProjectId);
@@ -53,7 +55,6 @@ export function ProjectDetailPage() {
         );
       }
       queryClient.invalidateQueries({ queryKey: ['analysis', id] });
-      queryClient.invalidateQueries({ queryKey: ['scenarios', id] });
       pushToast(
         'success',
         batch.analyzed_count === 1
@@ -106,13 +107,15 @@ export function ProjectDetailPage() {
         <Link to="/parameters/rates" className="btn btn-secondary">Ставки</Link>
         <Link to="/map" className="btn btn-secondary">Карта</Link>
         <Link to="/matrix" className="btn btn-secondary">Матрица</Link>
-        <Link to="/import" className="btn btn-secondary">Импорт</Link>
+        {can('write_infra') && (
+          <Link to="/import" className="btn btn-secondary">Импорт</Link>
+        )}
       </div>
 
       <div className="card mb-4">
         <div className="flex items-center justify-between gap-3 mb-3">
           <h2 className="font-semibold">Точки интереса ({pois.length})</h2>
-          {pois.length > 0 && (
+          {pois.length > 0 && canWriteProject && (
             <button
               type="button"
               className="btn btn-primary btn-sm shrink-0"
@@ -178,8 +181,12 @@ export function ProjectDetailPage() {
           />
           <AnalysisEnvironmentTable
             rows={analysisRows}
-            onToggleConstruction={(subtype, force, param_type) =>
-              constructionMut.mutate({ subtype, force, param_type })
+            readOnly={!canWriteProject}
+            onToggleConstruction={
+              canWriteProject
+                ? (subtype, force, param_type) =>
+                    constructionMut.mutate({ subtype, force, param_type })
+                : undefined
             }
           />
         </div>

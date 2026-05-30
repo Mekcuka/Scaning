@@ -380,6 +380,8 @@ type FlowSchematicEditorProps = {
   onReset: () => void;
   saving?: boolean;
   resetting?: boolean;
+  /** Force read-only mode (e.g. viewer role). */
+  forceReadOnly?: boolean;
   /** Tailwind height class for the canvas, e.g. h-[min(40vh,400px)] */
   canvasHeightClass?: string;
 };
@@ -424,11 +426,12 @@ function FlowSchematicEditorInner({
   onReset,
   saving,
   resetting,
+  forceReadOnly = false,
   canvasHeightClass = 'h-[min(70vh,560px)]',
 }: FlowSchematicEditorProps) {
   const isMobile = useIsMobile();
   const [mobileEdit, setMobileEdit] = useState(false);
-  const readOnly = isMobile && !mobileEdit;
+  const readOnly = forceReadOnly || (isMobile && !mobileEdit);
   const { screenToFlowPosition } = useReactFlow();
   const initial = useMemo(() => schematicToFlow(schematic), [schematic]);
   const [nodes, setNodes, onNodesChange] = useNodesState(initial.nodes);

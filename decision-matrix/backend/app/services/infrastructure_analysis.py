@@ -16,7 +16,6 @@ from app.models import (
     PointOfInterest,
     ProjectCostRates,
     ProjectDistanceDefaults,
-    Scenario,
 )
 from app.services.analysis_override import parse_point_wkt
 from app.services.calculations import (
@@ -725,61 +724,6 @@ async def get_poi_analysis_rows(db: AsyncSession, poi_id: UUID) -> list[PoiInfra
     return list(result.scalars().all())
 
 
-async def link_poi_scenarios(
-    db: AsyncSession,
-    project_id: UUID,
-    poi_id: UUID,
-    result: dict[str, Any],
-) -> None:
-    linked = (
-        await db.execute(
-            select(Scenario).where(Scenario.project_id == project_id, Scenario.poi_id == poi_id)
-        )
-    ).scalars().all()
-    if linked:
-        for sc in linked:
-            if sc.scenario_type == "base" or sc.results is None:
-                sc.results = result
-        return
-
-    orphans = (
-        await db.execute(
-            select(Scenario).where(
-                Scenario.project_id == project_id,
-                Scenario.poi_id.is_(None),
-            )
-        )
-    ).scalars().all()
-
-    if orphans:
-        for template in orphans:
-            db.add(
-                Scenario(
-                    project_id=project_id,
-                    poi_id=poi_id,
-                    name=template.name,
-                    scenario_type=template.scenario_type,
-                    is_manual=template.is_manual,
-                    engineering_overrides=dict(template.engineering_overrides or {}),
-                    cost_overrides=dict(template.cost_overrides or {}),
-                    results=result if template.scenario_type == "base" else (template.results or result),
-                )
-            )
-        await db.flush()
-        return
-
-    db.add(
-        Scenario(
-            project_id=project_id,
-            poi_id=poi_id,
-            name="Базовый",
-            scenario_type="base",
-            results=result,
-        )
-    )
-    await db.flush()
-
-
 async def run_project_pois_analysis(db: AsyncSession, project_id: UUID) -> dict[str, Any]:
     """Run environment analysis for every POI in the project."""
     pois = (
@@ -788,7 +732,6 @@ async def run_project_pois_analysis(db: AsyncSession, project_id: UUID) -> dict[
     results: list[dict[str, Any]] = []
     for poi in pois:
         result = await run_poi_analysis(db, project_id, poi)
-        await link_poi_scenarios(db, project_id, poi.id, result)
         results.append(result)
     return {
         "project_id": str(project_id),

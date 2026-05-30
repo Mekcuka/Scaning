@@ -6,18 +6,16 @@
 
 | Категория | Статус |
 |-----------|--------|
-| Навигация (8 разделов + Admin) | Согласовано |
+| Навигация (7 разделов + Admin) | Согласовано |
 | OpenLayers / Lucide | Согласовано |
 | Импорт отдельно от карты | Согласовано |
 | 16 ставок, тыс. ₽ | Согласовано |
 | 9 подтипов vs анализ на карте | Согласовано |
 | Internal linear = pads × km/КП | **Зафиксировано** (FR-5.3.4, calculation-functions §3) |
 | Каталог расчётных функций | **Добавлен** [calculation-functions.md](./calculation-functions.md) |
-| Ранжирование = base + сценарии POI | **Зафиксировано** (FR-9.0.4, TOPSIS/WSM) |
-| `decision_matrices` | **Legacy** (FR-9.0.3, FR-14.1.3) |
+| `decision_matrices` | **Legacy** (FR-14.1.3) |
 | Backend-стек | **FastAPI** (README, architecture, development-plan) |
 | Пороги external (4) + internal length (4) + км/КП (4) | **mvp** в input-parameters |
-| Экспертные дефолты 5/5/12 | **Зафиксировано** (FR-9.2.6) |
 | Публикация проекта (Viewer) | FR-1.2.6, `projects.visibility` |
 | Admin, audit, import credentials | FR-1.4, FR-1.3.3, FR-2.5.9–10 |
 
@@ -32,7 +30,6 @@
 | 6 | Анализ окружения | FR-6 |
 | 7 | Варианты и стоимость | FR-7 |
 | 8 | Инфраструктурная матрица | FR-8 |
-| 9 | Ранжирование (TOPSIS/WSM/AHP) | FR-9 |
 | 10 | Визуализация на карте | FR-10 |
 | 11 | Одностраничник | FR-11 |
 | 12 | UI, навигация, таблицы | FR-12 |
@@ -45,10 +42,10 @@
 
 1. **[calculation-functions.md](./calculation-functions.md)** — каталог формул, pipeline, internal/external ветки.
 2. **Внутренние линейные:** `distance_km = pads_count × km_per_pad(subtype)`; колонки в `project_distance_defaults` и POI; `distance_source` в `poi_infrastructure_analysis`.
-3. **FR обновлены:** FR-5.3.4, FR-6.1–6.3.5, FR-7.1.1, FR-7.3.1, FR-10.3.1, FR-9.0, FR-1.2.6, FR-1.4, FR-2.5.9–10, FR-11.1.3–11.2.4, §14 post-MVP.
-4. **[input-parameters.md](./input-parameters.md):** `threshold_*`, `km_per_pad_*`, экспертное ранжирование → mvp; `project_visibility`.
-5. **[database-schema.md](./database-schema.md):** `project_ranking_settings`, `import_connections`, `audit_log`, `visibility`, legacy note на `decision_matrices`.
-6. **[architecture.md](./architecture.md):** FastAPI, Ranking module, candidates API.
+3. **FR обновлены:** FR-5.3.4, FR-6.1–6.3.5, FR-7.1.1, FR-7.3.1, FR-10.3.1, FR-1.2.6, FR-1.4, FR-2.5.9–10, FR-11.1.3–11.2.4, §14 post-MVP.
+4. **[input-parameters.md](./input-parameters.md):** `threshold_*`, `km_per_pad_*` → mvp; `project_visibility`.
+5. **[database-schema.md](./database-schema.md):** `import_connections`, `audit_log`, `visibility`, legacy note на `decision_matrices`.
+6. **[architecture.md](./architecture.md):** FastAPI, candidates API.
 7. **[user-flows.md](./user-flows.md), [development-plan.md](./development-plan.md), [map-objects-and-spatial-calculations.md](./map-objects-and-spatial-calculations.md), [calculation-logic-flow.md](./calculation-logic-flow.md)** — синхронизированы.
 
 ## Ревизия: продуктовые решения P0 (май 2026)
@@ -57,9 +54,6 @@
 |---------|-------------------|
 | Internal: `pads × km_per_pad` vs **`max_total_line_*_km`** | FR-4.1.5, FR-6.2.1b, calculation-functions §4.2, input-parameters §1.5/§2.6 |
 | External: geodesic vs **`max_distance_*`** (4 Point) | FR-4.1.5, FR-6.2.1a; `max_distance_autoroad`…`power` — только карта (FR-10.2) |
-| Ранжирование: **base + scenario** в TOPSIS | FR-9.0.4; `scenario_criterion_values` для каждого `variant_id` |
-| Настройки ранжирования: **`UNIQUE(project_id, poi_id)`** | FR-9.0.2, DDL `project_ranking_settings` |
-| Дефолты экспертных: **5 / 5 / 12 мес.** | FR-9.2.6, `default_expert_values` JSONB |
 
 ### P1 (допущения MVP, §14.1)
 
@@ -68,7 +62,7 @@
 | `pads_count = 0` | FR-6.2.1b, FR-14.1.4 |
 | Подтверждение email | Не MVP (FR-14.1.1); user-flows §1 |
 | Legacy `decision_matrices` | Не удалять (FR-14.1.3) |
-| Seed `criteria` | 6 preset, FR-14.1.5 |
+| Seed `criteria` | Legacy для универсальных матриц (FR-14.1.5) |
 
 ## Ревизия: схема потоков PFD (май 2026)
 
@@ -112,7 +106,11 @@
 
 ### 4. Две модели матрицы
 
-`decision_matrices` — legacy; MVP-ранжирование — `project_ranking_settings` + `implementation_variants`.
+`decision_matrices` — legacy; MVP использует `implementation_variants` + инфраструктурную матрицу (FR-8).
+
+## Ревизия: удаление ранжирования (май 2026)
+
+Функционал TOPSIS/WSM/AHP и раздел «Ранжирование» **удалены** из приложения `decision-matrix/` и основной документации. HTML-прототип `Cursor_Scan/` может по-прежнему содержать mock-экран ранжирования — это не часть production UI.
 
 ## Оставшиеся осознанные отличия
 
@@ -122,6 +120,7 @@
 | Пороги 4+4 / км/КП в форме | mvp в docs | Planned в alignment |
 | `max_total_line_*` vs geodesic internal | P0 в docs | mock static distance |
 | FastAPI backend | README | HTML only |
+| Ранжирование TOPSIS | Удалено из prod | Mock в Cursor_Scan |
 
 ## Рекомендации на будущее
 

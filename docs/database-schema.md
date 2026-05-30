@@ -75,33 +75,33 @@
          │                       │ 1:N
          │                       ▼
          │              ┌─────────────────┐
-         │              │    scenarios    │
+         │              │     reports     │
          │              ├─────────────────┤
          │              │ id (PK)         │
          │              │ user_id (FK)    │
          │              │ matrix_id (FK)  │
          │              │ name            │
-         │              │ description     │
-         │              │ parameters      │
-         │              │ results         │
+         │              │ format          │
+         │              │ status          │
+         │              │ file_path       │
+         │              │ comments        │
          │              │ created_at      │
-         │              │ updated_at      │
          │              └─────────────────┘
          │
          ▼
-┌─────────────────┐     ┌─────────────────┐     ┌─────────────────┐
-│ alt_matrix_link │     │     reports     │     │  import_logs    │
-├─────────────────┤     ├─────────────────┤     ├─────────────────┤
-│ id (PK)         │     │ id (PK)         │     │ id (PK)         │
-│ alt_id (FK)     │     │ user_id (FK)    │     │ user_id (FK)    │
-│ matrix_id (FK)  │     │ matrix_id (FK)  │     │ source_type     │
-│ values          │     │ name            │     │ file_name       │
-│ created_at      │     │ format          │     │ status          │
-└─────────────────┘     │ status          │     │ records_total   │
-                        │ file_path       │     │ records_imported│
-                        │ comments        │     │ errors          │
-                        │ created_at      │     │ created_at      │
-                        └─────────────────┘     └─────────────────┘
+┌─────────────────┐     ┌─────────────────┐
+│ alt_matrix_link │     │  import_logs    │
+├─────────────────┤     ├─────────────────┤
+│ id (PK)         │     │ id (PK)         │
+│ alt_id (FK)     │     │ user_id (FK)    │
+│ matrix_id (FK)  │     │ source_type     │
+│ values          │     │ file_name       │
+│ created_at      │     │ status          │
+└─────────────────┘     │ records_total   │
+                        │ records_imported│
+                        │ errors          │
+                        │ created_at      │
+                        └─────────────────┘
 ```
 
 ---
@@ -109,13 +109,20 @@
 ## SQL Миграции
 
 ### Таблица users
+
+> **Реализация MVP:** одна роль на пользователя — колонка `users.role` (`admin` | `analyst` | `data_manager` | `viewer`).  
+> Таблицы `roles` / `user_roles` ниже — целевая схема v2 (multi-role). См. [auth-rbac.md](./auth-rbac.md).
+
 ```sql
 CREATE TABLE users (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     email VARCHAR(255) UNIQUE NOT NULL,
     password_hash VARCHAR(255) NOT NULL,
     username VARCHAR(100) NOT NULL,
+    role VARCHAR(50) NOT NULL DEFAULT 'analyst'
+        CHECK (role IN ('admin', 'analyst', 'data_manager', 'viewer')),
     avatar_url TEXT,
+    is_active BOOLEAN NOT NULL DEFAULT TRUE,
     created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
 );
@@ -123,7 +130,22 @@ CREATE TABLE users (
 CREATE INDEX idx_users_email ON users(email);
 ```
 
-### Таблица roles
+### Таблица refresh_tokens (реализовано)
+
+```sql
+CREATE TABLE refresh_tokens (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    token_hash VARCHAR(64) UNIQUE NOT NULL,
+    expires_at TIMESTAMP WITH TIME ZONE NOT NULL,
+    revoked_at TIMESTAMP WITH TIME ZONE,
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE INDEX ix_refresh_tokens_user_id ON refresh_tokens(user_id);
+```
+
+### Таблица roles *(целевая схема v2, не реализована)*
 ```sql
 CREATE TABLE roles (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
@@ -139,7 +161,7 @@ INSERT INTO roles (name, description) VALUES
     ('viewer', 'Только просмотр');
 ```
 
-### Таблица user_roles
+### Таблица user_roles *(целевая схема v2, не реализована)*
 ```sql
 CREATE TABLE user_roles (
     user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
@@ -225,7 +247,7 @@ CREATE INDEX idx_criteria_user_id ON criteria(user_id);
 CREATE INDEX idx_criteria_group_id ON criteria(group_id);
 ```
 
-**Seed MVP (справочник):** 6 preset-критериев — 3 `computed` (стоимость, расстояние, превышения) + 3 `user` (риск, время, надёжность). Веса в расчёте — `project_ranking_settings.weights` (JSONB), не поле `criteria.weight` для POI-ранжирования.
+**Seed MVP (справочник, legacy):** таблица `criteria` относится к универсальным `decision_matrices` и не используется инфраструктурной матрицей MVP.
 
 ### Таблица weight_presets
 ```sql
@@ -259,9 +281,9 @@ CREATE INDEX idx_alternatives_user_id ON alternatives(user_id);
 CREATE INDEX idx_alternatives_geometry ON alternatives USING GIST (geometry);
 ```
 
-### Таблица decision_matrices (legacy, FR-9.0.3)
+### Таблица decision_matrices (legacy, FR-14.1.3)
 
-> **MVP:** ранжирование сценариев инфраструктуры использует `project_ranking_settings` + `implementation_variants` + `scenario_criterion_values`. Таблица ниже — для универсальных матриц (вне основного потока POI).
+> **MVP:** сравнение точек интереса в инфраструктурной матрице использует `points_of_interest` + `poi_infrastructure_analysis`. Таблица ниже — для универсальных матриц (legacy, вне основного потока POI).
 
 ```sql
 CREATE TABLE decision_matrices (
@@ -313,24 +335,6 @@ CREATE TABLE matrix_results (
 );
 
 CREATE INDEX idx_matrix_results_matrix_id ON matrix_results(matrix_id);
-```
-
-### Таблица scenarios
-```sql
-CREATE TABLE scenarios (
-    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-    user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
-    matrix_id UUID NOT NULL REFERENCES decision_matrices(id) ON DELETE CASCADE,
-    name VARCHAR(255) NOT NULL,
-    description TEXT,
-    parameters JSONB DEFAULT '{}',
-    results JSONB DEFAULT '{}',
-    created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
-    updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
-);
-
-CREATE INDEX idx_scenarios_user_id ON scenarios(user_id);
-CREATE INDEX idx_scenarios_matrix_id ON scenarios(matrix_id);
 ```
 
 ### Таблица reports
@@ -667,7 +671,7 @@ CREATE INDEX idx_poi_analysis_subtype ON poi_infrastructure_analysis(subtype);
 CREATE INDEX idx_poi_analysis_anchor_geometry ON poi_infrastructure_analysis USING GIST (anchor_geometry);
 ```
 
-> **MVP:** внешние — `distance_source = geodesic`, `anchor_type = point_object`. Внутренние линейные — `distance_source = pads_per_pad_formula`, `nearest_object_id` и `anchor_geometry` = NULL. Сценарий override — `manual_override`. `network_node` — planned (FR-2.4.5).
+> **MVP:** внешние — `distance_source = geodesic`, `anchor_type = point_object`. Внутренние линейные — `distance_source = pads_per_pad_formula`, `nearest_object_id` и `anchor_geometry` = NULL. Ручное переопределение — `manual_override`. `network_node` — planned (FR-2.4.5).
 
 ### Planned: топология сети (не MVP)
 
@@ -719,7 +723,7 @@ CREATE INDEX idx_infrastructure_edges_geometry ON infrastructure_edges USING GIS
 --   FOREIGN KEY (nearest_node_id) REFERENCES infrastructure_nodes(id) ON DELETE SET NULL;
 ```
 
-### Таблица implementation_variants (базовый вариант + сценарии)
+### Таблица implementation_variants (базовый вариант на POI)
 ```sql
 CREATE TABLE implementation_variants (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
@@ -728,8 +732,7 @@ CREATE TABLE implementation_variants (
     matrix_id UUID REFERENCES decision_matrices(id) ON DELETE SET NULL,
     name VARCHAR(255) NOT NULL,
     description TEXT,
-    variant_type VARCHAR(20) NOT NULL DEFAULT 'base' CHECK (variant_type IN ('base', 'scenario')),
-    parent_variant_id UUID REFERENCES implementation_variants(id) ON DELETE SET NULL,
+    variant_type VARCHAR(20) NOT NULL DEFAULT 'base' CHECK (variant_type IN ('base')),
     -- snapshot применённых инженерных параметров (ссылка на POI как источник истины)
     applied_params JSONB NOT NULL DEFAULT '{}',
     -- стоимость
@@ -792,60 +795,20 @@ CREATE TABLE variant_cost_overrides (
 CREATE INDEX idx_cost_overrides_variant_id ON variant_cost_overrides(variant_id);
 ```
 
-### Таблица project_ranking_settings (MVP-ранжирование, FR-9.0)
-
-```sql
-CREATE TABLE project_ranking_settings (
-    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-    project_id UUID NOT NULL REFERENCES projects(id) ON DELETE CASCADE,
-    poi_id UUID NOT NULL REFERENCES points_of_interest(id) ON DELETE CASCADE,
-    algorithm VARCHAR(20) NOT NULL DEFAULT 'topsis'
-        CHECK (algorithm IN ('topsis', 'wsm', 'ahp')),
-    weights JSONB NOT NULL DEFAULT '{}',
-    ahp_pairwise JSONB DEFAULT '{}',
-    default_expert_values JSONB DEFAULT '{"risk":5,"reliability":5,"time_months":12}',
-    updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
-    UNIQUE(project_id, poi_id)
-);
-
-CREATE INDEX idx_project_ranking_settings_poi ON project_ranking_settings(poi_id);
-```
-
-`default_expert_values` (FR-9.2.6): при пустой ячейке — `risk` = 5, `reliability` = 5, `time_months` = 12.
-
-### Таблица scenario_criterion_values (экспертный ввод для ранжирования, FR-9.2.4–9.2.5)
-
-Значения критериев с `value_source = user` — **по каждому** `variant_id` варианта POI, включая **`variant_type = 'base'`** и все `scenario` (FR-9.0.4, FR-9.2.5). Пустая ячейка → `project_ranking_settings.default_expert_values`.
-
-```sql
-CREATE TABLE scenario_criterion_values (
-    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-    variant_id UUID NOT NULL REFERENCES implementation_variants(id) ON DELETE CASCADE,
-    criterion_id UUID NOT NULL REFERENCES criteria(id) ON DELETE CASCADE,
-    value DECIMAL(15, 4) NOT NULL,
-    entered_by UUID REFERENCES users(id) ON DELETE SET NULL,
-    created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
-    updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
-    UNIQUE(variant_id, criterion_id)
-);
-
-CREATE INDEX idx_scenario_criterion_values_variant_id ON scenario_criterion_values(variant_id);
-```
-
-Рекомендуемое поле в `criteria`: `value_source VARCHAR(20) NOT NULL DEFAULT 'computed' CHECK (value_source IN ('computed', 'user'))`.
-
 ### Таблица one_pagers (одностраничники для руководства)
+
+> **MVP:** одностраничник привязан к `poi_id`; snapshot строится из `poi_infrastructure_analysis` и инженерных параметров POI.
+
 ```sql
 CREATE TABLE one_pagers (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     project_id UUID NOT NULL REFERENCES projects(id) ON DELETE CASCADE,
     poi_id UUID NOT NULL REFERENCES points_of_interest(id) ON DELETE CASCADE,
-    variant_id UUID NOT NULL REFERENCES implementation_variants(id) ON DELETE CASCADE,
     title VARCHAR(255) NOT NULL,
     coordinates VARCHAR(100),
     engineer_name VARCHAR(255),
     report_date DATE DEFAULT CURRENT_DATE,
-    -- финальный вариант (JSON для гибкости)
+    -- финальный вариант (JSON snapshot)
     final_variant_data JSONB NOT NULL DEFAULT '{}',
     -- инженерные параметры (snapshot из POI)
     engineering_params JSONB NOT NULL DEFAULT '{}',
@@ -861,6 +824,8 @@ CREATE TABLE one_pagers (
     -- рекомендация
     recommendation_text TEXT,
     is_recommendation_edited BOOLEAN DEFAULT false,
+    -- снимок карты (PNG base64 с клиента, для PPTX)
+    map_snapshot_base64 TEXT,
     -- файлы
     pdf_file_path VARCHAR(500),
     pptx_file_path VARCHAR(500),
@@ -871,7 +836,6 @@ CREATE TABLE one_pagers (
 );
 CREATE INDEX idx_one_pagers_project_id ON one_pagers(project_id);
 CREATE INDEX idx_one_pagers_poi_id ON one_pagers(poi_id);
-CREATE INDEX idx_one_pagers_variant_id ON one_pagers(variant_id);
 ```
 
 ---
@@ -904,9 +868,6 @@ CREATE TRIGGER update_alternatives_updated_at BEFORE UPDATE ON alternatives
     FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
 
 CREATE TRIGGER update_decision_matrices_updated_at BEFORE UPDATE ON decision_matrices
-    FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
-
-CREATE TRIGGER update_scenarios_updated_at BEFORE UPDATE ON scenarios
     FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
 
 CREATE TRIGGER update_projects_updated_at BEFORE UPDATE ON projects
@@ -1044,12 +1005,11 @@ WHERE iv.project_id = :project_id
 ORDER BY iv.total_cost;
 ```
 
-### Стоимость всех вариантов и сценариев по точке
+### Стоимость базовых вариантов по точкам интереса
 ```sql
 SELECT 
     poi.name AS poi_name,
-    COUNT(iv.id) FILTER (WHERE iv.variant_type = 'base') AS base_variants,
-    COUNT(iv.id) FILTER (WHERE iv.variant_type = 'scenario') AS scenarios,
+    COUNT(iv.id) AS variants,
     MIN(iv.total_cost) AS min_cost,
     MAX(iv.total_cost) AS max_cost,
     AVG(iv.total_cost) AS avg_cost

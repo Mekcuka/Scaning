@@ -3,6 +3,7 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { Save } from 'lucide-react';
 import { api, type POI } from '../lib/api';
 import { useAppStore } from '../store';
+import { usePermissions } from '../hooks/usePermissions';
 import { AppSelect } from './AppSelect';
 import { PoiParamsForm } from './PoiParamsForm';
 import {
@@ -38,6 +39,8 @@ export function PoiParamsPanel({
   onSaveSuccess,
   onSaveError,
 }: PoiParamsPanelProps) {
+  const { canWriteProject } = usePermissions();
+  const effectiveReadOnly = readOnly ?? !canWriteProject;
   const qc = useQueryClient();
   const pushToast = useAppStore((s) => s.pushToast);
   const [internalPoiId, setInternalPoiId] = useState<string | null>(null);
@@ -126,11 +129,11 @@ export function PoiParamsPanel({
         value={form}
         onChange={setForm}
         defaults={defaults}
-        readOnly={readOnly}
+        readOnly={effectiveReadOnly}
         sections={sections}
       />
 
-      {showSave && !readOnly && selectedPoi && (
+      {showSave && !effectiveReadOnly && selectedPoi && (
         <div className="mt-3 flex justify-end">
           <button
             type="button"

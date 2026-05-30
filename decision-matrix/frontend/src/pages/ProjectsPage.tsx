@@ -15,9 +15,12 @@ import {
 import { InlineTableEdit } from '../components/InlineTableEdit';
 import { ProjectStatusSelect } from '../components/ProjectStatusSelect';
 import { useAppStore } from '../store';
+import { usePermissions } from '../hooks/usePermissions';
 import { useDashboardOutlet } from '../components/layout/AppLayout';
 
 export function ProjectsPage() {
+  const { can, isReadOnly } = usePermissions();
+  const canWriteProject = can('write_project');
   const [showForm, setShowForm] = useState(false);
   const [name, setName] = useState('');
   const [description, setDescription] = useState('');
@@ -103,10 +106,12 @@ export function ProjectsPage() {
     <div className="projects-page">
       <header className="page-header">
         <h1>Проекты</h1>
-        <p className="subtitle">Управление участками и точками интереса</p>
+        <p className="subtitle">
+          {isReadOnly ? 'Просмотр опубликованных проектов' : 'Управление участками и точками интереса'}
+        </p>
       </header>
 
-      {showForm && (
+      {showForm && canWriteProject && (
         <div className="card mb-4">
           <h2 className="text-base font-semibold mb-3">Новый проект</h2>
           <div className="form-group">
@@ -173,6 +178,7 @@ export function ProjectsPage() {
           <div className="card card--flush projects-table-card">
             <div className="card-header projects-table-card__header">
               <h2 className="projects-table-card__title">Таблица проектов</h2>
+              {can('create_project') && (
               <button
                 type="button"
                 className="btn btn-primary btn-sm"
@@ -182,6 +188,7 @@ export function ProjectsPage() {
                 <Plus size={14} className="inline projects-table-card__btn-icon" />
                 <span className="projects-table-card__btn-label">Новый</span>
               </button>
+              )}
             </div>
             <div className="table-wrap">
               {filtered.length === 0 ? (
@@ -213,6 +220,7 @@ export function ProjectsPage() {
                             title={p.name}
                             placeholder="Название проекта"
                             saving={saving}
+                            readOnly={!canWriteProject}
                             linkTo={`/projects/${p.id}`}
                             onLinkClick={() => openProject(p)}
                             onSave={(name) =>
@@ -232,6 +240,7 @@ export function ProjectsPage() {
                             placeholder="Описание проекта"
                             multiline
                             saving={saving}
+                            readOnly={!canWriteProject}
                             onSave={(description) =>
                               updateMut.mutate({
                                 id: p.id,
@@ -245,7 +254,7 @@ export function ProjectsPage() {
                         <td className="col-center col-status">
                           <ProjectStatusSelect
                             value={p.status}
-                            disabled={saving}
+                            disabled={saving || !canWriteProject}
                             onChange={(status) =>
                               updateMut.mutate({
                                 id: p.id,
@@ -276,6 +285,7 @@ export function ProjectsPage() {
                             >
                               Открыть
                             </Link>
+                            {canWriteProject && (
                             <button
                               type="button"
                               className="btn btn-secondary btn-sm p-2"
@@ -286,6 +296,7 @@ export function ProjectsPage() {
                             >
                               <Trash2 size={14} className="text-red-600" />
                             </button>
+                            )}
                           </div>
                         </td>
                       </tr>

@@ -1,8 +1,10 @@
 import { FlowSchematicEditor } from '../../components/FlowSchematicEditor';
 import { FLUID_COLORS, FLUID_LABELS, WARNING_LABELS } from '../../lib/flowSchematic';
 import { useFlowSchematicContext } from './flowSchematicContext';
+import { usePermissions } from '../../hooks/usePermissions';
 
 export function FlowTechnologyPage() {
+  const { canWriteProject } = usePermissions();
   const {
     pois,
     activePoiId,
@@ -53,6 +55,7 @@ export function FlowTechnologyPage() {
           key={schematicEditorKey}
           schematic={schematic}
           poi={pois.find((p) => p.id === activePoiId) ?? null}
+          forceReadOnly={!canWriteProject}
           onSave={(dto) => saveMut.mutate(dto)}
           onPersistCapacity={(dto) => persistSchematicMut.mutate(dto)}
           onPlannedProductionChange={(volume) => poiProductionMut.mutate(volume)}

@@ -78,6 +78,7 @@ import {
   useMapUndo,
 } from '../lib/mapUndo';
 import { useAppStore } from '../store';
+import { usePermissions } from '../hooks/usePermissions';
 
 const THRESHOLD_META: { subtype: string; color: string; label: string; defaultKm: number }[] = [
   { subtype: 'gas_processing', color: '#ff6f00', label: 'ГКС', defaultKm: 80 },
@@ -129,6 +130,8 @@ function lineCoordsOrEndpoints(obj: InfraObject): [number, number][] | null {
 }
 
 export function MapPage() {
+  const { canWriteProject, canWriteInfra } = usePermissions();
+  const canEditMap = canWriteProject || canWriteInfra;
   const { projectId } = useActiveProject();
   const queryClient = useQueryClient();
   const pushToast = useAppStore((s) => s.pushToast);
@@ -183,6 +186,20 @@ export function MapPage() {
   const [mapEditEnabled, setMapEditEnabled] = useState(false);
   const [showPoisOnMap, setShowPoisOnMap] = useState(true);
   const [mapScaleLabel, setMapScaleLabel] = useState('—');
+
+  useEffect(() => {
+    if (!canEditMap) {
+      setMapEditEnabled(false);
+      setDrawMode('select');
+      setPointMenuOpen(false);
+      setLineMenuOpen(false);
+    }
+  }, [canEditMap]);
+
+  useEffect(() => {
+    if (!canWriteProject && drawMode === 'poi') setDrawMode('select');
+    if (!canWriteInfra && (drawMode === 'point' || drawMode === 'line')) setDrawMode('select');
+  }, [canWriteProject, canWriteInfra, drawMode]);
 
   const toggleMapFullscreen = useCallback(async () => {
     const el = mapCanvasRef.current;
@@ -669,7 +686,6 @@ export function MapPage() {
       );
       await queryClient.invalidateQueries({ queryKey: ['infra', projectId] });
       await queryClient.invalidateQueries({ queryKey: ['layers', projectId] });
-      await queryClient.invalidateQueries({ queryKey: ['scenarios', projectId] });
     },
     onError: (err) => {
       pushToast(
@@ -1261,6 +1277,7 @@ export function MapPage() {
         return;
       }
       if (drawMode === 'poi') {
+        if (!canWriteProject) return;
         setPoiForm(
           emptyPoiFormValues({
             name: nextPoiAutoName(pois),
@@ -1272,6 +1289,7 @@ export function MapPage() {
         return;
       }
       if (drawMode === 'point') {
+        if (!canWriteInfra) return;
         if (!projectId) return;
         const subtype = infraForm.subtype;
         createInfraMut.mutate({
@@ -1283,12 +1301,15 @@ export function MapPage() {
         return;
       }
       if (drawMode === 'line') {
+        if (!canWriteInfra) return;
         // Keep click coordinates while drawing; endpoint snap runs on finish (avoids visible jump on first click).
         setLineDraft((prev) => [...prev, [lon, lat]]);
       }
     },
     [
       createInfraMut,
+      canWriteProject,
+      canWriteInfra,
       drawMode,
       handleRulerClick,
       infraForm.subtype,
@@ -1438,7 +1459,7 @@ export function MapPage() {
     <div className="map-page flex flex-1 flex-col min-h-0 overflow-hidden">
       <header className="page-header map-page-header shrink-0">
         <h1>Карта инфраструктуры</h1>
-        {projectId && pois.length > 0 && (
+        {projectId && pois.length > 0 && canWriteProject && (
           <button
             type="button"
             className="btn btn-primary shrink-0"
@@ -1517,10 +1538,13 @@ export function MapPage() {
               type="button"
               className={`btn btn-sm map-tool-btn ${mapEditEnabled ? 'btn-primary active' : 'btn-secondary'}`}
               title={
-                mapEditEnabled
-                  ? 'Выключить редактирование на карте'
-                  : 'Редактирование на карте: перемещение объектов, создание точек и линий'
+                !canEditMap
+                  ? 'Редактирование недоступно в режиме просмотра'
+                  : mapEditEnabled
+                    ? 'Выключить редактирование на карте'
+                    : 'Редактирование на карте: перемещение объектов, создание точек и линий'
               }
+              disabled={!canEditMap}
               onClick={() => setMapEditEnabled((on) => !on)}
             >
               <PenLine size={14} />
@@ -1529,7 +1553,7 @@ export function MapPage() {
               type="button"
               className="btn btn-sm map-tool-btn btn-secondary"
               title="Отменить последнее действие (Ctrl+Z)"
-              disabled={!canUndo}
+              disabled={!canEditMap || !canUndo}
               onClick={() => void performUndo()}
             >
               <Undo2 size={14} />
@@ -1538,11 +1562,14 @@ export function MapPage() {
               type="button"
               className="btn btn-sm map-tool-btn btn-secondary"
               title={
-                selectedOnMapCount > 0
-                  ? `Удалить выбранные объекты (${selectedOnMapCount})`
-                  : 'Выберите объект на карте (клик или рамка)'
+                !canEditMap
+                  ? 'Удаление недоступно в режиме просмотра'
+                  : selectedOnMapCount > 0
+                    ? `Удалить выбранные объекты (${selectedOnMapCount})`
+                    : 'Выберите объект на карте (клик или рамка)'
               }
               disabled={
+                !canEditMap ||
                 !projectId ||
                 selectedOnMapCount === 0 ||
                 deleteGroupMut.isPending ||
@@ -1623,6 +1650,8 @@ export function MapPage() {
             <button
               type="button"
               className={`btn btn-sm map-tool-btn ${drawMode === 'poi' ? 'btn-primary active' : 'btn-secondary'}`}
+              disabled={!canWriteProject}
+              title={!canWriteProject ? 'Создание POI недоступно в режиме просмотра' : undefined}
               onClick={() => {
                 if (drawMode === 'poi') {
                   setDrawMode('select');
@@ -1642,6 +1671,8 @@ export function MapPage() {
               <button
                 type="button"
                 className={`btn btn-sm map-tool-btn ${drawMode === 'point' || pointMenuOpen ? 'btn-primary active' : 'btn-secondary'}`}
+                disabled={!canWriteInfra}
+                title={!canWriteInfra ? 'Создание объектов недоступно в режиме просмотра' : undefined}
                 onClick={() => {
                   if (drawMode === 'point') {
                 setDrawMode('select');
@@ -1689,6 +1720,8 @@ export function MapPage() {
             <button
               type="button"
               className={`btn btn-sm map-tool-btn ${drawMode === 'line' || lineMenuOpen ? 'btn-primary active' : 'btn-secondary'}`}
+              disabled={!canWriteInfra}
+              title={!canWriteInfra ? 'Рисование линий недоступно в режиме просмотра' : undefined}
               onClick={() => {
                 if (drawMode === 'line') {
                   setDrawMode('select');
@@ -1917,6 +1950,7 @@ export function MapPage() {
                 onLayerVisibility={(layerId, is_visible) =>
                   layerVisibilityMut.mutate({ layerId, is_visible })
                 }
+                layerVisibilityReadOnly={!canWriteInfra}
                 layerVisibilityPending={layerVisibilityMut.isPending}
                 showPoisOnMap={showPoisOnMap}
                 onShowPoisChange={setShowPoisOnMap}
@@ -2009,6 +2043,9 @@ export function MapPage() {
               layers={layers}
               saving={saveDetailMut.isPending}
               capacitySaving={saveCapacityMut.isPending}
+              readOnly={
+                detailSelection.kind === 'poi' ? !canWriteProject : !canWriteInfra
+              }
               onClose={() => setFeatureSel(null)}
               onSave={(data) => saveDetailMut.mutate(data)}
               onSaveCapacity={
@@ -2058,8 +2095,8 @@ export function MapPage() {
                 type="button"
                 className="btn btn-secondary text-xs mt-2 shrink-0 w-full py-1.5"
                 onClick={requestDeleteGroupSelection}
-                disabled={deleteGroupMut.isPending || !mapEditEnabled}
-                title={!mapEditEnabled ? 'Включите режим редактирования' : undefined}
+                disabled={deleteGroupMut.isPending || !mapEditEnabled || !canEditMap}
+                title={!canEditMap ? 'Удаление недоступно в режиме просмотра' : !mapEditEnabled ? 'Включите режим редактирования' : undefined}
               >
                 <Trash2 size={12} className="inline mr-1" />
                 {deleteGroupMut.isPending ? 'Удаление…' : 'Удалить объекты'}
@@ -2159,7 +2196,7 @@ export function MapPage() {
             </>
           }
         >
-          <PoiParamsForm value={poiForm} onChange={setPoiForm} coordsReadOnly={false} />
+          <PoiParamsForm value={poiForm} onChange={setPoiForm} coordsReadOnly={false} readOnly={!canWriteProject} />
         </AppModal>
       )}
 

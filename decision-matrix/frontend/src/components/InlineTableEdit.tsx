@@ -10,6 +10,7 @@ type Props = {
   multiline?: boolean;
   onSave: (next: string) => void;
   saving?: boolean;
+  readOnly?: boolean;
   linkTo?: string;
   onLinkClick?: () => void;
 };
@@ -22,6 +23,7 @@ export function InlineTableEdit({
   multiline,
   onSave,
   saving,
+  readOnly,
   linkTo,
   onLinkClick,
 }: Props) {
@@ -133,6 +135,7 @@ export function InlineTableEdit({
           {displayText}
         </span>
       )}
+      {!readOnly && (
       <button
         type="button"
         className="inline-table-edit-trigger"
@@ -142,6 +145,7 @@ export function InlineTableEdit({
       >
         <Pencil size={13} />
       </button>
+      )}
     </div>
   );
 }

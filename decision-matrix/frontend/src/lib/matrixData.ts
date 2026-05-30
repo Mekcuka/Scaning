@@ -5,7 +5,6 @@ import {
   SUBTYPE_LABELS,
   type AnalysisRow,
   type POI,
-  type Scenario,
 } from './api';
 import type { EngineeringParamKey } from './poiParams';
 
@@ -128,103 +127,14 @@ function formatExternalMatrixCell(item: Record<string, unknown>): string {
   return st || '—';
 }
 
-export function analysisFromScenario(scenario: Scenario): AnalysisRow[] {
-  const raw = scenario.results?.analysis;
-  if (!Array.isArray(raw)) return [];
-  return raw.map((item) => {
-    const row = item as Record<string, unknown>;
-    return {
-      subtype: String(row.subtype || ''),
-      param_type: String(row.param_type || 'external'),
-      status: String(row.status || ''),
-      distance_km: row.distance_km as number | null | undefined,
-      limit_km: row.limit_km as number | undefined,
-      object_name: row.object_name as string | null | undefined,
-      anchor_lon: row.anchor_lon as number | null | undefined,
-      anchor_lat: row.anchor_lat as number | null | undefined,
-      anchor_type: row.anchor_type as string | null | undefined,
-    };
-  });
-}
-
-export function buildMatrixRows(
-  scenarios: Scenario[],
-  pois: POI[],
-  fallbackNames: string[]
-): { rows: MatrixRow[]; scenarioNames: string[]; poiByColumn: (POI | null)[] } {
-  const cols = scenarios.length > 0 ? scenarios : fallbackNames.map((name, i) => ({
-    id: String(i),
-    name,
-    scenario_type: 'base',
-    is_manual: false,
-    poi_id: pois[i]?.id ?? pois[0]?.id ?? null,
-    results: null,
-  })) as Scenario[];
-
-  const scenarioNames = cols.map((s) => s.name);
-  const poiByColumn = cols.map((s) => pois.find((p) => p.id === s.poi_id) ?? pois[0] ?? null);
-
-  const sections: { key: string; subtypes: string[]; paramType: string }[] = [
-    { key: 'Внутренние решения', subtypes: [...ANALYSIS_LINE_SUBTYPES, 'pads'], paramType: 'internal' },
-    { key: 'Внешние линейные объекты', subtypes: [...EXTERNAL_LINEAR_SUBTYPES], paramType: 'external_linear' },
-    { key: 'Внешние объекты', subtypes: [...MATRIX_POINT_SUBTYPES], paramType: 'external' },
-  ];
-
-  const rows: MatrixRow[] = [];
-
-  for (const rowDef of MATRIX_ENGINEERING_ROWS) {
-    rows.push({
-      label: rowDef.label,
-      section: 'Инженерные решения',
-      engineering: true,
-      engineeringKey: rowDef.key,
-      cells: cols.map((_, idx) => {
-        const poi = poiByColumn[idx];
-        const raw = String((poi?.[rowDef.key] as string | undefined) || '—');
-        const mapped = ENGINEERING_LABELS[rowDef.key]?.[raw] || raw;
-        return { text: mapped, badge: true };
-      }),
-    });
-  }
-
-  for (const section of sections) {
-    for (const subtype of section.subtypes) {
-      const label = subtype === 'pads' ? 'Кустовые площадки' : SUBTYPE_LABELS[subtype] || subtype;
-      const cells: MatrixCell[] = cols.map((sc) => {
-        const analysis = analysisFromScenario(sc);
-        const item = findAnalysisRow(analysis, subtype, section.paramType);
-        if (!item) {
-          return { text: '—' };
-        }
-        return matrixCellFromAnalysisItem(item);
-      });
-      rows.push({ label, section: section.key, cells });
-    }
-  }
-
-  const totalRow: MatrixRow = {
-    label: 'Итого',
-    section: 'Внешние объекты',
-    total: true,
-    cells: cols.map((sc) => {
-      const t = sc.results?.total_cost_mln;
-      return { text: t != null ? `${t} млн ₽` : '—' };
-    }),
-  };
-  rows.push(totalRow);
-
-  return { rows, scenarioNames, poiByColumn };
-}
-
 export interface PoiColumnAnalysis {
   rows: AnalysisRow[];
   total_cost_mln: number | null;
 }
 
 export function resolvePoiColumnAnalysis(
-  poi: POI,
-  live: { rows?: AnalysisRow[]; total_cost_mln?: number } | undefined,
-  scenarios: Scenario[]
+  _poi: POI,
+  live: { rows?: AnalysisRow[]; total_cost_mln?: number } | undefined
 ): PoiColumnAnalysis {
   if (live?.rows?.length) {
     return {
@@ -232,24 +142,10 @@ export function resolvePoiColumnAnalysis(
       total_cost_mln: live.total_cost_mln ?? null,
     };
   }
-  const scenario = scenarios.find((s) => s.poi_id === poi.id && s.results?.analysis);
-  if (scenario) {
-    const rawTotal = scenario.results?.total_cost_mln;
-    const total =
-      typeof rawTotal === 'number' && Number.isFinite(rawTotal)
-        ? rawTotal
-        : rawTotal != null && Number.isFinite(Number(rawTotal))
-          ? Number(rawTotal)
-          : null;
-    return {
-      rows: analysisFromScenario(scenario),
-      total_cost_mln: total,
-    };
-  }
   return { rows: [], total_cost_mln: null };
 }
 
-/** Matrix columns = one per POI; cells from live analysis or linked scenario. */
+/** Matrix columns = one per POI; cells from live analysis. */
 export function buildMatrixRowsByPois(
   pois: POI[],
   columnAnalysis: PoiColumnAnalysis[]
@@ -301,17 +197,4 @@ export function buildMatrixRowsByPois(
   });
 
   return { rows, columnNames, poisByColumn };
-}
-
-export function connectionLinesForColumn(
-  scenarios: Scenario[],
-  colIndex: number,
-  _pois: POI[],
-  liveAnalysis: AnalysisRow[] | undefined
-): AnalysisRow[] {
-  const sc = scenarios[colIndex];
-  if (sc?.results?.analysis) {
-    return analysisFromScenario(sc);
-  }
-  return liveAnalysis ?? [];
 }

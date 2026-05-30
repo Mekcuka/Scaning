@@ -3,6 +3,7 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { RotateCcw, Save } from 'lucide-react';
 import { api } from '../lib/api';
 import { useAppStore } from '../store';
+import { usePermissions } from '../hooks/usePermissions';
 import {
   COST_RATE_GROUPS,
   ECONOMIC_PARAM_GROUPS,
@@ -14,6 +15,7 @@ import { ProjectDistanceDefaultsForm } from '../components/ProjectDistanceDefaul
 import { DeferredNumberInput } from '../components/DeferredNumberInput';
 
 export function RatesPage() {
+  const { canWriteProject } = usePermissions();
   const projectId = useAppStore((s) => s.currentProjectId);
   const qc = useQueryClient();
   const [rates, setRates] = useState<Record<string, number>>(buildDefaultRates());
@@ -43,7 +45,7 @@ export function RatesPage() {
   }, [data]);
 
   useEffect(() => {
-    if (!projectId || !data?.rates || backfillRef.current) return;
+    if (!projectId || !data?.rates || backfillRef.current || !canWriteProject) return;
     const defaults = buildDefaultRates();
     const patch: Record<string, number> = {};
     for (const [key, defaultVal] of Object.entries(defaults)) {
@@ -62,7 +64,7 @@ export function RatesPage() {
       void qc.invalidateQueries({ queryKey: ['rates', projectId] });
       void qc.invalidateQueries({ queryKey: ['economic-flow-schematic', projectId] });
     });
-  }, [projectId, data, qc]);
+  }, [projectId, data, qc, canWriteProject]);
 
   useEffect(() => {
     if (econData?.params) setEconParams(econData.params);
@@ -109,6 +111,8 @@ export function RatesPage() {
           CAPEX · экономика потока (OPEX и цены) · расстояния POI
         </p>
         <div className="rates-actions">
+          {!canWriteProject ? null : (
+            <>
           <button type="button" className="btn btn-secondary btn-sm" onClick={handleReset}>
             <RotateCcw size={14} className="inline mr-1" />
             Сброс
@@ -122,6 +126,8 @@ export function RatesPage() {
             <Save size={14} className="inline mr-1" />
             {saveMut.isPending ? 'Сохранение…' : 'Сохранить ставки'}
           </button>
+            </>
+          )}
         </div>
       </header>
 
@@ -145,6 +151,7 @@ export function RatesPage() {
                               className="rates-input"
                               min={0}
                               groupDigits
+                              readOnly={!canWriteProject}
                               value={effectiveCostRate(rates, row.id, row.defaultValue)}
                               onCommit={(v) => setRates({ ...rates, [row.id]: v as number })}
                             />
@@ -177,6 +184,7 @@ export function RatesPage() {
                                   className="rates-input"
                                   min={0}
                                   groupDigits
+                                  readOnly={!canWriteProject}
                                   value={econParams[row.id] ?? row.defaultValue}
                                   onCommit={(v) =>
                                     setEconParams({ ...econParams, [row.id]: v as number })
@@ -196,7 +204,7 @@ export function RatesPage() {
         </div>
 
         <aside className="rates-aside">
-          <ProjectDistanceDefaultsForm projectId={projectId} compact />
+          <ProjectDistanceDefaultsForm projectId={projectId} compact readOnly={!canWriteProject} />
         </aside>
       </div>
     </div>

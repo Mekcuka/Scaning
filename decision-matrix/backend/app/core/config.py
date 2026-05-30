@@ -10,8 +10,10 @@ class Settings(BaseSettings):
     SECRET_KEY: str = "change-me-in-production"
     ACCESS_TOKEN_EXPIRE_MINUTES: int = 60
     REFRESH_TOKEN_EXPIRE_DAYS: int = 7
-    CORS_ORIGINS: str = "http://localhost:5173"
+    CORS_ORIGINS: str = "http://localhost:5173,http://localhost:5174,http://127.0.0.1:5173,http://127.0.0.1:5174"
     ALGORITHM: str = "HS256"
+    COOKIE_SECURE: bool = False
+    AUTH_RATE_LIMIT: str = "10/minute"
 
     @property
     def cors_origins_list(self) -> list[str]:

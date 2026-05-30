@@ -1,11 +1,12 @@
 import uuid
 from datetime import datetime
 
-from sqlalchemy import JSON, Boolean, DateTime, Float, ForeignKey, Integer, String, Text, UniqueConstraint, Uuid, func
+from sqlalchemy import JSON, Boolean, Date, DateTime, Float, ForeignKey, Integer, String, Text, UniqueConstraint, Uuid, func
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.core.database import Base
 from app.geo.columns import geometry_any_column, geometry_point_column
+from app.models.enums import UserRole
 
 
 class User(Base):
@@ -15,7 +16,7 @@ class User(Base):
     email: Mapped[str] = mapped_column(String(255), unique=True, index=True)
     password_hash: Mapped[str] = mapped_column(String(255))
     username: Mapped[str] = mapped_column(String(100))
-    role: Mapped[str] = mapped_column(String(50), default="analyst")
+    role: Mapped[str] = mapped_column(String(50), default=UserRole.analyst.value)
     avatar_url: Mapped[str | None] = mapped_column(Text, nullable=True)
     is_active: Mapped[bool] = mapped_column(Boolean, default=True)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
@@ -24,6 +25,20 @@ class User(Base):
     )
 
     projects: Mapped[list["Project"]] = relationship(back_populates="owner")
+    refresh_tokens: Mapped[list["RefreshToken"]] = relationship(back_populates="user", cascade="all, delete-orphan")
+
+
+class RefreshToken(Base):
+    __tablename__ = "refresh_tokens"
+
+    id: Mapped[uuid.UUID] = mapped_column(Uuid, primary_key=True, default=uuid.uuid4)
+    user_id: Mapped[uuid.UUID] = mapped_column(Uuid, ForeignKey("users.id", ondelete="CASCADE"), index=True)
+    token_hash: Mapped[str] = mapped_column(String(64), unique=True, index=True)
+    expires_at: Mapped[datetime] = mapped_column(DateTime(timezone=True))
+    revoked_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
+
+    user: Mapped["User"] = relationship(back_populates="refresh_tokens")
 
 
 class Project(Base):
@@ -57,10 +72,7 @@ class Project(Base):
     infrastructure_layers: Mapped[list["InfrastructureLayer"]] = relationship(
         back_populates="project", cascade="all, delete-orphan"
     )
-    scenarios: Mapped[list["Scenario"]] = relationship(back_populates="project", cascade="all, delete-orphan")
-    ranking_settings: Mapped[list["ProjectRankingSettings"]] = relationship(
-        back_populates="project", cascade="all, delete-orphan"
-    )
+    one_pagers: Mapped[list["OnePager"]] = relationship(back_populates="project", cascade="all, delete-orphan")
 
 
 class ProjectCostRates(Base):
@@ -149,9 +161,6 @@ class PointOfInterest(Base):
 
     project: Mapped["Project"] = relationship(back_populates="pois")
     analysis_rows: Mapped[list["PoiInfrastructureAnalysis"]] = relationship(
-        back_populates="poi", cascade="all, delete-orphan"
-    )
-    ranking_settings: Mapped[list["ProjectRankingSettings"]] = relationship(
         back_populates="poi", cascade="all, delete-orphan"
     )
     flow_schematic_layout: Mapped["PoiFlowSchematicLayout | None"] = relationship(
@@ -252,72 +261,31 @@ class PoiInfrastructureAnalysis(Base):
     poi: Mapped["PointOfInterest"] = relationship(back_populates="analysis_rows")
 
 
-class Scenario(Base):
-    __tablename__ = "scenarios"
-
-    id: Mapped[uuid.UUID] = mapped_column(Uuid, primary_key=True, default=uuid.uuid4)
-    project_id: Mapped[uuid.UUID] = mapped_column(Uuid, ForeignKey("projects.id", ondelete="CASCADE"))
-    poi_id: Mapped[uuid.UUID | None] = mapped_column(
-        Uuid, ForeignKey("points_of_interest.id", ondelete="SET NULL"), nullable=True
-    )
-    name: Mapped[str] = mapped_column(String(255))
-    scenario_type: Mapped[str] = mapped_column(String(50), default="base")
-    is_manual: Mapped[bool] = mapped_column(Boolean, default=False)
-    engineering_overrides: Mapped[dict] = mapped_column(JSON, default=dict)
-    cost_overrides: Mapped[dict] = mapped_column(JSON, default=dict)
-    results: Mapped[dict | None] = mapped_column(JSON, nullable=True)
-    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
-
-    project: Mapped["Project"] = relationship(back_populates="scenarios")
-    criterion_values: Mapped[list["ScenarioCriterionValue"]] = relationship(
-        back_populates="scenario", cascade="all, delete-orphan"
-    )
-
-
-class ProjectRankingSettings(Base):
-    __tablename__ = "project_ranking_settings"
-    __table_args__ = (UniqueConstraint("project_id", "poi_id", name="uq_project_ranking_project_poi"),)
+class OnePager(Base):
+    __tablename__ = "one_pagers"
 
     id: Mapped[uuid.UUID] = mapped_column(Uuid, primary_key=True, default=uuid.uuid4)
     project_id: Mapped[uuid.UUID] = mapped_column(Uuid, ForeignKey("projects.id", ondelete="CASCADE"))
     poi_id: Mapped[uuid.UUID] = mapped_column(Uuid, ForeignKey("points_of_interest.id", ondelete="CASCADE"))
-    algorithm: Mapped[str] = mapped_column(String(20), default="topsis")
-    criteria: Mapped[list[dict]] = mapped_column(JSON, default=list)
-    weights: Mapped[dict[str, float]] = mapped_column(JSON, default=dict)
-    default_expert_values: Mapped[dict[str, float]] = mapped_column(JSON, default=dict)
-    ahp_pairwise: Mapped[dict[str, dict[str, float]]] = mapped_column(JSON, default=dict)
+    title: Mapped[str] = mapped_column(String(255))
+    coordinates: Mapped[str | None] = mapped_column(String(100), nullable=True)
+    engineer_name: Mapped[str | None] = mapped_column(String(255), nullable=True)
+    report_date: Mapped[datetime | None] = mapped_column(Date, nullable=True)
+    final_variant_data: Mapped[dict] = mapped_column(JSON, default=dict)
+    engineering_params: Mapped[dict] = mapped_column(JSON, default=dict)
+    roadmap: Mapped[list] = mapped_column(JSON, default=list)
+    recommendation_text: Mapped[str | None] = mapped_column(Text, nullable=True)
+    is_recommendation_edited: Mapped[bool] = mapped_column(Boolean, default=False)
+    map_snapshot_base64: Mapped[str | None] = mapped_column(Text, nullable=True)
+    pdf_file_path: Mapped[str | None] = mapped_column(String(500), nullable=True)
+    pptx_file_path: Mapped[str | None] = mapped_column(String(500), nullable=True)
+    generation_status: Mapped[str] = mapped_column(String(20), default="pending")
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
     updated_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), server_default=func.now(), onupdate=func.now()
     )
 
-    project: Mapped["Project"] = relationship(back_populates="ranking_settings")
-    poi: Mapped["PointOfInterest"] = relationship(back_populates="ranking_settings")
-    criterion_values: Mapped[list["ScenarioCriterionValue"]] = relationship(
-        back_populates="ranking_settings", cascade="all, delete-orphan"
-    )
-
-
-class ScenarioCriterionValue(Base):
-    __tablename__ = "scenario_criterion_values"
-    __table_args__ = (
-        UniqueConstraint("ranking_settings_id", "scenario_id", "criterion_id", name="uq_scenario_criterion_value"),
-    )
-
-    id: Mapped[uuid.UUID] = mapped_column(Uuid, primary_key=True, default=uuid.uuid4)
-    ranking_settings_id: Mapped[uuid.UUID] = mapped_column(
-        Uuid, ForeignKey("project_ranking_settings.id", ondelete="CASCADE")
-    )
-    scenario_id: Mapped[uuid.UUID] = mapped_column(Uuid, ForeignKey("scenarios.id", ondelete="CASCADE"))
-    criterion_id: Mapped[str] = mapped_column(String(100))
-    value: Mapped[float] = mapped_column(Float, default=0.0)
-    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
-    updated_at: Mapped[datetime] = mapped_column(
-        DateTime(timezone=True), server_default=func.now(), onupdate=func.now()
-    )
-
-    ranking_settings: Mapped["ProjectRankingSettings"] = relationship(back_populates="criterion_values")
-    scenario: Mapped["Scenario"] = relationship(back_populates="criterion_values")
+    project: Mapped["Project"] = relationship(back_populates="one_pagers")
 
 
 class ImportLog(Base):

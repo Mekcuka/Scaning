@@ -8,6 +8,8 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.api.deps import get_current_user
 from app.core.database import get_db
+from app.models.enums import AccessLevel, WriteScope
+from app.services.project_access import resolve_project
 from app.geo.constants import LINE_SUBTYPES
 from app.geo.geometry_utils import build_infra_geometry, line_coordinates_for_storage, point_wkt
 from app.geo.validation import (
@@ -95,7 +97,7 @@ async def create_layer(
     user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
 ):
-    await _get_user_project(project_id, user, db)
+    await _require_infra_write(project_id, user, db)
     layer = InfrastructureLayer(
         project_id=project_id,
         name=data.name,
@@ -130,7 +132,7 @@ async def update_layer(
     user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
 ):
-    await _get_user_project(project_id, user, db)
+    await _require_infra_write(project_id, user, db)
     layer = await _get_layer(layer_id, project_id, db)
     for field, value in data.model_dump(exclude_unset=True).items():
         setattr(layer, field, value)
@@ -156,7 +158,7 @@ async def delete_layer(
     user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
 ):
-    await _get_user_project(project_id, user, db)
+    await _require_infra_write(project_id, user, db)
     layer = await _get_layer(layer_id, project_id, db)
     await db.delete(layer)
     await db.commit()
@@ -211,7 +213,7 @@ async def clear_project_infrastructure(
     db: AsyncSession = Depends(get_db),
 ):
     """Remove all infrastructure objects and graph data for the project (POIs are kept)."""
-    await _get_user_project(project_id, user, db)
+    await _require_infra_write(project_id, user, db)
     layer_ids_sq = select(InfrastructureLayer.id).where(InfrastructureLayer.project_id == project_id)
     poi_ids_sq = select(PointOfInterest.id).where(PointOfInterest.project_id == project_id)
     network_ids_sq = select(InfrastructureNetwork.id).where(InfrastructureNetwork.project_id == project_id)
@@ -347,7 +349,7 @@ async def create_infra_object(
     user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
 ):
-    await _get_user_project(project_id, user, db)
+    await _require_infra_write(project_id, user, db)
     subtype = data.subtype.lower().strip()
     try:
         validate_general_infra_create(subtype)
@@ -376,7 +378,7 @@ async def create_facility_infra_object(
     db: AsyncSession = Depends(get_db),
 ):
     """Создать НПЗ или НПС — в теле обязательно поле subtype."""
-    await _get_user_project(project_id, user, db)
+    await _require_infra_write(project_id, user, db)
     payload = InfraObjectCreate(
         name=data.name,
         subtype=data.subtype,
@@ -405,7 +407,7 @@ async def update_infra_object(
     user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
 ):
-    await _get_user_project(project_id, user, db)
+    await _require_infra_write(project_id, user, db)
     obj = await _get_infra_object(object_id, project_id, db)
     payload = data.model_dump(exclude_unset=True)
     lon = payload.get("lon", obj.longitude)
@@ -491,7 +493,7 @@ async def delete_infra_object(
     user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
 ):
-    await _get_user_project(project_id, user, db)
+    await _require_infra_write(project_id, user, db)
     obj = await _get_infra_object(object_id, project_id, db)
     delete_ids: set[UUID] = {object_id}
     if obj.subtype not in LINE_SUBTYPES:
@@ -556,7 +558,7 @@ async def update_poi(
     user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
 ):
-    await _get_user_project(project_id, user, db)
+    await _require_project_write(project_id, user, db)
     poi = await _get_poi(poi_id, project_id, db)
     payload = data.model_dump(exclude_unset=True)
     if "lon" in payload or "lat" in payload:
@@ -581,7 +583,7 @@ async def delete_poi(
     user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
 ):
-    await _get_user_project(project_id, user, db)
+    await _require_project_write(project_id, user, db)
     poi = await _get_poi(poi_id, project_id, db)
     await db.delete(poi)
     await db.commit()
@@ -651,7 +653,7 @@ async def patch_analysis_override(
     user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
 ):
-    await _get_user_project(project_id, user, db)
+    await _require_project_write(project_id, user, db)
     poi = await _get_poi(poi_id, project_id, db)
     if data.force_construction is None and not data.nearest_object_id and not data.nearest_node_id:
         raise HTTPException(
@@ -695,7 +697,7 @@ async def preview_import(
     file: UploadFile = File(...),
     format: str = Query("csv", pattern="^(csv|geojson|kml|spark)$"),
 ):
-    await _get_user_project(project_id, user, db)
+    await _require_infra_write(project_id, user, db)
     raw = await file.read()
     name = (file.filename or "").lower()
     if format == "kml" or name.endswith((".kml", ".kmz")):
@@ -738,7 +740,7 @@ async def import_csv(
     db: AsyncSession = Depends(get_db),
     file: UploadFile = File(...),
 ):
-    await _get_user_project(project_id, user, db)
+    await _require_infra_write(project_id, user, db)
     content = (await file.read()).decode("utf-8-sig")
     layer = await _get_or_create_default_layer(project_id, db, source_type="csv_import", name="Импорт CSV")
     log = await run_file_import(
@@ -763,7 +765,7 @@ async def import_csv_async(
     db: AsyncSession = Depends(get_db),
     file: UploadFile = File(...),
 ):
-    await _get_user_project(project_id, user, db)
+    await _require_infra_write(project_id, user, db)
     content = (await file.read()).decode("utf-8-sig")
     layer = await _get_or_create_default_layer(project_id, db, source_type="csv_import", name="Импорт CSV")
     log = await create_pending_import_log(
@@ -786,7 +788,7 @@ async def import_kml(
     db: AsyncSession = Depends(get_db),
     file: UploadFile = File(...),
 ):
-    await _get_user_project(project_id, user, db)
+    await _require_infra_write(project_id, user, db)
     raw = await file.read()
     name = (file.filename or "import.kml").lower()
     if name.endswith(".kmz"):
@@ -823,7 +825,7 @@ async def import_shapefile(
     db: AsyncSession = Depends(get_db),
     file: UploadFile = File(...),
 ):
-    await _get_user_project(project_id, user, db)
+    await _require_infra_write(project_id, user, db)
     data = await file.read()
     layer = await _get_or_create_default_layer(project_id, db, source_type="shapefile_import", name="Импорт SHP")
     log = await run_shapefile_import(
@@ -846,7 +848,7 @@ async def import_geojson(
     db: AsyncSession = Depends(get_db),
     file: UploadFile = File(...),
 ):
-    await _get_user_project(project_id, user, db)
+    await _require_infra_write(project_id, user, db)
     content = (await file.read()).decode("utf-8")
     layer = await _get_or_create_default_layer(project_id, db, source_type="geojson_import", name="Импорт GeoJSON")
     log = await run_file_import(
@@ -871,7 +873,7 @@ async def import_geojson_async(
     db: AsyncSession = Depends(get_db),
     file: UploadFile = File(...),
 ):
-    await _get_user_project(project_id, user, db)
+    await _require_infra_write(project_id, user, db)
     content = (await file.read()).decode("utf-8")
     layer = await _get_or_create_default_layer(project_id, db, source_type="geojson_import", name="Импорт GeoJSON")
     log = await create_pending_import_log(
@@ -894,7 +896,7 @@ async def import_kml_async(
     db: AsyncSession = Depends(get_db),
     file: UploadFile = File(...),
 ):
-    await _get_user_project(project_id, user, db)
+    await _require_infra_write(project_id, user, db)
     raw = await file.read()
     name = (file.filename or "import.kml").lower()
     if name.endswith(".kmz"):
@@ -927,7 +929,7 @@ async def import_spark(
     db: AsyncSession = Depends(get_db),
     file: UploadFile = File(...),
 ):
-    await _get_user_project(project_id, user, db)
+    await _require_infra_write(project_id, user, db)
     content = (await file.read()).decode("utf-8")
     layer = await _get_or_create_default_layer(project_id, db, source_type="spark_import", name="Импорт Spark")
     log = await run_file_import(
@@ -952,7 +954,7 @@ async def import_spark_async(
     db: AsyncSession = Depends(get_db),
     file: UploadFile = File(...),
 ):
-    await _get_user_project(project_id, user, db)
+    await _require_infra_write(project_id, user, db)
     content = (await file.read()).decode("utf-8")
     layer = await _get_or_create_default_layer(project_id, db, source_type="spark_import", name="Импорт Spark")
     log = await create_pending_import_log(
@@ -982,11 +984,15 @@ async def import_logs(
 
 
 async def _get_user_project(project_id: UUID, user: User, db: AsyncSession) -> Project:
-    result = await db.execute(select(Project).where(Project.id == project_id, Project.user_id == user.id))
-    project = result.scalar_one_or_none()
-    if not project:
-        raise HTTPException(status_code=404, detail="Project not found")
-    return project
+    return await resolve_project(project_id, user, db, min_access=AccessLevel.read, write_scope=WriteScope.infra)
+
+
+async def _require_infra_write(project_id: UUID, user: User, db: AsyncSession) -> Project:
+    return await resolve_project(project_id, user, db, min_access=AccessLevel.write, write_scope=WriteScope.infra)
+
+
+async def _require_project_write(project_id: UUID, user: User, db: AsyncSession) -> Project:
+    return await resolve_project(project_id, user, db, min_access=AccessLevel.write, write_scope=WriteScope.project)
 
 
 async def _get_poi(poi_id: UUID, project_id: UUID, db: AsyncSession) -> PointOfInterest:

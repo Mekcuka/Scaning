@@ -15,9 +15,11 @@ def get_password_hash(password: str) -> str:
     return bcrypt.hashpw(password.encode(), bcrypt.gensalt()).decode()
 
 
-def create_access_token(subject: str, extra: dict[str, Any] | None = None) -> str:
+def create_access_token(subject: str, extra: dict[str, Any] | None = None, *, role: str | None = None) -> str:
     expire = datetime.now(timezone.utc) + timedelta(minutes=settings.ACCESS_TOKEN_EXPIRE_MINUTES)
     payload = {"sub": subject, "exp": expire, "type": "access"}
+    if role:
+        payload["role"] = role
     if extra:
         payload.update(extra)
     return jwt.encode(payload, settings.SECRET_KEY, algorithm=settings.ALGORITHM)

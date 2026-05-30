@@ -10,7 +10,9 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.api.deps import get_current_user
 from app.core.database import get_db
 from app.models import InfrastructureEdge, InfrastructureNetwork, InfrastructureNode, Project, User
+from app.models.enums import AccessLevel, WriteScope
 from app.services.graph_builder import build_network_from_lines
+from app.services.project_access import resolve_project
 
 graph_router = APIRouter()
 
@@ -39,11 +41,14 @@ class EdgeResponse(BaseModel):
     length_km: float
 
 
-async def _project(project_id: UUID, user: User, db: AsyncSession) -> Project:
-    row = await db.scalar(select(Project).where(Project.id == project_id, Project.user_id == user.id))
-    if not row:
-        raise HTTPException(status_code=404, detail="Project not found")
-    return row
+async def _project(
+    project_id: UUID,
+    user: User,
+    db: AsyncSession,
+    *,
+    min_access: AccessLevel = AccessLevel.read,
+) -> Project:
+    return await resolve_project(project_id, user, db, min_access=min_access, write_scope=WriteScope.infra)
 
 
 @graph_router.get("/projects/{project_id}/infrastructure/networks", response_model=list[NetworkResponse])
@@ -59,7 +64,7 @@ async def list_networks(
 async def build_network(
     project_id: UUID, user: User = Depends(get_current_user), db: AsyncSession = Depends(get_db)
 ):
-    await _project(project_id, user, db)
+    await _project(project_id, user, db, min_access=AccessLevel.write)
     net = await build_network_from_lines(db, project_id)
     await db.commit()
     await db.refresh(net)

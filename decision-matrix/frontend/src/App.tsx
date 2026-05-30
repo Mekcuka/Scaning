@@ -2,7 +2,10 @@ import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { AppLayout } from './components/layout/AppLayout';
 import { ProtectedRoute } from './components/ProtectedRoute';
+import { RoleProtectedRoute } from './components/RoleProtectedRoute';
 import { LoginPage } from './pages/LoginPage';
+import { RegisterPage } from './pages/RegisterPage';
+import { AdminUsersPage } from './pages/AdminUsersPage';
 import { DashboardPage } from './pages/DashboardPage';
 import { MapPage } from './pages/MapPage';
 import { ImportPage } from './pages/ImportPage';
@@ -10,11 +13,8 @@ import { ProjectsPage } from './pages/ProjectsPage';
 import { ProjectDetailPage } from './pages/ProjectDetailPage';
 import { RatesPage } from './pages/RatesPage';
 import { MatrixPage } from './pages/MatrixPage';
-import { RankingLayout } from './components/layout/RankingLayout';
-import { RankingResultsPage } from './pages/ranking/RankingResultsPage';
-import { RankingCriteriaPage } from './pages/ranking/RankingCriteriaPage';
-import { RankingSensitivityPage } from './pages/ranking/RankingSensitivityPage';
-import { ReportPage } from './pages/ReportPage';
+import { ReportListPage } from './pages/report/ReportListPage';
+import { ReportNewPage, ReportDetailPage } from './pages/report/ReportDetailPage';
 import { FlowSchematicLayout } from './pages/flows/FlowSchematicLayout';
 import { FlowTechnologyPage } from './pages/flows/FlowTechnologyPage';
 import { FlowEconomicPage } from './pages/flows/FlowEconomicPage';
@@ -32,6 +32,7 @@ export default function App() {
         <BrowserRouter basename={import.meta.env.BASE_URL}>
           <Routes>
           <Route path="/login" element={<LoginPage />} />
+          <Route path="/register" element={<RegisterPage />} />
           <Route element={<ProtectedRoute />}>
             <Route element={<AppLayout />}>
               <Route path="/" element={<DashboardPage />} />
@@ -42,21 +43,22 @@ export default function App() {
                 <Route path="rates" element={<RatesPage />} />
               </Route>
               <Route path="/rates" element={<Navigate to="/parameters/rates" replace />} />
-              <Route path="/import" element={<ImportPage />} />
+              <Route element={<RoleProtectedRoute roles={['admin', 'analyst', 'data_manager']} />}>
+                <Route path="/import" element={<ImportPage />} />
+              </Route>
               <Route path="/projects" element={<ProjectsPage />} />
               <Route path="/projects/:id" element={<ProjectDetailPage />} />
               <Route path="/matrix" element={<MatrixPage />} />
-              <Route path="/ranking" element={<RankingLayout />}>
-                <Route index element={<Navigate to="results" replace />} />
-                <Route path="results" element={<RankingResultsPage />} />
-                <Route path="criteria" element={<RankingCriteriaPage />} />
-                <Route path="sensitivity" element={<RankingSensitivityPage />} />
-              </Route>
-              <Route path="/report" element={<ReportPage />} />
+              <Route path="/report" element={<ReportListPage />} />
+              <Route path="/report/new" element={<ReportNewPage />} />
+              <Route path="/report/:id" element={<ReportDetailPage />} />
               <Route path="/flows" element={<FlowSchematicLayout />}>
                 <Route index element={<Navigate to="technology" replace />} />
                 <Route path="technology" element={<FlowTechnologyPage />} />
                 <Route path="economic" element={<FlowEconomicPage />} />
+              </Route>
+              <Route element={<RoleProtectedRoute roles={['admin']} />}>
+                <Route path="/admin" element={<AdminUsersPage />} />
               </Route>
             </Route>
           </Route>

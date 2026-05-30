@@ -6,8 +6,11 @@ import sys
 from contextlib import asynccontextmanager
 from pathlib import Path
 
-from fastapi import FastAPI
+from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
+from slowapi import Limiter, _rate_limit_exceeded_handler
+from slowapi.errors import RateLimitExceeded
+from slowapi.util import get_remote_address
 from sqlalchemy import text
 
 from app.api.v1.router import router
@@ -18,6 +21,7 @@ from app.core.sqlite_migrate import patch_postgres_schema, patch_sqlite_schema
 
 logger = logging.getLogger(__name__)
 BACKEND_ROOT = Path(__file__).resolve().parent.parent
+limiter = Limiter(key_func=get_remote_address)
 
 
 def run_alembic_upgrade() -> None:
@@ -73,6 +77,8 @@ app = FastAPI(
     redoc_url="/api/v1/redoc",
     openapi_url="/api/v1/openapi.json",
 )
+app.state.limiter = limiter
+app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
 
 app.add_middleware(
     CORSMiddleware,

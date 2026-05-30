@@ -9,6 +9,8 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.api.deps import get_current_user
 from app.core.database import get_db
 from app.models import PointOfInterest, Project, User
+from app.models.enums import AccessLevel, WriteScope
+from app.services.project_access import resolve_project
 from app.schemas import (
     EconomicFlowResponse,
     FlowSchematicResponse,
@@ -24,11 +26,14 @@ from app.services.flow_schematic_store import (
 flow_router = APIRouter()
 
 
-async def _project(project_id: UUID, user: User, db: AsyncSession) -> Project:
-    row = await db.scalar(select(Project).where(Project.id == project_id, Project.user_id == user.id))
-    if not row:
-        raise HTTPException(status_code=404, detail="Project not found")
-    return row
+async def _project(
+    project_id: UUID,
+    user: User,
+    db: AsyncSession,
+    *,
+    min_access: AccessLevel = AccessLevel.read,
+) -> Project:
+    return await resolve_project(project_id, user, db, min_access=min_access, write_scope=WriteScope.project)
 
 
 async def _poi(project_id: UUID, poi_id: UUID, db: AsyncSession) -> PointOfInterest:
@@ -70,7 +75,7 @@ async def put_flow_schematic(
     user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
 ):
-    await _project(project_id, user, db)
+    await _project(project_id, user, db, min_access=AccessLevel.write)
     poi = await _poi(project_id, poi_id, db)
     node_ids = {n.id for n in body.nodes}
     for edge in body.edges:
@@ -91,7 +96,7 @@ async def reset_flow_schematic(
     user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
 ):
-    await _project(project_id, user, db)
+    await _project(project_id, user, db, min_access=AccessLevel.write)
     poi = await _poi(project_id, poi_id, db)
     data = await get_flow_schematic(db, project_id, poi)
     return FlowSchematicResponse(**data)

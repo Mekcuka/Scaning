@@ -15,7 +15,7 @@
 - Показать **итоги** (CAPEX, OPEX/год, выручка/год, net/год) в summary bar.
 - Предупреждать о пропущенных ценах, отсутствии ставки БКНС и т.п.
 
-Экономическая схема **read-only** — правки стоимости через ставки CAPEX (`project_cost_rates`), цены/OPEX (`project_economic_params`) или матрицу сценариев.
+Экономическая схема **read-only** — правки стоимости через ставки CAPEX (`project_cost_rates`), цены/OPEX (`project_economic_params`) или инфраструктурную матрицу POI.
 
 ---
 

@@ -16,11 +16,9 @@ graph TD
     AddPOI[Добавить точку интереса<br>Инженерные параметры<br>Пороговые расстояния 9 подтипов] --> AnalyzeEnvironment
     AnalyzeEnvironment[Анализ окружения<br>Поиск ближайших объектов] --> ApplyParameters
     ApplyParameters[Применить инженерные параметры<br>Фильтрация подтипов] --> CalculateBaseVariant
-    CalculateBaseVariant[Рассчитать базовый вариант<br>Стоимость по подтипам] --> CreateScenarios
-    CreateScenarios[Создать сценарии<br>Ручные корректировки] --> BuildMatrix
-    BuildMatrix[Построить матрицу решений<br>Критерии для ранжирования] --> RankScenarios
-    RankScenarios[Ранжирование сценариев<br>TOPSIS / WSM / AHP] --> SelectFinal
-    SelectFinal[Выбрать финальный сценарий] --> ExportReport
+    CalculateBaseVariant[Рассчитать базовый вариант<br>Стоимость по подтипам] --> BuildMatrix
+    BuildMatrix[Построить инфраструктурную матрицу<br>Сравнение POI] --> SelectPOI
+    SelectPOI[Выбрать POI для отчёта] --> ExportReport
     ExportReport[Экспорт отчёта<br>PDF / PPTX] --> END((Конец))
 
     classDef startend fill:#4CAF50,stroke:#333,stroke-width:2px,color:#fff
@@ -30,7 +28,6 @@ graph TD
 
     class START,END startend
     class CalculateBaseVariant primary
-    class RankScenarios warning
     class ExportReport purple
 ```
 
@@ -226,71 +223,40 @@ graph TD
 
 ---
 
-## Матрица решений и ранжирование
+## Инфраструктурная матрица POI
 
 ```mermaid
 graph TD
-    B[Базовый вариант]
-    S1[Сценарий 1]
-    S2[Сценарий 2]
-    S3[Сценарий N]
+    P1[POI 1]
+    P2[POI 2]
+    P3[POI N]
 
-    C1[Стоимость]
-    C2[Суммарные расстояния]
-    C3[Количество превышений]
-    C4[Риск реализации]
-    C5[Срок реализации]
-    C6[Надёжность]
+    P1 --> M[Инфраструктурная матрица<br>стоимость, расстояния, статусы]
+    P2 --> M
+    P3 --> M
 
-    B --> M1
-    S1 --> M1
-    S2 --> M1
-    S3 --> M1
-
-    C1 --> M1[Матрица оценок<br>Сценарии x Критерии]
-    C2 --> M1
-    C3 --> M1
-    C4 --> M1
-    C5 --> M1
-    C6 --> M1
-
-    M1 --> M2[Веса критериев<br>AHP / Ручные]
-    M1 --> M3[Нормализация<br>Min-Max / Z-score]
-
-    M2 --> A1[TOPSIS]
-    M2 --> A2[WSM]
-    M2 --> A3[AHP]
-    M3 --> A1
-    M3 --> A2
-    M3 --> A3
-
-    A1 --> R1[Рейтинг сценариев]
-    A2 --> R1
-    A3 --> R1
-
-    R1 --> R2[Визуализация<br>Радар / Столбчатый]
-    R1 --> R3[Рекомендация]
+    M --> Compare[Сравнение столбцов<br>фильтр превышений]
+    Compare --> Select[Выбор POI для отчёта]
+    Select --> Report[Одностраничник PDF/PPTX]
 
     classDef orange fill:#FF9800,stroke:#333,stroke-width:2px,color:#fff
     classDef blue fill:#2196F3,stroke:#333,stroke-width:2px,color:#fff
-    classDef green fill:#4CAF50,stroke:#333,stroke-width:2px,color:#fff
     classDef purple fill:#9C27B0,stroke:#333,stroke-width:2px,color:#fff
 
-    class B,S1,S2,S3 orange
-    class C1,C2,C3,C4,C5,C6 blue
-    class A1,A2,A3 green
-    class R1,R2,R3 purple
+    class P1,P2,P3 orange
+    class M,Compare blue
+    class Select,Report purple
 ```
 
 ---
 
-## Поток создания и сравнения сценариев
+## Поток сравнения POI в матрице
 
 ```mermaid
 graph TD
-    Start((Базовый вариант)) --> Decision{Изменить?}
+    Start((Анализ POI)) --> Decision{Изменить параметр?}
     Decision -->|Да| Change[Изменить параметр]
-    Decision -->|Нет| Save[Сохранить как есть]
+    Decision -->|Нет| Compare[Сравнить POI в матрице]
 
     Ch1[Выбрать альтернативный объект]
     Ch2[Переключить на строительство]
@@ -317,15 +283,10 @@ graph TD
     Rec2 --> Rec4
     Rec3 --> Rec4
 
-    SaveAs[Сохранить как новый сценарий<br>variant_infrastructure_items]
-
-    Save --> SaveAs
-    Rec4 --> SaveAs
-
-    SaveAs --> Compare[Сравнить сценарии]
-    Compare --> Matrix[Вертикальная матрица]
-    Matrix --> Filter[Фильтровать по критериям]
-    Filter --> Select[Выбрать финальный]
+    Rec4 --> Compare
+    Compare --> Matrix[Вертикальная матрица<br>столбцы = POI]
+    Matrix --> Filter[Фильтровать POI с превышениями]
+    Filter --> Select[Выбрать POI]
     Select --> Export[Экспорт отчёта]
 
     classDef blue fill:#2196F3,stroke:#333,stroke-width:2px,color:#fff
@@ -334,7 +295,7 @@ graph TD
 
     class Start blue
     class Export purple
-    class SaveAs,Select green
+    class Select green
 ```
 
 ---
@@ -343,7 +304,7 @@ graph TD
 
 ```mermaid
 graph TD
-    SelectScenario[Выбрать финальный сценарий] --> Generate[Генерировать отчёт]
+    SelectPOI[Выбрать POI для отчёта] --> Generate[Генерировать отчёт]
 
     St1[Заголовок<br>Название, координаты, инженер, дата]
     St2[Карта<br>Точка + линии до объектов]
@@ -535,20 +496,13 @@ graph TD
     P8[Применить фильтрацию<br>по инженерным параметрам]
     P9[Рассчитать базовый вариант<br>Стоимость + Статусы]
 
-    P10[Создать сценарии]
-    P11[Ручные корректировки]
-    P12[Сравнить сценарии]
+    P10[Построить матрицу POI<br>Сравнение точек интереса]
 
-    P12b[Ввести экспертные оценки<br>по сценариям]
-    P13[Построить матрицу ранжирования<br>6 критериев]
-    P14[Применить алгоритм<br>TOPSIS / WSM / AHP]
-    P15[Получить рейтинг сценариев]
-
-    P16[Выбрать финальный сценарий]
+    P16[Выбрать POI для отчёта]
     P17[Генерировать одностраничник]
     P18[Экспорт PDF / PPTX]
 
-    P1 --> P2 --> P2a --> P3 --> P4 --> P4a --> P5 --> P6 --> P7 --> P8 --> P9 --> P10 --> P11 --> P12 --> P12b --> P13 --> P14 --> P15 --> P16 --> P17 --> P18
+    P1 --> P2 --> P2a --> P3 --> P4 --> P4a --> P5 --> P6 --> P7 --> P8 --> P9 --> P10 --> P16 --> P17 --> P18
 
     classDef green fill:#4CAF50,stroke:#333,stroke-width:2px,color:#fff
     classDef blue fill:#2196F3,stroke:#333,stroke-width:2px,color:#fff
@@ -557,7 +511,6 @@ graph TD
 
     class P1 green
     class P9 blue
-    class P15 orange
     class P18 purple
 ```
 
@@ -572,6 +525,5 @@ graph TD
 | 🟢 | В пределах лимита (within_limit) |
 | ⚪ | Не требуется (not_required) |
 | ✏️ | Ручная корректировка |
-| 📊 | Матрица решений |
-| 📈 | Ранжирование |
+| 📊 | Инфраструктурная матрица |
 | 📄 | Отчёт |

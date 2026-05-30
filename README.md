@@ -13,9 +13,31 @@
 
 ## Локальный запуск
 
-См. [decision-matrix/README.md](decision-matrix/README.md) — backend `run_local.py` + `npm run dev`.
+См. [decision-matrix/README.md](decision-matrix/README.md) и [decision-matrix/RUN_GUIDE.md](decision-matrix/RUN_GUIDE.md).
 
-Демо-вход: `engineer@oilgas.ru` / `password123`
+```powershell
+# Backend (SQLite)
+cd decision-matrix\backend
+.\venv\Scripts\python.exe run_local.py
+
+# Frontend (другой терминал)
+cd decision-matrix\frontend
+npm run dev
+```
+
+- Frontend: http://localhost:5173  
+- API / Swagger: http://127.0.0.1:8000/api/v1/docs  
+
+### Демо-учётки
+
+| Email | Пароль | Роль |
+|-------|--------|------|
+| `engineer@oilgas.ru` | `password123` | analyst |
+| `admin@oilgas.ru` | `admin1234` | admin |
+| `data@oilgas.ru` | `data12345` | data_manager |
+| `viewer@oilgas.ru` | `viewer123` | viewer |
+
+Аутентификация: JWT в httpOnly cookies + CSRF. Подробнее: [docs/auth-rbac.md](docs/auth-rbac.md).
 
 ## HTML-прототип (без backend)
 
@@ -23,4 +45,4 @@
 
 ## Документация
 
-[docs/](docs/)
+[docs/](docs/) — требования, архитектура, [auth-rbac.md](docs/auth-rbac.md), план разработки.

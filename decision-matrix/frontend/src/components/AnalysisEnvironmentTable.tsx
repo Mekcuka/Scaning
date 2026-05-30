@@ -33,6 +33,7 @@ type Props = {
   compact?: boolean;
   /** Map sidebar: only external objects (FR-6.1.1). Project page: all sections. */
   sections?: AnalysisSections;
+  readOnly?: boolean;
   onPickCandidate?: PickCandidateHandler;
   onToggleConstruction?: ToggleConstructionHandler;
   /** Pan map to nearest object / anchor when clicking the object name cell. */
@@ -55,18 +56,21 @@ function ExternalObjectsTable({
   onPickCandidate,
   onToggleConstruction,
   onFocusObject,
+  readOnly = false,
   paramType,
 }: {
   title: string;
   rows: AnalysisRow[];
   compact: boolean;
   cellPad: string;
+  readOnly?: boolean;
   onPickCandidate?: PickCandidateHandler;
   onToggleConstruction?: ToggleConstructionHandler;
   onFocusObject?: (row: AnalysisRow) => void;
   paramType: 'external' | 'external_linear';
 }) {
   const renderActions = (row: AnalysisRow) => {
+    if (readOnly) return null;
     if (row.status === 'not_required' || row.param_type === 'internal') return null;
     if (row.param_type !== paramType) return null;
     return (
@@ -156,6 +160,7 @@ export function AnalysisEnvironmentTable({
   rows,
   compact = false,
   sections = 'all',
+  readOnly = false,
   onPickCandidate,
   onToggleConstruction,
   onFocusObject,
@@ -227,6 +232,7 @@ export function AnalysisEnvironmentTable({
           rows={externalLinear}
           compact={compact}
           cellPad={cellPad}
+          readOnly={readOnly}
           paramType="external_linear"
           onPickCandidate={onPickCandidate}
           onToggleConstruction={onToggleConstruction}
@@ -240,6 +246,7 @@ export function AnalysisEnvironmentTable({
           rows={external}
           compact={compact}
           cellPad={cellPad}
+          readOnly={readOnly}
           paramType="external"
           onPickCandidate={onPickCandidate}
           onToggleConstruction={onToggleConstruction}

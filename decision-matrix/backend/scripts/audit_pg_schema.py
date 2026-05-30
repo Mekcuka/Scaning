@@ -17,6 +17,7 @@ from app.models import (  # noqa: F401
     InfrastructureNetwork,
     InfrastructureNode,
     InfrastructureObject,
+    OnePager,
     PointOfInterest,
     PoiFlowSchematicLayout,
     PoiInfrastructureAnalysis,
@@ -24,9 +25,6 @@ from app.models import (  # noqa: F401
     ProjectCostRates,
     ProjectDistanceDefaults,
     ProjectEconomicParams,
-    ProjectRankingSettings,
-    Scenario,
-    ScenarioCriterionValue,
     User,
 )
 

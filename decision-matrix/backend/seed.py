@@ -1,7 +1,11 @@
 """Seed demo data for development."""
 import asyncio
+import os
 
 from sqlalchemy import select, text
+
+# Align with run_local.py — seed the same SQLite DB the dev server uses
+os.environ.setdefault("DATABASE_URL", "sqlite+aiosqlite:///./data/sppr.db")
 
 from app.core.config import settings
 from app.core.database import async_session
@@ -15,11 +19,18 @@ from app.models import (
     ProjectCostRates,
     ProjectDistanceDefaults,
     ProjectEconomicParams,
-    Scenario,
     User,
 )
+from app.models.enums import UserRole
 from app.services.cost_rates import DEFAULT_COST_RATES
 from app.services.economic_rates import DEFAULT_ECONOMIC_PARAMS
+
+DEMO_USERS = [
+    ("engineer@oilgas.ru", "Иванов И.И.", UserRole.analyst, "password123"),
+    ("admin@oilgas.ru", "Админ Системы", UserRole.admin, "admin1234"),
+    ("data@oilgas.ru", "Петров Д.М.", UserRole.data_manager, "data12345"),
+    ("viewer@oilgas.ru", "Сидоров В.П.", UserRole.viewer, "viewer123"),
+]
 
 
 async def seed():
@@ -31,25 +42,47 @@ async def seed():
         await conn.run_sync(Base.metadata.create_all)
 
     async with async_session() as db:
-        existing = await db.execute(select(User).where(User.email == "engineer@oilgas.ru"))
-        if existing.scalar_one_or_none():
-            print("Seed data already exists")
+        users: dict[str, User] = {}
+        created_users: list[str] = []
+        for email, username, role, password in DEMO_USERS:
+            existing = await db.scalar(select(User).where(User.email == email))
+            if existing:
+                users[email] = existing
+                continue
+            user = User(
+                email=email,
+                username=username,
+                password_hash=get_password_hash(password),
+                role=role.value,
+            )
+            db.add(user)
+            await db.flush()
+            users[email] = user
+            created_users.append(email)
+
+        analyst = users["engineer@oilgas.ru"]
+        existing_project = await db.scalar(select(Project).where(Project.user_id == analyst.id).limit(1))
+        if existing_project:
+            if existing_project.visibility != "published":
+                existing_project.visibility = "published"
+            await db.commit()
+            if created_users:
+                print("Added demo users:", ", ".join(created_users))
+            else:
+                print("Demo users already present")
+            print("Demo accounts:")
+            for email, _, role, password in DEMO_USERS:
+                print(f"  {email} / {password} ({role.value})")
             return
 
-        user = User(
-            email="engineer@oilgas.ru",
-            username="Иванов И.И.",
-            password_hash=get_password_hash("password123"),
-            role="analyst",
-        )
-        db.add(user)
-        await db.flush()
-
+        if created_users:
+            print("Added demo users:", ", ".join(created_users))
         project = Project(
-            user_id=user.id,
+            user_id=analyst.id,
             name="Участок Западный",
             description="Разработка западного участка",
             status="active",
+            visibility="published",
         )
         db.add(project)
         await db.flush()
@@ -57,9 +90,6 @@ async def seed():
         db.add(ProjectCostRates(project_id=project.id, rates=dict(DEFAULT_COST_RATES)))
         db.add(ProjectEconomicParams(project_id=project.id, params=dict(DEFAULT_ECONOMIC_PARAMS)))
         db.add(ProjectDistanceDefaults(project_id=project.id))
-        db.add(Scenario(project_id=project.id, name="Базовый", scenario_type="base"))
-        db.add(Scenario(project_id=project.id, name="Сценарий 1", scenario_type="scenario"))
-        db.add(Scenario(project_id=project.id, name="Сценарий 2", scenario_type="scenario", is_manual=True))
 
         db.add(
             PointOfInterest(
@@ -116,7 +146,10 @@ async def seed():
             )
 
         await db.commit()
-        print(f"Seed OK: engineer@oilgas.ru / password123 (project id: {project.id})")
+        print("Seed OK — demo accounts:")
+        for email, _, role, password in DEMO_USERS:
+            print(f"  {email} / {password} ({role.value})")
+        print(f"Published project id: {project.id}")
 
 
 if __name__ == "__main__":
