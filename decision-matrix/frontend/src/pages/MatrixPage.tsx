@@ -7,6 +7,7 @@ import { engineeringOptionsForKey, type EngineeringParamKey } from '../lib/poiPa
 import { useAppStore } from '../store';
 import { usePermissions } from '../hooks/usePermissions';
 import { AppSelect } from '../components/AppSelect';
+import { MatrixCardsPanel } from '../components/matrix/MatrixCardsPanel';
 import { useIsMobile } from '../hooks/useMediaQuery';
 
 function initialMatrixViewMode(isMobile: boolean): 'table' | 'cards' {
@@ -302,38 +303,19 @@ export function MatrixPage() {
                 </tbody>
               </table>
             </div>
-          ) : (
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-              {displayedPois.length === 0 ? (
-                <div className="card text-sm" style={{ color: 'var(--text-muted)' }}>
-                  Нет POI с превышениями лимитов
-                </div>
-              ) : (
-                columnNames.map((name, i) => {
-                  const col = columnAnalysis[i];
-                  const hasAnalysis = (col?.rows.length ?? 0) > 0;
-                  return (
-                    <div
-                      key={poisByColumn[i]?.id ?? name + i}
-                      className={`card cursor-pointer ${safeSelectedCol === i ? 'ring-2 ring-blue-500' : ''}`}
-                      onClick={() => setSelectedCol(i)}
-                    >
-                      <h3 className="font-semibold mb-3">{name}</h3>
-                      <div className="text-2xl font-bold text-blue-600 mb-2">
-                        {col?.total_cost_mln != null ? `${col.total_cost_mln} млн ₽` : '—'}
-                      </div>
-                      <div className="text-sm space-y-1" style={{ color: 'var(--text-muted)' }}>
-                        {!hasAnalysis && (
-                          <div className="text-xs">
-                            Нажмите «Анализировать окружение» для расчёта
-                          </div>
-                        )}
-                      </div>
-                    </div>
-                  );
-                })
-              )}
+          ) : displayedPois.length === 0 ? (
+            <div className="card text-sm" style={{ color: 'var(--text-muted)' }}>
+              Нет POI с превышениями лимитов
             </div>
+          ) : (
+            <MatrixCardsPanel
+              matrixRows={matrixRows}
+              columnNames={columnNames}
+              columnAnalysis={columnAnalysis}
+              poisByColumn={poisByColumn}
+              selectedCol={safeSelectedCol}
+              onSelectCol={setSelectedCol}
+            />
           )}
       </div>
     </div>

@@ -75,7 +75,7 @@ $envFile = Join-Path $BackendRoot ".env"
 $envContent = @"
 DATABASE_URL=$databaseUrl
 SECRET_KEY=change-me-in-production
-CORS_ORIGINS=http://localhost:5173,http://127.0.0.1:5173,http://localhost:5173/Cursor_Scan/
+CORS_ORIGINS=http://localhost:5173,http://127.0.0.1:5173
 "@
 Set-Content -Path $envFile -Value $envContent.TrimEnd() -Encoding utf8
 Write-Host "Wrote $envFile"

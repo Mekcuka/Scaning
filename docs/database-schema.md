@@ -465,7 +465,7 @@ CREATE TABLE project_distance_defaults (
 
 ### Таблица project_cost_rates (ставки стоимости проекта)
 
-**UI (прототип):** 16 строк на проект, ввод в **тыс. ₽** (`cost-rates-spec.js`). В БД — `rate_thousand_rub` (значение в тысячах рублей).
+**UI:** 16 строк на проект, ввод в **тыс. ₽** (экран «Ставки»). В БД — `rate_thousand_rub` (значение в тысячах рублей).
 
 **Миграция POI:** `on_site_separation` + `use_collection_point` → `oil_preparation_type` (`true` → `mkos`, `false` → `mfns`).
 

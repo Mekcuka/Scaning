@@ -29,6 +29,9 @@ export interface MatrixRow {
   engineering?: boolean;
   /** POI field for inline engineering dropdowns in the matrix table */
   engineeringKey?: EngineeringParamKey;
+  /** Analysis row key (card view) */
+  subtype?: string;
+  paramType?: string;
 }
 
 /** Row labels in the matrix (may differ from form section titles). */
@@ -183,7 +186,7 @@ export function buildMatrixRowsByPois(
         if (!item) return { text: '—' };
         return matrixCellFromAnalysisItem(item);
       });
-      rows.push({ label, section: section.key, cells });
+      rows.push({ label, section: section.key, cells, subtype, paramType: section.paramType });
     }
   }
 

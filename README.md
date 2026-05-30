@@ -9,8 +9,6 @@
 
 Собирается из `decision-matrix/frontend` при push в `main` репозитория **Scaning**.
 
-> Старый адрес `mekcuka.github.io/Cursor_Scan/` и репозиторий `Cursor_Scan` **не обновляются** — смотрите **Scaning**.
-
 ## Локальный запуск
 
 См. [decision-matrix/README.md](decision-matrix/README.md) и [decision-matrix/RUN_GUIDE.md](decision-matrix/RUN_GUIDE.md).
@@ -38,10 +36,6 @@ npm run dev
 | `viewer@oilgas.ru` | `viewer123` | viewer |
 
 Аутентификация: JWT в httpOnly cookies + CSRF. Подробнее: [docs/auth-rbac.md](docs/auth-rbac.md).
-
-## HTML-прототип (без backend)
-
-Исходники: [Cursor_Scan/index.html](Cursor_Scan/index.html) — открыть локально или через `npx serve Cursor_Scan`.
 
 ## Документация
 

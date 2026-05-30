@@ -456,10 +456,6 @@ analytics/  [папка зарезервирована для v1.3+]
 
 ## Frontend архитектура
 
-### HTML-прототип (реализовано)
-
-См. [prototype-alignment.md](./prototype-alignment.md). Кратко: SPA `Cursor_Scan/`, OpenLayers 9, отдельные экраны «Импорт» и «Ставки», `MATRIX_SPEC` / `COST_RATE_GROUPS` в JS-модулях.
-
 ### Компоненты карты
 
 ```

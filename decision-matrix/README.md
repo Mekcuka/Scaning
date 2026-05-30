@@ -6,8 +6,6 @@
 
 Гайд по локальному запуску: [`RUN_GUIDE.md`](./RUN_GUIDE.md)
 
-HTML-прототип (mock): [`../Cursor_Scan/`](../Cursor_Scan/)
-
 ## Стек
 
 - **Backend:** FastAPI, SQLAlchemy 2.0, PostgreSQL + PostGIS или SQLite, JWT (httpOnly cookies + RBAC)
