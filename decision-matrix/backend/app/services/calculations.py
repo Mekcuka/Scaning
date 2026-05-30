@@ -29,6 +29,13 @@ def calc_pads_cost_thousand_rub(pads_count: int, rate_pads: float) -> float:
     return pads_count * rate_pads
 
 
+def calc_external_point_cost_thousand(status: str, *, rate: float) -> float:
+    """CAPEX внешней площадки: только если объект не найден или вне порога доступности."""
+    if status in ("construction_required", "exceeds_limit"):
+        return rate
+    return 0.0
+
+
 def thousand_to_million_rub(value_thousand: float) -> float:
     return round(value_thousand / 1000, 2)
 
@@ -115,6 +122,7 @@ def apply_engineering_rules(state: EngineeringState) -> dict[str, str]:
         "substation": "active",
         "refinery": "active",
         "ground_pumping_station": "not_required",
+        "sand_quarry": "active",
         "pads": "active",
     }
 

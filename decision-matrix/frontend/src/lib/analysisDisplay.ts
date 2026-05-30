@@ -19,6 +19,7 @@ export const ANALYSIS_EXTERNAL_SUBTYPES = [
   'substation',
   'refinery',
   'ground_pumping_station',
+  'sand_quarry',
 ] as const;
 
 export { EXTERNAL_LINEAR_SUBTYPES } from './api';
@@ -36,6 +37,26 @@ export function formatAnalysisKm(km: number | null | undefined): string {
   const n = Number(km);
   if (!Number.isFinite(n)) return '—';
   return Number.isInteger(n) ? String(n) : n.toFixed(1);
+}
+
+function formatKmSlot(km: number | string | null | undefined): string {
+  if (km == null || km === '') return '-';
+  const formatted = formatAnalysisKm(typeof km === 'number' ? km : Number(km));
+  if (formatted === '—') return '-';
+  return `${formatted} км`;
+}
+
+/** Матрица / карточки: «88.9 км / 50 км», при отсутствии значения — «-». */
+export function formatExternalDistanceBlock(
+  item: Pick<AnalysisRow, 'distance_km' | 'limit_km'> | {
+    distance_km?: number | string | null;
+    limit_km?: number | string | null;
+  },
+  extraParts: string[] = []
+): string {
+  const core = `${formatKmSlot(item.distance_km)} / ${formatKmSlot(item.limit_km)}`;
+  const extras = extraParts.filter(Boolean);
+  return extras.length ? `${core} · ${extras.join(' · ')}` : core;
 }
 
 /** POI→external lines only for objects present on the map (FR-10). */

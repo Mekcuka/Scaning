@@ -117,6 +117,41 @@ def test_external_status_construction_when_not_found():
     assert calc_distance_status_external(70, 80, object_found=True) == "within_limit"
 
 
+def test_external_point_cost_only_when_construction_or_exceeds():
+    from app.services.calculations import calc_external_point_cost_thousand
+    from app.services.infrastructure_analysis import _subtype_cost_thousand
+
+    rate = 150_000.0
+    assert calc_external_point_cost_thousand("within_limit", rate=rate) == 0.0
+    assert calc_external_point_cost_thousand("not_required", rate=rate) == 0.0
+    assert calc_external_point_cost_thousand("construction_required", rate=rate) == rate
+    assert calc_external_point_cost_thousand("exceeds_limit", rate=rate) == rate
+    assert (
+        _subtype_cost_thousand(
+            None,
+            subtype="sand_quarry",
+            param_type="external",
+            status="within_limit",
+            distance_km=1.4,
+            rates={"sand_quarry": rate},
+            pads_count=0,
+        )
+        == 0.0
+    )
+    assert (
+        _subtype_cost_thousand(
+            None,
+            subtype="sand_quarry",
+            param_type="external",
+            status="construction_required",
+            distance_km=None,
+            rates={"sand_quarry": rate},
+            pads_count=0,
+        )
+        == rate
+    )
+
+
 def test_overall_status_priority():
     assert calc_overall_status(["within_limit", "exceeds_limit"]) == "exceeds_limit"
     assert (
@@ -169,6 +204,17 @@ def test_gas_processing_distance_status_with_poi_threshold():
     assert (
         calc_distance_status_external(None, 20.0, object_found=False) == "construction_required"
     )
+
+
+def test_sand_quarry_external_analysis_enabled():
+    """Matrix row «Карьер песка» requires sand_quarry in EXTERNAL_POINT_SUBTYPES."""
+    from app.geo.constants import EXTERNAL_POINT_SUBTYPES
+    from app.services.cost_rates import EXTERNAL_POINT_SUBTYPES as CR_EXTERNAL
+
+    assert "sand_quarry" in EXTERNAL_POINT_SUBTYPES
+    assert "sand_quarry" in CR_EXTERNAL
+    st = apply_engineering_rules(EngineeringState())
+    assert st["sand_quarry"] == "active"
 
 
 def test_gas_processing_nearest_from_sample_coords():

@@ -102,6 +102,8 @@ class ProjectResponse(BaseModel):
     status: str
     visibility: str
     poi_count: int = 0
+    owner_user_id: UUID
+    owner_name: str
     created_at: datetime
     updated_at: datetime
 
@@ -131,11 +133,15 @@ class DistanceDefaultsUpdate(BaseModel):
     threshold_gtes_km: float | None = None
     threshold_substation_km: float | None = None
     threshold_refinery_km: float | None = None
+    threshold_ground_pumping_station_km: float | None = None
+    threshold_sand_quarry_km: float | None = None
     max_total_line_autoroad_km: float | None = None
     max_total_line_oil_pipeline_km: float | None = None
     max_total_line_gas_pipeline_km: float | None = None
     max_total_line_water_pipeline_km: float | None = None
     max_total_line_power_line_km: float | None = None
+    max_total_line_methanol_pipeline_km: float | None = None
+    max_total_line_additional_line_km: float | None = None
     km_per_pad_autoroad: float | None = None
     km_per_pad_oil_pipeline: float | None = None
     km_per_pad_gas_pipeline: float | None = None
@@ -148,11 +154,15 @@ class DistanceDefaultsResponse(BaseModel):
     threshold_gtes_km: float
     threshold_substation_km: float
     threshold_refinery_km: float
+    threshold_ground_pumping_station_km: float
+    threshold_sand_quarry_km: float
     max_total_line_autoroad_km: float
     max_total_line_oil_pipeline_km: float
     max_total_line_gas_pipeline_km: float
     max_total_line_water_pipeline_km: float
     max_total_line_power_line_km: float
+    max_total_line_methanol_pipeline_km: float
+    max_total_line_additional_line_km: float
     km_per_pad_autoroad: float
     km_per_pad_oil_pipeline: float
     km_per_pad_gas_pipeline: float

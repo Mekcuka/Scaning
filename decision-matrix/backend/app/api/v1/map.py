@@ -931,7 +931,7 @@ async def import_spark(
 ):
     await _require_infra_write(project_id, user, db)
     content = (await file.read()).decode("utf-8")
-    layer = await _get_or_create_default_layer(project_id, db, source_type="spark_import", name="Импорт Spark")
+    layer = await _get_or_create_default_layer(project_id, db, source_type="spark_import", name="Импорт Искра")
     log = await run_file_import(
         db,
         user_id=user.id,
@@ -956,7 +956,7 @@ async def import_spark_async(
 ):
     await _require_infra_write(project_id, user, db)
     content = (await file.read()).decode("utf-8")
-    layer = await _get_or_create_default_layer(project_id, db, source_type="spark_import", name="Импорт Spark")
+    layer = await _get_or_create_default_layer(project_id, db, source_type="spark_import", name="Импорт Искра")
     log = await create_pending_import_log(
         db,
         user_id=user.id,

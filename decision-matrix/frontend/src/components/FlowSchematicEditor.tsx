@@ -38,6 +38,7 @@ import {
   Eye,
 } from 'lucide-react';
 import type { FlowEditorTool, FlowNodeData, FlowSchematicDto, FluidKind } from '../lib/flowSchematic';
+import { FlowSchematicEditPanel } from './FlowSchematicEditPanel';
 import {
   ADD_NODE_TEMPLATES,
   DEFAULT_SEPARATION_PERCENT,
@@ -685,11 +686,11 @@ function FlowSchematicEditorInner({
               </div>
 
               {!readOnly && (
-                <aside className="flow-schematic-edit-panel" aria-label="Редактирование схемы">
-                  <div className="flow-schematic-edit-panel-head">
-                    <h3 className="flow-schematic-edit-panel-title">Редактирование</h3>
-                  </div>
-
+                <FlowSchematicEditPanel
+                  panelId="editor"
+                  title="Редактирование"
+                  ariaLabel="Редактирование схемы"
+                >
                   <div className="flow-schematic-edit-panel-section">
                     <span className="flow-schematic-edit-panel-label">Инструмент</span>
                     <button
@@ -806,7 +807,7 @@ function FlowSchematicEditorInner({
                     Перетаскивание по полю — перемещение схемы. Shift + перетаскивание — выделение рамкой.
                     Двойной клик — переименование. Delete — удалить выделенное.
                   </p>
-                </aside>
+                </FlowSchematicEditPanel>
               )}
             </div>
           </FlowSchematicActionsContext.Provider>

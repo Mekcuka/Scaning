@@ -543,6 +543,8 @@ export interface Project {
   status: string;
   visibility: string;
   poi_count: number;
+  owner_user_id: string;
+  owner_name: string;
   created_at: string;
   updated_at: string;
 }
@@ -589,11 +591,15 @@ export interface DistanceDefaults {
   threshold_gtes_km: number;
   threshold_substation_km: number;
   threshold_refinery_km: number;
+  threshold_ground_pumping_station_km: number;
+  threshold_sand_quarry_km: number;
   max_total_line_autoroad_km: number;
   max_total_line_oil_pipeline_km: number;
   max_total_line_gas_pipeline_km: number;
   max_total_line_water_pipeline_km: number;
   max_total_line_power_line_km: number;
+  max_total_line_methanol_pipeline_km: number;
+  max_total_line_additional_line_km: number;
   km_per_pad_autoroad: number;
   km_per_pad_oil_pipeline: number;
   km_per_pad_gas_pipeline: number;
@@ -1019,7 +1025,7 @@ export const IMMUTABLE_POINT_SUBTYPES = [
   'additional_facility',
 ] as const;
 
-/** Spark/import only — not in map «Точка» menu or general POST /objects. */
+/** Искра/import only — not in map «Точка» menu or general POST /objects. */
 export const IMPORT_ONLY_POINT_SUBTYPES = [
   'ukg',
   'tsg',

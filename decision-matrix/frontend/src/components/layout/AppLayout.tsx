@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { NavLink, Outlet, useLocation, useNavigate, useOutletContext } from 'react-router-dom';
+import { NavLink, Outlet, useLocation, useNavigate } from 'react-router-dom';
 import {
   LayoutDashboard,
   Map,
@@ -36,14 +36,6 @@ const NAV = [
   { to: '/admin', icon: Shield, label: 'Администрирование', end: true },
 ] as const;
 
-export type DashboardOutletContext = {
-  projectSearch: string;
-};
-
-export function useDashboardOutlet(): DashboardOutletContext {
-  return useOutletContext<DashboardOutletContext>() ?? { projectSearch: '' };
-}
-
 export function AppLayout() {
   const { user, logout } = useAuthStore();
   const { role } = usePermissions();
@@ -51,12 +43,9 @@ export function AppLayout() {
   const { projects, projectId, setProjectId, hasProjects } = useActiveProject();
   const navigate = useNavigate();
   const { pathname } = useLocation();
-  const [projectSearch, setProjectSearch] = useState('');
   const [navOpen, setNavOpen] = useState(false);
 
-  const isDashboard = pathname === '/';
   const isMapPage = pathname === '/map';
-  const isProjectsPage = pathname === '/projects';
 
   useEffect(() => {
     setNavOpen(false);
@@ -155,7 +144,7 @@ export function AppLayout() {
           </button>
           <div className="app-header-toolbar">
             <div className="app-header-actions">
-              {!isDashboard && !isProjectsPage && hasProjects && (
+              {pathname !== '/' && pathname !== '/projects' && hasProjects && (
                 <label className="app-header-project flex items-center gap-2 text-sm min-w-0">
                   <span className="app-header-project-label" style={{ color: 'var(--text-muted)' }}>
                     Проект:
@@ -178,16 +167,6 @@ export function AppLayout() {
                 <span className="btn-logout-label">Выход</span>
               </button>
             </div>
-            {(isDashboard || isProjectsPage) && (
-              <input
-                type="search"
-                className="topbar-search"
-                placeholder="Поиск проектов..."
-                value={projectSearch}
-                onChange={(e) => setProjectSearch(e.target.value)}
-                aria-label="Поиск проектов"
-              />
-            )}
           </div>
         </header>
         <ReadOnlyBanner />
@@ -199,7 +178,7 @@ export function AppLayout() {
           }
           style={{ background: 'var(--bg)' }}
         >
-          <Outlet context={{ projectSearch } satisfies DashboardOutletContext} />
+          <Outlet />
         </main>
       </div>
     </div>

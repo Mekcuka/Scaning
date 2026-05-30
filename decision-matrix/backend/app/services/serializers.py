@@ -2,13 +2,43 @@
 
 from uuid import UUID
 
+from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.geo.constants import LINE_SUBTYPES
 from app.geo.geometry_utils import geometry_to_wkt_str, parse_linestring_wkt
-from app.models import InfrastructureObject, PointOfInterest
-from app.schemas import AnalysisRowResponse, InfraObjectResponse, POIResponse
+from app.models import InfrastructureObject, PointOfInterest, Project, User
+from app.schemas import AnalysisRowResponse, InfraObjectResponse, POIResponse, ProjectResponse
 from app.services.calculations import calc_pads_count, calc_wells_total
+
+
+def _owner_display_name(owner: User | None) -> str:
+    if not owner:
+        return "—"
+    return owner.username or owner.email
+
+
+def project_to_response(project: Project, *, poi_count: int, owner: User | None = None) -> ProjectResponse:
+    return ProjectResponse(
+        id=project.id,
+        name=project.name,
+        description=project.description,
+        status=project.status,
+        visibility=project.visibility,
+        poi_count=poi_count,
+        owner_user_id=project.user_id,
+        owner_name=_owner_display_name(owner),
+        created_at=project.created_at,
+        updated_at=project.updated_at,
+    )
+
+
+async def load_project_owners(db: AsyncSession, projects: list[Project]) -> dict[UUID, User]:
+    owner_ids = {p.user_id for p in projects}
+    if not owner_ids:
+        return {}
+    result = await db.execute(select(User).where(User.id.in_(owner_ids)))
+    return {u.id: u for u in result.scalars().all()}
 
 
 def poi_to_response(poi: PointOfInterest) -> POIResponse:

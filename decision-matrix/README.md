@@ -141,7 +141,7 @@ decision-matrix/
 | Анализ окружения POI (persist + candidates) | ✅ |
 | Карта OpenLayers (рисование, радиусы, линии POI→external) | ✅ |
 | Матрица (таблица + карточки) | ✅ UI |
-| Импорт CSV / GeoJSON / Spark export | ✅ |
+| Импорт CSV / GeoJSON / экспорт Искра | ✅ |
 | Одностраничник (FR-11: CRUD, PDF print, PPTX export) | ✅ |
 
 ## API

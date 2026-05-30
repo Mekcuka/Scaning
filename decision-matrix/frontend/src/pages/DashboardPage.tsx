@@ -1,4 +1,4 @@
-import { useMemo } from 'react';
+import { useMemo, useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { Link } from 'react-router-dom';
 import { FileOutput, Grid3X3, MapPin, Map, Plus } from 'lucide-react';
@@ -10,7 +10,7 @@ import {
   sparklineBars,
 } from '../lib/projectDisplay';
 import { useAuthStore } from '../store';
-import { useDashboardOutlet } from '../components/layout/AppLayout';
+import { ProjectsTableCardHeader } from '../components/ProjectsTableCardHeader';
 
 function displayName(username: string | undefined): string {
   if (!username) return 'Engineer';
@@ -20,7 +20,7 @@ function displayName(username: string | undefined): string {
 
 export function DashboardPage() {
   const user = useAuthStore((s) => s.user);
-  const { projectSearch = '' } = useDashboardOutlet();
+  const [projectSearch, setProjectSearch] = useState('');
   const { data: projects = [] } = useQuery({ queryKey: ['projects'], queryFn: api.projects });
 
   const filtered = useMemo(
@@ -105,13 +105,17 @@ export function DashboardPage() {
         </>
       )}
 
-      <div className="card card--flush">
-        <div className="card-header">
-          <h2>Все проекты</h2>
-          <Link to="/projects" className="btn btn-primary btn-sm">
-            Список
-          </Link>
-        </div>
+      <div className="card card--flush projects-table-card">
+        <ProjectsTableCardHeader
+          title="Все проекты"
+          search={projectSearch}
+          onSearchChange={setProjectSearch}
+          actions={
+            <Link to="/projects" className="btn btn-primary btn-sm">
+              Список
+            </Link>
+          }
+        />
         <div className="table-wrap">
           {filtered.length === 0 ? (
             <p className="p-6 text-sm" style={{ color: 'var(--text-muted)' }}>

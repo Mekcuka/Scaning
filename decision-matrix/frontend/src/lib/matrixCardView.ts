@@ -1,5 +1,6 @@
 import type { AnalysisRow, POI } from './api';
 import type { MatrixCell, MatrixRow, PoiColumnAnalysis } from './matrixData';
+import { formatExternalDistanceBlock } from './analysisDisplay';
 import { engineeringOptionsForKey } from './poiParams';
 
 export interface MatrixCardAlternative {
@@ -102,8 +103,8 @@ function buildCardFooter(
   }
   if (item) {
     const parts: string[] = [];
-    if (item.cost_mln != null) parts.push(`${item.cost_mln} млн ₽`);
-    if (item.distance_km != null) parts.push(`${item.distance_km} км`);
+    if (item.cost_mln != null && Number(item.cost_mln) > 0) parts.push(`${item.cost_mln} млн ₽`);
+    parts.push(formatExternalDistanceBlock(item, []));
     const statusText = STATUS_LABELS[item.status] || item.status;
     if (statusText) parts.push(statusText);
     if (cell.subtext && !parts.includes(cell.subtext)) {

@@ -1,4 +1,4 @@
-"""Tests for Spark project JSON import."""
+"""Tests for Iskra (Искра) project JSON import."""
 
 import json
 

@@ -371,7 +371,7 @@ export function ImportPage() {
               {busy ? 'Импорт…' : 'Перетащите файл или нажмите для выбора'}
             </p>
             <p className="text-xs mt-1" style={{ color: 'var(--text-muted)' }}>
-              CSV, GeoJSON, Spark export (.json), KML/KMZ, ZIP (Shapefile)
+              CSV, GeoJSON, экспорт Искра (.json), KML/KMZ, ZIP (Shapefile)
             </p>
           </div>
           <input

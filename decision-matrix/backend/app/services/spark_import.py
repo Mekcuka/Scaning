@@ -1,4 +1,4 @@
-"""Parse Spark project export JSON for map import."""
+"""Parse Iskra (Искра) project export JSON for map import."""
 
 from __future__ import annotations
 
@@ -50,7 +50,7 @@ def transform_xy(transformer, x: float, y: float) -> tuple[float, float]:
 
 
 def _ring_points(coords: list) -> list[tuple[float, float]]:
-    """Normalize Spark/GeoJSON polygon ring to list of (x, y) in source CRS."""
+    """Normalize Iskra/GeoJSON polygon ring to list of (x, y) in source CRS."""
     if not coords:
         return []
     first = coords[0]
@@ -86,7 +86,7 @@ def _parse_spark_object(
         if spark_type in SPARK_TYPE_TO_SUBTYPE:
             reason = SPARK_SKIP_REASON.get(spark_type, "not mapped for map MVP")
             return None, f"{name} ({spark_type}): skipped — {reason}"
-        return None, f"{name}: unknown Spark type {spark_type!r}"
+        return None, f"{name}: неизвестный тип Искра {spark_type!r}"
 
     props = obj.get("properties") or {}
     geom = props.get("geometry") or {}
@@ -187,7 +187,7 @@ def parse_spark_project(content: str) -> tuple[list[dict], list[str]]:
         return [], [str(e)]
 
     if not is_spark_project_export(data):
-        return [], ["Not a Spark project export (expected type=project and data.objects)"]
+        return [], ["Не экспорт проекта Искра (ожидается type=project и data.objects)"]
 
     project_data = data["data"]
     src_epsg = parse_epsg_from_projection(project_data.get("projection"))

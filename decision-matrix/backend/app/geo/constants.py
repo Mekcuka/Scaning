@@ -45,7 +45,7 @@ NODE_CLUSTER_SUBTYPES = frozenset({"node", "methanol_joint"})
 # ГТЭС / ГПЭС / ВИЭС — смена подтипа только внутри группы (на карте «Точка» → ИЭ, subtype gtes).
 GTES_CLUSTER_SUBTYPES = frozenset({"gtes", "gpes", "vies"})
 
-# Подтипы без пункта «Точка» — импорт Spark или смена у объекта группы ИЭ.
+# Подтипы без пункта «Точка» — импорт Искра или смена у объекта группы ИЭ.
 IE_DERIVED_POINT_SUBTYPES = frozenset({"gpes", "vies"})
 
 # Point subtypes that cannot be reclassified after creation (UI + API).
@@ -58,16 +58,16 @@ IMMUTABLE_POINT_SUBTYPES = frozenset({
     "additional_facility",
 })
 
-# Только импорт Spark; нельзя нарисовать «Точку» и нельзя переклассифицировать другие объекты.
+# Только импорт Искра; нельзя нарисовать «Точку» и нельзя переклассифицировать другие объекты.
 SPARK_EXCLUSIVE_POINT_SUBTYPES = frozenset({"methanol_facility"})
 
-# Нельзя назначить другому объекту (создание карьера — «Точка» или импорт Spark).
+# Нельзя назначить другому объекту (создание карьера — «Точка» или импорт Искра).
 EXCLUSIVE_POINT_SUBTYPES = frozenset({"sand_quarry", "offplot", "additional_facility", *SPARK_EXCLUSIVE_POINT_SUBTYPES})
 
 # НПЗ / НПС — отдельный POST .../facility-objects (subtype обязателен в теле).
 FACILITY_POINT_SUBTYPES = frozenset({"refinery", "oil_pumping_station"})
 
-# Не в меню «Точка»; создаются импортом Spark / facility-objects API.
+# Не в меню «Точка»; создаются импортом Искра / facility-objects API.
 IMPORT_ONLY_POINT_SUBTYPES = frozenset({
     "ukg",
     "tsg",
@@ -76,10 +76,10 @@ IMPORT_ONLY_POINT_SUBTYPES = frozenset({
     "methanol_joint",
 })
 
-# Подтип узла без отдельного пункта «Точка» — импорт Spark или смена у объекта «Узел».
+# Подтип узла без отдельного пункта «Точка» — импорт Искра или смена у объекта «Узел».
 NODE_DERIVED_POINT_SUBTYPES = frozenset({"methanol_joint"})
 
-# Устаревшие коды подтипов → актуальные (Spark/БД до миграции).
+# Устаревшие коды подтипов → актуальные (Искра/БД до миграции).
 LEGACY_SUBTYPE_ALIASES: dict[str, str] = {
     "delivery_acceptance_point": "refinery",
 }
@@ -100,7 +100,14 @@ def subtypes_for_nearest_search(subtype: str) -> frozenset[str]:
 
 # FR-6.1.2 autosearch — only classic external facilities
 EXTERNAL_POINT_SUBTYPES = frozenset(
-    {"gas_processing", "gtes", "substation", "refinery", "ground_pumping_station"}
+    {
+        "gas_processing",
+        "gtes",
+        "substation",
+        "refinery",
+        "ground_pumping_station",
+        "sand_quarry",
+    }
 )
 
 LINEAR_SUBTYPES = LINE_SUBTYPES

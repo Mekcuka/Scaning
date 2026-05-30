@@ -1,18 +1,104 @@
 import { useState, useEffect, useRef } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { RotateCcw, Save } from 'lucide-react';
-import { api } from '../lib/api';
+import { api, type DistanceDefaults } from '../lib/api';
 import { useAppStore } from '../store';
 import { usePermissions } from '../hooks/usePermissions';
 import {
-  COST_RATE_GROUPS,
-  ECONOMIC_PARAM_GROUPS,
+  CAPEX_RATE_GROUPS,
+  DISTANCE_PARAMETER_GROUPS,
+  OPEX_PARAMETER_GROUPS,
+  buildDefaultDistanceDefaults,
   buildDefaultEconomicParams,
   buildDefaultRates,
   effectiveCostRate,
 } from '../lib/specs';
-import { ProjectDistanceDefaultsForm } from '../components/ProjectDistanceDefaultsForm';
+import type { DistanceParameterGroup, ParameterGroup } from '../lib/parameterCatalog';
 import { DeferredNumberInput } from '../components/DeferredNumberInput';
+
+function RatesGroupTable({
+  group,
+  readOnly,
+  getValue,
+  onCommit,
+}: {
+  group: ParameterGroup;
+  readOnly: boolean;
+  getValue: (id: string, fallback: number) => number;
+  onCommit: (id: string, value: number) => void;
+}) {
+  return (
+    <section className="card card--flush rates-group-card">
+      <div className="rates-group-head">
+        <h3>{group.label}</h3>
+        <span className="rates-group-unit">{group.unitLabel}</span>
+      </div>
+      <div className="table-wrap">
+        <table className="rates-table">
+          <tbody>
+            {group.rows.map((row) => (
+              <tr key={row.id}>
+                <th scope="row">{row.label}</th>
+                <td>
+                  <DeferredNumberInput
+                    className="rates-input"
+                    min={0}
+                    groupDigits
+                    readOnly={readOnly}
+                    value={getValue(row.id, row.defaultValue)}
+                    onCommit={(v) => onCommit(row.id, v as number)}
+                  />
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+    </section>
+  );
+}
+
+function DistanceGroupTable({
+  group,
+  readOnly,
+  values,
+  onCommit,
+}: {
+  group: DistanceParameterGroup;
+  readOnly: boolean;
+  values: DistanceDefaults;
+  onCommit: (key: keyof DistanceDefaults, value: number) => void;
+}) {
+  return (
+    <section className="card card--flush rates-group-card">
+      <div className="rates-group-head">
+        <h3>{group.label}</h3>
+        <span className="rates-group-unit">{group.unitLabel}</span>
+      </div>
+      <div className="table-wrap">
+        <table className="rates-table">
+          <tbody>
+            {group.rows.map((row) => (
+              <tr key={row.id}>
+                <th scope="row">{row.label}</th>
+                <td>
+                  <DeferredNumberInput
+                    className="rates-input"
+                    min={0}
+                    groupDigits
+                    readOnly={readOnly}
+                    value={values[row.distanceKey] ?? row.defaultValue}
+                    onCommit={(v) => onCommit(row.distanceKey, v as number)}
+                  />
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+    </section>
+  );
+}
 
 export function RatesPage() {
   const { canWriteProject } = usePermissions();
@@ -20,6 +106,7 @@ export function RatesPage() {
   const qc = useQueryClient();
   const [rates, setRates] = useState<Record<string, number>>(buildDefaultRates());
   const [econParams, setEconParams] = useState<Record<string, number>>(buildDefaultEconomicParams());
+  const [distanceDefaults, setDistanceDefaults] = useState<DistanceDefaults>(buildDefaultDistanceDefaults());
   const pushToast = useAppStore((s) => s.pushToast);
   const backfillRef = useRef(false);
 
@@ -35,6 +122,12 @@ export function RatesPage() {
     enabled: !!projectId,
   });
 
+  const { data: distanceData, isLoading: distanceLoading } = useQuery({
+    queryKey: ['distanceDefaults', projectId],
+    queryFn: () => api.getDistanceDefaults(projectId!),
+    enabled: !!projectId,
+  });
+
   useEffect(() => {
     backfillRef.current = false;
   }, [projectId]);
@@ -43,6 +136,10 @@ export function RatesPage() {
     if (!data?.rates) return;
     setRates(data.rates);
   }, [data]);
+
+  useEffect(() => {
+    if (distanceData) setDistanceDefaults(distanceData);
+  }, [distanceData]);
 
   useEffect(() => {
     if (!projectId || !data?.rates || backfillRef.current || !canWriteProject) return;
@@ -74,24 +171,28 @@ export function RatesPage() {
     mutationFn: async () => {
       await api.updateRates(projectId!, rates);
       await api.updateEconomicParams(projectId!, econParams);
+      await api.updateDistanceDefaults(projectId!, distanceDefaults);
     },
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ['rates', projectId] });
       qc.invalidateQueries({ queryKey: ['economic-params', projectId] });
+      qc.invalidateQueries({ queryKey: ['distanceDefaults', projectId] });
       qc.invalidateQueries({ queryKey: ['economic-flow-schematic', projectId] });
-      pushToast('success', 'Ставки сохранены');
+      pushToast('success', 'Параметры сохранены');
     },
     onError: (err: Error) => {
-      pushToast('error', err.message || 'Не удалось сохранить ставки');
+      pushToast('error', err.message || 'Не удалось сохранить параметры');
     },
   });
 
   const handleReset = () => {
     setRates(buildDefaultRates());
     setEconParams(buildDefaultEconomicParams());
-    if (projectId) {
-      qc.invalidateQueries({ queryKey: ['distanceDefaults', projectId] });
-    }
+    setDistanceDefaults(buildDefaultDistanceDefaults());
+  };
+
+  const setDistanceField = (key: keyof DistanceDefaults, value: number) => {
+    setDistanceDefaults((prev) => ({ ...prev, [key]: value }));
   };
 
   if (!projectId) {
@@ -104,108 +205,86 @@ export function RatesPage() {
     );
   }
 
+  const busy = isLoading || econLoading || distanceLoading;
+
   return (
     <div className="rates-page">
       <header className="parameters-section-head rates-page-top">
         <p className="parameters-section-head__subtitle">
-          CAPEX · экономика потока (OPEX и цены) · расстояния POI
+          Расстояния · CAPEX · OPEX — значения по умолчанию для анализа и экономики потока
         </p>
         <div className="rates-actions">
           {!canWriteProject ? null : (
             <>
-          <button type="button" className="btn btn-secondary btn-sm" onClick={handleReset}>
-            <RotateCcw size={14} className="inline mr-1" />
-            Сброс
-          </button>
-          <button
-            type="button"
-            className="btn btn-primary btn-sm"
-            onClick={() => saveMut.mutate()}
-            disabled={saveMut.isPending || isLoading || econLoading}
-          >
-            <Save size={14} className="inline mr-1" />
-            {saveMut.isPending ? 'Сохранение…' : 'Сохранить ставки'}
-          </button>
+              <button type="button" className="btn btn-secondary btn-sm" onClick={handleReset}>
+                <RotateCcw size={14} className="inline mr-1" />
+                Сброс
+              </button>
+              <button
+                type="button"
+                className="btn btn-primary btn-sm"
+                onClick={() => saveMut.mutate()}
+                disabled={saveMut.isPending || busy}
+              >
+                <Save size={14} className="inline mr-1" />
+                {saveMut.isPending ? 'Сохранение…' : 'Сохранить'}
+              </button>
             </>
           )}
         </div>
       </header>
 
-      <div className="rates-layout">
-        <div className="rates-main">
+      <div className="rates-categories">
+        <section className="rates-category" aria-labelledby="rates-distance-heading">
+          <h2 id="rates-distance-heading" className="rates-section-title">
+            Расстояние
+          </h2>
           <div className="rates-groups-grid">
-            {COST_RATE_GROUPS.map((group) => (
-              <section key={group.id} className="card card--flush rates-group-card">
-                <div className="rates-group-head">
-                  <h2>{group.label}</h2>
-                  <span className="rates-group-unit">{group.unitLabel}</span>
-                </div>
-                <div className="table-wrap">
-                  <table className="rates-table">
-                    <tbody>
-                      {group.rows.map((row) => (
-                        <tr key={row.id}>
-                          <th scope="row">{row.label}</th>
-                          <td>
-                            <DeferredNumberInput
-                              className="rates-input"
-                              min={0}
-                              groupDigits
-                              readOnly={!canWriteProject}
-                              value={effectiveCostRate(rates, row.id, row.defaultValue)}
-                              onCommit={(v) => setRates({ ...rates, [row.id]: v as number })}
-                            />
-                          </td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
-                </div>
-              </section>
+            {DISTANCE_PARAMETER_GROUPS.map((group) => (
+              <DistanceGroupTable
+                key={group.id}
+                group={group}
+                readOnly={!canWriteProject}
+                values={distanceDefaults}
+                onCommit={setDistanceField}
+              />
             ))}
-
-            <div className="rates-economic-section col-span-full">
-              <h2 className="rates-section-title mb-3">Экономика потока</h2>
-              <div className="rates-groups-grid">
-                {ECONOMIC_PARAM_GROUPS.map((group) => (
-                  <section key={group.id} className="card card--flush rates-group-card">
-                    <div className="rates-group-head">
-                      <h3>{group.label}</h3>
-                      <span className="rates-group-unit">{group.unitLabel}</span>
-                    </div>
-                    <div className="table-wrap">
-                      <table className="rates-table">
-                        <tbody>
-                          {group.rows.map((row) => (
-                            <tr key={row.id}>
-                              <th scope="row">{row.label}</th>
-                              <td>
-                                <DeferredNumberInput
-                                  className="rates-input"
-                                  min={0}
-                                  groupDigits
-                                  readOnly={!canWriteProject}
-                                  value={econParams[row.id] ?? row.defaultValue}
-                                  onCommit={(v) =>
-                                    setEconParams({ ...econParams, [row.id]: v as number })
-                                  }
-                                />
-                              </td>
-                            </tr>
-                          ))}
-                        </tbody>
-                      </table>
-                    </div>
-                  </section>
-                ))}
-              </div>
-            </div>
           </div>
-        </div>
+        </section>
 
-        <aside className="rates-aside">
-          <ProjectDistanceDefaultsForm projectId={projectId} compact readOnly={!canWriteProject} />
-        </aside>
+        <section className="rates-category" aria-labelledby="rates-capex-heading">
+          <h2 id="rates-capex-heading" className="rates-section-title">
+            CAPEX
+          </h2>
+          <div className="rates-groups-grid">
+            {CAPEX_RATE_GROUPS.map((group) => (
+              <RatesGroupTable
+                key={group.id}
+                group={group}
+                readOnly={!canWriteProject}
+                getValue={(id, fallback) => effectiveCostRate(rates, id, fallback)}
+                onCommit={(id, value) => setRates({ ...rates, [id]: value })}
+              />
+            ))}
+          </div>
+        </section>
+
+        <section className="rates-category" aria-labelledby="rates-opex-heading">
+          <h2 id="rates-opex-heading" className="rates-section-title">
+            OPEX
+          </h2>
+          <div className="rates-groups-grid">
+            {OPEX_PARAMETER_GROUPS.map((group) => (
+              <RatesGroupTable
+                key={group.id}
+                group={group}
+                readOnly={!canWriteProject}
+                getValue={(id, fallback) => econParams[id] ?? fallback}
+                onCommit={(id, value) => setEconParams({ ...econParams, [id]: value })}
+              />
+            ))}
+          </div>
+        </section>
       </div>
     </div>
   );

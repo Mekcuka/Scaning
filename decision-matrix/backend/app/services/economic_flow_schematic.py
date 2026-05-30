@@ -9,8 +9,9 @@ from uuid import UUID
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.models import PointOfInterest, ProjectCostRates, ProjectEconomicParams
+from app.models import PoiInfrastructureAnalysis, PointOfInterest, ProjectCostRates, ProjectEconomicParams
 from app.services.calculations import (
+    calc_external_point_cost_thousand,
     calc_pads_cost_thousand_rub,
     calc_pads_count,
     thousand_to_million_rub,
@@ -57,6 +58,8 @@ def _node_capex_thousand(
     node: dict[str, Any],
     poi: PointOfInterest,
     cost_rates: dict[str, float],
+    *,
+    external_point_status_by_subtype: dict[str, str] | None = None,
 ) -> tuple[float | None, str | None]:
     kind = node.get("kind", "")
     subtype = (node.get("subtype") or "").lower()
@@ -90,8 +93,12 @@ def _node_capex_thousand(
         return capex, f"{length_km:.1f} км × {rate} тыс. ₽/км"
 
     if kind == "terminal" and subtype in EXTERNAL_POINT_SUBTYPES:
-        val = cost_rates.get(subtype, 0)
-        return val, f"CAPEX: {val:g} тыс. ₽"
+        rate = cost_rates.get(subtype, 0)
+        status = (external_point_status_by_subtype or {}).get(subtype, "construction_required")
+        val = calc_external_point_cost_thousand(status, rate=rate)
+        if val <= 0:
+            return 0.0, "Объект в пределах доступности"
+        return val, f"CAPEX строительства: {val:g} тыс. ₽"
 
     if kind == "utilization" and label == "В пласт" and (poi.water_injection_volume or 0) > 0:
         if poi.eng_injection == "local":
@@ -192,6 +199,8 @@ def build_economic_flow_schematic(
     poi: PointOfInterest,
     cost_rates: dict[str, float],
     econ_params: dict[str, float],
+    *,
+    external_point_status_by_subtype: dict[str, str] | None = None,
 ) -> dict[str, Any]:
     warnings: list[str] = list(tech.get("warnings") or [])
     economic_nodes: list[dict[str, Any]] = []
@@ -204,7 +213,12 @@ def build_economic_flow_schematic(
     gas_price = econ_params.get("gas_price_thousand_rub_per_m3", 0)
 
     for node in tech.get("nodes") or []:
-        capex, capex_formula = _node_capex_thousand(node, poi, cost_rates)
+        capex, capex_formula = _node_capex_thousand(
+            node,
+            poi,
+            cost_rates,
+            external_point_status_by_subtype=external_point_status_by_subtype,
+        )
         opex, opex_formula = _node_opex_thousand_per_year(node, poi, econ_params)
         revenue, revenue_formula = _node_revenue_thousand_per_year(node, poi, econ_params)
 
@@ -283,9 +297,19 @@ async def get_economic_flow_schematic(
     econ_row = await db.scalar(
         select(ProjectEconomicParams).where(ProjectEconomicParams.project_id == project_id)
     )
+    analysis_rows = (
+        await db.execute(
+            select(PoiInfrastructureAnalysis).where(
+                PoiInfrastructureAnalysis.poi_id == poi.id,
+                PoiInfrastructureAnalysis.param_type == "external",
+            )
+        )
+    ).scalars().all()
+    external_status = {r.subtype: r.distance_status for r in analysis_rows}
     return build_economic_flow_schematic(
         tech,
         poi,
         _merged_cost_rates(cost_row),
         _merged_economic_params(econ_row),
+        external_point_status_by_subtype=external_status,
     )

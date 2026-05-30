@@ -339,7 +339,7 @@ export function ObjectDetailPanel({
               )}
               {sparkType && (
                 <p className="object-detail-panel__meta">
-                  Spark: <span className="font-mono">{sparkType}</span>
+                  Искра: <span className="font-mono">{sparkType}</span>
                 </p>
               )}
             </PanelSection>

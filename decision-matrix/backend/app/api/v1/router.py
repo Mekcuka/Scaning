@@ -42,7 +42,7 @@ from app.api.v1.map import map_router
 from app.api.v1.one_pagers import one_pagers_router
 from app.geo.geometry_utils import point_wkt
 from app.services.infrastructure_analysis import run_poi_analysis, run_project_pois_analysis
-from app.services.serializers import poi_to_response
+from app.services.serializers import load_project_owners, poi_to_response, project_to_response
 
 router = APIRouter(dependencies=[Depends(verify_csrf)])
 router.include_router(auth_router)
@@ -57,21 +57,11 @@ router.include_router(connections_router)
 @router.get("/projects", response_model=list[ProjectResponse])
 async def list_projects(user: User = Depends(get_current_user), db: AsyncSession = Depends(get_db)):
     projects = await list_accessible_projects(user, db)
+    owners = await load_project_owners(db, projects)
     out = []
     for p in projects:
         cnt = await db.scalar(select(func.count()).select_from(PointOfInterest).where(PointOfInterest.project_id == p.id))
-        out.append(
-            ProjectResponse(
-                id=p.id,
-                name=p.name,
-                description=p.description,
-                status=p.status,
-                visibility=p.visibility,
-                poi_count=cnt or 0,
-                created_at=p.created_at,
-                updated_at=p.updated_at,
-            )
-        )
+        out.append(project_to_response(p, poi_count=cnt or 0, owner=owners.get(p.user_id)))
     return out
 
 
@@ -89,16 +79,7 @@ async def create_project(
     db.add(ProjectDistanceDefaults(project_id=project.id))
     await db.commit()
     await db.refresh(project)
-    return ProjectResponse(
-        id=project.id,
-        name=project.name,
-        description=project.description,
-        status=project.status,
-        visibility=project.visibility,
-        poi_count=0,
-        created_at=project.created_at,
-        updated_at=project.updated_at,
-    )
+    return project_to_response(project, poi_count=0, owner=user)
 
 
 @router.get("/projects/{project_id}/distance-defaults", response_model=DistanceDefaultsResponse)
@@ -136,16 +117,8 @@ async def get_project(project_id: UUID, user: User = Depends(get_current_user), 
     cnt = await db.scalar(
         select(func.count()).select_from(PointOfInterest).where(PointOfInterest.project_id == project.id)
     )
-    return ProjectResponse(
-        id=project.id,
-        name=project.name,
-        description=project.description,
-        status=project.status,
-        visibility=project.visibility,
-        poi_count=cnt or 0,
-        created_at=project.created_at,
-        updated_at=project.updated_at,
-    )
+    owner = await db.get(User, project.user_id)
+    return project_to_response(project, poi_count=cnt or 0, owner=owner)
 
 
 @router.patch("/projects/{project_id}", response_model=ProjectResponse)
@@ -160,16 +133,8 @@ async def update_project(
     cnt = await db.scalar(
         select(func.count()).select_from(PointOfInterest).where(PointOfInterest.project_id == project.id)
     )
-    return ProjectResponse(
-        id=project.id,
-        name=project.name,
-        description=project.description,
-        status=project.status,
-        visibility=project.visibility,
-        poi_count=cnt or 0,
-        created_at=project.created_at,
-        updated_at=project.updated_at,
-    )
+    owner = await db.get(User, project.user_id)
+    return project_to_response(project, poi_count=cnt or 0, owner=owner)
 
 
 @router.delete("/projects/{project_id}", status_code=204)

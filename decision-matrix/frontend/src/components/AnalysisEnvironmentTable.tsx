@@ -140,8 +140,12 @@ function ExternalObjectsTable({
                     </span>
                   )}
                 </td>
-                <td className="tabular-nums">{formatAnalysisKm(row.distance_km)}</td>
-                <td className="tabular-nums">{formatAnalysisKm(row.limit_km)}</td>
+                <td className="tabular-nums">
+                  {row.distance_km != null ? `${formatAnalysisKm(row.distance_km)} км` : '—'}
+                </td>
+                <td className="tabular-nums">
+                  {row.limit_km != null ? `${formatAnalysisKm(row.limit_km)} км` : '—'}
+                </td>
                 <td>
                   <StatusBadge status={row.status} />
                 </td>

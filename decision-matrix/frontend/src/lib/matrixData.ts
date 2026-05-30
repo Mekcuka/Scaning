@@ -6,6 +6,7 @@ import {
   type AnalysisRow,
   type POI,
 } from './api';
+import { formatExternalDistanceBlock } from './analysisDisplay';
 import type { EngineeringParamKey } from './poiParams';
 
 const INTERNAL_MATRIX_SUBTYPES = new Set<string>([...ANALYSIS_LINE_SUBTYPES, 'pads']);
@@ -79,21 +80,39 @@ function isInternalMatrixItem(item: Record<string, unknown>): boolean {
   return paramType === 'internal' || INTERNAL_MATRIX_SUBTYPES.has(subtype);
 }
 
+function externalDistanceSubtext(item: Record<string, unknown>, extraParts: string[] = []): string {
+  return formatExternalDistanceBlock(
+    {
+      distance_km: item.distance_km as number | string | null | undefined,
+      limit_km: item.limit_km as number | string | null | undefined,
+    },
+    extraParts
+  );
+}
+
+function externalCostSubtext(item: Record<string, unknown>): string {
+  const costMln = item.cost_mln;
+  if (costMln != null && costMln !== '' && Number(costMln) > 0) return `${costMln} млн ₽`;
+  return '';
+}
+
 export function externalLinearMatrixCellParts(item: Record<string, unknown>): {
   text: string;
   subtext?: string;
 } {
   const st = String(item.status || '');
   if (st === 'not_required') return { text: 'Не треб.' };
-  if (st === 'construction_required') return { text: 'Строительство' };
+  const cost = externalCostSubtext(item);
+  const distBlock = externalDistanceSubtext(item, cost ? [cost] : []);
+  if (st === 'construction_required') {
+    return { text: 'Строительство', subtext: distBlock };
+  }
+  const name = item.object_name != null ? String(item.object_name).trim() : '';
+  if (name) return { text: name, subtext: distBlock };
   const costMln = item.cost_mln;
   const text =
     costMln != null && costMln !== '' ? `${costMln} млн ₽` : '0 млн ₽';
-  const dist = item.distance_km;
-  return {
-    text,
-    subtext: dist != null && dist !== '' ? `${dist} км` : undefined,
-  };
+  return { text, subtext: distBlock };
 }
 
 function findAnalysisRow(
@@ -114,20 +133,33 @@ function matrixCellFromAnalysisItem(item: AnalysisRow): MatrixCell {
     const { text, subtext } = externalLinearMatrixCellParts(raw);
     return { text, subtext, status: item.status };
   }
-  return { text: formatExternalMatrixCell(raw), status: item.status };
+  const { text, subtext } = externalPointMatrixCellParts(raw);
+  return { text, subtext, status: item.status };
 }
 
-function formatExternalMatrixCell(item: Record<string, unknown>): string {
-
+export function externalPointMatrixCellParts(item: Record<string, unknown>): {
+  text: string;
+  subtext?: string;
+} {
   const st = String(item.status || '');
-  if (st === 'not_required') return 'Не треб.';
-  if (st === 'construction_required') return 'Строительство';
-  const dist = item.distance_km != null ? `${item.distance_km} км` : '';
-  const cost = item.cost_mln != null ? `${item.cost_mln} млн ₽` : '';
-  if (cost && dist) return `${cost} / ${dist}`;
-  if (cost) return cost;
-  if (dist) return dist;
-  return st || '—';
+  if (st === 'not_required') return { text: 'Не треб.' };
+  const name = item.object_name != null ? String(item.object_name).trim() : '';
+  const cost = externalCostSubtext(item);
+  const distBlock = externalDistanceSubtext(item, cost ? [cost] : []);
+
+  if (st === 'construction_required') {
+    return { text: name || 'Строительство', subtext: distBlock };
+  }
+  if (st === 'within_limit') {
+    if (name) return { text: name, subtext: distBlock };
+    return { text: 'В пределах', subtext: distBlock };
+  }
+  if (st === 'exceeds_limit') {
+    if (name) return { text: name, subtext: distBlock };
+    return { text: distBlock };
+  }
+  if (name) return { text: name, subtext: distBlock };
+  return { text: distBlock };
 }
 
 export interface PoiColumnAnalysis {

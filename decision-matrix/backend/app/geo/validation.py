@@ -34,22 +34,22 @@ def validate_subtype_geometry(
 
 
 def validate_general_infra_create(subtype: str) -> None:
-    """НПС и import-only точки — только через POST /facility-objects или импорт Spark."""
+    """НПС и import-only точки — только через POST /facility-objects или импорт Искра."""
     st = subtype.lower().strip()
     if st in IE_DERIVED_POINT_SUBTYPES:
         label = SUBTYPE_LABELS.get(st, st)
         raise ValueError(
-            f"Подтип «{label}»: создайте объект «ИЭ» на карте или импорт Spark; "
+            f"Подтип «{label}»: создайте объект «ИЭ» на карте или импорт Искра; "
             "уточнение подтипа — в карточке объекта ИЭ."
         )
     if st in IMPORT_ONLY_POINT_SUBTYPES:
         label = SUBTYPE_LABELS.get(st, st)
         if st in NODE_DERIVED_POINT_SUBTYPES:
             raise ValueError(
-                f"Подтип «{label}»: импорт Spark или смена подтипа у объекта «Узел»."
+                f"Подтип «{label}»: импорт Искра или смена подтипа у объекта «Узел»."
             )
         if st in SPARK_EXCLUSIVE_POINT_SUBTYPES:
-            raise ValueError(f"Подтип «{label}» создаётся только импортом Spark.")
+            raise ValueError(f"Подтип «{label}» создаётся только импортом Искра.")
         raise ValueError(
             f"Подтип «{label}»: укажите subtype в теле запроса "
             "POST /projects/{project_id}/infrastructure/facility-objects "
@@ -80,19 +80,19 @@ def validate_subtype_change(current: str, new: str) -> None:
         label = SUBTYPE_LABELS.get(nxt, nxt)
         raise ValueError(
             f"Подтип «{label}» доступен только для объектов «ИЭ» "
-            "(импорт Spark или смена подтипа)."
+            "(импорт Искра или смена подтипа)."
         )
     if nxt in NODE_DERIVED_POINT_SUBTYPES and cur not in NODE_CLUSTER_SUBTYPES:
         label = SUBTYPE_LABELS.get(nxt, nxt)
         raise ValueError(
             f"Подтип «{label}» доступен только для объектов «Узел» "
-            "(импорт Spark или смена подтипа)."
+            "(импорт Искра или смена подтипа)."
         )
     if nxt in EXCLUSIVE_POINT_SUBTYPES and cur != nxt:
         label = SUBTYPE_LABELS.get(nxt, nxt)
         if nxt in SPARK_EXCLUSIVE_POINT_SUBTYPES:
             raise ValueError(
-                f"Подтип «{label}» задаётся только при импорте Spark, "
+                f"Подтип «{label}» задаётся только при импорте Искра, "
                 "смена с другого подтипа недоступна."
             )
         raise ValueError(

@@ -13,6 +13,7 @@ import {
 } from '@xyflow/react';
 import '@xyflow/react/dist/style.css';
 import { LayoutGrid, MousePointer2 } from 'lucide-react';
+import { FlowSchematicEditPanel } from './FlowSchematicEditPanel';
 import type { EconomicFlowSchematicDto, EconomicNodeData } from '../lib/economicFlowSchematic';
 import {
   ECONOMIC_WARNING_LABELS,
@@ -192,11 +193,11 @@ function EconomicFlowSchematicInner({ schematic }: { schematic: EconomicFlowSche
           </ReactFlow>
         </div>
 
-        <aside className="flow-schematic-edit-panel" aria-label="Просмотр экономической схемы">
-          <div className="flow-schematic-edit-panel-head">
-            <h3 className="flow-schematic-edit-panel-title">Схема</h3>
-          </div>
-
+        <FlowSchematicEditPanel
+          panelId="economic"
+          title="Схема"
+          ariaLabel="Просмотр экономической схемы"
+        >
           <div className="flow-schematic-edit-panel-section">
             <span className="flow-schematic-edit-panel-label">Инструмент</span>
             <button type="button" className="btn btn-sm btn-primary w-full justify-start" disabled>
@@ -221,7 +222,7 @@ function EconomicFlowSchematicInner({ schematic }: { schematic: EconomicFlowSche
               Раскладка
             </button>
           </div>
-        </aside>
+        </FlowSchematicEditPanel>
       </div>
     </div>
   );

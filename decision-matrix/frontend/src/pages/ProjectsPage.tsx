@@ -16,10 +16,13 @@ import { InlineTableEdit } from '../components/InlineTableEdit';
 import { ProjectStatusSelect } from '../components/ProjectStatusSelect';
 import { useAppStore } from '../store';
 import { usePermissions } from '../hooks/usePermissions';
-import { useDashboardOutlet } from '../components/layout/AppLayout';
+import { canDeleteProject } from '../lib/permissions';
+import { useAuthStore } from '../store';
+import { ProjectsTableCardHeader } from '../components/ProjectsTableCardHeader';
 
 export function ProjectsPage() {
   const { can, isReadOnly } = usePermissions();
+  const currentUser = useAuthStore((s) => s.user);
   const canWriteProject = can('write_project');
   const [showForm, setShowForm] = useState(false);
   const [name, setName] = useState('');
@@ -28,7 +31,7 @@ export function ProjectsPage() {
   const pushToast = useAppStore((s) => s.pushToast);
   const currentProjectId = useAppStore((s) => s.currentProjectId);
   const setCurrentProjectId = useAppStore((s) => s.setCurrentProjectId);
-  const { projectSearch = '' } = useDashboardOutlet();
+  const [projectSearch, setProjectSearch] = useState('');
 
   const { data: projects = [], isLoading } = useQuery({
     queryKey: ['projects'],
@@ -176,20 +179,24 @@ export function ProjectsPage() {
           )}
 
           <div className="card card--flush projects-table-card">
-            <div className="card-header projects-table-card__header">
-              <h2 className="projects-table-card__title">Таблица проектов</h2>
-              {can('create_project') && (
-              <button
-                type="button"
-                className="btn btn-primary btn-sm"
-                aria-label="Новый проект"
-                onClick={() => setShowForm((v) => !v)}
-              >
-                <Plus size={14} className="inline projects-table-card__btn-icon" />
-                <span className="projects-table-card__btn-label">Новый</span>
-              </button>
-              )}
-            </div>
+            <ProjectsTableCardHeader
+              title="Таблица проектов"
+              search={projectSearch}
+              onSearchChange={setProjectSearch}
+              actions={
+                can('create_project') ? (
+                  <button
+                    type="button"
+                    className="btn btn-primary btn-sm"
+                    aria-label="Новый проект"
+                    onClick={() => setShowForm((v) => !v)}
+                  >
+                    <Plus size={14} className="inline projects-table-card__btn-icon" />
+                    <span className="projects-table-card__btn-label">Новый</span>
+                  </button>
+                ) : null
+              }
+            />
             <div className="table-wrap">
               {filtered.length === 0 ? (
                 <p className="p-6 text-sm" style={{ color: 'var(--text-muted)' }}>
@@ -205,6 +212,7 @@ export function ProjectsPage() {
                       <th className="col-desc">Описание</th>
                       <th className="col-center col-poi">POI</th>
                       <th className="col-center col-status">Статус</th>
+                      <th className="col-owner">Создал</th>
                       <th className="col-center col-date">Дата</th>
                       <th className="col-center col-cost">Стоимость</th>
                       <th className="col-actions" aria-label="Действия" />
@@ -265,6 +273,13 @@ export function ProjectsPage() {
                           />
                         </td>
                         <td
+                          className="col-owner cell-ellipsis"
+                          title={p.owner_name || undefined}
+                          style={{ color: 'var(--text-muted)' }}
+                        >
+                          {p.owner_name?.trim() || '—'}
+                        </td>
+                        <td
                           className="tabular col-center col-date"
                           style={{ color: 'var(--text-muted)' }}
                         >
@@ -285,7 +300,7 @@ export function ProjectsPage() {
                             >
                               Открыть
                             </Link>
-                            {canWriteProject && (
+                            {canDeleteProject(currentUser?.role, currentUser?.id, p) && (
                             <button
                               type="button"
                               className="btn btn-secondary btn-sm p-2"

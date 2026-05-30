@@ -24,6 +24,14 @@ def patch_sqlite_schema(conn: Connection) -> None:
         _add_column_if_missing(conn, table, "max_total_line_gas_pipeline_km", "max_total_line_gas_pipeline_km FLOAT")
         _add_column_if_missing(conn, table, "km_per_pad_gas_pipeline", "km_per_pad_gas_pipeline FLOAT")
 
+    for col, ddl in (
+        ("threshold_ground_pumping_station_km", "threshold_ground_pumping_station_km FLOAT NOT NULL DEFAULT 50"),
+        ("threshold_sand_quarry_km", "threshold_sand_quarry_km FLOAT NOT NULL DEFAULT 50"),
+        ("max_total_line_methanol_pipeline_km", "max_total_line_methanol_pipeline_km FLOAT NOT NULL DEFAULT 40"),
+        ("max_total_line_additional_line_km", "max_total_line_additional_line_km FLOAT NOT NULL DEFAULT 50"),
+    ):
+        _add_column_if_missing(conn, "project_distance_defaults", col, ddl)
+
     _add_column_if_missing(
         conn,
         "poi_infrastructure_analysis",
@@ -168,6 +176,14 @@ def patch_postgres_schema(conn: Connection) -> None:
             "km_per_pad_gas_pipeline",
             "km_per_pad_gas_pipeline DOUBLE PRECISION",
         )
+
+    for col, ddl in (
+        ("threshold_ground_pumping_station_km", "threshold_ground_pumping_station_km DOUBLE PRECISION NOT NULL DEFAULT 50"),
+        ("threshold_sand_quarry_km", "threshold_sand_quarry_km DOUBLE PRECISION NOT NULL DEFAULT 50"),
+        ("max_total_line_methanol_pipeline_km", "max_total_line_methanol_pipeline_km DOUBLE PRECISION NOT NULL DEFAULT 40"),
+        ("max_total_line_additional_line_km", "max_total_line_additional_line_km DOUBLE PRECISION NOT NULL DEFAULT 50"),
+    ):
+        _add_column_if_missing(conn, "project_distance_defaults", col, ddl)
 
     _add_column_if_missing(
         conn,

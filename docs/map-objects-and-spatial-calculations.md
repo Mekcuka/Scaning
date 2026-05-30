@@ -45,7 +45,7 @@
 
 ### 1.4 Справочник: точечные и линейные подтипы
 
-**Правило:** один `subtype` = один тип геометрии. Смешанные типы для одного подтипа запрещены (`chk_io_geometry_by_subtype` в [database-schema.md](./database-schema.md)). **Polygon / MultiPolygon** для площадных объектов в MVP **не допускаются** — только маркер `POINT` (при импорте Spark полигон сводится к центроиду).
+**Правило:** один `subtype` = один тип геометрии. Смешанные типы для одного подтипа запрещены (`chk_io_geometry_by_subtype` в [database-schema.md](./database-schema.md)). **Polygon / MultiPolygon** для площадных объектов в MVP **не допускаются** — только маркер `POINT` (при импорте Искра полигон сводится к центроиду).
 
 #### 1.5 Зависимость подтипа от вида объекта на карте
 
@@ -55,41 +55,41 @@
 |-----------|-------------|--------------|-----------|------------|------------|---------------------|----------------|-------------|-----------|
 | — | Точка интереса | **POI** | `POINT` | — | «POI» | — | — | все параметры POI | — |
 | `gas_processing` | ГКС | **Точка** | `POINT` | `area_facility` | «Точка» | — | да | external | 80 км |
-| `ukg` | УКГ | **Точка** | `POINT` | `area_facility` | импорт Spark | — | нет | — | — |
-| `tsg` | ТСГ | **Точка** | `POINT` | `area_facility` | импорт Spark | — | нет | — | — |
-| `gtes` | ГТЭС | **Точка** | `POINT` | `area_facility` | «Точка» / импорт Spark | — | да (с `gpes`, `vies`) | external | 60 км |
-| `gpes` | ГПЭС | **Точка** | `POINT` | `area_facility` | «Точка» / импорт Spark | — | да (с `gtes`, `vies`) | external | 60 км |
+| `ukg` | УКГ | **Точка** | `POINT` | `area_facility` | импорт Искра | — | нет | — | — |
+| `tsg` | ТСГ | **Точка** | `POINT` | `area_facility` | импорт Искра | — | нет | — | — |
+| `gtes` | ГТЭС | **Точка** | `POINT` | `area_facility` | «Точка» / импорт Искра | — | да (с `gpes`, `vies`) | external | 60 км |
+| `gpes` | ГПЭС | **Точка** | `POINT` | `area_facility` | «Точка» / импорт Искра | — | да (с `gtes`, `vies`) | external | 60 км |
 | `vies` | ВИЭС | **Точка** | `POINT` | `area_facility` | «Точка» | — | да (с `gtes`, `gpes`) | external | 60 км |
 | `substation` | ПС/ТП | **Точка** | `POINT` | `electricity` | «Точка» | — | да | external | 25 км |
-| `refinery` | НПЗ | **Точка** | `POINT` | `area_facility` | «Точка» / импорт Spark (`DeliveryAcceptancePoint`, `CentralProcessingFacility`) | — | да | external | 100 км |
+| `refinery` | НПЗ | **Точка** | `POINT` | `area_facility` | «Точка» / импорт Искра (`DeliveryAcceptancePoint`, `CentralProcessingFacility`) | — | да | external | 100 км |
 | `node` | Узел | **Точка** | `POINT` | `network` | «Точка» / авто при рисовании линии | — | да (с `methanol_joint`) | — | — |
 | `pad` | Куст | **Точка** | `POINT` | `pad` | «Точка» | — | нет | — | — |
 | `preliminary_water_discharge_station` | УПСВ | **Точка** | `POINT` | `area_facility` | «Точка» | — | нет | — | — |
 | `booster_pumping_station` | ДНС | **Точка** | `POINT` | `area_facility` | «Точка» | — | нет | — | — |
-| `oil_pumping_station` | НПС | **Точка** | `POINT` | `area_facility` | импорт Spark | — | нет | — | — |
+| `oil_pumping_station` | НПС | **Точка** | `POINT` | `area_facility` | импорт Искра | — | нет | — | — |
 | `ground_pumping_station` | БКНС | **Точка** | `POINT` | `area_facility` | «Точка» | — | нет | — | — |
-| `sand_quarry` | Карьер песка | **Точка** | `POINT` | `area_facility` | «Точка» / импорт Spark | — | нет (только этот подтип) | — | — |
-| `methanol_facility` | Объект метанола | **Точка** | `POINT` | `area_facility` | импорт Spark | — | нет | — | — |
-| `methanol_joint` | Узел метанола | **Точка** | `POINT` | `network` | импорт Spark / смена у «Узел» | — | да (с `node`) | — | — |
-| `offplot` | ВО | **Точка** | `POINT` | `area_facility` | «Точка» / импорт Spark | — | нет | — | — |
-| `additional_facility` | Доп. объект | **Точка** | `POINT` | `area_facility` | «Точка» / импорт Spark | — | нет | — | — |
+| `sand_quarry` | Карьер песка | **Точка** | `POINT` | `area_facility` | «Точка» / импорт Искра | — | нет (только этот подтип) | — | — |
+| `methanol_facility` | Объект метанола | **Точка** | `POINT` | `area_facility` | импорт Искра | — | нет | — | — |
+| `methanol_joint` | Узел метанола | **Точка** | `POINT` | `network` | импорт Искра / смена у «Узел» | — | да (с `node`) | — | — |
+| `offplot` | ВО | **Точка** | `POINT` | `area_facility` | «Точка» / импорт Искра | — | нет | — | — |
+| `additional_facility` | Доп. объект | **Точка** | `POINT` | `area_facility` | «Точка» / импорт Искра | — | нет | — | — |
 | `autoroad` | Автодорога | **Линия** | `LINESTRING` | `road` | «Линия» | любая **Точка** | нет | internal (4 типа) | — |
 | `oil_pipeline` | Нефтепровод | **Линия** | `LINESTRING` | `pipeline` | «Линия» | любая **Точка** | нет | internal | — |
 | `gas_pipeline` | Газопровод | **Линия** | `LINESTRING` | `pipeline` | «Линия» | любая **Точка** | нет | — | — |
 | `water_pipeline` | Водопровод | **Линия** | `LINESTRING` | `pipeline` | «Линия» | любая **Точка** | нет | internal | — |
 | `power_line` | ЛЭП | **Линия** | `LINESTRING` | `electricity` | «Линия» | любая **Точка** | нет | internal | — |
 | `methanol_pipeline` | Метанолопровод | **Линия** | `LINESTRING` | `pipeline` | «Линия» | любая **Точка** | нет | — | — |
-| `additional_line` | Доп. линия | **Линия** | `LINESTRING` | `other` | «Линия» / импорт Spark | любая **Точка** | нет | external_linear | — |
+| `additional_line` | Доп. линия | **Линия** | `LINESTRING` | `other` | «Линия» / импорт Искра | любая **Точка** | нет | external_linear | — |
 | `pads` | Кустовые площадки | **не на карте** | — | `pad` | расчёт POI | — | нет | internal | — |
 
 **Пояснения:**
 
-- **Вид «Точка» / «Линия»** — пункты меню на панели карты. В меню «Точка» нет **УКГ**, **ТСГ**, **НПС**, **объекта метанола**, отдельного пункта **узел метанола** (подтип `methanol_joint` — импорт Spark или смена у **Узел**). В меню есть **Узел** (`node`). **ГКС** и **НПЗ** (`refinery`) — в меню «Точка». Spark **ПСП** (`DeliveryAcceptancePoint`) импортируется как **НПЗ** (`refinery`).
+- **Вид «Точка» / «Линия»** — пункты меню на панели карты. В меню «Точка» нет **УКГ**, **ТСГ**, **НПС**, **объекта метанола**, отдельного пункта **узел метанола** (подтип `methanol_joint` — импорт Искра или смена у **Узел**). В меню есть **Узел** (`node`). **ГКС** и **НПЗ** (`refinery`) — в меню «Точка». Искра **ПСП** (`DeliveryAcceptancePoint`) импортируется как **НПЗ** (`refinery`).
 - **API площадных объектов НПЗ / НПС:** `POST /projects/{project_id}/infrastructure/facility-objects` — в теле **обязательно** `subtype`: `refinery` | `oil_pumping_station` (схема `FacilityInfraObjectCreate`). Общий `POST .../objects` для НПС вернёт 400 с подсказкой использовать этот endpoint.
 - **Карточка объекта** (`ObjectDetailPanel`, поле «Подтип»): линейные ↔ только линейные; точечные ↔ точечные. **Группа ГКС:** `gas_processing` / `ukg` / `tsg` → только **ГКС, УКГ, ТСГ**. **Группа ГТЭС:** `gtes` / `gpes` / `vies` → только **ГТЭС, ГПЭС, ВИЭС** (анализ POI по-прежнему одна строка «ГТЭС», ближайший — любой из трёх). **Группа узлов:** `node` / `methanol_joint` → **Узел**, **Узел метанола**. **Эксклюзивные** (не в списке у других): карьер песка, объект метанола, **ВО** (`offplot`), **доп. объект** (`additional_facility`). **Фиксированные:** `sand_quarry`, `ground_pumping_station`, НПС, объект метанола, **ВО**, **доп. объект**.
 - **Концы линии:** в пределах **0,3 км** от ближайшего точечного объекта любого подтипа; иначе при рисовании создаётся `node` (`line_endpoint_rules.ts`, `lineEndpointRules.ts`).
 - **Анализ (км):** `autoroad`, `oil_pipeline`, `water_pipeline`, `power_line` — нормы км/КП; внешние Point — поиск в окружении; `gas_pipeline` / метанол / насосные станции / доп. линии в матрице анализа MVP не задействованы как internal.
-- **Импорт Spark:** полигоны площадных типов → `POINT` (центроид); см. [spark-import-mapping.md](./spark-import-mapping.md).
+- **Импорт Искра:** полигоны площадных типов → `POINT` (центроид); см. [spark-import-mapping.md](./spark-import-mapping.md).
 
 ```mermaid
 flowchart TB

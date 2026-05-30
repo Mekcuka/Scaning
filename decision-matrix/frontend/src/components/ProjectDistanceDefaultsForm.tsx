@@ -4,13 +4,13 @@ import { Save } from 'lucide-react';
 import { api, type DistanceDefaults } from '../lib/api';
 import { useAppStore } from '../store';
 import { usePermissions } from '../hooks/usePermissions';
-import { KM_PER_PAD_FIELDS, MAX_TOTAL_LINE_FIELDS, THRESHOLD_FIELDS } from '../lib/poiParams';
+import { DISTANCE_PARAMETER_GROUPS } from '../lib/parameterCatalog';
 import { DeferredNumberInput } from './DeferredNumberInput';
 
 interface ProjectDistanceDefaultsFormProps {
   projectId: string;
   readOnly?: boolean;
-  /** Одна карточка, плотная сетка (страница ставок). */
+  /** Одна карточка, плотная сетка (страница параметров POI). */
   compact?: boolean;
 }
 
@@ -59,37 +59,33 @@ export function ProjectDistanceDefaultsForm({
     setValues((v) => (v ? { ...v, [key]: typeof raw === 'number' ? raw : parseFloat(String(raw)) || 0 } : v));
   };
 
-  const renderFields = (
-    title: string,
-    hint: string,
-    fields: { key: string; label: string; defaultKey: keyof DistanceDefaults }[],
-    suffix?: string,
-  ) => (
-    <div className={compact ? 'rates-distance-block' : 'card mb-4'}>
-      <h3 className={compact ? 'rates-distance-title' : 'font-semibold mb-3'}>{title}</h3>
-      {!compact && (
-        <p className="text-xs mb-3" style={{ color: 'var(--text-muted)' }}>
-          {hint}
-        </p>
-      )}
-      <div className={compact ? 'rates-distance-grid' : 'grid grid-cols-1 md:grid-cols-2 gap-4'}>
-        {fields.map((f) => (
-          <label key={f.key} className={compact ? 'rates-field' : 'form-group mb-0'}>
-            <span className={compact ? 'rates-field-label' : undefined}>
-              {f.label}
-              {suffix ? `, ${suffix}` : ''}
+  const body = (
+    <>
+      {DISTANCE_PARAMETER_GROUPS.map((group) => (
+        <div key={group.id} className={compact ? 'rates-distance-block' : 'card mb-4'}>
+          <h3 className={compact ? 'rates-distance-title' : 'font-semibold mb-3'}>
+            {group.label}
+            <span className="text-xs font-normal ml-2" style={{ color: 'var(--text-muted)' }}>
+              ({group.unitLabel})
             </span>
-            <DeferredNumberInput
-              readOnly={effectiveReadOnly}
-              className={compact ? 'rates-input' : undefined}
-              value={values[f.defaultKey]}
-              min={0}
-              onCommit={(v) => setField(f.defaultKey, v)}
-            />
-          </label>
-        ))}
-      </div>
-    </div>
+          </h3>
+          <div className={compact ? 'rates-distance-grid' : 'grid grid-cols-1 md:grid-cols-2 gap-4'}>
+            {group.rows.map((row) => (
+              <label key={row.id} className={compact ? 'rates-field' : 'form-group mb-0'}>
+                <span className={compact ? 'rates-field-label' : undefined}>{row.label}</span>
+                <DeferredNumberInput
+                  readOnly={effectiveReadOnly}
+                  className={compact ? 'rates-input' : undefined}
+                  value={values[row.distanceKey]}
+                  min={0}
+                  onCommit={(v) => setField(row.distanceKey, v)}
+                />
+              </label>
+            ))}
+          </div>
+        </div>
+      ))}
+    </>
   );
 
   if (compact) {
@@ -97,17 +93,13 @@ export function ProjectDistanceDefaultsForm({
       <div className="card card--flush rates-distance-card">
         <div className="card-header">
           <div>
-            <h2 className="!text-sm">Расстояния проекта</h2>
+            <h2 className="!text-sm">Расстояние</h2>
             <p className="text-xs mt-0.5 mb-0" style={{ color: 'var(--text-muted)' }}>
-              FR-4.1.2, FR-4.1.5 · дефолты для POI
+              Дефолты проекта для POI и анализа
             </p>
           </div>
         </div>
-        <div className="rates-distance-body">
-          {renderFields('Пороги, км', '§1.3', THRESHOLD_FIELDS)}
-          {renderFields('Нормы, км/КП', '§1.4', KM_PER_PAD_FIELDS)}
-          {renderFields('Макс. internal, км', '§1.5', MAX_TOTAL_LINE_FIELDS)}
-        </div>
+        <div className="rates-distance-body">{body}</div>
         {!effectiveReadOnly && (
           <div className="rates-distance-footer">
             <button
@@ -127,10 +119,7 @@ export function ProjectDistanceDefaultsForm({
 
   return (
     <div>
-      {renderFields('Пороги до внешних объектов (4)', 'Значения по умолчанию для новых POI (§1.3, FR-4.1.5)', THRESHOLD_FIELDS)}
-      {renderFields('Нормы линейной инфраструктуры (км/КП)', '§1.4 — копируются в POI при создании', KM_PER_PAD_FIELDS, 'км/КП')}
-      {renderFields('Макс. суммарная длина internal (км)', '§1.5 — лимиты для internal linear (FR-4.2.13)', MAX_TOTAL_LINE_FIELDS, 'км')}
-
+      {body}
       {!effectiveReadOnly && (
         <button
           type="button"

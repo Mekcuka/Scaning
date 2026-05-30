@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-Convert Spark project export JSON to GeoJSON FeatureCollection (WGS84).
+Convert Iskra (Искра) project export JSON to GeoJSON FeatureCollection (WGS84).
 
 Usage:
   python scripts/spark_export_to_geojson.py path/to/export.json [-o out.geojson]
@@ -45,8 +45,8 @@ def rows_to_feature_collection(rows: list[dict]) -> dict:
 
 
 def main() -> int:
-    parser = argparse.ArgumentParser(description="Spark export → GeoJSON")
-    parser.add_argument("input", type=Path, help="Spark export.json")
+    parser = argparse.ArgumentParser(description="Экспорт Искра → GeoJSON")
+    parser.add_argument("input", type=Path, help="Экспорт Искра (.json)")
     parser.add_argument("-o", "--output", type=Path, help="Output .geojson (default: stdout)")
     args = parser.parse_args()
 

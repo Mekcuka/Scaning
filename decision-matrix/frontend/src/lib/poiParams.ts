@@ -1,6 +1,7 @@
 import type { DistanceDefaults, POI } from './api';
 import { ANALYSIS_LINE_SUBTYPES, SUBTYPE_LABELS } from './api';
 import { formatCoord, parseCoord } from './coords';
+import { EXTERNAL_POINT_THRESHOLD_ROWS } from './parameterCatalog';
 
 export type PoiFormValues = {
   name: string;
@@ -117,12 +118,16 @@ export function engineeringOptionsForKey(
   return group ? group.options.map((o) => ({ ...o })) : [];
 }
 
-export const THRESHOLD_FIELDS = [
-  { key: 'threshold_gas_processing_km' as const, label: 'ГКС, км', defaultKey: 'threshold_gas_processing_km' as const },
-  { key: 'threshold_gtes_km' as const, label: 'ИЭ, км', defaultKey: 'threshold_gtes_km' as const },
-  { key: 'threshold_substation_km' as const, label: 'ПС, км', defaultKey: 'threshold_substation_km' as const },
-  { key: 'threshold_refinery_km' as const, label: 'НПЗ, км', defaultKey: 'threshold_refinery_km' as const },
-];
+/** POI overrides for the four classic external thresholds (§1.3). */
+export const THRESHOLD_FIELDS = EXTERNAL_POINT_THRESHOLD_ROWS.filter((r) =>
+  ['threshold_gas_processing_km', 'threshold_gtes_km', 'threshold_substation_km', 'threshold_refinery_km'].includes(
+    r.distanceKey
+  )
+).map((r) => ({
+  key: r.distanceKey as keyof PoiFormValues,
+  label: `${r.label}, км`,
+  defaultKey: r.distanceKey,
+}));
 
 export const KM_PER_PAD_FIELDS = ANALYSIS_LINE_SUBTYPES.map((subtype) => ({
   key: `km_per_pad_${subtype}` as keyof PoiFormValues,

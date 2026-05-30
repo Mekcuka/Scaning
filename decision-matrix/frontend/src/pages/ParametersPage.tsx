@@ -177,7 +177,7 @@ export function ParametersPage() {
 
         {capacityObjects.length === 0 && !isLoading ? (
           <p className="parameters-empty" style={{ color: 'var(--text-muted)' }}>
-            Нет объектов с полем пропускной способности. Импортируйте данные Spark или добавьте объекты на{' '}
+            Нет объектов с полем пропускной способности. Импортируйте данные Искра или добавьте объекты на{' '}
             <Link to="/map">карте</Link>.
           </p>
         ) : (

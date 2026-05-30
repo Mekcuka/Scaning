@@ -1,4 +1,4 @@
-"""Spark object type → decision-matrix infrastructure subtype."""
+"""Iskra (Искра) object type → decision-matrix infrastructure subtype."""
 
 from __future__ import annotations
 
@@ -51,7 +51,7 @@ SPARK_TYPE_TO_SUBTYPE: dict[str, str | None] = {
     "GroundPumpingStation": "ground_pumping_station",
     "Sandpit": "sand_quarry",
     "MethanolFacility": "methanol_facility",
-    # Spark extras
+    # Iskra extras
     "AdditionalFacility": "additional_facility",
     "Offplot": "offplot",
 }

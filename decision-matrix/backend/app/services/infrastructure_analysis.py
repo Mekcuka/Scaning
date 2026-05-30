@@ -23,6 +23,7 @@ from app.services.calculations import (
     apply_engineering_rules,
     calc_distance_status_external,
     calc_engineering_equipment_cost,
+    calc_external_point_cost_thousand,
     calc_internal_line_distance_km,
     calc_linear_cost_thousand_rub,
     calc_overall_status,
@@ -79,20 +80,23 @@ def get_distance_maps(
         "power_line": poi.max_total_line_power_line_km or (defaults.max_total_line_power_line_km if defaults else 30),
     }
     # External-only linear subtypes (no POI km-per-pad fields) — search threshold for nearest line.
-    _external_linear_default_km = {
-        "methanol_pipeline": 40.0,
-        "additional_line": 50.0,
+    _external_linear_limit_km = {
+        "methanol_pipeline": defaults.max_total_line_methanol_pipeline_km if defaults else 40.0,
+        "additional_line": defaults.max_total_line_additional_line_km if defaults else 50.0,
     }
     for subtype in EXTERNAL_LINEAR_SUBTYPES:
         if subtype not in max_line_map:
-            max_line_map[subtype] = _external_linear_default_km.get(subtype, 40.0)
+            max_line_map[subtype] = _external_linear_limit_km.get(subtype, 40.0)
     threshold_map = {
         "gas_processing": poi.threshold_gas_processing_km
         or (defaults.threshold_gas_processing_km if defaults else 80),
         "gtes": poi.threshold_gtes_km or (defaults.threshold_gtes_km if defaults else 60),
         "substation": poi.threshold_substation_km or (defaults.threshold_substation_km if defaults else 25),
         "refinery": poi.threshold_refinery_km or (defaults.threshold_refinery_km if defaults else 100),
-        "ground_pumping_station": 50.0,
+        "ground_pumping_station": (
+            defaults.threshold_ground_pumping_station_km if defaults else 50.0
+        ),
+        "sand_quarry": defaults.threshold_sand_quarry_km if defaults else 50.0,
     }
     return km_per_pad_map, max_line_map, threshold_map
 
@@ -114,6 +118,8 @@ def _subtype_cost_thousand(
     if param_type in ("internal", "external_linear"):
         dist = distance_km or 0.0
         return calc_linear_cost_thousand_rub(dist, rates.get(subtype, 0))
+    if param_type == "external":
+        return calc_external_point_cost_thousand(status, rate=rates.get(subtype, 0))
     return rates.get(subtype, 0) if status != "not_required" else 0.0
 
 
@@ -154,24 +160,21 @@ def build_analysis_summary(
         st = str(item.get("status", ""))
         if st not in ("not_required", "computed"):
             statuses_for_overall.append(st)
-        cost_mln = item.get("cost_mln")
-        if cost_mln is None:
-            param_type = str(item.get("param_type", ""))
-            dist = item.get("distance_km")
-            subtype = str(item.get("subtype", ""))
-            cost_th = _subtype_cost_thousand(
-                None,
-                subtype=subtype,
-                param_type=param_type,
-                status=st,
-                distance_km=float(dist) if dist is not None else None,
-                rates=rates,
-                pads_count=pads,
-            )
-            cost_mln = thousand_to_million_rub(cost_th)
-            item["cost_mln"] = cost_mln
+        param_type = str(item.get("param_type", ""))
+        dist = item.get("distance_km")
+        subtype = str(item.get("subtype", ""))
+        cost_th = _subtype_cost_thousand(
+            None,
+            subtype=subtype,
+            param_type=param_type,
+            status=st,
+            distance_km=float(dist) if dist is not None else None,
+            rates=rates,
+            pads_count=pads,
+        )
+        item["cost_mln"] = thousand_to_million_rub(cost_th)
         if st != "not_required":
-            total_thousand += float(cost_mln or 0) * 1000
+            total_thousand += cost_th
         rows.append(item)
 
     rows.append(build_pads_analysis_item(poi, pads, rates))
@@ -337,15 +340,14 @@ async def _external_item_from_manual_row(
     rates: dict[str, float],
 ) -> tuple[PoiInfrastructureAnalysis, dict[str, Any]]:
     """Re-apply a manually overridden row on re-analyze (FR-6.3)."""
-    st = old.distance_status
     force_construction = getattr(old, "force_construction", False)
-    if force_construction and st != "not_required":
-        st = calc_distance_status_external(
-            old.distance_km,
-            limit,
-            object_found=old.distance_km is not None,
-            force_construction=True,
-        )
+    object_found = old.nearest_object_id is not None or old.distance_km is not None
+    st = calc_distance_status_external(
+        old.distance_km,
+        limit,
+        object_found=object_found,
+        force_construction=force_construction,
+    )
     name = None
     anchor_lon = anchor_lat = None
     if old.nearest_object_id:
@@ -374,7 +376,7 @@ async def _external_item_from_manual_row(
         force_construction=force_construction,
         overridden_object_id=old.overridden_object_id,
     )
-    cost = rates.get(old.subtype, 0)
+    cost = calc_external_point_cost_thousand(st, rate=rates.get(old.subtype, 0))
     item: dict[str, Any] = {
         "subtype": old.subtype,
         "param_type": "external",
@@ -642,8 +644,8 @@ async def run_poi_analysis(
         )
         if nearest:
             dist = round(nearest.distance_km, 2)
-            cost = rates.get(subtype, 0)
             st = calc_distance_status_external(dist, limit, object_found=True)
+            cost = calc_external_point_cost_thousand(st, rate=rates.get(subtype, 0))
             statuses_for_overall.append(st)
             rows_to_save.append(
                 PoiInfrastructureAnalysis(
@@ -677,8 +679,8 @@ async def run_poi_analysis(
                 }
             )
         else:
-            cost = rates.get(subtype, 0)
             st = "construction_required"
+            cost = calc_external_point_cost_thousand(st, rate=rates.get(subtype, 0))
             statuses_for_overall.append(st)
             rows_to_save.append(
                 PoiInfrastructureAnalysis(

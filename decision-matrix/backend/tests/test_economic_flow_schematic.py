@@ -172,5 +172,6 @@ def test_bkns_terminal_capex():
     node = result["nodes"][0]
     assert node["capex_thousand_rub"] == 400000.0
     assert node["opex_thousand_rub_per_year"] == 7000.0
-    assert node["formula_label"] == "CAPEX: 400000 тыс. ₽; OPEX: 7000 тыс. ₽/год"
+    assert "CAPEX строительства: 400000" in (node["formula_label"] or "")
+    assert "OPEX: 7000" in (node["formula_label"] or "")
     assert "no_bkns_capex_rate" not in result["warnings"]

@@ -31,6 +31,17 @@ export function can(role: string | undefined | null, action: PermissionAction): 
   return ROLE_PERMISSIONS[r].has(action);
 }
 
+/** Delete project: creator or administrator only (matches backend AccessLevel.owner). */
+export function canDeleteProject(
+  role: string | undefined | null,
+  userId: string | undefined | null,
+  project: { owner_user_id: string },
+): boolean {
+  if (normalizeRole(role) === 'admin') return true;
+  if (!userId) return false;
+  return project.owner_user_id === userId;
+}
+
 export const NAV_VISIBILITY: Record<string, UserRole[]> = {
   '/': ['admin', 'analyst', 'data_manager', 'viewer'],
   '/projects': ['admin', 'analyst', 'viewer'],

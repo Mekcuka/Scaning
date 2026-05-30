@@ -19,6 +19,11 @@ DEFAULT_ECONOMIC_PARAMS: dict[str, float] = {
     "opex_vies": 14000.0,
     "opex_substation": 8000.0,
     "opex_ground_pumping_station": 7000.0,
+    "opex_sand_quarry": 5000.0,
+    "opex_offplot": 4500.0,
+    "opex_additional_facility": 5000.0,
+    "opex_methanol_pipeline_per_km": 80.0,
+    "opex_additional_line_per_km": 70.0,
 }
 
 OPEX_TERMINAL_KEYS = {
@@ -30,6 +35,9 @@ OPEX_TERMINAL_KEYS = {
     "substation": "opex_substation",
     "ground_pumping_station": "opex_ground_pumping_station",
     "oil_pumping_station": "opex_refinery",
+    "sand_quarry": "opex_sand_quarry",
+    "offplot": "opex_offplot",
+    "additional_facility": "opex_additional_facility",
 }
 
 OPEX_PIPELINE_KEYS = {
