@@ -19,7 +19,6 @@ def upgrade() -> None:
         sa.Column("id", sa.Uuid(), nullable=False),
         sa.Column("project_id", sa.Uuid(), nullable=False),
         sa.Column("poi_id", sa.Uuid(), nullable=False),
-        sa.Column("scenario_id", sa.Uuid(), nullable=False),
         sa.Column("title", sa.String(length=255), nullable=False),
         sa.Column("coordinates", sa.String(length=100), nullable=True),
         sa.Column("engineer_name", sa.String(length=255), nullable=True),
@@ -28,7 +27,7 @@ def upgrade() -> None:
         sa.Column("engineering_params", sa.JSON(), nullable=False, server_default="{}"),
         sa.Column("roadmap", sa.JSON(), nullable=False, server_default="[]"),
         sa.Column("recommendation_text", sa.Text(), nullable=True),
-        sa.Column("is_recommendation_edited", sa.Boolean(), nullable=False, server_default=sa.text("0")),
+        sa.Column("is_recommendation_edited", sa.Boolean(), nullable=False, server_default=sa.text("false")),
         sa.Column("map_snapshot_base64", sa.Text(), nullable=True),
         sa.Column("pdf_file_path", sa.String(length=500), nullable=True),
         sa.Column("pptx_file_path", sa.String(length=500), nullable=True),
@@ -37,7 +36,6 @@ def upgrade() -> None:
         sa.Column("updated_at", sa.DateTime(timezone=True), server_default=sa.text("CURRENT_TIMESTAMP")),
         sa.ForeignKeyConstraint(["project_id"], ["projects.id"], ondelete="CASCADE"),
         sa.ForeignKeyConstraint(["poi_id"], ["points_of_interest.id"], ondelete="CASCADE"),
-        sa.ForeignKeyConstraint(["scenario_id"], ["scenarios.id"], ondelete="CASCADE"),
         sa.PrimaryKeyConstraint("id"),
     )
     op.create_index("idx_one_pagers_project_id", "one_pagers", ["project_id"])

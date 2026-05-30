@@ -42,7 +42,7 @@ def downgrade() -> None:
             sa.Column("poi_id", sa.Uuid(), nullable=True),
             sa.Column("name", sa.String(length=255), nullable=False),
             sa.Column("scenario_type", sa.String(length=50), nullable=False, server_default="base"),
-            sa.Column("is_manual", sa.Boolean(), nullable=False, server_default=sa.text("0")),
+            sa.Column("is_manual", sa.Boolean(), nullable=False, server_default=sa.text("false")),
             sa.Column("engineering_overrides", sa.JSON(), nullable=False, server_default="{}"),
             sa.Column("cost_overrides", sa.JSON(), nullable=False, server_default="{}"),
             sa.Column("results", sa.JSON(), nullable=True),
