@@ -215,10 +215,23 @@ export const api = {
       redirectOn401: false,
     }),
   me: () => request<AuthUser>('/auth/me', { redirectOn401: false }),
-  adminUsers: () =>
-    request<
-      Array<{ id: string; email: string; username: string; role: string; is_active: boolean; created_at: string }>
-    >('/admin/users'),
+  adminUsers: async () => {
+    const rows = await request<
+      Array<{
+        id: string;
+        email: string;
+        username: string;
+        role: string;
+        is_active: boolean;
+        created_at: string;
+        project_count?: number;
+      }>
+    >('/admin/users');
+    return rows.map((row) => ({
+      ...row,
+      project_count: typeof row.project_count === 'number' ? row.project_count : 0,
+    }));
+  },
   updateAdminUser: (id: string, data: { role?: string; is_active?: boolean }) =>
     request(`/admin/users/${id}`, { method: 'PATCH', body: JSON.stringify(data) }),
   adminStats: () => request<{ users: number; projects: number; pois: number }>('/admin/stats'),

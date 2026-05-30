@@ -75,6 +75,7 @@ export function AdminUsersPage() {
               <tr className="border-b" style={{ borderColor: 'var(--border)' }}>
                 <th className="text-left py-2 px-2">Email</th>
                 <th className="text-left py-2 px-2">Имя</th>
+                <th className="text-right py-2 px-2">Проектов</th>
                 <th className="text-left py-2 px-2">Роль</th>
                 <th className="text-left py-2 px-2">Статус</th>
               </tr>
@@ -84,6 +85,9 @@ export function AdminUsersPage() {
                 <tr key={u.id} className="border-b" style={{ borderColor: 'var(--border)' }}>
                   <td className="py-2 px-2">{u.email}</td>
                   <td className="py-2 px-2">{u.username}</td>
+                  <td className="py-2 px-2 text-right tabular font-medium">
+                    {u.project_count}
+                  </td>
                   <td className="py-2 px-2">
                     <select
                       className="input input-sm"

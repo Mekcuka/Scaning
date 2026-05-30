@@ -15,13 +15,38 @@ from app.services.auth_tokens import revoke_all_user_refresh_tokens
 admin_router = APIRouter(prefix="/admin", tags=["admin"], dependencies=[Depends(verify_csrf)])
 
 
+def _as_uuid(value: UUID) -> UUID:
+    return value if isinstance(value, UUID) else UUID(str(value))
+
+
+async def _project_counts_by_user(db: AsyncSession) -> dict[UUID, int]:
+    rows = await db.execute(
+        select(Project.user_id, func.count(Project.id)).group_by(Project.user_id)
+    )
+    return {_as_uuid(user_id): int(count) for user_id, count in rows.all()}
+
+
+def _user_admin_response(user: User, project_counts: dict[UUID, int]) -> UserAdminResponse:
+    return UserAdminResponse(
+        id=user.id,
+        email=user.email,
+        username=user.username,
+        role=user.role,
+        is_active=user.is_active,
+        created_at=user.created_at,
+        project_count=project_counts.get(_as_uuid(user.id), 0),
+    )
+
+
 @admin_router.get("/users", response_model=list[UserAdminResponse])
 async def list_users(
     user: User = Depends(require_admin),
     db: AsyncSession = Depends(get_db),
 ):
     result = await db.execute(select(User).order_by(User.created_at.desc()))
-    return list(result.scalars().all())
+    users = list(result.scalars().all())
+    project_counts = await _project_counts_by_user(db)
+    return [_user_admin_response(u, project_counts) for u in users]
 
 
 @admin_router.patch("/users/{user_id}", response_model=UserAdminResponse)
@@ -56,7 +81,8 @@ async def update_user(
         await revoke_all_user_refresh_tokens(db, target.id)
     await db.commit()
     await db.refresh(target)
-    return target
+    project_counts = await _project_counts_by_user(db)
+    return _user_admin_response(target, project_counts)
 
 
 @admin_router.get("/stats", response_model=AdminStatsResponse)

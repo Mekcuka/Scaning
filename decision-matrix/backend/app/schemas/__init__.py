@@ -53,6 +53,7 @@ class UserAdminResponse(BaseModel):
     role: str
     is_active: bool
     created_at: datetime
+    project_count: int = 0
 
     model_config = {"from_attributes": True}
 

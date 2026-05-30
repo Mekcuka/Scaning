@@ -146,12 +146,33 @@ def test_admin_updates_user_role(client: TestClient):
     assert create.status_code == 403
 
 
+def test_admin_users_project_count(client: TestClient):
+    _register(client, "projowner@test.ru", "Project Owner")
+    headers = _csrf_headers(client)
+    created = client.post(
+        "/api/v1/projects",
+        json={"name": "Count Test Project"},
+        headers=headers,
+    )
+    assert created.status_code == 201
+
+    client.post("/api/v1/auth/logout")
+    _login(client, "admin@test.ru")
+    res = client.get("/api/v1/admin/users")
+    assert res.status_code == 200
+    row = next(u for u in res.json() if u["email"] == "projowner@test.ru")
+    assert row["project_count"] == 1
+
+
 def test_admin_lists_users(client: TestClient):
     client.post("/api/v1/auth/logout", headers=_csrf_headers(client) if client.cookies.get("csrf_token") else {})
     _login(client, "admin@test.ru")
     res = client.get("/api/v1/admin/users")
     assert res.status_code == 200
-    assert len(res.json()) >= 1
+    body = res.json()
+    assert len(body) >= 1
+    assert "project_count" in body[0]
+    assert isinstance(body[0]["project_count"], int)
 
 
 def test_password_policy(client: TestClient):
