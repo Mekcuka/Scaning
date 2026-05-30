@@ -145,9 +145,7 @@ const POI_TAB_ICONS: Record<PoiDetailTab, LucideIcon> = {
 };
 
 function pickPoiFields(v: PoiFormValues, keys: (keyof PoiFormValues)[]): Partial<PoiFormValues> {
-  const partial: Partial<PoiFormValues> = {};
-  for (const key of keys) partial[key] = v[key];
-  return partial;
+  return Object.fromEntries(keys.map((key) => [key, v[key]])) as Partial<PoiFormValues>;
 }
 
 function capacityDraftFromObject(object: InfraObject): number | '' {
