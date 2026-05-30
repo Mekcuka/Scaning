@@ -8,7 +8,20 @@ export function appLoginPath(): string {
   return `${base}login`.replace(/\/{2,}/g, '/');
 }
 
+const CSRF_STORAGE_KEY = 'csrf_token';
+
+function storeCsrfFromResponse(res: Response): void {
+  const token = res.headers.get('X-CSRF-Token');
+  if (token) sessionStorage.setItem(CSRF_STORAGE_KEY, token);
+}
+
+export function clearStoredCsrf(): void {
+  sessionStorage.removeItem(CSRF_STORAGE_KEY);
+}
+
 function getCsrfToken(): string | null {
+  const stored = sessionStorage.getItem(CSRF_STORAGE_KEY);
+  if (stored) return stored;
   const match = document.cookie.match(/(?:^|;\s*)csrf_token=([^;]+)/);
   return match ? decodeURIComponent(match[1]) : null;
 }
@@ -25,6 +38,7 @@ async function tryRefreshSession(): Promise<boolean> {
           credentials: 'include',
           headers: csrf ? { 'X-CSRF-Token': csrf } : {},
         });
+        storeCsrfFromResponse(res);
         return res.ok;
       } catch {
         return false;
@@ -104,6 +118,7 @@ async function request<T>(path: string, options: RequestOptions = {}): Promise<T
       }
     }
     if (redirectOn401) {
+      clearStoredCsrf();
       window.location.href = appLoginPath();
     }
     throw new Error('Unauthorized');
@@ -119,6 +134,7 @@ async function request<T>(path: string, options: RequestOptions = {}): Promise<T
     const err = await res.json().catch(() => ({ detail: res.statusText }));
     throw new Error(formatApiError(err.detail, res.statusText || 'Request failed'));
   }
+  storeCsrfFromResponse(res);
   if (res.status === 204) return undefined as T;
   return res.json();
 }

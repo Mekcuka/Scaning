@@ -72,6 +72,7 @@ ACCESS_TOKEN_EXPIRE_MINUTES=$AccessTokenExpireMinutes
 REFRESH_TOKEN_EXPIRE_DAYS=$RefreshTokenExpireDays
 CORS_ORIGINS=$CorsOrigins
 ALGORITHM=$Algorithm
+COOKIE_SECURE=true
 "@
 
 $localAppEnv = Join-Path $env:TEMP "decision-matrix-app.env"

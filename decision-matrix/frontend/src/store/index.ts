@@ -1,5 +1,5 @@
 import { create } from 'zustand';
-import { api, type AuthUser } from '../lib/api';
+import { api, clearStoredCsrf, type AuthUser } from '../lib/api';
 
 interface AuthState {
   user: AuthUser | null;
@@ -27,6 +27,7 @@ export const useAuthStore = create<AuthState>((set) => ({
     } catch {
       /* clear local state even if server unreachable */
     }
+    clearStoredCsrf();
     set({ user: null });
   },
   fetchUser: async () => {

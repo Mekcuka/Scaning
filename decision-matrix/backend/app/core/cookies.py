@@ -27,13 +27,16 @@ def set_auth_cookies(
     csrf_token: str | None = None,
 ) -> str:
     csrf = csrf_token or new_csrf_token()
-    secure = settings.COOKIE_SECURE
+    secure = settings.use_secure_cookies
+    # Cross-origin frontend (e.g. GitHub Pages) must use SameSite=None with Secure.
+    samesite: str = "none" if secure else "lax"
+    response.headers["X-CSRF-Token"] = csrf
     response.set_cookie(
         key=ACCESS_COOKIE,
         value=access_token,
         httponly=True,
         secure=secure,
-        samesite="lax",
+        samesite=samesite,
         path=ACCESS_PATH,
         max_age=settings.ACCESS_TOKEN_EXPIRE_MINUTES * 60,
     )
@@ -42,7 +45,7 @@ def set_auth_cookies(
         value=refresh_token,
         httponly=True,
         secure=secure,
-        samesite="lax",
+        samesite=samesite,
         path=REFRESH_PATH,
         max_age=settings.REFRESH_TOKEN_EXPIRE_DAYS * 86400,
     )
@@ -51,7 +54,7 @@ def set_auth_cookies(
         value=csrf,
         httponly=False,
         secure=secure,
-        samesite="lax",
+        samesite=samesite,
         path="/",
         max_age=settings.REFRESH_TOKEN_EXPIRE_DAYS * 86400,
     )
@@ -59,9 +62,12 @@ def set_auth_cookies(
 
 
 def clear_auth_cookies(response: Response) -> None:
+    secure = settings.use_secure_cookies
+    samesite: str = "none" if secure else "lax"
+    response.headers.pop("X-CSRF-Token", None)
     for key, path in (
         (ACCESS_COOKIE, ACCESS_PATH),
         (REFRESH_COOKIE, REFRESH_PATH),
         (CSRF_COOKIE, "/"),
     ):
-        response.delete_cookie(key=key, path=path)
+        response.delete_cookie(key=key, path=path, secure=secure, samesite=samesite)
