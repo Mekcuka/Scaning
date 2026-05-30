@@ -34,6 +34,14 @@ export type PoiDetailUndo = Partial<POI> & { lon: number; lat: number; name: str
 
 export type MapUndoEntry =
   | { kind: 'create_infra'; objectId: string; label: string }
+  | {
+      kind: 'split_line_create_point';
+      pointId: string;
+      secondLineId: string;
+      lineId: string;
+      lineBefore: InfraGeometryUndo;
+      label: string;
+    }
   | { kind: 'create_poi'; poiId: string; label: string }
   | { kind: 'restore_infra'; snapshot: InfraObject; label: string }
   | { kind: 'restore_poi'; snapshot: POI; label: string }
@@ -149,6 +157,16 @@ export async function applyMapUndo(entry: MapUndoEntry, projectId: string): Prom
   switch (entry.kind) {
     case 'create_infra':
       await api.deleteInfraObject(projectId, entry.objectId);
+      return;
+    case 'split_line_create_point':
+      await api.updateInfraObject(projectId, entry.lineId, infraUndoToPatch(entry.lineBefore));
+      await api.deleteInfraObject(projectId, entry.secondLineId);
+      await api.deleteInfraObject(projectId, entry.pointId);
+      try {
+        await api.buildNetwork(projectId);
+      } catch {
+        /* network rebuild best-effort on undo */
+      }
       return;
     case 'create_poi':
       await api.deletePoi(projectId, entry.poiId);

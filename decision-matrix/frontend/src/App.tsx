@@ -16,6 +16,7 @@ import { MatrixPage } from './pages/MatrixPage';
 import { ReportListPage } from './pages/report/ReportListPage';
 import { ReportNewPage, ReportDetailPage } from './pages/report/ReportDetailPage';
 import { FlowSchematicLayout } from './pages/flows/FlowSchematicLayout';
+import { FlowsIndexRedirect } from './pages/flows/FlowsIndexRedirect';
 import { FlowTechnologyPage } from './pages/flows/FlowTechnologyPage';
 import { FlowEconomicPage } from './pages/flows/FlowEconomicPage';
 import { FlowLogisticsPage } from './pages/flows/FlowLogisticsPage';
@@ -58,7 +59,7 @@ export default function App() {
               <Route path="/report/new" element={<ReportNewPage />} />
               <Route path="/report/:id" element={<ReportDetailPage />} />
               <Route path="/flows" element={<FlowSchematicLayout />}>
-                <Route index element={<Navigate to="technology" replace />} />
+                <Route index element={<FlowsIndexRedirect />} />
                 <Route path="technology" element={<FlowTechnologyPage />} />
                 <Route path="economic" element={<FlowEconomicPage />} />
                 <Route path="logistics" element={<FlowLogisticsPage />} />

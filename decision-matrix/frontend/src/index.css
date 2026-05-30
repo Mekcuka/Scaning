@@ -1062,6 +1062,81 @@ table.data-table--projects .col-actions {
   margin: -2px -4px 0 0;
 }
 
+.object-detail-panel__tabs {
+  display: flex;
+  gap: 4px;
+  padding: 6px 8px;
+  border-bottom: 1px solid var(--border);
+  overflow-x: auto;
+  flex-shrink: 0;
+  scrollbar-width: thin;
+  justify-content: center;
+}
+
+.object-detail-panel__tab {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  width: 32px;
+  height: 32px;
+  padding: 0;
+  border-radius: 6px;
+  border: 1px solid var(--border);
+  background: var(--surface);
+  color: var(--text-muted);
+  font-family: inherit;
+  cursor: pointer;
+  transition:
+    background 0.15s ease,
+    border-color 0.15s ease,
+    color 0.15s ease;
+}
+
+.object-detail-panel__tab:hover {
+  color: var(--text);
+  border-color: color-mix(in srgb, var(--primary) 35%, var(--border));
+}
+
+.object-detail-panel__tab--active {
+  color: var(--primary);
+  border-color: var(--primary);
+  background: color-mix(in srgb, var(--primary) 8%, var(--surface));
+  box-shadow: 0 0 0 1px color-mix(in srgb, var(--primary) 18%, transparent);
+}
+
+.object-detail-panel__tab--dirty::after {
+  content: '';
+  position: absolute;
+  top: 4px;
+  right: 4px;
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--primary);
+  box-shadow: 0 0 0 1px var(--surface);
+}
+
+.object-detail-panel__tab-dirty {
+  display: none;
+}
+
+.object-detail-panel__flat-section + .object-detail-panel__flat-section {
+  margin-top: 12px;
+  padding-top: 12px;
+  border-top: 1px solid var(--border);
+}
+
+.object-detail-panel__flat-section-title {
+  margin: 0 0 8px;
+  font-size: 0.6875rem;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--text-muted);
+}
+
 .object-detail-panel__body {
   flex: 1;
   min-height: 0;
@@ -1240,14 +1315,35 @@ table.data-table--projects .col-actions {
   padding: 10px 14px;
   border-bottom: 1px solid var(--border);
   background: var(--surface);
-  flex-wrap: wrap;
+  flex-wrap: nowrap;
+  overflow-x: auto;
   align-items: center;
   flex-shrink: 0;
+  scrollbar-width: thin;
+}
+
+.map-tools-draw-actions {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  flex-shrink: 0;
+  min-width: 16.75rem;
+}
+
+.map-tools-draw-actions:not(.map-tools-draw-actions--visible) {
+  visibility: hidden;
+  pointer-events: none;
 }
 
 .map-tool-btn {
   padding: 6px 10px !important;
   min-height: 32px;
+}
+
+.map-tool-btn--action {
+  min-width: 5.25rem;
+  justify-content: center;
+  white-space: nowrap;
 }
 
 /* —— Custom select (AppSelect) —— */

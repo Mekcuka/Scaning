@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Link, NavLink, Outlet } from 'react-router-dom';
+import { Link, NavLink, Outlet, useLocation } from 'react-router-dom';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { GitBranch, Coins, Truck, Workflow } from 'lucide-react';
 import { AppSelect } from '../../components/AppSelect';
@@ -20,6 +20,10 @@ export function FlowSchematicLayout() {
   const pushToast = useAppStore((s) => s.pushToast);
   const queryClient = useQueryClient();
   const [selectedPoiId, setSelectedPoiId] = useState('');
+  const location = useLocation();
+  const isLogisticsRoute =
+    location.pathname === '/flows/logistics' ||
+    location.pathname.startsWith('/flows/logistics/');
 
   const { data: pois = [], isLoading: poisLoading } = useQuery({
     queryKey: ['pois', projectId],
@@ -111,6 +115,8 @@ export function FlowSchematicLayout() {
 
   const needsNetwork = schematic?.warnings.includes('network_not_built') ?? false;
 
+  const showPoiFlows = !!projectId && !!activePoiId;
+
   const contextValue = {
     projectId,
     pois,
@@ -136,7 +142,8 @@ export function FlowSchematicLayout() {
             <div className="min-w-0">
               <h1 className="parameters-layout__title">Схема потоков</h1>
               <p className="parameters-layout__subtitle">
-                Технологический, экономический потоки и логистика по точке интереса
+                Технологический и экономический потоки — по точке интереса; логистика песка — по
+                проекту
               </p>
             </div>
           </div>
@@ -159,19 +166,9 @@ export function FlowSchematicLayout() {
           </div>
         )}
 
-        {projectId && !poisLoading && pois.length === 0 && (
-          <div className="card p-8 text-center text-[var(--text-muted)]">
-            В проекте нет точек интереса. Добавьте POI на{' '}
-            <Link to="/map" className="text-[var(--accent)] underline">
-              карте
-            </Link>
-            .
-          </div>
-        )}
-
-        {projectId && activePoiId && (
+        {projectId && (
           <>
-            {needsNetwork && (
+            {needsNetwork && showPoiFlows && (
               <div className="mb-4 rounded-lg border border-amber-500/40 bg-amber-500/10 px-4 py-3 text-sm">
                 {WARNING_LABELS.network_not_built}{' '}
                 <Link to="/map" className="font-medium text-[var(--accent)] underline">
@@ -195,7 +192,26 @@ export function FlowSchematicLayout() {
               ))}
             </nav>
 
-            <Outlet />
+            {isLogisticsRoute || showPoiFlows ? (
+              <Outlet />
+            ) : poisLoading ? (
+              <div className="card p-8 text-center text-[var(--text-muted)]">Загрузка…</div>
+            ) : (
+              <div className="card p-8 text-center text-[var(--text-muted)] space-y-3">
+                <p>
+                  В проекте нет точек интереса. Добавьте POI на{' '}
+                  <Link to="/map" className="text-[var(--accent)] underline">
+                    карте
+                  </Link>
+                  , чтобы открыть технологический и экономический потоки.
+                </p>
+                <p>
+                  <Link to="/flows/logistics" className="btn btn-primary btn-sm">
+                    Открыть логистику песка
+                  </Link>
+                </p>
+              </div>
+            )}
           </>
         )}
       </div>

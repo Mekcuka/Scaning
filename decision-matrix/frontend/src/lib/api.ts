@@ -376,11 +376,13 @@ export const api = {
       method: 'PATCH',
       body: JSON.stringify(data),
     }),
-  getInfraObjects: (projectId: string, params?: { subtype?: string; q?: string; bbox?: string }) => {
+  getInfraObjects: (projectId: string, params?: { subtype?: string; q?: string; bbox?: string; visibleLayersOnly?: boolean }) => {
     const qs = new URLSearchParams();
     if (params?.subtype) qs.set('subtype', params.subtype);
     if (params?.q) qs.set('q', params.q);
     if (params?.bbox) qs.set('bbox', params.bbox);
+    if (params?.visibleLayersOnly === true) qs.set('visible_layers_only', 'true');
+    else qs.set('visible_layers_only', 'false');
     const query = qs.toString();
     return request<InfraObject[]>(
       `/projects/${projectId}/infrastructure/objects${query ? `?${query}` : ''}`

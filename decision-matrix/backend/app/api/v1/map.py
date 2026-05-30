@@ -548,10 +548,22 @@ async def delete_infra_object(
     await db.execute(
         delete(InfrastructureNode).where(InfrastructureNode.infrastructure_object_id.in_(delete_ids))
     )
+    line_deleted = (
+        await db.scalar(
+            select(InfrastructureObject.id)
+            .where(
+                InfrastructureObject.id.in_(delete_ids),
+                InfrastructureObject.subtype.in_(LINE_SUBTYPES),
+            )
+            .limit(1)
+        )
+    ) is not None
     await db.execute(delete(InfrastructureObject).where(InfrastructureObject.id.in_(delete_ids)))
     await db.flush()
     for network_id in network_ids:
         await prune_disconnected_nodes(db, network_id)
+    if line_deleted:
+        await build_network_from_lines(db, project_id)
     await db.commit()
 
 

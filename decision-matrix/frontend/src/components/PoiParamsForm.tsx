@@ -23,6 +23,8 @@ interface PoiParamsFormProps {
   readOnly?: boolean;
   sections?: PoiSectionId[];
   coordsReadOnly?: boolean;
+  /** Без аккордеона — контент секций подряд (для вкладок в панели объекта). */
+  flat?: boolean;
 }
 
 const ALL_SECTIONS: PoiSectionId[] = ['basic', 'engineering', 'thresholds', 'km_per_pad', 'max_total_line'];
@@ -60,6 +62,7 @@ export function PoiParamsForm({
   readOnly,
   sections = ALL_SECTIONS,
   coordsReadOnly = true,
+  flat = false,
 }: PoiParamsFormProps) {
   const [openSections, setOpenSections] = useState<Record<string, boolean>>({
     basic: true,
@@ -81,10 +84,30 @@ export function PoiParamsForm({
   const volumeLabel =
     value.fluid_type === 'gas' ? 'Объём добычи газа (тыс. т/год)' : 'Объём добычи нефти (тыс. т/год)';
 
+  const wrapSection = (id: PoiSectionId, content: ReactNode) => {
+    if (flat) {
+      const showTitle = sections.length > 1;
+      return (
+        <div key={id} className={showTitle ? 'object-detail-panel__flat-section' : undefined}>
+          {showTitle && (
+            <h4 className="object-detail-panel__flat-section-title">{POI_SECTION_LABELS[id]}</h4>
+          )}
+          {content}
+        </div>
+      );
+    }
+    return (
+      <Section key={id} id={id} open={!!openSections[id]} onToggle={() => toggle(id)}>
+        {content}
+      </Section>
+    );
+  };
+
   return (
     <div className="text-sm">
-      {sections.includes('basic') && (
-        <Section id="basic" open={!!openSections.basic} onToggle={() => toggle('basic')}>
+      {sections.includes('basic') &&
+        wrapSection(
+          'basic',
           <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
             <div className="form-group mb-0">
               <label>Название</label>
@@ -192,12 +215,12 @@ export function PoiParamsForm({
                 />
               </div>
             )}
-          </div>
-        </Section>
-      )}
+          </div>,
+        )}
 
-      {sections.includes('engineering') && (
-        <Section id="engineering" open={!!openSections.engineering} onToggle={() => toggle('engineering')}>
+      {sections.includes('engineering') &&
+        wrapSection(
+          'engineering',
           <div className="flex flex-wrap gap-4">
             {ENG_PARAM_GROUPS.map((g) => (
               <EngBadgeGroup
@@ -210,12 +233,13 @@ export function PoiParamsForm({
                 onChange={(v) => patch({ [g.key]: v })}
               />
             ))}
-          </div>
-        </Section>
-      )}
+          </div>,
+        )}
 
-      {sections.includes('thresholds') && (
-        <Section id="thresholds" open={!!openSections.thresholds} onToggle={() => toggle('thresholds')}>
+      {sections.includes('thresholds') &&
+        wrapSection(
+          'thresholds',
+          <>
           <p className="text-xs mb-2" style={{ color: 'var(--text-muted)' }}>
             Пустое поле — значение проекта по умолчанию (FR-4.2.6, FR-4.2.9)
           </p>
@@ -240,11 +264,13 @@ export function PoiParamsForm({
               </div>
             ))}
           </div>
-        </Section>
-      )}
+          </>,
+        )}
 
-      {sections.includes('km_per_pad') && (
-        <Section id="km_per_pad" open={!!openSections.km_per_pad} onToggle={() => toggle('km_per_pad')}>
+      {sections.includes('km_per_pad') &&
+        wrapSection(
+          'km_per_pad',
+          <>
           <p className="text-xs mb-2" style={{ color: 'var(--text-muted)' }}>
             Нормы км/КП для расчёта internal linear (FR-4.2.12, FR-5.3.4)
           </p>
@@ -269,11 +295,13 @@ export function PoiParamsForm({
               </div>
             ))}
           </div>
-        </Section>
-      )}
+          </>,
+        )}
 
-      {sections.includes('max_total_line') && (
-        <Section id="max_total_line" open={!!openSections.max_total_line} onToggle={() => toggle('max_total_line')}>
+      {sections.includes('max_total_line') &&
+        wrapSection(
+          'max_total_line',
+          <>
           <p className="text-xs mb-2" style={{ color: 'var(--text-muted)' }}>
             Макс. суммарная длина internal linear (FR-4.2.13)
           </p>
@@ -298,8 +326,8 @@ export function PoiParamsForm({
               </div>
             ))}
           </div>
-        </Section>
-      )}
+          </>,
+        )}
     </div>
   );
 }

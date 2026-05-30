@@ -458,9 +458,13 @@ analytics/  [папка зарезервирована для v1.3+]
 
 ### Компоненты карты
 
+Реализация: `frontend/src/components/MapView.tsx`, `frontend/src/pages/MapPage.tsx`.
+
+**Слои на карте (OpenLayers):** подложка, пороговые радиусы, линии подключения POI (анализ), линии/точки инфраструктуры, превью рисования. **Расчётный граф** (`infrastructure_nodes` / `infrastructure_edges`) **на карте не отображается** — только в БД и в API для «Потоков» / логистики. См. [map-objects-and-spatial-calculations.md](./map-objects-and-spatial-calculations.md) §5–§6.
+
 ```
-components/map/
-├── MapView.tsx              # Основной компонент карты (OpenLayers / react-ol)
+components/map/   # целевая структура; фактически — MapView.tsx + MapPage
+├── MapView.tsx              # OpenLayers: инфраструктура, POI, линии анализа, редактирование геометрии
 ├── Layers/
 │   ├── LayerControl.tsx     # Переключатель слоёв
 │   ├── BaseLayer.tsx        # Базовый слой (OSM, Satellite)

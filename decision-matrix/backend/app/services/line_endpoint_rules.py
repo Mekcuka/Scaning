@@ -1,4 +1,4 @@
-"""Validation that line endpoints snap to a nearby point infrastructure object."""
+"""Validation that line endpoints snap to a nearby point infrastructure object (any subtype)."""
 
 from __future__ import annotations
 
@@ -72,7 +72,7 @@ async def validate_line_endpoint_matrix(
     coordinates: list[list[float]] | None,
     exclude_object_id: UUID | None = None,
 ) -> None:
-    """Ensure both line ends are within snap tolerance of any point infrastructure object."""
+    """Ensure both line ends are within snap tolerance of any point infrastructure object (no subtype filter)."""
     subtype = line_subtype.lower().strip()
     if subtype not in LINE_SUBTYPES:
         return

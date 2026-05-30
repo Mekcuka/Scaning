@@ -1,5 +1,5 @@
 import type { InfraObject } from './api';
-import { isLineSubtype } from './infraGeometry';
+import { getLineCoordinates, isLineSubtype } from './infraGeometry';
 
 export const LINE_ENDPOINT_SNAP_TOLERANCE_KM = 0.3;
 
@@ -14,8 +14,8 @@ function haversineKm(lon1: number, lat1: number, lon2: number, lat2: number): nu
   return r * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
 }
 
-/** Nearest point infrastructure object (any non-line subtype). */
-function nearestPointEndpoint(
+/** Nearest point infrastructure object (any subtype, same rules as backend). */
+function nearestPointObject(
   point: [number, number],
   infraObjects: InfraObject[],
 ): { object: InfraObject; distanceKm: number } | null {
@@ -34,24 +34,47 @@ function nearestPointEndpoint(
 }
 
 export function snapLineEndpoint(
-  _lineSubtype: string,
+  lineSubtype: string,
   _endpointKind: 'start' | 'finish',
   point: [number, number],
   infraObjects: InfraObject[],
 ): [number, number] {
-  const nearest = nearestPointEndpoint(point, infraObjects);
+  if (!isLineSubtype(lineSubtype)) return point;
+  const nearest = nearestPointObject(point, infraObjects);
   if (!nearest || nearest.distanceKm > LINE_ENDPOINT_SNAP_TOLERANCE_KM) return point;
   return [nearest.object.lon, nearest.object.lat];
 }
 
-/** Nearest point object for line endpoint (same rules as backend). */
+/** @deprecated Prefer nearestPointLineEndpoint; kept for existing imports. */
 export function nearestAllowedLineEndpoint(
-  _lineSubtype: string,
+  lineSubtype: string,
   _endpointKind: 'start' | 'finish',
   point: [number, number],
   infraObjects: InfraObject[],
 ): { object: InfraObject; distanceKm: number } | null {
-  return nearestPointEndpoint(point, infraObjects);
+  if (!isLineSubtype(lineSubtype)) return null;
+  return nearestPointObject(point, infraObjects);
+}
+
+export function nearestPointLineEndpoint(
+  lineSubtype: string,
+  _endpointKind: 'start' | 'finish',
+  point: [number, number],
+  infraObjects: InfraObject[],
+): { object: InfraObject; distanceKm: number } | null {
+  return nearestAllowedLineEndpoint(lineSubtype, _endpointKind, point, infraObjects);
+}
+
+/** Snap while drawing: cursor over icon, or within tolerance to nearest point object. */
+export function snapLineDrawPoint(
+  lineSubtype: string,
+  cursor: [number, number],
+  infraObjects: InfraObject[],
+  overPoint?: { lon: number; lat: number } | null,
+  endpointKind: 'start' | 'finish' = 'finish',
+): [number, number] {
+  if (overPoint) return [overPoint.lon, overPoint.lat];
+  return snapLineEndpoint(lineSubtype, endpointKind, cursor, infraObjects);
 }
 
 export function isLineEndpointSnapped(
@@ -60,12 +83,8 @@ export function isLineEndpointSnapped(
   point: [number, number],
   infraObjects: InfraObject[],
 ): boolean {
-  const nearest = nearestAllowedLineEndpoint(lineSubtype, endpointKind, point, infraObjects);
+  const nearest = nearestPointLineEndpoint(lineSubtype, endpointKind, point, infraObjects);
   return nearest != null && nearest.distanceKm <= LINE_ENDPOINT_SNAP_TOLERANCE_KM;
-}
-
-export function lineEndpointAllowsNode(lineSubtype: string): boolean {
-  return isLineSubtype(lineSubtype);
 }
 
 export type ResolvedLineEndpoint =
@@ -78,14 +97,14 @@ export type ResolvedLineEndpoint =
     }
   | { ok: false; message: string };
 
-/** Snap to nearest point object, or create a connection node if none within tolerance. */
+/** Snap to existing object or plan auto-creation of a connection node. */
 export function resolveLineEndpoint(
   lineSubtype: string,
   endpointKind: 'start' | 'finish',
   point: [number, number],
   infraObjects: InfraObject[],
 ): ResolvedLineEndpoint {
-  const nearest = nearestAllowedLineEndpoint(lineSubtype, endpointKind, point, infraObjects);
+  const nearest = nearestPointLineEndpoint(lineSubtype, endpointKind, point, infraObjects);
   const tol = LINE_ENDPOINT_SNAP_TOLERANCE_KM;
   if (nearest && nearest.distanceKm <= tol) {
     return {
@@ -96,7 +115,7 @@ export function resolveLineEndpoint(
       createNode: false,
     };
   }
-  if (lineEndpointAllowsNode(lineSubtype)) {
+  if (isLineSubtype(lineSubtype)) {
     return { ok: true, lon: point[0], lat: point[1], createNode: true };
   }
   const hint = nearest
@@ -105,5 +124,146 @@ export function resolveLineEndpoint(
   return {
     ok: false,
     message: `Точка «${endpointKind === 'start' ? 'начала' : 'конца'}» не привязана (допуск ${tol} км). ${hint}`,
+  };
+}
+
+export type LineEndpointAttachment = {
+  object: InfraObject;
+  lon: number;
+  lat: number;
+};
+
+/** Point object under cursor for line endpoint snap (edit / move). */
+export function attachmentForPointObject(object: InfraObject): LineEndpointAttachment | null {
+  if (isLineSubtype(object.subtype)) return null;
+  return { object, lon: object.lon, lat: object.lat };
+}
+
+export function findLineEndpointAttachment(
+  lineSubtype: string,
+  endpointKind: 'start' | 'finish',
+  point: [number, number],
+  infraObjects: InfraObject[],
+): LineEndpointAttachment | null {
+  const nearest = nearestPointLineEndpoint(lineSubtype, endpointKind, point, infraObjects);
+  if (!nearest || nearest.distanceKm > LINE_ENDPOINT_SNAP_TOLERANCE_KM) return null;
+  return { object: nearest.object, lon: nearest.object.lon, lat: nearest.object.lat };
+}
+
+function endpointMoved(a: [number, number], b: [number, number]): boolean {
+  return Math.abs(a[0] - b[0]) > 1e-6 || Math.abs(a[1] - b[1]) > 1e-6;
+}
+
+export function lineEndpointAttachmentsFromObject(
+  line: InfraObject,
+  infraObjects: InfraObject[],
+): {
+  start: [number, number];
+  finish: [number, number];
+  startAttach: LineEndpointAttachment | null;
+  finishAttach: LineEndpointAttachment | null;
+} | null {
+  const coords = getLineCoordinates(line);
+  if (!coords || coords.length < 2) return null;
+  const start = coords[0] as [number, number];
+  const finish = coords[coords.length - 1] as [number, number];
+  return {
+    start,
+    finish,
+    startAttach: findLineEndpointAttachment(line.subtype, 'start', start, infraObjects),
+    finishAttach: findLineEndpointAttachment(line.subtype, 'finish', finish, infraObjects),
+  };
+}
+
+/**
+ * When moving a line endpoint: snap to a nearby point object or revert to the original attachment.
+ * Endpoints cannot remain disconnected ("in the air").
+ */
+export function constrainLineCoordinatesOnEdit(params: {
+  lineSubtype: string;
+  originalStart: [number, number];
+  originalFinish: [number, number];
+  originalStartAttach: LineEndpointAttachment | null;
+  originalFinishAttach: LineEndpointAttachment | null;
+  draftCoords: number[][];
+  infraObjects: InfraObject[];
+  /** Point object under cursor when the endpoint was released. */
+  cursorTargetStart?: InfraObject | null;
+  cursorTargetFinish?: InfraObject | null;
+}): {
+  coords: number[][];
+  revertedStart: boolean;
+  revertedFinish: boolean;
+  reconnectedStart: boolean;
+  reconnectedFinish: boolean;
+} {
+  const result = params.draftCoords.map(([lo, la]) => [lo, la] as [number, number]);
+  if (result.length < 2) {
+    return {
+      coords: result,
+      revertedStart: false,
+      revertedFinish: false,
+      reconnectedStart: false,
+      reconnectedFinish: false,
+    };
+  }
+
+  const applyEndpoint = (
+    index: number,
+    originalAttach: LineEndpointAttachment | null,
+    originalPoint: [number, number],
+    cursorTarget?: InfraObject | null,
+  ): { reverted: boolean; reconnected: boolean } => {
+    const draft = result[index]!;
+    if (!endpointMoved(draft, originalPoint)) {
+      return { reverted: false, reconnected: false };
+    }
+
+    const fromCursor = cursorTarget ? attachmentForPointObject(cursorTarget) : null;
+    if (fromCursor) {
+      result[index] = [fromCursor.lon, fromCursor.lat];
+      const reconnected = !originalAttach || originalAttach.object.id !== fromCursor.object.id;
+      return { reverted: false, reconnected };
+    }
+
+    const nearest = findLineEndpointAttachment(
+      params.lineSubtype,
+      index === 0 ? 'start' : 'finish',
+      result[index]!,
+      params.infraObjects,
+    );
+    if (nearest) {
+      result[index] = [nearest.lon, nearest.lat];
+      const reconnected = !originalAttach || originalAttach.object.id !== nearest.object.id;
+      return { reverted: false, reconnected };
+    }
+
+    if (originalAttach) {
+      result[index] = [originalAttach.lon, originalAttach.lat];
+      return { reverted: true, reconnected: false };
+    }
+    result[index] = [...originalPoint];
+    return { reverted: true, reconnected: false };
+  };
+
+  const start = applyEndpoint(
+    0,
+    params.originalStartAttach,
+    params.originalStart,
+    params.cursorTargetStart,
+  );
+  const finish = applyEndpoint(
+    result.length - 1,
+    params.originalFinishAttach,
+    params.originalFinish,
+    params.cursorTargetFinish,
+  );
+
+  return {
+    coords: result,
+    revertedStart: start.reverted,
+    revertedFinish: finish.reverted,
+    reconnectedStart: start.reconnected,
+    reconnectedFinish: finish.reconnected,
   };
 }

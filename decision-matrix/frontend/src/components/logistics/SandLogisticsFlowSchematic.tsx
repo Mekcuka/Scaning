@@ -23,10 +23,14 @@ import { FlowSchematicEditPanel } from '../FlowSchematicEditPanel';
 import type { SandLogisticsSubnet } from '../../lib/api';
 import {
   computeSandEdgePath,
+  enforceSandFlowSitesNoOverlap,
   formatSandEdgeM3,
   sandLogisticsToFlow,
+  SAND_FLOW_SITE_GAP,
+  SAND_FLOW_SITE_H,
+  SAND_FLOW_SITE_W,
   SAND_LOGISTICS_LINE_STYLE_OPTIONS,
-  type SandFlowEdgeData,
+  type SandRoadEdgeData,
   type SandFlowNodeData,
   type SandLogisticsLineStyle,
 } from '../../lib/sandLogisticsFlow';
@@ -43,13 +47,7 @@ function useSandLineStyle(): SandLogisticsLineStyle {
   return useContext(LineStyleContext);
 }
 
-function SandNetworkEdge(props: EdgeProps) {
-  const lineStyle = useSandLineStyle();
-  const [edgePath] = computeSandEdgePath(lineStyle, props);
-  return <BaseEdge id={props.id} path={edgePath} style={props.style} />;
-}
-
-const SandFlowEdge = memo(function SandFlowEdge({
+const SandRoadEdge = memo(function SandRoadEdge({
   id,
   sourceX,
   sourceY,
@@ -60,9 +58,10 @@ const SandFlowEdge = memo(function SandFlowEdge({
   style,
   markerEnd,
   data,
-}: EdgeProps<Edge<SandFlowEdgeData>>) {
+}: EdgeProps<Edge<SandRoadEdgeData>>) {
   const lineStyle = useSandLineStyle();
-  const d = data ?? { variant: 'flow' };
+  const flowM3 = data?.flowM3 ?? 0;
+  const hasFlow = flowM3 > 0;
   const [edgePath, labelX, labelY] = computeSandEdgePath(lineStyle, {
     sourceX,
     sourceY,
@@ -72,9 +71,13 @@ const SandFlowEdge = memo(function SandFlowEdge({
     targetPosition,
   });
 
-  const stroke = (style?.stroke as string) ?? '#b45309';
-  const showLabel = d.variant === 'flow' && d.showLabel && d.flowM3 != null && d.flowM3 > 0;
-  const label = showLabel ? formatSandEdgeM3(d.flowM3!) : '';
+  const offsetX = data?.labelOffsetX ?? 0;
+  const offsetY = data?.labelOffsetY ?? 0;
+  const lx = labelX + offsetX;
+  const ly = labelY + offsetY;
+
+  const stroke = (style?.stroke as string) ?? (hasFlow ? '#b45309' : '#cbd5e1');
+  const label = hasFlow ? formatSandEdgeM3(flowM3) : '';
 
   return (
     <>
@@ -83,14 +86,19 @@ const SandFlowEdge = memo(function SandFlowEdge({
         path={edgePath}
         style={style}
         markerEnd={
-          (markerEnd ?? { type: MarkerType.ArrowClosed, color: stroke }) as EdgeProps['markerEnd']
+          hasFlow
+            ? ((markerEnd ?? {
+                type: MarkerType.ArrowClosed,
+                color: stroke,
+              }) as EdgeProps['markerEnd'])
+            : undefined
         }
       />
-      {showLabel && (
+      {hasFlow && (
         <g pointerEvents="none" className="sand-flow-edge-label">
           <rect
-            x={labelX - label.length * 3.2 - 8}
-            y={labelY - 10}
+            x={lx - label.length * 3.2 - 8}
+            y={ly - 10}
             width={label.length * 6.4 + 16}
             height={20}
             rx={10}
@@ -99,8 +107,8 @@ const SandFlowEdge = memo(function SandFlowEdge({
             strokeWidth={1.5}
           />
           <text
-            x={labelX}
-            y={labelY}
+            x={lx}
+            y={ly}
             textAnchor="middle"
             dominantBaseline="central"
             fill={stroke}
@@ -158,15 +166,22 @@ const SandFlowNode = memo(function SandFlowNode({ data, selected }: NodeProps<No
     }
   }
 
-  const showShortfall =
+  const showDemandLine =
     !isQuarry &&
     data.in_service !== false &&
-    (data.demand_m3 ?? 0) > 0 &&
-    (data.allocated_m3 ?? 0) < (data.demand_m3 ?? 0) - 1e-6;
+    (data.demand_m3 ?? 0) > 0;
+  const demandMet =
+    showDemandLine && (data.allocated_m3 ?? 0) >= (data.demand_m3 ?? 0) - 1e-6;
+
+  const coordTitle =
+    data.lon != null && data.lat != null
+      ? `${data.lat.toFixed(6)}, ${data.lon.toFixed(6)}`
+      : undefined;
 
   return (
     <div
       className="flow-schematic-node px-3 py-2 rounded-lg text-sm shadow-sm text-center min-w-[120px] max-w-[180px]"
+      title={coordTitle}
       style={{
         background: bg,
         border: `2px solid ${border}`,
@@ -179,8 +194,10 @@ const SandFlowNode = memo(function SandFlowNode({ data, selected }: NodeProps<No
       <Handle type="target" position={Position.Left} className="!bg-slate-400 !w-2.5 !h-2.5" />
       <div className="font-medium leading-tight break-words">{data.label}</div>
       {inactive && <div className="text-[10px] text-slate-500 mt-0.5">не введён</div>}
-      {showShortfall && (
-        <div className="text-[10px] text-red-700 mt-0.5">
+      {showDemandLine && (
+        <div
+          className={`text-[10px] mt-0.5 ${demandMet ? 'text-green-700' : 'text-red-700'}`}
+        >
           {(data.allocated_m3 ?? 0).toLocaleString('ru-RU')} /{' '}
           {(data.demand_m3 ?? 0).toLocaleString('ru-RU')} м³
         </div>
@@ -192,8 +209,7 @@ const SandFlowNode = memo(function SandFlowNode({ data, selected }: NodeProps<No
 
 const nodeTypes = { sandFlowNode: SandFlowNode, sandNetworkNode: SandNetworkNode };
 const edgeTypes = {
-  sandNetworkEdge: SandNetworkEdge,
-  sandFlowEdge: SandFlowEdge,
+  sandRoadEdge: SandRoadEdge,
   sandSiteLinkEdge: SandSiteLinkEdge,
 };
 
@@ -251,6 +267,73 @@ const SandLogisticsFlowCanvas = memo(function SandLogisticsFlowCanvas({
     [onLineStyleChange]
   );
 
+  const resolveSiteNodeOverlaps = useCallback(
+    (nds: Node<SandFlowNodeData>[], movedNodeId?: string) => {
+      const siteNodes = nds.filter((n) => n.type === 'sandFlowNode');
+      if (siteNodes.length < 2) return nds;
+
+      const layoutRects = siteNodes.map((n) => ({
+        id: n.id,
+        x: n.position.x,
+        y: n.position.y,
+        w: SAND_FLOW_SITE_W,
+        h: SAND_FLOW_SITE_H,
+      }));
+
+      if (movedNodeId) {
+        const moved = layoutRects.find((r) => r.id === movedNodeId);
+        const others = layoutRects.filter((r) => r.id !== movedNodeId);
+        if (moved) {
+          for (let pass = 0; pass < 80; pass++) {
+            let shifted = false;
+            for (const other of others) {
+              if (
+                moved.x < other.x + other.w + SAND_FLOW_SITE_GAP &&
+                moved.x + moved.w + SAND_FLOW_SITE_GAP > other.x &&
+                moved.y < other.y + other.h + SAND_FLOW_SITE_GAP &&
+                moved.y + moved.h + SAND_FLOW_SITE_GAP > other.y
+              ) {
+                const mcx = moved.x + moved.w / 2;
+                const mcy = moved.y + moved.h / 2;
+                const ocx = other.x + other.w / 2;
+                const ocy = other.y + other.h / 2;
+                const overlapX =
+                  (moved.w + other.w) / 2 + SAND_FLOW_SITE_GAP - Math.abs(mcx - ocx);
+                const overlapY =
+                  (moved.h + other.h) / 2 + SAND_FLOW_SITE_GAP - Math.abs(mcy - ocy);
+                if (overlapX <= 0 || overlapY <= 0) continue;
+                if (overlapX < overlapY) {
+                  moved.x += (overlapX + 1) * (mcx >= ocx ? 1 : -1);
+                } else {
+                  moved.y += (overlapY + 1) * (mcy >= ocy ? 1 : -1);
+                }
+                shifted = true;
+              }
+            }
+            if (!shifted) break;
+          }
+        }
+      } else {
+        enforceSandFlowSitesNoOverlap(layoutRects, SAND_FLOW_SITE_GAP);
+      }
+
+      const byId = new Map(layoutRects.map((r) => [r.id, r]));
+      return nds.map((n) => {
+        const next = byId.get(n.id);
+        return next ? { ...n, position: { x: next.x, y: next.y } } : n;
+      });
+    },
+    []
+  );
+
+  const onNodeDragStop = useCallback(
+    (_: React.MouseEvent, node: Node) => {
+      if (node.type !== 'sandFlowNode') return;
+      setNodes((nds) => resolveSiteNodeOverlaps(nds, node.id));
+    },
+    [resolveSiteNodeOverlaps, setNodes]
+  );
+
   return (
     <LineStyleContext.Provider value={lineStyle}>
       <div className="flow-schematic-stage">
@@ -259,6 +342,7 @@ const SandLogisticsFlowCanvas = memo(function SandLogisticsFlowCanvas({
             nodes={nodes}
             edges={edges}
             onNodesChange={onNodesChange}
+            onNodeDragStop={onNodeDragStop}
             onEdgesChange={onEdgesChange}
             nodeTypes={nodeTypes}
             edgeTypes={edgeTypes}
@@ -292,7 +376,7 @@ const SandLogisticsFlowCanvas = memo(function SandLogisticsFlowCanvas({
               Выбор
             </button>
             <p className="flow-schematic-edit-panel-hint">
-              ЛКМ — перемещение. Блоки можно перетаскивать; «По карте» — раскладка без наложений.
+              ЛКМ — перемещение (блоки не накладываются). «По карте» — раскладка по координатам.
             </p>
           </div>
           <div className="flow-schematic-edit-panel-section">
@@ -376,10 +460,11 @@ function SandLogisticsFlowSchematicInner({ subnet }: { subnet: SandLogisticsSubn
         )}
       </div>
       <p className="text-xs text-[var(--text-muted)]">
-        Серые линии и точки — автодороги и узлы сети. Оранжевые участки — поток песка по маршруту
-        (кратчайший путь Dijkstra) с подписью{' '}
+        Блоки и дороги размещаются по координатам карты (lon/lat). Серые линии — автодороги без
+        потока; оранжевые — участки с движением песка (кратчайший путь
+        Dijkstra) с подписью{' '}
         <span className="flow-edge-label flow-edge-label-inline">м³</span>
-        . Пунктир — подъезд от карьера/потребителя до узла дороги. Потребители:{' '}
+        . Пунктир — подъезд от карьера/потребителя до узла дороги. На потребителях — отгружено / спрос (м³);{' '}
         <span className="text-green-700 font-medium">зелёный</span> — спрос покрыт,{' '}
         <span className="text-red-700 font-medium">красный</span> — не хватило песка.
       </p>

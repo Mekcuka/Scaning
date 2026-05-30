@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import type { InfraObject } from './api';
-import { linkedLineIdsForPoint } from './infraLinks';
+import { expandInfraDeleteIds, infraDeleteApiIds, linkedLineIdsForPoint } from './infraLinks';
 
 function infra(overrides: Partial<InfraObject>): InfraObject {
   return {
@@ -73,6 +73,36 @@ describe('linkedLineIdsForPoint', () => {
     });
 
     expect(linkedLineIdsForPoint(point, [point, nearRounded, tooFar])).toEqual(['l4']);
+  });
+});
+
+describe('infraDeleteApiIds', () => {
+  it('deletes only the point when linked lines cascade on the backend', () => {
+    const point = infra({ id: 'p1', subtype: 'node', lon: 56.02, lat: 38.06 });
+    const line = infra({
+      id: 'l1',
+      subtype: 'gas_pipeline',
+      lon: 56.02,
+      lat: 38.06,
+      end_lon: 56.04,
+      end_lat: 38.09,
+    });
+    const all = [point, line];
+    const cacheIds = expandInfraDeleteIds(['p1'], all);
+    expect([...cacheIds]).toEqual(['p1', 'l1']);
+    expect(infraDeleteApiIds(cacheIds, all)).toEqual(['p1']);
+  });
+
+  it('deletes standalone lines explicitly', () => {
+    const line = infra({
+      id: 'l1',
+      subtype: 'autoroad',
+      lon: 56,
+      lat: 38,
+      end_lon: 56.1,
+      end_lat: 38.1,
+    });
+    expect(infraDeleteApiIds(['l1'], [line])).toEqual(['l1']);
   });
 });
 

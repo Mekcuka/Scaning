@@ -51,24 +51,33 @@ export type SandFlowNodeData = {
   kind: SandFlowNodeKind;
   label: string;
   in_service?: boolean;
+  lon?: number;
+  lat?: number;
   /** Только потребители: спрос и жадная отгрузка для цвета блока */
   demand_m3?: number;
   allocated_m3?: number;
 };
 
-export type SandFlowEdgeData = {
-  flowM3?: number;
-  variant: 'road' | 'flow' | 'site-link';
-  showLabel?: boolean;
+export type SandRoadEdgeData = {
+  flowM3: number;
+  labelOffsetX?: number;
+  labelOffsetY?: number;
 };
 
 const SITE_W = 160;
 const SITE_H = 68;
+const SITE_GAP = 10;
+export const SAND_FLOW_SITE_W = SITE_W;
+export const SAND_FLOW_SITE_H = SITE_H;
+export const SAND_FLOW_SITE_GAP = SITE_GAP;
 const NET_SIZE = 10;
 const LAYOUT_W = 1600;
 const LAYOUT_H = 1000;
 const PADDING = 80;
-const SITE_GAP = 44;
+const MAX_GEO_DRIFT = 180;
+const ROAD_CLEARANCE = 38;
+const NODE_CLEARANCE = 88;
+const GEO_PULL = 0.04;
 const MIN_GEO_SPAN = 0.006;
 
 function quarryId(objectId: string): string {
@@ -91,11 +100,26 @@ export function formatSandEdgeM3(value: number): string {
   return `${value.toLocaleString('ru-RU', { maximumFractionDigits: 0 })} м³`;
 }
 
-type LayoutPoint = { id: string; lon: number; lat: number; w: number; h: number };
+type GeoFrame = {
+  minLon: number;
+  maxLon: number;
+  minLat: number;
+  maxLat: number;
+  scale: number;
+  offsetX: number;
+  offsetY: number;
+};
 
-function computeGeoPositions(points: LayoutPoint[]): Map<string, { x: number; y: number }> {
-  const positions = new Map<string, { x: number; y: number }>();
-  if (points.length === 0) return positions;
+type SiteSpec = {
+  id: string;
+  snapNodeId: string;
+  kind: 'quarry' | 'consumer';
+  lon: number;
+  lat: number;
+};
+
+function buildGeoFrame(points: { lon: number; lat: number }[]): GeoFrame | null {
+  if (points.length === 0) return null;
 
   let minLon = Infinity;
   let maxLon = -Infinity;
@@ -108,6 +132,7 @@ function computeGeoPositions(points: LayoutPoint[]): Map<string, { x: number; y:
     minLat = Math.min(minLat, p.lat);
     maxLat = Math.max(maxLat, p.lat);
   }
+  if (!Number.isFinite(minLon)) return null;
 
   const spanLon = Math.max(maxLon - minLon, MIN_GEO_SPAN);
   const spanLat = Math.max(maxLat - minLat, MIN_GEO_SPAN);
@@ -116,16 +141,197 @@ function computeGeoPositions(points: LayoutPoint[]): Map<string, { x: number; y:
   const scale = Math.min(innerW / spanLon, innerH / spanLat) * 0.92;
   const usedW = spanLon * scale;
   const usedH = spanLat * scale;
-  const offsetX = PADDING + (innerW - usedW) / 2;
-  const offsetY = PADDING + (innerH - usedH) / 2;
 
-  for (const p of points) {
-    positions.set(p.id, {
-      x: offsetX + (p.lon - minLon) * scale - p.w / 2,
-      y: offsetY + (maxLat - p.lat) * scale - p.h / 2,
+  return {
+    minLon,
+    maxLon,
+    minLat,
+    maxLat,
+    scale,
+    offsetX: PADDING + (innerW - usedW) / 2,
+    offsetY: PADDING + (innerH - usedH) / 2,
+  };
+}
+
+function geoCenter(frame: GeoFrame, lon: number, lat: number): { cx: number; cy: number } {
+  return {
+    cx: frame.offsetX + (lon - frame.minLon) * frame.scale,
+    cy: frame.offsetY + (frame.maxLat - lat) * frame.scale,
+  };
+}
+
+function centerToTopLeft(cx: number, cy: number, w: number, h: number): { x: number; y: number } {
+  return { x: cx - w / 2, y: cy - h / 2 };
+}
+
+function geoToTopLeft(
+  frame: GeoFrame,
+  lon: number,
+  lat: number,
+  w: number,
+  h: number
+): { x: number; y: number } {
+  const { cx, cy } = geoCenter(frame, lon, lat);
+  return centerToTopLeft(cx, cy, w, h);
+}
+
+function geoKey(lon: number, lat: number): string {
+  return `${lon.toFixed(6)}|${lat.toFixed(6)}`;
+}
+
+function siteGeoAnchor(frame: GeoFrame, spec: SiteSpec): { x: number; y: number } {
+  return geoToTopLeft(frame, spec.lon, spec.lat, SITE_W, SITE_H);
+}
+
+type RoadSegment = { x1: number; y1: number; x2: number; y2: number };
+
+function closestPointOnSegment(
+  px: number,
+  py: number,
+  x1: number,
+  y1: number,
+  x2: number,
+  y2: number
+): { x: number; y: number } {
+  const dx = x2 - x1;
+  const dy = y2 - y1;
+  const lenSq = dx * dx + dy * dy;
+  if (lenSq < 1e-9) return { x: x1, y: y1 };
+  const t = Math.max(0, Math.min(1, ((px - x1) * dx + (py - y1) * dy) / lenSq));
+  return { x: x1 + t * dx, y: y1 + t * dy };
+}
+
+function rectsOverlap(a: { x: number; y: number; w: number; h: number }, b: { x: number; y: number; w: number; h: number }, gap: number): boolean {
+  return (
+    a.x < b.x + b.w + gap &&
+    a.x + a.w + gap > b.x &&
+    a.y < b.y + b.h + gap &&
+    a.y + a.h + gap > b.y
+  );
+}
+
+function repelRectFromSegment(s: LayoutRect, seg: RoadSegment, clearance: number): void {
+  const samples: [number, number][] = [
+    [s.x + s.w / 2, s.y + s.h / 2],
+    [s.x + 8, s.y + 8],
+    [s.x + s.w - 8, s.y + 8],
+    [s.x + 8, s.y + s.h - 8],
+    [s.x + s.w - 8, s.y + s.h - 8],
+  ];
+
+  for (const [px, py] of samples) {
+    const cp = closestPointOnSegment(px, py, seg.x1, seg.y1, seg.x2, seg.y2);
+    let dx = px - cp.x;
+    let dy = py - cp.y;
+    let dist = Math.hypot(dx, dy);
+    if (dist < 1e-3) {
+      const sdx = seg.x2 - seg.x1;
+      const sdy = seg.y2 - seg.y1;
+      const segLen = Math.hypot(sdx, sdy) || 1;
+      dx = -sdy / segLen;
+      dy = sdx / segLen;
+      dist = 1;
+    }
+    if (dist >= clearance) continue;
+    const push = ((clearance - dist) / dist) * 0.65;
+    s.x += dx * push;
+    s.y += dy * push;
+  }
+}
+
+function repelRectFromPoint(s: LayoutRect, px: number, py: number, minDist: number): void {
+  const rx = Math.max(s.x, Math.min(px, s.x + s.w));
+  const ry = Math.max(s.y, Math.min(py, s.y + s.h));
+  let dx = rx - px;
+  let dy = ry - py;
+  let dist = Math.hypot(dx, dy);
+  if (dist < 1e-3) {
+    dx = s.x + s.w / 2 - px;
+    dy = s.y + s.h / 2 - py;
+    dist = Math.hypot(dx, dy) || 1;
+  }
+  if (dist >= minDist) return;
+  const push = minDist - dist;
+  s.x += (dx / dist) * push;
+  s.y += (dy / dist) * push;
+}
+
+function buildRoadSegments(
+  networkEdges: SandLogisticsSubnet['network_edges'],
+  positions: Map<string, { x: number; y: number }>
+): RoadSegment[] {
+  const segments: RoadSegment[] = [];
+  const seen = new Set<string>();
+  for (const re of networkEdges ?? []) {
+    const key = segmentKey(re.from_node_id, re.to_node_id);
+    if (seen.has(key)) continue;
+    seen.add(key);
+    const a = positions.get(networkNodeId(re.from_node_id));
+    const b = positions.get(networkNodeId(re.to_node_id));
+    if (!a || !b) continue;
+    segments.push({
+      x1: a.x + NET_SIZE / 2,
+      y1: a.y + NET_SIZE / 2,
+      x2: b.x + NET_SIZE / 2,
+      y2: b.y + NET_SIZE / 2,
     });
   }
-  return positions;
+  return segments;
+}
+
+function estimateLabelSize(flowM3: number): { w: number; h: number } {
+  const text = formatSandEdgeM3(flowM3);
+  return { w: text.length * 6.4 + 16, h: 20 };
+}
+
+function labelBoxOverlapsSites(
+  lx: number,
+  ly: number,
+  lw: number,
+  lh: number,
+  sites: LayoutRect[]
+): boolean {
+  const box: LayoutRect = { id: '', x: lx - lw / 2, y: ly - lh / 2, w: lw, h: lh, ax: 0, ay: 0 };
+  return sites.some((s) => rectsOverlap(box, s, 10));
+}
+
+function flowLabelOffset(
+  sx: number,
+  sy: number,
+  tx: number,
+  ty: number,
+  flowM3: number,
+  sites: LayoutRect[]
+): { labelOffsetX: number; labelOffsetY: number } {
+  const baseX = (sx + tx) / 2;
+  const baseY = (sy + ty) / 2;
+  const { w, h } = estimateLabelSize(flowM3);
+  const segDx = tx - sx;
+  const segDy = ty - sy;
+  const len = Math.hypot(segDx, segDy) || 1;
+  const nx = -segDy / len;
+  const ny = segDx / len;
+  const alongX = segDx / len;
+  const alongY = segDy / len;
+
+  const candidates: [number, number][] = [
+    [0, 0],
+    [nx * 34, ny * 34],
+    [nx * -34, ny * -34],
+    [nx * 52, ny * 52],
+    [nx * -52, ny * -52],
+    [alongX * 40, alongY * 40],
+    [alongX * -40, alongY * -40],
+    [nx * 34 + alongX * 20, ny * 34 + alongY * 20],
+    [nx * -34 + alongX * -20, ny * -34 + alongY * -20],
+  ];
+
+  for (const [ox, oy] of candidates) {
+    if (!labelBoxOverlapsSites(baseX + ox, baseY + oy, w, h, sites)) {
+      return { labelOffsetX: ox, labelOffsetY: oy };
+    }
+  }
+  return { labelOffsetX: nx * 44, labelOffsetY: ny * 44 };
 }
 
 type LayoutRect = {
@@ -134,16 +340,21 @@ type LayoutRect = {
   y: number;
   w: number;
   h: number;
+  /** Якорь по lon/lat объекта (px на схеме) */
   ax: number;
   ay: number;
-  isSite: boolean;
 };
 
-function spreadCoincidentSites(state: LayoutRect[]): void {
+/** Несколько объектов в одной точке карты — веер вокруг гео-центра. */
+function spreadCoincidentGeoSites(
+  sites: LayoutRect[],
+  geoKeyById: Map<string, string>,
+  frame: GeoFrame,
+  siteSpecById: Map<string, SiteSpec>
+): void {
   const groups = new Map<string, LayoutRect[]>();
-  for (const s of state) {
-    if (!s.isSite) continue;
-    const key = `${Math.round(s.ax)}:${Math.round(s.ay)}`;
+  for (const s of sites) {
+    const key = geoKeyById.get(s.id) ?? s.id;
     const list = groups.get(key) ?? [];
     list.push(s);
     groups.set(key, list);
@@ -151,18 +362,32 @@ function spreadCoincidentSites(state: LayoutRect[]): void {
 
   for (const group of groups.values()) {
     if (group.length <= 1) continue;
-    const radius = SITE_W + SITE_GAP;
+    group.sort((a, b) => a.id.localeCompare(b.id));
+
+    const lead = siteSpecById.get(group[0]!.id);
+    if (!lead) continue;
+    const { cx, cy } = geoCenter(frame, lead.lon, lead.lat);
+    const minRadius =
+      group.length > 1
+        ? (SITE_W + SITE_GAP) / (2 * Math.sin(Math.PI / group.length))
+        : SITE_W / 2 + SITE_GAP;
+    const radius = Math.max(minRadius, SITE_H / 2 + SITE_GAP);
+
     group.forEach((s, i) => {
       const angle = (2 * Math.PI * i) / group.length - Math.PI / 2;
-      const cx = s.ax + s.w / 2;
-      const cy = s.ay + s.h / 2;
-      s.x = cx + Math.cos(angle) * radius - s.w / 2;
-      s.y = cy + Math.sin(angle) * radius - s.h / 2;
+      const bx = cx + Math.cos(angle) * radius - SITE_W / 2;
+      const by = cy + Math.sin(angle) * radius - SITE_H / 2;
+      s.x = bx;
+      s.y = by;
+      s.ax = bx;
+      s.ay = by;
     });
   }
 }
 
-function pushRectsApart(a: LayoutRect, b: LayoutRect, gap: number): void {
+function separateRects(a: LayoutRect, b: LayoutRect, gap: number): void {
+  if (!rectsOverlap(a, b, gap)) return;
+
   const acx = a.x + a.w / 2;
   const acy = a.y + a.h / 2;
   const bcx = b.x + b.w / 2;
@@ -171,79 +396,150 @@ function pushRectsApart(a: LayoutRect, b: LayoutRect, gap: number): void {
   const overlapY = (a.h + b.h) / 2 + gap - Math.abs(acy - bcy);
   if (overlapX <= 0 || overlapY <= 0) return;
 
-  let dx = acx - bcx;
-  let dy = acy - bcy;
-  if (Math.abs(dx) < 1e-6 && Math.abs(dy) < 1e-6) {
-    dx = a.id.localeCompare(b.id) || 1;
-    dy = 1;
-  }
-  const len = Math.hypot(dx, dy) || 1;
-  const push = Math.min(overlapX, overlapY) / 2 + 3;
-
-  const aMovable = a.isSite;
-  const bMovable = b.isSite;
-  if (!aMovable && !bMovable) return;
-
-  if (aMovable && bMovable) {
-    a.x += (dx / len) * push;
-    a.y += (dy / len) * push;
-    b.x -= (dx / len) * push;
-    b.y -= (dy / len) * push;
-  } else if (aMovable) {
-    a.x += (dx / len) * push * 2;
-    a.y += (dy / len) * push * 2;
+  if (overlapX < overlapY) {
+    const push = overlapX + 1;
+    const dir = acx >= bcx ? 1 : -1;
+    a.x += push * dir * 0.5;
+    b.x -= push * dir * 0.5;
   } else {
-    b.x -= (dx / len) * push * 2;
-    b.y -= (dy / len) * push * 2;
+    const push = overlapY + 1;
+    const dir = acy >= bcy ? 1 : -1;
+    a.y += push * dir * 0.5;
+    b.y -= push * dir * 0.5;
   }
 }
 
-/** Push overlapping blocks apart; sites stay near geo anchors, network nodes stay fixed. */
-function resolveLayoutOverlaps(
-  positions: Map<string, { x: number; y: number }>,
-  anchors: Map<string, { x: number; y: number }>,
-  layoutPoints: LayoutPoint[],
-  siteIds: Set<string>
+function pushRectsApart(a: LayoutRect, b: LayoutRect, gap: number): void {
+  separateRects(a, b, gap);
+}
+
+export type SandFlowLayoutRect = {
+  id: string;
+  x: number;
+  y: number;
+  w: number;
+  h: number;
+};
+
+/** Гарантирует отсутствие перекрытий между блоками (зазор ≥ gap). */
+export function enforceSandFlowSitesNoOverlap(
+  rects: SandFlowLayoutRect[],
+  gap: number = SAND_FLOW_SITE_GAP,
+  maxPasses = 160
 ): void {
-  if (layoutPoints.length < 2) return;
-
-  const state: LayoutRect[] = layoutPoints.map((p) => {
-    const pos = positions.get(p.id) ?? { x: 0, y: 0 };
-    const anchor = anchors.get(p.id) ?? pos;
-    return {
-      id: p.id,
-      x: pos.x,
-      y: pos.y,
-      w: p.w,
-      h: p.h,
-      ax: anchor.x,
-      ay: anchor.y,
-      isSite: siteIds.has(p.id),
-    };
-  });
-
-  spreadCoincidentSites(state);
-
-  for (let iter = 0; iter < 280; iter++) {
-    for (let i = 0; i < state.length; i++) {
-      for (let j = i + 1; j < state.length; j++) {
-        pushRectsApart(state[i]!, state[j]!, SITE_GAP);
+  for (let pass = 0; pass < maxPasses; pass++) {
+    let moved = false;
+    for (let i = 0; i < rects.length; i++) {
+      for (let j = i + 1; j < rects.length; j++) {
+        const a = rects[i]!;
+        const b = rects[j]!;
+        if (rectsOverlap(a, b, gap)) {
+          separateRects(a as LayoutRect, b as LayoutRect, gap);
+          moved = true;
+        }
       }
     }
-    const pull = iter < 200 ? 0.035 : 0.012;
-    for (const s of state) {
-      if (!s.isSite) continue;
-      s.x += (s.ax + s.w / 2 - (s.x + s.w / 2)) * pull;
-      s.y += (s.ay + s.h / 2 - (s.y + s.h / 2)) * pull;
-    }
+    if (!moved) break;
   }
+}
 
-  for (const s of state) {
-    positions.set(s.id, { x: s.x, y: s.y });
-  }
+function enforceNonOverlappingSites(sites: LayoutRect[], gap: number): void {
+  enforceSandFlowSitesNoOverlap(sites, gap, 200);
+}
+
+function clampToGeoAnchor(s: LayoutRect): void {
+  const cx = s.x + s.w / 2;
+  const cy = s.y + s.h / 2;
+  const ax = s.ax + s.w / 2;
+  const ay = s.ay + s.h / 2;
+  const dx = cx - ax;
+  const dy = cy - ay;
+  const dist = Math.hypot(dx, dy);
+  if (dist <= MAX_GEO_DRIFT) return;
+  const scale = MAX_GEO_DRIFT / dist;
+  const nx = ax + dx * scale;
+  const ny = ay + dy * scale;
+  s.x = nx - s.w / 2;
+  s.y = ny - s.h / 2;
 }
 
 type RoadGraph = Map<string, { neighbor: string; weight: number }[]>;
+
+/** Разводит блоки, сохраняя привязку к гео-якорю (lon/lat). */
+function resolveSiteLayout(
+  sites: LayoutRect[],
+  roadSegments: RoadSegment[],
+  nodeCenters: { cx: number; cy: number }[],
+  snapCenters: Map<string, { cx: number; cy: number }>,
+  siteSnapIds: Map<string, string>,
+  geoKeyById: Map<string, string>,
+  frame: GeoFrame,
+  siteSpecById: Map<string, SiteSpec>
+): void {
+  if (sites.length === 0) return;
+
+  spreadCoincidentGeoSites(sites, geoKeyById, frame, siteSpecById);
+
+  for (let iter = 0; iter < 420; iter++) {
+    for (let i = 0; i < sites.length; i++) {
+      for (let j = i + 1; j < sites.length; j++) {
+        pushRectsApart(sites[i]!, sites[j]!, SITE_GAP);
+      }
+    }
+
+    for (const s of sites) {
+      for (const seg of roadSegments) {
+        repelRectFromSegment(s, seg, ROAD_CLEARANCE);
+      }
+      for (const node of nodeCenters) {
+        repelRectFromPoint(s, node.cx, node.cy, NODE_CLEARANCE);
+      }
+      const snapId = siteSnapIds.get(s.id);
+      if (snapId) {
+        const snap = snapCenters.get(snapId);
+        if (snap) repelRectFromPoint(s, snap.cx, snap.cy, NODE_CLEARANCE + 8);
+      }
+    }
+
+    const pull = GEO_PULL * (1 - (iter / 420) * 0.55);
+    for (const s of sites) {
+      s.x += (s.ax - s.x) * pull;
+      s.y += (s.ay - s.y) * pull;
+      clampToGeoAnchor(s);
+    }
+    enforceNonOverlappingSites(sites, SITE_GAP);
+  }
+
+  for (let iter = 0; iter < 48; iter++) {
+    for (let i = 0; i < sites.length; i++) {
+      for (let j = i + 1; j < sites.length; j++) {
+        pushRectsApart(sites[i]!, sites[j]!, SITE_GAP);
+      }
+    }
+    for (const s of sites) {
+      for (const seg of roadSegments) {
+        repelRectFromSegment(s, seg, ROAD_CLEARANCE + 6);
+      }
+      for (const node of nodeCenters) {
+        repelRectFromPoint(s, node.cx, node.cy, NODE_CLEARANCE);
+      }
+      const snapId = siteSnapIds.get(s.id);
+      if (snapId) {
+        const snap = snapCenters.get(snapId);
+        if (snap) repelRectFromPoint(s, snap.cx, snap.cy, NODE_CLEARANCE + 8);
+      }
+      clampToGeoAnchor(s);
+    }
+    enforceNonOverlappingSites(sites, SITE_GAP);
+  }
+
+  for (const s of sites) {
+    s.x += (s.ax - s.x) * 0.12;
+    s.y += (s.ay - s.y) * 0.12;
+    clampToGeoAnchor(s);
+  }
+  enforceNonOverlappingSites(sites, SITE_GAP);
+}
 
 function buildRoadGraph(subnet: SandLogisticsSubnet): RoadGraph {
   const adj: RoadGraph = new Map();
@@ -312,42 +608,97 @@ export function sandLogisticsToFlow(result: SandLogisticsSubnet): {
   const quarryIds = new Set(result.quarries.map((q) => q.object_id));
   const roadGraph = buildRoadGraph(result);
 
-  const layoutPoints: LayoutPoint[] = [];
-  const siteIds: string[] = [];
-
+  const networkGeo: { lon: number; lat: number }[] = [];
   for (const nn of result.network_nodes ?? []) {
     if (!Number.isFinite(nn.lon) || !Number.isFinite(nn.lat)) continue;
-    layoutPoints.push({
-      id: networkNodeId(nn.id),
-      lon: nn.lon,
-      lat: nn.lat,
-      w: NET_SIZE,
-      h: NET_SIZE,
-    });
+    networkGeo.push({ lon: nn.lon, lat: nn.lat });
   }
 
+  const siteSpecs: SiteSpec[] = [];
   for (const q of result.quarries) {
     if (!q.snap_node_id) continue;
     if (Number.isFinite(q.lon) && Number.isFinite(q.lat) && (q.lon !== 0 || q.lat !== 0)) {
-      const id = quarryId(q.object_id);
-      siteIds.push(id);
-      layoutPoints.push({ id, lon: q.lon, lat: q.lat, w: SITE_W, h: SITE_H });
+      siteSpecs.push({
+        id: quarryId(q.object_id),
+        snapNodeId: q.snap_node_id,
+        kind: 'quarry',
+        lon: q.lon,
+        lat: q.lat,
+      });
+      networkGeo.push({ lon: q.lon, lat: q.lat });
     }
   }
-
   for (const c of result.consumers) {
     if (!c.snap_node_id) continue;
     if (Number.isFinite(c.lon) && Number.isFinite(c.lat) && (c.lon !== 0 || c.lat !== 0)) {
-      const id = consumerId(c.object_id);
-      siteIds.push(id);
-      layoutPoints.push({ id, lon: c.lon, lat: c.lat, w: SITE_W, h: SITE_H });
+      siteSpecs.push({
+        id: consumerId(c.object_id),
+        snapNodeId: c.snap_node_id,
+        kind: 'consumer',
+        lon: c.lon,
+        lat: c.lat,
+      });
+      networkGeo.push({ lon: c.lon, lat: c.lat });
     }
   }
 
-  const siteIdSet = new Set(siteIds);
-  const anchors = computeGeoPositions(layoutPoints);
-  const positions = new Map(anchors);
-  resolveLayoutOverlaps(positions, anchors, layoutPoints, siteIdSet);
+  const frame = buildGeoFrame(networkGeo);
+  const positions = new Map<string, { x: number; y: number }>();
+
+  const snapCenters = new Map<string, { cx: number; cy: number }>();
+
+  let layoutSiteRects: LayoutRect[] = [];
+
+  if (frame) {
+    for (const nn of result.network_nodes ?? []) {
+      if (!Number.isFinite(nn.lon) || !Number.isFinite(nn.lat)) continue;
+      const id = networkNodeId(nn.id);
+      const topLeft = geoToTopLeft(frame, nn.lon, nn.lat, NET_SIZE, NET_SIZE);
+      positions.set(id, topLeft);
+      snapCenters.set(nn.id, {
+        cx: topLeft.x + NET_SIZE / 2,
+        cy: topLeft.y + NET_SIZE / 2,
+      });
+    }
+
+    const siteSnapIds = new Map<string, string>();
+    const geoKeyById = new Map<string, string>();
+    const siteSpecById = new Map<string, SiteSpec>();
+    const siteRects: LayoutRect[] = siteSpecs.map((spec) => {
+      siteSnapIds.set(spec.id, spec.snapNodeId);
+      geoKeyById.set(spec.id, geoKey(spec.lon, spec.lat));
+      siteSpecById.set(spec.id, spec);
+      const anchor = siteGeoAnchor(frame, spec);
+      return {
+        id: spec.id,
+        x: anchor.x,
+        y: anchor.y,
+        w: SITE_W,
+        h: SITE_H,
+        ax: anchor.x,
+        ay: anchor.y,
+      };
+    });
+
+    if (siteRects.length > 0) {
+      const roadSegments = buildRoadSegments(result.network_edges, positions);
+      const nodeCenters = [...snapCenters.values()];
+      resolveSiteLayout(
+        siteRects,
+        roadSegments,
+        nodeCenters,
+        snapCenters,
+        siteSnapIds,
+        geoKeyById,
+        frame,
+        siteSpecById
+      );
+      layoutSiteRects = siteRects;
+      for (const s of siteRects) {
+        positions.set(s.id, { x: s.x, y: s.y });
+      }
+    }
+  }
 
   for (const nn of result.network_nodes ?? []) {
     const id = networkNodeId(nn.id);
@@ -364,22 +715,6 @@ export function sandLogisticsToFlow(result: SandLogisticsSubnet): {
     });
   }
 
-  const roadSeen = new Set<string>();
-  for (const re of result.network_edges ?? []) {
-    const key = segmentKey(re.from_node_id, re.to_node_id);
-    if (roadSeen.has(key)) continue;
-    roadSeen.add(key);
-    edges.push({
-      id: `road-${key}`,
-      type: 'sandNetworkEdge',
-      source: networkNodeId(re.from_node_id),
-      target: networkNodeId(re.to_node_id),
-      selectable: false,
-      zIndex: 0,
-      style: { stroke: '#cbd5e1', strokeWidth: 2 },
-    });
-  }
-
   const segmentFlowM3 = new Map<string, number>();
   const siteLinks = new Set<string>();
 
@@ -393,11 +728,13 @@ export function sandLogisticsToFlow(result: SandLogisticsSubnet): {
       id,
       type: 'sandFlowNode',
       position: positions.get(id) ?? { x: 0, y: 0 },
-      zIndex: 10,
+      zIndex: 20,
       data: {
         kind: 'quarry',
         label: q.name || 'Карьер',
         in_service: q.in_service,
+        lon: q.lon,
+        lat: q.lat,
       },
     });
   }
@@ -411,11 +748,13 @@ export function sandLogisticsToFlow(result: SandLogisticsSubnet): {
       id,
       type: 'sandFlowNode',
       position: positions.get(id) ?? { x: 0, y: 0 },
-      zIndex: 10,
+      zIndex: 20,
       data: {
         kind: 'consumer',
         label: c.name || c.subtype,
         in_service: c.in_service,
+        lon: c.lon,
+        lat: c.lat,
         demand_m3: c.demand_m3,
         allocated_m3: c.greedy_allocated_m3,
       },
@@ -452,21 +791,40 @@ export function sandLogisticsToFlow(result: SandLogisticsSubnet): {
     }
   }
 
-  for (const [key, flowM3] of segmentFlowM3) {
-    const [a, b] = key.split('|');
-    if (!a || !b) continue;
+  const roadSeen = new Set<string>();
+  for (const re of result.network_edges ?? []) {
+    const key = segmentKey(re.from_node_id, re.to_node_id);
+    if (roadSeen.has(key)) continue;
+    roadSeen.add(key);
+    const flowM3 = segmentFlowM3.get(key) ?? 0;
+    const hasFlow = flowM3 > 0;
+    const srcPos = positions.get(networkNodeId(re.from_node_id));
+    const tgtPos = positions.get(networkNodeId(re.to_node_id));
+    const labelOffset =
+      hasFlow && srcPos && tgtPos
+        ? flowLabelOffset(
+            srcPos.x + NET_SIZE / 2,
+            srcPos.y + NET_SIZE / 2,
+            tgtPos.x + NET_SIZE / 2,
+            tgtPos.y + NET_SIZE / 2,
+            flowM3,
+            layoutSiteRects
+          )
+        : { labelOffsetX: 0, labelOffsetY: 0 };
     edges.push({
-      id: `flow-${key}`,
-      type: 'sandFlowEdge',
-      source: networkNodeId(a),
-      target: networkNodeId(b),
-      zIndex: 5,
+      id: `road-${key}`,
+      type: 'sandRoadEdge',
+      source: networkNodeId(re.from_node_id),
+      target: networkNodeId(re.to_node_id),
+      selectable: false,
+      zIndex: hasFlow ? 5 : 0,
       data: {
         flowM3,
-        variant: 'flow',
-        showLabel: flowM3 > 0,
-      } satisfies SandFlowEdgeData,
-      style: { stroke: '#b45309', strokeWidth: 4 },
+        ...labelOffset,
+      } satisfies SandRoadEdgeData,
+      style: hasFlow
+        ? { stroke: '#b45309', strokeWidth: 4 }
+        : { stroke: '#cbd5e1', strokeWidth: 2 },
     });
   }
 

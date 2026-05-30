@@ -44,3 +44,45 @@ export function linkedLineIdsForPoint(pointObj: InfraObject, allInfra: InfraObje
   return ids;
 }
 
+/** IDs to drop from client cache (selected points + their attached lines). */
+export function expandInfraDeleteIds(ids: Iterable<string>, allInfra: InfraObject[]): Set<string> {
+  const deleteIds = new Set(ids);
+  for (const id of deleteIds) {
+    const obj = allInfra.find((o) => o.id === id);
+    if (!obj || isLineSubtype(obj.subtype)) continue;
+    for (const lineId of linkedLineIdsForPoint(obj, allInfra)) deleteIds.add(lineId);
+  }
+  return deleteIds;
+}
+
+/**
+ * Backend cascades line removal when deleting a point — avoid parallel DELETE on the same lines (404).
+ */
+export function infraDeleteApiIds(deleteIds: Iterable<string>, allInfra: InfraObject[]): string[] {
+  const idSet = new Set(deleteIds);
+  const pointIds = new Set<string>();
+  const lineIds = new Set<string>();
+  for (const id of idSet) {
+    const obj = allInfra.find((o) => o.id === id);
+    if (!obj) {
+      pointIds.add(id);
+      continue;
+    }
+    if (isLineSubtype(obj.subtype)) lineIds.add(id);
+    else pointIds.add(id);
+  }
+  const cascadedLineIds = new Set<string>();
+  for (const pid of pointIds) {
+    const p = allInfra.find((o) => o.id === pid);
+    if (p && !isLineSubtype(p.subtype)) {
+      for (const lid of linkedLineIdsForPoint(p, allInfra)) cascadedLineIds.add(lid);
+    }
+  }
+  const apiIds = new Set<string>();
+  for (const lid of lineIds) {
+    if (!cascadedLineIds.has(lid)) apiIds.add(lid);
+  }
+  for (const pid of pointIds) apiIds.add(pid);
+  return [...apiIds];
+}
+

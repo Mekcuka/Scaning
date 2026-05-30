@@ -23,6 +23,11 @@ import { click } from 'ol/events/condition';
 import Overlay from 'ol/Overlay';
 import type { AnalysisRow, InfraObject, POI } from '../lib/api';
 import { isValidAnalysisAnchor } from '../lib/analysisDisplay';
+import {
+  constrainLineCoordinatesOnEdit,
+  findLineEndpointAttachment,
+} from '../lib/lineEndpointRules';
+import { closestPointOnPolyline } from '../lib/lineSplit';
 import { MAP_SUBTYPE_COLORS, iconDataUrl } from '../lib/mapIcons';
 import {
   loadMapViewState,
@@ -32,33 +37,6 @@ import {
 } from '../lib/mapViewState';
 import { useAppStore } from '../store';
 import 'ol/ol.css';
-
-function coordKey(lon: number, lat: number, precision = 5): string {
-  return `${lon.toFixed(precision)},${lat.toFixed(precision)}`;
-}
-
-/** Point infrastructure objects (not lines). */
-function isPointInfraObject(obj: InfraObject): boolean {
-  return obj.end_lon == null && obj.end_lat == null;
-}
-
-function buildPointObjectCoordKeys(objects: InfraObject[]): Set<string> {
-  const keys = new Set<string>();
-  for (const obj of objects) {
-    if (!isPointInfraObject(obj)) continue;
-    keys.add(coordKey(obj.lon, obj.lat, 5));
-    keys.add(coordKey(obj.lon, obj.lat, 4));
-  }
-  return keys;
-}
-
-function isNetworkNodeOnPointObject(
-  lon: number,
-  lat: number,
-  pointCoordKeys: Set<string>
-): boolean {
-  return pointCoordKeys.has(coordKey(lon, lat, 5)) || pointCoordKeys.has(coordKey(lon, lat, 4));
-}
 
 function infraLineGeometry(obj: InfraObject): LineString | null {
   if (obj.coordinates && obj.coordinates.length >= 2) {
@@ -162,30 +140,39 @@ function expandLayerFeatures(f: Feature): Feature[] {
   return [f];
 }
 
-export interface NetworkNode {
-  id: string;
-  lon: number;
-  lat: number;
+function findSelectableLayerFeature(
+  pointSource: VectorSource<Feature>,
+  lineSource: VectorSource<Feature>,
+  id: string
+): Feature | undefined {
+  for (const source of [pointSource, lineSource]) {
+    const found = source.getFeatures().find((f) => {
+      if (f.get('subtype') === 'draft' || f.get('subtype') === 'measure') return false;
+      if (f.get('id') === id) return true;
+      return expandLayerFeatures(f).some((inner) => inner.get('id') === id);
+    });
+    if (found) return found;
+  }
+  return undefined;
 }
 
-export interface NetworkEdge {
-  id: string;
-  from_node_id: string;
-  to_node_id: string;
-}
+export type MapClickHit = {
+  overPoint?: { lon: number; lat: number; id?: string };
+  overLine?: { lineId: string; lon: number; lat: number; segmentIndex: number };
+};
 
-interface MapViewProps {
+export interface MapViewProps {
   pois?: POI[];
   infraObjects?: InfraObject[];
-  /** When false, Esri tile underlay is hidden (vectors/radii/network remain). */
+  /** When false, Esri tile underlay is hidden (vectors/radii remain). */
   showBasemap?: boolean;
   drawMode?: DrawMode;
   selectMode?: SelectMode;
-  onMapClick?: (lon: number, lat: number) => void;
+  onMapClick?: (lon: number, lat: number, hit?: MapClickHit) => void;
   onFinishLine?: (coords: number[][], finishAt?: { lon: number; lat: number }) => void;
   /** Double-click / finish current measure polyline (ruler mode). */
   onFinishMeasure?: () => void;
-  onPointerMove?: (lon: number, lat: number) => void;
+  onPointerMove?: (lon: number, lat: number, overPoint?: { lon: number; lat: number }) => void;
   onPointerLeave?: () => void;
   onFeatureSelect?: (sel: MapFeatureSelection | null) => void;
   onFeatureGroupSelect?: (sels: MapFeatureSelection[]) => void;
@@ -199,6 +186,8 @@ interface MapViewProps {
   selectedFeatureIds?: string[];
   thresholdCircles?: ThresholdCircle[];
   draftLine?: number[][];
+  /** Dashed segment from last draft vertex to cursor (line draw mode). */
+  draftLinePreview?: [number, number] | null;
   /** Active measure polyline (lon/lat vertices). */
   measureLine?: number[][];
   measurePreview?: [number, number] | null;
@@ -209,9 +198,6 @@ interface MapViewProps {
   /** Labels at finished measure endpoints. */
   measureAnchorLabels?: MeasureLabel[];
   showRadii?: boolean;
-  networkNodes?: NetworkNode[];
-  networkEdges?: NetworkEdge[];
-  nodeCoordLookup?: Record<string, { lon: number; lat: number }>;
   useMapIcons?: boolean;
   layers?: InfraLayer[];
   mapFocus?: MapFocusTarget | null;
@@ -234,6 +220,46 @@ type LinkedLineDragState = {
   pointId: string;
   links: { lineId: string; start: boolean; end: boolean }[];
 };
+
+type LineModifySession = {
+  sessionId: number;
+  lineId: string;
+  subtype: string;
+  originalStart: [number, number];
+  originalFinish: [number, number];
+  originalStartAttach: ReturnType<typeof findLineEndpointAttachment>;
+  originalFinishAttach: ReturnType<typeof findLineEndpointAttachment>;
+};
+
+function lineCoordsFromGeometry(geom: LineString): number[][] {
+  return geom.getCoordinates().map((c) => {
+    const [lon, lat] = transform(c, 'EPSG:3857', 'EPSG:4326');
+    return [lon, lat];
+  });
+}
+
+const LINE_VERTEX_HIT_TOLERANCE_PX = 10;
+
+function findLineVertexIndexAtPixel(
+  map: OlMap,
+  geom: LineString,
+  pixel: number[],
+  tolerancePx = LINE_VERTEX_HIT_TOLERANCE_PX,
+): number | null {
+  const coords = geom.getCoordinates();
+  let bestIndex: number | null = null;
+  let bestDist = Number.POSITIVE_INFINITY;
+  for (let i = 0; i < coords.length; i++) {
+    const vertexPixel = map.getPixelFromCoordinate(coords[i]!);
+    if (!vertexPixel) continue;
+    const dist = Math.hypot(vertexPixel[0]! - pixel[0]!, vertexPixel[1]! - pixel[1]!);
+    if (dist <= tolerancePx && dist < bestDist) {
+      bestDist = dist;
+      bestIndex = i;
+    }
+  }
+  return bestIndex;
+}
 
 function layerOpacityMap(layers: InfraLayer[] | undefined): Record<string, number> {
   const m: Record<string, number> = {};
@@ -414,15 +440,13 @@ export function MapView({
   selectedFeatureIds = [],
   thresholdCircles = [],
   draftLine = [],
+  draftLinePreview = null,
   measureLine = [],
   measurePreview = null,
   measureCompletedLines = [],
   measureCursorLabel = null,
   measureAnchorLabels = [],
   showRadii = true,
-  networkNodes = [],
-  networkEdges = [],
-  nodeCoordLookup,
   useMapIcons = true,
   layers = [],
   mapFocus = null,
@@ -436,11 +460,12 @@ export function MapView({
   const projectId = useAppStore((s) => s.currentProjectId);
   const layersRef = useRef(layers);
   layersRef.current = layers;
+  const infraObjectsRef = useRef(infraObjects);
+  infraObjectsRef.current = infraObjects;
   const containerRef = useRef<HTMLDivElement>(null);
   const mapRef = useRef<OlMap | null>(null);
   const pointSourceRef = useRef(new VectorSource());
   const lineSourceRef = useRef(new VectorSource());
-  const networkSourceRef = useRef(new VectorSource());
   const radiusSourceRef = useRef(new VectorSource());
   const placementPreviewSourceRef = useRef(new VectorSource());
   const connectionSourceRef = useRef(new VectorSource());
@@ -471,7 +496,9 @@ export function MapView({
   const selectModeRef = useRef(selectMode);
   const useIconsRef = useRef(useMapIcons);
   const suppressDataSyncRef = useRef(false);
+  const infraIdsRef = useRef<Set<string>>(new Set());
   const linkedLineDragRef = useRef<LinkedLineDragState | null>(null);
+  const lineModifySessionRef = useRef<LineModifySession | null>(null);
   const modifySessionRef = useRef(0);
   const suppressMapClickRef = useRef(false);
   const lineRightClickRef = useRef({ at: 0, x: 0, y: 0 });
@@ -513,7 +540,21 @@ export function MapView({
         const subtype = feature.get('subtype') as string;
         if (subtype === 'draft') {
           return new Style({
-            stroke: new Stroke({ color: '#2196f3', width: 2, lineDash: [6, 6] }),
+            stroke: new Stroke({ color: '#2196f3', width: 2.5 }),
+          });
+        }
+        if (subtype === 'draft-preview') {
+          return new Style({
+            stroke: new Stroke({ color: '#2196f3', width: 2, lineDash: [8, 6] }),
+          });
+        }
+        if (subtype === 'draft-point') {
+          return new Style({
+            image: new CircleStyle({
+              radius: 7,
+              fill: new Fill({ color: '#2196f3' }),
+              stroke: new Stroke({ color: '#fff', width: 2 }),
+            }),
           });
         }
         if (subtype === 'measure') {
@@ -539,19 +580,6 @@ export function MapView({
                 .padStart(2, '0')}`
             : color;
         return lineStrokeStyles(strokeColor, 3, !!hovered);
-      },
-    });
-
-    const networkLayer = new VectorLayer({
-      source: networkSourceRef.current,
-      zIndex: 2,
-      style: (feature) => {
-        if (feature.get('edge')) {
-          return new Style({
-            stroke: new Stroke({ color: '#7b1fa2', width: 2, lineDash: [4, 4] }),
-          });
-        }
-        return pointIconStyle('network_node', 0.8);
       },
     });
 
@@ -627,7 +655,6 @@ export function MapView({
       layers: [
         basemapLayer,
         radiusLayer,
-        networkLayer,
         connectionLayer,
         lineLayer,
         pointLayer,
@@ -715,10 +742,77 @@ export function MapView({
       onFeatureGroupSelectRef.current?.(selections);
     });
 
+    const resolveInfraPointAtPixel = (
+      pixel: number[],
+    ): { lon: number; lat: number; id: string } | null => {
+      const hit = map.forEachFeatureAtPixel(
+        pixel,
+        (feat, layer) => {
+          if (layer !== pointLayer) return undefined;
+          const features = feat.get('features') as Feature[] | undefined;
+          const inner = features?.length === 1 ? features[0] : feat;
+          const subtype = inner.get('subtype') as string;
+          const kind = inner.get('featureKind') as string;
+          const id = inner.get('id') as string | undefined;
+          if (!id || subtype === 'draft') return undefined;
+          if (kind !== 'infra') return undefined;
+          const geom = inner.getGeometry();
+          if (!(geom instanceof Point)) return undefined;
+          const [lon, lat] = transform(geom.getCoordinates(), 'EPSG:3857', 'EPSG:4326');
+          return { lon, lat, id };
+        },
+        { hitTolerance: 20, layerFilter: (l) => l === pointLayer },
+      );
+      return hit ?? null;
+    };
+
+    const resolveInfraLineSplitAtPixel = (
+      pixel: number[],
+    ): MapClickHit['overLine'] | null => {
+      const hit = map.forEachFeatureAtPixel(
+        pixel,
+        (feat, layer) => {
+          if (layer !== lineLayer) return undefined;
+          const features = feat.get('features') as Feature[] | undefined;
+          const inner = features?.length === 1 ? features[0] : feat;
+          const subtype = inner.get('subtype') as string;
+          const kind = inner.get('featureKind') as string;
+          const id = inner.get('id') as string | undefined;
+          if (!id || subtype === 'draft' || kind !== 'infra') return undefined;
+          if (!LINE_SUBTYPE_SET.has(subtype)) return undefined;
+          const geom = inner.getGeometry();
+          if (!(geom instanceof LineString)) return undefined;
+          return { feature: inner, id, geom };
+        },
+        { hitTolerance: 16, layerFilter: (l) => l === lineLayer },
+      );
+      if (!hit) return null;
+
+      const clickCoord = map.getCoordinateFromPixel(pixel);
+      if (!clickCoord) return null;
+      const [clickLon, clickLat] = transform(clickCoord, 'EPSG:3857', 'EPSG:4326');
+      const coords = lineCoordsFromGeometry(hit.geom);
+      const closest = closestPointOnPolyline([clickLon, clickLat], coords);
+      if (!closest) return null;
+
+      return {
+        lineId: hit.id,
+        lon: closest.point[0],
+        lat: closest.point[1],
+        segmentIndex: closest.segmentIndex,
+      };
+    };
+
+    const lineEndpointMoved = (
+      draft: [number, number],
+      original: [number, number],
+    ): boolean => Math.abs(draft[0] - original[0]) > 1e-6 || Math.abs(draft[1] - original[1]) > 1e-6;
+
     modify.on('modifystart', () => {
       const sessionId = ++modifySessionRef.current;
       suppressDataSyncRef.current = true;
       linkedLineDragRef.current = null;
+      lineModifySessionRef.current = null;
       if (!editModeRef.current) return;
       const collection = select.getFeatures();
       const f = collection.item(0);
@@ -729,9 +823,32 @@ export function MapView({
       const kind = inner.get('featureKind') as string;
       const id = inner.get('id') as string;
       const geom = f.getGeometry();
-      if (!id || kind !== 'infra' || !(geom instanceof Point) || LINE_SUBTYPES.includes(subtype as typeof LINE_SUBTYPES[number])) {
+      if (!id || kind !== 'infra') return;
+
+      if (geom instanceof LineString && LINE_SUBTYPE_SET.has(subtype)) {
+        const coords = lineCoordsFromGeometry(geom);
+        if (coords.length < 2) return;
+        const pool = infraObjectsRef.current.filter((o) => o.id !== id);
+        const originalStart = coords[0] as [number, number];
+        const originalFinish = coords[coords.length - 1] as [number, number];
+        lineModifySessionRef.current = {
+          sessionId,
+          lineId: id,
+          subtype,
+          originalStart,
+          originalFinish,
+          originalStartAttach: findLineEndpointAttachment(subtype, 'start', originalStart, pool),
+          originalFinishAttach: findLineEndpointAttachment(
+            subtype,
+            'finish',
+            originalFinish,
+            pool,
+          ),
+        };
         return;
       }
+
+      if (!(geom instanceof Point)) return;
       const pointCoord = geom.getCoordinates();
       const links: LinkedLineDragState['links'] = [];
       lineSourceRef.current.getFeatures().forEach((lineFeature) => {
@@ -755,12 +872,13 @@ export function MapView({
       }
     });
 
-    modify.on('modifyend', () => {
+    modify.on('modifyend', (evt) => {
       const sessionId = modifySessionRef.current;
       const finishSession = () => {
         // Ignore stale completions from previous drags.
         if (sessionId !== modifySessionRef.current) return;
         linkedLineDragRef.current = null;
+        lineModifySessionRef.current = null;
         suppressDataSyncRef.current = false;
       };
       if (!editModeRef.current) {
@@ -796,11 +914,53 @@ export function MapView({
           lat
         );
       } else if (geom instanceof LineString) {
-        const coords = geom.getCoordinates().map((c) => {
-          const [lon, lat] = transform(c, 'EPSG:3857', 'EPSG:4326');
-          return [lon, lat];
-        });
-        const [lon, lat] = coords[0];
+        let coords = lineCoordsFromGeometry(geom);
+        const session = lineModifySessionRef.current;
+        if (session && session.lineId === id && session.sessionId === sessionId) {
+          const pool = infraObjectsRef.current.filter((o) => o.id !== id);
+          const pixel = evt.mapBrowserEvent?.pixel;
+          const hit = pixel ? resolveInfraPointAtPixel(pixel) : null;
+          const hitObject = hit ? pool.find((o) => o.id === hit.id) ?? null : null;
+          const draftStart = coords[0] as [number, number];
+          const draftFinish = coords[coords.length - 1] as [number, number];
+          const startMoved = lineEndpointMoved(draftStart, session.originalStart);
+          const finishMoved = lineEndpointMoved(draftFinish, session.originalFinish);
+          const draftCoords = coords;
+          const constrained = constrainLineCoordinatesOnEdit({
+            lineSubtype: session.subtype,
+            originalStart: session.originalStart,
+            originalFinish: session.originalFinish,
+            originalStartAttach: session.originalStartAttach,
+            originalFinishAttach: session.originalFinishAttach,
+            draftCoords,
+            infraObjects: pool,
+            cursorTargetStart: startMoved ? hitObject : null,
+            cursorTargetFinish: finishMoved ? hitObject : null,
+          });
+          coords = constrained.coords;
+          const coordsChanged =
+            draftCoords.length !== coords.length ||
+            draftCoords.some(
+              (c, i) =>
+                Math.abs(c[0]! - coords[i]![0]!) > 1e-9 ||
+                Math.abs(c[1]! - coords[i]![1]!) > 1e-9,
+            );
+          if (coordsChanged) {
+            const nextGeom = new LineString(coords.map((c) => fromLonLat([c[0], c[1]])));
+            f.setGeometry(nextGeom);
+            if (members?.length === 1 && inner !== f) {
+              inner.setGeometry(nextGeom.clone());
+            }
+            lineLayerRef.current?.changed();
+          }
+          if (constrained.revertedStart || constrained.revertedFinish) {
+            useAppStore.getState().pushToast(
+              'info',
+              'Конец линии возвращён к исходному точечному объекту — нельзя оставить его без привязки',
+            );
+          }
+        }
+        const [lon, lat] = coords[0]!;
         save = onGeometryChangeRef.current?.({ kind: 'infra', id }, lon, lat, coords);
       } else {
         finishSession();
@@ -823,23 +983,7 @@ export function MapView({
 
     const finishAtFromPointerEvent = (e: MouseEvent | PointerEvent): { lon: number; lat: number } | null => {
       const pixel = map.getEventPixel(e as UIEvent);
-      const hit = map.forEachFeatureAtPixel(
-        pixel,
-        (feat, layer) => {
-          if (layer !== pointLayer) return undefined;
-          const features = feat.get('features') as Feature[] | undefined;
-          const inner = features?.length === 1 ? features[0] : feat;
-          const subtype = inner.get('subtype') as string;
-          const kind = inner.get('featureKind') as string;
-          if (!inner.get('id') || subtype === 'draft') return undefined;
-          if (kind !== 'infra') return undefined;
-          const geom = inner.getGeometry();
-          if (!(geom instanceof Point)) return undefined;
-          const [lon, lat] = transform(geom.getCoordinates(), 'EPSG:3857', 'EPSG:4326');
-          return { lon, lat };
-        },
-        { hitTolerance: 20, layerFilter: (l) => l === pointLayer }
-      );
+      const hit = resolveInfraPointAtPixel(pixel);
       if (hit) return hit;
       const mapCoord = map.getCoordinateFromPixel(pixel);
       if (!mapCoord) return null;
@@ -889,7 +1033,16 @@ export function MapView({
       const mode = drawModeRef.current;
       if (mode !== 'select') {
         const [lon, lat] = transform(evt.coordinate, 'EPSG:3857', 'EPSG:4326');
-        onMapClickRef.current?.(lon, lat);
+        const overLine =
+          mode === 'point' ? resolveInfraLineSplitAtPixel(evt.pixel) ?? undefined : undefined;
+        const overPoint =
+          mode === 'line' || (mode === 'point' && !overLine)
+            ? resolveInfraPointAtPixel(evt.pixel) ?? undefined
+            : undefined;
+        onMapClickRef.current?.(lon, lat, {
+          ...(overPoint ? { overPoint } : {}),
+          ...(overLine ? { overLine } : {}),
+        });
         return;
       }
       if (selectModeRef.current === 'box') {
@@ -908,17 +1061,73 @@ export function MapView({
       }
     });
 
+    const tryRemoveLineVertexAtPixel = (pixel: number[]): boolean => {
+      if (drawModeRef.current !== 'select') return false;
+      if (!editModeRef.current || selectModeRef.current !== 'single') return false;
+
+      const collection = select.getFeatures();
+      const f = collection.item(0);
+      if (!f) return false;
+
+      const members = f.get('features') as Feature[] | undefined;
+      const inner = members?.length === 1 ? members[0] : f;
+      const kind = inner.get('featureKind') as string;
+      const id = inner.get('id') as string;
+      const subtype = inner.get('subtype') as string;
+      const geom = f.getGeometry();
+      if (kind !== 'infra' || !id || !LINE_SUBTYPE_SET.has(subtype) || !(geom instanceof LineString)) {
+        return false;
+      }
+
+      const vertexIndex = findLineVertexIndexAtPixel(map, geom, pixel);
+      const coords = lineCoordsFromGeometry(geom);
+      if (
+        vertexIndex == null ||
+        coords.length <= 2 ||
+        vertexIndex === 0 ||
+        vertexIndex === coords.length - 1
+      ) {
+        return false;
+      }
+
+      const nextCoords = coords.filter((_, i) => i !== vertexIndex);
+      const nextGeom = new LineString(nextCoords.map((c) => fromLonLat([c[0], c[1]])));
+      suppressDataSyncRef.current = true;
+      f.setGeometry(nextGeom);
+      if (members?.length === 1 && inner !== f) {
+        inner.setGeometry(nextGeom.clone());
+      }
+      lineLayer.changed();
+
+      const [lon, lat] = nextCoords[0]!;
+      const save = onGeometryChangeRef.current?.({ kind: 'infra', id }, lon, lat, nextCoords);
+      if (save != null && typeof (save as Promise<void>).then === 'function') {
+        (save as Promise<void>).finally(() => {
+          suppressDataSyncRef.current = false;
+        });
+      } else {
+        suppressDataSyncRef.current = false;
+      }
+      return true;
+    };
+
     map.on('dblclick', (evt) => {
       const mode = drawModeRef.current;
+      const orig = evt.originalEvent;
+      if (orig instanceof MouseEvent && orig.button !== 0) return;
+
       if (mode === 'ruler') {
         evt.preventDefault();
         onFinishMeasureRef.current?.();
         return;
       }
+      if (mode === 'select' && tryRemoveLineVertexAtPixel(evt.pixel)) {
+        evt.preventDefault();
+        return;
+      }
       if (mode !== 'line') return;
       if ((draftLineRef.current || []).length < 2) return;
       evt.preventDefault();
-      const orig = evt.originalEvent;
       if (orig instanceof MouseEvent) {
         tryFinishLineAtPointer(orig);
       } else {
@@ -953,7 +1162,8 @@ export function MapView({
 
     map.on('pointermove', (evt) => {
       const [lon, lat] = transform(evt.coordinate, 'EPSG:3857', 'EPSG:4326');
-      onPointerMoveRef.current?.(lon, lat);
+      const overPoint = resolveInfraPointAtPixel(evt.pixel);
+      onPointerMoveRef.current?.(lon, lat, overPoint ?? undefined);
       const hit =
         map.forEachFeatureAtPixel(
           evt.pixel,
@@ -1169,8 +1379,38 @@ export function MapView({
   }, [drawMode, selectMode, editMode]);
 
   useEffect(() => {
+    if (!editMode) {
+      suppressDataSyncRef.current = false;
+    }
+  }, [editMode]);
+
+  useEffect(() => {
     pointLayerRef.current?.changed();
   }, [layers]);
+
+  useEffect(() => {
+    if (selectMode !== 'single' || drawMode !== 'select') return;
+    const select = selectRef.current;
+    if (!select) return;
+    const collection = select.getFeatures();
+
+    if (!selectedFeatureId) {
+      if (collection.getLength() > 0) collection.clear();
+      return;
+    }
+
+    const current = collection.item(0);
+    const currentSel = current ? resolveFeatureSelection(current) : null;
+    if (currentSel?.id === selectedFeatureId) return;
+
+    collection.clear();
+    const feature = findSelectableLayerFeature(
+      pointSourceRef.current,
+      lineSourceRef.current,
+      selectedFeatureId
+    );
+    if (feature) collection.push(feature);
+  }, [selectedFeatureId, selectMode, drawMode, editMode, pois, infraObjects]);
 
   useEffect(() => {
     if (selectMode !== 'box') return;
@@ -1207,6 +1447,14 @@ export function MapView({
   }, [selectedFeatureIds, selectMode, editMode, pois, infraObjects]);
 
   useEffect(() => {
+    const nextIds = new Set(infraObjects.map((o) => o.id));
+    const prevIds = infraIdsRef.current;
+    const hasNewInfra = [...nextIds].some((id) => !prevIds.has(id));
+    const hasRemovedInfra = [...prevIds].some((id) => !nextIds.has(id));
+    infraIdsRef.current = nextIds;
+    if (hasNewInfra || hasRemovedInfra || (!editModeRef.current && suppressDataSyncRef.current)) {
+      suppressDataSyncRef.current = false;
+    }
     if (suppressDataSyncRef.current) return;
 
     const points = pointSourceRef.current;
@@ -1252,16 +1500,43 @@ export function MapView({
     if (suppressDataSyncRef.current) return;
     const lines = lineSourceRef.current;
 
-    const draftFeature = lines.getFeatures().find((f) => f.get('subtype') === 'draft');
+    lines
+      .getFeatures()
+      .filter((f) =>
+        f.get('subtype') === 'draft' ||
+        f.get('subtype') === 'draft-preview' ||
+        f.get('subtype') === 'draft-point'
+      )
+      .forEach((f) => lines.removeFeature(f));
+
     if (draftLine.length >= 2) {
-      const draftGeom = new LineString(draftLine.map((c) => fromLonLat([c[0], c[1]])));
-      if (draftFeature) {
-        draftFeature.setGeometry(draftGeom);
-      } else {
-        lines.addFeature(new Feature({ geometry: draftGeom, subtype: 'draft' }));
-      }
-    } else if (draftFeature) {
-      lines.removeFeature(draftFeature);
+      lines.addFeature(
+        new Feature({
+          geometry: new LineString(draftLine.map((c) => fromLonLat([c[0], c[1]]))),
+          subtype: 'draft',
+        })
+      );
+    }
+
+    if (draftLine.length >= 1 && draftLinePreview) {
+      const last = draftLine[draftLine.length - 1]!;
+      lines.addFeature(
+        new Feature({
+          geometry: new LineString([
+            fromLonLat([last[0], last[1]]),
+            fromLonLat([draftLinePreview[0], draftLinePreview[1]]),
+          ]),
+          subtype: 'draft-preview',
+        })
+      );
+    } else if (draftLine.length === 1) {
+      const [lon, lat] = draftLine[0]!;
+      lines.addFeature(
+        new Feature({
+          geometry: new Point(fromLonLat([lon, lat])),
+          subtype: 'draft-point',
+        })
+      );
     }
 
     lines
@@ -1295,7 +1570,7 @@ export function MapView({
         })
       );
     }
-  }, [draftLine, measureLine, measurePreview, measureCompletedLines]);
+  }, [draftLine, draftLinePreview, measureLine, measurePreview, measureCompletedLines]);
 
   useEffect(() => {
     const map = mapRef.current;
@@ -1415,39 +1690,6 @@ export function MapView({
         );
       });
   }, [thresholdCircles, selectedPoi, showRadii]);
-
-  useEffect(() => {
-    const src = networkSourceRef.current;
-    src.clear();
-    if (networkNodes.length === 0 && networkEdges.length === 0) {
-      return;
-    }
-    const pos: Record<string, { lon: number; lat: number }> = {
-      ...Object.fromEntries(networkNodes.map((n) => [n.id, { lon: n.lon, lat: n.lat }])),
-      ...nodeCoordLookup,
-    };
-    const pointObjectCoordKeys = buildPointObjectCoordKeys(infraObjects);
-    networkEdges.forEach((e) => {
-      const a = pos[e.from_node_id];
-      const b = pos[e.to_node_id];
-      if (!a || !b) return;
-      src.addFeature(
-        new Feature({
-          geometry: new LineString([fromLonLat([a.lon, a.lat]), fromLonLat([b.lon, b.lat])]),
-          edge: true,
-        })
-      );
-    });
-    networkNodes.forEach((n) => {
-      if (isNetworkNodeOnPointObject(n.lon, n.lat, pointObjectCoordKeys)) return;
-      src.addFeature(
-        new Feature({
-          geometry: new Point(fromLonLat([n.lon, n.lat])),
-          subtype: 'network_node',
-        })
-      );
-    });
-  }, [networkNodes, networkEdges, nodeCoordLookup, infraObjects]);
 
   useEffect(() => {
     const source = placementPreviewSourceRef.current;
