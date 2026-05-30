@@ -2,11 +2,15 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { Shield } from 'lucide-react';
 import { api } from '../lib/api';
 import { ROLE_LABELS, type UserRole } from '../lib/permissions';
+import { useAppStore, useAuthStore } from '../store';
 
 const ROLES: UserRole[] = ['admin', 'analyst', 'data_manager', 'viewer'];
 
 export function AdminUsersPage() {
   const queryClient = useQueryClient();
+  const currentUser = useAuthStore((s) => s.user);
+  const refreshUser = useAuthStore((s) => s.refreshUser);
+  const pushToast = useAppStore((s) => s.pushToast);
   const { data: users = [], isLoading } = useQuery({
     queryKey: ['admin-users'],
     queryFn: () => api.adminUsers(),
@@ -19,7 +23,18 @@ export function AdminUsersPage() {
   const updateMutation = useMutation({
     mutationFn: ({ id, role, is_active }: { id: string; role?: string; is_active?: boolean }) =>
       api.updateAdminUser(id, { role, is_active }),
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['admin-users'] }),
+    onSuccess: async (_data, vars) => {
+      queryClient.invalidateQueries({ queryKey: ['admin-users'] });
+      if (vars.id === currentUser?.id) {
+        await refreshUser();
+        pushToast('info', 'Ваша роль обновлена. Меню пересчитано.');
+      } else if (vars.role) {
+        pushToast('success', 'Роль пользователя сохранена');
+      }
+    },
+    onError: (err) => {
+      pushToast('error', err instanceof Error ? err.message : 'Не удалось обновить пользователя');
+    },
   });
 
   return (

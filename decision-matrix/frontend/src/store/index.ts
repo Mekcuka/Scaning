@@ -1,6 +1,22 @@
 import { create } from 'zustand';
 import { api, clearServerSession, type AuthUser } from '../lib/api';
 
+/** Ignore stale fetchUser() after login/register/logout. */
+let authEpoch = 0;
+
+function bumpAuthEpoch(): number {
+  authEpoch += 1;
+  return authEpoch;
+}
+
+async function confirmSession(epoch: number): Promise<AuthUser> {
+  const me = await api.me();
+  if (epoch !== authEpoch) {
+    throw new Error('Сессия прервана');
+  }
+  return me;
+}
+
 interface AuthState {
   user: AuthUser | null;
   isLoading: boolean;
@@ -8,36 +24,72 @@ interface AuthState {
   register: (email: string, password: string, username: string) => Promise<void>;
   logout: () => Promise<void>;
   fetchUser: () => Promise<void>;
+  refreshUser: () => Promise<void>;
 }
 
 export const useAuthStore = create<AuthState>((set) => ({
   user: null,
   isLoading: true,
   login: async (email, password) => {
+    const epoch = bumpAuthEpoch();
     await clearServerSession();
     const user = await api.login(email, password);
-    set({ user, isLoading: false });
+    if (epoch !== authEpoch) return;
+    try {
+      const me = await confirmSession(epoch);
+      set({ user: me, isLoading: false });
+    } catch {
+      set({ user, isLoading: false });
+    }
   },
   register: async (email, password, username) => {
-    await clearServerSession();
+    const epoch = bumpAuthEpoch();
     const user = await api.register(email, password, username);
-    set({ user, isLoading: false });
+    if (epoch !== authEpoch) return;
+    try {
+      const me = await confirmSession(epoch);
+      set({ user: me, isLoading: false });
+    } catch {
+      set({ user, isLoading: false });
+    }
   },
   logout: async () => {
+    bumpAuthEpoch();
     await clearServerSession();
     set({ user: null, isLoading: false });
   },
   fetchUser: async () => {
+    const epoch = authEpoch;
     try {
       const user = await api.me();
+      if (epoch !== authEpoch) return;
       set({ user });
     } catch {
+      if (epoch !== authEpoch) return;
       set({ user: null });
     } finally {
-      set({ isLoading: false });
+      if (epoch === authEpoch) {
+        set({ isLoading: false });
+      }
+    }
+  },
+  refreshUser: async () => {
+    const epoch = authEpoch;
+    try {
+      const user = await api.me();
+      if (epoch !== authEpoch) return;
+      set({ user });
+    } catch {
+      if (epoch !== authEpoch) return;
+      set({ user: null });
     }
   },
 }));
+
+export function onAuthSessionLost(): void {
+  bumpAuthEpoch();
+  useAuthStore.setState({ user: null, isLoading: false });
+}
 
 export type ToastTone = 'info' | 'success' | 'error';
 

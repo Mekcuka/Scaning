@@ -132,7 +132,12 @@ async function request<T>(path: string, options: RequestOptions = {}): Promise<T
     }
     if (redirectOn401) {
       clearStoredCsrf();
-      window.location.href = appLoginPath();
+      window.dispatchEvent(new CustomEvent('sppr:auth-lost'));
+      const path = window.location.pathname;
+      const onAuthPage = /\/(login|register)\/?$/.test(path);
+      if (!onAuthPage) {
+        window.location.href = appLoginPath();
+      }
     }
     throw new Error('Unauthorized');
   }

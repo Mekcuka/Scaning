@@ -68,3 +68,17 @@ async def revoke_refresh_token(db: AsyncSession, raw_token: str) -> None:
     if record and record.revoked_at is None:
         record.revoked_at = datetime.now(timezone.utc)
         await db.flush()
+
+
+async def revoke_all_user_refresh_tokens(db: AsyncSession, user_id: UUID) -> None:
+    """Force re-login after role or activation change."""
+    now = datetime.now(timezone.utc)
+    result = await db.execute(
+        select(RefreshToken).where(
+            RefreshToken.user_id == user_id,
+            RefreshToken.revoked_at.is_(None),
+        )
+    )
+    for record in result.scalars().all():
+        record.revoked_at = now
+    await db.flush()

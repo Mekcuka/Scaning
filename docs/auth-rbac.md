@@ -61,7 +61,9 @@ GET   /api/v1/admin/stats        — агрегаты (users, projects, pois)
 | `/register` | Регистрация |
 | `/admin` | Администрирование (только admin) |
 
-- API client: `credentials: 'include'`, авто-refresh при 401
+- API client: `credentials: 'include'`, авто-refresh при 401; `authEpoch` отменяет устаревший `fetchUser` после login/register
+- Регистрация **не** вызывает `logout` перед созданием учётки (только login — при смене пользователя)
+- Смена роли/активности в админке отзывает refresh-токены пользователя; UI роли на клиенте — из `/me` (после смены своей роли — авто-`refreshUser`)
 - Права UI: `usePermissions()`, фильтр NAV в `AppLayout`
 - Viewer: read-only на странице проектов
 

@@ -10,6 +10,7 @@ from app.core.database import get_db
 from app.models import PointOfInterest, Project, User
 from app.models.enums import UserRole
 from app.schemas import AdminStatsResponse, AdminUserUpdate, UserAdminResponse
+from app.services.auth_tokens import revoke_all_user_refresh_tokens
 
 admin_router = APIRouter(prefix="/admin", tags=["admin"], dependencies=[Depends(verify_csrf)])
 
@@ -35,14 +36,24 @@ async def update_user(
         raise HTTPException(status_code=404, detail="User not found")
     if target.id == admin.id and data.is_active is False:
         raise HTTPException(status_code=400, detail="Cannot deactivate yourself")
+    if target.id == admin.id and data.role is not None and data.role != UserRole.admin.value:
+        raise HTTPException(status_code=400, detail="Cannot remove your own admin role")
+    role_changed = False
+    active_changed = False
     if data.role is not None:
         try:
-            UserRole(data.role)
+            role_enum = UserRole(data.role)
         except ValueError:
             raise HTTPException(status_code=422, detail="Invalid role")
-        target.role = data.role
+        if target.role != role_enum.value:
+            role_changed = True
+        target.role = role_enum.value
     if data.is_active is not None:
+        if target.is_active != data.is_active:
+            active_changed = True
         target.is_active = data.is_active
+    if role_changed or active_changed:
+        await revoke_all_user_refresh_tokens(db, target.id)
     await db.commit()
     await db.refresh(target)
     return target

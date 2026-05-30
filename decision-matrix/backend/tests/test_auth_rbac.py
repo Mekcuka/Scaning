@@ -120,6 +120,32 @@ def test_viewer_read_only_on_published_project(client: TestClient):
     assert create.status_code == 403
 
 
+def test_admin_updates_user_role(client: TestClient):
+    _login(client, "admin@test.ru")
+    headers = _csrf_headers(client)
+    target = _register(client, "rolechange@test.ru", "Role Target", "password1").json()
+    client.post("/api/v1/auth/logout")
+    _login(client, "admin@test.ru")
+    headers = _csrf_headers(client)
+
+    patch = client.patch(
+        f"/api/v1/admin/users/{target['id']}",
+        json={"role": "viewer"},
+        headers=headers,
+    )
+    assert patch.status_code == 200
+    assert patch.json()["role"] == "viewer"
+
+    client.post("/api/v1/auth/logout")
+    _login(client, "rolechange@test.ru")
+    create = client.post(
+        "/api/v1/projects",
+        json={"name": "Viewer denied"},
+        headers=_csrf_headers(client),
+    )
+    assert create.status_code == 403
+
+
 def test_admin_lists_users(client: TestClient):
     client.post("/api/v1/auth/logout", headers=_csrf_headers(client) if client.cookies.get("csrf_token") else {})
     _login(client, "admin@test.ru")

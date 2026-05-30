@@ -1,7 +1,7 @@
 import { StrictMode, useEffect } from 'react';
 import { createRoot } from 'react-dom/client';
 import App from './App';
-import { useAuthStore, useAppStore } from './store';
+import { onAuthSessionLost, useAuthStore, useAppStore } from './store';
 import './index.css';
 
 function Bootstrap() {
@@ -12,6 +12,12 @@ function Bootstrap() {
     document.documentElement.setAttribute('data-theme', theme);
     fetchUser();
   }, [fetchUser, theme]);
+
+  useEffect(() => {
+    const onLost = () => onAuthSessionLost();
+    window.addEventListener('sppr:auth-lost', onLost);
+    return () => window.removeEventListener('sppr:auth-lost', onLost);
+  }, []);
 
   useEffect(() => {
     if (!('serviceWorker' in navigator)) return;
