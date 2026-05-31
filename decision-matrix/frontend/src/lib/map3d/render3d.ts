@@ -71,3 +71,17 @@ export function shouldUse3dModel(
   if (style === 'model') return catalogEntryForSubtype(subtype) != null;
   return catalogEntryForSubtype(subtype) != null;
 }
+
+/**
+ * fill-extrusion for a point (mutually exclusive with Three.js model when showModels is on).
+ */
+export function shouldBuildPointExtrusion(
+  subtype: string,
+  properties: Record<string, unknown> | null | undefined,
+  showModels: boolean,
+): boolean {
+  const style = properties?.[RENDER_3D_STYLE_KEY];
+  if (style === 'extrusion') return true;
+  if (!shouldUse3dModel(subtype, properties)) return true;
+  return !showModels;
+}

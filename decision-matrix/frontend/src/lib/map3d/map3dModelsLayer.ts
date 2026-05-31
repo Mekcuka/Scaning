@@ -176,12 +176,13 @@ export class Map3dModelsCustomLayer implements CustomLayerInterface {
     for (const inst of this.instances) {
       if (gen !== this.meshLoadGeneration) return;
 
-      const placeholder = this.proceduralPlaceholder(inst);
-      this.objectGroups.set(inst.id, placeholder);
-      this.scene.add(placeholder);
-
       const assetId = inst.catalog.gltfAssetId;
-      if (!assetId) continue;
+      if (!assetId) {
+        const placeholder = this.proceduralPlaceholder(inst);
+        this.objectGroups.set(inst.id, placeholder);
+        this.scene.add(placeholder);
+        continue;
+      }
 
       void cloneGltfModel(assetId, inst.color, inst.selected)
         .then((group) => {
@@ -192,7 +193,11 @@ export class Map3dModelsCustomLayer implements CustomLayerInterface {
           this.replaceInstanceGroup(inst.id, group);
         })
         .catch(() => {
-          /* keep procedural placeholder */
+          if (gen !== this.meshLoadGeneration) return;
+          const placeholder = this.proceduralPlaceholder(inst);
+          this.objectGroups.set(inst.id, placeholder);
+          this.scene.add(placeholder);
+          this.map?.triggerRepaint();
         });
     }
 

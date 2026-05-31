@@ -239,6 +239,7 @@ const MapView3D = forwardRef<MapView3DHandle, MapView3DProps>(function MapView3D
             infraObjects,
             pois,
             layers,
+            showModels: true,
             selectedFeatureId,
           }),
         );
@@ -334,6 +335,7 @@ const MapView3D = forwardRef<MapView3DHandle, MapView3DProps>(function MapView3D
             infraObjects,
             pois,
             layers,
+            showModels: true,
             selectedFeatureId,
           }),
         );
@@ -356,6 +358,7 @@ const MapView3D = forwardRef<MapView3DHandle, MapView3DProps>(function MapView3D
         infraObjects,
         pois,
         layers,
+        showModels,
         thresholdCircles: showRadii ? thresholdCircles : [],
         thresholdCenter: selectedPoi ? { lon: selectedPoi.lon, lat: selectedPoi.lat } : null,
         connectionLines,
@@ -399,6 +402,7 @@ const MapView3D = forwardRef<MapView3DHandle, MapView3DProps>(function MapView3D
     connectionLines,
     showRadii,
     selectedFeatureId,
+    showModels,
   ]);
 
   useEffect(() => {

@@ -1,4 +1,4 @@
-const CACHE = 'sppr-shell-v2';
+const CACHE = 'sppr-shell-v3';
 
 self.addEventListener('install', (event) => {
   event.waitUntil(
@@ -27,7 +27,9 @@ self.addEventListener('fetch', (event) => {
   event.respondWith(
     fetch(request)
       .then((response) => {
-        if (response.ok && url.origin === self.location.origin) {
+        const isHashedBundle =
+          url.pathname.includes('/assets/') || url.pathname.includes('/map3d-models/');
+        if (response.ok && url.origin === self.location.origin && !isHashedBundle) {
           const copy = response.clone();
           caches.open(CACHE).then((cache) => cache.put(request, copy));
         }

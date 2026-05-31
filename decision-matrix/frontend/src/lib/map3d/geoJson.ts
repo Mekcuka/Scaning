@@ -6,7 +6,7 @@ import { MAP_SUBTYPE_COLORS } from '../mapIcons';
 import type { ThresholdCircle } from '../../components/MapView';
 import { scaleMap3dMeters } from './map3dConfig';
 import { footprintHalfSizeForSubtype } from './extrusionHeights';
-import { resolveRender3D, shouldUse3dModel } from './render3d';
+import { resolveRender3D, shouldBuildPointExtrusion } from './render3d';
 
 const LINE_SUBTYPE_SET = new Set<string>(LINE_SUBTYPES as readonly string[]);
 
@@ -115,6 +115,7 @@ function emptyCollection<G extends LineString | Point | Polygon>(): FeatureColle
 function infraToFeatures(
   infraObjects: InfraObject[],
   layers: InfraLayer[] | undefined,
+  showModels: boolean,
 ): Pick<Map3dGeoJsonBundle, 'infraLines' | 'infraExtrusions' | 'infraPoints'> {
   const maps = layerMaps(layers);
   const lineFeatures: Feature<LineString>[] = [];
@@ -166,7 +167,7 @@ function infraToFeatures(
       geometry: { type: 'Point', coordinates: [obj.lon, obj.lat] },
     });
 
-    if (shouldUse3dModel(obj.subtype, obj.properties)) continue;
+    if (!shouldBuildPointExtrusion(obj.subtype, obj.properties, showModels)) continue;
 
     const half = scaleMap3dMeters(footprintHalfSizeForSubtype(obj.subtype));
     extrusionFeatures.push({
@@ -213,12 +214,12 @@ function poisToFeatures(pois: POI[]): FeatureCollection<Point> {
   return { type: 'FeatureCollection', features };
 }
 
-function poiExtrusions(pois: POI[]): FeatureCollection<Polygon> {
+function poiExtrusions(pois: POI[], showModels: boolean): FeatureCollection<Polygon> {
   const features: Feature<Polygon>[] = [];
   for (const poi of pois) {
     const render = resolveRender3D('poi');
     if (!render.visible) continue;
-    if (shouldUse3dModel('poi')) continue;
+    if (!shouldBuildPointExtrusion('poi', undefined, showModels)) continue;
     const half = scaleMap3dMeters(footprintHalfSizeForSubtype('poi'));
     features.push({
       type: 'Feature',
@@ -339,14 +340,16 @@ export function buildMap3dGeoJson(input: {
   infraObjects: InfraObject[];
   pois: POI[];
   layers?: InfraLayer[];
+  showModels?: boolean;
   thresholdCircles?: ThresholdCircle[];
   thresholdCenter?: { lon: number; lat: number } | null;
   connectionLines?: AnalysisRow[];
   selectedPoi?: POI | null;
 }): Map3dGeoJsonBundle {
-  const infra = infraToFeatures(input.infraObjects, input.layers);
+  const showModels = input.showModels !== false;
+  const infra = infraToFeatures(input.infraObjects, input.layers, showModels);
   const poiPoints = poisToFeatures(input.pois);
-  const poiExtrusionFc = poiExtrusions(input.pois);
+  const poiExtrusionFc = poiExtrusions(input.pois, showModels);
 
   const thresholds =
     input.thresholdCircles?.length && input.thresholdCenter

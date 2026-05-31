@@ -140,16 +140,9 @@ function wirePointFromEndpoint(
   return vertexToLocalMeters(anchor, ep.lon, ep.lat, ep.altM);
 }
 
-function wirePointFromTower(
-  towerPos: THREE.Vector3,
-  towerH: number,
-  wireAttachFrac: number,
-): THREE.Vector3 {
-  return new THREE.Vector3(
-    towerPos.x,
-    towerPos.y + towerH * wireAttachFrac,
-    towerPos.z,
-  );
+/** Wire height along the line corridor (matches 2D plan); towers are taller visuals only. */
+function wirePointAlongCorridor(groundPos: THREE.Vector3, wireAttachM: number): THREE.Vector3 {
+  return new THREE.Vector3(groundPos.x, groundPos.y + wireAttachM, groundPos.z);
 }
 
 export function createPowerLineGroup(input: PowerLineBuildInput): PowerLineBuildResult | null {
@@ -166,11 +159,12 @@ export function createPowerLineGroup(input: PowerLineBuildInput): PowerLineBuild
   } = input;
   if (path.length < 2) return null;
 
-  const towerH =
-    scaleMap3dMeters(Math.max(8, towerHeightM)) * MAP3D_POWER_LINE_TOWER_SCALE;
+  const nominalH = Math.max(8, towerHeightM);
+  const towerH = scaleMap3dMeters(nominalH) * MAP3D_POWER_LINE_TOWER_SCALE;
+  /** L1 line height for wire routing (no tower scale) — keeps plan bend same as 2D. */
+  const wireAttachM = scaleMap3dMeters(nominalH);
   const wireRadius = scaleMap3dMeters(0.12);
   const wireSpan = scaleMap3dMeters(2.2);
-  const wireAttachFrac = 0.9;
 
   const anchorLon = path[0]![0];
   const anchorLat = path[0]![1];
@@ -205,7 +199,7 @@ export function createPowerLineGroup(input: PowerLineBuildInput): PowerLineBuild
   const wireAt = (vertexIndex: number): THREE.Vector3 => {
     if (vertexIndex === 0) return wirePointFromEndpoint(anchor, startWire);
     if (vertexIndex === n - 1) return wirePointFromEndpoint(anchor, finishWire);
-    return wirePointFromTower(towerPositions[vertexIndex]!, towerH, wireAttachFrac);
+    return wirePointAlongCorridor(towerPositions[vertexIndex]!, wireAttachM);
   };
 
   for (let seg = 0; seg < path.length - 1; seg++) {
@@ -230,11 +224,9 @@ export function createPowerLineGroup(input: PowerLineBuildInput): PowerLineBuild
         topB.y,
         topB.z + perpZ * off,
       );
-      const mid = start.clone().add(end).multiplyScalar(0.5);
-      mid.y -= len * 0.04;
-
-      const curve = new THREE.QuadraticBezierCurve3(start, mid, end);
-      const segments = Math.max(8, Math.min(32, Math.ceil(len / 8)));
+      // Straight span in plan (as 2D LineString); light vertical sag only.
+      const curve = new THREE.LineCurve3(start, end);
+      const segments = Math.max(4, Math.min(24, Math.ceil(len / 10)));
       const geom = new THREE.TubeGeometry(curve, segments, wireRadius, 6, false);
       const mesh = new THREE.Mesh(geom, wireMat);
       root.add(mesh);

@@ -44,8 +44,11 @@ export function buildMap3dModelInstances(input: {
   pois: POI[];
   layers?: InfraLayer[];
   showPois?: boolean;
+  /** When false, no Three.js models (use fill-extrusion / 2D symbols). */
+  showModels?: boolean;
   selectedFeatureId?: string | null;
 }): Map3dModelInstance[] {
+  if (input.showModels === false) return [];
   const maps = layerMaps(input.layers);
   const selectedId = input.selectedFeatureId ?? null;
   const out: Map3dModelInstance[] = [];

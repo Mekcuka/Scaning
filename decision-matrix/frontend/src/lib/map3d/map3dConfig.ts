@@ -27,6 +27,13 @@ export function scaleMap3dMeters(meters: number): number {
   return meters * MAP3D_OBJECT_SCALE;
 }
 
+/** Public folder URL with Vite `base` (e.g. `/Scaning/map3d-models/...` on GitHub Pages). */
+export function map3dPublicUrl(pathFromPublic: string): string {
+  const rel = pathFromPublic.replace(/^\//, '');
+  const base = import.meta.env.BASE_URL || '/';
+  return `${base}${rel}`;
+}
+
 export const MAP3D_SOURCE_IDS = {
   basemap: 'dm-basemap',
   terrain: 'dm-terrain',

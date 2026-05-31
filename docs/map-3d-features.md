@@ -154,7 +154,7 @@ flowchart TB
 - Источник геометрии: `coordinates` или `end_lon` / `end_lat` (как в 2D)
 - Отрисовка: **Three.js custom layer** `dm-3d-lines`
   - Обычные линии — **трубы** по рельефу (`map3dLineMeshes.ts`)
-  - **`power_line` (ЛЭП)** — опоры только на **промежуточных** вершинах (glTF **transmission-tower**, iPoly3D CC0); на **начале и конце** опор нет — **3 провода** идут к **центру** привязанного точечного объекта (в пределах snap, см. `lineEndpointRules.ts`) или к координате конца линии на рельефе (`map3dPowerLineEndpoints.ts`, `map3dPowerLineMeshes.ts`). При ошибке загрузки glTF — процедурная заглушка.
+  - **`power_line` (ЛЭП)** — опоры только на **промежуточных** вершинах (glTF **transmission-tower**, iPoly3D CC0); на **начале и конце** опор нет — **3 провода** идут к **центру** привязанного точечного объекта (в пределах snap, см. `lineEndpointRules.ts`) или к координате конца линии на рельефе. Трасса проводов в плане совпадает с 2D `LineString` (прямые пролёты между вершинами); опоры визуально выше коридора проводов. При ошибке загрузки glTF — процедурная заглушка.
 - MapLibre `line` layer: **opacity 0** — только для клика (pick)
 - Радиус трубы: по подтипу + `MAP3D_OBJECT_SCALE`; цвет — как у 2D-линии
 - Высота опоры ЛЭП: `render_3d_height_m` (L1 для `power_line` — 10 м) × `MAP3D_OBJECT_SCALE` × `MAP3D_POWER_LINE_TOWER_SCALE` (5)
