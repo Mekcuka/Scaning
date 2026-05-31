@@ -31,7 +31,7 @@ jobs:
         env:
           VITE_BASE_PATH: /${{ github.event.repository.name }}/
           VITE_API_URL: ${{ vars.VITE_API_URL }}
-          VITE_MAP_3D_ENABLED: ${{ vars.VITE_MAP_3D_ENABLED }}
+          VITE_MAP_3D_ENABLED: ${{ vars.VITE_MAP_3D_ENABLED != '' && vars.VITE_MAP_3D_ENABLED || 'true' }}
           VITE_MAPTILER_KEY: ${{ vars.VITE_MAPTILER_KEY }}
         run: |
           npm ci

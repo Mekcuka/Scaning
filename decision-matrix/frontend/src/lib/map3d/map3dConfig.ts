@@ -1,6 +1,9 @@
-/** Feature flag: 3D map toggle on MapPage. */
+/** Feature flag: 3D map toggle on MapPage. Enabled unless explicitly disabled at build time. */
 export function isMap3dEnabled(): boolean {
-  return import.meta.env.VITE_MAP_3D_ENABLED === 'true';
+  const raw = import.meta.env.VITE_MAP_3D_ENABLED?.trim().toLowerCase();
+  if (raw === 'false' || raw === '0' || raw === 'no') return false;
+  if (raw === 'true' || raw === '1' || raw === 'yes') return true;
+  return true;
 }
 
 export function getMaptilerKey(): string | undefined {
