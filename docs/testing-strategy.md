@@ -17,7 +17,7 @@
 | **Frontend `src` (всё)** | 16,5% | **25,5%** | +9,0 п.п. |
 | `frontend/src/lib` | 34,4% | **36,7%** | +2,3 п.п. |
 | `frontend/src/lib/map3d` | 54,1% | **54,6%** | +0,5 п.п. |
-| `frontend/src/pages` | 4,3% | **14,5%** | +10,2 п.п. |
+| `frontend/src/pages` | 4,3% | **~79%** (цель 80%) | +~75 п.п. |
 | `frontend/src/components` | 6,6% | **15,2%** | +8,6 п.п. |
 | `frontend/src/hooks` | 2/7 файлов с тестами | **65,7%** строк | — |
 | **Backend `app/`** | не замерялось | **72%** | — |
@@ -29,8 +29,8 @@
 
 | Слой | До | После |
 |------|-----|-------|
-| Frontend unit | 154 | **181** |
-| Frontend test-файлов | 42 | **56** |
+| Frontend unit | 154 | **~240** |
+| Frontend test-файлов | 42 | **~82** |
 | Backend `def test_` | ~120 | **143** |
 | E2E Playwright | 1 | **6** |
 
@@ -41,7 +41,8 @@
 | `frontend/src` (всё) | **25,5%** |
 | `frontend/src/lib` | **36,7%** |
 | `frontend/src/lib/map3d` | **54,6%** |
-| `frontend/src/pages` | **14,5%** |
+| `frontend/src/pages` | **~79%** |
+| `frontend/src/pages/MapPage.tsx` | **~76%** (цель 80%) |
 | `frontend/src/components` | **15,2%** |
 | `frontend/src/hooks` | **65,7%** |
 | Backend `app/` | **72%** |
@@ -76,10 +77,31 @@ npm run test:e2e
 
 ## Инфраструктура frontend
 
-- [`vitest.config.ts`](../decision-matrix/frontend/vitest.config.ts) — jsdom, coverage v8, мягкий порог `src/lib/**` ≥ 30%.
+- [`vitest.config.ts`](../decision-matrix/frontend/vitest.config.ts) — jsdom, coverage v8, порог `src/lib/**` ≥ 30%, `src/pages/**` ≥ 78%, `MapPage.tsx` ≥ 75% (этап к цели 80%).
 - [`src/test/renderWithProviders.tsx`](../decision-matrix/frontend/src/test/renderWithProviders.tsx) — QueryClient + Router.
-- [`src/test/fixtures/`](../decision-matrix/frontend/src/test/fixtures/) — проекты, пользователи, infra.
+- [`src/test/pages/`](../decision-matrix/frontend/src/test/pages/) — `renderPage`, `createApiMock` / [`apiMockModule.ts`](../decision-matrix/frontend/src/test/pages/apiMockModule.ts), [`mapPageHarness.tsx`](../decision-matrix/frontend/src/test/pages/mapPageHarness.tsx).
+- [`src/test/fixtures/`](../decision-matrix/frontend/src/test/fixtures/) — проекты, пользователи, infra, map (`map.ts`).
 - E2E: [`e2e/`](../decision-matrix/frontend/e2e/) — login, projects, parameters, flows, import, map.
+
+### Pages 80% (план, май 2026)
+
+| Этап | Статус | Покрытие `src/pages` |
+|------|--------|----------------------|
+| Инфраструктура harness + fixtures | готово | — |
+| Auth, report utils, flows, admin | готово | |
+| MapPage integration (mock MapView + OL) | готово | MapPage ~76% |
+| CI gate `src/pages/**` | **78%** (ступень к 80%) | **~79%** |
+
+**MapPage:** `MapPage.integration.test.tsx`, `MapPage.mock.integration.test.tsx`, `MapPage.workflows.test.tsx`, `MapPage.readonly.test.tsx`, `MapPage.ol.integration.test.tsx`, `MapPage.helpers.test.ts` (экспорт `mergeInfraPropertiesForSave`, `lineCoordsOrEndpoints`, `sameCoord`, `linkCoordMatch`). Мок `MapView` с прокидыванием `onMapClick` / `onFeatureSelect` / `onFinishLine` даёт основной прирост; OL-клики — дополнение. До **80% по всей папке** остаётся ~**1–2%** (~70–90 строк), в основном ветки `MapPage.tsx`.
+
+Шаблон API-мока:
+
+```typescript
+vi.mock('../lib/api', async (importOriginal) => {
+  const { createApiMock } = await import('../test/pages/apiMockModule');
+  return createApiMock(importOriginal);
+});
+```
 
 ## Инфраструктура backend
 
@@ -113,9 +135,9 @@ npm run test:e2e
 | §5 Отчёты | one_pager API, pptx unit |
 | §6 Параметры / ставки | Parameters/Rates smoke, E2E parameters |
 
-## Пороги CI (мягкие)
+## Пороги CI
 
-- **Frontend:** `npm run test` (обязательно); `npm run test:coverage` — informational (`continue-on-error`).
+- **Frontend:** `npm run test` (обязательно); `npm run test:coverage` — пороги v8: `src/lib/**` ≥ 30%, `src/pages/**` ≥ 78%, `MapPage.tsx` ≥ 75%.
 - **Backend:** `pytest tests/ -q`; `pytest --cov=app/services --cov-fail-under=25` — soft gate на сервисы.
 - **E2E:** отдельный job после frontend build (backend + preview).
 

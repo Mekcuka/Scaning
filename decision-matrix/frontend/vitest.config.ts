@@ -24,6 +24,15 @@ export default defineConfig({
           functions: 40,
           lines: 30,
         },
+        'src/pages/**': {
+          statements: 78,
+          branches: 60,
+          functions: 35,
+          lines: 78,
+        },
+        'src/pages/MapPage.tsx': {
+          lines: 75,
+        },
       },
     },
   },

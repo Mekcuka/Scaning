@@ -115,7 +115,7 @@ import { buildMapSearchHits, filterInfraByMapQuery } from '../lib/mapSearch';
 import { THRESHOLD_META, MOVE_MATCH_EPS } from './map/mapConstants';
 import { PointSubtypeMenuItem } from './map/PointSubtypeMenuItem';
 
-function mergeInfraPropertiesForSave(
+export function mergeInfraPropertiesForSave(
   subtype: string,
   properties?: Record<string, unknown>,
 ): Record<string, unknown> {
@@ -125,15 +125,15 @@ function mergeInfraPropertiesForSave(
   );
 }
 
-function sameCoord(a: number, b: number): boolean {
+export function sameCoord(a: number, b: number): boolean {
   return Math.abs(a - b) <= MOVE_MATCH_EPS;
 }
 
-function linkCoordMatch(a: number, b: number): boolean {
+export function linkCoordMatch(a: number, b: number): boolean {
   return sameCoord(a, b) || roundCoord(a) === roundCoord(b);
 }
 
-function lineCoordsOrEndpoints(obj: InfraObject): [number, number][] | null {
+export function lineCoordsOrEndpoints(obj: InfraObject): [number, number][] | null {
   if (obj.coordinates && obj.coordinates.length >= 2) {
     return obj.coordinates.map(([lon, lat]) => [lon, lat]);
   }

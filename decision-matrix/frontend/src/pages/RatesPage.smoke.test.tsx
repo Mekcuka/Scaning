@@ -1,5 +1,5 @@
-import { describe, expect, it, vi, beforeEach } from 'vitest';
-import { screen, waitFor } from '@testing-library/react';
+import { afterEach, describe, expect, it, vi, beforeEach } from 'vitest';
+import { cleanup, screen, waitFor } from '@testing-library/react';
 import { RatesPage } from './RatesPage';
 import { renderWithProviders } from '../test/renderWithProviders';
 import { useAppStore } from '../store';
@@ -31,6 +31,8 @@ vi.mock('../hooks/usePermissions', () => ({
 }));
 
 describe('RatesPage smoke', () => {
+  afterEach(() => cleanup());
+
   beforeEach(() => {
     useAppStore.setState({ currentProjectId: 'p1', pushToast: vi.fn() });
   });
