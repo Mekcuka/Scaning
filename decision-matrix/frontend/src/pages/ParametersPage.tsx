@@ -15,6 +15,11 @@ import {
 import { useAppStore } from '../store';
 import { usePermissions } from '../hooks/usePermissions';
 import { DeferredNumberInput } from '../components/DeferredNumberInput';
+import {
+  TableExcelExportBodyCell,
+  TableExcelExportButton,
+} from '../components/TableExcelExportButton';
+import { capacityTableExportColumns } from '../lib/tableExcelExportData';
 
 function capacityDisplayValue(obj: InfraObject): number | '' {
   const { value } = effectiveThroughputCapacity(obj.subtype, obj.properties);
@@ -189,6 +194,15 @@ export function ParametersPage() {
                   <th scope="col">Подтип</th>
                   <th scope="col">Ед. изм.</th>
                   <th scope="col">Пропускная способность</th>
+                  <th scope="col" className="table-excel-export-th">
+                    <TableExcelExportButton
+                      filename="parametry-propusknaya-sposobnost.xlsx"
+                      sheetName="Пропускная способность"
+                      columns={capacityTableExportColumns()}
+                      rows={filteredObjects}
+                      disabled={filteredObjects.length === 0}
+                    />
+                  </th>
                 </tr>
               </thead>
               <tbody>
@@ -225,6 +239,7 @@ export function ParametersPage() {
                           }}
                         />
                       </td>
+                      <TableExcelExportBodyCell />
                     </tr>
                   );
                 })}

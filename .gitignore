@@ -12,6 +12,8 @@
 *.py[cod]
 *.egg-info/
 .pytest_cache/
+.coverage
+htmlcov/
 
 # Local env & secrets
 .env

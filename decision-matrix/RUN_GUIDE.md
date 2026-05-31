@@ -183,6 +183,7 @@ npm run dev
 - **2.5D / 3D карта:** в `frontend/.env`: `VITE_MAP_3D_ENABLED=true` и `VITE_MAPTILER_KEY=<ключ MapTiler>`. Перезапустите `npm run dev`. На `/map` — **2D | 3D**; в слоях — спутник, **Рельеф (3D)**, **3D-модели** (glTF), фильтры подтипов. Рисование только в 2D. Точки: glTF + палитра слоя; линии: 3D-трубы **по прямым сегментам между вершинами** (как 2D), ЛЭП — пролёты проводов в плане как 2D. Документация: [docs/map-3d-features.md](../docs/map-3d-features.md), правила объектов: [map-objects-and-spatial-calculations.md](../docs/map-objects-and-spatial-calculations.md) §1.5.
 - **Локальный dev и `VITE_BASE_PATH`:** для `npm run dev` задайте `VITE_BASE_PATH=/` (или не задавайте переменную), иначе Vite может собрать base `/Scaning/` и страница login не откроется на `http://localhost:5173/`.
 - **Проверка перед релизом:** `cd decision-matrix/frontend && npm run test && npm run build`; `cd decision-matrix/backend && pytest tests/ -q` (кроме `test_demo_users` — нужна SQLite `data/sppr.db` с таблицами).
+- **Покрытие (опционально):** `npm run test:coverage` (frontend), `pytest tests/ --cov=app --cov-report=term-missing` (backend). См. [docs/testing-strategy.md](../docs/testing-strategy.md).
 - **Демо-сеть для проверки 3D:** из `backend` с активированным venv: `python scripts/draw_demo_map_network.py --project-name "третий проект"` (или имя вашего проекта).
 
 ## 8) Частые проблемы

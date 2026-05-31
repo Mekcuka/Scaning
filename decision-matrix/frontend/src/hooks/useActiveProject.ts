@@ -1,6 +1,8 @@
-import { useEffect } from 'react';
+import { useEffect, useMemo } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { api, type Project } from '../lib/api';
+import { normalizeProjectsList } from '../lib/normalizeProjectsList';
+import { queryKeys } from '../lib/queryKeys';
 import { useAppStore } from '../store';
 
 /** Ensures currentProjectId points to an existing project for the logged-in user. */
@@ -8,26 +10,39 @@ export function useActiveProject() {
   const projectId = useAppStore((s) => s.currentProjectId);
   const setCurrentProjectId = useAppStore((s) => s.setCurrentProjectId);
 
-  const { data: projects = [], isLoading, isError } = useQuery({
-    queryKey: ['projects'],
+  const { data, isLoading, isFetched, isError } = useQuery({
+    queryKey: queryKeys.projects,
     queryFn: api.projects,
   });
 
-  useEffect(() => {
-    if (isLoading || projects.length === 0) return;
-    const valid = projectId && projects.some((p) => p.id === projectId);
-    if (!valid) {
-      setCurrentProjectId(projects[0].id);
+  const projects = normalizeProjectsList(data);
+
+  const activeProject = useMemo((): Project | null => {
+    if (projects.length === 0) return null;
+    if (projectId) {
+      const match = projects.find((p) => p.id === projectId);
+      if (match) return match;
     }
-  }, [isLoading, projects, projectId, setCurrentProjectId]);
+    return projects[0] ?? null;
+  }, [projects, projectId]);
 
-  const activeProject: Project | null =
-    projects.find((p) => p.id === projectId) ?? projects[0] ?? null;
-
-  const resolvedId = activeProject?.id ?? null;
+  useEffect(() => {
+    if (!isFetched) return;
+    if (projects.length === 0) {
+      if (projectId != null) setCurrentProjectId(null);
+      return;
+    }
+    const exists = projectId != null && projects.some((p) => p.id === projectId);
+    if (!exists) {
+      const nextId = projects[0]?.id;
+      if (nextId && nextId !== projectId) {
+        setCurrentProjectId(nextId);
+      }
+    }
+  }, [isFetched, projects, projectId, setCurrentProjectId]);
 
   return {
-    projectId: resolvedId,
+    projectId: activeProject?.id,
     activeProject,
     projects,
     isLoading,

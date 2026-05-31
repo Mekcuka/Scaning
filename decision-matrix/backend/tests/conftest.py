@@ -2,11 +2,15 @@
 
 import asyncio
 import os
+from pathlib import Path
 
 import pytest
 from starlette.testclient import TestClient
 
-os.environ.setdefault("DATABASE_URL", "sqlite+aiosqlite:///:memory:")
+# Shared file DB so TestClient and direct async_session see the same schema/data.
+_TEST_DB = Path(__file__).resolve().parent.parent / "data" / "pytest_shared.db"
+_TEST_DB.parent.mkdir(parents=True, exist_ok=True)
+os.environ["DATABASE_URL"] = f"sqlite+aiosqlite:///{_TEST_DB.as_posix()}"
 os.environ.setdefault("SECRET_KEY", "test-secret-key")
 os.environ.setdefault("DEMO_USERS_ENABLED", "false")
 os.environ.setdefault("ENVIRONMENT", "test")
@@ -16,6 +20,27 @@ from app.core.security import get_password_hash
 from app.main import app
 from app.models import User
 from app.models.enums import UserRole
+
+# Avoid 429 when running the full suite (many logins from TestClient share one IP).
+app.state.limiter.enabled = False
+
+
+@pytest.fixture(scope="session", autouse=True)
+def _ensure_db_schema():
+    """Create tables for test SQLite (direct async_session tests + TestClient)."""
+    if _TEST_DB.exists():
+        _TEST_DB.unlink()
+
+    from app.core.database import engine
+    from app.models import Base
+    from app.core.sqlite_migrate import patch_sqlite_schema
+
+    async def init() -> None:
+        async with engine.begin() as conn:
+            await conn.run_sync(Base.metadata.create_all)
+            await conn.run_sync(patch_sqlite_schema)
+
+    asyncio.run(init())
 
 
 async def seed_role_users() -> None:

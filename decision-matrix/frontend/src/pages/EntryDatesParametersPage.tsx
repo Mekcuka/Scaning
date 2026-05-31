@@ -10,6 +10,11 @@ import {
 } from '../lib/infraEntryDate';
 import { useAppStore } from '../store';
 import { usePermissions } from '../hooks/usePermissions';
+import {
+  TableExcelExportBodyCell,
+  TableExcelExportButton,
+} from '../components/TableExcelExportButton';
+import { entryDateTableExportColumns } from '../lib/tableExcelExportData';
 
 export function EntryDatesParametersPage() {
   const { canWriteProject } = usePermissions();
@@ -124,6 +129,15 @@ export function EntryDatesParametersPage() {
                   <th scope="col">Объект</th>
                   <th scope="col">Подтип</th>
                   <th scope="col">Дата ввода</th>
+                  <th scope="col" className="table-excel-export-th">
+                    <TableExcelExportButton
+                      filename="parametry-data-vvoda.xlsx"
+                      sheetName="Дата ввода"
+                      columns={entryDateTableExportColumns()}
+                      rows={filteredObjects}
+                      disabled={filteredObjects.length === 0}
+                    />
+                  </th>
                 </tr>
               </thead>
               <tbody>
@@ -147,6 +161,7 @@ export function EntryDatesParametersPage() {
                         }}
                       />
                     </td>
+                    <TableExcelExportBodyCell />
                   </tr>
                 ))}
               </tbody>

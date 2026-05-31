@@ -1,7 +1,6 @@
 import { StrictMode, useEffect } from 'react';
 import { createRoot } from 'react-dom/client';
 import App from './App';
-import { ErrorBoundary } from './components/ErrorBoundary';
 import { onAuthSessionLost, useAuthStore, useAppStore } from './store';
 import './index.css';
 
@@ -26,11 +25,7 @@ function Bootstrap() {
     navigator.serviceWorker.register(`${base}sw.js`).catch(() => undefined);
   }, []);
 
-  return (
-    <ErrorBoundary>
-      <App />
-    </ErrorBoundary>
-  );
+  return <App />;
 }
 
 const rootEl = document.getElementById('root');

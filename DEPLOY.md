@@ -210,7 +210,11 @@ ssh -i "C:\Users\user\Documents\mykey\ssh-key\ssh-key-1779903372392" vovavolgin9
 ```powershell
 cd decision-matrix/frontend
 npm run test
+npm run test:coverage   # опционально; см. docs/testing-strategy.md
 npm run build
 cd ..\backend
-.\venv\Scripts\python.exe -m pytest tests/ -q --ignore=tests/test_demo_users.py
+.\venv\Scripts\python.exe -m pytest tests/ -q
+.\venv\Scripts\python.exe -m pytest tests/ --cov=app --cov-report=term -q
 ```
+
+Покрытие и чеклист тестов: [docs/testing-strategy.md](docs/testing-strategy.md).

@@ -34,8 +34,8 @@ import {
   pointShowsThroughputCapacity,
 } from '../lib/infraCapacity';
 import {
-  isSandConsumerSubtype,
   isSandQuarrySubtype,
+  pointShowsSandDemand,
   mergeQuarryVolumes,
   mergeSandDemandM3,
   readQuarryVolumes,
@@ -55,12 +55,13 @@ import {
   resolveRender3D,
 } from '../lib/map3d/render3d';
 import { catalogEntryForSubtype } from '../lib/map3d/map3dModelCatalog';
-import { loadSandLogisticsFromSession } from '../lib/sandLogisticsResult';
+
+import { useProjectSandLogistics } from '../hooks/useProjectSandLogistics';
 import { useActiveProject } from '../hooks/useActiveProject';
 import { AppSelect } from './AppSelect';
 import { DeferredNumberInput } from './DeferredNumberInput';
 import { PoiParamsForm } from './PoiParamsForm';
-import { SandHaulLegTable } from './logistics/SandHaulLegTable';
+import { SandHaulLegDetails } from './logistics/SandHaulLegDetails';
 
 export type SelectedFeature =
   | { kind: 'poi'; poi: POI }
@@ -264,7 +265,7 @@ export function ObjectDetailPanel({
       setSandInitialM3(initial > 0 ? String(initial) : '');
       setSandCurrentM3(current > 0 ? String(current) : '');
       setSandDemandM3('');
-    } else if (isSandConsumerSubtype(o.subtype) && !isLineSubtype(o.subtype)) {
+    } else if (pointShowsSandDemand(o.subtype)) {
       const d = readSandDemandM3(o.properties);
       setSandDemandM3(d > 0 ? String(d) : '');
       setSandInitialM3('');
@@ -310,7 +311,7 @@ export function ObjectDetailPanel({
         const initial = sandInitialM3.trim() ? parseFloat(sandInitialM3) : null;
         const current = sandCurrentM3.trim() ? parseFloat(sandCurrentM3) : null;
         props = mergeQuarryVolumes(props, initial, current);
-      } else if (isSandConsumerSubtype(subtype) && !isLineSubtype(subtype)) {
+      } else if (pointShowsSandDemand(subtype)) {
         const demand = sandDemandM3.trim() ? parseFloat(sandDemandM3) : null;
         props = mergeSandDemandM3(props, demand);
       }
@@ -435,18 +436,14 @@ export function ObjectDetailPanel({
   const showSandQuarryFields =
     selection.kind === 'infra' && isSandQuarrySubtype(subtype) && !isLine;
   const showSandDemandField =
-    selection.kind === 'infra' && isSandConsumerSubtype(subtype) && !isLine;
+    selection.kind === 'infra' && pointShowsSandDemand(subtype) && !isLine;
   const { projectId: mapProjectId } = useActiveProject();
   const sandLogisticsProjectId =
     selection.kind === 'poi' ? selection.poi.project_id : mapProjectId;
   const infraObjectId = selection.kind === 'infra' ? selection.object.id : null;
-  const { data: sandLogistics } = useQuery({
-    queryKey: ['sand-logistics', sandLogisticsProjectId],
-    queryFn: () =>
-      sandLogisticsProjectId ? loadSandLogisticsFromSession(sandLogisticsProjectId) : null,
-    enabled: Boolean(sandLogisticsProjectId && showSandDemandField),
-    staleTime: Infinity,
-  });
+  const { data: sandLogistics } = useProjectSandLogistics(
+    showSandDemandField ? sandLogisticsProjectId : null,
+  );
   const showEntryDateField = selection.kind === 'infra' && objectShowsEntryDate(subtype);
   const quarryVolumeWarning =
     showSandQuarryFields &&
@@ -471,7 +468,7 @@ export function ObjectDetailPanel({
         !isLine &&
         (sandInitialM3 !== (origQ.initial > 0 ? String(origQ.initial) : '') ||
           sandCurrentM3 !== (origQ.current > 0 ? String(origQ.current) : ''))) ||
-      (isSandConsumerSubtype(infraObject.subtype) &&
+      (pointShowsSandDemand(infraObject.subtype) &&
         !isLine &&
         sandDemandM3 !==
           (readSandDemandM3(infraObject.properties) > 0
@@ -569,7 +566,7 @@ export function ObjectDetailPanel({
           !isLine &&
           (sandInitialM3 !== (origQ.initial > 0 ? String(origQ.initial) : '') ||
             sandCurrentM3 !== (origQ.current > 0 ? String(origQ.current) : ''))) ||
-        (isSandConsumerSubtype(infraObject.subtype) &&
+        (pointShowsSandDemand(infraObject.subtype) &&
           !isLine &&
           sandDemandM3 !==
             (readSandDemandM3(infraObject.properties) > 0
@@ -915,8 +912,8 @@ export function ObjectDetailPanel({
                     {showSandDemandField && infraObjectId && (
                       <div className="object-detail-panel__subsection">
                         <h4 className="object-detail-panel__subsection-title">Плечо возки</h4>
-                        <SandHaulLegTable
-                          compact
+                        <SandHaulLegDetails
+                          variant="panel"
                           objectId={infraObjectId}
                           sandLogistics={sandLogistics ?? undefined}
                           asOf={sandLogistics?.as_of}

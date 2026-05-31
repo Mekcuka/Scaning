@@ -1,6 +1,10 @@
 import { describe, expect, it } from 'vitest';
 import type { SandLogisticsConsumerRow } from './api';
-import { buildHaulLegRows, findSandLogisticsConsumer } from './sandLogisticsHaulLegs';
+import {
+  buildHaulLegRows,
+  findSandLogisticsConsumer,
+  haulLegSummaryLabel,
+} from './sandLogisticsHaulLegs';
 import type { SandLogisticsResult } from './api';
 
 const consumer: SandLogisticsConsumerRow = {
@@ -44,6 +48,13 @@ describe('buildHaulLegRows', () => {
       distances_to_quarries_km: { q9: 12.5 },
     };
     expect(buildHaulLegRows(c)[0].distance_km).toBe(12.5);
+  });
+});
+
+describe('haulLegSummaryLabel', () => {
+  it('formats quarry count and distance range', () => {
+    const rows = buildHaulLegRows(consumer);
+    expect(haulLegSummaryLabel(rows)).toBe('2 карьера, 5–20 км');
   });
 });
 

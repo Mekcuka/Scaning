@@ -9,6 +9,7 @@
     "lint": "eslint .",
     "typecheck": "tsc -b --noEmit",
     "test": "vitest run",
+    "test:coverage": "vitest run --coverage",
     "test:e2e": "playwright test",
     "codegen:api": "echo 'API types live in src/lib/api/types.ts; export OpenAPI from /api/v1/openapi.json when schema changes'",
     "preview": "vite preview"
@@ -29,6 +30,7 @@
     "recharts": "^3.8.1",
     "tailwind-merge": "^3.6.0",
     "three": "^0.184.0",
+    "xlsx": "^0.18.5",
     "zod": "^4.4.3",
     "zustand": "^5.0.13"
   },
@@ -45,6 +47,7 @@
     "@types/react-dom": "^19.2.3",
     "@types/three": "^0.184.1",
     "@vitejs/plugin-react": "^6.0.1",
+    "@vitest/coverage-v8": "^3.2.4",
     "eslint": "^10.3.0",
     "eslint-plugin-react-hooks": "^7.1.1",
     "eslint-plugin-react-refresh": "^0.5.2",

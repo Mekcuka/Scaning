@@ -51,6 +51,20 @@ export function formatHaulLegM3(v: number | null | undefined): string {
   return v.toLocaleString('ru-RU', { maximumFractionDigits: 1 });
 }
 
+/** Краткая подпись для таблиц параметров: «2 карьера, 5–20 км». */
+export function haulLegSummaryLabel(rows: SandHaulLegRow[]): string | null {
+  if (rows.length === 0) return null;
+  const n = rows.length;
+  const quarryLabel =
+    n === 1 ? '1 карьер' : n >= 2 && n <= 4 ? `${n} карьера` : `${n} карьеров`;
+  const kms = rows.map((r) => r.distance_km).filter((k): k is number => k != null);
+  if (kms.length === 0) return quarryLabel;
+  const minKm = Math.min(...kms);
+  const maxKm = Math.max(...kms);
+  if (minKm === maxKm) return `${quarryLabel}, ${formatHaulLegKm(minKm)} км`;
+  return `${quarryLabel}, ${formatHaulLegKm(minKm)}–${formatHaulLegKm(maxKm)} км`;
+}
+
 const OBJECT_WARNING_PREFIXES: Record<string, string> = {
   no_path: 'Нет пути по автодорогам до карьера',
   not_in_quarry_subnet: 'Не связан с карьером по автодорогам',

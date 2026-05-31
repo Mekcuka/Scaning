@@ -15,6 +15,8 @@ import {
 } from '../lib/specs';
 import type { DistanceParameterGroup, ParameterGroup } from '../lib/parameterCatalog';
 import { DeferredNumberInput } from '../components/DeferredNumberInput';
+import { TableExcelExportButton } from '../components/TableExcelExportButton';
+import { ratesKeyValueExportColumns } from '../lib/tableExcelExportData';
 
 function RatesGroupTable({
   group,
@@ -27,11 +29,24 @@ function RatesGroupTable({
   getValue: (id: string, fallback: number) => number;
   onCommit: (id: string, value: number) => void;
 }) {
+  const exportRows = group.rows.map((row) => ({
+    label: row.label,
+    value: getValue(row.id, row.defaultValue),
+  }));
+
   return (
     <section className="card card--flush rates-group-card">
       <div className="rates-group-head">
         <h3>{group.label}</h3>
-        <span className="rates-group-unit">{group.unitLabel}</span>
+        <div className="rates-group-head__actions">
+          <span className="rates-group-unit">{group.unitLabel}</span>
+          <TableExcelExportButton
+            filename={`stavki-${group.id}.xlsx`}
+            sheetName={group.label}
+            columns={ratesKeyValueExportColumns()}
+            rows={exportRows}
+          />
+        </div>
       </div>
       <div className="table-wrap">
         <table className="rates-table">
@@ -69,11 +84,24 @@ function DistanceGroupTable({
   values: DistanceDefaults;
   onCommit: (key: keyof DistanceDefaults, value: number) => void;
 }) {
+  const exportRows = group.rows.map((row) => ({
+    label: row.label,
+    value: values[row.distanceKey] ?? row.defaultValue,
+  }));
+
   return (
     <section className="card card--flush rates-group-card">
       <div className="rates-group-head">
         <h3>{group.label}</h3>
-        <span className="rates-group-unit">{group.unitLabel}</span>
+        <div className="rates-group-head__actions">
+          <span className="rates-group-unit">{group.unitLabel}</span>
+          <TableExcelExportButton
+            filename={`stavki-rasstoyaniya-${group.id}.xlsx`}
+            sheetName={group.label}
+            columns={ratesKeyValueExportColumns()}
+            rows={exportRows}
+          />
+        </div>
       </div>
       <div className="table-wrap">
         <table className="rates-table">

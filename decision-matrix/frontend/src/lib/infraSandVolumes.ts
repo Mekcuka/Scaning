@@ -1,5 +1,6 @@
 /** Sand volume keys in infrastructure object properties (logistics). */
 
+import type { InfraObject } from './api';
 import { isLineSubtype } from './infraGeometry';
 
 export const SAND_VOLUME_INITIAL_M3 = 'sand_volume_initial_m3';
@@ -24,6 +25,11 @@ export function isSandQuarrySubtype(subtype: string): boolean {
 export function pointShowsSandDemand(subtype: string): boolean {
   if (isLineSubtype(subtype)) return false;
   return isSandConsumerSubtype(subtype);
+}
+
+/** Точечный объект инфраструктуры с полем спроса на песок (карта, параметры, плечо возки). */
+export function infraObjectShowsSandDemand(obj: Pick<InfraObject, 'subtype'>): boolean {
+  return pointShowsSandDemand(obj.subtype);
 }
 
 function parseNum(raw: unknown): number | null {

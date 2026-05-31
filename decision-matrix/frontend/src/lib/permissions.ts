@@ -35,10 +35,10 @@ export function can(role: string | undefined | null, action: PermissionAction): 
 export function canDeleteProject(
   role: string | undefined | null,
   userId: string | undefined | null,
-  project: { owner_user_id: string },
+  project: { owner_user_id?: string | null },
 ): boolean {
   if (normalizeRole(role) === 'admin') return true;
-  if (!userId) return false;
+  if (!userId || !project.owner_user_id) return false;
   return project.owner_user_id === userId;
 }
 

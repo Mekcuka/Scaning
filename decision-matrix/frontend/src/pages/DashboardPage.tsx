@@ -1,19 +1,22 @@
 import { useMemo, useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { Link } from 'react-router-dom';
-import { FileOutput, Grid3X3, MapPin, Map, Plus } from 'lucide-react';
-import { api } from '../lib/api';
+import { FileOutput, Grid3X3, MapPin, Map, Plus, Trash2 } from 'lucide-react';
+import { api, type Project } from '../lib/api';
 import { queryKeys } from '../lib/queryKeys';
+import { normalizeProjectsList } from '../lib/normalizeProjectsList';
 import {
   filterProjectsByQuery,
   formatProjectDate,
   projectStatus,
   sparklineBars,
 } from '../lib/projectDisplay';
-import { useAuthStore } from '../store';
+import { useAuthStore, useAppStore } from '../store';
 import { ProjectsTableCardHeader } from '../components/ProjectsTableCardHeader';
 import { PageSkeleton } from '../components/PageSkeleton';
 import { ErrorPanel } from '../components/ErrorPanel';
+import { useDeleteProjectDialog } from '../hooks/useDeleteProjectDialog';
+import { canDeleteProject } from '../lib/permissions';
 
 function displayName(username: string | undefined): string {
   if (!username) return 'Engineer';
@@ -23,13 +26,20 @@ function displayName(username: string | undefined): string {
 
 export function DashboardPage() {
   const user = useAuthStore((s) => s.user);
+  const setCurrentProjectId = useAppStore((s) => s.setCurrentProjectId);
+  const { openDeleteDialog, deleteMut, deleteConfirmModal } = useDeleteProjectDialog();
   const [projectSearch, setProjectSearch] = useState('');
+
+  const openProject = (project: Project) => {
+    setCurrentProjectId(project.id);
+  };
   const {
-    data: projects = [],
+    data: projectsData,
     isLoading,
     isError,
     refetch,
   } = useQuery({ queryKey: queryKeys.projects, queryFn: api.projects });
+  const projects = normalizeProjectsList(projectsData);
 
   const filtered = useMemo(
     () => filterProjectsByQuery(projects, projectSearch),
@@ -139,7 +149,7 @@ export function DashboardPage() {
                 : 'Ничего не найдено по запросу поиска.'}
             </p>
           ) : (
-            <table className="data-table">
+            <table className="data-table data-table--projects">
               <thead>
                 <tr>
                   <th>Название</th>
@@ -147,7 +157,7 @@ export function DashboardPage() {
                   <th>Статус</th>
                   <th>Дата</th>
                   <th>Стоимость</th>
-                  <th />
+                  <th className="col-actions" />
                 </tr>
               </thead>
               <tbody>
@@ -172,13 +182,28 @@ export function DashboardPage() {
                       <td className="tabular" style={{ color: 'var(--text-muted)' }}>
                         —
                       </td>
-                      <td>
-                        <Link
-                          to={`/projects/${p.id}`}
-                          className="btn btn-secondary btn-sm"
-                        >
-                          Открыть
-                        </Link>
+                      <td className="col-actions">
+                        <div className="projects-table-actions">
+                          <Link
+                            to={`/projects/${p.id}`}
+                            className="btn btn-secondary btn-sm"
+                            onClick={() => openProject(p)}
+                          >
+                            Открыть
+                          </Link>
+                          {canDeleteProject(user?.role, user?.id, p) && (
+                            <button
+                              type="button"
+                              className="btn btn-secondary btn-sm p-2"
+                              onClick={(e) => openDeleteDialog(p, e)}
+                              disabled={deleteMut.isPending}
+                              title="Удалить проект"
+                              aria-label={`Удалить ${p.name}`}
+                            >
+                              <Trash2 size={14} className="text-red-600" />
+                            </button>
+                          )}
+                        </div>
                       </td>
                     </tr>
                   );
@@ -188,6 +213,7 @@ export function DashboardPage() {
           )}
         </div>
       </div>
+      {deleteConfirmModal}
     </div>
   );
 }

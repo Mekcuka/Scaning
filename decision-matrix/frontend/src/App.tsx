@@ -1,6 +1,7 @@
 import { Suspense } from 'react';
-import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
+import { BrowserRouter, Routes, Route, Navigate, useLocation } from 'react-router-dom';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
+import { ErrorBoundary } from './components/ErrorBoundary';
 import { AppLayout } from './components/layout/AppLayout';
 import { ProtectedRoute } from './components/ProtectedRoute';
 import { RoleProtectedRoute } from './components/RoleProtectedRoute';
@@ -34,13 +35,13 @@ const queryClient = new QueryClient({
   defaultOptions: { queries: { retry: 1, staleTime: 30_000 } },
 });
 
-export default function App() {
+function AppRoutes() {
+  const location = useLocation();
+
   return (
-    <div className="app-viewport">
-      <QueryClientProvider client={queryClient}>
-        <BrowserRouter basename={import.meta.env.BASE_URL}>
-          <Suspense fallback={<RouteFallback />}>
-            <Routes>
+    <ErrorBoundary resetKey={location.pathname}>
+      <Suspense fallback={<RouteFallback />}>
+        <Routes>
               <Route path="/login" element={<LoginPage />} />
               <Route path="/register" element={<RegisterPage />} />
               <Route element={<ProtectedRoute />}>
@@ -76,8 +77,18 @@ export default function App() {
                 </Route>
               </Route>
               <Route path="*" element={<Navigate to="/" replace />} />
-            </Routes>
-          </Suspense>
+        </Routes>
+      </Suspense>
+    </ErrorBoundary>
+  );
+}
+
+export default function App() {
+  return (
+    <div className="app-viewport">
+      <QueryClientProvider client={queryClient}>
+        <BrowserRouter basename={import.meta.env.BASE_URL}>
+          <AppRoutes />
         </BrowserRouter>
       </QueryClientProvider>
     </div>

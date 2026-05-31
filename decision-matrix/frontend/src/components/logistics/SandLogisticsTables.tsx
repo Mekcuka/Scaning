@@ -1,6 +1,15 @@
 import type { SandLogisticsConsumerRow, SandLogisticsQuarryRow } from '../../lib/api';
 import { subtypeDisplayLabel } from '../../lib/analysisDisplay';
 import { formatEntryDateRu } from '../../lib/infraEntryDate';
+import {
+  TableExcelExportBodyCell,
+  TableExcelExportButton,
+} from '../TableExcelExportButton';
+import {
+  sandConsumerTableExportColumns,
+  sandQuarryTableExportColumns,
+} from '../../lib/tableExcelExportData';
+import { SandHaulLegAllocationsList } from './SandHaulLegAllocationsList';
 
 function fmtKm(km: number | null | undefined): string {
   if (km == null) return '—';
@@ -28,6 +37,15 @@ export function SandLogisticsConsumerTable({ rows }: { rows: SandLogisticsConsum
             <th>км до карьера</th>
             <th>Карьер (жадный)</th>
             <th className="text-right">Выделено, м³</th>
+            <th>Плечо возки (пропорц.)</th>
+            <th className="table-excel-export-th">
+              <TableExcelExportButton
+                filename="potoki-logistika-potrebiteli.xlsx"
+                sheetName="Потребители"
+                columns={sandConsumerTableExportColumns()}
+                rows={rows}
+              />
+            </th>
           </tr>
         </thead>
         <tbody>
@@ -50,6 +68,10 @@ export function SandLogisticsConsumerTable({ rows }: { rows: SandLogisticsConsum
               </td>
               <td>{row.greedy_quarry_name ?? '—'}</td>
               <td className="text-right tabular-nums">{fmtM3(row.greedy_allocated_m3)}</td>
+              <td className="align-top min-w-[10rem]">
+                <SandHaulLegAllocationsList consumer={row} />
+              </td>
+              <TableExcelExportBodyCell />
             </tr>
           ))}
         </tbody>
@@ -75,6 +97,14 @@ export function SandLogisticsQuarryTable({ rows }: { rows: SandLogisticsQuarryRo
             <th className="text-right">Отгружено (жадный)</th>
             <th className="text-right">Остаток</th>
             <th className="text-right">Пропорц., м³</th>
+            <th className="table-excel-export-th">
+              <TableExcelExportButton
+                filename="potoki-logistika-karery.xlsx"
+                sheetName="Карьеры"
+                columns={sandQuarryTableExportColumns()}
+                rows={rows}
+              />
+            </th>
           </tr>
         </thead>
         <tbody>
@@ -108,6 +138,7 @@ export function SandLogisticsQuarryTable({ rows }: { rows: SandLogisticsQuarryRo
                 {fmtM3(row.proportional_allocated_m3)}
                 {row.proportional_exceeds_capacity ? ' ⚠' : ''}
               </td>
+              <TableExcelExportBodyCell />
             </tr>
           ))}
         </tbody>

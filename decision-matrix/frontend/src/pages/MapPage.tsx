@@ -81,6 +81,7 @@ import { useActiveProject } from '../hooks/useActiveProject';
 import { usePermissions } from '../hooks/usePermissions';
 import { refreshMapQueries } from '../lib/mapQueries';
 import { formatLengthMeters, lineLengthMeters } from '../lib/mapMeasure';
+import { lineDraftFinishCoordinates } from '../lib/mapLineDraftFinish';
 import {
   resolveLineEndpoint,
   snapLineDrawPoint,
@@ -456,7 +457,7 @@ export function MapPage() {
             centerLat: 55.7558,
             zoom: 9,
           };
-        const saved3d = resolveInitialMapView3d('main', projectId);
+        const saved3d = resolveInitialMapView3d('main', projectId ?? null);
         setMapDisplayMode('3d');
         if (import.meta.env.DEV && !isMaptilerTerrainAvailable()) {
           try {
@@ -1790,10 +1791,10 @@ export function MapPage() {
     ],
   );
 
-  const lineDraftFinishAt = useCallback((): { lon: number; lat: number } | undefined => {
-    if (!lineDraftPreview) return undefined;
-    return { lon: lineDraftPreview[0], lat: lineDraftPreview[1] };
-  }, [lineDraftPreview]);
+  const lineDraftFinishAt = useCallback(
+    () => lineDraftFinishCoordinates(lineDraftPreview),
+    [lineDraftPreview],
+  );
 
   useMapHotkeys({
     drawMode,

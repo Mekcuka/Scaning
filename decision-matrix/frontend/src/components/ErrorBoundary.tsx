@@ -3,6 +3,8 @@ import { Component, type ErrorInfo, type ReactNode } from 'react';
 type Props = {
   children: ReactNode;
   fallback?: ReactNode;
+  /** Change to reset after a caught error (e.g. route pathname). */
+  resetKey?: string;
 };
 
 type State = {
@@ -14,6 +16,12 @@ export class ErrorBoundary extends Component<Props, State> {
 
   static getDerivedStateFromError(error: Error): State {
     return { error };
+  }
+
+  componentDidUpdate(prevProps: Props) {
+    if (this.state.error && prevProps.resetKey !== this.props.resetKey) {
+      this.setState({ error: null });
+    }
   }
 
   componentDidCatch(error: Error, info: ErrorInfo) {

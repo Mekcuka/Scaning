@@ -70,9 +70,9 @@ export function sparklineBars(seed: string) {
 export function filterProjectsByQuery(projects: Project[], query: string) {
   const q = query.trim().toLowerCase();
   if (!q) return projects;
-  return projects.filter(
-    (p) =>
-      p.name.toLowerCase().includes(q) ||
-      (p.description?.toLowerCase().includes(q) ?? false),
-  );
+  return projects.filter((p) => {
+    const name = (p.name ?? '').toLowerCase();
+    const description = (p.description ?? '').toLowerCase();
+    return name.includes(q) || description.includes(q);
+  });
 }

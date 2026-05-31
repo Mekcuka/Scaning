@@ -4,13 +4,20 @@ import { Link } from 'react-router-dom';
 import { MapPin, Search } from 'lucide-react';
 import { api, SUBTYPE_LABELS, type InfraObject } from '../lib/api';
 import {
+  infraObjectShowsSandDemand,
   mergeSandDemandM3,
-  pointShowsSandDemand,
   readSandDemandM3,
 } from '../lib/infraSandVolumes';
 import { useAppStore } from '../store';
 import { usePermissions } from '../hooks/usePermissions';
+import { useProjectSandLogistics } from '../hooks/useProjectSandLogistics';
 import { DeferredNumberInput } from '../components/DeferredNumberInput';
+import { SandHaulLegDetails } from '../components/logistics/SandHaulLegDetails';
+import {
+  TableExcelExportBodyCell,
+  TableExcelExportButton,
+} from '../components/TableExcelExportButton';
+import { sandDemandTableExportColumns } from '../lib/tableExcelExportData';
 
 function sandDemandDisplayValue(obj: InfraObject): number | '' {
   const v = readSandDemandM3(obj.properties);
@@ -32,10 +39,12 @@ export function SandParametersPage() {
     refetchOnMount: 'always',
   });
 
+  const { data: sandLogistics } = useProjectSandLogistics(projectId);
+
   const sandObjects = useMemo(
     () =>
       infraObjects
-        .filter((o) => pointShowsSandDemand(o.subtype))
+        .filter((o) => infraObjectShowsSandDemand(o))
         .sort((a, b) => {
           const subtypeCmp = (SUBTYPE_LABELS[a.subtype] || a.subtype).localeCompare(
             SUBTYPE_LABELS[b.subtype] || b.subtype,
@@ -147,6 +156,16 @@ export function SandParametersPage() {
                   <th scope="col">Объект</th>
                   <th scope="col">Подтип</th>
                   <th scope="col">Объём песка (спрос), м³</th>
+                  <th scope="col">Плечо возки</th>
+                  <th scope="col" className="table-excel-export-th">
+                    <TableExcelExportButton
+                      filename="parametry-obem-peska.xlsx"
+                      sheetName="Объём песка"
+                      columns={sandDemandTableExportColumns(sandLogistics)}
+                      rows={filteredObjects}
+                      disabled={filteredObjects.length === 0}
+                    />
+                  </th>
                 </tr>
               </thead>
               <tbody>
@@ -175,6 +194,15 @@ export function SandParametersPage() {
                           }}
                         />
                       </td>
+                      <td className="parameters-table__haul-leg align-top">
+                        <SandHaulLegDetails
+                          variant="parameters-row"
+                          objectId={obj.id}
+                          sandLogistics={sandLogistics ?? undefined}
+                          asOf={sandLogistics?.as_of}
+                        />
+                      </td>
+                      <TableExcelExportBodyCell />
                     </tr>
                   );
                 })}

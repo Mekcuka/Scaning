@@ -3,6 +3,8 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { Link } from 'react-router-dom';
 import { MapPin, Plus, Trash2 } from 'lucide-react';
 import { api, type Project } from '../lib/api';
+import { queryKeys } from '../lib/queryKeys';
+import { normalizeProjectsList } from '../lib/normalizeProjectsList';
 import {
   ellipsisText,
   filterProjectsByQuery,
@@ -14,10 +16,10 @@ import {
 } from '../lib/projectDisplay';
 import { InlineTableEdit } from '../components/InlineTableEdit';
 import { ProjectStatusSelect } from '../components/ProjectStatusSelect';
-import { useAppStore } from '../store';
 import { usePermissions } from '../hooks/usePermissions';
+import { useDeleteProjectDialog } from '../hooks/useDeleteProjectDialog';
 import { canDeleteProject } from '../lib/permissions';
-import { useAuthStore } from '../store';
+import { useAppStore, useAuthStore } from '../store';
 import { ProjectsTableCardHeader } from '../components/ProjectsTableCardHeader';
 
 export function ProjectsPage() {
@@ -29,14 +31,15 @@ export function ProjectsPage() {
   const [description, setDescription] = useState('');
   const qc = useQueryClient();
   const pushToast = useAppStore((s) => s.pushToast);
-  const currentProjectId = useAppStore((s) => s.currentProjectId);
   const setCurrentProjectId = useAppStore((s) => s.setCurrentProjectId);
+  const { openDeleteDialog, deleteMut, deleteConfirmModal } = useDeleteProjectDialog();
   const [projectSearch, setProjectSearch] = useState('');
 
-  const { data: projects = [], isLoading } = useQuery({
-    queryKey: ['projects'],
+  const { data: projectsData, isLoading } = useQuery({
+    queryKey: queryKeys.projects,
     queryFn: api.projects,
   });
+  const projects = normalizeProjectsList(projectsData);
 
   const filtered = useMemo(
     () => filterProjectsByQuery(projects, projectSearch),
@@ -46,7 +49,7 @@ export function ProjectsPage() {
   const createMut = useMutation({
     mutationFn: () => api.createProject(name, description || undefined),
     onSuccess: (project) => {
-      qc.invalidateQueries({ queryKey: ['projects'] });
+      qc.invalidateQueries({ queryKey: queryKeys.projects });
       setCurrentProjectId(project.id);
       setShowForm(false);
       setName('');
@@ -68,36 +71,11 @@ export function ProjectsPage() {
     mutationFn: ({ id, toastMessage: _toast, ...data }: ProjectUpdateVars) =>
       api.updateProject(id, data),
     onSuccess: (_data, vars) => {
-      qc.invalidateQueries({ queryKey: ['projects'] });
+      qc.invalidateQueries({ queryKey: queryKeys.projects });
       pushToast('success', vars.toastMessage ?? 'Изменения сохранены');
     },
     onError: (err: Error) => pushToast('error', err.message || 'Не удалось сохранить'),
   });
-
-  const deleteMut = useMutation({
-    mutationFn: (projectId: string) => api.deleteProject(projectId),
-    onSuccess: (_data, projectId) => {
-      if (currentProjectId === projectId) {
-        setCurrentProjectId(null);
-      }
-      qc.invalidateQueries({ queryKey: ['projects'] });
-      pushToast('success', 'Проект удалён');
-      qc.removeQueries({ queryKey: ['project', projectId] });
-      qc.removeQueries({ queryKey: ['pois', projectId] });
-      qc.removeQueries({ queryKey: ['infra', projectId] });
-    },
-    onError: (err: Error) => pushToast('error', err.message || 'Не удалось удалить проект'),
-  });
-
-  const handleDelete = (project: Project, e: React.MouseEvent) => {
-    e.preventDefault();
-    e.stopPropagation();
-    const confirmed = window.confirm(
-      `Удалить проект «${project.name}»?\n\nБудут удалены все точки интереса, объекты инфраструктуры и связанные данные. Это действие нельзя отменить.`,
-    );
-    if (!confirmed) return;
-    deleteMut.mutate(project.id);
-  };
 
   const openProject = (project: Project) => {
     setCurrentProjectId(project.id);
@@ -304,7 +282,7 @@ export function ProjectsPage() {
                             <button
                               type="button"
                               className="btn btn-secondary btn-sm p-2"
-                              onClick={(e) => handleDelete(p, e)}
+                              onClick={(e) => openDeleteDialog(p, e)}
                               disabled={deleteMut.isPending}
                               title="Удалить проект"
                               aria-label={`Удалить ${p.name}`}
@@ -323,6 +301,7 @@ export function ProjectsPage() {
           </div>
         </>
       )}
+      {deleteConfirmModal}
     </div>
   );
 }
