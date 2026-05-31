@@ -39,7 +39,12 @@ def parse_epsg_from_projection(projection: dict | None) -> int:
 
 
 def _get_transformer(src_epsg: int):
-    from pyproj import Transformer
+    try:
+        from pyproj import Transformer
+    except ImportError as e:
+        raise ImportError(
+            "pyproj is required for Iskra export import (EPSG reprojection); add pyproj to backend requirements"
+        ) from e
 
     return Transformer.from_crs(f"EPSG:{src_epsg}", "EPSG:4326", always_xy=True)
 
