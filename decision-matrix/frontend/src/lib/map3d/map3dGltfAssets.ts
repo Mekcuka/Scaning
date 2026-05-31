@@ -44,6 +44,12 @@ export const MAP3D_GLTF_ASSETS: Record<string, Map3dGltfAssetDef> = {
     url: '/map3d-models/tank.glb',
     targetHeightM: 8,
   },
+  /** iPoly3D Lowpoly Electric Towers (CC0), Tower_1 — ЛЭП intermediate supports. */
+  'transmission-tower': {
+    url: '/map3d-models/transmission-tower.glb',
+    targetHeightM: 10,
+    yawDeg: 0,
+  },
 };
 
 export function gltfAssetDef(assetId: string): Map3dGltfAssetDef | null {

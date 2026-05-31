@@ -20,6 +20,9 @@ export const DEFAULT_TERRAIN_EXAGGERATION = 1.2;
 /** Global visual scale for 3D models, line tubes, and fill-extrusions on the map. */
 export const MAP3D_OBJECT_SCALE = 5;
 
+/** Extra scale for procedural ЛЭП towers (on top of MAP3D_OBJECT_SCALE). */
+export const MAP3D_POWER_LINE_TOWER_SCALE = 5;
+
 export function scaleMap3dMeters(meters: number): number {
   return meters * MAP3D_OBJECT_SCALE;
 }

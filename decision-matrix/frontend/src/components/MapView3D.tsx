@@ -21,7 +21,7 @@ import {
   setMap3dInfraLinesPickOnly,
   setMap3dPointSymbolsVisibility,
 } from '../lib/map3d/map3dLayers';
-import { buildMap3dLineInstances } from '../lib/map3d/map3dLineInstances';
+import { buildMap3dLineLayerData } from '../lib/map3d/map3dLineLayerData';
 import {
   ensureMap3dLinesLayer,
   Map3dLinesCustomLayer,
@@ -225,7 +225,7 @@ const MapView3D = forwardRef<MapView3DHandle, MapView3DProps>(function MapView3D
       applyMap3dTerrain(map, showTerrain, terrainExaggeration);
       applyMap3dAtmosphere(map);
       linesLayer.setInstances(
-        buildMap3dLineInstances(map, {
+        buildMap3dLineLayerData(map, {
           infraObjects,
           layers,
           selectedFeatureId,
@@ -305,7 +305,7 @@ const MapView3D = forwardRef<MapView3DHandle, MapView3DProps>(function MapView3D
         ensureMap3dLinesLayer(map, linesLayerRef.current);
       }
       linesLayerRef.current.setInstances(
-        buildMap3dLineInstances(map, {
+        buildMap3dLineLayerData(map, {
           infraObjects,
           layers,
           selectedFeatureId,

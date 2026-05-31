@@ -152,6 +152,23 @@ export async function cloneGltfModel(
   return group;
 }
 
+/** Clone and scale so the model's height matches `heightM` (scene meters, incl. MAP3D scales). */
+export async function cloneGltfModelToHeight(
+  assetId: string,
+  colorHex: string,
+  heightM: number,
+  selected = false,
+): Promise<THREE.Group> {
+  const group = await cloneGltfModel(assetId, colorHex, selected);
+  const box = new THREE.Box3().setFromObject(group);
+  const h = Math.max(box.max.y - box.min.y, 0.001);
+  group.scale.multiplyScalar(heightM / h);
+  group.updateMatrixWorld(true);
+  const box2 = new THREE.Box3().setFromObject(group);
+  group.position.y -= box2.min.y;
+  return group;
+}
+
 export function clearGltfPrototypeCache(): void {
   prototypeCache.clear();
 }

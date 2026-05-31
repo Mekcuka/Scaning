@@ -34,6 +34,19 @@ describe('buildMap3dLineInstances', () => {
     expect(instances[0]!.radiusM).toBeGreaterThan(0);
   });
 
+  it('skips power_line (rendered as towers + wires)', () => {
+    const obj: InfraObject = {
+      ...baseLine,
+      id: 'pl-skip',
+      subtype: 'power_line',
+      coordinates: [
+        [37.6, 55.7],
+        [37.61, 55.71],
+      ],
+    };
+    expect(buildMap3dLineInstances(fakeMap(), { infraObjects: [obj] })).toHaveLength(0);
+  });
+
   it('skips invisible render_3d', () => {
     const obj: InfraObject = {
       ...baseLine,

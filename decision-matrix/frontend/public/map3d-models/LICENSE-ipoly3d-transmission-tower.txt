@@ -1,0 +1,10 @@
+Lowpoly Electric Towers — Tower_1 (transmission-tower.glb)
+
+Source: iPoly3D — https://ipoly3d.com/assets/lowpoly-electric-towers/
+Pack download (CC0): https://drive.google.com/uc?export=download&id=1G4nffSkrQ9uImZd2_EjeePQ_n8vKrqaM
+Also listed on Poly Pizza (Public Domain / CC0).
+
+License: CC0 1.0 — https://creativecommons.org/publicdomain/zero/1.0/
+
+Extracted to a single mesh (Tower_1) with glTF-Transform for web use.
+Credit appreciated but not required (iPoly3d.com / Kenney-style attribution optional).
