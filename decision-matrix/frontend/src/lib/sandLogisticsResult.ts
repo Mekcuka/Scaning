@@ -1,5 +1,6 @@
 import type {
   SandLogisticsConsumerRow,
+  SandLogisticsProportionalPart,
   SandLogisticsQuarryRow,
   SandLogisticsResult,
   SandLogisticsSubnet,
@@ -9,6 +10,17 @@ import { DEFAULT_ENTRY_DATE_ISO, todayIsoLocal } from './infraEntryDate';
 
 export function sandLogisticsStorageKey(projectId: string): string {
   return `sand-logistics:${projectId}`;
+}
+
+function normalizeProportionalPart(
+  row: Partial<SandLogisticsProportionalPart>,
+): SandLogisticsProportionalPart {
+  return {
+    quarry_id: row.quarry_id ?? '',
+    quarry_name: row.quarry_name ?? '',
+    allocated_m3: Number(row.allocated_m3) || 0,
+    distance_km: row.distance_km ?? null,
+  };
 }
 
 function normalizeConsumer(row: Partial<SandLogisticsConsumerRow>): SandLogisticsConsumerRow {
@@ -26,10 +38,15 @@ function normalizeConsumer(row: Partial<SandLogisticsConsumerRow>): SandLogistic
     nearest_quarry_name: row.nearest_quarry_name ?? null,
     distance_km: row.distance_km ?? null,
     snap_to_node_km: row.snap_to_node_km ?? null,
+    distances_to_quarries_km: row.distances_to_quarries_km ?? {},
     greedy_quarry_id: row.greedy_quarry_id ?? null,
     greedy_quarry_name: row.greedy_quarry_name ?? null,
     greedy_allocated_m3: Number(row.greedy_allocated_m3) || 0,
-    proportional_allocations: row.proportional_allocations ?? [],
+    proportional_allocations: Array.isArray(row.proportional_allocations)
+      ? row.proportional_allocations.map((p) =>
+          normalizeProportionalPart(p as Partial<SandLogisticsProportionalPart>),
+        )
+      : [],
   };
 }
 

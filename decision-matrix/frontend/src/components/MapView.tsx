@@ -168,7 +168,11 @@ export interface MapViewProps {
   drawMode?: DrawMode;
   selectMode?: SelectMode;
   onMapClick?: (lon: number, lat: number, hit?: MapClickHit) => void;
-  onFinishLine?: (coords: number[][], finishAt?: { lon: number; lat: number }) => void;
+  onFinishLine?: (
+    coords: number[][],
+    finishAt?: { lon: number; lat: number },
+    splitHint?: { lineId: string; segmentIndex: number; snapLon?: number; snapLat?: number },
+  ) => void;
   /** Double-click / finish current measure polyline (ruler mode). */
   onFinishMeasure?: () => void;
   onPointerMove?: (lon: number, lat: number, overPoint?: { lon: number; lat: number }) => void;
@@ -986,10 +990,29 @@ export function MapView({
     const DOUBLE_RMB_MS = 650;
     const DOUBLE_RMB_MAX_PX = 28;
 
-    const finishAtFromPointerEvent = (e: MouseEvent | PointerEvent): { lon: number; lat: number } | null => {
+    const finishAtFromPointerEvent = (
+      e: MouseEvent | PointerEvent,
+    ): {
+      lon: number;
+      lat: number;
+      splitHint?: { lineId: string; segmentIndex: number; snapLon: number; snapLat: number };
+    } | null => {
       const pixel = map.getEventPixel(e as UIEvent);
       const hit = resolveInfraPointAtPixel(pixel);
       if (hit) return hit;
+      const overLine = resolveInfraLineSplitAtPixel(pixel);
+      if (overLine) {
+        return {
+          lon: overLine.lon,
+          lat: overLine.lat,
+          splitHint: {
+            lineId: overLine.lineId,
+            segmentIndex: overLine.segmentIndex,
+            snapLon: overLine.lon,
+            snapLat: overLine.lat,
+          },
+        };
+      }
       const mapCoord = map.getCoordinateFromPixel(pixel);
       if (!mapCoord) return null;
       const [lon, lat] = transform(mapCoord, 'EPSG:3857', 'EPSG:4326');
@@ -1002,7 +1025,8 @@ export function MapView({
       if (coords.length < 2) return false;
       const finishAt = finishAtFromPointerEvent(e);
       if (!finishAt) return false;
-      onFinishLineRef.current?.(coords, finishAt);
+      const { lon, lat, splitHint } = finishAt;
+      onFinishLineRef.current?.(coords, { lon, lat }, splitHint);
       return true;
     };
 
@@ -1138,8 +1162,22 @@ export function MapView({
       } else {
         const coords = draftLineRef.current || [];
         if (coords.length < 2) return;
-        const [lon, lat] = transform(evt.coordinate, 'EPSG:3857', 'EPSG:4326');
-        onFinishLineRef.current?.(coords, { lon, lat });
+        const overLine = resolveInfraLineSplitAtPixel(evt.pixel);
+        const [lon, lat] = overLine
+          ? [overLine.lon, overLine.lat]
+          : transform(evt.coordinate, 'EPSG:3857', 'EPSG:4326');
+        onFinishLineRef.current?.(
+          coords,
+          { lon, lat },
+          overLine
+            ? {
+                lineId: overLine.lineId,
+                segmentIndex: overLine.segmentIndex,
+                snapLon: overLine.lon,
+                snapLat: overLine.lat,
+              }
+            : undefined,
+        );
       }
     });
     const refreshHover = (hit: string | null) => {

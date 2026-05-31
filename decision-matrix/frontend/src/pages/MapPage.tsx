@@ -66,7 +66,6 @@ import {
   createDefaultSubtypeFilter,
   MAP_DRAWABLE_POINT_SUBTYPES,
   SUBTYPE_LABELS,
-  pointMenuLabel,
   api,
   normalizePoiAnalysisResponse,
   type AnalysisResult,
@@ -92,25 +91,16 @@ import {
 } from '../lib/lineEndpointRules';
 import { isLineSubtype, lineEndpointHealPayload } from '../lib/infraGeometry';
 import {
-  buildLineSplitPlan,
-  findLineSplitAtPoint,
-} from '../lib/lineSplit';
+  applyInfraLineSplit,
+  resolveLineSplitCandidate,
+  type LineSplitHint,
+} from '../lib/applyInfraLineSplit';
 import {
   expandInfraDeleteIds,
   infraDeleteApiIds,
 } from '../lib/infraLinks';
 import { withDefaultInfraProperties } from '../lib/infraEntryDate';
 import { withDefaultRender3DProperties } from '../lib/map3d/render3d';
-
-function mergeInfraPropertiesForSave(
-  subtype: string,
-  properties?: Record<string, unknown>,
-): Record<string, unknown> {
-  return withDefaultInfraProperties(
-    subtype,
-    withDefaultRender3DProperties(subtype, properties),
-  );
-}
 import {
   infraDetailUndo,
   infraGeometryUndo,
@@ -121,36 +111,16 @@ import {
 import { useAppStore } from '../store';
 import { useMapHotkeys } from '../lib/mapHotkeys';
 import { buildMapSearchHits, filterInfraByMapQuery } from '../lib/mapSearch';
+import { THRESHOLD_META, MOVE_MATCH_EPS } from './map/mapConstants';
+import { PointSubtypeMenuItem } from './map/PointSubtypeMenuItem';
 
-const THRESHOLD_META: { subtype: string; color: string; label: string; defaultKm: number }[] = [
-  { subtype: 'gas_processing', color: '#ff6f00', label: 'ГКС', defaultKm: 80 },
-  { subtype: 'gtes', color: '#d84315', label: 'ИЭ', defaultKm: 60 },
-  { subtype: 'substation', color: '#f9a825', label: 'ПС/ТП', defaultKm: 25 },
-  { subtype: 'refinery', color: '#455a64', label: 'НПЗ', defaultKm: 100 },
-];
-
-const MOVE_MATCH_EPS = 1e-6;
-
-function PointSubtypeMenuItem({
-  st,
-  selected,
-  onPick,
-}: {
-  st: string;
-  selected: boolean;
-  onPick: (st: string) => void;
-}) {
-  return (
-    <button
-      type="button"
-      className={`w-full text-left px-3 py-1.5 hover:bg-[var(--bg)] flex items-center gap-2 ${
-        selected ? 'font-medium' : ''
-      }`}
-      onClick={() => onPick(st)}
-    >
-      <img src={iconDataUrl(st)} alt="" className="w-4 h-4 shrink-0" draggable={false} />
-      <span className="truncate">{pointMenuLabel(st)}</span>
-    </button>
+function mergeInfraPropertiesForSave(
+  subtype: string,
+  properties?: Record<string, unknown>,
+): Record<string, unknown> {
+  return withDefaultInfraProperties(
+    subtype,
+    withDefaultRender3DProperties(subtype, properties),
   );
 }
 
@@ -797,20 +767,7 @@ export function MapPage() {
       if (!projectId || !canWriteInfra) return;
       const pool = queryClient.getQueryData<InfraObject[]>(['infra', projectId]) ?? infraObjects;
 
-      const splitFromMap =
-        splitHint?.lineId != null
-          ? (() => {
-              const line = pool.find((o) => o.id === splitHint.lineId);
-              if (!line || !isLineSubtype(line.subtype)) return null;
-              return {
-                line,
-                segmentIndex: splitHint.segmentIndex,
-                snapLon: splitHint.snapLon ?? lon,
-                snapLat: splitHint.snapLat ?? lat,
-              };
-            })()
-          : null;
-      const splitFound = splitFromMap ?? findLineSplitAtPoint([lon, lat], pool);
+      const splitFound = resolveLineSplitCandidate(lon, lat, pool, splitHint);
       const rLon = splitFound?.snapLon ?? lon;
       const rLat = splitFound?.snapLat ?? lat;
 
@@ -825,36 +782,18 @@ export function MapPage() {
         });
 
         if (splitFound) {
-          const secondName = `${splitFound.line.name} (2)`;
-          const plan = buildLineSplitPlan(
-            splitFound.line,
-            splitFound.segmentIndex,
-            rLon,
-            rLat,
-            secondName,
-          );
-          if (plan) {
-            try {
-              const updated = await api.updateInfraObject(
-                projectId,
-                splitFound.line.id,
-                plan.firstPayload,
-              );
-              const second = await api.createInfraObject(projectId, {
-                ...plan.secondPayload,
-                properties: mergeInfraPropertiesForSave(
-                  plan.secondPayload.subtype,
-                  plan.secondPayload.properties,
-                ),
-              });
+          try {
+            const splitResult = await applyInfraLineSplit({
+              projectId,
+              split: splitFound,
+              splitLon: rLon,
+              splitLat: rLat,
+            });
+            if (splitResult) {
+              const { updated, second } = splitResult;
               upsertInfraInCache(created);
               upsertInfraInCache(updated);
               upsertInfraInCache(second);
-              try {
-                await api.buildNetwork(projectId);
-              } catch {
-                /* best-effort */
-              }
               pushUndo({
                 kind: 'split_line_create_point',
                 pointId: created.id,
@@ -869,14 +808,14 @@ export function MapPage() {
               );
               await afterInfraPointCreated(created);
               return;
-            } catch (splitErr) {
-              try {
-                await api.deleteInfraObject(projectId, created.id);
-              } catch {
-                /* ignore rollback failure */
-              }
-              throw splitErr;
             }
+          } catch (splitErr) {
+            try {
+              await api.deleteInfraObject(projectId, created.id);
+            } catch {
+              /* ignore rollback failure */
+            }
+            throw splitErr;
           }
         }
 
@@ -1703,7 +1642,11 @@ export function MapPage() {
   );
 
   const finishLineDraft = useCallback(
-    async (coords: number[][], finishAt?: { lon: number; lat: number }) => {
+    async (
+      coords: number[][],
+      finishAt?: { lon: number; lat: number },
+      splitHint?: LineSplitHint,
+    ) => {
       if (!projectId) return;
       if (coords.length < 2) {
         pushToast('info', 'Добавьте минимум 2 точки линии (ЛКМ по карте)');
@@ -1735,16 +1678,68 @@ export function MapPage() {
           return false;
         }
         if (resolved.createNode) {
+          const splitFound =
+            kind === 'finish'
+              ? resolveLineSplitCandidate(
+                  resolved.lon,
+                  resolved.lat,
+                  pool,
+                  splitHint,
+                )
+              : null;
+          const rLon = splitFound?.snapLon ?? resolved.lon;
+          const rLat = splitFound?.snapLat ?? resolved.lat;
           try {
             const node = await api.createInfraObject(projectId, {
               name: nextAutoName('node'),
               subtype: 'node',
-              lon: resolved.lon,
-              lat: resolved.lat,
+              lon: rLon,
+              lat: rLat,
             });
             pool = [...pool, node];
             upsertInfraInCache(node);
             draft[index] = [node.lon, node.lat];
+
+            if (splitFound) {
+              try {
+                const splitResult = await applyInfraLineSplit({
+                  projectId,
+                  split: splitFound,
+                  splitLon: rLon,
+                  splitLat: rLat,
+                });
+                if (splitResult) {
+                  const { updated, second } = splitResult;
+                  upsertInfraInCache(updated);
+                  upsertInfraInCache(second);
+                  pushUndo({
+                    kind: 'split_line_create_point',
+                    pointId: node.id,
+                    secondLineId: second.id,
+                    lineId: splitFound.line.id,
+                    lineBefore: infraGeometryUndo(splitFound.line),
+                    label: `узел «${node.name}» на «${splitFound.line.name}»`,
+                  });
+                  pushToast(
+                    'success',
+                    `Узел «${node.name}» создан; линия «${splitFound.line.name}» разделена на две`,
+                  );
+                }
+              } catch (splitErr) {
+                try {
+                  await api.deleteInfraObject(projectId, node.id);
+                } catch {
+                  /* ignore rollback failure */
+                }
+                pushToast(
+                  'error',
+                  splitErr instanceof Error
+                    ? splitErr.message
+                    : 'Не удалось разделить линию в точке узла',
+                );
+                return false;
+              }
+            }
           } catch (err) {
             pushToast(
               'error',
@@ -1789,10 +1784,16 @@ export function MapPage() {
       nextAutoName,
       projectId,
       pushToast,
+      pushUndo,
       queryClient,
       upsertInfraInCache,
     ],
   );
+
+  const lineDraftFinishAt = useCallback((): { lon: number; lat: number } | undefined => {
+    if (!lineDraftPreview) return undefined;
+    return { lon: lineDraftPreview[0], lat: lineDraftPreview[1] };
+  }, [lineDraftPreview]);
 
   useMapHotkeys({
     drawMode,
@@ -1807,7 +1808,10 @@ export function MapPage() {
     onEscape: handleMapEscape,
     onDelete: requestDeleteSelection,
     onToggleEdit: () => setMapEditEnabled((on) => !on),
-    onFinishLine: drawMode === 'line' ? () => void finishLineDraft(lineDraft) : undefined,
+    onFinishLine:
+      drawMode === 'line'
+        ? () => void finishLineDraft(lineDraft, lineDraftFinishAt())
+        : undefined,
   });
 
   const mapFooterHint = useMemo(() => {
@@ -1856,7 +1860,7 @@ export function MapPage() {
   };
 
   const handleDrawFinish = () => {
-    if (drawMode === 'line') void finishLineDraft(lineDraft);
+    if (drawMode === 'line') void finishLineDraft(lineDraft, lineDraftFinishAt());
     else if (drawMode === 'ruler') finishRulerMeasurement(false);
   };
 
@@ -2505,7 +2509,9 @@ export function MapPage() {
                 ? handleMapClick
                 : undefined
             }
-            onFinishLine={(coords, finishAt) => finishLineDraft(coords, finishAt)}
+            onFinishLine={(coords, finishAt, splitHint) =>
+              finishLineDraft(coords, finishAt, splitHint)
+            }
             onFinishMeasure={() => {
               if (drawMode === 'ruler') finishRulerMeasurement(true);
             }}

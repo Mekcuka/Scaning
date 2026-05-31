@@ -10,6 +10,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.api.deps import get_current_user
 from app.core.crypto import decrypt_secret, encrypt_secret
 from app.core.database import get_db
+from app.core.url_validation import safe_http_get, validate_outbound_url
 from app.models import ImportConnection, InfrastructureLayer, Project, User
 from app.models.enums import AccessLevel, WriteScope
 from app.schemas import ImportConnectionCreate, ImportConnectionResponse, ImportConnectionUpdate
@@ -78,6 +79,10 @@ async def create_connection(
     db: AsyncSession = Depends(get_db),
 ):
     await _project(project_id, user, db, min_access=AccessLevel.write)
+    try:
+        validate_outbound_url(data.api_url)
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e)) from e
     c = ImportConnection(
         user_id=user.id,
         project_id=project_id,
@@ -111,6 +116,11 @@ async def update_connection(
     if "credentials" in payload:
         c.credentials_encrypted = encrypt_secret(payload.pop("credentials") or "")
     for k, v in payload.items():
+        if k == "api_url":
+            try:
+                validate_outbound_url(str(v))
+            except ValueError as e:
+                raise HTTPException(status_code=400, detail=str(e)) from e
         setattr(c, k, v)
     await db.commit()
     await db.refresh(c)
@@ -146,9 +156,11 @@ async def test_connection(
     token = decrypt_secret(c.credentials_encrypted)
     headers, auth = _http_auth(c, token)
     try:
-        async with httpx.AsyncClient(timeout=15.0) as client:
-            r = await client.get(c.api_url, headers=headers, auth=auth)
+        validate_outbound_url(c.api_url)
+        r = await safe_http_get(c.api_url, headers=headers, auth=auth, timeout=15.0)
         return {"ok": r.status_code < 400, "status_code": r.status_code}
+    except ValueError as e:
+        return {"ok": False, "error": str(e)}
     except httpx.HTTPError as e:
         return {"ok": False, "error": str(e)}
 
@@ -166,8 +178,13 @@ async def sync_connection(
         raise HTTPException(status_code=404, detail="Connection not found")
     token = decrypt_secret(c.credentials_encrypted)
     headers, auth = _http_auth(c, token)
-    async with httpx.AsyncClient(timeout=60.0) as client:
-        r = await client.get(c.api_url, headers=headers, auth=auth)
+    try:
+        validate_outbound_url(c.api_url)
+        r = await safe_http_get(c.api_url, headers=headers, auth=auth, timeout=60.0)
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e)) from e
+    except httpx.HTTPError as e:
+        raise HTTPException(status_code=502, detail="Upstream request failed") from e
     if r.status_code >= 400:
         raise HTTPException(status_code=502, detail=f"Upstream returned {r.status_code}")
     data = r.json()

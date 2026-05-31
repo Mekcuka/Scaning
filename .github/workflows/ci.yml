@@ -1,0 +1,135 @@
+name: CI
+
+on:
+  pull_request:
+  push:
+    branches: [main, master]
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  frontend:
+    name: Frontend
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: decision-matrix/frontend
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: npm
+          cache-dependency-path: decision-matrix/frontend/package-lock.json
+
+      - name: Install
+        run: npm ci
+
+      - name: Lint
+        run: npm run lint
+
+      - name: Test
+        run: npm run test
+
+      - name: Build
+        env:
+          VITE_BASE_PATH: /
+          VITE_API_URL: http://127.0.0.1:8000
+          VITE_MAP_3D_ENABLED: "false"
+        run: npm run build
+
+  backend:
+    name: Backend
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: decision-matrix/backend
+    services:
+      postgres:
+        image: postgis/postgis:16-3.4
+        env:
+          POSTGRES_USER: sppr
+          POSTGRES_PASSWORD: sppr_secret
+          POSTGRES_DB: sppr
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U sppr -d sppr"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+    env:
+      DATABASE_URL: postgresql+asyncpg://sppr:sppr_secret@localhost:5432/sppr
+      SECRET_KEY: ci-test-secret-key-not-for-production
+      DEMO_USERS_ENABLED: "false"
+      ENVIRONMENT: test
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+          cache-dependency-path: |
+            decision-matrix/backend/requirements.txt
+            decision-matrix/backend/requirements-dev.txt
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt -r requirements-dev.txt
+
+      - name: Alembic upgrade
+        run: python -m alembic upgrade head
+
+      - name: Pytest
+        run: pytest tests/ -q
+
+  terraform:
+    name: Terraform
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: infra/terraform
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: hashicorp/setup-terraform@v3
+
+      - name: Format check
+        run: terraform fmt -check -recursive
+
+      - name: Init & validate
+        run: |
+          terraform init -backend=false
+          terraform validate
+
+  security-audit:
+    name: Dependency audit
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: npm
+          cache-dependency-path: decision-matrix/frontend/package-lock.json
+
+      - name: npm audit
+        working-directory: decision-matrix/frontend
+        run: |
+          npm ci
+          npm audit --audit-level=high || true
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: pip-audit
+        run: |
+          python -m pip install pip-audit
+          pip-audit -r decision-matrix/backend/requirements.txt || true

@@ -1,0 +1,10 @@
+version: 2
+updates:
+  - package-ecosystem: npm
+    directory: /decision-matrix/frontend
+    schedule:
+      interval: weekly
+  - package-ecosystem: pip
+    directory: /decision-matrix/backend
+    schedule:
+      interval: weekly

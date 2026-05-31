@@ -14,6 +14,10 @@ class Settings(BaseSettings):
     ALGORITHM: str = "HS256"
     COOKIE_SECURE: bool | None = None
     AUTH_RATE_LIMIT: str = "10/minute"
+    ENVIRONMENT: str = "development"
+    DEMO_USERS_ENABLED: bool = True
+    ALLOW_REGISTRATION: bool = True
+    LOG_JSON: bool = False
 
     @property
     def use_secure_cookies(self) -> bool:

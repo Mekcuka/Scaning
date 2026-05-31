@@ -1,0 +1,27 @@
+repos:
+  - repo: local
+    hooks:
+      - id: ruff
+        name: ruff (backend)
+        entry: ruff check decision-matrix/backend
+        language: system
+        pass_filenames: false
+        files: ^decision-matrix/backend/
+      - id: ruff-format
+        name: ruff format (backend)
+        entry: ruff format --check decision-matrix/backend
+        language: system
+        pass_filenames: false
+        files: ^decision-matrix/backend/
+      - id: eslint
+        name: eslint (frontend)
+        entry: npm run lint --prefix decision-matrix/frontend
+        language: system
+        pass_filenames: false
+        files: ^decision-matrix/frontend/
+      - id: terraform-fmt
+        name: terraform fmt
+        entry: terraform fmt -check -recursive infra/terraform
+        language: system
+        pass_filenames: false
+        files: ^infra/terraform/

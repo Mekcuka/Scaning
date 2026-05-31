@@ -3,6 +3,7 @@ import { useQuery } from '@tanstack/react-query';
 import { Link } from 'react-router-dom';
 import { FileOutput, Grid3X3, MapPin, Map, Plus } from 'lucide-react';
 import { api } from '../lib/api';
+import { queryKeys } from '../lib/queryKeys';
 import {
   filterProjectsByQuery,
   formatProjectDate,
@@ -11,6 +12,8 @@ import {
 } from '../lib/projectDisplay';
 import { useAuthStore } from '../store';
 import { ProjectsTableCardHeader } from '../components/ProjectsTableCardHeader';
+import { PageSkeleton } from '../components/PageSkeleton';
+import { ErrorPanel } from '../components/ErrorPanel';
 
 function displayName(username: string | undefined): string {
   if (!username) return 'Engineer';
@@ -21,7 +24,12 @@ function displayName(username: string | undefined): string {
 export function DashboardPage() {
   const user = useAuthStore((s) => s.user);
   const [projectSearch, setProjectSearch] = useState('');
-  const { data: projects = [] } = useQuery({ queryKey: ['projects'], queryFn: api.projects });
+  const {
+    data: projects = [],
+    isLoading,
+    isError,
+    refetch,
+  } = useQuery({ queryKey: queryKeys.projects, queryFn: api.projects });
 
   const filtered = useMemo(
     () => filterProjectsByQuery(projects, projectSearch),
@@ -30,6 +38,13 @@ export function DashboardPage() {
 
   const totalPoi = projects.reduce((s, p) => s + p.poi_count, 0);
   const exceedCount = 0;
+
+  if (isLoading) return <PageSkeleton lines={6} />;
+  if (isError) {
+    return (
+      <ErrorPanel message="Не удалось загрузить проекты" onRetry={() => void refetch()} />
+    );
+  }
 
   return (
     <div className="dashboard-page">

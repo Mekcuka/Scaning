@@ -6,6 +6,8 @@ import sys
 from contextlib import asynccontextmanager
 from pathlib import Path
 
+from alembic.config import Config
+from alembic.script import ScriptDirectory
 from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
 from slowapi import _rate_limit_exceeded_handler
@@ -15,13 +17,23 @@ from sqlalchemy import text
 from app.api.v1.router import router
 from app.core.config import settings
 from app.core.database import Base, async_session, engine
-from app.services.demo_users import ensure_demo_users
+from app.core.error_handlers import register_exception_handlers
+from app.core.middleware import RequestLoggingMiddleware
 from app.core.rate_limit import limiter
 from app.core.sqlite_migrate import patch_postgres_schema, patch_sqlite_schema
-
+from app.core.startup_checks import validate_production_settings
+from app.services.demo_users import ensure_demo_users
 
 logger = logging.getLogger(__name__)
 BACKEND_ROOT = Path(__file__).resolve().parent.parent
+
+
+def configure_logging() -> None:
+    level = logging.INFO
+    if settings.LOG_JSON:
+        logging.basicConfig(level=level, format='{"level":"%(levelname)s","logger":"%(name)s","message":"%(message)s"}')
+    else:
+        logging.basicConfig(level=level, format="%(levelname)s %(name)s: %(message)s")
 
 
 def run_alembic_upgrade() -> None:
@@ -38,26 +50,40 @@ def run_alembic_upgrade() -> None:
         logger.info("Alembic: %s", proc.stdout.strip())
 
 
+def alembic_head_revision() -> str | None:
+    try:
+        cfg = Config(str(BACKEND_ROOT / "alembic.ini"))
+        script = ScriptDirectory.from_config(cfg)
+        return script.get_current_head()
+    except Exception:
+        logger.exception("Failed to read Alembic head revision")
+        return None
+
+
 @asynccontextmanager
 async def lifespan(app: FastAPI):
+    configure_logging()
+    validate_production_settings()
+
     if settings.is_sqlite:
         Path("data").mkdir(exist_ok=True)
-    elif not settings.is_sqlite:
+    else:
         run_alembic_upgrade()
 
     async def init_db() -> None:
         async with engine.begin() as conn:
             if not settings.is_sqlite:
                 await conn.execute(text("CREATE EXTENSION IF NOT EXISTS postgis"))
-            await conn.run_sync(Base.metadata.create_all)
             if settings.is_sqlite:
+                await conn.run_sync(Base.metadata.create_all)
                 await conn.run_sync(patch_sqlite_schema)
-            else:
+            elif settings.ENVIRONMENT != "production":
+                await conn.run_sync(Base.metadata.create_all)
                 await conn.run_sync(patch_postgres_schema)
 
     try:
         await asyncio.wait_for(init_db(), timeout=30.0)
-        if not settings.is_sqlite:
+        if settings.DEMO_USERS_ENABLED and not settings.is_sqlite:
             async with async_session() as db:
                 created = await ensure_demo_users(db)
                 await db.commit()
@@ -85,14 +111,16 @@ app = FastAPI(
 )
 app.state.limiter = limiter
 app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
+register_exception_handlers(app)
+app.add_middleware(RequestLoggingMiddleware)
 
 app.add_middleware(
     CORSMiddleware,
     allow_origins=settings.cors_origins_list,
     allow_credentials=True,
-    allow_methods=["*"],
-    allow_headers=["*"],
-    expose_headers=["X-CSRF-Token"],
+    allow_methods=["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
+    allow_headers=["Authorization", "Content-Type", "X-CSRF-Token", "X-Request-ID"],
+    expose_headers=["X-CSRF-Token", "X-Request-ID"],
 )
 
 app.include_router(router, prefix="/api/v1")
@@ -100,4 +128,18 @@ app.include_router(router, prefix="/api/v1")
 
 @app.get("/health")
 async def health():
-    return {"status": "ok"}
+    db_ok = False
+    try:
+        async with async_session() as db:
+            await db.execute(text("SELECT 1"))
+            db_ok = True
+    except Exception:
+        logger.exception("Health check database probe failed")
+
+    status = "ok" if db_ok else "degraded"
+    return {
+        "status": status,
+        "database": "ok" if db_ok else "error",
+        "environment": settings.ENVIRONMENT,
+        "alembic_head": alembic_head_revision(),
+    }

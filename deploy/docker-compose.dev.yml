@@ -1,0 +1,41 @@
+# Local full-stack development (PostgreSQL + API).
+# Usage from repo root:
+#   cp deploy/db.env.example deploy/db.env
+#   cp decision-matrix/backend/.env.example decision-matrix/backend/.env
+#   docker compose -f deploy/docker-compose.dev.yml up --build
+
+services:
+  db:
+    image: postgis/postgis:16-3.4
+    environment:
+      POSTGRES_USER: sppr
+      POSTGRES_PASSWORD: sppr_secret
+      POSTGRES_DB: sppr
+    ports:
+      - "5432:5432"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U sppr -d sppr"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+    volumes:
+      - sppr_pg_data:/var/lib/postgresql/data
+
+  api:
+    build:
+      context: ../decision-matrix/backend
+    ports:
+      - "8000:8000"
+    environment:
+      DATABASE_URL: postgresql+asyncpg://sppr:sppr_secret@db:5432/sppr
+      SECRET_KEY: dev-local-secret-key
+      ENVIRONMENT: development
+      DEMO_USERS_ENABLED: "true"
+      CORS_ORIGINS: http://localhost:5173,http://127.0.0.1:5173
+      COOKIE_SECURE: "false"
+    depends_on:
+      db:
+        condition: service_healthy
+
+volumes:
+  sppr_pg_data:

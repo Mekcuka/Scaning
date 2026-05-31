@@ -11,7 +11,8 @@
 | Хранение ролей | Колонка `users.role` (enum-строка), одна роль на пользователя |
 | Refresh | Rotation + таблица `refresh_tokens` (revoke при logout) |
 | Пароли | bcrypt, мин. 8 символов, буква + цифра (FR-1.1.5) |
-| Rate limit | Login: 10 запросов/мин на IP (slowapi) |
+| Rate limit | Login и register: `AUTH_RATE_LIMIT` (по умолчанию 10/мин на IP, slowapi) |
+| Production | `DEMO_USERS_ENABLED=false`, `ALLOW_REGISTRATION=false`, уникальный `SECRET_KEY` |
 
 > **MVP:** нормализованные таблицы `roles` / `user_roles` из [database-schema.md](./database-schema.md) **не используются** — запланированы на v2 при multi-role.
 

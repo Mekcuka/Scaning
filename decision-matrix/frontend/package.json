@@ -7,7 +7,10 @@
     "dev": "vite",
     "build": "tsc -b && vite build",
     "lint": "eslint .",
+    "typecheck": "tsc -b --noEmit",
     "test": "vitest run",
+    "test:e2e": "playwright test",
+    "codegen:api": "echo 'API types live in src/lib/api/types.ts; export OpenAPI from /api/v1/openapi.json when schema changes'",
     "preview": "vite preview"
   },
   "dependencies": {
@@ -31,7 +34,11 @@
   },
   "devDependencies": {
     "@eslint/js": "^10.0.1",
+    "@playwright/test": "^1.49.0",
     "@tailwindcss/vite": "^4.3.0",
+    "@testing-library/jest-dom": "^6.9.1",
+    "@testing-library/react": "^16.3.0",
+    "@testing-library/user-event": "^14.6.1",
     "@types/dagre": "^0.7.54",
     "@types/node": "^24.12.3",
     "@types/react": "^19.2.14",
@@ -42,6 +49,7 @@
     "eslint-plugin-react-hooks": "^7.1.1",
     "eslint-plugin-react-refresh": "^0.5.2",
     "globals": "^17.6.0",
+    "jsdom": "^26.1.0",
     "playwright": "^1.49.0",
     "tailwindcss": "^4.3.0",
     "typescript": "~6.0.2",

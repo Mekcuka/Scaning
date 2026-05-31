@@ -8,6 +8,18 @@ const base = process.env.VITE_BASE_PATH || '/'
 export default defineConfig({
   base,
   plugins: [react(), tailwindcss()],
+  build: {
+    rollupOptions: {
+      output: {
+        manualChunks(id) {
+          if (id.includes('node_modules/ol')) return 'map2d'
+          if (id.includes('node_modules/three') || id.includes('node_modules/maplibre-gl')) return 'map3d'
+          if (id.includes('node_modules/@xyflow') || id.includes('node_modules/dagre')) return 'flow'
+          if (id.includes('node_modules/recharts')) return 'charts'
+        },
+      },
+    },
+  },
   server: {
     port: 5173,
     proxy: {

@@ -11,6 +11,7 @@ const REQUEST_TIMEOUT_MS = 12_000;
 const MUTATING_METHODS = new Set(['POST', 'PUT', 'PATCH', 'DELETE']);
 
 export type AuthUser = { id: string; email: string; username: string; role: string };
+export type { ApiErrorBody, ApiHealthResponse } from './api/types';
 export type AuthSession = AuthUser & AuthSessionTokens & { token_type?: string };
 
 /** GitHub Pages base path, e.g. /Scaning/ */
@@ -847,6 +848,7 @@ export interface SandLogisticsProportionalPart {
   quarry_id: string;
   quarry_name: string;
   allocated_m3: number;
+  distance_km: number | null;
 }
 
 export interface SandLogisticsQuarryRow {
@@ -879,6 +881,7 @@ export interface SandLogisticsConsumerRow {
   nearest_quarry_name: string | null;
   distance_km: number | null;
   snap_to_node_km: number | null;
+  distances_to_quarries_km?: Record<string, number | null>;
   greedy_quarry_id: string | null;
   greedy_quarry_name: string | null;
   greedy_allocated_m3: number;

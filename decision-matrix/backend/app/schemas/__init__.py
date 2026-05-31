@@ -530,6 +530,7 @@ class SandLogisticsProportionalPart(BaseModel):
     quarry_id: str
     quarry_name: str
     allocated_m3: float
+    distance_km: float | None = None
 
 
 class SandLogisticsConsumerRow(BaseModel):

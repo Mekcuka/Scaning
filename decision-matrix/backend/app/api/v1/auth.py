@@ -5,6 +5,7 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.api.deps import get_current_user, verify_csrf
+from app.core.config import settings
 from app.core.cookies import REFRESH_COOKIE, clear_auth_cookies, set_auth_cookies
 from app.core.database import get_db
 from app.core.rate_limit import get_client_ip, limiter
@@ -47,11 +48,15 @@ async def _issue_session(user: User, db: AsyncSession, response: Response) -> Au
 
 
 @auth_router.post("/register", response_model=AuthSessionResponse, status_code=status.HTTP_201_CREATED)
+@limiter.limit(settings.AUTH_RATE_LIMIT, key_func=get_client_ip)
 async def register(
+    request: Request,
     data: UserCreate,
     response: Response,
     db: AsyncSession = Depends(get_db),
 ):
+    if not settings.ALLOW_REGISTRATION:
+        raise HTTPException(status_code=403, detail="Registration is disabled")
     _validate_password(data.password)
     existing = await db.execute(select(User).where(User.email == data.email))
     if existing.scalar_one_or_none():
@@ -68,7 +73,7 @@ async def register(
 
 
 @auth_router.post("/login", response_model=AuthSessionResponse)
-@limiter.limit("30/minute", key_func=get_client_ip)
+@limiter.limit(settings.AUTH_RATE_LIMIT, key_func=get_client_ip)
 async def login(
     request: Request,
     data: UserLogin,

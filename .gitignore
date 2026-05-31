@@ -35,3 +35,6 @@ Thumbs.db
 
 # Logs
 *.log
+
+# Temporary OpenAPI exports
+openapi_tmp.json

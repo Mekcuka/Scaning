@@ -55,9 +55,12 @@ import {
   resolveRender3D,
 } from '../lib/map3d/render3d';
 import { catalogEntryForSubtype } from '../lib/map3d/map3dModelCatalog';
+import { loadSandLogisticsFromSession } from '../lib/sandLogisticsResult';
+import { useActiveProject } from '../hooks/useActiveProject';
 import { AppSelect } from './AppSelect';
 import { DeferredNumberInput } from './DeferredNumberInput';
 import { PoiParamsForm } from './PoiParamsForm';
+import { SandHaulLegTable } from './logistics/SandHaulLegTable';
 
 export type SelectedFeature =
   | { kind: 'poi'; poi: POI }
@@ -433,6 +436,17 @@ export function ObjectDetailPanel({
     selection.kind === 'infra' && isSandQuarrySubtype(subtype) && !isLine;
   const showSandDemandField =
     selection.kind === 'infra' && isSandConsumerSubtype(subtype) && !isLine;
+  const { projectId: mapProjectId } = useActiveProject();
+  const sandLogisticsProjectId =
+    selection.kind === 'poi' ? selection.poi.project_id : mapProjectId;
+  const infraObjectId = selection.kind === 'infra' ? selection.object.id : null;
+  const { data: sandLogistics } = useQuery({
+    queryKey: ['sand-logistics', sandLogisticsProjectId],
+    queryFn: () =>
+      sandLogisticsProjectId ? loadSandLogisticsFromSession(sandLogisticsProjectId) : null,
+    enabled: Boolean(sandLogisticsProjectId && showSandDemandField),
+    staleTime: Infinity,
+  });
   const showEntryDateField = selection.kind === 'infra' && objectShowsEntryDate(subtype);
   const quarryVolumeWarning =
     showSandQuarryFields &&
@@ -897,6 +911,17 @@ export function ObjectDetailPanel({
                           onChange={(e) => setSandDemandM3(e.target.value)}
                         />
                       </label>
+                    )}
+                    {showSandDemandField && infraObjectId && (
+                      <div className="object-detail-panel__subsection">
+                        <h4 className="object-detail-panel__subsection-title">Плечо возки</h4>
+                        <SandHaulLegTable
+                          compact
+                          objectId={infraObjectId}
+                          sandLogistics={sandLogistics ?? undefined}
+                          asOf={sandLogistics?.as_of}
+                        />
+                      </div>
                     )}
                     {quarryVolumeWarning && (
                       <p className="object-detail-panel__hint text-amber-600">

@@ -384,11 +384,13 @@ def _analyze_subnet(
             total_w = sum(w for _, w in weights)
             if total_w > 0:
                 for qid, w in weights:
+                    d_km = dist_from_quarry.get(qid, {}).get(c_site.node_id, math.inf)
                     prop_parts.append(
                         {
                             "quarry_id": str(qid),
                             "quarry_name": quarry_by_id[qid].name,
                             "allocated_m3": round(c_site.demand_m3 * (w / total_w), 2),
+                            "distance_km": round(d_km, 2) if d_km < math.inf else None,
                         }
                     )
         row["proportional_allocations"] = prop_parts

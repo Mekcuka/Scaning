@@ -142,3 +142,34 @@ def test_analyze_subnet_isolates_allocation():
     ids = {r["object_id"] for r in out_far["consumers"]}
     assert str(c_near.object_id) in ids
     assert str(c_far.object_id) not in ids
+
+
+def test_proportional_allocations_include_distance_km():
+    """Two quarries on a chain — consumer gets proportional rows with distance_km."""
+    g, ids = _chain_graph()
+    n0, n1, n2, n3 = ids
+    q_near = _PointSite(uuid4(), "Q-near", "sand_quarry", 37.0, 55.0, current_m3=500.0, node_id=n0)
+    q_far = _PointSite(uuid4(), "Q-far", "sand_quarry", 37.03, 55.0, current_m3=500.0, node_id=n3)
+    consumer = _PointSite(uuid4(), "Pad-1", "pad", 37.02, 55.0, demand_m3=100.0, node_id=n2)
+    component = set(ids)
+    out = _analyze_subnet(
+        g, [q_near, q_far], [consumer], [], {}, component=component, subnet_index=1
+    )
+    assert len(out["consumers"]) == 1
+    row = out["consumers"][0]
+    parts = row["proportional_allocations"]
+    assert len(parts) == 2
+    for part in parts:
+        assert part["allocated_m3"] > 0
+        assert part["distance_km"] is not None
+        assert part["distance_km"] > 0
+    by_quarry = {p["quarry_id"]: p for p in parts}
+    assert str(q_near.object_id) in by_quarry
+    assert str(q_far.object_id) in by_quarry
+    # Consumer on n2: q_far at n3 is 1 km away, q_near at n0 is 3 km — closer quarry gets more volume.
+    assert by_quarry[str(q_far.object_id)]["distance_km"] == 1.0
+    assert by_quarry[str(q_near.object_id)]["distance_km"] == 3.0
+    assert (
+        by_quarry[str(q_far.object_id)]["allocated_m3"]
+        > by_quarry[str(q_near.object_id)]["allocated_m3"]
+    )
