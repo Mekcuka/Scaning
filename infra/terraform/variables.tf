@@ -1,99 +1,99 @@
 variable "environment" {
-  type        = string
   description = "Environment name (dev/prod)."
+  type        = string
 }
 
 variable "cloud_id" {
-  type        = string
   description = "Yandex Cloud ID."
+  type        = string
 }
 
 variable "folder_id" {
-  type        = string
   description = "Yandex Cloud folder ID."
+  type        = string
 }
 
 variable "sa_key_file" {
-  type        = string
   description = "Path to service account authorized key JSON."
+  type        = string
 }
 
 variable "zone" {
-  type        = string
   description = "YC availability zone."
+  type        = string
   default     = "ru-central1-a"
 }
 
 variable "vpc_cidr" {
-  type        = string
   description = "CIDR range for VPC subnet."
+  type        = string
   default     = "10.10.0.0/24"
 }
 
 variable "vm_name" {
-  type        = string
   description = "VM instance name."
+  type        = string
   default     = "decision-matrix-app"
 }
 
 variable "vm_cores" {
-  type        = number
-  default     = 2
+  type    = number
+  default = 2
 }
 
 variable "vm_memory_gb" {
-  type        = number
-  default     = 4
+  type    = number
+  default = 4
 }
 
 variable "vm_disk_gb" {
-  type        = number
-  default     = 30
+  type    = number
+  default = 30
 }
 
 variable "ssh_public_key" {
-  type        = string
   description = "Public key value for vm user."
+  type        = string
 }
 
 variable "image_family" {
-  type        = string
   description = "Base OS family from standard image catalog."
+  type        = string
   default     = "ubuntu-2204-lts"
 }
 
 variable "vm_user" {
-  type        = string
-  default     = "deploy"
+  type    = string
+  default = "deploy"
 }
 
 variable "enable_managed_postgres" {
-  type        = bool
-  default     = false
+  type    = bool
+  default = false
 }
 
 variable "postgres_version" {
-  type        = string
-  default     = "16"
+  type    = string
+  default = "16"
 }
 
 variable "postgres_db_name" {
-  type        = string
-  default     = "sppr"
+  type    = string
+  default = "sppr"
 }
 
 variable "postgres_username" {
-  type        = string
-  default     = "sppr"
+  type    = string
+  default = "sppr"
 }
 
 variable "postgres_password" {
-  type        = string
-  sensitive   = true
-  default     = ""
+  type      = string
+  default   = ""
+  sensitive = true
 }
 
 variable "postgres_disk_size_gb" {
-  type        = number
-  default     = 20
+  type    = number
+  default = 20
 }
