@@ -194,7 +194,8 @@ jobs:
           tags: ${{ steps.image.outputs.image_ref }}
 
       - name: Scan image with Trivy
-        uses: aquasecurity/trivy-action@0.28.0
+        # Pin commit SHA (v0.35.0) — tag 0.28.0 does not exist; avoids mutable-tag supply-chain risk.
+        uses: aquasecurity/trivy-action@57a97c7e7821a5776cebc9bb87c984fa69cba8f1
         with:
           image-ref: ${{ steps.image.outputs.image_ref }}
           severity: CRITICAL,HIGH
