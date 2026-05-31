@@ -1311,15 +1311,29 @@ table.data-table--projects .col-actions {
 
 .map-tools {
   display: flex;
+  flex-wrap: wrap;
   gap: 6px;
   padding: 10px 14px;
   border-bottom: 1px solid var(--border);
   background: var(--surface);
-  flex-wrap: nowrap;
-  overflow-x: auto;
   align-items: center;
   flex-shrink: 0;
-  scrollbar-width: thin;
+}
+
+.map-tools-group {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  flex-shrink: 0;
+  min-width: 0;
+}
+
+.map-tools-sep {
+  width: 1px;
+  height: 1.75rem;
+  margin-inline: 2px;
+  flex-shrink: 0;
+  background: var(--border);
 }
 
 .map-tools-draw-actions {
@@ -1336,8 +1350,16 @@ table.data-table--projects .col-actions {
 }
 
 .map-tool-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
   padding: 6px 10px !important;
   min-height: 32px;
+}
+
+.map-tool-label {
+  white-space: nowrap;
 }
 
 .map-tool-btn--action {
@@ -3376,8 +3398,62 @@ tr:hover .inline-table-edit-trigger,
     height: min(58vh, 480px) !important;
   }
 
+  .map-tools {
+    gap: 8px 6px;
+    padding: 8px 10px;
+  }
+
+  .map-tools-group--poi {
+    flex: 1 1 100%;
+    max-width: 100%;
+  }
+
+  .map-tools-group--poi .app-select--toolbar {
+    width: 100%;
+    max-width: 100%;
+  }
+
+  .map-tools-group--search {
+    flex: 1 1 100%;
+    width: 100%;
+    max-width: none;
+  }
+
+  .map-tools-group--draw {
+    flex-wrap: wrap;
+    row-gap: 6px;
+  }
+
+  .map-tools-draw-actions {
+    flex: 1 1 100%;
+    min-width: 0;
+    justify-content: flex-start;
+  }
+
+  .map-tools-draw-actions:not(.map-tools-draw-actions--visible) {
+    display: none;
+    visibility: hidden;
+  }
+
+  .map-tool-label {
+    display: none;
+  }
+
+  .map-tool-btn--action .map-tool-label {
+    display: inline;
+  }
+
+  .map-tools-sep {
+    display: none;
+  }
+
   .map-tool-btn {
     min-height: 44px;
+    min-width: 44px;
+    padding: 8px !important;
+  }
+
+  .map-tool-btn--with-label {
     min-width: 44px;
   }
 
@@ -3430,6 +3506,10 @@ tr:hover .inline-table-edit-trigger,
 }
 
 @media (min-width: 1024px) {
+  .map-tools-group--search {
+    margin-left: auto;
+  }
+
   .app-sidebar-toggle,
   .app-sidebar-backdrop,
   .map-layers-toggle,

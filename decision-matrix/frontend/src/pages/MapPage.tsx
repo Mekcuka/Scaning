@@ -1886,72 +1886,69 @@ export function MapPage() {
 
       <div className="card map-page-card flex flex-1 flex-col min-h-0 overflow-hidden">
           <div className="map-tools">
-            <button
-              type="button"
-              className={`btn btn-sm map-tool-btn btn-secondary map-layers-toggle${
-                mapLayersOpen ? ' btn-primary active' : ''
-              }`}
-              title="Слои и настройки карты"
-              onClick={() => setMapLayersOpen((open) => !open)}
-            >
-              <Layers size={14} className="inline mr-1" />
-              Слои
-            </button>
-            {map3dFeatureEnabled && (
-              <>
-                <div
-                  className="map-layers-toggle-sep w-px h-7 mx-0.5 shrink-0"
-                  style={{ background: 'var(--border)' }}
-                  aria-hidden
-                />
-                <div className="inline-flex rounded border overflow-hidden" style={{ borderColor: 'var(--border)' }}>
-                  <button
-                    type="button"
-                    className={`btn btn-sm map-tool-btn rounded-none border-0 ${
-                      mapDisplayMode === '2d' ? 'btn-primary active' : 'btn-secondary'
-                    }`}
-                    title="Карта 2D (редактирование)"
-                    onClick={() => switchMapDisplayMode('2d')}
-                  >
-                    2D
-                  </button>
-                  <button
-                    type="button"
-                    className={`btn btn-sm map-tool-btn rounded-none border-0 ${
-                      mapDisplayMode === '3d' ? 'btn-primary active' : 'btn-secondary'
-                    }`}
-                    title="Карта 3D (только просмотр)"
-                    onClick={() => switchMapDisplayMode('3d')}
-                  >
-                    3D
-                  </button>
-                </div>
-              </>
-            )}
-            <div className="map-layers-toggle-sep w-px h-7 mx-0.5 shrink-0" style={{ background: 'var(--border)' }} aria-hidden />
-            <button
-              type="button"
-              className="btn btn-sm map-tool-btn btn-secondary map-fullscreen-toggle"
-              title={mapFullscreen ? 'Выйти из полноэкранного режима' : 'Полноэкранная карта'}
-              onClick={() => void toggleMapFullscreen()}
-            >
-              {mapFullscreen ? <Minimize2 size={14} /> : <Maximize2 size={14} />}
-            </button>
-            <div className="map-fullscreen-sep w-px h-7 mx-0.5 shrink-0" style={{ background: 'var(--border)' }} aria-hidden />
+            <div className="map-tools-group map-tools-group--view">
+              <button
+                type="button"
+                className={`btn btn-sm map-tool-btn map-tool-btn--with-label btn-secondary map-layers-toggle${
+                  mapLayersOpen ? ' btn-primary active' : ''
+                }`}
+                title="Слои и настройки карты"
+                aria-label="Слои и настройки карты"
+                onClick={() => setMapLayersOpen((open) => !open)}
+              >
+                <Layers size={14} className="shrink-0" aria-hidden />
+                <span className="map-tool-label">Слои</span>
+              </button>
+              {map3dFeatureEnabled && (
+                <>
+                  <div className="map-tools-sep map-layers-toggle-sep" aria-hidden />
+                  <div className="inline-flex rounded border overflow-hidden" style={{ borderColor: 'var(--border)' }}>
+                    <button
+                      type="button"
+                      className={`btn btn-sm map-tool-btn rounded-none border-0 ${
+                        mapDisplayMode === '2d' ? 'btn-primary active' : 'btn-secondary'
+                      }`}
+                      title="Карта 2D (редактирование)"
+                      aria-label="Карта 2D"
+                      onClick={() => switchMapDisplayMode('2d')}
+                    >
+                      2D
+                    </button>
+                    <button
+                      type="button"
+                      className={`btn btn-sm map-tool-btn rounded-none border-0 ${
+                        mapDisplayMode === '3d' ? 'btn-primary active' : 'btn-secondary'
+                      }`}
+                      title="Карта 3D (только просмотр)"
+                      aria-label="Карта 3D"
+                      onClick={() => switchMapDisplayMode('3d')}
+                    >
+                      3D
+                    </button>
+                  </div>
+                </>
+              )}
+              <div className="map-tools-sep map-layers-toggle-sep map-fullscreen-sep" aria-hidden />
+              <button
+                type="button"
+                className="btn btn-sm map-tool-btn btn-secondary map-fullscreen-toggle"
+                title={mapFullscreen ? 'Выйти из полноэкранного режима' : 'Полноэкранная карта'}
+                aria-label={mapFullscreen ? 'Выйти из полноэкранного режима' : 'Полноэкранная карта'}
+                onClick={() => void toggleMapFullscreen()}
+              >
+                {mapFullscreen ? <Minimize2 size={14} /> : <Maximize2 size={14} />}
+              </button>
+            </div>
             {projectId && pois.length > 0 && (
-              <>
+              <div className="map-tools-group map-tools-group--poi">
                 <MapPoiSelect
                   pois={pois}
                   value={selectedPoiId ?? pois[0].id}
                   onChange={setSelectedPoiId}
                 />
-                <div
-                  className="w-px h-7 mx-0.5 shrink-0"
-                  style={{ background: 'var(--border)' }}
-                  aria-hidden
-                />
-              </>
+              </div>
             )}
+            <div className="map-tools-group map-tools-group--edit">
             <button
               type="button"
               className={`btn btn-sm map-tool-btn ${mapEditEnabled ? 'btn-primary active' : 'btn-secondary'}`}
@@ -1962,6 +1959,9 @@ export function MapPage() {
                     ? 'Выключить редактирование на карте (E)'
                     : 'Редактирование на карте: перемещение объектов, создание точек и линий (E)'
               }
+              aria-label={
+                mapEditEnabled ? 'Выключить редактирование на карте' : 'Включить редактирование на карте'
+              }
               disabled={!canEditMap || mapIn3d}
               onClick={() => setMapEditEnabled((on) => !on)}
             >
@@ -1971,6 +1971,7 @@ export function MapPage() {
               type="button"
               className="btn btn-sm map-tool-btn btn-secondary"
               title="Отменить последнее действие (Ctrl+Z)"
+              aria-label="Отменить"
               disabled={!canEditMap || !canUndo}
               onClick={() => void performUndo()}
             >
@@ -1992,15 +1993,19 @@ export function MapPage() {
                 deleteGroupMut.isPending ||
                 deleteInfraMut.isPending
               }
+              aria-label="Удалить выбранное"
               onClick={requestDeleteSelection}
             >
               <Trash2 size={14} />
             </button>
-            <div className="w-px h-7 mx-0.5 shrink-0" style={{ background: 'var(--border)' }} aria-hidden />
+            </div>
+            <div className="map-tools-group map-tools-group--draw">
             <div ref={selectMenuAnchorRef} className="inline-block">
               <button
                 type="button"
-                className={`btn btn-sm map-tool-btn ${drawMode === 'select' || selectMenuOpen ? 'btn-primary active' : 'btn-secondary'}`}
+                className={`btn btn-sm map-tool-btn map-tool-btn--with-label ${drawMode === 'select' || selectMenuOpen ? 'btn-primary active' : 'btn-secondary'}`}
+                title="Режим выбора объектов"
+                aria-label="Выбор"
                 onClick={() => {
                   if (drawMode === 'select') {
                     setSelectMenuOpen((open) => !open);
@@ -2014,11 +2019,11 @@ export function MapPage() {
                 }}
               >
                 {selectMode === 'box' ? (
-                  <BoxSelect size={14} className="inline mr-1" />
+                  <BoxSelect size={14} className="shrink-0" aria-hidden />
                 ) : (
-                  <MousePointer2 size={14} className="inline mr-1" />
+                  <MousePointer2 size={14} className="shrink-0" aria-hidden />
                 )}
-                Выбор
+                <span className="map-tool-label">Выбор</span>
               </button>
               <AnchoredMenu
                 anchorRef={selectMenuAnchorRef}
@@ -2066,15 +2071,16 @@ export function MapPage() {
             </div>
             <button
               type="button"
-              className={`btn btn-sm map-tool-btn ${drawMode === 'poi' ? 'btn-primary active' : 'btn-secondary'}`}
+              className={`btn btn-sm map-tool-btn map-tool-btn--with-label ${drawMode === 'poi' ? 'btn-primary active' : 'btn-secondary'}`}
               disabled={!canWriteProject || mapIn3d}
               title={
                 mapIn3d
                   ? 'Рисование доступно только в режиме 2D'
                   : !canWriteProject
                     ? 'Создание POI недоступно в режиме просмотра'
-                    : undefined
+                    : 'Создать точку интереса'
               }
+              aria-label="Точка интереса (POI)"
               onClick={() => {
                 if (drawMode === 'poi') {
                   setDrawMode('select');
@@ -2087,21 +2093,22 @@ export function MapPage() {
                 setLineMenuOpen(false);
               }}
             >
-              <MapPin size={14} className="inline mr-1" />
-              POI
+              <MapPin size={14} className="shrink-0" aria-hidden />
+              <span className="map-tool-label">POI</span>
             </button>
             <div ref={pointMenuAnchorRef} className="inline-block">
               <button
                 type="button"
-                className={`btn btn-sm map-tool-btn ${drawMode === 'point' || pointMenuOpen ? 'btn-primary active' : 'btn-secondary'}`}
+                className={`btn btn-sm map-tool-btn map-tool-btn--with-label ${drawMode === 'point' || pointMenuOpen ? 'btn-primary active' : 'btn-secondary'}`}
                 disabled={!canWriteInfra || mapIn3d}
                 title={
                   mapIn3d
                     ? 'Рисование доступно только в режиме 2D'
                     : !canWriteInfra
                       ? 'Создание объектов недоступно в режиме просмотра'
-                      : undefined
+                      : 'Создать точечный объект'
                 }
+                aria-label="Точка"
                 onClick={() => {
                   if (drawMode === 'point') {
                 setDrawMode('select');
@@ -2119,8 +2126,8 @@ export function MapPage() {
                   setPointMenuOpen(true);
                 }}
               >
-                <MapPin size={14} className="inline mr-1" />
-                Точка
+                <MapPin size={14} className="shrink-0" aria-hidden />
+                <span className="map-tool-label">Точка</span>
               </button>
               <AnchoredMenu
                 anchorRef={pointMenuAnchorRef}
@@ -2151,15 +2158,16 @@ export function MapPage() {
             <div ref={lineMenuAnchorRef} className="inline-block">
             <button
               type="button"
-              className={`btn btn-sm map-tool-btn ${drawMode === 'line' || lineMenuOpen ? 'btn-primary active' : 'btn-secondary'}`}
+              className={`btn btn-sm map-tool-btn map-tool-btn--with-label ${drawMode === 'line' || lineMenuOpen ? 'btn-primary active' : 'btn-secondary'}`}
               disabled={!canWriteInfra || mapIn3d}
               title={
                 mapIn3d
                   ? 'Рисование доступно только в режиме 2D'
                   : !canWriteInfra
                     ? 'Рисование линий недоступно в режиме просмотра'
-                    : undefined
+                    : 'Создать линейный объект'
               }
+              aria-label="Линия"
               onClick={() => {
                 if (drawMode === 'line') {
                   setDrawMode('select');
@@ -2177,8 +2185,8 @@ export function MapPage() {
                 setLineMenuOpen(true);
               }}
             >
-              <Pencil size={14} className="inline mr-1" />
-              Линия
+              <Pencil size={14} className="shrink-0" aria-hidden />
+              <span className="map-tool-label">Линия</span>
             </button>
             <AnchoredMenu
               anchorRef={lineMenuAnchorRef}
@@ -2210,13 +2218,14 @@ export function MapPage() {
             </div>
             <button
               type="button"
-              className={`btn btn-sm map-tool-btn ${drawMode === 'ruler' ? 'btn-primary active' : 'btn-secondary'}`}
+              className={`btn btn-sm map-tool-btn map-tool-btn--with-label ${drawMode === 'ruler' ? 'btn-primary active' : 'btn-secondary'}`}
               disabled={mapIn3d}
               title={
                 mapIn3d
                   ? 'Линейка доступна только в режиме 2D'
                   : 'Измерить длину ломаной линии на карте (двойной клик — завершить)'
               }
+              aria-label="Линейка"
               onClick={() => {
                 if (drawMode === 'ruler') {
                   setDrawMode('select');
@@ -2232,9 +2241,10 @@ export function MapPage() {
                 setDrawMode('ruler');
               }}
             >
-              <Ruler size={14} className="inline mr-1" />
-              Линейка
+              <Ruler size={14} className="shrink-0" aria-hidden />
+              <span className="map-tool-label">Линейка</span>
             </button>
+            </div>
             <div
               className={`map-tools-draw-actions${drawActionsVisible ? ' map-tools-draw-actions--visible' : ''}`}
               aria-hidden={!drawActionsVisible}
@@ -2246,8 +2256,8 @@ export function MapPage() {
                 onClick={handleDrawStepBack}
                 title="Удалить последнюю вершину"
               >
-                <Minus size={14} className="inline mr-1" />
-                Назад
+                <Minus size={14} className="shrink-0" aria-hidden />
+                <span className="map-tool-label">Назад</span>
               </button>
               <button
                 type="button"
@@ -2261,11 +2271,11 @@ export function MapPage() {
                 }
               >
                 {drawMode === 'line' ? (
-                  <Pencil size={14} className="inline mr-1" />
+                  <Pencil size={14} className="shrink-0" aria-hidden />
                 ) : (
-                  <Ruler size={14} className="inline mr-1" />
+                  <Ruler size={14} className="shrink-0" aria-hidden />
                 )}
-                Готово
+                <span className="map-tool-label">Готово</span>
               </button>
               <button
                 type="button"
@@ -2274,14 +2284,14 @@ export function MapPage() {
                 onClick={handleDrawReset}
                 title={drawMode === 'line' ? 'Сбросить линию' : 'Сбросить все измерения'}
               >
-                <X size={14} className="inline mr-1" />
-                Сброс
+                <X size={14} className="shrink-0" aria-hidden />
+                <span className="map-tool-label">Сброс</span>
               </button>
             </div>
             {projectId && (
               <div
                 ref={searchAnchorRef}
-                className="relative ml-auto min-w-[140px] max-w-[220px]"
+                className="map-tools-group map-tools-group--search relative min-w-[140px] max-w-[220px]"
               >
                 <Search size={14} className="absolute left-2 top-1/2 -translate-y-1/2 opacity-40 pointer-events-none" />
                 <input
