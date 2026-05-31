@@ -14,8 +14,22 @@ RENDER_3D_MODEL_ID_KEY = "render_3d_model_id"
 
 _RESERVED_IMPORT_PROP_KEYS = frozenset({"type", "subtype", "name"})
 
-_L1_JSON_PATH = Path(__file__).resolve().parents[3] / "shared" / "l1_extrusion_heights.json"
-with _L1_JSON_PATH.open(encoding="utf-8") as _f:
+
+def _resolve_l1_json_path() -> Path:
+    """Monorepo dev: decision-matrix/shared; Docker (/app): app/shared."""
+    here = Path(__file__).resolve()
+    for candidate in (
+        here.parents[2] / "shared" / "l1_extrusion_heights.json",
+        here.parents[3] / "shared" / "l1_extrusion_heights.json",
+    ):
+        if candidate.is_file():
+            return candidate
+    raise FileNotFoundError(
+        "l1_extrusion_heights.json not found; expected backend/shared or decision-matrix/shared"
+    )
+
+
+with _resolve_l1_json_path().open(encoding="utf-8") as _f:
     _L1_DATA = json.load(_f)
 _L1_HEIGHTS: dict[str, float] = {k: float(v) for k, v in _L1_DATA["heights"].items()}
 _DEFAULT_HEIGHT_M = float(_L1_DATA["default_height_m"])

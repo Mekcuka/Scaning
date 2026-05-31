@@ -29,6 +29,8 @@ COPY --from=builder /usr/local/lib/python3.12/site-packages /usr/local/lib/pytho
 COPY --from=builder /usr/local/bin /usr/local/bin
 
 COPY . .
+# L1 extrusion heights for render_3d_properties (staged from decision-matrix/shared in CI).
+COPY shared ./shared/
 
 EXPOSE 8000
 

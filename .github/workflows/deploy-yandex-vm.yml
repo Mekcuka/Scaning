@@ -183,6 +183,9 @@ jobs:
           echo "image_ref=${IMAGE_REF}" >> "$GITHUB_OUTPUT"
           echo "Pushing to ${IMAGE_REF}"
 
+      - name: Stage shared assets for backend image
+        run: cp -r decision-matrix/shared decision-matrix/backend/shared
+
       - name: Build and push backend image
         uses: docker/build-push-action@v6
         with:

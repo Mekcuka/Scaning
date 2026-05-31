@@ -371,13 +371,24 @@ export function MapPage() {
     [subtypeFilter],
   );
 
-  const { data: infraObjects = [] } = useQuery({
+  const {
+    data: infraObjects = [],
+    isError: infraLoadError,
+    error: infraLoadErr,
+  } = useQuery({
     queryKey: ['infra', projectId],
     queryFn: () => api.getInfraObjects(projectId!),
     enabled: !!projectId,
     refetchOnMount: 'always',
     placeholderData: keepPreviousData,
   });
+
+  useEffect(() => {
+    if (!infraLoadError || !projectId) return;
+    const msg =
+      infraLoadErr instanceof Error ? infraLoadErr.message : 'Не удалось загрузить объекты карты';
+    pushToast('error', msg);
+  }, [infraLoadError, infraLoadErr, projectId, pushToast]);
 
   const searchContext = useMemo(
     () => ({ layers, subtypeLabels: SUBTYPE_LABELS }),
