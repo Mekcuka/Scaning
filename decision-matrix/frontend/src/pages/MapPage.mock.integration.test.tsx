@@ -256,7 +256,7 @@ describe('MapPage mock MapView integration', () => {
     mapProps().onMapClick?.(37.6, 55.75, {
       overPoint: { id: point.id, lon: 37.6, lat: 55.75 },
     });
-    mapProps().onPointerMove?.(37.62, 55.76, null);
+    mapProps().onPointerMove?.(37.62, 55.76, undefined);
     mapProps().onPointerLeave?.();
     expect(mapCapture.mapProps).toBeTruthy();
   });
@@ -276,14 +276,15 @@ describe('MapPage mock MapView integration', () => {
   it('geometry change triggers infra update', async () => {
     await renderMap();
     await enableEdit();
-    mapProps().onGeometryChange?.({
-      kind: 'infra',
-      id: sampleInfra[0]!.id,
-      coordinates: [
+    mapProps().onGeometryChange?.(
+      { kind: 'infra', id: sampleInfra[0]!.id },
+      37.6,
+      55.75,
+      [
         [37.6, 55.75],
         [37.7, 55.76],
       ],
-    });
+    );
     await waitFor(() => expect(api.updateInfraObject).toHaveBeenCalled());
   });
 

@@ -1,6 +1,5 @@
 import { describe, expect, it, vi, beforeEach } from 'vitest';
 import { screen, waitFor } from '@testing-library/react';
-import userEvent from '@testing-library/user-event';
 import { ParametersPage } from './ParametersPage';
 import { renderPage } from '../test/pages/renderPage';
 import { seedAppStore } from '../test/pages/seedAppStore';

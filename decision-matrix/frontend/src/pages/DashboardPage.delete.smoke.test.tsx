@@ -1,6 +1,5 @@
 import { describe, expect, it, vi, beforeEach } from 'vitest';
 import { screen } from '@testing-library/react';
-import userEvent from '@testing-library/user-event';
 import { DashboardPage } from './DashboardPage';
 import { renderWithProviders } from '../test/renderWithProviders';
 import { makeProject } from '../test/fixtures/projects';
@@ -45,7 +44,6 @@ describe('DashboardPage delete smoke', () => {
         email: testAnalyst.email,
         username: testAnalyst.username,
         role: testAnalyst.role,
-        created_at: '2024-01-01T00:00:00Z',
       },
     });
   });

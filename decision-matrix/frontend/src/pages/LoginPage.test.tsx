@@ -43,7 +43,7 @@ describe('LoginPage', () => {
 
   it('redirects when user already logged in', async () => {
     useAuthStore.setState({
-      user: { id: 'u1', email: 'a@b.ru', username: 'u', role: 'analyst', is_active: true },
+      user: { id: 'u1', email: 'a@b.ru', username: 'u', role: 'analyst' },
       isLoading: false,
     });
     renderPage(<LoginPage />, { route: '/login' });

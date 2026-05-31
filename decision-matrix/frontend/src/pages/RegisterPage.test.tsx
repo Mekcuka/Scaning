@@ -1,6 +1,5 @@
 import { describe, expect, it, vi, beforeEach, afterEach } from 'vitest';
-import { cleanup, screen, waitFor } from '@testing-library/react';
-import userEvent from '@testing-library/user-event';
+import { cleanup, screen } from '@testing-library/react';
 import { RegisterPage } from './RegisterPage';
 import { renderPage } from '../test/pages/renderPage';
 import { useAuthStore } from '../store';

@@ -24,7 +24,6 @@ export function seedAuthUser(user: Partial<AuthUser> | null = null, isLoading = 
     email: testAdmin.email,
     username: testAdmin.username,
     role: testAdmin.role,
-    is_active: true,
     ...user,
   };
   useAuthStore.setState({

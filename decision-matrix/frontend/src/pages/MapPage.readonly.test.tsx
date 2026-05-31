@@ -1,4 +1,3 @@
-import React from 'react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { cleanup, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
@@ -7,13 +6,14 @@ import { renderPage } from '../test/pages/renderPage';
 import { seedAppStore } from '../test/pages/seedAppStore';
 import { api } from '../lib/api';
 import { sampleInfra, samplePois } from '../test/fixtures/map';
+import type { MockMapViewProps } from '../test/mocks/MockMapView';
 
 const mapCapture = vi.hoisted(() => ({
-  mapProps: null as Record<string, unknown> | null,
+  mapProps: null as MockMapViewProps | null,
 }));
 
 vi.mock('../components/MapView', () => ({
-  MapView: (props: Record<string, unknown>) => {
+  MapView: (props: MockMapViewProps) => {
     mapCapture.mapProps = props;
     return <div data-testid="mock-map-view" />;
   },

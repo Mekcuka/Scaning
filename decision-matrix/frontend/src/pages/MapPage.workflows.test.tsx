@@ -1,6 +1,5 @@
-import React from 'react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { cleanup, screen, waitFor, within } from '@testing-library/react';
+import { cleanup, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { MapPage } from './MapPage';
 import { renderPage } from '../test/pages/renderPage';
@@ -185,17 +184,18 @@ describe('MapPage workflow coverage', () => {
     ]);
     await waitFor(() => expect(screen.getByText(/Выбрано: 2/)).toBeInTheDocument());
 
-    props().onPointerMove?.(37.62, 55.77, null);
+    props().onPointerMove?.(37.62, 55.77, undefined);
     props().onPointerLeave?.();
     props().onFitView?.();
-    props().onGeometryChange?.({
-      kind: 'infra',
-      id: sampleInfra[0]!.id,
-      coordinates: [
+    props().onGeometryChange?.(
+      { kind: 'infra', id: sampleInfra[0]!.id },
+      37.6,
+      55.75,
+      [
         [37.6, 55.75],
         [37.7, 55.76],
       ],
-    });
+    );
 
   });
 });

@@ -1,12 +1,22 @@
 import type { ReactElement } from 'react';
+import { expect } from 'vitest';
 import { screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { renderPage } from './renderPage';
 import { seedAppStore } from './seedAppStore';
 import type { MapViewProps } from '../../components/MapView';
 
-function mapState() {
-  return globalThis.__mapPageTestState;
+type MapPageTestState = {
+  displayMode: '2d' | '3d';
+  mapViewProps?: MapViewProps;
+};
+
+function mapState(): MapPageTestState {
+  const g = globalThis as typeof globalThis & { __mapPageTestState?: MapPageTestState };
+  if (!g.__mapPageTestState) {
+    g.__mapPageTestState = { displayMode: '2d' };
+  }
+  return g.__mapPageTestState;
 }
 
 export function resetMapDisplayMode() {

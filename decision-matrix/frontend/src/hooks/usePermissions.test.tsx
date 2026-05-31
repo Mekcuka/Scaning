@@ -16,7 +16,6 @@ describe('usePermissions', () => {
         email: testViewer.email,
         username: testViewer.username,
         role: testViewer.role,
-        created_at: '2024-01-01T00:00:00Z',
       },
     });
     const { result } = renderHook(() => usePermissions());
@@ -31,7 +30,6 @@ describe('usePermissions', () => {
         email: testAdmin.email,
         username: testAdmin.username,
         role: testAdmin.role,
-        created_at: '2024-01-01T00:00:00Z',
       },
     });
     const { result } = renderHook(() => usePermissions());

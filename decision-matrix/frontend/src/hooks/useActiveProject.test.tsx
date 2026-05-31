@@ -5,7 +5,7 @@ import type { ReactNode } from 'react';
 import { useActiveProject } from './useActiveProject';
 import { useAppStore } from '../store';
 import { queryKeys } from '../lib/queryKeys';
-import { makeProject, sampleProjects } from '../test/fixtures/projects';
+import { sampleProjects } from '../test/fixtures/projects';
 
 vi.mock('../lib/api', () => ({
   api: {
