@@ -420,6 +420,46 @@ erDiagram
 
 При удалении линейного объекта (`LINE_SUBTYPES`) backend вызывает `build_network_from_lines` — топология в БД синхронизируется с оставшимися линиями. При групповом удалении frontend дополнительно вызывает `POST …/network/build` один раз после batch DELETE.
 
+### 6.4 Режим 2.5D / 3D (MapLibre + Three.js, просмотр)
+
+> Полное описание реализации: **[map-3d-features.md](./map-3d-features.md)**.
+
+| Аспект | Правило |
+|--------|---------|
+| Редактирование | только **2D** (OpenLayers на `/map`) |
+| Движок | **MapLibre GL JS** (база, extrusion, pick) + **Three.js** custom layers (точки glTF, линии-трубы) |
+| Точечные объекты | glTF **Kenney Industrial** (CC0) с палитрой 5 тонов от цвета слоя; fallback — процедурная модель или `fill-extrusion` |
+| Линейные объекты | 3D-трубы по DEM (`dm-3d-lines`); MapLibre-линия — только для клика |
+| Рельеф | MapTiler Terrain RGB (`VITE_MAPTILER_KEY`), toggle «Рельеф (3D)» |
+| Масштаб | `MAP3D_OBJECT_SCALE` (= 5) в `map3dConfig.ts` — модели, трубы, extrusion |
+| Экраны | `/map`, превью отчёта (live), панель «Карта проекта» на `/matrix` |
+| Снимок отчёта | экспорт `map_snapshot_base64` остаётся **2D** |
+| Feature flag | `VITE_MAP_3D_ENABLED=true` при сборке frontend |
+
+**L2-ключи в `infrastructure_objects.properties`:**
+
+| Ключ | Тип | Назначение |
+|------|-----|------------|
+| `render_3d_height_m` | number | высота (м), перекрывает L1; на клиенте × `MAP3D_OBJECT_SCALE` |
+| `render_3d_base_m` | number | смещение основания над terrain (м) |
+| `render_3d_visible` | boolean | `false` — скрыть только в 3D |
+| `render_3d_style` | string | `model` (по умолчанию для точек с каталогом), `extrusion` — столбик вместо glTF |
+| `render_3d_model_id` | string | id ассета: `facility-large`, `stack-medium`, `tank`, `substation`, … или алиасы `facility`, `stack`, `node` |
+
+**L3 (клиент, реализовано):**
+
+- glTF: `frontend/public/map3d-models/*.glb` — каталог [`map3dGltfAssets.ts`](../decision-matrix/frontend/src/lib/map3d/map3dGltfAssets.ts), привязка подтипов [`map3dModelCatalog.ts`](../decision-matrix/frontend/src/lib/map3d/map3dModelCatalog.ts)
+- Окраска: [`map3dObjectPalette.ts`](../decision-matrix/frontend/src/lib/map3d/map3dObjectPalette.ts) — pad / body / roof / accent / trim от цвета слоя
+- Процедурный fallback: [`map3dModelMeshes.ts`](../decision-matrix/frontend/src/lib/map3d/map3dModelMeshes.ts)
+- Линии: [`map3dLinesLayer.ts`](../decision-matrix/frontend/src/lib/map3d/map3dLinesLayer.ts)
+- UI: toggle «3D-модели объектов»; при выкл. — extrusion + 2D-символы
+
+**Импорт:** `height_m` в CSV/GeoJSON → `render_3d_height_m`; Z в `[lon, lat, z]` → `render_3d_base_m` (`merge_geojson_render_3d`).
+
+**API:** опционально `render_3d_effective: { height_m, base_m, visible }` в ответе объекта.
+
+**QA:** `python scripts/draw_demo_map_network.py` (backend); тесты `npm run test -- src/lib/map3d`, `pytest tests/test_render_3d_*.py`.
+
 ---
 
 ## 7. API (целевой контракт)
@@ -449,6 +489,8 @@ erDiagram
 
 | Дата | Изменение |
 |------|-----------|
+| 2026-05 | §6.4: glTF Kenney, Three.js линии, палитра, `MAP3D_OBJECT_SCALE`; см. [map-3d-features.md](./map-3d-features.md) |
+| 2026-05 | §6.4: 2.5D/3D MapLibre, L2 `render_3d_*`, terrain MapTiler |
 | 2026-05 | §6: hotkeys, поиск по свойствам, dev-port banner, пересборка сети после delete |
 | 2026-05 | §5–§6: расчётный граф в БД, без слоя на карте; §1.7 пересборка сети на backend; редактирование линий (двойной ЛКМ — удаление промежуточной вершины) |
 | 2026-05 | Первая версия: таксономия Point/LineString, anchor_type, PostGIS, planned graph |

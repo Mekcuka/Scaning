@@ -1,11 +1,14 @@
-import { forwardRef } from 'react';
+import { forwardRef, lazy, Suspense, useState } from 'react';
 import { MapView, type MapFocusTarget } from '../../../components/MapView';
 import type { AnalysisRow, InfraLayer, InfraObject, POI } from '../../../lib/api';
+import { isMap3dEnabled } from '../../../lib/map3d/map3dConfig';
 import { OnePagerEngBadges } from './OnePagerEngBadges';
 import { OnePagerRecommendation } from './OnePagerRecommendation';
 import { OnePagerRoadmap } from './OnePagerRoadmap';
 import { OnePagerSubtypeTable } from './OnePagerSubtypeTable';
 import type { OnePagerRoadmapStage } from '../../../lib/api';
+
+const MapView3D = lazy(() => import('../../../components/MapView3D'));
 
 export type OnePagerPreviewData = {
   title: string;
@@ -49,6 +52,10 @@ export const OnePagerPreview = forwardRef<HTMLDivElement, Props>(function OnePag
   },
   ref
 ) {
+  const map3dOn = isMap3dEnabled();
+  const [reportMapMode, setReportMapMode] = useState<'2d' | '3d'>(map3dOn ? '3d' : '2d');
+  const use3d = map3dOn && reportMapMode === '3d';
+
   const dateStr =
     data.reportDate ??
     new Date().toLocaleDateString('ru-RU', { day: 'numeric', month: 'long', year: 'numeric' });
@@ -72,18 +79,52 @@ export const OnePagerPreview = forwardRef<HTMLDivElement, Props>(function OnePag
         </header>
 
         <div className="one-pager-map" data-map-capture-root>
-          <MapView
-            pois={pois}
-            infraObjects={infraObjects}
-            selectedPoi={selectedPoi}
-            connectionLines={connectionLines}
-            mapFocus={mapFocus}
-            height="220px"
-            useMapIcons
-            layers={layers}
-            showRadii={false}
-            persistViewState={false}
-          />
+          {map3dOn && (
+            <div className="flex gap-1 mb-1 justify-end">
+              <button
+                type="button"
+                className={`btn btn-xs ${reportMapMode === '2d' ? 'btn-primary' : 'btn-secondary'}`}
+                onClick={() => setReportMapMode('2d')}
+              >
+                2D
+              </button>
+              <button
+                type="button"
+                className={`btn btn-xs ${reportMapMode === '3d' ? 'btn-primary' : 'btn-secondary'}`}
+                onClick={() => setReportMapMode('3d')}
+              >
+                3D
+              </button>
+            </div>
+          )}
+          {use3d ? (
+            <Suspense fallback={<div style={{ height: 220 }}>Загрузка 3D…</div>}>
+              <MapView3D
+                pois={pois}
+                infraObjects={infraObjects}
+                selectedPoi={selectedPoi}
+                connectionLines={connectionLines}
+                mapFocus={mapFocus}
+                layers={layers}
+                showRadii={false}
+                persistViewState={false}
+                height="220px"
+              />
+            </Suspense>
+          ) : (
+            <MapView
+              pois={pois}
+              infraObjects={infraObjects}
+              selectedPoi={selectedPoi}
+              connectionLines={connectionLines}
+              mapFocus={mapFocus}
+              height="220px"
+              useMapIcons
+              layers={layers}
+              showRadii={false}
+              persistViewState={false}
+            />
+          )}
         </div>
 
         <OnePagerSubtypeTable rows={data.analysisRows} poiName={data.poiName} />

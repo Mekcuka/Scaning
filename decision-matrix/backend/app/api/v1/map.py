@@ -294,10 +294,14 @@ async def _create_infra_object_record(
         layer = await _get_or_create_default_layer(project_id, db, source_type=layer_source_type)
 
     from app.geo.entry_date import apply_default_entry_date
+    from app.geo.render_3d_properties import apply_default_render_3d
     from app.geo.sand_properties import apply_default_sand_volumes
 
     props = apply_default_entry_date(
-        subtype, apply_default_sand_volumes(subtype, dict(data.properties))
+        subtype,
+        apply_default_render_3d(
+            subtype, apply_default_sand_volumes(subtype, dict(data.properties))
+        ),
     )
     if data.description:
         props["description"] = data.description
@@ -478,9 +482,11 @@ async def update_infra_object(
         await _get_layer(payload["layer_id"], project_id, db)
         obj.layer_id = payload["layer_id"]
     if "properties" in payload:
+        from app.geo.render_3d_properties import apply_default_render_3d
+
         merged_props = dict(obj.properties or {})
         merged_props.update(payload["properties"])
-        obj.properties = merged_props
+        obj.properties = apply_default_render_3d(subtype, merged_props)
     if "description" in payload:
         props = dict(obj.properties or {})
         props["description"] = payload["description"]

@@ -22,6 +22,37 @@ from app.services.line_endpoint_rules import LineEndpointRuleError, validate_lin
 from app.services.spark_import import is_spark_project_export, parse_spark_project
 
 
+def _coords_2d(coords: list) -> list[list[float]]:
+    return [[float(c[0]), float(c[1])] for c in coords]
+
+
+def _csv_import_properties(row: dict) -> dict:
+    from app.geo.render_3d_properties import (
+        RENDER_3D_BASE_KEY,
+        RENDER_3D_HEIGHT_KEY,
+        RENDER_3D_VISIBLE_KEY,
+    )
+
+    props: dict = {}
+    for key in (
+        RENDER_3D_HEIGHT_KEY,
+        RENDER_3D_BASE_KEY,
+        RENDER_3D_VISIBLE_KEY,
+        "height_m",
+        "elevation_m",
+    ):
+        if key not in row:
+            continue
+        raw = row[key]
+        if raw is None or str(raw).strip() == "":
+            continue
+        if key == RENDER_3D_VISIBLE_KEY:
+            props[key] = str(raw).strip().lower() not in ("false", "0", "no")
+        else:
+            props[key] = raw
+    return props
+
+
 def _parse_csv_rows(content: str) -> tuple[list[dict], list[str]]:
     reader = csv.DictReader(io.StringIO(content))
     if not reader.fieldnames:
@@ -52,6 +83,7 @@ def _parse_csv_rows(content: str) -> tuple[list[dict], list[str]]:
                         "end_lat": end_lat,
                         "geometry": geom,
                         "category": category_for_subtype(subtype),
+                        "properties": _csv_import_properties(row),
                     }
                 )
             elif row.get("lat") and row.get("lon"):
@@ -69,6 +101,7 @@ def _parse_csv_rows(content: str) -> tuple[list[dict], list[str]]:
                         "end_lat": None,
                         "geometry": geom,
                         "category": category_for_subtype(subtype),
+                        "properties": _csv_import_properties(row),
                     }
                 )
             else:
@@ -79,6 +112,7 @@ def _parse_csv_rows(content: str) -> tuple[list[dict], list[str]]:
 
 
 def _parse_geojson(content: str) -> tuple[list[dict], list[str]]:
+    from app.geo.render_3d_properties import feature_properties_for_import, z_from_geojson_coordinates
     errors: list[str] = []
     try:
         data = json.loads(content)
@@ -109,6 +143,7 @@ def _parse_geojson(content: str) -> tuple[list[dict], list[str]]:
                 lon, lat = float(coords[0]), float(coords[1])
                 validate_subtype_geometry(subtype, coordinate_count=1)
                 wkt = build_infra_geometry(subtype, lon, lat)
+                geom_z = z_from_geojson_coordinates(gtype, coords)
                 rows.append(
                     {
                         "name": name,
@@ -119,13 +154,16 @@ def _parse_geojson(content: str) -> tuple[list[dict], list[str]]:
                         "end_lat": None,
                         "geometry": wkt,
                         "category": category_for_subtype(subtype),
+                        "properties": feature_properties_for_import(props, geometry_z=geom_z),
                     }
                 )
             elif gtype == "LineString" and coords and len(coords) >= 2:
-                validate_subtype_geometry(subtype, coordinate_count=len(coords))
-                lon, lat = float(coords[0][0]), float(coords[0][1])
-                end_lon, end_lat = float(coords[-1][0]), float(coords[-1][1])
-                wkt = build_infra_geometry(subtype, lon, lat, coordinates=coords)
+                coords_2d = _coords_2d(coords)
+                validate_subtype_geometry(subtype, coordinate_count=len(coords_2d))
+                lon, lat = float(coords_2d[0][0]), float(coords_2d[0][1])
+                end_lon, end_lat = float(coords_2d[-1][0]), float(coords_2d[-1][1])
+                wkt = build_infra_geometry(subtype, lon, lat, coordinates=coords_2d)
+                geom_z = z_from_geojson_coordinates(gtype, coords)
                 rows.append(
                     {
                         "name": name,
@@ -134,9 +172,10 @@ def _parse_geojson(content: str) -> tuple[list[dict], list[str]]:
                         "lat": lat,
                         "end_lon": end_lon,
                         "end_lat": end_lat,
-                        "coordinates": coords,
+                        "coordinates": coords_2d,
                         "geometry": wkt,
                         "category": category_for_subtype(subtype),
+                        "properties": feature_properties_for_import(props, geometry_z=geom_z),
                     }
                 )
             else:
@@ -177,11 +216,16 @@ async def import_rows_to_layer(
                 errors.append(f"Row {idx} ({row['name']}): {e}")
                 continue
         from app.geo.entry_date import apply_default_entry_date
+        from app.geo.render_3d_properties import apply_default_render_3d, merge_geojson_render_3d
         from app.geo.sand_properties import apply_default_sand_volumes
 
+        raw_props = merge_geojson_render_3d(dict(row.get("properties") or {}))
         props: dict = apply_default_entry_date(
             str(row["subtype"]),
-            apply_default_sand_volumes(str(row["subtype"]), dict(row.get("properties") or {})),
+            apply_default_render_3d(
+                str(row["subtype"]),
+                apply_default_sand_volumes(str(row["subtype"]), raw_props),
+            ),
         )
         if row.get("coordinates"):
             props["coordinates"] = row["coordinates"]

@@ -99,9 +99,13 @@ def _infra_line_coordinates(obj: InfrastructureObject) -> list[list[float]] | No
 
 def infra_to_response(obj: InfrastructureObject) -> InfraObjectResponse:
     from app.geo.constants import normalize_infra_subtype
+    from app.geo.render_3d_properties import read_render_3d
+    from app.schemas import Render3DEffective
 
     coords = _infra_line_coordinates(obj)
     subtype = normalize_infra_subtype(obj.subtype)
+    props = obj.properties or {}
+    r3d = read_render_3d(subtype, props)
     return InfraObjectResponse(
         id=obj.id,
         layer_id=obj.layer_id,
@@ -113,7 +117,12 @@ def infra_to_response(obj: InfrastructureObject) -> InfraObjectResponse:
         end_lon=obj.end_longitude,
         end_lat=obj.end_latitude,
         coordinates=coords,
-        properties=obj.properties or {},
+        properties=props,
+        render_3d_effective=Render3DEffective(
+            height_m=r3d.height_m,
+            base_m=r3d.base_m,
+            visible=r3d.visible,
+        ),
     )
 
 

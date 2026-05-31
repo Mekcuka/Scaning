@@ -1,7 +1,12 @@
-import { Fragment, useEffect, useMemo, useState } from 'react';
+import { Fragment, lazy, Suspense, useEffect, useMemo, useState } from 'react';
 import { useMutation, useQueries, useQuery, useQueryClient } from '@tanstack/react-query';
-import { LayoutGrid, Table, Zap } from 'lucide-react';
+import { ChevronDown, ChevronRight, LayoutGrid, Map, Table, Zap } from 'lucide-react';
 import { api, normalizePoiAnalysisResponse, type POI } from '../lib/api';
+import { buildMapFitAllFocus } from '../lib/analysisDisplay';
+import { isMap3dEnabled } from '../lib/map3d/map3dConfig';
+import type { MapFocusTarget } from '../components/MapView';
+
+const MapView3D = lazy(() => import('../components/MapView3D'));
 import { buildMatrixRowsByPois, resolvePoiColumnAnalysis } from '../lib/matrixData';
 import { engineeringOptionsForKey, type EngineeringParamKey } from '../lib/poiParams';
 import { useAppStore } from '../store';
@@ -21,6 +26,8 @@ export function MatrixPage() {
   const [viewModeTouched, setViewModeTouched] = useState(false);
   const [selectedCol, setSelectedCol] = useState(0);
   const [showOnlyExceeded, setShowOnlyExceeded] = useState(false);
+  const [mapPanelOpen, setMapPanelOpen] = useState(false);
+  const [mapFocus, setMapFocus] = useState<MapFocusTarget | null>(null);
   const projectId = useAppStore((s) => s.currentProjectId);
   const queryClient = useQueryClient();
   const pushToast = useAppStore((s) => s.pushToast);
@@ -36,6 +43,24 @@ export function MatrixPage() {
     queryFn: () => api.getPois(projectId!),
     enabled: !!projectId,
   });
+
+  const { data: layers = [] } = useQuery({
+    queryKey: ['layers', projectId],
+    queryFn: () => api.getLayers(projectId!),
+    enabled: !!projectId && mapPanelOpen,
+  });
+
+  const { data: infraObjects = [] } = useQuery({
+    queryKey: ['infra', projectId],
+    queryFn: () => api.getInfraObjects(projectId!),
+    enabled: !!projectId && mapPanelOpen,
+  });
+
+  useEffect(() => {
+    if (!mapPanelOpen || !projectId) return;
+    const focus = buildMapFitAllFocus(pois, infraObjects);
+    if (focus) setMapFocus({ ...focus, nonce: Date.now() });
+  }, [mapPanelOpen, pois, infraObjects, projectId]);
 
   const analysisQueries = useQueries({
     queries: pois.map((poi) => ({
@@ -206,6 +231,41 @@ export function MatrixPage() {
           </button>
         </div>
       </div>
+
+      {projectId && isMap3dEnabled() && (
+        <div className="card mb-4 overflow-hidden">
+          <button
+            type="button"
+            className="w-full flex items-center gap-2 px-4 py-3 text-left font-medium text-sm hover:bg-[var(--bg)]"
+            onClick={() => setMapPanelOpen((o) => !o)}
+          >
+            {mapPanelOpen ? <ChevronDown size={16} /> : <ChevronRight size={16} />}
+            <Map size={16} className="opacity-70" />
+            Карта проекта (3D)
+          </button>
+          {mapPanelOpen && (
+            <div className="border-t" style={{ borderColor: 'var(--border)' }}>
+              <Suspense
+                fallback={
+                  <div className="p-8 text-center text-sm" style={{ color: 'var(--text-muted)' }}>
+                    Загрузка карты…
+                  </div>
+                }
+              >
+                <MapView3D
+                  viewStateId="matrix"
+                  pois={pois}
+                  infraObjects={infraObjects}
+                  layers={layers}
+                  mapFocus={mapFocus}
+                  showRadii={false}
+                  height="320px"
+                />
+              </Suspense>
+            </div>
+          )}
+        </div>
+      )}
 
       <div>
           {pois.length === 0 ? (

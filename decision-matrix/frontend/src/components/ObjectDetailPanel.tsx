@@ -46,6 +46,15 @@ import {
   objectShowsEntryDate,
   readEntryDateIso,
 } from '../lib/infraEntryDate';
+import {
+  RENDER_3D_BASE_KEY,
+  RENDER_3D_HEIGHT_KEY,
+  RENDER_3D_MODEL_ID_KEY,
+  RENDER_3D_STYLE_KEY,
+  RENDER_3D_VISIBLE_KEY,
+  resolveRender3D,
+} from '../lib/map3d/render3d';
+import { catalogEntryForSubtype } from '../lib/map3d/map3dModelCatalog';
 import { AppSelect } from './AppSelect';
 import { DeferredNumberInput } from './DeferredNumberInput';
 import { PoiParamsForm } from './PoiParamsForm';
@@ -218,6 +227,11 @@ export function ObjectDetailPanel({
   const [sandDemandM3, setSandDemandM3] = useState('');
   const [entryDate, setEntryDate] = useState('');
   const [capacityValue, setCapacityValue] = useState<number | ''>('');
+  const [render3dHeight, setRender3dHeight] = useState('');
+  const [render3dBase, setRender3dBase] = useState('');
+  const [render3dVisible, setRender3dVisible] = useState(true);
+  const [render3dStyle, setRender3dStyle] = useState('');
+  const [render3dModelId, setRender3dModelId] = useState('');
   const [infraTab, setInfraTab] = useState<InfraDetailTab>('main');
   const [poiTab, setPoiTab] = useState<PoiDetailTab>('basic');
 
@@ -259,6 +273,14 @@ export function ObjectDetailPanel({
     }
     setEntryDate(objectShowsEntryDate(o.subtype) ? readEntryDateIso(o.properties) : '');
     setCapacityValue(capacityDraftFromObject(o));
+    const r3 = resolveRender3D(o.subtype, o.properties);
+    setRender3dHeight(String(r3.heightM));
+    setRender3dBase(String(r3.baseM));
+    setRender3dVisible(r3.visible);
+    const style = o.properties?.[RENDER_3D_STYLE_KEY];
+    setRender3dStyle(typeof style === 'string' ? style : '');
+    const modelId = o.properties?.[RENDER_3D_MODEL_ID_KEY];
+    setRender3dModelId(typeof modelId === 'string' ? modelId : '');
     setInfraTab('main');
     setPoiTab('basic');
   }, [selection]);
@@ -295,6 +317,21 @@ export function ObjectDetailPanel({
       if (pointShowsThroughputCapacity(subtype) && !isLineSubtype(subtype)) {
         const capacity = capacityValue === '' ? null : capacityValue;
         props = mergeThroughputCapacity(props, capacity, defaultCapacityUnitForSubtype(subtype));
+      }
+      const h = render3dHeight.trim() ? parseFloat(render3dHeight) : null;
+      const b = render3dBase.trim() ? parseFloat(render3dBase) : null;
+      if (h != null && Number.isFinite(h) && h >= 0) props[RENDER_3D_HEIGHT_KEY] = h;
+      if (b != null && Number.isFinite(b) && b >= 0) props[RENDER_3D_BASE_KEY] = b;
+      props[RENDER_3D_VISIBLE_KEY] = render3dVisible;
+      if (!isLineSubtype(subtype)) {
+        if (render3dStyle === 'model' || render3dStyle === 'extrusion') {
+          props[RENDER_3D_STYLE_KEY] = render3dStyle;
+        } else {
+          delete props[RENDER_3D_STYLE_KEY];
+        }
+        const mid = render3dModelId.trim();
+        if (mid) props[RENDER_3D_MODEL_ID_KEY] = mid;
+        else delete props[RENDER_3D_MODEL_ID_KEY];
       }
       payload.properties = props;
 
@@ -339,6 +376,11 @@ export function ObjectDetailPanel({
     sandDemandM3,
     entryDate,
     capacityValue,
+    render3dHeight,
+    render3dBase,
+    render3dVisible,
+    render3dStyle,
+    render3dModelId,
   ]);
 
   useEffect(() => {
@@ -423,6 +465,15 @@ export function ObjectDetailPanel({
       pointShowsThroughputCapacity(infraObject.subtype) &&
       !isLine &&
       capacityValue !== capacityDraftFromObject(infraObject);
+    const origR3 = resolveRender3D(infraObject.subtype, infraObject.properties);
+    const origStyle = (infraObject.properties?.[RENDER_3D_STYLE_KEY] as string) || '';
+    const origModelId = (infraObject.properties?.[RENDER_3D_MODEL_ID_KEY] as string) || '';
+    const r3Dirty =
+      render3dHeight !== String(origR3.heightM) ||
+      render3dBase !== String(origR3.baseM) ||
+      render3dVisible !== origR3.visible ||
+      render3dStyle !== origStyle ||
+      render3dModelId !== origModelId;
     return (
       name !== infraObject.name ||
       description !== origDesc ||
@@ -432,7 +483,8 @@ export function ObjectDetailPanel({
       lat !== formatCoord(infraObject.lat) ||
       sandDirty ||
       entryDirty ||
-      capacityDirty
+      capacityDirty ||
+      r3Dirty
     );
   }, [
     isPoi,
@@ -451,6 +503,9 @@ export function ObjectDetailPanel({
     sandDemandM3,
     entryDate,
     capacityValue,
+    render3dHeight,
+    render3dBase,
+    render3dVisible,
   ]);
 
   const capacityUnit =
@@ -518,8 +573,18 @@ export function ObjectDetailPanel({
           return mainDirty;
         case 'logistics':
           return sandDirty;
-        case 'extra':
-          return description !== origDesc;
+        case 'extra': {
+          const origR3 = resolveRender3D(infraObject.subtype, infraObject.properties);
+          const origStyle = (infraObject.properties?.[RENDER_3D_STYLE_KEY] as string) || '';
+          const origModelId = (infraObject.properties?.[RENDER_3D_MODEL_ID_KEY] as string) || '';
+          const r3Dirty =
+            render3dHeight !== String(origR3.heightM) ||
+            render3dBase !== String(origR3.baseM) ||
+            render3dVisible !== origR3.visible ||
+            render3dStyle !== origStyle ||
+            render3dModelId !== origModelId;
+          return description !== origDesc || r3Dirty;
+        }
         default:
           return false;
       }
@@ -528,6 +593,11 @@ export function ObjectDetailPanel({
       readOnly,
       infraObject,
       isLine,
+      render3dHeight,
+      render3dBase,
+      render3dVisible,
+      render3dStyle,
+      render3dModelId,
       sandInitialM3,
       sandCurrentM3,
       sandDemandM3,
@@ -834,18 +904,86 @@ export function ObjectDetailPanel({
             )}
 
             {infraTab === 'extra' && (
-              <label className="object-detail-panel__field">
-                <FieldLabel>Описание</FieldLabel>
-                <textarea
-                  className="input object-detail-panel__textarea"
-                  value={description}
-                  rows={5}
-                  placeholder="Комментарий к объекту…"
-                  readOnly={readOnly}
-                  disabled={readOnly}
-                  onChange={(e) => setDescription(e.target.value)}
-                />
-              </label>
+              <>
+                <PanelSection title="Отображение в 3D">
+                  <label className="object-detail-panel__field">
+                    <FieldLabel>Высота (м)</FieldLabel>
+                    <input
+                      className="input object-detail-panel__input"
+                      type="number"
+                      min={0}
+                      step="any"
+                      value={render3dHeight}
+                      readOnly={readOnly}
+                      disabled={readOnly}
+                      onChange={(e) => setRender3dHeight(e.target.value)}
+                    />
+                  </label>
+                  <label className="object-detail-panel__field">
+                    <FieldLabel>Основание над рельефом (м)</FieldLabel>
+                    <input
+                      className="input object-detail-panel__input"
+                      type="number"
+                      min={0}
+                      step="any"
+                      value={render3dBase}
+                      readOnly={readOnly}
+                      disabled={readOnly}
+                      onChange={(e) => setRender3dBase(e.target.value)}
+                    />
+                  </label>
+                  <label className="object-detail-panel__field object-detail-panel__field--row">
+                    <FieldLabel>Видимость в 3D</FieldLabel>
+                    <input
+                      type="checkbox"
+                      checked={render3dVisible}
+                      disabled={readOnly}
+                      onChange={(e) => setRender3dVisible(e.target.checked)}
+                    />
+                  </label>
+                  {infraObject && !isLineSubtype(infraObject.subtype) && catalogEntryForSubtype(infraObject.subtype) ? (
+                    <>
+                      <label className="object-detail-panel__field">
+                        <FieldLabel>Стиль 3D</FieldLabel>
+                        <select
+                          className="input object-detail-panel__input"
+                          value={render3dStyle}
+                          disabled={readOnly}
+                          onChange={(e) => setRender3dStyle(e.target.value)}
+                        >
+                          <option value="">Модель (по умолчанию)</option>
+                          <option value="model">Модель</option>
+                          <option value="extrusion">Столбик (extrusion)</option>
+                        </select>
+                      </label>
+                      <label className="object-detail-panel__field">
+                        <FieldLabel>ID модели (опционально)</FieldLabel>
+                        <input
+                          className="input object-detail-panel__input"
+                          type="text"
+                          value={render3dModelId}
+                          placeholder="facility, stack, node, quarry, poi_pin"
+                          readOnly={readOnly}
+                          disabled={readOnly}
+                          onChange={(e) => setRender3dModelId(e.target.value)}
+                        />
+                      </label>
+                    </>
+                  ) : null}
+                </PanelSection>
+                <label className="object-detail-panel__field">
+                  <FieldLabel>Описание</FieldLabel>
+                  <textarea
+                    className="input object-detail-panel__textarea"
+                    value={description}
+                    rows={5}
+                    placeholder="Комментарий к объекту…"
+                    readOnly={readOnly}
+                    disabled={readOnly}
+                    onChange={(e) => setDescription(e.target.value)}
+                  />
+                </label>
+              </>
             )}
           </>
         )}

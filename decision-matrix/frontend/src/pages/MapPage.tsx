@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { lazy, Suspense, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { keepPreviousData, useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import {
   BoxSelect,
@@ -47,6 +47,20 @@ import {
   type ThresholdCircle,
 } from '../components/MapView';
 import { iconDataUrl } from '../lib/mapIcons';
+import { useMapDisplayMode } from '../hooks/useMapDisplayMode';
+import {
+  isMaptilerTerrainAvailable,
+  MAP3D_TERRAIN_TOAST_KEY,
+} from '../lib/map3d/map3dConfig';
+import {
+  loadMapViewState,
+  resolveInitialMapView3d,
+  saveMapViewState,
+  type SavedMapViewState,
+} from '../lib/mapViewState';
+import type { MapView3DHandle } from '../components/MapView3D';
+
+const MapView3D = lazy(() => import('../components/MapView3D'));
 import {
   LINE_SUBTYPES,
   createDefaultSubtypeFilter,
@@ -85,6 +99,17 @@ import {
   infraDeleteApiIds,
 } from '../lib/infraLinks';
 import { withDefaultInfraProperties } from '../lib/infraEntryDate';
+import { withDefaultRender3DProperties } from '../lib/map3d/render3d';
+
+function mergeInfraPropertiesForSave(
+  subtype: string,
+  properties?: Record<string, unknown>,
+): Record<string, unknown> {
+  return withDefaultInfraProperties(
+    subtype,
+    withDefaultRender3DProperties(subtype, properties),
+  );
+}
 import {
   infraDetailUndo,
   infraGeometryUndo,
@@ -152,6 +177,12 @@ export function MapPage() {
   const queryClient = useQueryClient();
   const pushToast = useAppStore((s) => s.pushToast);
   const [showBasemap, setShowBasemap] = useState(true);
+  const [showTerrain, setShowTerrain] = useState(() => isMaptilerTerrainAvailable());
+  const [showModels, setShowModels] = useState(true);
+  const { is3dEnabled: map3dFeatureEnabled, displayMode: mapDisplayMode, setDisplayMode: setMapDisplayMode, mapIn3d } =
+    useMapDisplayMode();
+  const map3dRef = useRef<MapView3DHandle | null>(null);
+  const last2dViewRef = useRef<SavedMapViewState | null>(null);
   const [mapLayersOpen, setMapLayersOpen] = useState(false);
   const [mapFullscreen, setMapFullscreen] = useState(false);
   const mapCanvasRef = useRef<HTMLDivElement>(null);
@@ -417,6 +448,60 @@ export function MapPage() {
   );
 
   const selectedPoi = pois.find((p) => p.id === selectedPoiId) ?? pois[0] ?? null;
+  const switchMapDisplayMode = useCallback(
+    (mode: '2d' | '3d') => {
+      if (mode === '3d' && drawMode !== 'select') {
+        setDrawMode('select');
+        setLineDraft([]);
+        setLineDraftPreview(null);
+        setRulerPoints([]);
+        setRulerPreview(null);
+        setPointMenuOpen(false);
+        setLineMenuOpen(false);
+        setSelectMenuOpen(false);
+        pushToast('info', 'Рисование доступно только в режиме 2D');
+      }
+      if (mode === '3d') {
+        const base =
+          last2dViewRef.current ??
+          (projectId ? loadMapViewState('main', projectId) : null) ?? {
+            centerLon: 37.6176,
+            centerLat: 55.7558,
+            zoom: 9,
+          };
+        const saved3d = resolveInitialMapView3d('main', projectId);
+        setMapDisplayMode('3d');
+        if (import.meta.env.DEV && !isMaptilerTerrainAvailable()) {
+          try {
+            if (!sessionStorage.getItem(MAP3D_TERRAIN_TOAST_KEY)) {
+              sessionStorage.setItem(MAP3D_TERRAIN_TOAST_KEY, '1');
+              pushToast('info', 'Задайте VITE_MAPTILER_KEY в frontend/.env для рельефа');
+            }
+          } catch {
+            /* sessionStorage unavailable */
+          }
+        }
+        requestAnimationFrame(() => {
+          map3dRef.current?.jumpToView({
+            ...base,
+            pitch: saved3d.pitch,
+            bearing: saved3d.bearing,
+          });
+        });
+        return;
+      }
+      const snap = map3dRef.current?.getViewSnapshot();
+      if (snap && projectId) {
+        saveMapViewState('main', projectId, {
+          centerLon: snap.centerLon,
+          centerLat: snap.centerLat,
+          zoom: snap.zoom,
+        });
+      }
+      setMapDisplayMode('2d');
+    },
+    [drawMode, pushToast, projectId, setMapDisplayMode],
+  );
 
   const handleFitMapView = useCallback(() => {
     const visiblePois = showPoisOnMap ? pois : [];
@@ -577,7 +662,7 @@ export function MapPage() {
     mutationFn: (data: Parameters<typeof api.createInfraObject>[1]) =>
       api.createInfraObject(projectId!, {
         ...data,
-        properties: withDefaultInfraProperties(data.subtype, data.properties),
+        properties: mergeInfraPropertiesForSave(data.subtype, data.properties),
       }),
     onMutate: async () => {
       if (!projectId) return;
@@ -685,7 +770,7 @@ export function MapPage() {
           subtype,
           lon: rLon,
           lat: rLat,
-          properties: withDefaultInfraProperties(subtype, undefined),
+          properties: mergeInfraPropertiesForSave(subtype, undefined),
         });
 
         if (splitFound) {
@@ -706,7 +791,7 @@ export function MapPage() {
               );
               const second = await api.createInfraObject(projectId, {
                 ...plan.secondPayload,
-                properties: withDefaultInfraProperties(
+                properties: mergeInfraPropertiesForSave(
                   plan.secondPayload.subtype,
                   plan.secondPayload.properties,
                 ),
@@ -1801,6 +1886,37 @@ export function MapPage() {
               <Layers size={14} className="inline mr-1" />
               Слои
             </button>
+            {map3dFeatureEnabled && (
+              <>
+                <div
+                  className="map-layers-toggle-sep w-px h-7 mx-0.5 shrink-0"
+                  style={{ background: 'var(--border)' }}
+                  aria-hidden
+                />
+                <div className="inline-flex rounded border overflow-hidden" style={{ borderColor: 'var(--border)' }}>
+                  <button
+                    type="button"
+                    className={`btn btn-sm map-tool-btn rounded-none border-0 ${
+                      mapDisplayMode === '2d' ? 'btn-primary active' : 'btn-secondary'
+                    }`}
+                    title="Карта 2D (редактирование)"
+                    onClick={() => switchMapDisplayMode('2d')}
+                  >
+                    2D
+                  </button>
+                  <button
+                    type="button"
+                    className={`btn btn-sm map-tool-btn rounded-none border-0 ${
+                      mapDisplayMode === '3d' ? 'btn-primary active' : 'btn-secondary'
+                    }`}
+                    title="Карта 3D (только просмотр)"
+                    onClick={() => switchMapDisplayMode('3d')}
+                  >
+                    3D
+                  </button>
+                </div>
+              </>
+            )}
             <div className="map-layers-toggle-sep w-px h-7 mx-0.5 shrink-0" style={{ background: 'var(--border)' }} aria-hidden />
             <button
               type="button"
@@ -1835,7 +1951,7 @@ export function MapPage() {
                     ? 'Выключить редактирование на карте (E)'
                     : 'Редактирование на карте: перемещение объектов, создание точек и линий (E)'
               }
-              disabled={!canEditMap}
+              disabled={!canEditMap || mapIn3d}
               onClick={() => setMapEditEnabled((on) => !on)}
             >
               <PenLine size={14} />
@@ -1940,8 +2056,14 @@ export function MapPage() {
             <button
               type="button"
               className={`btn btn-sm map-tool-btn ${drawMode === 'poi' ? 'btn-primary active' : 'btn-secondary'}`}
-              disabled={!canWriteProject}
-              title={!canWriteProject ? 'Создание POI недоступно в режиме просмотра' : undefined}
+              disabled={!canWriteProject || mapIn3d}
+              title={
+                mapIn3d
+                  ? 'Рисование доступно только в режиме 2D'
+                  : !canWriteProject
+                    ? 'Создание POI недоступно в режиме просмотра'
+                    : undefined
+              }
               onClick={() => {
                 if (drawMode === 'poi') {
                   setDrawMode('select');
@@ -1961,8 +2083,14 @@ export function MapPage() {
               <button
                 type="button"
                 className={`btn btn-sm map-tool-btn ${drawMode === 'point' || pointMenuOpen ? 'btn-primary active' : 'btn-secondary'}`}
-                disabled={!canWriteInfra}
-                title={!canWriteInfra ? 'Создание объектов недоступно в режиме просмотра' : undefined}
+                disabled={!canWriteInfra || mapIn3d}
+                title={
+                  mapIn3d
+                    ? 'Рисование доступно только в режиме 2D'
+                    : !canWriteInfra
+                      ? 'Создание объектов недоступно в режиме просмотра'
+                      : undefined
+                }
                 onClick={() => {
                   if (drawMode === 'point') {
                 setDrawMode('select');
@@ -2013,8 +2141,14 @@ export function MapPage() {
             <button
               type="button"
               className={`btn btn-sm map-tool-btn ${drawMode === 'line' || lineMenuOpen ? 'btn-primary active' : 'btn-secondary'}`}
-              disabled={!canWriteInfra}
-              title={!canWriteInfra ? 'Рисование линий недоступно в режиме просмотра' : undefined}
+              disabled={!canWriteInfra || mapIn3d}
+              title={
+                mapIn3d
+                  ? 'Рисование доступно только в режиме 2D'
+                  : !canWriteInfra
+                    ? 'Рисование линий недоступно в режиме просмотра'
+                    : undefined
+              }
               onClick={() => {
                 if (drawMode === 'line') {
                   setDrawMode('select');
@@ -2066,7 +2200,12 @@ export function MapPage() {
             <button
               type="button"
               className={`btn btn-sm map-tool-btn ${drawMode === 'ruler' ? 'btn-primary active' : 'btn-secondary'}`}
-              title="Измерить длину ломаной линии на карте (двойной клик — завершить)"
+              disabled={mapIn3d}
+              title={
+                mapIn3d
+                  ? 'Линейка доступна только в режиме 2D'
+                  : 'Измерить длину ломаной линии на карте (двойной клик — завершить)'
+              }
               onClick={() => {
                 if (drawMode === 'ruler') {
                   setDrawMode('select');
@@ -2225,14 +2364,60 @@ export function MapPage() {
                 thresholdKm={thresholdKm}
                 showBasemap={showBasemap}
                 onShowBasemapChange={setShowBasemap}
+                showTerrain={showTerrain}
+                onShowTerrainChange={setShowTerrain}
+                terrainToggleEnabled={mapIn3d && isMaptilerTerrainAvailable()}
+                terrainToggleHint={
+                  !isMaptilerTerrainAvailable()
+                    ? 'Задайте VITE_MAPTILER_KEY в frontend/.env'
+                    : !mapIn3d
+                      ? 'Доступно в режиме 3D'
+                      : undefined
+                }
+                showModels={showModels}
+                onShowModelsChange={setShowModels}
+                modelsToggleEnabled={mapIn3d}
                 onClose={() => setMapLayersOpen(false)}
               />
             </aside>
 
             <div className="map-main-column">
               <div className="map-canvas-wrap" ref={mapCanvasRef}>
+          {mapIn3d ? (
+            <Suspense
+              fallback={
+                <div className="map-container flex items-center justify-center text-sm" style={{ height: '100%', color: 'var(--text-muted)' }}>
+                  Загрузка 3D…
+                </div>
+              }
+            >
+              <MapView3D
+                ref={map3dRef}
+                viewStateId="main"
+                pois={showPoisOnMap ? pois : []}
+                infraObjects={filteredInfra}
+                showBasemap={showBasemap}
+                showTerrain={showTerrain}
+                showModels={showModels}
+                connectionLines={connectionLines}
+                selectedPoi={selectedPoi}
+                selectedFeatureId={featureSel?.id ?? null}
+                onFeatureSelect={
+                  drawMode === 'select' && selectMode === 'single' ? setFeatureSel : undefined
+                }
+                thresholdCircles={thresholdCircles}
+                showRadii={showRadii}
+                layers={layers}
+                mapFocus={mapFocus}
+                height="100%"
+              />
+            </Suspense>
+          ) : (
           <MapView
             viewStateId="main"
+            onViewStateSnapshot={(s) => {
+              last2dViewRef.current = s;
+            }}
             pois={showPoisOnMap ? pois : []}
             infraObjects={filteredInfra}
             showBasemap={showBasemap}
@@ -2306,6 +2491,7 @@ export function MapPage() {
             onFitView={handleFitMapView}
             onViewChange={({ scaleLabel }) => setMapScaleLabel(scaleLabel)}
           />
+          )}
 
           {detailSelection && drawMode === 'select' && selectMode === 'single' && (
             <ObjectDetailPanel
@@ -2399,7 +2585,10 @@ export function MapPage() {
                       : 'Промежуточные вершины — свободно; двойной ЛКМ или «Готово» — завершить (в пустом месте создаётся узел)'}
                   </span>
                 )}
-                {geometrySavePending === 0 && drawMode === 'select' && mapFooterHint && (
+                {mapIn3d && (
+                  <span>ПКМ + перетаскивание — поворот камеры; колёсико — масштаб</span>
+                )}
+                {!mapIn3d && geometrySavePending === 0 && drawMode === 'select' && mapFooterHint && (
                   <span>{mapFooterHint}</span>
                 )}
               </div>

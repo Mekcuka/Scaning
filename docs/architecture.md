@@ -12,9 +12,9 @@
 │                      Frontend (React 18 + Vite)                  │
 │  ┌─────────────┐  ┌─────────────┐  ┌─────────────────────────┐  │
 │  │   Map View  │  │   Matrix    │  │   Reports & Dashboard   │  │
-│  │ (OpenLayers)│  │   Table &   │  │      & Dashboard        │  │
-│  │  + Import   │  │   Cards     │  │                         │  │
-│  │             │  │  Visuals    │  │                         │  │
+│  │ 2D: OL      │  │   Table &   │  │      & Dashboard        │  │
+│  │ 3D: MapLibre│  │   Cards     │  │   (3D preview live)     │  │
+│  │ + Import    │  │  + Map 3D   │  │                         │  │
 │  └─────────────┘  └─────────────┘  └─────────────────────────┘  │
 └─────────────────────────────────────────────────────────────────┘
                               │
@@ -110,6 +110,8 @@ map/
 ```
 
 **Пространственный анализ (MVP):** см. [calculation-functions.md](./calculation-functions.md) §1 (`find_nearest_object_by_subtype`, `calc_geodesic_distance_km`, `calc_anchor_geometry`).
+
+**3D-атрибуты объектов (L2):** `render_3d_*` в `properties`, defaults L1 — [`render_3d_properties.py`](../decision-matrix/backend/app/geo/render_3d_properties.py), [`shared/l1_extrusion_heights.json`](../decision-matrix/shared/l1_extrusion_heights.json). См. [map-3d-features.md](./map-3d-features.md).
 
 **API Endpoints**:
 ```
@@ -458,13 +460,17 @@ analytics/  [папка зарезервирована для v1.3+]
 
 ### Компоненты карты
 
-Реализация: `frontend/src/components/MapView.tsx`, `frontend/src/pages/MapPage.tsx`.
+Реализация 2D: `frontend/src/components/MapView.tsx`, `frontend/src/pages/MapPage.tsx`.  
+Реализация 3D: `frontend/src/components/MapView3D.tsx`, `frontend/src/lib/map3d/` — см. [map-3d-features.md](./map-3d-features.md).
 
-**Слои на карте (OpenLayers):** подложка, пороговые радиусы, линии подключения POI (анализ), линии/точки инфраструктуры, превью рисования. **Расчётный граф** (`infrastructure_nodes` / `infrastructure_edges`) **на карте не отображается** — только в БД и в API для «Потоков» / логистики. См. [map-objects-and-spatial-calculations.md](./map-objects-and-spatial-calculations.md) §5–§6.
+**Слои на карте (OpenLayers, 2D):** подложка, пороговые радиусы, линии подключения POI (анализ), линии/точки инфраструктуры, превью рисования. **Расчётный граф** (`infrastructure_nodes` / `infrastructure_edges`) **на карте не отображается** — только в БД и в API для «Потоков» / логистики. См. [map-objects-and-spatial-calculations.md](./map-objects-and-spatial-calculations.md) §5–§6.
+
+**Режим 3D (MapLibre + Three.js, view-only):** те же объекты из API → `geoJson.ts` + custom layers (glTF точки, трубы линий), MapTiler terrain, без редактирования. Переключатель 2D|3D на MapPage; также Matrix и превью отчёта.
 
 ```
 components/map/   # целевая структура; фактически — MapView.tsx + MapPage
 ├── MapView.tsx              # OpenLayers: инфраструктура, POI, линии анализа, редактирование геометрии
+├── MapView3D.tsx            # MapLibre + Three.js custom layers (см. lib/map3d/)
 ├── Layers/
 │   ├── LayerControl.tsx     # Переключатель слоёв
 │   ├── BaseLayer.tsx        # Базовый слой (OSM, Satellite)

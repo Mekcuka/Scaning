@@ -637,6 +637,7 @@ export interface InfraObject {
   end_lat?: number | null;
   coordinates?: number[][] | null;
   properties?: Record<string, unknown>;
+  render_3d_effective?: { height_m: number; base_m: number; visible: boolean };
 }
 
 export interface InfraObjectCreate {
@@ -1056,7 +1057,7 @@ export const LAYER_VISIBILITY_GROUPS: { id: string; label: string; subtypes: rea
   {
     id: 'pipelines',
     label: 'Трубопроводы',
-    subtypes: LINE_SUBTYPES.filter((s) => s !== 'autoroad'),
+    subtypes: LINE_SUBTYPES.filter((s) => s !== 'autoroad' && s !== 'additional_line'),
   },
   { id: 'gks', label: 'ГКС / УКГ / ТСГ', subtypes: GKS_CLUSTER_SUBTYPES },
   { id: 'gtes', label: 'ИЭ', subtypes: GTES_CLUSTER_SUBTYPES },

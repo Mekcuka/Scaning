@@ -17,8 +17,12 @@ Workflow: `.github/workflows/deploy-pages.yml`
 
 Проверьте один раз:
 - `Settings -> Pages -> Build and deployment -> Source -> GitHub Actions`.
-- `Settings -> Secrets and variables -> Actions -> Variables -> VITE_API_URL`:
-  **`https://erascaning.duckdns.org/api/v1`**
+- `Settings -> Secrets and variables -> Actions -> Variables`:
+  - `VITE_API_URL` — **`https://erascaning.duckdns.org/api/v1`**
+  - `VITE_MAP_3D_ENABLED` — `true` (переключатель 2D/3D на карте)
+  - `VITE_MAPTILER_KEY` — ключ [MapTiler](https://cloud.maptiler.com/account/keys) для рельефа в 3D
+
+Тайлы Esri (спутник) и MapTiler (terrain) запрашиваются **из браузера** пользователя; CORS настраивается у провайдеров тайлов, не на backend API.
 
 ## 2) Backend (Yandex Cloud, fully automated)
 

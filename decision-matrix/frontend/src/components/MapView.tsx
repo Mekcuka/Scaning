@@ -213,6 +213,8 @@ export interface MapViewProps {
   viewStateScope?: string | null;
   /** When false, do not restore or save pan/zoom (report preview always fits via mapFocus). */
   persistViewState?: boolean;
+  /** Latest 2D center/zoom (e.g. for 2D→3D camera sync). */
+  onViewStateSnapshot?: (state: { centerLon: number; centerLat: number; zoom: number }) => void;
 }
 
 type LinkedLineDragState = {
@@ -456,6 +458,7 @@ export function MapView({
   viewStateId,
   viewStateScope = null,
   persistViewState = true,
+  onViewStateSnapshot,
 }: MapViewProps) {
   const projectId = useAppStore((s) => s.currentProjectId);
   const layersRef = useRef(layers);
@@ -504,6 +507,8 @@ export function MapView({
   const lineRightClickRef = useRef({ at: 0, x: 0, y: 0 });
   const persistViewStateRef = useRef(persistViewState);
   persistViewStateRef.current = persistViewState;
+  const onViewStateSnapshotRef = useRef(onViewStateSnapshot);
+  onViewStateSnapshotRef.current = onViewStateSnapshot;
   const viewStateIdRef = useRef(viewStateId);
   const viewStateScopeRef = useRef(viewStateScope);
   const projectIdRef = useRef(projectId);
@@ -1240,7 +1245,9 @@ export function MapView({
       const zoom = view.getZoom();
       if (!center || zoom == null) return;
       const [centerLon, centerLat] = transform(center, 'EPSG:3857', 'EPSG:4326');
-      saveMapViewState(vid, projectIdRef.current, { centerLon, centerLat, zoom }, viewStateScopeRef.current);
+      const snap = { centerLon, centerLat, zoom };
+      onViewStateSnapshotRef.current?.(snap);
+      saveMapViewState(vid, projectIdRef.current, snap, viewStateScopeRef.current);
     };
 
     let bboxTimer: ReturnType<typeof setTimeout> | undefined;

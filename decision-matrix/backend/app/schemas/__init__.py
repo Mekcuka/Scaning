@@ -370,6 +370,12 @@ class InfraObjectUpdate(BaseModel):
     properties: dict | None = None
 
 
+class Render3DEffective(BaseModel):
+    height_m: float
+    base_m: float
+    visible: bool
+
+
 class InfraObjectResponse(BaseModel):
     id: UUID
     layer_id: UUID
@@ -382,6 +388,7 @@ class InfraObjectResponse(BaseModel):
     end_lat: float | None = None
     coordinates: list[list[float]] | None = None
     properties: dict = Field(default_factory=dict)
+    render_3d_effective: Render3DEffective | None = None
 
 
 class AnalysisRowResponse(BaseModel):

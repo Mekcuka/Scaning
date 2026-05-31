@@ -22,6 +22,15 @@ type MapLayersPanelProps = {
   thresholdKm: (subtype: string, fallback: number) => number;
   showBasemap: boolean;
   onShowBasemapChange: (visible: boolean) => void;
+  /** 3D terrain (MapTiler DEM); only when 3D mode and key present. */
+  showTerrain?: boolean;
+  onShowTerrainChange?: (visible: boolean) => void;
+  terrainToggleEnabled?: boolean;
+  terrainToggleHint?: string;
+  /** Procedural 3D models (point objects). */
+  showModels?: boolean;
+  onShowModelsChange?: (visible: boolean) => void;
+  modelsToggleEnabled?: boolean;
   /** When true, layer visibility toggles are disabled (persisted server-side). */
   layerVisibilityReadOnly?: boolean;
   onClose?: () => void;
@@ -74,6 +83,13 @@ export function MapLayersPanel({
   thresholdKm,
   showBasemap,
   onShowBasemapChange,
+  showTerrain = false,
+  onShowTerrainChange,
+  terrainToggleEnabled = false,
+  terrainToggleHint,
+  showModels = true,
+  onShowModelsChange,
+  modelsToggleEnabled = false,
   layerVisibilityReadOnly = false,
   onClose,
 }: MapLayersPanelProps) {
@@ -119,6 +135,33 @@ export function MapLayersPanel({
           <span className="map-layers-item-label">Спутник</span>
           <input type="checkbox" checked={showBasemap} onChange={(e) => onShowBasemapChange(e.target.checked)} />
         </label>
+        {onShowTerrainChange ? (
+          <label
+            className={`map-layers-item map-layers-item--indent${!terrainToggleEnabled ? ' map-layers-item--disabled' : ''}`}
+            title={terrainToggleHint}
+          >
+            <span className="map-layers-item-label">Рельеф (3D)</span>
+            <input
+              type="checkbox"
+              checked={showTerrain}
+              disabled={!terrainToggleEnabled}
+              onChange={(e) => onShowTerrainChange(e.target.checked)}
+            />
+          </label>
+        ) : null}
+        {onShowModelsChange ? (
+          <label
+            className={`map-layers-item map-layers-item--indent${!modelsToggleEnabled ? ' map-layers-item--disabled' : ''}`}
+          >
+            <span className="map-layers-item-label">3D-модели объектов</span>
+            <input
+              type="checkbox"
+              checked={showModels}
+              disabled={!modelsToggleEnabled}
+              onChange={(e) => onShowModelsChange(e.target.checked)}
+            />
+          </label>
+        ) : null}
       </Section>
 
       <Section
