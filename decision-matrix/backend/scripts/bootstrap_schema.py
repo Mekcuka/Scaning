@@ -1,6 +1,16 @@
-"""Bootstrap DB schema before Alembic (migrations are incremental patches)."""
+"""Bootstrap DB schema before Alembic (migrations are incremental patches).
+
+Usage (from decision-matrix/backend):
+  python scripts/bootstrap_schema.py
+"""
 
 import asyncio
+import sys
+from pathlib import Path
+
+_BACKEND_ROOT = Path(__file__).resolve().parents[1]
+if str(_BACKEND_ROOT) not in sys.path:
+    sys.path.insert(0, str(_BACKEND_ROOT))
 
 import app.models  # noqa: F401 — register ORM models on Base.metadata
 from sqlalchemy import text
