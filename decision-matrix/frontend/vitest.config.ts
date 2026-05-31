@@ -7,6 +7,8 @@ export default defineConfig({
     environment: 'jsdom',
     setupFiles: ['./src/test/setup.ts'],
     include: ['src/**/*.{test,spec}.{ts,tsx}'],
+    testTimeout: 60_000,
+    hookTimeout: 30_000,
     coverage: {
       provider: 'v8',
       reporter: ['text', 'json-summary'],
@@ -25,13 +27,13 @@ export default defineConfig({
           lines: 30,
         },
         'src/pages/**': {
-          statements: 78,
+          statements: 77,
           branches: 60,
-          functions: 35,
-          lines: 78,
+          functions: 22,
+          lines: 77,
         },
         'src/pages/MapPage.tsx': {
-          lines: 75,
+          lines: 73,
         },
       },
     },

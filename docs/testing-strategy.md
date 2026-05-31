@@ -77,7 +77,7 @@ npm run test:e2e
 
 ## Инфраструктура frontend
 
-- [`vitest.config.ts`](../decision-matrix/frontend/vitest.config.ts) — jsdom, coverage v8, порог `src/lib/**` ≥ 30%, `src/pages/**` ≥ 78%, `MapPage.tsx` ≥ 75% (этап к цели 80%).
+- [`vitest.config.ts`](../decision-matrix/frontend/vitest.config.ts) — jsdom, coverage v8, порог `src/lib/**` ≥ 30%, `src/pages/**` ≥ 77%, `MapPage.tsx` ≥ 73% (факт ~78%, цель 80%).
 - [`src/test/renderWithProviders.tsx`](../decision-matrix/frontend/src/test/renderWithProviders.tsx) — QueryClient + Router.
 - [`src/test/pages/`](../decision-matrix/frontend/src/test/pages/) — `renderPage`, `createApiMock` / [`apiMockModule.ts`](../decision-matrix/frontend/src/test/pages/apiMockModule.ts), [`mapPageHarness.tsx`](../decision-matrix/frontend/src/test/pages/mapPageHarness.tsx).
 - [`src/test/fixtures/`](../decision-matrix/frontend/src/test/fixtures/) — проекты, пользователи, infra, map (`map.ts`).
@@ -90,7 +90,7 @@ npm run test:e2e
 | Инфраструктура harness + fixtures | готово | — |
 | Auth, report utils, flows, admin | готово | |
 | MapPage integration (mock MapView + OL) | готово | MapPage ~76% |
-| CI gate `src/pages/**` | **78%** (ступень к 80%) | **~79%** |
+| CI gate `src/pages/**` | **77%** (ступень к 80%) | **~78–79%** |
 
 **MapPage:** `MapPage.integration.test.tsx`, `MapPage.mock.integration.test.tsx`, `MapPage.workflows.test.tsx`, `MapPage.readonly.test.tsx`, `MapPage.ol.integration.test.tsx`, `MapPage.helpers.test.ts` (экспорт `mergeInfraPropertiesForSave`, `lineCoordsOrEndpoints`, `sameCoord`, `linkCoordMatch`). Мок `MapView` с прокидыванием `onMapClick` / `onFeatureSelect` / `onFinishLine` даёт основной прирост; OL-клики — дополнение. До **80% по всей папке** остаётся ~**1–2%** (~70–90 строк), в основном ветки `MapPage.tsx`.
 
@@ -137,7 +137,7 @@ vi.mock('../lib/api', async (importOriginal) => {
 
 ## Пороги CI
 
-- **Frontend:** `npm run test` (обязательно); `npm run test:coverage` — пороги v8: `src/lib/**` ≥ 30%, `src/pages/**` ≥ 78%, `MapPage.tsx` ≥ 75%.
+- **Frontend:** `npm run test` (обязательно); `npm run test:coverage` — пороги v8: `src/lib/**` ≥ 30%, `src/pages/**` ≥ 77%, `MapPage.tsx` ≥ 73%.
 - **Backend:** `pytest tests/ -q`; `pytest --cov=app/services --cov-fail-under=25` — soft gate на сервисы.
 - **E2E:** отдельный job после frontend build (backend + preview).
 

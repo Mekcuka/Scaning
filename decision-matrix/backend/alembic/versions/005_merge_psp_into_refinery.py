@@ -1,5 +1,6 @@
 """Merge delivery_acceptance_point (ПСП) into refinery (НПЗ)."""
 
+import sqlalchemy as sa
 from alembic import op
 
 revision = "005_merge_psp_into_refinery"
@@ -9,6 +10,10 @@ depends_on = None
 
 
 def upgrade() -> None:
+    bind = op.get_bind()
+    insp = sa.inspect(bind)
+    if "infrastructure_objects" not in insp.get_table_names():
+        return
     op.execute(
         """
         UPDATE infrastructure_objects

@@ -85,6 +85,9 @@ jobs:
           python -m pip install --upgrade pip
           pip install -r requirements.txt -r requirements-dev.txt
 
+      - name: Bootstrap PostgreSQL schema
+        run: python scripts/bootstrap_schema.py
+
       - name: Alembic upgrade
         run: python -m alembic upgrade head
 
@@ -136,6 +139,7 @@ jobs:
           ENVIRONMENT: test
         run: |
           mkdir -p data
+          python scripts/bootstrap_schema.py
           python -m alembic upgrade head
           uvicorn app.main:app --host 127.0.0.1 --port 8000 &
           sleep 3
