@@ -23,7 +23,7 @@ function tubularSegmentCount(points: THREE.Vector3[]): number {
   return Math.max(12, Math.min(96, Math.ceil(len / 6)));
 }
 
-function vertexToLocalMeters(
+export function vertexToLocalMeters(
   anchor: maplibregl.MercatorCoordinate,
   lon: number,
   lat: number,
@@ -34,11 +34,35 @@ function vertexToLocalMeters(
   return new THREE.Vector3((mc.x - anchor.x) / m, (mc.z - anchor.z) / m, -(mc.y - anchor.y) / m);
 }
 
-function buildCurve(points: THREE.Vector3[]): THREE.Curve<THREE.Vector3> {
-  if (points.length === 2) {
-    return new THREE.LineCurve3(points[0]!, points[1]!);
+export function pathToLocalMeters(
+  path: [number, number][],
+  alts: number[],
+): { points: THREE.Vector3[]; anchorLon: number; anchorLat: number; anchorAlt: number } | null {
+  if (path.length < 2) return null;
+  const anchorLon = path[0]![0];
+  const anchorLat = path[0]![1];
+  const anchorAlt = alts[0] ?? 0;
+  const anchor = maplibregl.MercatorCoordinate.fromLngLat([anchorLon, anchorLat], anchorAlt);
+  const points = path.map((p, i) =>
+    vertexToLocalMeters(anchor, p[0], p[1], alts[i] ?? anchorAlt),
+  );
+  return { points, anchorLon, anchorLat, anchorAlt };
+}
+
+/**
+ * Piecewise straight segments — same geometry as 2D OpenLayers LineString / GeoJSON.
+ * CatmullRom bulged sharp corners to the opposite side (“inverted” bend vs plan).
+ */
+export function buildLineCurveFromPoints(points: THREE.Vector3[]): THREE.Curve<THREE.Vector3> {
+  if (points.length < 2) {
+    const p = points[0] ?? new THREE.Vector3();
+    return new THREE.LineCurve3(p, p);
   }
-  return new THREE.CatmullRomCurve3(points, false, 'centripetal', 0.35);
+  const path = new THREE.CurvePath<THREE.Vector3>();
+  for (let i = 0; i < points.length - 1; i++) {
+    path.add(new THREE.LineCurve3(points[i]!, points[i + 1]!));
+  }
+  return path;
 }
 
 export type LineTubeBuildInput = {
@@ -69,7 +93,7 @@ export function createLineTubeGroup(
   );
   if (points.length < 2) return null;
 
-  const curve = buildCurve(points);
+  const curve = buildLineCurveFromPoints(points);
   const segments = tubularSegmentCount(points);
   const radius = radiusM * style.radiusMul;
   const color = hexToThreeColor(colorHex);

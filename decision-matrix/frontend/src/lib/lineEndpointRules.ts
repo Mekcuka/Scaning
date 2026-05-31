@@ -97,7 +97,7 @@ export type ResolvedLineEndpoint =
     }
   | { ok: false; message: string };
 
-/** Snap to existing object or plan auto-creation of a connection node. */
+/** Snap to existing point object or plan auto-creation of a connection node. */
 export function resolveLineEndpoint(
   lineSubtype: string,
   endpointKind: 'start' | 'finish',
@@ -125,6 +125,26 @@ export function resolveLineEndpoint(
     ok: false,
     message: `Точка «${endpointKind === 'start' ? 'начала' : 'конца'}» не привязана (допуск ${tol} км). ${hint}`,
   };
+}
+
+/** Force start/finish vertices to attached point object coordinates (storage + 3D). */
+export function normalizeLinePathEndpoints(
+  lineSubtype: string,
+  path: [number, number][],
+  infraObjects: InfraObject[],
+): [number, number][] {
+  if (path.length < 2) return path;
+  const out = path.map((p) => [p[0], p[1]] as [number, number]);
+  const start = findLineEndpointAttachment(lineSubtype, 'start', out[0]!, infraObjects);
+  const finish = findLineEndpointAttachment(
+    lineSubtype,
+    'finish',
+    out[out.length - 1]!,
+    infraObjects,
+  );
+  if (start) out[0] = [start.lon, start.lat];
+  if (finish) out[out.length - 1] = [finish.lon, finish.lat];
+  return out;
 }
 
 export type LineEndpointAttachment = {
@@ -157,21 +177,28 @@ function endpointMoved(a: [number, number], b: [number, number]): boolean {
 export function lineEndpointAttachmentsFromObject(
   line: InfraObject,
   infraObjects: InfraObject[],
+  snapPool?: InfraObject[],
 ): {
   start: [number, number];
   finish: [number, number];
   startAttach: LineEndpointAttachment | null;
   finishAttach: LineEndpointAttachment | null;
 } | null {
-  const coords = getLineCoordinates(line);
-  if (!coords || coords.length < 2) return null;
-  const start = coords[0] as [number, number];
-  const finish = coords[coords.length - 1] as [number, number];
+  const pool = snapPool ?? infraObjects;
+  const path =
+    normalizeLinePathEndpoints(
+      line.subtype,
+      (getLineCoordinates(line) ?? []).map((c) => [c[0], c[1]] as [number, number]),
+      pool,
+    ) ?? getLineCoordinates(line);
+  if (!path || path.length < 2) return null;
+  const start = path[0] as [number, number];
+  const finish = path[path.length - 1] as [number, number];
   return {
     start,
     finish,
-    startAttach: findLineEndpointAttachment(line.subtype, 'start', start, infraObjects),
-    finishAttach: findLineEndpointAttachment(line.subtype, 'finish', finish, infraObjects),
+    startAttach: findLineEndpointAttachment(line.subtype, 'start', start, pool),
+    finishAttach: findLineEndpointAttachment(line.subtype, 'finish', finish, pool),
   };
 }
 

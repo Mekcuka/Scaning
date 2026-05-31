@@ -1,7 +1,7 @@
 import type { InfraLayer, InfraObject } from '../api';
-import { getLineCoordinates, isLineSubtype } from '../infraGeometry';
+import { isLineSubtype } from '../infraGeometry';
 import { layerMaps, layerVisible, resolveColor } from './geoJson';
-import { altitudeForModelPlacement } from './map3dModelsLayer';
+import { buildNormalizedLinePath3d } from './map3dLinePathBuild';
 import {
   resolvePowerLineEndpoints,
   type PowerLineWireEndpoint,
@@ -28,6 +28,7 @@ export function buildMap3dPowerLineInstances(
   map: import('maplibre-gl').Map,
   input: {
     infraObjects: InfraObject[];
+    snapPool?: InfraObject[];
     layers?: InfraLayer[];
     selectedFeatureId?: string | null;
   },
@@ -44,19 +45,22 @@ export function buildMap3dPowerLineInstances(
     const render = resolveRender3D(obj.subtype, obj.properties);
     if (!render.visible) continue;
 
-    const coords = getLineCoordinates(obj);
-    if (!coords || coords.length < 2) continue;
-
-    const path = coords.map((c) => [c[0], c[1]] as [number, number]);
-    const alts = path.map((p) =>
-      altitudeForModelPlacement(map, p[0], p[1], render.baseM),
+    const built = buildNormalizedLinePath3d(
+      map,
+      obj,
+      input.infraObjects,
+      render.baseM,
+      input.snapPool,
     );
+    if (!built) continue;
+    const { path, alts } = built;
     const { startWire, finishWire } = resolvePowerLineEndpoints(
       map,
       obj,
       input.infraObjects,
       path,
       alts,
+      input.snapPool,
     );
 
     out.push({

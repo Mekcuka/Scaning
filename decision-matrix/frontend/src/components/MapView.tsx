@@ -28,6 +28,7 @@ import {
   findLineEndpointAttachment,
 } from '../lib/lineEndpointRules';
 import { closestPointOnPolyline } from '../lib/lineSplit';
+import { linePathForDisplay } from '../lib/infraGeometry';
 import { MAP_SUBTYPE_COLORS, iconDataUrl } from '../lib/mapIcons';
 import {
   loadMapViewState,
@@ -38,14 +39,10 @@ import {
 import { useAppStore } from '../store';
 import 'ol/ol.css';
 
-function infraLineGeometry(obj: InfraObject): LineString | null {
-  if (obj.coordinates && obj.coordinates.length >= 2) {
-    return new LineString(obj.coordinates.map((c) => fromLonLat([c[0], c[1]])));
-  }
-  if (obj.end_lon != null && obj.end_lat != null) {
-    return new LineString([fromLonLat([obj.lon, obj.lat]), fromLonLat([obj.end_lon, obj.end_lat])]);
-  }
-  return null;
+function infraLineGeometry(obj: InfraObject, snapPool: InfraObject[]): LineString | null {
+  const path = linePathForDisplay(obj, snapPool);
+  if (!path) return null;
+  return new LineString(path.map((c) => fromLonLat([c[0], c[1]])));
 }
 
 function syncFeaturesById(
@@ -164,6 +161,8 @@ export type MapClickHit = {
 export interface MapViewProps {
   pois?: POI[];
   infraObjects?: InfraObject[];
+  /** Full project list for snapping line ends (defaults to infraObjects). */
+  infraSnapPool?: InfraObject[];
   /** When false, Esri tile underlay is hidden (vectors/radii remain). */
   showBasemap?: boolean;
   drawMode?: DrawMode;
@@ -422,6 +421,7 @@ function pointFeatureStyles(
 export function MapView({
   pois = [],
   infraObjects = [],
+  infraSnapPool,
   showBasemap = true,
   drawMode = 'select',
   selectMode = 'single',
@@ -1470,8 +1470,9 @@ export function MapView({
     const lineItems: { id: string; geometry: LineString; attrs: Record<string, unknown> }[] = [];
     const pointItems: { id: string; geometry: Point; attrs: Record<string, unknown> }[] = [];
 
+    const snapPool = infraSnapPool ?? infraObjects;
     infraObjects.forEach((obj) => {
-      const lineGeom = infraLineGeometry(obj);
+      const lineGeom = infraLineGeometry(obj, snapPool);
       const attrs = {
         name: obj.name,
         subtype: obj.subtype,
@@ -1501,7 +1502,7 @@ export function MapView({
     syncFeaturesById(points, pointItems);
 
     pointLayerRef.current?.changed();
-  }, [pois, infraObjects]);
+  }, [pois, infraObjects, infraSnapPool]);
 
   useEffect(() => {
     if (suppressDataSyncRef.current) return;

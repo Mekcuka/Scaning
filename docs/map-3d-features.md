@@ -151,16 +151,36 @@ flowchart TB
 
 ## 6. Линейные объекты
 
-- Источник геометрии: `coordinates` или `end_lon` / `end_lat` (как в 2D)
+- Источник геометрии: `coordinates` или `end_lon` / `end_lat` (как в 2D); перед построением 3D — `buildNormalizedLinePath3d` ([`map3dLinePathBuild.ts`](../decision-matrix/frontend/src/lib/map3d/map3dLinePathBuild.ts)): горизонтальный путь через `linePathForDisplay` + пул `infraSnapPool` (все объекты проекта).
 - Отрисовка: **Three.js custom layer** `dm-3d-lines`
-  - Обычные линии — **трубы** по рельефу (`map3dLineMeshes.ts`)
-  - **`power_line` (ЛЭП)** — опоры только на **промежуточных** вершинах (glTF **transmission-tower**, iPoly3D CC0); на **начале и конце** опор нет — **3 провода** идут к **центру** привязанного точечного объекта (в пределах snap, см. `lineEndpointRules.ts`) или к координате конца линии на рельефе. Трасса проводов в плане совпадает с 2D `LineString` (прямые пролёты между вершинами); опоры визуально выше коридора проводов. При ошибке загрузки glTF — процедурная заглушка.
-- MapLibre `line` layer: **opacity 0** — только для клика (pick)
+  - Обычные линии — **трубы** по рельефу ([`map3dLineMeshes.ts`](../decision-matrix/frontend/src/lib/map3d/map3dLineMeshes.ts)): **`CurvePath` из прямых `LineCurve3` между вершинами** — план **совпадает** с 2D OpenLayers / GeoJSON `LineString`. Сглаживание Catmull-Rom **не используется** (на острых углах давало «зеркальный» изгиб относительно 2D).
+  - **`power_line` (ЛЭП)** — опоры только на **промежуточных** вершинах (glTF **transmission-tower**, iPoly3D CC0); на **начале и конце** опор нет — **3 провода** на каждый пролёт идут по **прямой в плане** к точке привязки на высоте коридора ЛЭП (`wirePointAlongCorridor`, ~88% номинальной высоты линии), не к вершине высокой опоры. Трасса в плане = 2D; опоры — отдельный визуальный элемент выше проводов. При ошибке загрузки glTF — процедурная заглушка.
+- MapLibre `line` layer: **opacity 0** — только для клика (pick); геометрия pick-слоя тоже через `linePathForDisplay` ([`geoJson.ts`](../decision-matrix/frontend/src/lib/map3d/geoJson.ts)).
 - Радиус трубы: по подтипу + `MAP3D_OBJECT_SCALE`; цвет — как у 2D-линии
 - Высота опоры ЛЭП: `render_3d_height_m` (L1 для `power_line` — 10 м) × `MAP3D_OBJECT_SCALE` × `MAP3D_POWER_LINE_TOWER_SCALE` (5)
 - Высота: `queryTerrainElevation` + `render_3d_base_m` (один проход, без двойного учёта рельефа)
+- **Коридор высот (`planCorridorAlts`)**: внутренние вершины слегка следуют рельефу (`PLAN_CORRIDOR_TERRAIN_BLEND ≈ 0.15`), концы — через `lineEndpointAttachAltitudeM`; снижает ложную «инверсию» изгиба в перспективе при включённом рельефе ([`map3dLinePathBuild.ts`](../decision-matrix/frontend/src/lib/map3d/map3dLinePathBuild.ts)).
+- glTF точечных объектов: центрирование по XZ при загрузке ([`map3dModelsLayer.ts`](../decision-matrix/frontend/src/lib/map3d/map3dModelsLayer.ts)), чтобы модель совпадала с `lon`/`lat` маркера.
+- При `moveend` / смене рельефа ЛЭП пересчитывает провода с полным **`snapPool`** (все объекты проекта), а не только отфильтрованным `infraObjects` слоя.
 
 Подтипы линий: `autoroad`, `oil_pipeline`, `gas_pipeline`, `water_pipeline`, `power_line`, `methanol_pipeline`, `additional_line`.
+
+См. также §1.5 [map-objects-and-spatial-calculations.md](./map-objects-and-spatial-calculations.md) — рисование, привязка концов, координаты.
+
+### 6.1 QA: паритет 2D/3D линий
+
+Автотесты: [`map3dLinePlanParity.test.ts`](../decision-matrix/frontend/src/lib/map3d/map3dLinePlanParity.test.ts), [`map3dLinePathBuild.test.ts`](../decision-matrix/frontend/src/lib/map3d/map3dLinePathBuild.test.ts), `npm run test -- src/lib/map3d`.
+
+| Шаг | Действие | Ожидание |
+|-----|----------|----------|
+| 1 | Рельеф **выкл** | Трасса 3D плоская; **план** (lon/lat) совпадает с 2D |
+| 2 | Рельеф **вкл** (`VITE_MAPTILER_KEY`, toggle «Рельеф (3D)») | Профиль слегка следует рельефу; план без зеркального изгиба |
+| 3 | Pitch **0°** (вид сверху) | Изгиб 3D-трубы = 2D для тех же объектов |
+| 4 | Pitch **~60°** | Нет «перевёрнутого» угла относительно 2D (коридор высот) |
+| 5 | Панорамирование / zoom | Концы **ЛЭП** на узлах/площадках (snap pool) |
+| 6 | Объекты **МП_1**, **доп_ЛО_1** | Сравнить `coordinates` в API/панели: разные V/∧ — данные, не рендер |
+
+Локально: `cd decision-matrix/frontend && npm run dev`, проект с демо-сетью (`draw_demo_map_network.py`).
 
 ---
 
@@ -212,7 +232,7 @@ python scripts/draw_demo_map_network.py --project-name "<имя проекта>"
 
 | Область | Команда |
 |---------|---------|
-| Frontend map3d | `cd decision-matrix/frontend && npm run test -- src/lib/map3d` |
+| Frontend map3d + паритет 2D/3D | `cd decision-matrix/frontend && npm run test -- src/lib/map3d src/lib/linePath2d3dParity.test.ts` |
 | Backend render_3d | `cd decision-matrix/backend && pytest tests/test_render_3d_properties.py tests/test_render_3d_import.py` |
 | Сборка | `npm run build` в `frontend` |
 
@@ -231,6 +251,7 @@ python scripts/draw_demo_map_network.py --project-name "<имя проекта>"
 
 | Тема | Поведение |
 |------|-----------|
+| Геометрия линий в 3D | только **ломаная** по вершинам (как 2D); без сглаживания Catmull-Rom |
 | Редактирование | только 2D |
 | Отчёт PNG | только 2D |
 | Производительность | каждый 3D-объект — отдельный draw в custom layer; при сотнях объектов возможен просад FPS |

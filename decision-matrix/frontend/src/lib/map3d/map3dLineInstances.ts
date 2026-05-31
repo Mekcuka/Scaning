@@ -1,12 +1,14 @@
 import type { InfraLayer, InfraObject } from '../api';
-import { isLineSubtype, getLineCoordinates } from '../infraGeometry';
+import { isLineSubtype } from '../infraGeometry';
 import { layerMaps, layerVisible, resolveColor } from './geoJson';
-import { altitudeForModelPlacement } from './map3dModelsLayer';
+import { buildNormalizedLinePath3d } from './map3dLinePathBuild';
 import { scaleMap3dMeters } from './map3dConfig';
 import { resolveRender3D } from './render3d';
 
 export type Map3dLineInstance = {
   id: string;
+  /** Source line — used to re-sync path with 2D on terrain refresh. */
+  line: InfraObject;
   subtype: string;
   color: string;
   opacity: number;
@@ -37,6 +39,8 @@ export function buildMap3dLineInstances(
   map: import('maplibre-gl').Map,
   input: {
     infraObjects: InfraObject[];
+    /** Full project list for endpoint snap (defaults to infraObjects). */
+    snapPool?: InfraObject[];
     layers?: InfraLayer[];
     selectedFeatureId?: string | null;
   },
@@ -53,13 +57,15 @@ export function buildMap3dLineInstances(
     const render = resolveRender3D(obj.subtype, obj.properties);
     if (!render.visible) continue;
 
-    const coords = getLineCoordinates(obj);
-    if (!coords || coords.length < 2) continue;
-
-    const path = coords.map((c) => [c[0], c[1]] as [number, number]);
-    const alts = path.map((p) =>
-      altitudeForModelPlacement(map, p[0], p[1], render.baseM),
+    const built = buildNormalizedLinePath3d(
+      map,
+      obj,
+      input.infraObjects,
+      render.baseM,
+      input.snapPool,
     );
+    if (!built) continue;
+    const { path, alts } = built;
     const height = render.heightM;
     const radius = scaleMap3dMeters(
       LINE_RADIUS_M[obj.subtype] ??
@@ -68,6 +74,7 @@ export function buildMap3dLineInstances(
 
     out.push({
       id: obj.id,
+      line: obj,
       subtype: obj.subtype,
       color: resolveColor(obj.subtype, obj.layer_id, maps),
       opacity: obj.layer_id ? (maps.opacityByLayer[obj.layer_id] ?? 1) : 1,

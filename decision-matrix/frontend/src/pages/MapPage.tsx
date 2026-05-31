@@ -31,7 +31,7 @@ import {
 import { MapLayersPanel } from '../components/MapLayersPanel';
 import { ObjectDetailPanel, type SelectedFeature } from '../components/ObjectDetailPanel';
 import { PoiParamsForm } from '../components/PoiParamsForm';
-import { formatCoord, parseCoord, roundCoord } from '../lib/coords';
+import { coordForSave, formatCoord, parseCoord, roundCoord } from '../lib/coords';
 import {
   emptyPoiFormValues,
   formValuesToPoiCreatePayload,
@@ -88,8 +88,9 @@ import {
   isLineEndpointSnapped,
   lineEndpointAttachmentsFromObject,
   constrainLineCoordinatesOnEdit,
+  normalizeLinePathEndpoints,
 } from '../lib/lineEndpointRules';
-import { isLineSubtype } from '../lib/infraGeometry';
+import { isLineSubtype, lineEndpointHealPayload } from '../lib/infraGeometry';
 import {
   buildLineSplitPlan,
   findLineSplitAtPoint,
@@ -157,6 +158,10 @@ function sameCoord(a: number, b: number): boolean {
   return Math.abs(a - b) <= MOVE_MATCH_EPS;
 }
 
+function linkCoordMatch(a: number, b: number): boolean {
+  return sameCoord(a, b) || roundCoord(a) === roundCoord(b);
+}
+
 function lineCoordsOrEndpoints(obj: InfraObject): [number, number][] | null {
   if (obj.coordinates && obj.coordinates.length >= 2) {
     return obj.coordinates.map(([lon, lat]) => [lon, lat]);
@@ -183,6 +188,7 @@ export function MapPage() {
     useMapDisplayMode();
   const map3dRef = useRef<MapView3DHandle | null>(null);
   const last2dViewRef = useRef<SavedMapViewState | null>(null);
+  const lineHealAttemptedRef = useRef<Set<string>>(new Set());
   const [mapLayersOpen, setMapLayersOpen] = useState(false);
   const [mapFullscreen, setMapFullscreen] = useState(false);
   const mapCanvasRef = useRef<HTMLDivElement>(null);
@@ -669,6 +675,40 @@ export function MapPage() {
     [projectId, queryClient],
   );
 
+  useEffect(() => {
+    lineHealAttemptedRef.current.clear();
+  }, [projectId]);
+
+  useEffect(() => {
+    if (!projectId || !canWriteInfra || infraObjects.length === 0) return;
+    let cancelled = false;
+    let healed = 0;
+    void (async () => {
+      for (const line of infraObjects) {
+        if (!isLineSubtype(line.subtype)) continue;
+        if (lineHealAttemptedRef.current.has(line.id)) continue;
+        lineHealAttemptedRef.current.add(line.id);
+        const payload = lineEndpointHealPayload(line, infraObjects);
+        if (!payload || cancelled) continue;
+        try {
+          const updated = await api.updateInfraObject(projectId, line.id, payload);
+          if (!cancelled) {
+            upsertInfraInCache(updated);
+            healed += 1;
+          }
+        } catch {
+          /* display snap still applies */
+        }
+      }
+      if (!cancelled && healed > 0) {
+        pushToast('info', `Выровнены концы ${healed} линейных объектов по привязке`);
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [infraObjects, projectId, canWriteInfra, upsertInfraInCache, pushToast]);
+
   const createInfraMut = useMutation({
     mutationFn: (data: Parameters<typeof api.createInfraObject>[1]) =>
       api.createInfraObject(projectId!, {
@@ -765,14 +805,14 @@ export function MapPage() {
               return {
                 line,
                 segmentIndex: splitHint.segmentIndex,
-                snapLon: roundCoord(splitHint.snapLon ?? lon),
-                snapLat: roundCoord(splitHint.snapLat ?? lat),
+                snapLon: splitHint.snapLon ?? lon,
+                snapLat: splitHint.snapLat ?? lat,
               };
             })()
           : null;
       const splitFound = splitFromMap ?? findLineSplitAtPoint([lon, lat], pool);
-      const rLon = splitFound?.snapLon ?? roundCoord(lon);
-      const rLat = splitFound?.snapLat ?? roundCoord(lat);
+      const rLon = splitFound?.snapLon ?? lon;
+      const rLat = splitFound?.snapLat ?? lat;
 
       try {
         await queryClient.cancelQueries({ queryKey: ['infra', projectId] });
@@ -1315,8 +1355,8 @@ export function MapPage() {
     async (sel: MapFeatureSelection, lon: number, lat: number, coords?: number[][]) => {
       if (!projectId) return;
       const saveSeq = ++geometrySaveSeqRef.current;
-      const rLon = roundCoord(lon);
-      const rLat = roundCoord(lat);
+      const rLon = lon;
+      const rLat = lat;
 
       const poiBefore =
         sel.kind === 'poi'
@@ -1357,7 +1397,7 @@ export function MapPage() {
             });
           }
         } else if (coords && coords.length >= 2) {
-          let roundedCoords = coords.map(([lo, la]) => [roundCoord(lo), roundCoord(la)] as [number, number]);
+          let roundedCoords = coords.map(([lo, la]) => [lo, la] as [number, number]);
           const currentInfra =
             queryClient.getQueryData<InfraObject[]>(['infra', projectId]) ?? infraObjects;
           const pointPool = currentInfra.filter((o) => o.id !== sel.id);
@@ -1373,8 +1413,11 @@ export function MapPage() {
                 draftCoords: roundedCoords,
                 infraObjects: pointPool,
               });
-              roundedCoords = constrained.coords.map(
-                ([lo, la]) => [roundCoord(lo), roundCoord(la)] as [number, number],
+              roundedCoords = constrained.coords.map(([lo, la]) => [lo, la] as [number, number]);
+              roundedCoords = normalizeLinePathEndpoints(
+                infraBefore.subtype,
+                roundedCoords,
+                pointPool,
               );
             }
           }
@@ -1407,8 +1450,8 @@ export function MapPage() {
             before: { lon: number; lat: number; end_lon?: number | null; end_lat?: number | null; coordinates?: number[][] | null };
           }[] = [];
           if (isMovedPoint && infraBefore) {
-            const oldLon = roundCoord(infraBefore.lon);
-            const oldLat = roundCoord(infraBefore.lat);
+            const oldLon = infraBefore.lon;
+            const oldLat = infraBefore.lat;
             const currentInfra =
               queryClient.getQueryData<InfraObject[]>(['infra', projectId]) ?? infraObjects;
             const candidateLines = currentInfra.filter((o) => o.id !== sel.id && LINE_SUBTYPES.includes(o.subtype as typeof LINE_SUBTYPES[number]));
@@ -1418,14 +1461,16 @@ export function MapPage() {
               if (!coords || coords.length < 2) continue;
               const first = coords[0]!;
               const last = coords[coords.length - 1]!;
-              const firstMatches = sameCoord(roundCoord(first[0]), oldLon) && sameCoord(roundCoord(first[1]), oldLat);
-              const lastMatches = sameCoord(roundCoord(last[0]), oldLon) && sameCoord(roundCoord(last[1]), oldLat);
+              const firstMatches =
+                linkCoordMatch(first[0], oldLon) && linkCoordMatch(first[1], oldLat);
+              const lastMatches =
+                linkCoordMatch(last[0], oldLon) && linkCoordMatch(last[1], oldLat);
               if (!firstMatches && !lastMatches) continue;
 
               const shifted = coords.map(([lo, la], i) => {
                 if (i === 0 && firstMatches) return [rLon, rLat] as [number, number];
                 if (i === coords.length - 1 && lastMatches) return [rLon, rLat] as [number, number];
-                return [roundCoord(lo), roundCoord(la)] as [number, number];
+                return [lo, la] as [number, number];
               });
               const payload = {
                 lon: shifted[0][0],
@@ -1534,7 +1579,7 @@ export function MapPage() {
   );
 
   const handleRulerClick = useCallback((lon: number, lat: number) => {
-    const pt: [number, number] = [roundCoord(lon), roundCoord(lat)];
+    const pt: [number, number] = [lon, lat];
     if (rulerClickTimerRef.current) clearTimeout(rulerClickTimerRef.current);
     rulerClickTimerRef.current = setTimeout(() => {
       rulerClickTimerRef.current = null;
@@ -1616,24 +1661,26 @@ export function MapPage() {
       if (drawMode === 'line') {
         if (!canWriteInfra) return;
         const overPoint = hit?.overPoint;
+        const endpointKind = lineDraft.length === 0 ? 'start' : 'finish';
+        const snapped = snapLineDrawPoint(
+          infraForm.subtype,
+          [lon, lat],
+          infraObjects,
+          overPoint,
+          endpointKind,
+        );
         if (lineDraft.length === 0) {
-          const snapped = snapLineDrawPoint(
-            infraForm.subtype,
-            [lon, lat],
-            infraObjects,
-            overPoint,
-            'start'
-          );
           if (!isLineEndpointSnapped(infraForm.subtype, 'start', snapped, infraObjects)) {
             pushToast(
               'error',
-              'Начало линии — на точечном объекте (клик по иконке или в пределах 300 м)'
+              'Начало линии — на точечном объекте (клик по иконке или в пределах 300 м)',
             );
             return;
           }
           setLineDraft([snapped]);
         } else {
-          setLineDraft((prev) => [...prev, [roundCoord(lon), roundCoord(lat)]]);
+          // Промежуточные вершины — свободно (без snap к ближайшему объекту).
+          setLineDraft((prev) => [...prev, [lon, lat]]);
         }
         setLineDraftPreview(null);
       }
@@ -1665,7 +1712,13 @@ export function MapPage() {
       const subtype = infraForm.subtype;
       const draft = coords.map((c) => [c[0], c[1]] as [number, number]);
       if (finishAt) {
-        draft[draft.length - 1] = [finishAt.lon, finishAt.lat];
+        draft[draft.length - 1] = snapLineDrawPoint(
+          subtype,
+          [finishAt.lon, finishAt.lat],
+          infraObjects,
+          null,
+          'finish',
+        );
       }
 
       const infraPool =
@@ -1676,7 +1729,7 @@ export function MapPage() {
         index: number,
         kind: 'start' | 'finish',
       ): Promise<boolean> => {
-        const resolved = resolveLineEndpoint(subtype, kind, draft[index], pool);
+        const resolved = resolveLineEndpoint(subtype, kind, draft[index]!, pool);
         if (!resolved.ok) {
           pushToast('error', resolved.message);
           return false;
@@ -1686,8 +1739,8 @@ export function MapPage() {
             const node = await api.createInfraObject(projectId, {
               name: nextAutoName('node'),
               subtype: 'node',
-              lon: roundCoord(resolved.lon),
-              lat: roundCoord(resolved.lat),
+              lon: resolved.lon,
+              lat: resolved.lat,
             });
             pool = [...pool, node];
             upsertInfraInCache(node);
@@ -1708,16 +1761,16 @@ export function MapPage() {
       if (!(await applyEndpoint(0, 'start'))) return;
       if (!(await applyEndpoint(draft.length - 1, 'finish'))) return;
 
-      const prepared = draft.map(([lo, la]) => [lo, la] as [number, number]);
+      const prepared = normalizeLinePathEndpoints(subtype, draft, pool);
       try {
         await createInfraMut.mutateAsync({
           name: nextAutoName(subtype),
           subtype,
-          lon: roundCoord(prepared[0][0]),
-          lat: roundCoord(prepared[0][1]),
-          end_lon: roundCoord(prepared[prepared.length - 1][0]),
-          end_lat: roundCoord(prepared[prepared.length - 1][1]),
-          coordinates: prepared.map(([lo, la]) => [roundCoord(lo), roundCoord(la)]),
+          lon: prepared[0][0],
+          lat: prepared[0][1],
+          end_lon: prepared[prepared.length - 1][0],
+          end_lat: prepared[prepared.length - 1][1],
+          coordinates: prepared.map(([lo, la]) => [lo, la] as [number, number]),
         });
         setFeatureSel(null);
         setLineDraft([]);
@@ -1764,7 +1817,7 @@ export function MapPage() {
         detailSelection?.kind === 'infra' &&
         isLineSubtype(detailSelection.object.subtype)
       ) {
-        return 'Перетащите вершину; двойной ЛКМ по средней — удалить; концы привязаны к объектам ≤300 м · Del — удалить · Ctrl+Z — отмена';
+        return 'Перетащите вершину; двойной ЛКМ по средней — удалить; концы — на объектах (≤300 м), иначе возврат · Del — удалить · Ctrl+Z — отмена';
       }
       if (detailSelection) {
         return 'Перетащите объект для перемещения · Del — удалить · Ctrl+Z — отмена';
@@ -1825,19 +1878,19 @@ export function MapPage() {
     }
     if (!modal || modal.type !== 'poi') return;
     const name = poiForm.name.trim() || nextPoiAutoName(pois);
-    const lon = parseCoord(poiForm.lon || formatCoord(modal.lon));
-    const lat = parseCoord(poiForm.lat || formatCoord(modal.lat));
+    const lonDisplay = poiForm.lon || formatCoord(modal.lon);
+    const latDisplay = poiForm.lat || formatCoord(modal.lat);
+    const lon = coordForSave(parseCoord(lonDisplay), modal.lon, lonDisplay);
+    const lat = coordForSave(parseCoord(latDisplay), modal.lat, latDisplay);
     if (!Number.isFinite(lon) || !Number.isFinite(lat)) {
       pushToast('error', 'Укажите корректные координаты');
       return;
     }
-    const payload = formValuesToPoiCreatePayload({
-      ...poiForm,
-      name,
-      lon: formatCoord(lon),
-      lat: formatCoord(lat),
-    });
-    createPoiMut.mutate(payload as Parameters<typeof api.createPoi>[1]);
+    createPoiMut.mutate({
+      ...formValuesToPoiCreatePayload({ ...poiForm, name }),
+      lon,
+      lat,
+    } as Parameters<typeof api.createPoi>[1]);
   };
 
   return (
@@ -2266,7 +2319,7 @@ export function MapPage() {
                 onClick={handleDrawFinish}
                 title={
                   drawMode === 'line'
-                    ? 'Завершить линию (двойной ЛКМ в пустом месте — узел)'
+                    ? 'Завершить линию (двойной ЛКМ/ПКМ; в пустом месте — узел)'
                     : 'Завершить измерение (или двойной клик на карте)'
                 }
               >
@@ -2417,6 +2470,7 @@ export function MapPage() {
                 viewStateId="main"
                 pois={showPoisOnMap ? pois : []}
                 infraObjects={filteredInfra}
+                infraSnapPool={infraObjects}
                 showBasemap={showBasemap}
                 showTerrain={showTerrain}
                 showModels={showModels}
@@ -2441,6 +2495,7 @@ export function MapPage() {
             }}
             pois={showPoisOnMap ? pois : []}
             infraObjects={filteredInfra}
+            infraSnapPool={infraObjects}
             showBasemap={showBasemap}
             drawMode={drawMode}
             selectMode={selectMode}
@@ -2455,18 +2510,22 @@ export function MapPage() {
               if (drawMode === 'ruler') finishRulerMeasurement(true);
             }}
             onPointerMove={(lon, lat, overPoint) => {
-              const rLon = roundCoord(lon);
-              const rLat = roundCoord(lat);
               setMapPointerInside(true);
-              setCursor({ lon: rLon, lat: rLat });
+              setCursor({ lon, lat });
               if (drawMode === 'ruler' && rulerPoints.length >= 1) {
-                setRulerPreview([rLon, rLat]);
+                setRulerPreview([lon, lat]);
               } else if (rulerPreview) {
                 setRulerPreview(null);
               }
               if (drawMode === 'line' && lineDraft.length >= 1) {
                 setLineDraftPreview(
-                  overPoint ? [overPoint.lon, overPoint.lat] : [rLon, rLat]
+                  snapLineDrawPoint(
+                    infraForm.subtype,
+                    [lon, lat],
+                    infraObjects,
+                    overPoint,
+                    'finish',
+                  ),
                 );
               } else if (lineDraftPreview) {
                 setLineDraftPreview(null);
@@ -2603,7 +2662,7 @@ export function MapPage() {
                   <span>
                     {lineDraft.length === 0
                       ? 'Линия: первая точка — на точечном объекте (клик по иконке или ≤300 м)'
-                      : 'Промежуточные вершины — свободно; двойной ЛКМ или «Готово» — завершить (в пустом месте создаётся узел)'}
+                      : 'Промежуточные вершины — свободно; двойной ЛКМ/ПКМ, Enter или «Готово» — завершить (в пустом месте — узел)'}
                   </span>
                 )}
                 {mapIn3d && (

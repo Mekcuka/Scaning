@@ -55,7 +55,10 @@ from app.services.import_service import (
     run_shapefile_import,
     schedule_async_import,
 )
-from app.services.line_endpoint_rules import LineEndpointRuleError, validate_line_endpoint_matrix
+from app.services.line_endpoint_rules import (
+    LineEndpointRuleError,
+    snap_line_endpoints_to_point_objects,
+)
 from app.services.serializers import _infra_line_coordinates, infra_to_response, load_infra_name, poi_to_response
 from app.services.spatial import list_candidates_by_subtype
 
@@ -317,20 +320,31 @@ async def _create_infra_object_record(
         end_lat=end_lat,
         coordinates=data.coordinates,
     )
-    if line_coords:
-        props["coordinates"] = line_coords
-
+    lon, lat = data.lon, data.lat
     if subtype in LINE_SUBTYPES:
-        await validate_line_endpoint_matrix(
-            db,
-            project_id=project_id,
-            line_subtype=subtype,
-            lon=data.lon,
-            lat=data.lat,
+        try:
+            lon, lat, end_lon, end_lat, line_coords = await snap_line_endpoints_to_point_objects(
+                db,
+                project_id=project_id,
+                line_subtype=subtype,
+                lon=lon,
+                lat=lat,
+                end_lon=end_lon,
+                end_lat=end_lat,
+                coordinates=line_coords,
+            )
+        except LineEndpointRuleError as e:
+            raise ValueError(str(e)) from e
+        geom = build_infra_geometry(
+            subtype,
+            lon,
+            lat,
             end_lon=end_lon,
             end_lat=end_lat,
             coordinates=line_coords,
         )
+    if line_coords:
+        props["coordinates"] = line_coords
 
     obj = InfrastructureObject(
         layer_id=layer.id,
@@ -338,8 +352,8 @@ async def _create_infra_object_record(
         subtype=subtype,
         category=category_for_subtype(subtype),
         geometry=geom,
-        longitude=data.lon,
-        latitude=data.lat,
+        longitude=lon,
+        latitude=lat,
         end_longitude=end_lon,
         end_latitude=end_lat,
         properties=props,
@@ -440,29 +454,15 @@ async def update_infra_object(
                 raise HTTPException(status_code=400, detail=str(e)) from e
         has_line = end_lon is not None or (coords and len(coords) >= 2)
         validate_subtype_geometry(subtype, has_line_endpoints=has_line)
-        try:
-            obj.geometry = build_infra_geometry(
-                subtype, lon, lat, end_lon=end_lon, end_lat=end_lat, coordinates=coords
-            )
-        except ValueError as e:
-            raise HTTPException(status_code=400, detail=str(e))
         if coords and len(coords) >= 2:
             lon, lat = coords[0][0], coords[0][1]
             end_lon, end_lat = coords[-1][0], coords[-1][1]
-        obj.longitude, obj.latitude = lon, lat
-        obj.end_longitude, obj.end_latitude = end_lon, end_lat
-        obj.subtype = subtype
-        obj.category = category_for_subtype(subtype)
         line_coords = line_coordinates_for_storage(
             lon=lon, lat=lat, end_lon=end_lon, end_lat=end_lat, coordinates=coords
         )
-        if line_coords:
-            props = dict(obj.properties or {})
-            props["coordinates"] = line_coords
-            obj.properties = props
         if subtype in LINE_SUBTYPES:
             try:
-                await validate_line_endpoint_matrix(
+                lon, lat, end_lon, end_lat, line_coords = await snap_line_endpoints_to_point_objects(
                     db,
                     project_id=project_id,
                     line_subtype=subtype,
@@ -474,7 +474,21 @@ async def update_infra_object(
                     exclude_object_id=obj.id,
                 )
             except LineEndpointRuleError as e:
-                raise HTTPException(status_code=400, detail=str(e))
+                raise HTTPException(status_code=400, detail=str(e)) from e
+        try:
+            obj.geometry = build_infra_geometry(
+                subtype, lon, lat, end_lon=end_lon, end_lat=end_lat, coordinates=line_coords
+            )
+        except ValueError as e:
+            raise HTTPException(status_code=400, detail=str(e)) from e
+        obj.longitude, obj.latitude = lon, lat
+        obj.end_longitude, obj.end_latitude = end_lon, end_lat
+        obj.subtype = subtype
+        obj.category = category_for_subtype(subtype)
+        if line_coords:
+            props = dict(obj.properties or {})
+            props["coordinates"] = line_coords
+            obj.properties = props
 
     if "name" in payload:
         obj.name = payload["name"]

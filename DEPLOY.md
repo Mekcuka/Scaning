@@ -201,4 +201,16 @@ ssh -i "C:\Users\user\Documents\mykey\ssh-key\ssh-key-1779903372392" vovavolgin9
 
 - `curl https://erascaning.duckdns.org/health` -> `{"status":"ok"}`
 - Swagger: `https://erascaning.duckdns.org/api/v1/docs`
+- Frontend: https://mekcuka.github.io/Scaning/ — карта `/map`, переключатель **2D | 3D**
 - Frontend использует актуальный `VITE_API_URL`.
+- Карта (регрессия линий): pitch **0°** — изгиб 3D = 2D; концы ЛЭП на узлах после pan; см. [map-3d-features.md](docs/map-3d-features.md) §6.1
+
+### Локальная проверка перед `git push`
+
+```powershell
+cd decision-matrix/frontend
+npm run test
+npm run build
+cd ..\backend
+.\venv\Scripts\python.exe -m pytest tests/ -q --ignore=tests/test_demo_users.py
+```

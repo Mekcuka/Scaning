@@ -57,6 +57,8 @@ export type MapView3DHandle = {
 export interface MapView3DProps {
   pois?: POI[];
   infraObjects?: InfraObject[];
+  /** Full project list for snapping line ends (defaults to infraObjects). */
+  infraSnapPool?: InfraObject[];
   layers?: InfraLayer[];
   showBasemap?: boolean;
   showTerrain?: boolean;
@@ -131,6 +133,7 @@ const MapView3D = forwardRef<MapView3DHandle, MapView3DProps>(function MapView3D
   {
     pois = [],
     infraObjects = [],
+    infraSnapPool,
     layers,
     showBasemap = true,
     showTerrain = true,
@@ -160,6 +163,7 @@ const MapView3D = forwardRef<MapView3DHandle, MapView3DProps>(function MapView3D
   const projectIdRef = useRef(projectId);
   const persistRef = useRef(persistViewState);
   const onSelectRef = useRef(onFeatureSelect);
+  const snapPool = infraSnapPool ?? infraObjects;
 
   viewStateIdRef.current = viewStateId;
   projectIdRef.current = projectId;
@@ -227,6 +231,7 @@ const MapView3D = forwardRef<MapView3DHandle, MapView3DProps>(function MapView3D
       linesLayer.setInstances(
         buildMap3dLineLayerData(map, {
           infraObjects,
+          snapPool,
           layers,
           selectedFeatureId,
         }),
@@ -308,6 +313,7 @@ const MapView3D = forwardRef<MapView3DHandle, MapView3DProps>(function MapView3D
       linesLayerRef.current.setInstances(
         buildMap3dLineLayerData(map, {
           infraObjects,
+          snapPool,
           layers,
           selectedFeatureId,
         }),
@@ -318,7 +324,7 @@ const MapView3D = forwardRef<MapView3DHandle, MapView3DProps>(function MapView3D
 
     if (map.isStyleLoaded()) applyLines();
     else map.once('load', applyLines);
-  }, [infraObjects, layers, selectedFeatureId, showTerrain]);
+  }, [infraObjects, infraSnapPool, layers, selectedFeatureId, showTerrain]);
 
   useEffect(() => {
     const map = mapRef.current;
@@ -347,7 +353,7 @@ const MapView3D = forwardRef<MapView3DHandle, MapView3DProps>(function MapView3D
 
     if (map.isStyleLoaded()) applyModels();
     else map.once('load', applyModels);
-  }, [showModels, infraObjects, pois, layers, selectedFeatureId]);
+  }, [showModels, infraObjects, infraSnapPool, pois, layers, selectedFeatureId]);
 
   useEffect(() => {
     const map = mapRef.current;
@@ -356,6 +362,7 @@ const MapView3D = forwardRef<MapView3DHandle, MapView3DProps>(function MapView3D
     const apply = async () => {
       const bundle = buildMap3dGeoJson({
         infraObjects,
+        snapPool,
         pois,
         layers,
         showModels,
@@ -395,6 +402,7 @@ const MapView3D = forwardRef<MapView3DHandle, MapView3DProps>(function MapView3D
     else map.once('load', () => void apply());
   }, [
     infraObjects,
+    infraSnapPool,
     pois,
     layers,
     thresholdCircles,

@@ -3,7 +3,9 @@ import type { InfraObject } from './api';
 import {
   constrainLineCoordinatesOnEdit,
   findLineEndpointAttachment,
+  lineEndpointAttachmentsFromObject,
   nearestPointLineEndpoint,
+  normalizeLinePathEndpoints,
   resolveLineEndpoint,
   snapLineDrawPoint,
 } from './lineEndpointRules';
@@ -67,6 +69,65 @@ describe('nearestPointLineEndpoint', () => {
     if (resolved.ok) {
       expect(resolved.createNode).toBe(true);
     }
+  });
+});
+
+describe('lineEndpointAttachmentsFromObject', () => {
+  it('finds attachments via snapPool when node is not in infraObjects', () => {
+    const pad = pointObj('pad-1', 'pad', 37.6, 55.75);
+    const node = pointObj('node-1', 'node', 37.7, 55.85);
+    const lineObj = {
+      id: 'line-1',
+      name: 'line',
+      subtype: 'oil_pipeline',
+      category: 'linear',
+      lon: 37.6001,
+      lat: 55.7501,
+      end_lon: 37.7001,
+      end_lat: 55.8501,
+      coordinates: [
+        [37.6001, 55.7501],
+        [37.7001, 55.8501],
+      ],
+      layer_id: 'layer-1',
+      project_id: 'p1',
+      properties: {},
+    } as InfraObject;
+    const pool = [pad, node, lineObj];
+    const attachments = lineEndpointAttachmentsFromObject(lineObj, [lineObj], pool);
+    expect(attachments?.startAttach?.object.id).toBe('pad-1');
+    expect(attachments?.finishAttach?.object.id).toBe('node-1');
+  });
+});
+
+describe('normalizeLinePathEndpoints', () => {
+  it('replaces endpoints with exact object coordinates', () => {
+    const pad = pointObj('pad-1', 'pad', 37.6, 55.75);
+    const path = normalizeLinePathEndpoints(
+      'power_line',
+      [
+        [37.6001, 55.7501],
+        [37.62, 55.76],
+      ],
+      [pad],
+    );
+    expect(path[0]).toEqual([37.6, 55.75]);
+    expect(path[1]).toEqual([37.62, 55.76]);
+  });
+
+  it('snaps line ends to node objects (not only pad/substation)', () => {
+    const nodeA = pointObj('n1', 'node', 37.6, 55.75);
+    const nodeB = pointObj('n2', 'node', 37.7, 55.85);
+    const path = normalizeLinePathEndpoints(
+      'gas_pipeline',
+      [
+        [37.6001, 55.7501],
+        [37.7001, 55.8501],
+      ],
+      [nodeA, nodeB],
+    );
+    expect(path[0]).toEqual([37.6, 55.75]);
+    expect(path[1]).toEqual([37.7, 55.85]);
   });
 });
 

@@ -10,7 +10,7 @@ import { clonePowerLineTowerToHeight } from './map3dPowerLineStyle';
 import type { Map3dLineInstance } from './map3dLineInstances';
 import type { Map3dPowerLineInstance } from './map3dPowerLineInstances';
 import type { Map3dLineLayerData } from './map3dLineLayerData';
-import { altitudeForModelPlacement } from './map3dModelsLayer';
+import { buildNormalizedLinePath3d } from './map3dLinePathBuild';
 import { resolvePowerLineEndpoints } from './map3dPowerLineEndpoints';
 import type { InfraObject } from '../api';
 
@@ -80,6 +80,7 @@ export class Map3dLinesCustomLayer implements CustomLayerInterface {
   private tubeInstances: Map3dLineInstance[] = [];
   private powerLineInstances: Map3dPowerLineInstance[] = [];
   private infraObjects: InfraObject[] = [];
+  private snapPool: InfraObject[] | undefined;
   private powerLineMeshGeneration = 0;
   private visible = true;
   private moveEndHandler: (() => void) | null = null;
@@ -110,21 +111,40 @@ export class Map3dLinesCustomLayer implements CustomLayerInterface {
   private refreshAltsFromTerrain(): void {
     const map = this.map;
     if (!map) return;
+    const pool = this.snapPool ?? this.infraObjects;
+
     for (const inst of this.tubeInstances) {
-      inst.alts = inst.path.map((p) =>
-        altitudeForModelPlacement(map, p[0], p[1], inst.baseM),
+      const built = buildNormalizedLinePath3d(
+        map,
+        inst.line,
+        this.infraObjects,
+        inst.baseM,
+        pool,
       );
+      if (built) {
+        inst.path = built.path;
+        inst.alts = built.alts;
+      }
     }
     for (const inst of this.powerLineInstances) {
-      inst.alts = inst.path.map((p) =>
-        altitudeForModelPlacement(map, p[0], p[1], inst.baseM),
+      const built = buildNormalizedLinePath3d(
+        map,
+        inst.line,
+        this.infraObjects,
+        inst.baseM,
+        pool,
       );
+      if (built) {
+        inst.path = built.path;
+        inst.alts = built.alts;
+      }
       const ep = resolvePowerLineEndpoints(
         map,
         inst.line,
         this.infraObjects,
         inst.path,
         inst.alts,
+        pool,
       );
       inst.startWire = ep.startWire;
       inst.finishWire = ep.finishWire;
@@ -223,6 +243,7 @@ export class Map3dLinesCustomLayer implements CustomLayerInterface {
     this.tubeInstances = data.tubes;
     this.powerLineInstances = data.powerLines;
     this.infraObjects = data.infraObjects;
+    this.snapPool = data.snapPool;
     this.refreshAltsFromTerrain();
     this.rebuildRenderables();
     this.map?.triggerRepaint();

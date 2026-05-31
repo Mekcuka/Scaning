@@ -26,6 +26,8 @@ export const MAP3D_GLTF_ASSETS: Record<string, Map3dGltfAssetDef> = {
   'stack-medium': gltf('stack-medium.glb', 22),
   'stack-small': gltf('stack-small.glb', 14),
   tank: gltf('tank.glb', 8),
+  /** Poly by Google (CC BY) — куст / станок-качалка. */
+  'oil-pump-jack': gltf('oil-pump-jack.glb', 8),
   /** iPoly3D Lowpoly Electric Towers (CC0), Tower_1 — ЛЭП intermediate supports. */
   'transmission-tower': gltf('transmission-tower.glb', 10, 0),
 };

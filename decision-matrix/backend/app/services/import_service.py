@@ -15,10 +15,10 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.database import async_session
 
-from app.geo.geometry_utils import build_infra_geometry
+from app.geo.geometry_utils import build_infra_geometry, line_coordinates_for_storage
 from app.geo.validation import category_for_subtype, validate_subtype_geometry
 from app.models import ImportLog, InfrastructureLayer, InfrastructureObject
-from app.services.line_endpoint_rules import LineEndpointRuleError, validate_line_endpoint_matrix
+from app.services.line_endpoint_rules import LineEndpointRuleError, snap_line_endpoints_to_point_objects
 from app.services.spark_import import is_spark_project_export, parse_spark_project
 
 
@@ -202,15 +202,30 @@ async def import_rows_to_layer(
             and row.get("end_lat") is not None
         ):
             try:
-                await validate_line_endpoint_matrix(
+                subtype = str(row["subtype"])
+                lon, lat, end_lon, end_lat, line_coords = await snap_line_endpoints_to_point_objects(
                     db,
                     project_id=layer.project_id,
-                    line_subtype=str(row["subtype"]),
+                    line_subtype=subtype,
                     lon=float(row["lon"]),
                     lat=float(row["lat"]),
                     end_lon=float(row["end_lon"]),
                     end_lat=float(row["end_lat"]),
                     coordinates=row.get("coordinates"),
+                )
+                row["lon"] = lon
+                row["lat"] = lat
+                row["end_lon"] = end_lon
+                row["end_lat"] = end_lat
+                if line_coords:
+                    row["coordinates"] = line_coords
+                row["geometry"] = build_infra_geometry(
+                    subtype,
+                    lon,
+                    lat,
+                    end_lon=end_lon,
+                    end_lat=end_lat,
+                    coordinates=line_coords,
                 )
             except LineEndpointRuleError as e:
                 errors.append(f"Row {idx} ({row['name']}): {e}")
@@ -227,8 +242,15 @@ async def import_rows_to_layer(
                 apply_default_sand_volumes(str(row["subtype"]), raw_props),
             ),
         )
-        if row.get("coordinates"):
-            props["coordinates"] = row["coordinates"]
+        line_coords = line_coordinates_for_storage(
+            lon=float(row["lon"]),
+            lat=float(row["lat"]),
+            end_lon=row.get("end_lon"),
+            end_lat=row.get("end_lat"),
+            coordinates=row.get("coordinates"),
+        )
+        if line_coords:
+            props["coordinates"] = line_coords
         db.add(
             InfrastructureObject(
                 layer_id=layer.id,

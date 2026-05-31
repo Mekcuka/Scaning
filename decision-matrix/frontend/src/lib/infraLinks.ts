@@ -7,6 +7,11 @@ function sameCoord(a: number, b: number): boolean {
   return Math.abs(a - b) <= MOVE_MATCH_EPS;
 }
 
+/** Exact match or same rounded display (legacy lines saved with 3-decimal ends). */
+function linkCoordMatch(a: number, b: number): boolean {
+  return sameCoord(a, b) || roundCoord(a) === roundCoord(b);
+}
+
 function lineCoordsOrEndpoints(obj: InfraObject): [number, number][] | null {
   if (obj.coordinates && obj.coordinates.length >= 2) {
     return obj.coordinates.map(([lon, lat]) => [lon, lat]);
@@ -26,8 +31,8 @@ function isLineSubtype(subtype: string): boolean {
 
 export function linkedLineIdsForPoint(pointObj: InfraObject, allInfra: InfraObject[]): string[] {
   if (isLineSubtype(pointObj.subtype)) return [];
-  const pointLon = roundCoord(pointObj.lon);
-  const pointLat = roundCoord(pointObj.lat);
+  const pointLon = pointObj.lon;
+  const pointLat = pointObj.lat;
   const ids: string[] = [];
   for (const obj of allInfra) {
     if (!isLineSubtype(obj.subtype)) continue;
@@ -36,9 +41,9 @@ export function linkedLineIdsForPoint(pointObj: InfraObject, allInfra: InfraObje
     const first = coords[0]!;
     const last = coords[coords.length - 1]!;
     const startMatches =
-      sameCoord(roundCoord(first[0]), pointLon) && sameCoord(roundCoord(first[1]), pointLat);
+      linkCoordMatch(first[0], pointLon) && linkCoordMatch(first[1], pointLat);
     const finishMatches =
-      sameCoord(roundCoord(last[0]), pointLon) && sameCoord(roundCoord(last[1]), pointLat);
+      linkCoordMatch(last[0], pointLon) && linkCoordMatch(last[1], pointLat);
     if (startMatches || finishMatches) ids.push(obj.id);
   }
   return ids;

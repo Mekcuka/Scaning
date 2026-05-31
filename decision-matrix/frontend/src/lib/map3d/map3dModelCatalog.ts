@@ -41,7 +41,7 @@ export const MAP3D_MODEL_BY_SUBTYPE: Record<string, Map3dModelCatalogEntry> = {
   refinery: { ...facilityLarge(), footprintScale: 1.6 },
   ukg: facilityMedium,
   tsg: facilityMedium,
-  pad: { ...facilityMedium, footprintScale: 1.2 },
+  pad: { gltfAssetId: 'oil-pump-jack', template: 'facility', footprintScale: 0.85 },
   preliminary_water_discharge_station: facilityMedium,
   booster_pumping_station: facilityMedium,
   oil_pumping_station: facilityMedium,
@@ -75,6 +75,7 @@ export const MAP3D_MODEL_BY_ID: Record<string, Map3dModelCatalogEntry> = {
   tank: { gltfAssetId: 'tank', template: 'node', footprintScale: 1 },
   node: { gltfAssetId: 'tank', template: 'node', footprintScale: 1 },
   quarry: { gltfAssetId: 'facility-compact', template: 'quarry', footprintScale: 1.8 },
+  'oil-pump-jack': { gltfAssetId: 'oil-pump-jack', template: 'facility', footprintScale: 0.85 },
   poi_pin: { template: 'poi_pin', footprintScale: 1 },
 };
 

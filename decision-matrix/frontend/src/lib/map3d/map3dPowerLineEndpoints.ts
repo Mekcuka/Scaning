@@ -1,9 +1,20 @@
 import type { InfraObject } from '../api';
 import type { LineEndpointAttachment } from '../lineEndpointRules';
 import { lineEndpointAttachmentsFromObject } from '../lineEndpointRules';
-import { altitudeForModelPlacement } from './map3dModelsLayer';
-import { scaleMap3dMeters } from './map3dConfig';
-import { resolveRender3D } from './render3d';
+import {
+  LINE_ENDPOINT_ATTACH_HEIGHT_FRAC,
+  lineEndpointAttachAltitudeM,
+} from './map3dLinePathBuild';
+
+/** @deprecated Use LINE_ENDPOINT_ATTACH_HEIGHT_FRAC */
+export const POWER_LINE_WIRE_ATTACH_HEIGHT_FRAC = LINE_ENDPOINT_ATTACH_HEIGHT_FRAC;
+
+export function wireAttachAltitudeM(
+  map: import('maplibre-gl').Map,
+  obj: InfraObject,
+): number {
+  return lineEndpointAttachAltitudeM(map, 'power_line', obj);
+}
 
 export type PowerLineWireEndpoint = {
   lon: number;
@@ -27,10 +38,7 @@ export function resolvePowerLineWireEndpoint(
     return { lon: pathPoint[0], lat: pathPoint[1], altM: pathAltM };
   }
   const obj = attach.object;
-  const render = resolveRender3D(obj.subtype, obj.properties);
-  const groundM = altitudeForModelPlacement(map, obj.lon, obj.lat, render.baseM);
-  const centerLiftM = scaleMap3dMeters(render.heightM) * 0.5;
-  return { lon: obj.lon, lat: obj.lat, altM: groundM + centerLiftM };
+  return { lon: obj.lon, lat: obj.lat, altM: wireAttachAltitudeM(map, obj) };
 }
 
 export function resolvePowerLineEndpoints(
@@ -39,8 +47,10 @@ export function resolvePowerLineEndpoints(
   infraObjects: InfraObject[],
   path: [number, number][],
   alts: number[],
+  snapPool?: InfraObject[],
 ): { startWire: PowerLineWireEndpoint; finishWire: PowerLineWireEndpoint } {
-  const attachments = lineEndpointAttachmentsFromObject(line, infraObjects);
+  const pool = snapPool ?? infraObjects;
+  const attachments = lineEndpointAttachmentsFromObject(line, infraObjects, pool);
   const start = path[0]!;
   const finish = path[path.length - 1]!;
   return {

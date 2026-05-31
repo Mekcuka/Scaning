@@ -107,7 +107,8 @@ function normalizePrototype(scene: THREE.Group, def: NonNullable<ReturnType<type
   root.scale.setScalar(s);
 
   const box2 = new THREE.Box3().setFromObject(root);
-  root.position.y = -box2.min.y;
+  const center = box2.getCenter(new THREE.Vector3());
+  root.position.set(-center.x, -box2.min.y, -center.z);
 
   if (def.yawDeg) {
     root.rotation.y = (def.yawDeg * Math.PI) / 180;

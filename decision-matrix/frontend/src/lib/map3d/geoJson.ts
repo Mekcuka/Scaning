@@ -1,11 +1,12 @@
 import type { Feature, FeatureCollection, LineString, Point, Polygon } from 'geojson';
 import type { AnalysisRow, InfraLayer, InfraObject, POI } from '../api';
 import { LINE_SUBTYPES } from '../api';
-import { isLineSubtype, getLineCoordinates } from '../infraGeometry';
+import { isLineSubtype } from '../infraGeometry';
 import { MAP_SUBTYPE_COLORS } from '../mapIcons';
 import type { ThresholdCircle } from '../../components/MapView';
 import { scaleMap3dMeters } from './map3dConfig';
 import { footprintHalfSizeForSubtype } from './extrusionHeights';
+import { linePathForDisplay } from '../infraGeometry';
 import { resolveRender3D, shouldBuildPointExtrusion } from './render3d';
 
 const LINE_SUBTYPE_SET = new Set<string>(LINE_SUBTYPES as readonly string[]);
@@ -116,6 +117,7 @@ function infraToFeatures(
   infraObjects: InfraObject[],
   layers: InfraLayer[] | undefined,
   showModels: boolean,
+  snapPool: InfraObject[],
 ): Pick<Map3dGeoJsonBundle, 'infraLines' | 'infraExtrusions' | 'infraPoints'> {
   const maps = layerMaps(layers);
   const lineFeatures: Feature<LineString>[] = [];
@@ -143,8 +145,8 @@ function infraToFeatures(
     };
 
     if (isLineSubtype(obj.subtype)) {
-      const coords = getLineCoordinates(obj);
-      if (!coords || coords.length < 2) continue;
+      const path = linePathForDisplay(obj, snapPool);
+      if (!path || path.length < 2) continue;
       lineFeatures.push({
         type: 'Feature',
         id: obj.id,
@@ -154,7 +156,7 @@ function infraToFeatures(
         },
         geometry: {
           type: 'LineString',
-          coordinates: coords,
+          coordinates: path,
         },
       });
       continue;
@@ -338,6 +340,8 @@ export function buildAnalysisLabelsGeoJson(
 
 export function buildMap3dGeoJson(input: {
   infraObjects: InfraObject[];
+  /** Full project list for line endpoint snap (defaults to infraObjects). */
+  snapPool?: InfraObject[];
   pois: POI[];
   layers?: InfraLayer[];
   showModels?: boolean;
@@ -347,7 +351,8 @@ export function buildMap3dGeoJson(input: {
   selectedPoi?: POI | null;
 }): Map3dGeoJsonBundle {
   const showModels = input.showModels !== false;
-  const infra = infraToFeatures(input.infraObjects, input.layers, showModels);
+  const snapPool = input.snapPool ?? input.infraObjects;
+  const infra = infraToFeatures(input.infraObjects, input.layers, showModels, snapPool);
   const poiPoints = poisToFeatures(input.pois);
   const poiExtrusionFc = poiExtrusions(input.pois, showModels);
 

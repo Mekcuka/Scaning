@@ -11,7 +11,7 @@ import {
   X,
   type LucideIcon,
 } from 'lucide-react';
-import { formatCoord, parseCoord } from '../lib/coords';
+import { coordForSave, formatCoord, parseCoord } from '../lib/coords';
 import {
   api,
   infraSubtypeSelectOptions,
@@ -335,27 +335,32 @@ export function ObjectDetailPanel({
       }
       payload.properties = props;
 
+      const o = selection.object;
+      const saveLon = coordForSave(parseCoord(lon), o.lon, lon);
+      const saveLat = coordForSave(parseCoord(lat), o.lat, lat);
+
       if (isLineSubtype(subtype)) {
-        const coords = getLineCoordinates(selection.object);
+        const coords = getLineCoordinates(o);
         if (coords) {
           const next = coords.map((c) => [...c] as [number, number]);
-          next[0] = [parseCoord(lon), parseCoord(lat)];
+          next[0] = [saveLon, saveLat];
           payload.coordinates = next;
           payload.lon = next[0][0];
           payload.lat = next[0][1];
           payload.end_lon = next[next.length - 1][0];
           payload.end_lat = next[next.length - 1][1];
         } else {
-          payload.lon = parseCoord(lon);
-          payload.lat = parseCoord(lat);
+          payload.lon = saveLon;
+          payload.lat = saveLat;
         }
       } else {
-        payload.lon = parseCoord(lon);
-        payload.lat = parseCoord(lat);
+        payload.lon = saveLon;
+        payload.lat = saveLat;
       }
     } else {
-      payload.lon = parseCoord(lon);
-      payload.lat = parseCoord(lat);
+      const poi = selection.poi;
+      payload.lon = coordForSave(parseCoord(lon), poi.lon, lon);
+      payload.lat = coordForSave(parseCoord(lat), poi.lat, lat);
     }
 
     onSave(payload);

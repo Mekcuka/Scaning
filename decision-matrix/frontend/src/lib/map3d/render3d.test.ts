@@ -37,6 +37,11 @@ describe('render3d', () => {
     expect(catalogEntryForSubtype('gas_processing')?.template).toBe('facility');
   });
 
+  it('pad (Куст) uses oil pump jack glTF', () => {
+    expect(catalogEntryForSubtype('pad')?.gltfAssetId).toBe('oil-pump-jack');
+    expect(resolveRender3D('pad', {}).heightM).toBe(8);
+  });
+
   it('extrusion style disables model', () => {
     expect(shouldUse3dModel('substation', { [RENDER_3D_STYLE_KEY]: 'extrusion' })).toBe(false);
   });

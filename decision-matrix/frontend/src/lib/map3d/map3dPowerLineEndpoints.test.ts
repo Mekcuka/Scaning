@@ -40,6 +40,6 @@ describe('map3dPowerLineEndpoints', () => {
     );
     expect(ep.lon).toBe(37.6);
     expect(ep.lat).toBe(55.7);
-    expect(ep.altM).toBe(10 + 20 * 5 * 0.5);
+    expect(ep.altM).toBe(10 + 20 * 5 * 0.88);
   });
 });

@@ -4,7 +4,8 @@ import { gltfAssetDef, MAP3D_GLTF_ASSETS } from './map3dGltfAssets';
 
 describe('map3dGltfAssets', () => {
   it('defines industrial asset set', () => {
-    expect(Object.keys(MAP3D_GLTF_ASSETS).length).toBeGreaterThanOrEqual(9);
+    expect(Object.keys(MAP3D_GLTF_ASSETS).length).toBeGreaterThanOrEqual(10);
+    expect(gltfAssetDef('oil-pump-jack')?.url).toContain('oil-pump-jack.glb');
     expect(gltfAssetDef('facility-large')?.url).toContain('.glb');
   });
 

@@ -1,5 +1,4 @@
 import type { InfraObject, InfraObjectCreate } from './api';
-import { roundCoord } from './coords';
 import { getLineCoordinates, isLineSubtype } from './infraGeometry';
 
 /** Минимальное расстояние от конца линии, чтобы вставка не дублировала вершину (≈10 м). */
@@ -102,8 +101,8 @@ export function findLineSplitAtPoint(
     const candidate: LineSplitCandidate = {
       line: obj,
       segmentIndex: hit.segmentIndex,
-      snapLon: roundCoord(hit.point[0]),
-      snapLat: roundCoord(hit.point[1]),
+      snapLon: hit.point[0],
+      snapLat: hit.point[1],
       distanceKm: hit.distanceKm,
     };
     if (!best || candidate.distanceKm < best.distanceKm) best = candidate;
@@ -120,7 +119,7 @@ export function splitLineCoordinatesAt(
   if (coords.length < 2) return null;
   if (segmentIndex < 0 || segmentIndex >= coords.length - 1) return null;
 
-  const q: [number, number] = [roundCoord(split[0]), roundCoord(split[1])];
+  const q: [number, number] = [split[0], split[1]];
   const first: number[][] = [...coords.slice(0, segmentIndex + 1), q];
   const second: number[][] = [q, ...coords.slice(segmentIndex + 1)];
 
@@ -136,16 +135,15 @@ export function infraLineGeometryPayloadFromCoords(
   InfraObjectCreate,
   'name' | 'subtype' | 'layer_id' | 'lon' | 'lat' | 'end_lon' | 'end_lat' | 'coordinates'
 > {
-  const rounded = coords.map(([lo, la]) => [roundCoord(lo), roundCoord(la)] as [number, number]);
   return {
     name,
     subtype: template.subtype,
     layer_id: template.layer_id,
-    lon: rounded[0]![0],
-    lat: rounded[0]![1],
-    end_lon: rounded[rounded.length - 1]![0],
-    end_lat: rounded[rounded.length - 1]![1],
-    coordinates: rounded,
+    lon: coords[0]![0],
+    lat: coords[0]![1],
+    end_lon: coords[coords.length - 1]![0],
+    end_lat: coords[coords.length - 1]![1],
+    coordinates: coords.map(([lo, la]) => [lo, la] as [number, number]),
   };
 }
 
