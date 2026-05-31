@@ -1,6 +1,6 @@
 """Unit tests for sand logistics graph and allocation."""
 
-from uuid import uuid4
+from uuid import UUID, uuid4
 
 from app.services.sand_logistics import (
     _PointSite,
