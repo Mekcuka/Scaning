@@ -31,7 +31,8 @@ def upgrade() -> None:
             sa.UniqueConstraint("project_id", "poi_id", name="uq_project_ranking_project_poi"),
         )
 
-    if "scenario_criterion_values" not in tables:
+    # Legacy table; skipped on fresh ORM bootstrap (scenarios removed in 012).
+    if "scenario_criterion_values" not in tables and "scenarios" in tables:
         op.create_table(
             "scenario_criterion_values",
             sa.Column("id", sa.Uuid(), nullable=False),

@@ -1,7 +1,12 @@
-"""Bootstrap DB schema before Alembic (migrations are incremental patches).
+"""Bootstrap DB schema from ORM models (CI/E2E), then stamp Alembic head.
+
+Alembic revisions are incremental patches for existing deployments; they are not
+replayed on a fresh database after create_all. In CI, run `alembic stamp head`
+after this script instead of `upgrade head`.
 
 Usage (from decision-matrix/backend):
   python scripts/bootstrap_schema.py
+  python -m alembic stamp head
 """
 
 import asyncio

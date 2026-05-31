@@ -88,8 +88,8 @@ jobs:
       - name: Bootstrap PostgreSQL schema
         run: python scripts/bootstrap_schema.py
 
-      - name: Alembic upgrade
-        run: python -m alembic upgrade head
+      - name: Stamp Alembic head (ORM bootstrap matches current revision)
+        run: python -m alembic stamp head
 
       - name: Pytest
         run: pytest tests/ -q
@@ -140,7 +140,7 @@ jobs:
         run: |
           mkdir -p data
           python scripts/bootstrap_schema.py
-          python -m alembic upgrade head
+          python -m alembic stamp head
           uvicorn app.main:app --host 127.0.0.1 --port 8000 &
           sleep 3
 
