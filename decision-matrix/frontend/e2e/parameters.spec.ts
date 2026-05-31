@@ -9,5 +9,5 @@ test('parameters tab shows capacity table', async ({ page, request }) => {
   await loginViaUi(page, email);
 
   await page.goto('/parameters');
-  await expect(page.getByText(/Пропускная способность|Выберите проект/i)).toBeVisible();
+  await expect(page.getByRole('link', { name: 'Пропускная способность' })).toBeVisible();
 });

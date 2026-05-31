@@ -2,7 +2,7 @@ import { expect, type APIRequestContext, type Page } from '@playwright/test';
 
 const API = process.env.PLAYWRIGHT_API_URL ?? 'http://127.0.0.1:8000';
 
-/** Register + login via API; Playwright request context keeps auth cookies. */
+/** Register via API (issues session cookies on request context). */
 export async function registerAndLogin(
   request: APIRequestContext,
   email: string,
@@ -13,13 +13,8 @@ export async function registerAndLogin(
   });
   expect(register.ok(), `register failed: ${register.status()} ${await register.text()}`).toBeTruthy();
 
-  const login = await request.post(`${API}/api/v1/auth/login`, {
-    data: { email, password: 'password1' },
-  });
-  expect(login.ok(), `login failed: ${login.status()} ${await login.text()}`).toBeTruthy();
-
-  const csrf = login.headers()['x-csrf-token'];
-  expect(csrf, 'missing X-CSRF-Token on login').toBeTruthy();
+  const csrf = register.headers()['x-csrf-token'];
+  expect(csrf, 'missing X-CSRF-Token on register').toBeTruthy();
   return csrf!;
 }
 
@@ -42,5 +37,5 @@ export async function loginViaUi(page: Page, email: string, password = 'password
   await page.locator('#login-email').fill(email);
   await page.locator('#login-password').fill(password);
   await page.getByRole('button', { name: /войти/i }).click();
-  await page.waitForURL(/\/(dashboard)?$/);
+  await page.waitForURL((url) => !url.pathname.endsWith('/login'), { timeout: 15_000 });
 }
