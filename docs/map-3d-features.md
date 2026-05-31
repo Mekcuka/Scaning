@@ -155,6 +155,7 @@ flowchart TB
 - Отрисовка: **Three.js custom layer** `dm-3d-lines`
   - Обычные линии — **трубы** по рельефу ([`map3dLineMeshes.ts`](../decision-matrix/frontend/src/lib/map3d/map3dLineMeshes.ts)): **`CurvePath` из прямых `LineCurve3` между вершинами** — план **совпадает** с 2D OpenLayers / GeoJSON `LineString`. Сглаживание Catmull-Rom **не используется** (на острых углах давало «зеркальный» изгиб относительно 2D).
   - **`power_line` (ЛЭП)** — опоры только на **промежуточных** вершинах (glTF **transmission-tower**, iPoly3D CC0); на **начале и конце** опор нет — **3 провода** на каждый пролёт идут по **прямой в плане** к точке привязки на высоте коридора ЛЭП (`wirePointAlongCorridor`, ~88% номинальной высоты линии), не к вершине высокой опоры. Трасса в плане = 2D; опоры — отдельный визуальный элемент выше проводов. При ошибке загрузки glTF — процедурная заглушка.
+  - Корневая матрица **только линейного** custom layer (`dm-3d-lines`): дополнительное отражение по локальной **Z** (`makeScale(1, 1, -1)` в [`map3dLinesLayer.ts`](../decision-matrix/frontend/src/lib/map3d/map3dLinesLayer.ts)). **3D-модели точек** (`dm-3d-models`) — без этого отражения.
 - MapLibre `line` layer: **opacity 0** — только для клика (pick); геометрия pick-слоя тоже через `linePathForDisplay` ([`geoJson.ts`](../decision-matrix/frontend/src/lib/map3d/geoJson.ts)).
 - Радиус трубы: по подтипу + `MAP3D_OBJECT_SCALE`; цвет — как у 2D-линии
 - Высота опоры ЛЭП: `render_3d_height_m` (L1 для `power_line` — 10 м) × `MAP3D_OBJECT_SCALE` × `MAP3D_POWER_LINE_TOWER_SCALE` (5)

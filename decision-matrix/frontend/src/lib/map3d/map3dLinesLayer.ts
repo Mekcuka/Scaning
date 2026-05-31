@@ -18,6 +18,9 @@ export const MAP3D_LINES_LAYER_ID = 'dm-3d-lines';
 
 const MODEL_ROTATE_X = Math.PI / 2;
 
+/** Z mirror for linear 3D geometry only (tubes / ЛЭП), not point glTF models. */
+const LINE_FLIP_Z_MATRIX = new THREE.Matrix4().makeScale(1, 1, -1);
+
 type CachedLineAnchor = {
   translateX: number;
   translateY: number;
@@ -57,7 +60,8 @@ function applyLineMatrix(
     .identity()
     .makeTranslation(t.translateX, t.translateY, t.translateZ)
     .scale(new THREE.Vector3(s, -s, s))
-    .multiply(rotX);
+    .multiply(rotX)
+    .multiply(LINE_FLIP_Z_MATRIX);
 }
 
 type RenderableLine = {

@@ -437,7 +437,7 @@ erDiagram
 | Редактирование | только **2D** (OpenLayers на `/map`) |
 | Движок | **MapLibre GL JS** (база, extrusion, pick) + **Three.js** custom layers (точки glTF, линии-трубы) |
 | Точечные объекты | glTF **Kenney Industrial** (CC0) с палитрой 5 тонов от цвета слоя; fallback — процедурная модель или `fill-extrusion` |
-| Линейные объекты | 3D-трубы по DEM (`dm-3d-lines`), **прямые отрезки между вершинами** (как 2D `LineString`); MapLibre-линия — только для клика |
+| Линейные объекты | 3D-трубы по DEM (`dm-3d-lines`), **прямые отрезки между вершинами** (как 2D `LineString`); корневая матрица слоя — отражение по **Z** (`makeScale(1, 1, -1)`), только линии; MapLibre-линия — только для клика |
 | Рельеф | MapTiler Terrain RGB (`VITE_MAPTILER_KEY`), toggle «Рельеф (3D)» |
 | Масштаб | `MAP3D_OBJECT_SCALE` (= 5) в `map3dConfig.ts` — модели, трубы, extrusion |
 | Экраны | `/map`, превью отчёта (live), панель «Карта проекта» на `/matrix` |
@@ -497,6 +497,7 @@ erDiagram
 
 | Дата | Изменение |
 |------|-----------|
+| 2026-05 | 3D-линии: отражение корневой матрицы по **Z** (`dm-3d-lines` only); точечные glTF без отражения |
 | 2026-05 | Паритет вершин 2D/3D: единый `linePathForDisplay` + `infraSnapPool` (2D, GeoJSON pick, `buildNormalizedLinePath3d`, тест `linePath2d3dParity.test.ts`); коридор высот `planCorridorAlts`; snap при refresh рельефа |
 | 2026-05 | §1.5: правила рисования линии (начало/середина/конец, `node`), точная привязка концов (`linePathForDisplay`, `infraSnapPool`, heal); координаты — полные в БД, 3 знака в UI; §6.1 hotkeys; 3D-трубы = прямые сегменты |
 | 2026-05 | §6.4: glTF Kenney, Three.js линии, палитра, `MAP3D_OBJECT_SCALE`; см. [map-3d-features.md](./map-3d-features.md) |
