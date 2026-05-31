@@ -1,17 +1,13 @@
 import { test, expect } from '@playwright/test';
-import { createProject, registerAndLogin } from './helpers';
+import { createProject, loginViaUi, registerAndLogin } from './helpers';
 
 test.describe('Map', () => {
   test('map page loads in 2D mode', async ({ page, request }) => {
     const email = `e2e-map-${Date.now()}@test.ru`;
-    const { csrf, cookies } = await registerAndLogin(request, email, 'E2E Map');
-    const projectId = await createProject(request, csrf, cookies, `test_map_${Date.now()}`);
+    const csrf = await registerAndLogin(request, email, 'E2E Map');
+    await createProject(request, csrf, `test_map_${Date.now()}`);
 
-    await page.goto('/login');
-    await page.getByLabel('Email').fill(email);
-    await page.getByLabel('Пароль').fill('password1');
-    await page.getByRole('button', { name: /войти/i }).click();
-    await page.waitForURL(/\/(dashboard)?$/);
+    await loginViaUi(page, email);
 
     await page.goto('/map');
     await expect(page).toHaveURL(/\/map/);
