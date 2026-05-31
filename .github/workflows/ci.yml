@@ -69,6 +69,7 @@ jobs:
       SECRET_KEY: ci-test-secret-key-not-for-production
       DEMO_USERS_ENABLED: "false"
       ENVIRONMENT: test
+      PYTHONPATH: .
     steps:
       - uses: actions/checkout@v4
 
