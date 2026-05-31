@@ -1345,8 +1345,18 @@ table.data-table--projects .col-actions {
 }
 
 .map-tools-draw-actions:not(.map-tools-draw-actions--visible) {
-  visibility: hidden;
-  pointer-events: none;
+  display: none;
+}
+
+.map-tools-group--search {
+  margin-left: auto;
+  flex: 1 1 10rem;
+  min-width: 120px;
+  max-width: 220px;
+}
+
+.map-tools-group--search input {
+  width: 100%;
 }
 
 .map-tool-btn {
@@ -3404,19 +3414,19 @@ tr:hover .inline-table-edit-trigger,
   }
 
   .map-tools-group--poi {
-    flex: 1 1 100%;
-    max-width: 100%;
+    flex: 0 1 auto;
+    max-width: min(240px, 42vw);
   }
 
   .map-tools-group--poi .app-select--toolbar {
-    width: 100%;
     max-width: 100%;
   }
 
   .map-tools-group--search {
-    flex: 1 1 100%;
-    width: 100%;
-    max-width: none;
+    margin-left: auto;
+    flex: 1 1 8rem;
+    min-width: 100px;
+    max-width: min(220px, 36vw);
   }
 
   .map-tools-group--draw {
@@ -3425,14 +3435,9 @@ tr:hover .inline-table-edit-trigger,
   }
 
   .map-tools-draw-actions {
-    flex: 1 1 100%;
+    flex: 0 0 auto;
     min-width: 0;
     justify-content: flex-start;
-  }
-
-  .map-tools-draw-actions:not(.map-tools-draw-actions--visible) {
-    display: none;
-    visibility: hidden;
   }
 
   .map-tool-label {
@@ -3505,11 +3510,29 @@ tr:hover .inline-table-edit-trigger,
   }
 }
 
-@media (min-width: 1024px) {
-  .map-tools-group--search {
-    margin-left: auto;
+@media (max-width: 640px) {
+  .map-tools-group--poi {
+    flex: 1 1 100%;
+    max-width: 100%;
   }
 
+  .map-tools-group--poi .app-select--toolbar {
+    width: 100%;
+    max-width: 100%;
+  }
+
+  .map-tools-group--search {
+    flex: 1 1 100%;
+    margin-left: 0;
+    max-width: none;
+  }
+
+  .map-tools-draw-actions {
+    flex: 1 1 100%;
+  }
+}
+
+@media (min-width: 1024px) {
   .app-sidebar-toggle,
   .app-sidebar-backdrop,
   .map-layers-toggle,

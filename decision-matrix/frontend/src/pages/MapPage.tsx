@@ -2291,7 +2291,7 @@ export function MapPage() {
             {projectId && (
               <div
                 ref={searchAnchorRef}
-                className="map-tools-group map-tools-group--search relative min-w-[140px] max-w-[220px]"
+                className="map-tools-group map-tools-group--search relative"
               >
                 <Search size={14} className="absolute left-2 top-1/2 -translate-y-1/2 opacity-40 pointer-events-none" />
                 <input
