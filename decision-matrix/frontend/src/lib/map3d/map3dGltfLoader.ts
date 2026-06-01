@@ -1,6 +1,7 @@
 import * as THREE from 'three';
 import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
 import { MAP3D_OBJECT_SCALE } from './map3dConfig';
+import { fetchProjectCustomGlbBlob, isProjectCustomGlbFileUrl } from './map3dCustomGlbFetch';
 import { isCustomGltfAssetId, resolveGltfAssetDef } from './map3dCustomAssets';
 import type { Map3dGltfAssetDef } from './map3dGltfAssets';
 import {
@@ -176,6 +177,21 @@ function normalizePrototype(scene: THREE.Group, def: Map3dGltfAssetDef): THREE.G
   return root;
 }
 
+async function loadGltfSceneFromUrl(url: string): Promise<THREE.Group> {
+  if (isProjectCustomGlbFileUrl(url)) {
+    const blob = await fetchProjectCustomGlbBlob(url);
+    const objectUrl = URL.createObjectURL(blob);
+    try {
+      const gltf = await loader.loadAsync(objectUrl);
+      return gltf.scene;
+    } finally {
+      URL.revokeObjectURL(objectUrl);
+    }
+  }
+  const gltf = await loader.loadAsync(url);
+  return gltf.scene;
+}
+
 export function loadGltfPrototype(assetId: string): Promise<THREE.Group> {
   const id = assetId.trim().toLowerCase();
   const def = resolveGltfAssetDef(id);
@@ -183,7 +199,12 @@ export function loadGltfPrototype(assetId: string): Promise<THREE.Group> {
 
   let pending = prototypeCache.get(id);
   if (!pending) {
-    pending = loader.loadAsync(def.url).then((gltf) => normalizePrototype(gltf.scene, def));
+    pending = loadGltfSceneFromUrl(def.url)
+      .then((scene) => normalizePrototype(scene, def))
+      .catch((err) => {
+        prototypeCache.delete(id);
+        throw err;
+      });
     prototypeCache.set(id, pending);
   }
   return pending;
