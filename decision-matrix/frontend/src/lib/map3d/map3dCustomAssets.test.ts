@@ -1,0 +1,32 @@
+import { describe, expect, it } from 'vitest';
+import {
+  customModelPropertyId,
+  resolveGltfAssetDef,
+  setProjectCustomGltfAssets,
+} from './map3dCustomAssets';
+
+describe('map3dCustomAssets', () => {
+  it('registers custom models and resolves by custom: id', () => {
+    setProjectCustomGltfAssets('proj-1', [
+      {
+        id: 'aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee',
+        project_id: 'proj-1',
+        filename: 'tower.glb',
+        target_height_m: 12,
+        created_at: '2026-01-01T00:00:00Z',
+        assigned_object_id: null,
+      },
+    ]);
+    const key = customModelPropertyId('aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee');
+    expect(key).toBe('custom:aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee');
+    const def = resolveGltfAssetDef(key);
+    expect(def).not.toBeNull();
+    expect(def!.url).toContain('/projects/proj-1/map3d-custom-models/');
+    expect(def!.targetHeightM).toBe(12);
+  });
+
+  it('falls back to bundled assets', () => {
+    setProjectCustomGltfAssets('proj-1', []);
+    expect(resolveGltfAssetDef('tank')?.url).toContain('tank.glb');
+  });
+});

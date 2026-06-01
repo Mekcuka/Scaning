@@ -78,6 +78,7 @@ flowchart TB
 | `map3dLinesLayer.ts` | custom layer `dm-3d-lines` (трубы) |
 | `map3dGltfLoader.ts` | загрузка glTF, палитра по вершинам |
 | `map3dGltfAssets.ts` | пути к `/map3d-models/*.glb` |
+| `map3dCustomAssets.ts` | runtime-реестр загруженных GLB проекта (`custom:{uuid}`) |
 | `map3dModelCatalog.ts` | подтип → glTF asset / procedural template |
 | `map3dObjectPalette.ts` | 5 тонов от цвета слоя (pad/body/roof/accent/trim) |
 | `render3d.ts` | L2: `render_3d_*` + L1 fallback |
@@ -100,11 +101,14 @@ flowchart TB
 |------|----------|
 | `render_3d_height_m` | высота (м), масштабируется `MAP3D_OBJECT_SCALE` на клиенте |
 | `render_3d_base_m` | смещение основания над terrain (м) |
+| `render_3d_scale` | множитель размера 3D (модель, extrusion, трубы линий); по умолчанию `1`, диапазон 0.1–10 |
 | `render_3d_visible` | `false` — скрыть в 3D |
 | `render_3d_style` | `model` / `extrusion` |
-| `render_3d_model_id` | id glTF-ассета или алиас (`facility-large`, `stack`, `tank`, …) |
+| `render_3d_model_id` | id glTF-ассета или алиас (`facility-large`, `stack`, `tank`, …); префикс `custom:{uuid}` — GLB, загруженный администратором |
 
 Панель объекта → вкладка «Дополнительно» (в 3D-режиме).
+
+**Custom GLB:** страница `/import-3d` — загрузка `.glb` (до ~20 MB) только **администратором**; назначение **точечному** объекту и превью — **администратор** или **владелец проекта**. Файлы на диске backend (`data/map3d_models/{project_id}/{id}.glb`). Назначить `custom:*` через PATCH — те же роли, что и через UI назначения.
 
 ### L3 — glTF на клиенте (реализовано)
 

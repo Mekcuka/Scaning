@@ -140,7 +140,7 @@ function infraToFeatures(
       featureKind: 'infra' as const,
       color,
       opacity,
-      extrusion_height_m: scaleMap3dMeters(render.heightM),
+      extrusion_height_m: scaleMap3dMeters(render.heightM * render.scale),
       extrusion_base_m: render.baseM,
     };
 
@@ -171,7 +171,7 @@ function infraToFeatures(
 
     if (!shouldBuildPointExtrusion(obj.subtype, obj.properties, showModels)) continue;
 
-    const half = scaleMap3dMeters(footprintHalfSizeForSubtype(obj.subtype));
+    const half = scaleMap3dMeters(footprintHalfSizeForSubtype(obj.subtype) * render.scale);
     extrusionFeatures.push({
       type: 'Feature',
       id: obj.id,
@@ -207,7 +207,7 @@ function poisToFeatures(pois: POI[]): FeatureCollection<Point> {
         featureKind: 'poi' as const,
         color,
         opacity: 1,
-        extrusion_height_m: scaleMap3dMeters(render.heightM),
+        extrusion_height_m: scaleMap3dMeters(render.heightM * render.scale),
         extrusion_base_m: render.baseM,
       },
       geometry: { type: 'Point', coordinates: [poi.lon, poi.lat] },
@@ -222,7 +222,7 @@ function poiExtrusions(pois: POI[], showModels: boolean): FeatureCollection<Poly
     const render = resolveRender3D('poi');
     if (!render.visible) continue;
     if (!shouldBuildPointExtrusion('poi', undefined, showModels)) continue;
-    const half = scaleMap3dMeters(footprintHalfSizeForSubtype('poi'));
+    const half = scaleMap3dMeters(footprintHalfSizeForSubtype('poi') * render.scale);
     features.push({
       type: 'Feature',
       id: poi.id,
@@ -234,7 +234,7 @@ function poiExtrusions(pois: POI[], showModels: boolean): FeatureCollection<Poly
         featureKind: 'poi' as const,
         color: MAP_SUBTYPE_COLORS.poi,
         opacity: 1,
-        extrusion_height_m: scaleMap3dMeters(render.heightM),
+        extrusion_height_m: scaleMap3dMeters(render.heightM * render.scale),
         extrusion_base_m: render.baseM,
       },
       geometry: {

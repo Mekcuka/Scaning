@@ -1,7 +1,8 @@
 import * as THREE from 'three';
 import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
 import { MAP3D_OBJECT_SCALE } from './map3dConfig';
-import { gltfAssetDef } from './map3dGltfAssets';
+import { resolveGltfAssetDef } from './map3dCustomAssets';
+import type { Map3dGltfAssetDef } from './map3dGltfAssets';
 import {
   buildObjectColorPalette,
   paletteRoleForMesh,
@@ -9,6 +10,7 @@ import {
 } from './map3dObjectPalette';
 
 const loader = new GLTFLoader();
+loader.setWithCredentials(true);
 const prototypeCache = new Map<string, Promise<THREE.Group>>();
 
 const _worldPos = new THREE.Vector3();
@@ -95,7 +97,7 @@ export function applyGltfInstanceColor(
   });
 }
 
-function normalizePrototype(scene: THREE.Group, def: NonNullable<ReturnType<typeof gltfAssetDef>>): THREE.Group {
+function normalizePrototype(scene: THREE.Group, def: Map3dGltfAssetDef): THREE.Group {
   const root = new THREE.Group();
   root.add(scene);
 
@@ -130,7 +132,7 @@ function normalizePrototype(scene: THREE.Group, def: NonNullable<ReturnType<type
 
 export function loadGltfPrototype(assetId: string): Promise<THREE.Group> {
   const id = assetId.trim().toLowerCase();
-  const def = gltfAssetDef(id);
+  const def = resolveGltfAssetDef(id);
   if (!def) return Promise.reject(new Error(`Unknown glTF asset: ${assetId}`));
 
   let pending = prototypeCache.get(id);

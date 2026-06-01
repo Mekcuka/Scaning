@@ -63,6 +63,11 @@ from app.services.serializers import _infra_line_coordinates, infra_to_response,
 from app.services.spatial import list_candidates_by_subtype
 
 map_router = APIRouter()
+
+from app.api.v1.map3d_models import map3d_custom_models_router  # noqa: E402
+
+map_router.include_router(map3d_custom_models_router)
+
 COORD_MATCH_EPS = 1e-6
 
 
@@ -430,7 +435,7 @@ async def update_infra_object(
     user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
 ):
-    await _require_infra_write(project_id, user, db)
+    project = await _require_infra_write(project_id, user, db)
     obj = await _get_infra_object(object_id, project_id, db)
     payload = data.model_dump(exclude_unset=True)
     lon = payload.get("lon", obj.longitude)
@@ -497,9 +502,12 @@ async def update_infra_object(
         obj.layer_id = payload["layer_id"]
     if "properties" in payload:
         from app.geo.render_3d_properties import apply_default_render_3d
+        from app.services.map3d_custom_models import assert_can_set_custom_model_id
 
+        assert_can_set_custom_model_id(user, project, payload["properties"])
         merged_props = dict(obj.properties or {})
         merged_props.update(payload["properties"])
+        assert_can_set_custom_model_id(user, project, merged_props)
         obj.properties = apply_default_render_3d(subtype, merged_props)
     if "description" in payload:
         props = dict(obj.properties or {})

@@ -160,6 +160,23 @@ def patch_sqlite_schema(conn: Connection) -> None:
     if "scenario_criterion_values" in insp.get_table_names():
         conn.execute(text("DROP TABLE scenario_criterion_values"))
 
+    _create_table_if_missing(
+        conn,
+        "project_map3d_models",
+        """
+        CREATE TABLE project_map3d_models (
+            id CHAR(32) PRIMARY KEY,
+            project_id CHAR(32) NOT NULL,
+            filename VARCHAR(255) NOT NULL,
+            target_height_m FLOAT NOT NULL DEFAULT 8,
+            created_by_user_id CHAR(32),
+            created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+            FOREIGN KEY(project_id) REFERENCES projects(id) ON DELETE CASCADE,
+            FOREIGN KEY(created_by_user_id) REFERENCES users(id) ON DELETE SET NULL
+        )
+        """,
+    )
+
 
 def patch_postgres_schema(conn: Connection) -> None:
     """Incremental patches for PostgreSQL (create_all does not alter existing tables)."""

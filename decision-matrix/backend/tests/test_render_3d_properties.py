@@ -1,6 +1,7 @@
 from app.geo.render_3d_properties import (
     RENDER_3D_BASE_KEY,
     RENDER_3D_HEIGHT_KEY,
+    RENDER_3D_SCALE_KEY,
     RENDER_3D_VISIBLE_KEY,
     apply_default_render_3d,
     default_height_for_subtype,
@@ -29,6 +30,16 @@ def test_read_render_3d_override():
 def test_read_render_3d_visible_false():
     cfg = read_render_3d("node", {RENDER_3D_VISIBLE_KEY: False})
     assert cfg.visible is False
+
+
+def test_read_render_3d_scale_override():
+    cfg = read_render_3d("node", {RENDER_3D_SCALE_KEY: 1.5})
+    assert cfg.scale == 1.5
+
+
+def test_read_render_3d_scale_defaults_to_one():
+    cfg = read_render_3d("node", {})
+    assert cfg.scale == 1.0
 
 
 def test_merge_geojson_height_alias():

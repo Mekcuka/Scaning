@@ -4,6 +4,7 @@ import {
   LayoutDashboard,
   Map,
   Upload,
+  Box,
   FolderOpen,
   Grid3X3,
   FileText,
@@ -33,6 +34,7 @@ const NAV = [
   { to: '/matrix', icon: Grid3X3, label: 'Матрица', end: true },
   { to: '/report', icon: FileText, label: 'Отчёты', end: true },
   { to: '/import', icon: Upload, label: 'Импорт', end: true },
+  { to: '/import-3d', icon: Box, label: 'Импорт 3D', end: true },
   { to: '/admin', icon: Shield, label: 'Администрирование', end: true },
 ] as const;
 
@@ -40,7 +42,7 @@ export function AppLayout() {
   const { user, logout } = useAuthStore();
   const { role } = usePermissions();
   const { theme, toggleTheme, toasts, dismissToast } = useAppStore();
-  const { projects, projectId, setProjectId, hasProjects } = useActiveProject();
+  const { projects, projectId, activeProject, setProjectId, hasProjects } = useActiveProject();
   const navigate = useNavigate();
   const { pathname } = useLocation();
   const [navOpen, setNavOpen] = useState(false);
@@ -70,7 +72,9 @@ export function AppLayout() {
     navigate('/login');
   };
 
-  const visibleNav = NAV.filter(({ to }) => canSeeNav(role, to));
+  const visibleNav = NAV.filter(({ to }) =>
+    canSeeNav(role, to, { userId: user?.id, activeProject }),
+  );
 
   const closeNav = () => setNavOpen(false);
 

@@ -122,6 +122,7 @@ def infra_to_response(obj: InfrastructureObject) -> InfraObjectResponse:
             height_m=r3d.height_m,
             base_m=r3d.base_m,
             visible=r3d.visible,
+            scale=r3d.scale,
         ),
     )
 

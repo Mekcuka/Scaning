@@ -30,6 +30,7 @@ def _csv_import_properties(row: dict) -> dict:
     from app.geo.render_3d_properties import (
         RENDER_3D_BASE_KEY,
         RENDER_3D_HEIGHT_KEY,
+        RENDER_3D_SCALE_KEY,
         RENDER_3D_VISIBLE_KEY,
     )
 
@@ -38,6 +39,7 @@ def _csv_import_properties(row: dict) -> dict:
         RENDER_3D_HEIGHT_KEY,
         RENDER_3D_BASE_KEY,
         RENDER_3D_VISIBLE_KEY,
+        RENDER_3D_SCALE_KEY,
         "height_m",
         "elevation_m",
     ):

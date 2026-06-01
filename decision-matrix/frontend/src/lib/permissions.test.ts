@@ -1,5 +1,12 @@
 import { describe, expect, it } from 'vitest';
-import { can, canDeleteProject, canSeeNav, normalizeRole } from './permissions';
+import {
+  can,
+  canAssignMap3dCustomModel,
+  canDeleteProject,
+  canSeeNav,
+  canUploadMap3dCustomModel,
+  normalizeRole,
+} from './permissions';
 
 describe('permissions', () => {
   it('normalizeRole falls back to viewer', () => {
@@ -25,6 +32,20 @@ describe('permissions', () => {
   it('canSeeNav respects NAV_VISIBILITY', () => {
     expect(canSeeNav('viewer', '/import')).toBe(false);
     expect(canSeeNav('data_manager', '/import')).toBe(true);
+    expect(canSeeNav('admin', '/import-3d')).toBe(true);
+    expect(canSeeNav('viewer', '/import-3d')).toBe(false);
+    expect(canSeeNav('analyst', '/import-3d')).toBe(false);
+    expect(
+      canSeeNav('analyst', '/import-3d', {
+        userId: 'u1',
+        activeProject: { owner_user_id: 'u1' },
+      }),
+    ).toBe(true);
+    expect(canUploadMap3dCustomModel('admin')).toBe(true);
+    expect(canUploadMap3dCustomModel('analyst')).toBe(false);
+    expect(
+      canAssignMap3dCustomModel('analyst', 'u1', { owner_user_id: 'u1' }),
+    ).toBe(true);
     expect(canSeeNav('admin', '/admin')).toBe(true);
     expect(canSeeNav('viewer', '/admin')).toBe(false);
   });

@@ -73,6 +73,24 @@ class Project(Base):
         back_populates="project", cascade="all, delete-orphan"
     )
     one_pagers: Mapped[list["OnePager"]] = relationship(back_populates="project", cascade="all, delete-orphan")
+    map3d_models: Mapped[list["ProjectMap3dModel"]] = relationship(
+        back_populates="project", cascade="all, delete-orphan"
+    )
+
+
+class ProjectMap3dModel(Base):
+    __tablename__ = "project_map3d_models"
+
+    id: Mapped[uuid.UUID] = mapped_column(Uuid, primary_key=True, default=uuid.uuid4)
+    project_id: Mapped[uuid.UUID] = mapped_column(Uuid, ForeignKey("projects.id", ondelete="CASCADE"), index=True)
+    filename: Mapped[str] = mapped_column(String(255))
+    target_height_m: Mapped[float] = mapped_column(Float, default=8.0)
+    created_by_user_id: Mapped[uuid.UUID | None] = mapped_column(
+        Uuid, ForeignKey("users.id", ondelete="SET NULL"), nullable=True
+    )
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
+
+    project: Mapped["Project"] = relationship(back_populates="map3d_models")
 
 
 class ProjectCostRates(Base):

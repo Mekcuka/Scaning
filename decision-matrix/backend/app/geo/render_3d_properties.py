@@ -11,6 +11,11 @@ RENDER_3D_BASE_KEY = "render_3d_base_m"
 RENDER_3D_VISIBLE_KEY = "render_3d_visible"
 RENDER_3D_STYLE_KEY = "render_3d_style"
 RENDER_3D_MODEL_ID_KEY = "render_3d_model_id"
+RENDER_3D_SCALE_KEY = "render_3d_scale"
+
+DEFAULT_RENDER_3D_SCALE = 1.0
+MIN_RENDER_3D_SCALE = 0.1
+MAX_RENDER_3D_SCALE = 10.0
 
 _RESERVED_IMPORT_PROP_KEYS = frozenset({"type", "subtype", "name"})
 
@@ -60,6 +65,20 @@ def _parse_nonneg_float(raw: object | None) -> float | None:
     return n
 
 
+def _parse_positive_float(raw: object | None) -> float | None:
+    n = _parse_nonneg_float(raw)
+    if n is None or n <= 0:
+        return None
+    return n
+
+
+def _parse_render_3d_scale(raw: object | None) -> float:
+    n = _parse_positive_float(raw)
+    if n is None:
+        return DEFAULT_RENDER_3D_SCALE
+    return min(MAX_RENDER_3D_SCALE, max(MIN_RENDER_3D_SCALE, n))
+
+
 def _parse_visible(raw: object | None) -> bool:
     if raw is False or raw == "false":
         return False
@@ -71,6 +90,7 @@ class Render3DConfig:
     height_m: float
     base_m: float
     visible: bool
+    scale: float
 
 
 def read_render_3d(subtype: str, properties: dict | None) -> Render3DConfig:
@@ -81,6 +101,7 @@ def read_render_3d(subtype: str, properties: dict | None) -> Render3DConfig:
         height_m=height_override if height_override is not None else default_height_for_subtype(subtype),
         base_m=base_override if base_override is not None else 0.0,
         visible=_parse_visible(props.get(RENDER_3D_VISIBLE_KEY)),
+        scale=_parse_render_3d_scale(props.get(RENDER_3D_SCALE_KEY)),
     )
 
 
@@ -90,6 +111,7 @@ def render_3d_effective_dict(subtype: str, properties: dict | None) -> dict[str,
         "height_m": cfg.height_m,
         "base_m": cfg.base_m,
         "visible": cfg.visible,
+        "scale": cfg.scale,
     }
 
 

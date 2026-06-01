@@ -389,6 +389,24 @@ export const api = {
       `/projects/${projectId}/infrastructure/objects${query ? `?${query}` : ''}`
     );
   },
+  listMap3dCustomModels: (projectId: string) =>
+    request<Map3dCustomModel[]>(`/projects/${projectId}/map3d-custom-models`),
+  uploadMap3dCustomModel: (projectId: string, file: File, targetHeightM?: number) => {
+    const fd = new FormData();
+    fd.append('file', file);
+    if (targetHeightM != null) fd.append('target_height_m', String(targetHeightM));
+    return request<Map3dCustomModel>(`/projects/${projectId}/map3d-custom-models`, {
+      method: 'POST',
+      body: fd,
+    });
+  },
+  deleteMap3dCustomModel: (projectId: string, modelId: string) =>
+    request<void>(`/projects/${projectId}/map3d-custom-models/${modelId}`, { method: 'DELETE' }),
+  assignMap3dCustomModel: (projectId: string, modelId: string, objectId: string) =>
+    request<Map3dCustomModel>(`/projects/${projectId}/map3d-custom-models/${modelId}/assign`, {
+      method: 'POST',
+      body: JSON.stringify({ object_id: objectId }),
+    }),
   createInfraObject: (
     projectId: string,
     data: InfraObjectCreate,
@@ -626,6 +644,15 @@ export interface InfraLayer {
   style_config: Record<string, unknown>;
 }
 
+export interface Map3dCustomModel {
+  id: string;
+  project_id: string;
+  filename: string;
+  target_height_m: number;
+  created_at: string;
+  assigned_object_id: string | null;
+}
+
 export interface InfraObject {
   id: string;
   layer_id: string;
@@ -638,7 +665,7 @@ export interface InfraObject {
   end_lat?: number | null;
   coordinates?: number[][] | null;
   properties?: Record<string, unknown>;
-  render_3d_effective?: { height_m: number; base_m: number; visible: boolean };
+  render_3d_effective?: { height_m: number; base_m: number; visible: boolean; scale: number };
 }
 
 export interface InfraObjectCreate {

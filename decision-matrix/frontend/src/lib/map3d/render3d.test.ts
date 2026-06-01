@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 import { catalogEntryForSubtype } from './map3dModelCatalog';
 import {
   RENDER_3D_HEIGHT_KEY,
+  RENDER_3D_SCALE_KEY,
   RENDER_3D_STYLE_KEY,
   resolveRender3D,
   shouldUse3dModel,
@@ -18,6 +19,15 @@ describe('render3d', () => {
   it('reads L2 height override', () => {
     const r = resolveRender3D('node', { [RENDER_3D_HEIGHT_KEY]: 25 });
     expect(r.heightM).toBe(25);
+  });
+
+  it('reads L2 scale override', () => {
+    const r = resolveRender3D('node', { [RENDER_3D_SCALE_KEY]: 2.5 });
+    expect(r.scale).toBe(2.5);
+  });
+
+  it('defaults scale to 1', () => {
+    expect(resolveRender3D('node', {}).scale).toBe(1);
   });
 
   it('can hide in 3D via render_3d_visible', () => {

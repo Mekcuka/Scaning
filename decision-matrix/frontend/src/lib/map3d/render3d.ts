@@ -6,11 +6,18 @@ export const RENDER_3D_BASE_KEY = 'render_3d_base_m';
 export const RENDER_3D_VISIBLE_KEY = 'render_3d_visible';
 export const RENDER_3D_STYLE_KEY = 'render_3d_style';
 export const RENDER_3D_MODEL_ID_KEY = 'render_3d_model_id';
+/** Uniform size multiplier for 3D model / extrusion / line tube (1 = default). */
+export const RENDER_3D_SCALE_KEY = 'render_3d_scale';
+
+export const DEFAULT_RENDER_3D_SCALE = 1;
+export const MIN_RENDER_3D_SCALE = 0.1;
+export const MAX_RENDER_3D_SCALE = 10;
 
 export type Render3DConfig = {
   heightM: number;
   baseM: number;
   visible: boolean;
+  scale: number;
 };
 
 function readNumber(props: Record<string, unknown> | undefined, key: string): number | null {
@@ -22,6 +29,12 @@ function readNumber(props: Record<string, unknown> | undefined, key: string): nu
     return Number.isFinite(n) ? n : null;
   }
   return null;
+}
+
+function readPositiveScale(props: Record<string, unknown> | undefined): number {
+  const raw = readNumber(props, RENDER_3D_SCALE_KEY);
+  if (raw == null || raw <= 0) return DEFAULT_RENDER_3D_SCALE;
+  return Math.min(MAX_RENDER_3D_SCALE, Math.max(MIN_RENDER_3D_SCALE, raw));
 }
 
 /** Resolve 3D render params: L2 properties override L1 subtype defaults. */
@@ -40,6 +53,7 @@ export function resolveRender3D(
     heightM: heightOverride ?? defaultHeightForSubtype(subtype),
     baseM: baseOverride ?? 0,
     visible,
+    scale: readPositiveScale(props),
   };
 }
 

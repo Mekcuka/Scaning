@@ -16,6 +16,7 @@ import {
   FlowTechnologyPage,
   FlowsIndexRedirect,
   ImportPage,
+  Import3DPage,
   LoginPage,
   MapPage,
   MatrixPage,
@@ -71,6 +72,7 @@ function AppRoutes() {
                     <Route path="economic" element={<FlowEconomicPage />} />
                     <Route path="logistics" element={<FlowLogisticsPage />} />
                   </Route>
+                  <Route path="/import-3d" element={<Import3DPage />} />
                   <Route element={<RoleProtectedRoute roles={['admin']} />}>
                     <Route path="/admin" element={<AdminUsersPage />} />
                   </Route>

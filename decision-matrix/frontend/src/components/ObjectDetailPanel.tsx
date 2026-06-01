@@ -47,9 +47,13 @@ import {
   readEntryDateIso,
 } from '../lib/infraEntryDate';
 import {
+  DEFAULT_RENDER_3D_SCALE,
+  MAX_RENDER_3D_SCALE,
+  MIN_RENDER_3D_SCALE,
   RENDER_3D_BASE_KEY,
   RENDER_3D_HEIGHT_KEY,
   RENDER_3D_MODEL_ID_KEY,
+  RENDER_3D_SCALE_KEY,
   RENDER_3D_STYLE_KEY,
   RENDER_3D_VISIBLE_KEY,
   resolveRender3D,
@@ -233,6 +237,7 @@ export function ObjectDetailPanel({
   const [capacityValue, setCapacityValue] = useState<number | ''>('');
   const [render3dHeight, setRender3dHeight] = useState('');
   const [render3dBase, setRender3dBase] = useState('');
+  const [render3dScale, setRender3dScale] = useState(String(DEFAULT_RENDER_3D_SCALE));
   const [render3dVisible, setRender3dVisible] = useState(true);
   const [render3dStyle, setRender3dStyle] = useState('');
   const [render3dModelId, setRender3dModelId] = useState('');
@@ -280,6 +285,7 @@ export function ObjectDetailPanel({
     const r3 = resolveRender3D(o.subtype, o.properties);
     setRender3dHeight(String(r3.heightM));
     setRender3dBase(String(r3.baseM));
+    setRender3dScale(String(r3.scale));
     setRender3dVisible(r3.visible);
     const style = o.properties?.[RENDER_3D_STYLE_KEY];
     setRender3dStyle(typeof style === 'string' ? style : '');
@@ -326,6 +332,12 @@ export function ObjectDetailPanel({
       const b = render3dBase.trim() ? parseFloat(render3dBase) : null;
       if (h != null && Number.isFinite(h) && h >= 0) props[RENDER_3D_HEIGHT_KEY] = h;
       if (b != null && Number.isFinite(b) && b >= 0) props[RENDER_3D_BASE_KEY] = b;
+      const sc = render3dScale.trim() ? parseFloat(render3dScale) : null;
+      if (sc != null && Number.isFinite(sc) && sc > 0) {
+        const clamped = Math.min(MAX_RENDER_3D_SCALE, Math.max(MIN_RENDER_3D_SCALE, sc));
+        if (Math.abs(clamped - DEFAULT_RENDER_3D_SCALE) < 1e-6) delete props[RENDER_3D_SCALE_KEY];
+        else props[RENDER_3D_SCALE_KEY] = clamped;
+      }
       props[RENDER_3D_VISIBLE_KEY] = render3dVisible;
       if (!isLineSubtype(subtype)) {
         if (render3dStyle === 'model' || render3dStyle === 'extrusion') {
@@ -387,6 +399,7 @@ export function ObjectDetailPanel({
     capacityValue,
     render3dHeight,
     render3dBase,
+    render3dScale,
     render3dVisible,
     render3dStyle,
     render3dModelId,
@@ -487,6 +500,7 @@ export function ObjectDetailPanel({
     const r3Dirty =
       render3dHeight !== String(origR3.heightM) ||
       render3dBase !== String(origR3.baseM) ||
+      render3dScale !== String(origR3.scale) ||
       render3dVisible !== origR3.visible ||
       render3dStyle !== origStyle ||
       render3dModelId !== origModelId;
@@ -521,6 +535,7 @@ export function ObjectDetailPanel({
     capacityValue,
     render3dHeight,
     render3dBase,
+    render3dScale,
     render3dVisible,
   ]);
 
@@ -596,6 +611,7 @@ export function ObjectDetailPanel({
           const r3Dirty =
             render3dHeight !== String(origR3.heightM) ||
             render3dBase !== String(origR3.baseM) ||
+            render3dScale !== String(origR3.scale) ||
             render3dVisible !== origR3.visible ||
             render3dStyle !== origStyle ||
             render3dModelId !== origModelId;
@@ -957,6 +973,20 @@ export function ObjectDetailPanel({
                       readOnly={readOnly}
                       disabled={readOnly}
                       onChange={(e) => setRender3dBase(e.target.value)}
+                    />
+                  </label>
+                  <label className="object-detail-panel__field">
+                    <FieldLabel>Масштаб 3D (×)</FieldLabel>
+                    <input
+                      className="input object-detail-panel__input"
+                      type="number"
+                      min={MIN_RENDER_3D_SCALE}
+                      max={MAX_RENDER_3D_SCALE}
+                      step={0.1}
+                      value={render3dScale}
+                      readOnly={readOnly}
+                      disabled={readOnly}
+                      onChange={(e) => setRender3dScale(e.target.value)}
                     />
                   </label>
                   <label className="object-detail-panel__field object-detail-panel__field--row">

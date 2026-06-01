@@ -3,7 +3,27 @@
 > **Параметры ввода:** [input-parameters.md](./input-parameters.md). Актуальная SQL-схема — [database-schema.md](./database-schema.md).  
 > **Геометрия и пространственные расчёты:** [map-objects-and-spatial-calculations.md](./map-objects-and-spatial-calculations.md).  
 > **Расчётные функции:** [calculation-functions.md](./calculation-functions.md).  
-> **Схема потоков (PFD):** [fluid-flow-schematic.md](./fluid-flow-schematic.md) — отдельный визуальный поток от анализа окружения; использует граф сети и POI, не таблицу `poi_infrastructure_analysis`.
+> **Схема потоков (PFD):** [fluid-flow-schematic.md](./fluid-flow-schematic.md) — отдельный визуальный поток от анализа окружения; использует граф сети и POI, не таблицу `poi_infrastructure_analysis`.  
+> **Статус реализации:** [implementation-status.md](./implementation-status.md).
+
+## Актуальная реализация (FastAPI + React, май 2026)
+
+Код: `decision-matrix/`. Ниже в документе встречаются **исторические** блоки (NestJS/TypeScript) — они помечены как legacy-справка; ориентируйтесь на пути Python/React.
+
+| Модуль | Backend | Frontend |
+|--------|---------|----------|
+| Auth | `api/v1/auth.py`, `admin.py` | `LoginPage`, `RegisterPage`, `AdminUsersPage` |
+| Projects / POI | `api/v1/router.py` | `ProjectsPage`, `ProjectDetailPage` |
+| Map + import | `api/v1/map.py`, `import_connections.py` | `MapPage`, `ImportPage` |
+| Analysis | `services/infrastructure_analysis.py` | `MatrixPage`, карта |
+| Reports | `api/v1/one_pagers.py` | `pages/report/*` |
+| Flows PFD | `api/v1/flow.py`, `fluid_flow_schematic.py` | `pages/flows/*`, `FlowSchematicEditor` |
+| Graph | `api/v1/graph.py`, `graph_builder.py` | PFD + карта |
+| Sand | `api/v1/sand_logistics.py` | `SandParametersPage`, logistics schematic |
+
+**Префикс API:** `/api/v1/projects/{project_id}/...` для проектных ресурсов; Swagger — `/api/v1/docs`.
+
+---
 
 ## Общая архитектура
 
@@ -84,6 +104,23 @@ GET    /admin/stats            - Агрегаты (admin)
 ### 2. Map Module
 **Ответственность**: Управление геоданными, слоями карты, геообъектами
 
+**Реализация (FastAPI):** `api/v1/map.py`, `services/import_service.py`, `services/spatial.py`, `geo/constants.py`.
+
+**API (факт, префикс `/api/v1`):**
+```
+GET/POST/PATCH/DELETE  /projects/{id}/infrastructure/layers
+GET/POST/PATCH/DELETE  /projects/{id}/infrastructure/objects
+POST                   /projects/{id}/import/preview
+POST                   /projects/{id}/import/{csv|geojson|kml|shapefile|spark}
+POST                   /projects/{id}/import/{format}/async   # 202
+GET                    /import/logs
+GET                    /projects/{id}/pois/{poiId}/analysis
+GET                    /projects/{id}/pois/{poiId}/candidates
+```
+
+<details>
+<summary>Историческая схема (NestJS, справка)</summary>
+
 ```
 map/
 ├── controllers/
@@ -130,6 +167,8 @@ POST   /api/map/import/csv         - Импорт CSV
 POST   /api/map/import/shapefile   - Импорт Shapefile
 GET    /api/map/import/status/:id  - Статус импорта
 ```
+
+</details>
 
 **PostGIS функции**:
 ```sql

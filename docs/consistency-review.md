@@ -6,7 +6,8 @@
 
 | Категория | Статус |
 |-----------|--------|
-| Навигация (7 разделов + Admin) | Согласовано |
+| Док ↔ код (сводка) | [implementation-status.md](./implementation-status.md) |
+| Навигация (Параметры, Потоки, ставки внутри Параметров) | Согласовано (май 2026) |
 | OpenLayers / Lucide | Согласовано |
 | Импорт отдельно от карты | Согласовано |
 | 16 ставок, тыс. ₽ | Согласовано |
@@ -63,6 +64,19 @@
 | Подтверждение email | Не MVP (FR-14.1.1); user-flows §1 |
 | Legacy `decision_matrices` | Не удалять (FR-14.1.3) |
 | Seed `criteria` | Legacy для универсальных матриц (FR-14.1.5) |
+
+## Ревизия: согласование с кодом приложения (май 2026)
+
+| Решение | Где зафиксировано |
+|---------|-------------------|
+| Единый статус реализации | [implementation-status.md](./implementation-status.md) |
+| Меню UI: Параметры вместо отдельных «Ставки»; `/flows`, `/import` | implementation-status, FR-12.2.2 (примечание) |
+| 2D basemap: Esri satellite; OSM 2D — gap | implementation-status, FR-2.1.2 |
+| Async import без Celery | implementation-status, development-plan неделя 4 |
+| Расширенные подтипы карты vs 9 строк матрицы | map-objects §1.4, implementation-status |
+| 3D, PFD, песок, Искра — реализовано | map-3d-features, fluid-flow-schematic, spark-import-mapping |
+| PDF = client print; PPTX = server | decision-matrix/README, implementation-status |
+| TOPSIS / decision_matrices — удалено из UI | § «Удаление ранжирования» ниже |
 
 ## Ревизия: схема потоков PFD (май 2026)
 

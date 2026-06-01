@@ -370,10 +370,24 @@ class InfraObjectUpdate(BaseModel):
     properties: dict | None = None
 
 
+class Map3dCustomModelResponse(BaseModel):
+    id: UUID
+    project_id: UUID
+    filename: str
+    target_height_m: float
+    created_at: datetime
+    assigned_object_id: UUID | None = None
+
+
+class Map3dCustomModelAssign(BaseModel):
+    object_id: UUID
+
+
 class Render3DEffective(BaseModel):
     height_m: float
     base_m: float
     visible: bool
+    scale: float = 1.0
 
 
 class InfraObjectResponse(BaseModel):

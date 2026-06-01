@@ -6,6 +6,9 @@
 
 **Дата актуализации:** май 2026.
 
+> **Согласование с кодом:** экраны и маршруты UI — [implementation-status.md](./implementation-status.md).  
+> **Подтипы на карте** (полный справочник, больше 8+КП) — [map-objects-and-spatial-calculations.md](./map-objects-and-spatial-calculations.md) §1.4; в **матрице анализа** по-прежнему 9 строк (4 internal linear + 4 external Point + кустовые площадки).
+
 ---
 
 ## Легенда
@@ -45,7 +48,9 @@
 
 ### §1.2 Ставки стоимости (16 показателей, FR-4.1.2)
 
-Одна строка на пару `(project_id, subtype)` в `project_cost_rates`. Ключи совпадают с `id` подтипа в API и UI ставок.
+Одна строка на пару `(project_id, subtype)` в `project_cost_rates`. Ключи совпадают с `id` подтипа в API и UI.
+
+**UI:** экран **Параметры → Ставки** (`/parameters/rates`); в колонке «UI» ниже — «Ставки» или «Параметры → Ставки».
 
 #### Линейные внутренние (`rate_unit = per_km`, тыс. ₽/км)
 

@@ -253,7 +253,7 @@ export class Map3dModelsCustomLayer implements CustomLayerInterface {
       const t = this.transformCache.get(inst.id);
       if (!group || !t) continue;
 
-      const scaleMul = inst.selected ? 1.08 : 1;
+      const scaleMul = (inst.selected ? 1.08 : 1) * inst.scale;
       buildLocalMatrix(t, scaleMul, this.localMatrix, this.rotX, this.rotY, this.rotZ);
 
       this.camera.projectionMatrix.copy(this.projMatrix).multiply(this.localMatrix);

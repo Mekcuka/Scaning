@@ -52,6 +52,11 @@ def can_own_project(user: User, project: Project) -> bool:
     return is_admin(user) or is_owner(user, project)
 
 
+def can_assign_map3d_custom_model(user: User, project: Project) -> bool:
+    """Assign uploaded GLB to infra objects: administrator or project owner."""
+    return is_admin(user) or is_owner(user, project)
+
+
 async def resolve_project(
     project_id: UUID,
     user: User,

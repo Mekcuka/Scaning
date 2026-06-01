@@ -68,8 +68,9 @@ export function buildMap3dLineInstances(
     const { path, alts } = built;
     const height = render.heightM;
     const radius = scaleMap3dMeters(
-      LINE_RADIUS_M[obj.subtype] ??
-        Math.max(1.2, Math.min(6, height > 0 ? height * 0.35 : DEFAULT_RADIUS_M)),
+      (LINE_RADIUS_M[obj.subtype] ??
+        Math.max(1.2, Math.min(6, height > 0 ? height * 0.35 : DEFAULT_RADIUS_M))) *
+        render.scale,
     );
 
     out.push({

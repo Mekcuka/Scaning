@@ -9,7 +9,7 @@
 ## Стек
 
 - **Backend:** FastAPI, SQLAlchemy 2.0, PostgreSQL + PostGIS или SQLite, JWT (httpOnly cookies + RBAC)
-- **Frontend:** React 18, TypeScript, Vite, Tailwind CSS, OpenLayers, TanStack Query, Zustand, React Hook Form + Zod
+- **Frontend:** React 19, TypeScript, Vite, Tailwind CSS, OpenLayers (2D), MapLibre + Three.js (3D), TanStack Query, Zustand, React Hook Form + Zod
 
 ## GitHub Pages
 
@@ -111,10 +111,11 @@ decision-matrix/
 │   ├── app/
 │   │   ├── main.py                    # FastAPI entry
 │   │   ├── api/v1/
-│   │   │   ├── router.py              # Projects, POI, one-pagers
-│   │   │   ├── auth.py                # Login, register, refresh, logout
-│   │   │   ├── admin.py               # User management (admin)
-│   │   │   └── map.py                 # Карта, импорт, инфраструктура
+│   │   │   ├── router.py              # Projects, POI, rates, economic-params
+│   │   │   ├── auth.py, admin.py
+│   │   │   ├── map.py                 # Карта, импорт, инфраструктура
+│   │   │   ├── one_pagers.py, flow.py, graph.py
+│   │   │   ├── import_connections.py, sand_logistics.py
 │   │   ├── api/rbac.py                # require_roles
 │   │   ├── services/project_access.py # RBAC по проектам
 │   │   ├── models/                    # SQLAlchemy models
@@ -128,21 +129,27 @@ decision-matrix/
         └── hooks/usePermissions.ts
 ```
 
-## Реализованные модули (MVP)
+## Реализованные модули
+
+> Детали и пробелы относительно FR: [docs/implementation-status.md](../docs/implementation-status.md).
 
 | Модуль | Статус |
 |--------|--------|
 | Auth (JWT cookies, CSRF, refresh, logout) | ✅ |
-| RBAC (4 роли, project access, admin API) | ✅ |
+| RBAC (4 роли, project access, admin API + stats) | ✅ |
 | Auth UI (login, register, admin page) | ✅ |
-| Проекты, POI | ✅ |
-| Ставки (16 показателей) | ✅ |
-| Инфраструктура + PostGIS (geometry, слои) | ✅ |
-| Анализ окружения POI (persist + candidates) | ✅ |
-| Карта OpenLayers (рисование, радиусы, линии POI→external) | ✅ |
-| Матрица (таблица + карточки) | ✅ UI |
-| Импорт CSV / GeoJSON / экспорт Искра | ✅ |
-| Одностраничник (FR-11: CRUD, PDF print, PPTX export) | ✅ |
+| Проекты, POI, пороги, visibility `published` | ✅ |
+| Параметры: ставки (16), пропускная способность, песок, даты ввода | ✅ |
+| Инфраструктура + PostGIS / haversine (слои, точки, линии) | ✅ |
+| Анализ окружения POI (persist + candidates + override) | ✅ |
+| Карта 2D OpenLayers (рисование, поиск, радиусы, линии POI→external) | ✅ |
+| Карта 3D MapLibre (`VITE_MAP_3D_ENABLED`) | ✅ |
+| Матрица (таблица + карточки, eng-бейджи, фильтр превышений) | ✅ |
+| Импорт: CSV, GeoJSON, KML, Shapefile, Spark, API connections, async | ✅ |
+| Потоки PFD (`/flows`) | ✅ |
+| Граф сети (build/list nodes/edges) | ✅ |
+| Одностраничник (CRUD, PDF print, PPTX export) | ✅ |
+| Песок / логистика (analyze API + UI) | ✅ |
 
 ## API
 
@@ -167,26 +174,28 @@ POST /api/v1/projects
 GET  /api/v1/projects/:id
 PATCH /api/v1/projects/:id
 DELETE /api/v1/projects/:id
-GET  /api/v1/projects/:id/rates
-PUT  /api/v1/projects/:id/rates
-GET  /api/v1/projects/:id/pois
-POST /api/v1/projects/:id/pois
-POST /api/v1/projects/:id/pois/:poiId/analyze
-GET  /api/v1/projects/:id/infrastructure/objects
-PATCH/DELETE .../infrastructure/objects/:id
+GET/PUT  /api/v1/projects/:id/rates
+GET/PUT  /api/v1/projects/:id/distance-defaults
+GET/PUT  /api/v1/projects/:id/economic-params
+GET/POST /api/v1/projects/:id/pois
+PATCH/DELETE .../pois/:poiId
+POST     .../pois/:poiId/analyze
+POST     .../pois/analyze-all
+GET      .../pois/:poiId/analysis
+GET      .../pois/:poiId/candidates?subtype=
+PATCH    .../pois/:poiId/analysis/:subtype
 GET/POST/PATCH/DELETE .../infrastructure/layers
-GET  /api/v1/projects/:id/pois/:poiId/analysis
-GET  /api/v1/projects/:id/pois/:poiId/candidates?subtype=
-POST /api/v1/projects/:id/import/csv
-POST /api/v1/projects/:id/import/geojson
-POST /api/v1/projects/:id/import/spark
-GET  /api/v1/import/logs?project_id=
-GET  /api/v1/projects/:id/one-pagers
-POST /api/v1/projects/:id/one-pagers
-GET  /api/v1/projects/:id/one-pagers/:opId
-PUT  /api/v1/projects/:id/one-pagers/:opId
-DELETE /api/v1/projects/:id/one-pagers/:opId
-POST /api/v1/projects/:id/one-pagers/:opId/export/pptx
+GET/POST/PATCH/DELETE .../infrastructure/objects
+POST     .../import/preview | csv | geojson | kml | shapefile | spark (+ /async где есть)
+GET      /api/v1/import/logs
+GET/POST/PATCH/DELETE .../import_connections
+POST     .../import/sync/:connectionId
+GET/PUT/DELETE .../flow-schematic
+GET/POST .../infrastructure/networks/build
+GET      .../infrastructure/networks/:id/nodes|edges
+POST     .../sand-logistics/analyze
+GET/POST/PUT/DELETE .../one-pagers
+POST     .../one-pagers/:opId/export/pptx
 ```
 
 PDF генерируется на клиенте (`window.print()` + print CSS). PPTX — backend (`python-pptx`), снимок карты передаётся как `map_snapshot_base64`.

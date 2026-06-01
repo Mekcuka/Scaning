@@ -39,4 +39,4 @@ npm run dev
 
 ## Документация
 
-[docs/](docs/) — требования, архитектура, [auth-rbac.md](docs/auth-rbac.md), план разработки.
+[docs/](docs/) — требования, архитектура, [auth-rbac.md](docs/auth-rbac.md), **[статус реализации](docs/implementation-status.md)**, план разработки.

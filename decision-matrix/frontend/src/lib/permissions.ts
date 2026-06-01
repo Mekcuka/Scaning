@@ -42,6 +42,20 @@ export function canDeleteProject(
   return project.owner_user_id === userId;
 }
 
+/** Upload custom GLB: administrator only. */
+export function canUploadMap3dCustomModel(role: string | undefined | null): boolean {
+  return normalizeRole(role) === 'admin';
+}
+
+/** Assign custom GLB / preview on Import 3D page: administrator or project owner. */
+export function canAssignMap3dCustomModel(
+  role: string | undefined | null,
+  userId: string | undefined | null,
+  project: { owner_user_id?: string | null } | null | undefined,
+): boolean {
+  return canDeleteProject(role, userId, project ?? {});
+}
+
 export const NAV_VISIBILITY: Record<string, UserRole[]> = {
   '/': ['admin', 'analyst', 'data_manager', 'viewer'],
   '/projects': ['admin', 'analyst', 'viewer'],
@@ -54,7 +68,17 @@ export const NAV_VISIBILITY: Record<string, UserRole[]> = {
   '/admin': ['admin'],
 };
 
-export function canSeeNav(role: string | undefined | null, path: string): boolean {
+export function canSeeNav(
+  role: string | undefined | null,
+  path: string,
+  ctx?: { userId?: string | null; activeProject?: { owner_user_id?: string | null } | null },
+): boolean {
+  if (path === '/import-3d') {
+    return (
+      canUploadMap3dCustomModel(role) ||
+      canAssignMap3dCustomModel(role, ctx?.userId, ctx?.activeProject)
+    );
+  }
   const allowed = NAV_VISIBILITY[path];
   if (!allowed) return true;
   return hasRole(role, ...allowed);

@@ -52,6 +52,8 @@ import {
   isMaptilerTerrainAvailable,
   MAP3D_TERRAIN_TOAST_KEY,
 } from '../lib/map3d/map3dConfig';
+import { setProjectCustomGltfAssets } from '../lib/map3d/map3dCustomAssets';
+import { clearGltfPrototypeCache } from '../lib/map3d/map3dGltfLoader';
 import {
   loadMapViewState,
   resolveInitialMapView3d,
@@ -359,6 +361,22 @@ export function MapPage() {
     refetchOnMount: 'always',
     placeholderData: keepPreviousData,
   });
+
+  const { data: map3dCustomModels = [] } = useQuery({
+    queryKey: ['map3d-custom-models', projectId],
+    queryFn: () => api.listMap3dCustomModels(projectId!),
+    enabled: !!projectId,
+  });
+
+  useEffect(() => {
+    if (!projectId) {
+      setProjectCustomGltfAssets('', []);
+      clearGltfPrototypeCache();
+      return;
+    }
+    setProjectCustomGltfAssets(projectId, map3dCustomModels);
+    clearGltfPrototypeCache();
+  }, [projectId, map3dCustomModels]);
 
   useEffect(() => {
     if (!infraLoadError || !projectId) return;

@@ -1,6 +1,7 @@
 # Стратегия тестирования
 
-> Пользовательские потоки: [user-flows.md](./user-flows.md)
+> Пользовательские потоки: [user-flows.md](./user-flows.md)  
+> Статус функционала и маршруты UI: [implementation-status.md](./implementation-status.md)
 
 ## Пирамида
 

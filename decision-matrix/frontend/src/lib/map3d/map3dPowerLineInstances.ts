@@ -73,7 +73,7 @@ export function buildMap3dPowerLineInstances(
       alts,
       startWire,
       finishWire,
-      towerHeightM: render.heightM,
+      towerHeightM: render.heightM * render.scale,
       baseM: render.baseM,
       selected: selectedId === obj.id,
     });

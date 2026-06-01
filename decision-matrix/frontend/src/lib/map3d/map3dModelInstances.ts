@@ -21,6 +21,8 @@ export type Map3dModelInstance = {
   lat: number;
   heightM: number;
   baseM: number;
+  /** Uniform 3D size multiplier (from render_3d_scale). */
+  scale: number;
   color: string;
   catalog: Map3dModelCatalogEntry;
   selected: boolean;
@@ -72,6 +74,7 @@ export function buildMap3dModelInstances(input: {
       lat: obj.lat,
       heightM: render.heightM,
       baseM: render.baseM,
+      scale: render.scale,
       color: resolveColor(obj.subtype, obj.layer_id, maps),
       catalog,
       selected: selectedId === obj.id,
@@ -93,6 +96,7 @@ export function buildMap3dModelInstances(input: {
         lat: poi.lat,
         heightM: render.heightM,
         baseM: render.baseM,
+        scale: render.scale,
         color: MAP_SUBTYPE_COLORS.poi,
         catalog,
         selected: selectedId === poi.id,
