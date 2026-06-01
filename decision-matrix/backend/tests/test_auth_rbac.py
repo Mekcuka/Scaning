@@ -91,6 +91,18 @@ def test_csrf_blocks_mutating_without_header(client: TestClient):
     assert res.status_code == 403
 
 
+def test_bearer_skips_csrf_without_header(client: TestClient):
+    res = _register(client, "bearercsrf@test.ru", "Bearer CSRF")
+    token = res.json()["access_token"]
+    client.cookies.clear()
+    created = client.post(
+        "/api/v1/projects",
+        json={"name": "Bearer only"},
+        headers={"Authorization": f"Bearer {token}"},
+    )
+    assert created.status_code == 201
+
+
 def test_csrf_allows_with_header(client: TestClient):
     _register(client, "csrf2@test.ru", "CSRF User 2")
     res = client.post(

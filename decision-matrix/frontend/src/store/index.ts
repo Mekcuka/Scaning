@@ -1,5 +1,5 @@
 import { create } from 'zustand';
-import { api, clearServerSession, type AuthUser } from '../lib/api';
+import { api, clearServerSession, syncClientAuthSession, type AuthUser } from '../lib/api';
 
 /** Ignore stale fetchUser() after login/register/logout. */
 let authEpoch = 0;
@@ -62,6 +62,10 @@ export const useAuthStore = create<AuthState>((set) => ({
     const epoch = authEpoch;
     try {
       const user = await api.me();
+      if (epoch !== authEpoch) return;
+      if (user) {
+        await syncClientAuthSession();
+      }
       if (epoch !== authEpoch) return;
       set({ user });
     } catch {

@@ -56,6 +56,29 @@ function getCsrfToken(): string | null {
   return match ? decodeURIComponent(match[1]) : null;
 }
 
+function hasStoredCsrf(): boolean {
+  return Boolean(sessionStorage.getItem(CSRF_STORAGE_KEY));
+}
+
+const AUTH_CSRF_EXEMPT = /^\/auth\/(login|register|refresh)$/;
+
+/** Bearer + CSRF in sessionStorage after reload on cross-origin (GitHub Pages). */
+export async function syncClientAuthSession(): Promise<boolean> {
+  if (getAccessToken() && hasStoredCsrf()) return true;
+  return tryRefreshSession();
+}
+
+function isCsrfErrorDetail(detail: unknown): boolean {
+  return typeof detail === 'string' && detail.includes('CSRF');
+}
+
+async function ensureMutatingSessionHeaders(path: string, method: string): Promise<void> {
+  if (!MUTATING_METHODS.has(method) || AUTH_CSRF_EXEMPT.test(path)) return;
+  if (!getAccessToken() || !hasStoredCsrf()) {
+    await tryRefreshSession();
+  }
+}
+
 let refreshInFlight: Promise<boolean> | null = null;
 
 async function tryRefreshSession(): Promise<boolean> {
@@ -137,6 +160,8 @@ function formatApiError(detail: unknown, fallback: string): string {
 
 async function request<T>(path: string, options: RequestOptions = {}): Promise<T> {
   const { redirectOn401 = true, timeoutMs, _retry = false, allowNotFound = false, ...fetchOptions } = options;
+  const method = (fetchOptions.method ?? 'GET').toUpperCase();
+  await ensureMutatingSessionHeaders(path, method);
   const headers: Record<string, string> = {
     ...(fetchOptions.headers as Record<string, string>),
   };
@@ -144,7 +169,6 @@ async function request<T>(path: string, options: RequestOptions = {}): Promise<T
   if (!isForm) {
     headers['Content-Type'] = 'application/json';
   }
-  const method = (fetchOptions.method ?? 'GET').toUpperCase();
   if (MUTATING_METHODS.has(method)) {
     const csrf = getCsrfToken();
     if (csrf) headers['X-CSRF-Token'] = csrf;
@@ -192,6 +216,9 @@ async function request<T>(path: string, options: RequestOptions = {}): Promise<T
   }
   if (res.status === 403) {
     const err = await res.json().catch(() => ({ detail: null }));
+    if (!_retry && isCsrfErrorDetail(err.detail) && (await tryRefreshSession())) {
+      return request<T>(path, { ...options, _retry: true });
+    }
     throw new Error(formatApiError(err.detail, 'Недостаточно прав для этого действия'));
   }
   if (res.status === 404 && allowNotFound) {
@@ -208,10 +235,11 @@ async function request<T>(path: string, options: RequestOptions = {}): Promise<T
 
 async function requestBlob(path: string, options: RequestOptions = {}): Promise<Blob> {
   const { redirectOn401 = true, timeoutMs, _retry = false, ...fetchOptions } = options;
+  const method = (fetchOptions.method ?? 'GET').toUpperCase();
+  await ensureMutatingSessionHeaders(path, method);
   const headers: Record<string, string> = {
     ...(fetchOptions.headers as Record<string, string>),
   };
-  const method = (fetchOptions.method ?? 'GET').toUpperCase();
   if (MUTATING_METHODS.has(method)) {
     const csrf = getCsrfToken();
     if (csrf) headers['X-CSRF-Token'] = csrf;
@@ -237,6 +265,13 @@ async function requestBlob(path: string, options: RequestOptions = {}): Promise<
   if (res.status === 401 && !_retry && redirectOn401) {
     const refreshed = await tryRefreshSession();
     if (refreshed) return requestBlob(path, { ...options, _retry: true });
+  }
+  if (res.status === 403) {
+    const err = await res.json().catch(() => ({ detail: null }));
+    if (!_retry && isCsrfErrorDetail(err.detail) && (await tryRefreshSession())) {
+      return requestBlob(path, { ...options, _retry: true });
+    }
+    throw new Error(formatApiError(err.detail, 'Недостаточно прав для этого действия'));
   }
   if (!res.ok) {
     const err = await res.json().catch(() => ({ detail: res.statusText }));
