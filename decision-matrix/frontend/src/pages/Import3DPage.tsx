@@ -13,7 +13,6 @@ import {
 import { Import3dPreview } from '../components/map3d/Import3dPreview';
 import { AppSelect } from '../components/AppSelect';
 import { api, SUBTYPE_LABELS, type Map3dCustomModel } from '../lib/api';
-import { isLineSubtype } from '../lib/infraGeometry';
 import {
   canAssignMap3dCustomModel,
   canUploadMap3dCustomModel,
@@ -278,8 +277,6 @@ export function Import3DPage() {
     queryFn: () => api.getInfraObjects(projectId!),
     enabled: !!projectId && canAssign,
   });
-
-  const pointObjects = infraObjects.filter((o) => !isLineSubtype(o.subtype));
 
   const assignableSubtypeOptions = useMemo(
     () =>

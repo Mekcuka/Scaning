@@ -155,7 +155,7 @@ export function MapPage() {
   const queryClient = useQueryClient();
   const pushToast = useAppStore((s) => s.pushToast);
   const { prefs: layerPrefs, setPrefs: setLayerPrefs, setOpenSections: setLayerOpenSections } =
-    useMapLayerPreferences(projectId);
+    useMapLayerPreferences(projectId ?? null);
   const {
     showBasemap,
     showTerrain,

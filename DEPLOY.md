@@ -118,7 +118,7 @@ Get-Content -Raw "C:\Users\user\Documents\mykey\ssh-key\ssh-key-1779903372392" |
 
 | Параметр | Значение для проекта |
 |----------|----------------------|
-| `CORS_ORIGINS` | `https://mekcuka.github.io,http://localhost:5173` (дефолт в `deploy/setup-vm-app-env.ps1`; для Pages-репо **Scaning**: добавьте `https://mekcuka.github.io/Scaning` при необходимости) |
+| `CORS_ORIGINS` | `http://localhost:5173,http://127.0.0.1:5173,https://mekcuka.github.io` (без пути `/Scaning` — origin только схема+хост). Дефолт в `deploy/setup-vm-app-env.ps1`. |
 | `DATABASE_URL` | При `-LocalDb`: `postgresql+asyncpg://sppr:<password>@db:5432/sppr` |
 | Swagger | https://erascaning.duckdns.org/api/v1/docs |
 
@@ -138,7 +138,7 @@ cd C:\Users\user\Documents\Cursore
   -VmUser "vovavolgin91" `
   -KeyPath "C:\Users\user\Documents\mykey\ssh-key\ssh-key-1779903372392" `
   -LocalDb `
-  -CorsOrigins "https://mekcuka.github.io,https://mekcuka.github.io/Scaning,http://localhost:5173"
+  -CorsOrigins "http://localhost:5173,http://127.0.0.1:5173,https://mekcuka.github.io"
 ```
 
 Скрипт: `deploy/setup-vm-app-env.ps1` (SSH-ключ по умолчанию `~/.ssh/yc_deploy_key`).

@@ -80,8 +80,10 @@ flowchart TB
 | `map3dGltfAssets.ts` | пути к `/map3d-models/*.glb` |
 | `map3dCustomAssets.ts` | runtime-реестр загруженных GLB проекта (`custom:{uuid}`) |
 | `map3dModelCatalog.ts` | подтип → glTF asset / procedural template |
+| `render3dModelOptions.ts` | опции выпадающего списка «Модель 3D» (стандарт + custom по `assigned_subtype`) |
+| `mapLayerPreferences.ts` | сохранение переключателей панели «Слои» в `localStorage` |
 | `map3dObjectPalette.ts` | 5 тонов от цвета слоя (pad/body/roof/accent/trim) |
-| `render3d.ts` | L2: `render_3d_*` + L1 fallback |
+| `render3d.ts` | L2: `render_3d_*` + L1 fallback; `effectiveRender3dHeightM` = height × scale |
 | `extrusionHeights.ts` | L1 высоты (синхрон с backend JSON) |
 
 Компонент: [`MapView3D.tsx`](../decision-matrix/frontend/src/components/MapView3D.tsx).
@@ -101,14 +103,44 @@ flowchart TB
 |------|----------|
 | `render_3d_height_m` | высота (м), масштабируется `MAP3D_OBJECT_SCALE` на клиенте |
 | `render_3d_base_m` | смещение основания над terrain (м) |
-| `render_3d_scale` | множитель размера 3D (модель, extrusion, трубы линий); по умолчанию `1`, диапазон 0.1–10 |
+| `render_3d_scale` | множитель размера 3D (модель, extrusion, трубы линий); по умолчанию `1`, диапазон 0.1–10; на карте: эффективная высота glTF = `render_3d_height_m × render_3d_scale` |
 | `render_3d_visible` | `false` — скрыть в 3D |
 | `render_3d_style` | `model` / `extrusion` |
 | `render_3d_model_id` | опционально: переопределение модели на объекте; пусто — встроенная Kenney по подтипу; `custom:{uuid}` — GLB проекта, если модель назначена на этот подтип |
 
-Панель объекта → вкладка «Дополнительно» → блок **«Отображение в 3D»**: выпадающий список **«Модель 3D»** (`buildRender3dModelOptions`) — **Стандартная** (пустое значение, каталог [`map3dModelCatalog.ts`](../decision-matrix/frontend/src/lib/map3d/map3dModelCatalog.ts)) + все custom GLB с `assigned_subtype`, совпадающим с подтипом объекта.
+Панель объекта → вкладка «Дополнительно» → блок **«Отображение в 3D»**:
 
-**Custom GLB:** страница `/import-3d` — загрузка `.glb` (до ~20 MB) только **администратором**; **назначение на подтип** (`assigned_subtype` в `project_map3d_models`) и превью — **администратор** или **владелец проекта**. Файлы: `data/map3d_models/{project_id}/{id}.glb`. PATCH `render_3d_model_id: custom:*` — только если модель существует и `assigned_subtype` совпадает с подтипом объекта (иначе 400). Удаление GLB снимает override у объектов с этим `custom:{uuid}`.
+| Поле UI | Свойство | Назначение |
+|---------|----------|------------|
+| Высота (м) | `render_3d_height_m` | номинальная высота модели / extrusion |
+| Основание (м) | `render_3d_base_m` | смещение над рельефом |
+| **Масштаб 3D (×)** | `render_3d_scale` | множитель размера (0.1–10); влияет на glTF, extrusion и трубы |
+| **Стиль 3D** | `render_3d_style` | `model` (glTF) или `extrusion` (столбик MapLibre) |
+| **Модель 3D** | `render_3d_model_id` | пусто = стандартная Kenney; `custom:{uuid}` = переопределение на точке |
+
+Выпадающий список **«Модель 3D»** (`buildRender3dModelOptions`) — **Стандартная** (пустое значение, каталог [`map3dModelCatalog.ts`](../decision-matrix/frontend/src/lib/map3d/map3dModelCatalog.ts)) + все custom GLB с `assigned_subtype`, совпадающим с подтипом объекта. Поле **не дублирует** «Стиль 3D»: стиль задаёт тип отображения; модель — конкретный ассет.
+
+### Custom GLB (проектные модели)
+
+**Страница:** `/import-3d` (меню «Импорт 3D»).
+
+| Действие | Кто |
+|----------|-----|
+| Загрузка `.glb` (до ~20 MB, валидация glTF) | **admin** |
+| Назначение на **подтип** (`POST .../assign`, body `{ "subtype" }`) | **admin** или **владелец проекта** |
+| Превью Three.js | **admin** или **владелец** |
+| Выбор custom в карточке объекта | пользователь с write на инфраструктуру |
+
+**Хранение:** таблица `project_map3d_models` (`assigned_subtype`), файлы `backend/data/map3d_models/{project_id}/{id}.glb`.
+
+**Поведение:**
+
+- Назначение на подтип **не** меняет `properties` объектов — только делает модель доступной в списке «Модель 3D» для всех точек этого подтипа.
+- PATCH `render_3d_model_id: custom:*` — только если модель в проекте и `assigned_subtype` совпадает с `subtype` объекта (иначе **400**).
+- Удаление GLB снимает `render_3d_model_id` у всех объектов с этим `custom:{uuid}`.
+- Миграция **`015_map3d_assigned_subtype`**: backfill `assigned_subtype` из старых object-assignments.
+
+**API:** `GET/POST /api/v1/projects/{project_id}/map3d-custom-models`, `POST .../{model_id}/assign`, `GET .../{model_id}/file`, `DELETE .../{model_id}`. Ответ: `assigned_subtype` (не `assigned_object_id`).
 
 ### L3 — glTF на клиенте (реализовано)
 
@@ -147,10 +179,17 @@ flowchart TB
 
 Если `render_3d_style: extrusion` или нет записи в каталоге моделей — `fill-extrusion` в MapLibre (квадратный footprint по подтипу).
 
-### 5.4 UI
+### 5.4 Размещение на координатах
 
-- Toggle **«3D-модели объектов»** в панели слоёв (3D): при выкл. — extrusion + 2D-символы
-- Символы MapLibre скрываются, пока включены 3D-модели
+- При загрузке glTF: `anchorGltfGroupAtFootprint` — центр основания в точке `lon`/`lat` (XZ), низ на «земле» (Y).
+- После подстройки высоты (`cloneGltfModelToHeight` с `height_m × scale`) якорь **пересчитывается**, чтобы custom GLB не смещались от маркера.
+- Модуль: [`map3dGltfLoader.ts`](../decision-matrix/frontend/src/lib/map3d/map3dGltfLoader.ts), слой [`map3dModelsLayer.ts`](../decision-matrix/frontend/src/lib/map3d/map3dModelsLayer.ts).
+
+### 5.5 UI
+
+- Панель **«Слои»** на `/map` (`MapLayersPanel`): подложка, группы подтипов, источники, радиусы — см. §7.1.
+- Toggle **«3D-модели объектов»**: при выкл. — extrusion + 2D-символы.
+- Символы MapLibre скрываются, пока включены 3D-модели.
 
 ---
 
@@ -166,7 +205,7 @@ flowchart TB
 - Высота опоры ЛЭП: `render_3d_height_m` (L1 для `power_line` — 10 м) × `MAP3D_OBJECT_SCALE` × `MAP3D_POWER_LINE_TOWER_SCALE` (5)
 - Высота: `queryTerrainElevation` + `render_3d_base_m` (один проход, без двойного учёта рельефа)
 - **Коридор высот (`planCorridorAlts`)**: внутренние вершины слегка следуют рельефу (`PLAN_CORRIDOR_TERRAIN_BLEND ≈ 0.15`), концы — через `lineEndpointAttachAltitudeM`; снижает ложную «инверсию» изгиба в перспективе при включённом рельефе ([`map3dLinePathBuild.ts`](../decision-matrix/frontend/src/lib/map3d/map3dLinePathBuild.ts)).
-- glTF точечных объектов: центрирование по XZ при загрузке ([`map3dModelsLayer.ts`](../decision-matrix/frontend/src/lib/map3d/map3dModelsLayer.ts)), чтобы модель совпадала с `lon`/`lat` маркера.
+- glTF точечных объектов: якорь по XZ и Y — [`anchorGltfGroupAtFootprint`](../decision-matrix/frontend/src/lib/map3d/map3dGltfLoader.ts) в [`map3dModelsLayer.ts`](../decision-matrix/frontend/src/lib/map3d/map3dModelsLayer.ts).
 - При `moveend` / смене рельефа ЛЭП пересчитывает провода с полным **`snapPool`** (все объекты проекта), а не только отфильтрованным `infraObjects` слоя.
 
 Подтипы линий: `autoroad`, `oil_pipeline`, `gas_pipeline`, `water_pipeline`, `power_line`, `methanol_pipeline`, `additional_line`.
@@ -190,12 +229,28 @@ flowchart TB
 
 ---
 
-## 7. Рельеф и камера
+## 7. Рельеф, камера и панель «Слои»
+
+### 7.1 Рельеф и камера
 
 - MapTiler Terrain RGB, exaggeration по умолчанию **1.2** (`DEFAULT_TERRAIN_EXAGGERATION`)
 - Hillshade под векторными слоями
 - Сохранение вида 3D: pitch/bearing в `localStorage` (ключи `mapViewState3d_*`)
 - Переключение 2D↔3D сохраняет selection и центр (общий snapshot без pitch)
+
+### 7.2 Сохранение панели «Слои» (клиент)
+
+Переключатели панели на `/map` сохраняются **на активный проект** в `localStorage`:
+
+| Ключ хранилища | `dm-map-layer-prefs:{projectId}` |
+|----------------|----------------------------------|
+| Модуль | [`mapLayerPreferences.ts`](../decision-matrix/frontend/src/lib/mapLayerPreferences.ts), хук [`useMapLayerPreferences.ts`](../decision-matrix/frontend/src/hooks/useMapLayerPreferences.ts) |
+
+**Что запоминается:** спутник, рельеф (3D), 3D-модели, видимость групп подтипов, POI на карте, радиусы (общий и по типам), раскрытие секций панели.
+
+**Что в БД (не localStorage):** чекбоксы в секции **«Источники»** — `infrastructure_layers.is_visible` через API.
+
+При смене раздела приложения (например «Карта» → «Импорт 3D» → снова «Карта») состояние панели восстанавливается для того же `projectId` в шапке.
 
 ---
 
@@ -239,7 +294,9 @@ python scripts/draw_demo_map_network.py --project-name "<имя проекта>"
 | Область | Команда |
 |---------|---------|
 | Frontend map3d + паритет 2D/3D | `cd decision-matrix/frontend && npm run test -- src/lib/map3d src/lib/linePath2d3dParity.test.ts` |
+| Frontend custom GLB / слои | `npm run test -- src/lib/map3d/map3dGltfLoader.test.ts src/lib/mapLayerPreferences.test.ts src/pages/Import3DPage.test.tsx` |
 | Backend render_3d | `cd decision-matrix/backend && pytest tests/test_render_3d_properties.py tests/test_render_3d_import.py` |
+| Backend custom GLB API | `pytest tests/test_map3d_custom_models.py` |
 | Сборка | `npm run build` в `frontend` |
 
 ---
@@ -262,7 +319,8 @@ python scripts/draw_demo_map_network.py --project-name "<имя проекта>"
 | Отчёт PNG | только 2D |
 | Производительность | каждый 3D-объект — отдельный draw в custom layer; при сотнях объектов возможен просад FPS |
 | Подтип `ie` | иконка/3D-каталог есть; в `POINT_SUBTYPES` / группах слоёв может отсутствовать — проверьте фильтр слоёв |
-| Админ-загрузка glTF | не реализована (только файлы в `public/`) |
+| Bundled glTF | только файлы в `public/map3d-models/`; custom — через `/import-3d` |
+| Несколько custom на один подтип | разрешено; на карте у каждой точки свой выбор в «Модель 3D» |
 | Cesium / 3D-редактирование | вне scope |
 
 ---

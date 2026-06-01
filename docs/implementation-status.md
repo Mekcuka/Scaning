@@ -39,6 +39,7 @@
 | `/matrix` | Матрица | admin, analyst, viewer |
 | `/report` | Отчёты (одностраничники) | admin, analyst, viewer |
 | `/import` | Импорт | admin, analyst, data_manager |
+| `/import-3d` | Импорт 3D (custom GLB) | admin (загрузка); admin + владелец проекта (назначение) |
 | `/admin` | Администрирование | admin |
 
 **Отличие от FR-12.2.2:** отдельного пункта «Ставки» нет — ставки внутри **«Параметры»**; добавлены **«Параметры»** и **«Потоки»**. Редирект `/rates` → `/parameters/rates`.
@@ -52,6 +53,7 @@
 | Auth + RBAC | `api/v1/auth.py`, `admin.py`, `services/auth_tokens.py`, `project_access.py` | ✅ |
 | Проекты, POI, ставки, пороги | `api/v1/router.py`, `services/cost_rates.py`, `calculations.py` | ✅ |
 | Карта, слои, объекты | `api/v1/map.py` | ✅ |
+| Custom GLB 3D (`project_map3d_models`) | `api/v1/map3d_models.py`, `services/map3d_custom_models.py`, миграция `015_map3d_assigned_subtype` | ✅ |
 | Анализ окружения | `services/infrastructure_analysis.py`, `spatial.py` | ✅ |
 | Импорт | `services/import_service.py`, `spark_import.py`, `import_connections.py` | ✅ |
 | Async import | `schedule_async_import` (фоновые задачи asyncio, **не** Celery) | ✅ |
@@ -77,10 +79,13 @@
 | `/matrix` | `MatrixPage` | ✅ |
 | `/report/*` | `ReportListPage`, `ReportEditorPage`, … | ✅ |
 | `/import` | `ImportPage` | ✅ |
+| `/import-3d` | `Import3DPage` — custom GLB (admin upload; owner assign) | ✅ |
 | `/flows/*` | `FlowTechnologyPage`, … | ✅ |
 | `/admin` | `AdminUsersPage` | ✅ |
 
 **3D-карта:** `VITE_MAP_3D_ENABLED`, `VITE_MAPTILER_KEY` — см. [map-3d-features.md](./map-3d-features.md).
+
+**Панель «Слои» на `/map`:** переключатели подложки, групп подтипов, POI, радиусов — в `localStorage` на проект (`mapLayerPreferences.ts`, ключ `dm-map-layer-prefs:{projectId}`). Видимость импортированных слоёв (`infrastructure_layers.is_visible`) — в БД.
 
 ---
 
@@ -136,7 +141,7 @@
 
 Базовый URL: `/api/v1`. Полный список — Swagger `/api/v1/docs` и [decision-matrix/README.md](../decision-matrix/README.md).
 
-Группы: `auth`, `admin`, `projects`, `projects/{id}/pois`, `projects/{id}/infrastructure/*`, `projects/{id}/pois/{id}/analysis`, `projects/{id}/import/*`, `import/logs`, `projects/{id}/one-pagers`, `projects/{id}/flow-schematic`, `projects/{id}/infrastructure/networks`, `projects/{id}/import_connections`, `projects/{id}/sand-logistics`.
+Группы: `auth`, `admin`, `projects`, `projects/{id}/pois`, `projects/{id}/infrastructure/*`, `projects/{id}/map3d-custom-models` (upload / list / assign-by-subtype / file), `projects/{id}/pois/{id}/analysis`, `projects/{id}/import/*`, `import/logs`, `projects/{id}/one-pagers`, `projects/{id}/flow-schematic`, `projects/{id}/infrastructure/networks`, `projects/{id}/import_connections`, `projects/{id}/sand-logistics`.
 
 ---
 

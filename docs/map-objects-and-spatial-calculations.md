@@ -436,7 +436,7 @@ erDiagram
 |--------|---------|
 | Редактирование | только **2D** (OpenLayers на `/map`) |
 | Движок | **MapLibre GL JS** (база, extrusion, pick) + **Three.js** custom layers (точки glTF, линии-трубы) |
-| Точечные объекты | glTF **Kenney Industrial** (CC0) с палитрой 5 тонов от цвета слоя; fallback — процедурная модель или `fill-extrusion` |
+| Точечные объекты | glTF **Kenney** (CC0) или **custom GLB** проекта; палитра — только bundled; fallback — процедурная модель или `fill-extrusion` |
 | Линейные объекты | 3D-трубы по DEM (`dm-3d-lines`), **прямые отрезки между вершинами** (как 2D `LineString`); корневая матрица слоя — отражение по **Z** (`makeScale(1, 1, -1)`), только линии; MapLibre-линия — только для клика |
 | Рельеф | MapTiler Terrain RGB (`VITE_MAPTILER_KEY`), toggle «Рельеф (3D)» |
 | Масштаб | `MAP3D_OBJECT_SCALE` (= 5) в `map3dConfig.ts` — модели, трубы, extrusion |
@@ -452,21 +452,26 @@ erDiagram
 | `render_3d_base_m` | number | смещение основания над terrain (м) |
 | `render_3d_visible` | boolean | `false` — скрыть только в 3D |
 | `render_3d_style` | string | `model` (по умолчанию для точек с каталогом), `extrusion` — столбик вместо glTF |
-| `render_3d_model_id` | string | id ассета: `facility-large`, `stack-medium`, `tank`, `substation`, … или алиасы `facility`, `stack`, `node` |
+| `render_3d_model_id` | string | переопределение точки: пусто — Kenney по подтипу; `custom:{uuid}` — GLB, назначенный на подтип |
+| `render_3d_scale` | number | множитель 0.1–10 (по умолчанию 1) |
+
+**Custom GLB:** `project_map3d_models.assigned_subtype`; страница `/import-3d`; PATCH `custom:*` только при совпадении подтипа. Подробно: [map-3d-features.md](./map-3d-features.md).
 
 **L3 (клиент, реализовано):**
 
-- glTF: `frontend/public/map3d-models/*.glb` — каталог [`map3dGltfAssets.ts`](../decision-matrix/frontend/src/lib/map3d/map3dGltfAssets.ts), привязка подтипов [`map3dModelCatalog.ts`](../decision-matrix/frontend/src/lib/map3d/map3dModelCatalog.ts)
-- Окраска: [`map3dObjectPalette.ts`](../decision-matrix/frontend/src/lib/map3d/map3dObjectPalette.ts) — pad / body / roof / accent / trim от цвета слоя
+- glTF bundled: `frontend/public/map3d-models/*.glb` — [`map3dGltfAssets.ts`](../decision-matrix/frontend/src/lib/map3d/map3dGltfAssets.ts), [`map3dModelCatalog.ts`](../decision-matrix/frontend/src/lib/map3d/map3dModelCatalog.ts)
+- Custom GLB: [`map3dCustomAssets.ts`](../decision-matrix/frontend/src/lib/map3d/map3dCustomAssets.ts), API `map3d-custom-models`
+- Окраска bundled: [`map3dObjectPalette.ts`](../decision-matrix/frontend/src/lib/map3d/map3dObjectPalette.ts); custom — оригинальные PBR-текстуры
+- Якорь модели: [`anchorGltfGroupAtFootprint`](../decision-matrix/frontend/src/lib/map3d/map3dGltfLoader.ts)
 - Процедурный fallback: [`map3dModelMeshes.ts`](../decision-matrix/frontend/src/lib/map3d/map3dModelMeshes.ts)
 - Линии: [`map3dLinesLayer.ts`](../decision-matrix/frontend/src/lib/map3d/map3dLinesLayer.ts)
-- UI: toggle «3D-модели объектов»; при выкл. — extrusion + 2D-символы
+- UI: панель «Слои» (`mapLayerPreferences.ts` — localStorage на проект); toggle «3D-модели объектов»
 
 **Импорт:** `height_m` в CSV/GeoJSON → `render_3d_height_m`; Z в `[lon, lat, z]` → `render_3d_base_m` (`merge_geojson_render_3d`).
 
-**API:** опционально `render_3d_effective: { height_m, base_m, visible }` в ответе объекта.
+**API:** `render_3d_effective: { height_m, base_m, visible, scale }`; `GET/POST .../map3d-custom-models`.
 
-**QA:** `python scripts/draw_demo_map_network.py` (backend); тесты `npm run test -- src/lib/map3d`, `pytest tests/test_render_3d_*.py`.
+**QA:** `python scripts/draw_demo_map_network.py` (backend); `npm run test -- src/lib/map3d`; `pytest tests/test_render_3d_*.py tests/test_map3d_custom_models.py`.
 
 ---
 
@@ -497,6 +502,7 @@ erDiagram
 
 | Дата | Изменение |
 |------|-----------|
+| 2026-05 | Custom GLB: назначение на подтип (`assigned_subtype`), `render_3d_scale`, якорь glTF, панель «Слои» в localStorage |
 | 2026-05 | 3D-линии: отражение корневой матрицы по **Z** (`dm-3d-lines` only); точечные glTF без отражения |
 | 2026-05 | Паритет вершин 2D/3D: единый `linePathForDisplay` + `infraSnapPool` (2D, GeoJSON pick, `buildNormalizedLinePath3d`, тест `linePath2d3dParity.test.ts`); коридор высот `planCorridorAlts`; snap при refresh рельефа |
 | 2026-05 | §1.5: правила рисования линии (начало/середина/конец, `node`), точная привязка концов (`linePathForDisplay`, `infraSnapPool`, heal); координаты — полные в БД, 3 знака в UI; §6.1 hotkeys; 3D-трубы = прямые сегменты |
