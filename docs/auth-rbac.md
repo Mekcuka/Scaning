@@ -113,7 +113,7 @@ Cookies `SameSite=None` могут **не сохраняться** в режим
 
 | Симптом | Решение |
 |---------|---------|
-| `Invalid credentials` для admin | Запустите `seed.py` для SQLite; проверьте email/пароль |
+| «Неверный email или пароль» для admin | Запустите `seed.py` для SQLite; проверьте email/пароль |
 | 401 после входа на проде / в инкогнито | Обновите frontend+backend (Bearer tokens); жёсткое обновление страницы |
 | `Request failed` / 401 после входа (localhost) | Очистите cookies; откройте `http://localhost:5173` (proxy) |
 | CORS | В `.env`: `CORS_ORIGINS` должен включать URL frontend |

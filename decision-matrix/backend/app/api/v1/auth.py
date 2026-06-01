@@ -29,7 +29,7 @@ def _validate_password(password: str) -> str:
     if len(password) < 8 or not re.search(r"[A-Za-z]", password) or not re.search(r"\d", password):
         raise HTTPException(
             status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
-            detail="Password must be 8+ chars with letter and digit",
+            detail="Пароль: не менее 8 символов, буква и цифра",
         )
     return password
 
@@ -56,11 +56,11 @@ async def register(
     db: AsyncSession = Depends(get_db),
 ):
     if not settings.ALLOW_REGISTRATION:
-        raise HTTPException(status_code=403, detail="Registration is disabled")
+        raise HTTPException(status_code=403, detail="Регистрация отключена")
     _validate_password(data.password)
     existing = await db.execute(select(User).where(User.email == data.email))
     if existing.scalar_one_or_none():
-        raise HTTPException(status_code=400, detail="Email already registered")
+        raise HTTPException(status_code=400, detail="Email уже зарегистрирован")
     user = User(
         email=data.email,
         username=data.username,
@@ -83,9 +83,9 @@ async def login(
     result = await db.execute(select(User).where(User.email == data.email))
     user = result.scalar_one_or_none()
     if not user or not verify_password(data.password, user.password_hash):
-        raise HTTPException(status_code=401, detail="Invalid credentials")
+        raise HTTPException(status_code=401, detail="Неверный email или пароль")
     if not user.is_active:
-        raise HTTPException(status_code=403, detail="Account deactivated")
+        raise HTTPException(status_code=403, detail="Учётная запись отключена")
     return await _issue_session(user, db, response)
 
 
@@ -100,11 +100,11 @@ async def refresh_session(
     if not raw_refresh and data and data.refresh_token:
         raw_refresh = data.refresh_token
     if not raw_refresh:
-        raise HTTPException(status_code=401, detail="Not authenticated")
+        raise HTTPException(status_code=401, detail="Сессия не найдена. Войдите снова")
     rotated = await rotate_refresh_token(db, raw_refresh)
     if not rotated:
         clear_auth_cookies(response)
-        raise HTTPException(status_code=401, detail="Invalid refresh token")
+        raise HTTPException(status_code=401, detail="Сессия истекла. Войдите снова")
     user, new_refresh = rotated
     access = create_access_token(str(user.id), role=user.role)
     await db.commit()
@@ -129,7 +129,7 @@ async def logout(
         await revoke_refresh_token(db, raw_refresh)
         await db.commit()
     clear_auth_cookies(response)
-    return AuthMessageResponse(message="Logged out")
+    return AuthMessageResponse(message="Вы вышли из системы")
 
 
 @auth_router.get("/me", response_model=UserResponse)

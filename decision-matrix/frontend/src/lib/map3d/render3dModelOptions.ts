@@ -29,7 +29,7 @@ export function buildRender3dModelOptions(
     },
   ];
   for (const m of models) {
-    if ((m.assigned_subtype ?? '').toLowerCase() === st) {
+    if ((m.assigned_subtypes ?? []).map((s) => s.toLowerCase()).includes(st)) {
       options.push({
         value: customModelPropertyId(m.id),
         label: m.filename,

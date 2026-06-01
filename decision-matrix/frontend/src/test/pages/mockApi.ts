@@ -22,7 +22,7 @@ export function createDefaultApiMocks(): ApiMockOverrides {
       filename: 'test.glb',
       target_height_m: 8,
       created_at: '2026-01-01T00:00:00Z',
-      assigned_subtype: null,
+      assigned_subtypes: [],
     }),
     deleteMap3dCustomModel: vi.fn().mockResolvedValue(undefined),
     assignMap3dCustomModel: vi.fn().mockResolvedValue({
@@ -31,7 +31,7 @@ export function createDefaultApiMocks(): ApiMockOverrides {
       filename: 'test.glb',
       target_height_m: 8,
       created_at: '2026-01-01T00:00:00Z',
-      assigned_subtype: 'node',
+      assigned_subtypes: ['node'],
     }),
     getDistanceDefaults: vi.fn().mockResolvedValue({}),
     getPoiAnalysis: vi.fn().mockResolvedValue(makeAnalysisResponse()),

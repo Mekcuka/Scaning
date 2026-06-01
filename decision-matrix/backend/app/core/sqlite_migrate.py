@@ -1,5 +1,7 @@
 """Apply incremental SQLite schema patches (create_all does not alter existing tables)."""
 
+import json
+
 from sqlalchemy import inspect, text
 from sqlalchemy.engine import Connection
 
@@ -169,7 +171,7 @@ def patch_sqlite_schema(conn: Connection) -> None:
             project_id CHAR(32) NOT NULL,
             filename VARCHAR(255) NOT NULL,
             target_height_m FLOAT NOT NULL DEFAULT 8,
-            assigned_subtype VARCHAR(64),
+            assigned_subtypes TEXT NOT NULL DEFAULT '[]',
             created_by_user_id CHAR(32),
             created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
             FOREIGN KEY(project_id) REFERENCES projects(id) ON DELETE CASCADE,
@@ -177,12 +179,53 @@ def patch_sqlite_schema(conn: Connection) -> None:
         )
         """,
     )
+    _patch_map3d_assigned_subtypes(conn)
+
+
+def _patch_map3d_assigned_subtypes(conn: Connection) -> None:
+    """016: assigned_subtype -> assigned_subtypes (JSON array). Idempotent."""
+    insp = inspect(conn)
+    if "project_map3d_models" not in insp.get_table_names():
+        return
+
+    is_sqlite = conn.dialect.name == "sqlite"
+    json_type = "TEXT NOT NULL DEFAULT '[]'" if is_sqlite else "JSONB NOT NULL DEFAULT '[]'::jsonb"
+
     _add_column_if_missing(
         conn,
         "project_map3d_models",
-        "assigned_subtype",
-        "assigned_subtype VARCHAR(64)",
+        "assigned_subtypes",
+        f"assigned_subtypes {json_type}",
     )
+
+    cols = {c["name"] for c in insp.get_columns("project_map3d_models")}
+    if "assigned_subtype" not in cols or "assigned_subtypes" not in cols:
+        return
+
+    rows = conn.execute(
+        text(
+            """
+            SELECT id, assigned_subtype, assigned_subtypes
+            FROM project_map3d_models
+            WHERE assigned_subtype IS NOT NULL AND TRIM(assigned_subtype) != ''
+            """
+        )
+    ).fetchall()
+    for model_id, assigned_subtype, assigned_subtypes_raw in rows:
+        current = assigned_subtypes_raw
+        if is_sqlite:
+            current = (str(current) if current is not None else "").strip()
+            if current and current not in ("[]", "null"):
+                continue
+        elif current not in (None, [], "[]"):
+            continue
+        payload = json.dumps([assigned_subtype])
+        conn.execute(
+            text(
+                "UPDATE project_map3d_models SET assigned_subtypes = :payload WHERE id = :id"
+            ),
+            {"payload": payload, "id": str(model_id)},
+        )
 
 
 def patch_postgres_schema(conn: Connection) -> None:
@@ -227,3 +270,5 @@ def patch_postgres_schema(conn: Connection) -> None:
         "gas_factor",
         "gas_factor DOUBLE PRECISION NOT NULL DEFAULT 120",
     )
+
+    _patch_map3d_assigned_subtypes(conn)

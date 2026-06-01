@@ -39,7 +39,7 @@ describe('Import3DPage', () => {
         filename: 'tank.glb',
         target_height_m: 8,
         created_at: '2026-01-01T00:00:00Z',
-        assigned_subtype: null,
+        assigned_subtypes: [],
       },
     ]);
     renderPage(<Import3DPage />, { route: '/import-3d' });
@@ -59,7 +59,7 @@ describe('Import3DPage', () => {
     vi.mocked(api.projects).mockResolvedValue([makeProject({ id: 'p1', owner_user_id: 'u1' })]);
     renderPage(<Import3DPage />, { route: '/import-3d' });
     await waitFor(() =>
-      expect(screen.getAllByText('Назначение подтипу').length).toBeGreaterThan(0),
+      expect(screen.getAllByText('Назначение подтипам').length).toBeGreaterThan(0),
     );
     expect(screen.queryByText('Загрузка GLB')).not.toBeInTheDocument();
     expect(screen.getAllByText('Модели проекта').length).toBeGreaterThan(0);

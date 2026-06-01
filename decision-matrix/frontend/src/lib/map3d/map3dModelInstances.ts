@@ -28,7 +28,8 @@ export type Map3dModelInstance = {
   selected: boolean;
 };
 
-function resolveCatalog(
+/** Same catalog resolution as the 3D map layer (L2 model id → subtype default). */
+export function resolveMap3dCatalog(
   subtype: string,
   properties?: Record<string, unknown> | null,
 ): Map3dModelCatalogEntry | null {
@@ -63,7 +64,7 @@ export function buildMap3dModelInstances(input: {
     if (!render.visible) continue;
     if (!shouldUse3dModel(obj.subtype, obj.properties)) continue;
 
-    const catalog = resolveCatalog(obj.subtype, obj.properties);
+    const catalog = resolveMap3dCatalog(obj.subtype, obj.properties);
     if (!catalog) continue;
 
     out.push({
@@ -86,7 +87,7 @@ export function buildMap3dModelInstances(input: {
       const render = resolveRender3D('poi');
       if (!render.visible) continue;
       if (!shouldUse3dModel('poi')) continue;
-      const catalog = resolveCatalog('poi');
+      const catalog = resolveMap3dCatalog('poi');
       if (!catalog) continue;
       out.push({
         id: poi.id,

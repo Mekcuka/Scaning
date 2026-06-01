@@ -85,7 +85,7 @@ class ProjectMap3dModel(Base):
     project_id: Mapped[uuid.UUID] = mapped_column(Uuid, ForeignKey("projects.id", ondelete="CASCADE"), index=True)
     filename: Mapped[str] = mapped_column(String(255))
     target_height_m: Mapped[float] = mapped_column(Float, default=8.0)
-    assigned_subtype: Mapped[str | None] = mapped_column(String(64), nullable=True, index=True)
+    assigned_subtypes: Mapped[list] = mapped_column(JSON, nullable=False, default=list, server_default="[]")
     created_by_user_id: Mapped[uuid.UUID | None] = mapped_column(
         Uuid, ForeignKey("users.id", ondelete="SET NULL"), nullable=True
     )

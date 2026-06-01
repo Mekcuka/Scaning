@@ -1,15 +1,7 @@
 import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { Navigate, Link } from 'react-router-dom';
-import {
-  ArrowRight,
-  Box,
-  FileBox,
-  Info,
-  Map as MapIcon,
-  Trash2,
-  Upload,
-} from 'lucide-react';
+import { Box, FileBox, Info, Map as MapIcon, Trash2, Upload } from 'lucide-react';
 import { Import3dPreview } from '../components/map3d/Import3dPreview';
 import { AppSelect } from '../components/AppSelect';
 import { api, SUBTYPE_LABELS, type Map3dCustomModel } from '../lib/api';
@@ -70,7 +62,7 @@ function Import3dPanel({
 function ModelsList({
   models,
   modelsLoading,
-  assignedLabel,
+  assignedSubtypes,
   canDelete,
   onDelete,
   deletePending,
@@ -78,71 +70,78 @@ function ModelsList({
 }: {
   models: Map3dCustomModel[];
   modelsLoading: boolean;
-  assignedLabel: (m: Map3dCustomModel) => string;
+  assignedSubtypes: (m: Map3dCustomModel) => string[];
   canDelete: boolean;
   onDelete: (id: string) => void;
   deletePending: boolean;
   emptyHint: string;
 }) {
   if (modelsLoading) {
-    return (
-      <div className="import-3d-models-section">
-        <p className="import-3d-muted">Загрузка списка…</p>
-      </div>
-    );
+    return <p className="import-3d-muted import-3d-models-section__loading">Загрузка списка…</p>;
   }
 
   if (models.length === 0) {
     return (
-      <div className="import-3d-empty">
-        <FileBox size={36} strokeWidth={1.25} aria-hidden />
-        <p className="import-3d-empty__title">Моделей пока нет</p>
-        <p className="import-3d-empty__hint">{emptyHint}</p>
+      <div className="import-3d-empty import-3d-empty--compact import-3d-empty--inline">
+        <FileBox size={28} strokeWidth={1.25} aria-hidden />
+        <div>
+          <p className="import-3d-empty__title">Моделей пока нет</p>
+          <p className="import-3d-empty__hint">{emptyHint}</p>
+        </div>
       </div>
     );
   }
 
   return (
     <div className="import-3d-models-section">
-      <div className="import-3d-models-section__head">
-        <span className="import-3d-models-count">{models.length}</span>
-        <span>в проекте</span>
-      </div>
-      <ul className="import-3d-model-list">
-        {models.map((m) => {
-          const assigned = assignedLabel(m);
-          const isAssigned = assigned !== '—';
-          return (
-            <li key={m.id} className="import-3d-model-item">
-              <div className="import-3d-model-item__main">
-                <span className="import-3d-model-item__name" title={m.filename}>
+      <table className="import-3d-models-table">
+        <thead>
+          <tr>
+            <th scope="col">Файл</th>
+            <th scope="col">Подтип</th>
+            <th scope="col">Загружен</th>
+            {canDelete ? <th scope="col" className="import-3d-models-table__actions" /> : null}
+          </tr>
+        </thead>
+        <tbody>
+          {models.map((m) => {
+            const subtypes = assignedSubtypes(m);
+            return (
+              <tr key={m.id}>
+                <td className="import-3d-models-table__file" title={m.filename}>
                   {m.filename}
-                </span>
-                <span className="import-3d-model-item__meta">{formatDate(m.created_at)}</span>
-                {isAssigned ? (
-                  <span className="import-3d-badge import-3d-badge--assigned">
-                    {assigned}
-                  </span>
-                ) : (
-                  <span className="import-3d-badge import-3d-badge--free">Не назначена</span>
-                )}
-              </div>
-              {canDelete ? (
-                <button
-                  type="button"
-                  className="btn btn-secondary btn-sm import-3d-model-item__delete"
-                  title="Удалить модель"
-                  aria-label={`Удалить ${m.filename}`}
-                  disabled={deletePending}
-                  onClick={() => onDelete(m.id)}
-                >
-                  <Trash2 size={16} />
-                </button>
-              ) : null}
-            </li>
-          );
-        })}
-      </ul>
+                </td>
+                <td className="import-3d-models-table__subtypes">
+                  {subtypes.length === 0 ? (
+                    <span className="import-3d-badge import-3d-badge--free">—</span>
+                  ) : (
+                    subtypes.map((label) => (
+                      <span key={label} className="import-3d-badge import-3d-badge--assigned">
+                        {label}
+                      </span>
+                    ))
+                  )}
+                </td>
+                <td className="import-3d-models-table__date">{formatDate(m.created_at)}</td>
+                {canDelete ? (
+                  <td className="import-3d-models-table__actions">
+                    <button
+                      type="button"
+                      className="import-3d-models-table__delete"
+                      title="Удалить модель"
+                      aria-label={`Удалить ${m.filename}`}
+                      disabled={deletePending}
+                      onClick={() => onDelete(m.id)}
+                    >
+                      <Trash2 size={15} aria-hidden />
+                    </button>
+                  </td>
+                ) : null}
+              </tr>
+            );
+          })}
+        </tbody>
+      </table>
     </div>
   );
 }
@@ -245,7 +244,7 @@ export function Import3DPage() {
   const pushToast = useAppStore((s) => s.pushToast);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [assignModelId, setAssignModelId] = useState('');
-  const [assignSubtype, setAssignSubtype] = useState('');
+  const [assignSubtypes, setAssignSubtypes] = useState<string[]>([]);
 
   const canUpload = canUploadMap3dCustomModel(role);
   const canAssign = canAssignMap3dCustomModel(role, user?.id, activeProject);
@@ -278,14 +277,28 @@ export function Import3DPage() {
     enabled: !!projectId && canAssign,
   });
 
-  const assignableSubtypeOptions = useMemo(
-    () =>
-      map3dAssignableSubtypes().map((st) => ({
-        value: st,
-        label: SUBTYPE_LABELS[st] ?? st,
-      })),
-    [],
+  const assignableSubtypes = useMemo(() => map3dAssignableSubtypes(), []);
+
+  const selectedModel = useMemo(
+    () => models.find((m) => m.id === assignModelId),
+    [models, assignModelId],
   );
+  const serverSubtypesKey = (selectedModel?.assigned_subtypes ?? []).join(',');
+
+  useEffect(() => {
+    if (!assignModelId) {
+      setAssignSubtypes([]);
+      return;
+    }
+    setAssignSubtypes([...(selectedModel?.assigned_subtypes ?? [])]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- sync when server assignment changes, not on every models[] ref
+  }, [assignModelId, serverSubtypesKey]);
+
+  const toggleAssignSubtype = (subtype: string) => {
+    setAssignSubtypes((prev) =>
+      prev.includes(subtype) ? prev.filter((s) => s !== subtype) : [...prev, subtype],
+    );
+  };
 
   const denied = !projectsLoading && !hasPageAccess;
 
@@ -319,10 +332,13 @@ export function Import3DPage() {
   });
 
   const assignMut = useMutation({
-    mutationFn: ({ modelId, subtype }: { modelId: string; subtype: string }) =>
-      api.assignMap3dCustomModel(projectId!, modelId, subtype.trim()),
-    onSuccess: async () => {
-      pushToast('success', 'Модель назначена подтипу');
+    mutationFn: ({ modelId, subtypes }: { modelId: string; subtypes: string[] }) =>
+      api.assignMap3dCustomModel(projectId!, modelId, subtypes),
+    onSuccess: async (_data, { subtypes }) => {
+      pushToast(
+        'success',
+        subtypes.length === 0 ? 'Назначение снято' : 'Назначение сохранено',
+      );
       await invalidateAll();
     },
     onError: (e: Error) => pushToast('error', e.message),
@@ -334,18 +350,19 @@ export function Import3DPage() {
     uploadMut.mutate(file);
   };
 
-  const assignedLabel = (m: Map3dCustomModel) => {
-    if (!m.assigned_subtype) return '—';
-    return SUBTYPE_LABELS[m.assigned_subtype] ?? m.assigned_subtype;
-  };
+  const assignedSubtypesForModel = (m: Map3dCustomModel) =>
+    (m.assigned_subtypes ?? []).map((st) => SUBTYPE_LABELS[st] ?? st);
 
   if (denied) {
     return <Navigate to="/" replace />;
   }
 
   const showUploadCard = canUpload;
-  const showOwnerModelsCard = !canUpload && canAssign;
-  const assignReady = Boolean(projectId && assignModelId && assignSubtype);
+  const assignReady = Boolean(projectId && assignModelId);
+  const hasSubtypeSelection = assignSubtypes.length > 0;
+  const modelsEmptyHint = canUpload
+    ? 'Загрузите GLB в блоке выше — файл появится в таблице'
+    : 'Попросите администратора загрузить GLB для этого проекта';
   const uploadStep = 1;
   const assignStep = showUploadCard ? 2 : 1;
 
@@ -414,33 +431,6 @@ export function Import3DPage() {
                   busy={uploadMut.isPending}
                   onPick={onUpload}
                 />
-                <ModelsList
-                  models={models}
-                  modelsLoading={modelsLoading}
-                  assignedLabel={assignedLabel}
-                  canDelete
-                  onDelete={(id) => deleteMut.mutate(id)}
-                  deletePending={deleteMut.isPending}
-                  emptyHint="После загрузки модель появится в списке и в поле «Назначение»"
-                />
-              </Import3dPanel>
-            ) : null}
-
-            {showOwnerModelsCard ? (
-              <Import3dPanel
-                icon={<FileBox size={20} />}
-                title="Модели проекта"
-                subtitle="Загружены администратором — выберите модель для назначения"
-              >
-                <ModelsList
-                  models={models}
-                  modelsLoading={modelsLoading}
-                  assignedLabel={assignedLabel}
-                  canDelete={false}
-                  onDelete={() => {}}
-                  deletePending={false}
-                  emptyHint="Попросите администратора загрузить GLB для этого проекта"
-                />
               </Import3dPanel>
             ) : null}
 
@@ -448,63 +438,76 @@ export function Import3DPage() {
               <Import3dPanel
                 step={assignStep}
                 icon={<Box size={20} />}
-                title="Назначение подтипу"
-                subtitle="Модель станет доступна в списке на карте для всех объектов этого типа"
+                title="Назначение подтипам"
+                subtitle="Модель появится в «Модель 3D» на карте для выбранных типов объектов"
               >
-                <div className="import-3d-assign-flow">
-                  <div className="import-3d-assign-field">
-                    <label className="form-label" htmlFor="import3d-assign-model">
-                      3D-модель
-                    </label>
-                    <AppSelect
-                      placeholder={
-                        models.length === 0 ? 'Сначала загрузите модель' : 'Выберите модель'
-                      }
-                      value={assignModelId}
-                      onChange={setAssignModelId}
-                      disabled={!projectId || models.length === 0}
-                      options={[
-                        { value: '', label: '— не выбрано —' },
-                        ...models.map((m) => ({ value: m.id, label: m.filename })),
-                      ]}
-                    />
-                  </div>
-                  <ArrowRight className="import-3d-assign-arrow" aria-hidden />
-                  <div className="import-3d-assign-field">
-                    <label className="form-label" htmlFor="import3d-assign-subtype">
-                      Тип объекта
-                    </label>
-                    <AppSelect
-                      placeholder="Выберите подтип"
-                      value={assignSubtype}
-                      onChange={setAssignSubtype}
-                      disabled={!projectId}
-                      options={[
-                        { value: '', label: '— не выбрано —' },
-                        ...assignableSubtypeOptions,
-                      ]}
-                    />
-                  </div>
+                <div className="import-3d-assign-field">
+                  <label className="form-label" htmlFor="import3d-assign-model">
+                    3D-модель
+                  </label>
+                  <AppSelect
+                    placeholder={
+                      models.length === 0 ? 'Сначала загрузите модель' : 'Выберите модель'
+                    }
+                    value={assignModelId}
+                    onChange={setAssignModelId}
+                    disabled={!projectId || models.length === 0}
+                    options={[
+                      { value: '', label: '— не выбрано —' },
+                      ...models.map((m) => ({ value: m.id, label: m.filename })),
+                    ]}
+                  />
                 </div>
+                <fieldset
+                  className="import-3d-subtype-grid-fieldset"
+                  disabled={!projectId || !assignModelId}
+                >
+                  <legend className="form-label">Типы объектов</legend>
+                  <div className="import-3d-subtype-grid" role="group" aria-label="Типы объектов">
+                    {assignableSubtypes.map((st) => {
+                      const checked = assignSubtypes.includes(st);
+                      const id = `import3d-subtype-${st}`;
+                      return (
+                        <label key={st} className="import-3d-subtype-chip" htmlFor={id}>
+                          <input
+                            id={id}
+                            type="checkbox"
+                            checked={checked}
+                            onChange={() => toggleAssignSubtype(st)}
+                          />
+                          <span>{SUBTYPE_LABELS[st] ?? st}</span>
+                        </label>
+                      );
+                    })}
+                  </div>
+                </fieldset>
                 <div className="import-3d-assign-actions">
                   <button
                     type="button"
                     className="btn btn-primary"
                     disabled={!assignReady || assignMut.isPending}
                     onClick={() =>
-                      assignMut.mutate({ modelId: assignModelId, subtype: assignSubtype })
+                      assignMut.mutate({ modelId: assignModelId, subtypes: assignSubtypes })
                     }
                   >
-                    {assignMut.isPending ? 'Назначение…' : 'Назначить подтипу'}
+                    {assignMut.isPending ? 'Сохранение…' : 'Сохранить назначение'}
                   </button>
-                  {assignReady ? (
+                  <button
+                    type="button"
+                    className="btn btn-secondary"
+                    disabled={!assignReady || assignMut.isPending}
+                    onClick={() => assignMut.mutate({ modelId: assignModelId, subtypes: [] })}
+                  >
+                    Снять все
+                  </button>
+                  {assignReady && hasSubtypeSelection ? (
                     <Link to="/map" className="btn btn-secondary import-3d-map-link">
                       <MapIcon size={16} aria-hidden />
                       Открыть карту 3D
                     </Link>
                   ) : (
                     <p className="import-3d-muted import-3d-assign-hint">
-                      Выберите модель и тип объекта, чтобы продолжить
+                      Выберите модель и отметьте один или несколько подтипов
                     </p>
                   )}
                 </div>
@@ -517,8 +520,8 @@ export function Import3DPage() {
           <Import3dPanel
             className="import-3d-preview-card"
             icon={<Box size={20} />}
-            title="Превью"
-            subtitle="Как модель будет выглядеть на карте"
+            title="Превью на карте"
+            subtitle="Выберите объект и проверьте масштаб до публикации"
           >
             {projectId ? (
               <Import3dPreview objects={infraObjects} customModelsKey={customModelsKey} />
@@ -531,6 +534,31 @@ export function Import3DPage() {
           </Import3dPanel>
         ) : null}
       </div>
+
+      {hasPageAccess ? (
+        <Import3dPanel
+          className="import-3d-models-footer"
+          icon={<FileBox size={20} />}
+          title="Модели проекта"
+          subtitle={
+            modelsLoading
+              ? 'Загрузка…'
+              : models.length === 0
+                ? 'Список GLB в выбранном проекте'
+                : `${models.length} ${models.length === 1 ? 'файл' : models.length < 5 ? 'файла' : 'файлов'} в проекте`
+          }
+        >
+          <ModelsList
+            models={models}
+            modelsLoading={modelsLoading}
+            assignedSubtypes={assignedSubtypesForModel}
+            canDelete={canUpload}
+            onDelete={(id) => deleteMut.mutate(id)}
+            deletePending={deleteMut.isPending}
+            emptyHint={modelsEmptyHint}
+          />
+        </Import3dPanel>
+      ) : null}
     </div>
   );
 }

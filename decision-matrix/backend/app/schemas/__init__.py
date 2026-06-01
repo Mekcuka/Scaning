@@ -376,21 +376,24 @@ class Map3dCustomModelResponse(BaseModel):
     filename: str
     target_height_m: float
     created_at: datetime
-    assigned_subtype: str | None = None
+    assigned_subtypes: list[str] = Field(default_factory=list)
 
 
 class Map3dCustomModelAssign(BaseModel):
-    """Assign GLB to a point subtype. ``object_id`` is deprecated (legacy clients)."""
+    """Replace GLB subtype assignments. ``subtypes: []`` clears all assignments."""
 
+    subtypes: list[str] | None = None
     subtype: str | None = None
     object_id: UUID | None = None
 
     @model_validator(mode="after")
-    def require_subtype_or_object_id(self) -> "Map3dCustomModelAssign":
+    def require_assign_payload(self) -> "Map3dCustomModelAssign":
+        if self.subtypes is not None:
+            return self
         has_subtype = bool(self.subtype and str(self.subtype).strip())
         if has_subtype or self.object_id is not None:
             return self
-        raise ValueError("subtype or object_id is required")
+        raise ValueError("subtypes, subtype or object_id is required")
 
 
 class Render3DEffective(BaseModel):

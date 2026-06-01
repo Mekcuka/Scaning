@@ -79,6 +79,7 @@ async def lifespan(app: FastAPI):
                 await conn.run_sync(patch_sqlite_schema)
             elif settings.ENVIRONMENT != "production":
                 await conn.run_sync(Base.metadata.create_all)
+            if not settings.is_sqlite:
                 await conn.run_sync(patch_postgres_schema)
 
     try:

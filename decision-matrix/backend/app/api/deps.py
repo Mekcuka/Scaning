@@ -33,7 +33,7 @@ async def verify_csrf(request: Request) -> None:
     csrf_cookie = request.cookies.get(CSRF_COOKIE)
     csrf_header = request.headers.get("X-CSRF-Token")
     if not csrf_cookie or not csrf_header or csrf_cookie != csrf_header:
-        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="CSRF validation failed")
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Ошибка CSRF. Обновите страницу")
 
 
 def _extract_access_token(request: Request, credentials: HTTPAuthorizationCredentials | None) -> str | None:
@@ -52,17 +52,17 @@ async def get_current_user(
 ) -> User:
     token = _extract_access_token(request, credentials)
     if not token:
-        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Not authenticated")
+        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Сессия не найдена. Войдите снова")
     try:
         payload = decode_token(token)
         if payload.get("type") != "access":
-            raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid token type")
+            raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Недействительный токен. Войдите снова")
         user_id = UUID(payload["sub"])
     except (ValueError, KeyError):
-        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid token")
+        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Недействительный токен. Войдите снова")
 
     result = await db.execute(select(User).where(User.id == user_id, User.is_active.is_(True)))
     user = result.scalar_one_or_none()
     if not user:
-        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="User not found")
+        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Пользователь не найден")
     return user

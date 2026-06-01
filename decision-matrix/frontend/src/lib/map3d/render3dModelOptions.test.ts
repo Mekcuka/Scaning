@@ -8,17 +8,17 @@ const baseModel = (overrides: Partial<Map3dCustomModel>): Map3dCustomModel => ({
   filename: 'tank.glb',
   target_height_m: 8,
   created_at: '2026-01-01T00:00:00Z',
-  assigned_subtype: null,
+  assigned_subtypes: [],
   ...overrides,
 });
 
 describe('render3dModelOptions', () => {
   it('includes standard and custom models for matching subtype', () => {
     const models = [
-      baseModel({ assigned_subtype: 'node', filename: 'drum.glb' }),
+      baseModel({ assigned_subtypes: ['node'], filename: 'drum.glb' }),
       baseModel({
         id: 'bbbbbbbb-cccc-dddd-eeee-ffffffffffff',
-        assigned_subtype: 'substation',
+        assigned_subtypes: ['substation'],
         filename: 'sub.glb',
       }),
     ];
@@ -30,12 +30,18 @@ describe('render3dModelOptions', () => {
     expect(opts).toHaveLength(2);
   });
 
+  it('includes model when any assigned subtype matches', () => {
+    const models = [baseModel({ assigned_subtypes: ['node', 'gtes'], filename: 'shared.glb' })];
+    expect(buildRender3dModelOptions('gtes', models)).toHaveLength(2);
+    expect(buildRender3dModelOptions('substation', models)).toHaveLength(1);
+  });
+
   it('maps empty select value for standard', () => {
     expect(render3dModelSelectValue('node', [], '')).toBe('');
     expect(
       render3dModelSelectValue(
         'node',
-        [baseModel({ assigned_subtype: 'node' })],
+        [baseModel({ assigned_subtypes: ['node'] })],
         'custom:aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee',
       ),
     ).toBe('custom:aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee');

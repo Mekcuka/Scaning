@@ -2,8 +2,10 @@
 
 from __future__ import annotations
 
+import json
 import uuid
 from pathlib import Path
+from typing import Any
 
 from fastapi import HTTPException, UploadFile
 from sqlalchemy import select
@@ -16,6 +18,26 @@ from app.models import InfrastructureLayer, InfrastructureObject, ProjectMap3dMo
 CUSTOM_MODEL_ID_PREFIX = "custom:"
 MAX_GLB_BYTES = 20 * 1024 * 1024
 DEFAULT_TARGET_HEIGHT_M = 8.0
+
+
+def normalize_assigned_subtypes(raw: Any) -> list[str]:
+    """Coerce DB JSON / legacy TEXT values to a list of subtype codes."""
+    if raw is None:
+        return []
+    if isinstance(raw, list):
+        return [str(x) for x in raw if str(x).strip()]
+    if isinstance(raw, str):
+        text = raw.strip()
+        if not text or text == "[]":
+            return []
+        try:
+            parsed = json.loads(text)
+            if isinstance(parsed, list):
+                return [str(x) for x in parsed if str(x).strip()]
+        except json.JSONDecodeError:
+            return [text]
+        return []
+    return []
 
 
 def map3d_models_root() -> Path:
@@ -127,30 +149,44 @@ async def _infra_object_in_project(
     return obj
 
 
-async def resolve_assign_subtype_payload(
+def _dedupe_subtypes(subtypes: list[str]) -> list[str]:
+    seen: set[str] = set()
+    out: list[str] = []
+    for raw in subtypes:
+        st = validate_assignable_subtype(raw)
+        if st not in seen:
+            seen.add(st)
+            out.append(st)
+    return out
+
+
+async def resolve_assign_subtypes_payload(
     db: AsyncSession,
     project_id: uuid.UUID,
     *,
+    subtypes: list[str] | None,
     subtype: str | None,
     object_id: uuid.UUID | None,
-) -> str:
+) -> list[str]:
+    if subtypes is not None:
+        return _dedupe_subtypes(subtypes)
     if subtype and str(subtype).strip():
-        return validate_assignable_subtype(subtype)
+        return [validate_assignable_subtype(subtype)]
     if object_id is not None:
         obj = await _infra_object_in_project(db, project_id, object_id)
-        return validate_assignable_subtype(obj.subtype)
-    raise HTTPException(status_code=400, detail="subtype is required")
+        return [validate_assignable_subtype(obj.subtype)]
+    raise HTTPException(status_code=400, detail="subtypes, subtype or object_id is required")
 
 
-async def assign_custom_model_to_subtype(
+async def assign_custom_model_to_subtypes(
     db: AsyncSession,
     project_id: uuid.UUID,
     model_id: uuid.UUID,
-    subtype: str,
+    subtypes: list[str],
 ) -> ProjectMap3dModel:
-    st = validate_assignable_subtype(subtype)
     row = await get_custom_model(db, project_id, model_id)
-    row.assigned_subtype = st
+    row.assigned_subtypes = _dedupe_subtypes(subtypes) if subtypes else []
+    await db.flush()
     return row
 
 
@@ -170,7 +206,8 @@ async def assert_custom_model_allowed_for_object(
         raise HTTPException(status_code=400, detail="Invalid custom 3D model id")
     row = await get_custom_model(db, project_id, model_id)
     obj_st = normalize_infra_subtype(object_subtype)
-    if row.assigned_subtype != obj_st:
+    assigned = normalize_assigned_subtypes(row.assigned_subtypes)
+    if obj_st not in assigned:
         raise HTTPException(
             status_code=400,
             detail="Custom 3D model is not assigned to this object subtype",

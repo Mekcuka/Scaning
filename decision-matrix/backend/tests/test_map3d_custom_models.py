@@ -51,7 +51,7 @@ def test_map3d_custom_models_admin_upload_assign_by_subtype(client):
         headers=headers,
     )
     assert assign.status_code == 200, assign.text
-    assert assign.json()["assigned_subtype"] == "node"
+    assert assign.json()["assigned_subtypes"] == ["node"]
 
     obj_before = client.get(f"/api/v1/projects/{pid}/infrastructure/objects").json()
     node_obj = next(o for o in obj_before if o["id"] == point["id"])
@@ -87,7 +87,109 @@ def test_map3d_custom_models_assign_gtes_subtype(client):
         headers=headers,
     )
     assert assign.status_code == 200, assign.text
-    assert assign.json()["assigned_subtype"] == "gtes"
+    assert assign.json()["assigned_subtypes"] == ["gtes"]
+
+
+def test_map3d_custom_models_assign_multiple_subtypes(client):
+    project, _ = create_test_project(client, email="admin@test.ru", name="test_map3d_multi")
+    pid = project["id"]
+    headers = _admin_headers(client)
+    layer = create_test_layer(client, pid, headers)
+    gtes_point = create_test_infra_point(client, pid, layer["id"], headers, name="gt", subtype="gtes")
+    substation = create_test_infra_point(
+        client, pid, layer["id"], headers, name="sub_a", subtype="substation"
+    )
+
+    upload = client.post(
+        f"/api/v1/projects/{pid}/map3d-custom-models",
+        files={"file": ("multi.glb", MINIMAL_GLB, "model/gltf-binary")},
+        headers=headers,
+    )
+    model_id = upload.json()["id"]
+
+    assign = client.post(
+        f"/api/v1/projects/{pid}/map3d-custom-models/{model_id}/assign",
+        json={"subtypes": ["node", "gtes"]},
+        headers=headers,
+    )
+    assert assign.status_code == 200, assign.text
+    assert set(assign.json()["assigned_subtypes"]) == {"node", "gtes"}
+
+    ok = client.patch(
+        f"/api/v1/projects/{pid}/infrastructure/objects/{gtes_point['id']}",
+        json={"properties": {"render_3d_model_id": f"custom:{model_id}"}},
+        headers=headers,
+    )
+    assert ok.status_code == 200, ok.text
+
+    bad = client.patch(
+        f"/api/v1/projects/{pid}/infrastructure/objects/{substation['id']}",
+        json={"properties": {"render_3d_model_id": f"custom:{model_id}"}},
+        headers=headers,
+    )
+    assert bad.status_code == 400, bad.text
+
+
+def test_map3d_custom_models_assign_clear_subtypes(client):
+    project, _ = create_test_project(client, email="admin@test.ru", name="test_map3d_clear")
+    pid = project["id"]
+    headers = _admin_headers(client)
+    upload = client.post(
+        f"/api/v1/projects/{pid}/map3d-custom-models",
+        files={"file": ("x.glb", MINIMAL_GLB, "model/gltf-binary")},
+        headers=headers,
+    )
+    model_id = upload.json()["id"]
+    client.post(
+        f"/api/v1/projects/{pid}/map3d-custom-models/{model_id}/assign",
+        json={"subtype": "node"},
+        headers=headers,
+    )
+    cleared = client.post(
+        f"/api/v1/projects/{pid}/map3d-custom-models/{model_id}/assign",
+        json={"subtypes": []},
+        headers=headers,
+    )
+    assert cleared.status_code == 200, cleared.text
+    assert cleared.json()["assigned_subtypes"] == []
+
+
+def test_map3d_custom_models_shared_subtype_two_models(client):
+    project, _ = create_test_project(client, email="admin@test.ru", name="test_map3d_shared")
+    pid = project["id"]
+    headers = _admin_headers(client)
+    layer = create_test_layer(client, pid, headers)
+    point = create_test_infra_point(client, pid, layer["id"], headers, name="n1", subtype="node")
+
+    up1 = client.post(
+        f"/api/v1/projects/{pid}/map3d-custom-models",
+        files={"file": ("a.glb", MINIMAL_GLB, "model/gltf-binary")},
+        headers=headers,
+    )
+    up2 = client.post(
+        f"/api/v1/projects/{pid}/map3d-custom-models",
+        files={"file": ("b.glb", MINIMAL_GLB, "model/gltf-binary")},
+        headers=headers,
+    )
+    id1, id2 = up1.json()["id"], up2.json()["id"]
+    client.post(
+        f"/api/v1/projects/{pid}/map3d-custom-models/{id1}/assign",
+        json={"subtypes": ["node"]},
+        headers=headers,
+    )
+    client.post(
+        f"/api/v1/projects/{pid}/map3d-custom-models/{id2}/assign",
+        json={"subtypes": ["node"]},
+        headers=headers,
+    )
+
+    for mid in (id1, id2):
+        patch = client.patch(
+            f"/api/v1/projects/{pid}/infrastructure/objects/{point['id']}",
+            json={"properties": {"render_3d_model_id": f"custom:{mid}"}},
+            headers=headers,
+        )
+        assert patch.status_code == 200, patch.text
 
 
 def test_map3d_custom_models_assign_legacy_object_id(client):
@@ -108,7 +210,7 @@ def test_map3d_custom_models_assign_legacy_object_id(client):
         headers=headers,
     )
     assert assign.status_code == 200, assign.text
-    assert assign.json()["assigned_subtype"] == "gtes"
+    assert assign.json()["assigned_subtypes"] == ["gtes"]
 
 
 def test_map3d_custom_models_patch_rejects_wrong_subtype(client):
@@ -167,7 +269,7 @@ def test_map3d_custom_models_owner_can_assign(client):
         headers=owner_csrf,
     )
     assert assign.status_code == 200, assign.text
-    assert assign.json()["assigned_subtype"] == "node"
+    assert assign.json()["assigned_subtypes"] == ["node"]
 
 
 def test_map3d_custom_models_non_owner_cannot_assign(client):

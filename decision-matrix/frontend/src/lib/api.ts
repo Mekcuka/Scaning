@@ -98,10 +98,23 @@ type RequestOptions = RequestInit & {
   allowNotFound?: boolean;
 };
 
+/** Legacy English `detail` from older API builds (e.g. after deploy lag). */
+const API_ERROR_MESSAGES_RU: Record<string, string> = {
+  'Invalid credentials': 'Неверный email или пароль',
+  'Not authenticated': 'Сессия не найдена. Войдите снова',
+  'Invalid refresh token': 'Сессия истекла. Войдите снова',
+  'Invalid token': 'Недействительный токен. Войдите снова',
+  'Invalid token type': 'Недействительный токен. Войдите снова',
+  'User not found': 'Пользователь не найден',
+  'Account deactivated': 'Учётная запись отключена',
+  'Insufficient permissions': 'Недостаточно прав для этого действия',
+  Unauthorized: 'Требуется вход в систему',
+};
+
 function formatApiError(detail: unknown, fallback: string): string {
   if (typeof detail === 'string') {
     if (detail === 'Insufficient permissions') return fallback;
-    return detail;
+    return API_ERROR_MESSAGES_RU[detail] ?? detail;
   }
   if (Array.isArray(detail)) {
     const parts = detail.map((item) => {
@@ -175,7 +188,7 @@ async function request<T>(path: string, options: RequestOptions = {}): Promise<T
       }
     }
     const err = await res.json().catch(() => ({ detail: null }));
-    throw new Error(formatApiError(err.detail, 'Unauthorized'));
+    throw new Error(formatApiError(err.detail, 'Требуется вход в систему'));
   }
   if (res.status === 403) {
     const err = await res.json().catch(() => ({ detail: null }));
@@ -408,10 +421,10 @@ export const api = {
   },
   deleteMap3dCustomModel: (projectId: string, modelId: string) =>
     request<void>(`/projects/${projectId}/map3d-custom-models/${modelId}`, { method: 'DELETE' }),
-  assignMap3dCustomModel: (projectId: string, modelId: string, subtype: string) =>
+  assignMap3dCustomModel: (projectId: string, modelId: string, subtypes: string[]) =>
     request<Map3dCustomModel>(`/projects/${projectId}/map3d-custom-models/${modelId}/assign`, {
       method: 'POST',
-      body: JSON.stringify({ subtype }),
+      body: JSON.stringify({ subtypes }),
     }),
   createInfraObject: (
     projectId: string,
@@ -656,7 +669,7 @@ export interface Map3dCustomModel {
   filename: string;
   target_height_m: number;
   created_at: string;
-  assigned_subtype: string | null;
+  assigned_subtypes: string[];
 }
 
 export interface InfraObject {

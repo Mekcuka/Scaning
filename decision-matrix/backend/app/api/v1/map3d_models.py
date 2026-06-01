@@ -13,12 +13,13 @@ from app.models import ProjectMap3dModel, User
 from app.schemas import Map3dCustomModelAssign, Map3dCustomModelResponse
 from app.services.map3d_custom_models import (
     DEFAULT_TARGET_HEIGHT_M,
-    assign_custom_model_to_subtype,
+    assign_custom_model_to_subtypes,
     clear_object_overrides_for_custom_model,
     get_custom_model,
     list_custom_models,
     model_file_path,
-    resolve_assign_subtype_payload,
+    normalize_assigned_subtypes,
+    resolve_assign_subtypes_payload,
     validate_glb_upload,
 )
 from app.models.enums import AccessLevel, WriteScope
@@ -48,7 +49,7 @@ def _to_response(row: ProjectMap3dModel) -> Map3dCustomModelResponse:
         filename=row.filename,
         target_height_m=float(row.target_height_m),
         created_at=row.created_at,
-        assigned_subtype=row.assigned_subtype,
+        assigned_subtypes=normalize_assigned_subtypes(row.assigned_subtypes),
     )
 
 
@@ -149,10 +150,14 @@ async def assign_map3d_custom_model(
     db: AsyncSession = Depends(get_db),
 ):
     await _require_map3d_assign(project_id, user, db)
-    subtype = await resolve_assign_subtype_payload(
-        db, project_id, subtype=data.subtype, object_id=data.object_id
+    subtypes = await resolve_assign_subtypes_payload(
+        db,
+        project_id,
+        subtypes=data.subtypes,
+        subtype=data.subtype,
+        object_id=data.object_id,
     )
-    row = await assign_custom_model_to_subtype(db, project_id, model_id, subtype)
+    row = await assign_custom_model_to_subtypes(db, project_id, model_id, subtypes)
     await db.commit()
     await db.refresh(row)
     return _to_response(row)

@@ -53,7 +53,7 @@
 | Auth + RBAC | `api/v1/auth.py`, `admin.py`, `services/auth_tokens.py`, `project_access.py` | ✅ |
 | Проекты, POI, ставки, пороги | `api/v1/router.py`, `services/cost_rates.py`, `calculations.py` | ✅ |
 | Карта, слои, объекты | `api/v1/map.py` | ✅ |
-| Custom GLB 3D (`project_map3d_models`) | `api/v1/map3d_models.py`, `services/map3d_custom_models.py`, миграция `015_map3d_assigned_subtype` | ✅ |
+| Custom GLB 3D (`project_map3d_models`) | `api/v1/map3d_models.py`, `services/map3d_custom_models.py`, миграции `015`–`016` (`assigned_subtypes[]`) | ✅ |
 | Анализ окружения | `services/infrastructure_analysis.py`, `spatial.py` | ✅ |
 | Импорт | `services/import_service.py`, `spark_import.py`, `import_connections.py` | ✅ |
 | Async import | `schedule_async_import` (фоновые задачи asyncio, **не** Celery) | ✅ |

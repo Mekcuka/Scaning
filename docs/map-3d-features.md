@@ -80,7 +80,7 @@ flowchart TB
 | `map3dGltfAssets.ts` | пути к `/map3d-models/*.glb` |
 | `map3dCustomAssets.ts` | runtime-реестр загруженных GLB проекта (`custom:{uuid}`) |
 | `map3dModelCatalog.ts` | подтип → glTF asset / procedural template |
-| `render3dModelOptions.ts` | опции выпадающего списка «Модель 3D» (стандарт + custom по `assigned_subtype`) |
+| `render3dModelOptions.ts` | опции выпадающего списка «Модель 3D» (стандарт + custom по `assigned_subtypes`) |
 | `mapLayerPreferences.ts` | сохранение переключателей панели «Слои» в `localStorage` |
 | `map3dObjectPalette.ts` | 5 тонов от цвета слоя (pad/body/roof/accent/trim) |
 | `render3d.ts` | L2: `render_3d_*` + L1 fallback; `effectiveRender3dHeightM` = height × scale |
@@ -118,7 +118,7 @@ flowchart TB
 | **Стиль 3D** | `render_3d_style` | `model` (glTF) или `extrusion` (столбик MapLibre) |
 | **Модель 3D** | `render_3d_model_id` | пусто = стандартная Kenney; `custom:{uuid}` = переопределение на точке |
 
-Выпадающий список **«Модель 3D»** (`buildRender3dModelOptions`) — **Стандартная** (пустое значение, каталог [`map3dModelCatalog.ts`](../decision-matrix/frontend/src/lib/map3d/map3dModelCatalog.ts)) + все custom GLB с `assigned_subtype`, совпадающим с подтипом объекта. Поле **не дублирует** «Стиль 3D»: стиль задаёт тип отображения; модель — конкретный ассет.
+Выпадающий список **«Модель 3D»** (`buildRender3dModelOptions`) — **Стандартная** (пустое значение, каталог [`map3dModelCatalog.ts`](../decision-matrix/frontend/src/lib/map3d/map3dModelCatalog.ts)) + все custom GLB, у которых подтип объекта входит в `assigned_subtypes`. Несколько GLB могут быть назначены на один подтип (в списке будут все). Поле **не дублирует** «Стиль 3D»: стиль задаёт тип отображения; модель — конкретный ассет.
 
 ### Custom GLB (проектные модели)
 
@@ -127,20 +127,22 @@ flowchart TB
 | Действие | Кто |
 |----------|-----|
 | Загрузка `.glb` (до ~20 MB, валидация glTF) | **admin** |
-| Назначение на **подтип** (`POST .../assign`, body `{ "subtype" }`) | **admin** или **владелец проекта** |
+| Назначение на **подтипы** (`POST .../assign`, body `{ "subtypes": ["node", "gtes", ...] }`) | **admin** или **владелец проекта** |
 | Превью Three.js | **admin** или **владелец** |
 | Выбор custom в карточке объекта | пользователь с write на инфраструктуру |
 
-**Хранение:** таблица `project_map3d_models` (`assigned_subtype`), файлы `backend/data/map3d_models/{project_id}/{id}.glb`.
+**Хранение:** таблица `project_map3d_models` (`assigned_subtypes` — JSON-массив подтипов), файлы `backend/data/map3d_models/{project_id}/{id}.glb`.
 
 **Поведение:**
 
-- Назначение на подтип **не** меняет `properties` объектов — только делает модель доступной в списке «Модель 3D» для всех точек этого подтипа.
-- PATCH `render_3d_model_id: custom:*` — только если модель в проекте и `assigned_subtype` совпадает с `subtype` объекта (иначе **400**).
+- Одна GLB может быть назначена на **несколько** подтипов; один подтип может иметь **несколько** GLB (все попадают в список «Модель 3D»).
+- Назначение **не** меняет `properties` объектов — только делает модель доступной в списке для точек выбранных подтипов.
+- `POST .../assign` с `{ "subtypes": [] }` снимает все назначения с модели. Legacy: `{ "subtype": "node" }` эквивалентно `{ "subtypes": ["node"] }`.
+- PATCH `render_3d_model_id: custom:*` — только если подтип объекта входит в `assigned_subtypes` модели (иначе **400**).
 - Удаление GLB снимает `render_3d_model_id` у всех объектов с этим `custom:{uuid}`.
-- Миграция **`015_map3d_assigned_subtype`**: backfill `assigned_subtype` из старых object-assignments.
+- Миграции: **`015`** (один подтип), **`016`** (`assigned_subtypes`, backfill из `assigned_subtype`).
 
-**API:** `GET/POST /api/v1/projects/{project_id}/map3d-custom-models`, `POST .../{model_id}/assign`, `GET .../{model_id}/file`, `DELETE .../{model_id}`. Ответ: `assigned_subtype` (не `assigned_object_id`).
+**API:** `GET/POST /api/v1/projects/{project_id}/map3d-custom-models`, `POST .../{model_id}/assign`, `GET .../{model_id}/file`, `DELETE .../{model_id}`. Ответ: `assigned_subtypes: string[]`.
 
 ### L3 — glTF на клиенте (реализовано)
 

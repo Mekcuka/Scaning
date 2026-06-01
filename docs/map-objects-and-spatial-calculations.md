@@ -455,7 +455,7 @@ erDiagram
 | `render_3d_model_id` | string | переопределение точки: пусто — Kenney по подтипу; `custom:{uuid}` — GLB, назначенный на подтип |
 | `render_3d_scale` | number | множитель 0.1–10 (по умолчанию 1) |
 
-**Custom GLB:** `project_map3d_models.assigned_subtype`; страница `/import-3d`; PATCH `custom:*` только при совпадении подтипа. Подробно: [map-3d-features.md](./map-3d-features.md).
+**Custom GLB:** `project_map3d_models.assigned_subtypes` (массив подтипов); страница `/import-3d`; PATCH `custom:*` только если подтип объекта в списке. Подробно: [map-3d-features.md](./map-3d-features.md).
 
 **L3 (клиент, реализовано):**
 
@@ -502,7 +502,7 @@ erDiagram
 
 | Дата | Изменение |
 |------|-----------|
-| 2026-05 | Custom GLB: назначение на подтип (`assigned_subtype`), `render_3d_scale`, якорь glTF, панель «Слои» в localStorage |
+| 2026-05 | Custom GLB: назначение на несколько подтипов (`assigned_subtypes[]`), `render_3d_scale`, якорь glTF, панель «Слои» в localStorage |
 | 2026-05 | 3D-линии: отражение корневой матрицы по **Z** (`dm-3d-lines` only); точечные glTF без отражения |
 | 2026-05 | Паритет вершин 2D/3D: единый `linePathForDisplay` + `infraSnapPool` (2D, GeoJSON pick, `buildNormalizedLinePath3d`, тест `linePath2d3dParity.test.ts`); коридор высот `planCorridorAlts`; snap при refresh рельефа |
 | 2026-05 | §1.5: правила рисования линии (начало/середина/конец, `node`), точная привязка концов (`linePathForDisplay`, `infraSnapPool`, heal); координаты — полные в БД, 3 знака в UI; §6.1 hotkeys; 3D-трубы = прямые сегменты |
