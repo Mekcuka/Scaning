@@ -20,6 +20,11 @@ export type Render3DConfig = {
   scale: number;
 };
 
+/** Scene height (m) after L2 height × scale — same basis as fill-extrusion. */
+export function effectiveRender3dHeightM(render: Render3DConfig): number {
+  return render.heightM * render.scale;
+}
+
 function readNumber(props: Record<string, unknown> | undefined, key: string): number | null {
   if (!props) return null;
   const v = props[key];

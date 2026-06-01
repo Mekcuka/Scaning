@@ -10,6 +10,8 @@ import { resolveRender3D, RENDER_3D_MODEL_ID_KEY, shouldUse3dModel } from '../..
 
 type Import3dPreviewProps = {
   objects: InfraObject[];
+  /** Changes when project custom GLB list is synced (triggers model reload). */
+  customModelsKey?: string;
 };
 
 function pointObjects(objects: InfraObject[]): InfraObject[] {
@@ -48,7 +50,7 @@ function frameModelInView(
   controls.update();
 }
 
-export function Import3dPreview({ objects }: Import3dPreviewProps) {
+export function Import3dPreview({ objects, customModelsKey = '' }: Import3dPreviewProps) {
   const wrapRef = useRef<HTMLDivElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const sceneRef = useRef<{
@@ -204,7 +206,7 @@ export function Import3dPreview({ objects }: Import3dPreviewProps) {
     return () => {
       cancelled = true;
     };
-  }, [objectId, points]);
+  }, [objectId, points, customModelsKey]);
 
   return (
     <div className="import-3d-preview">

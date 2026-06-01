@@ -19,6 +19,7 @@ import {
   SUBTYPE_LABELS,
   type InfraLayer,
   type InfraObject,
+  type Map3dCustomModel,
   type POI,
 } from '../lib/api';
 import { getLineCoordinates, isLineSubtype } from '../lib/infraGeometry';
@@ -59,6 +60,10 @@ import {
   resolveRender3D,
 } from '../lib/map3d/render3d';
 import { catalogEntryForSubtype } from '../lib/map3d/map3dModelCatalog';
+import {
+  buildRender3dModelOptions,
+  render3dModelSelectValue,
+} from '../lib/map3d/render3dModelOptions';
 
 import { useProjectSandLogistics } from '../hooks/useProjectSandLogistics';
 import { useActiveProject } from '../hooks/useActiveProject';
@@ -74,6 +79,7 @@ export type SelectedFeature =
 interface ObjectDetailPanelProps {
   selection: SelectedFeature;
   layers: InfraLayer[];
+  map3dCustomModels?: Map3dCustomModel[];
   onSave: (data: Record<string, unknown>) => void;
   onDelete: () => void;
   onClose: () => void;
@@ -215,6 +221,7 @@ function DetailPanelTabs<T extends string>({
 export function ObjectDetailPanel({
   selection,
   layers,
+  map3dCustomModels = [],
   onSave,
   onDelete,
   onClose,
@@ -290,13 +297,19 @@ export function ObjectDetailPanel({
     const style = o.properties?.[RENDER_3D_STYLE_KEY];
     setRender3dStyle(typeof style === 'string' ? style : '');
     const modelId = o.properties?.[RENDER_3D_MODEL_ID_KEY];
-    setRender3dModelId(typeof modelId === 'string' ? modelId : '');
+    const rawMid = typeof modelId === 'string' ? modelId : '';
+    setRender3dModelId(render3dModelSelectValue(o.subtype, map3dCustomModels, rawMid));
     setInfraTab('main');
     setPoiTab('basic');
-  }, [selection]);
+  }, [selection, map3dCustomModels]);
 
   const isPoi = selection.kind === 'poi';
   const infraObject = selection.kind === 'infra' ? selection.object : null;
+
+  const render3dModelOptions = useMemo(() => {
+    if (!infraObject) return [];
+    return buildRender3dModelOptions(infraObject.subtype, map3dCustomModels);
+  }, [infraObject, map3dCustomModels]);
 
   const handleSave = useCallback(() => {
     if (readOnly) return;
@@ -332,11 +345,14 @@ export function ObjectDetailPanel({
       const b = render3dBase.trim() ? parseFloat(render3dBase) : null;
       if (h != null && Number.isFinite(h) && h >= 0) props[RENDER_3D_HEIGHT_KEY] = h;
       if (b != null && Number.isFinite(b) && b >= 0) props[RENDER_3D_BASE_KEY] = b;
-      const sc = render3dScale.trim() ? parseFloat(render3dScale) : null;
+      const scRaw = render3dScale.trim().replace(',', '.');
+      const sc = scRaw ? parseFloat(scRaw) : null;
       if (sc != null && Number.isFinite(sc) && sc > 0) {
         const clamped = Math.min(MAX_RENDER_3D_SCALE, Math.max(MIN_RENDER_3D_SCALE, sc));
         if (Math.abs(clamped - DEFAULT_RENDER_3D_SCALE) < 1e-6) delete props[RENDER_3D_SCALE_KEY];
         else props[RENDER_3D_SCALE_KEY] = clamped;
+      } else if (!scRaw) {
+        delete props[RENDER_3D_SCALE_KEY];
       }
       props[RENDER_3D_VISIBLE_KEY] = render3dVisible;
       if (!isLineSubtype(subtype)) {
@@ -346,8 +362,14 @@ export function ObjectDetailPanel({
           delete props[RENDER_3D_STYLE_KEY];
         }
         const mid = render3dModelId.trim();
-        if (mid) props[RENDER_3D_MODEL_ID_KEY] = mid;
-        else delete props[RENDER_3D_MODEL_ID_KEY];
+        if (mid) {
+          props[RENDER_3D_MODEL_ID_KEY] = mid;
+          if (mid.toLowerCase().startsWith('custom:')) {
+            props[RENDER_3D_STYLE_KEY] = 'model';
+          }
+        } else {
+          delete props[RENDER_3D_MODEL_ID_KEY];
+        }
       }
       payload.properties = props;
 
@@ -497,13 +519,18 @@ export function ObjectDetailPanel({
     const origR3 = resolveRender3D(infraObject.subtype, infraObject.properties);
     const origStyle = (infraObject.properties?.[RENDER_3D_STYLE_KEY] as string) || '';
     const origModelId = (infraObject.properties?.[RENDER_3D_MODEL_ID_KEY] as string) || '';
+    const origModelSelect = render3dModelSelectValue(
+      infraObject.subtype,
+      map3dCustomModels,
+      origModelId,
+    );
     const r3Dirty =
       render3dHeight !== String(origR3.heightM) ||
       render3dBase !== String(origR3.baseM) ||
       render3dScale !== String(origR3.scale) ||
       render3dVisible !== origR3.visible ||
       render3dStyle !== origStyle ||
-      render3dModelId !== origModelId;
+      render3dModelId !== origModelSelect;
     return (
       name !== infraObject.name ||
       description !== origDesc ||
@@ -537,6 +564,9 @@ export function ObjectDetailPanel({
     render3dBase,
     render3dScale,
     render3dVisible,
+    render3dStyle,
+    render3dModelId,
+    map3dCustomModels,
   ]);
 
   const capacityUnit =
@@ -608,13 +638,18 @@ export function ObjectDetailPanel({
           const origR3 = resolveRender3D(infraObject.subtype, infraObject.properties);
           const origStyle = (infraObject.properties?.[RENDER_3D_STYLE_KEY] as string) || '';
           const origModelId = (infraObject.properties?.[RENDER_3D_MODEL_ID_KEY] as string) || '';
+          const origModelSelect = render3dModelSelectValue(
+            infraObject.subtype,
+            map3dCustomModels,
+            origModelId,
+          );
           const r3Dirty =
             render3dHeight !== String(origR3.heightM) ||
             render3dBase !== String(origR3.baseM) ||
             render3dScale !== String(origR3.scale) ||
             render3dVisible !== origR3.visible ||
             render3dStyle !== origStyle ||
-            render3dModelId !== origModelId;
+            render3dModelId !== origModelSelect;
           return description !== origDesc || r3Dirty;
         }
         default:
@@ -640,6 +675,7 @@ export function ObjectDetailPanel({
       lat,
       description,
       capacityValue,
+      map3dCustomModels,
     ],
   );
 
@@ -1014,15 +1050,12 @@ export function ObjectDetailPanel({
                         </select>
                       </label>
                       <label className="object-detail-panel__field">
-                        <FieldLabel>ID модели (опционально)</FieldLabel>
-                        <input
-                          className="input object-detail-panel__input"
-                          type="text"
+                        <FieldLabel>Модель 3D</FieldLabel>
+                        <AppSelect
                           value={render3dModelId}
-                          placeholder="facility, stack, node, quarry, poi_pin"
-                          readOnly={readOnly}
+                          onChange={setRender3dModelId}
                           disabled={readOnly}
-                          onChange={(e) => setRender3dModelId(e.target.value)}
+                          options={render3dModelOptions}
                         />
                       </label>
                     </>

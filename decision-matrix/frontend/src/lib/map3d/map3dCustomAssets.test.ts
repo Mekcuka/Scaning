@@ -14,7 +14,7 @@ describe('map3dCustomAssets', () => {
         filename: 'tower.glb',
         target_height_m: 12,
         created_at: '2026-01-01T00:00:00Z',
-        assigned_object_id: null,
+        assigned_subtype: null,
       },
     ]);
     const key = customModelPropertyId('aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee');

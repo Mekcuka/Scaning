@@ -106,7 +106,13 @@ function formatApiError(detail: unknown, fallback: string): string {
   if (Array.isArray(detail)) {
     const parts = detail.map((item) => {
       if (item && typeof item === 'object' && 'msg' in item) {
-        return String((item as { msg: string }).msg);
+        const loc = (item as { loc?: unknown[] }).loc;
+        const field =
+          Array.isArray(loc) && loc.length > 0
+            ? String(loc[loc.length - 1])
+            : null;
+        const msg = String((item as { msg: string }).msg);
+        return field ? `${field}: ${msg}` : msg;
       }
       return JSON.stringify(item);
     });
@@ -402,10 +408,10 @@ export const api = {
   },
   deleteMap3dCustomModel: (projectId: string, modelId: string) =>
     request<void>(`/projects/${projectId}/map3d-custom-models/${modelId}`, { method: 'DELETE' }),
-  assignMap3dCustomModel: (projectId: string, modelId: string, objectId: string) =>
+  assignMap3dCustomModel: (projectId: string, modelId: string, subtype: string) =>
     request<Map3dCustomModel>(`/projects/${projectId}/map3d-custom-models/${modelId}/assign`, {
       method: 'POST',
-      body: JSON.stringify({ object_id: objectId }),
+      body: JSON.stringify({ subtype }),
     }),
   createInfraObject: (
     projectId: string,
@@ -650,7 +656,7 @@ export interface Map3dCustomModel {
   filename: string;
   target_height_m: number;
   created_at: string;
-  assigned_object_id: string | null;
+  assigned_subtype: string | null;
 }
 
 export interface InfraObject {

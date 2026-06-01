@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { catalogEntryForSubtype } from './map3dModelCatalog';
 import {
+  effectiveRender3dHeightM,
   RENDER_3D_HEIGHT_KEY,
   RENDER_3D_SCALE_KEY,
   RENDER_3D_STYLE_KEY,
@@ -24,6 +25,14 @@ describe('render3d', () => {
   it('reads L2 scale override', () => {
     const r = resolveRender3D('node', { [RENDER_3D_SCALE_KEY]: 2.5 });
     expect(r.scale).toBe(2.5);
+  });
+
+  it('effectiveRender3dHeightM multiplies height by scale', () => {
+    const r = resolveRender3D('gtes', {
+      [RENDER_3D_HEIGHT_KEY]: 12,
+      [RENDER_3D_SCALE_KEY]: 2,
+    });
+    expect(effectiveRender3dHeightM(r)).toBe(24);
   });
 
   it('defaults scale to 1', () => {

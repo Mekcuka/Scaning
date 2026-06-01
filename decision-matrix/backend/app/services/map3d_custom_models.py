@@ -9,7 +9,7 @@ from fastapi import HTTPException, UploadFile
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.geo.constants import LINE_SUBTYPES
+from app.geo.constants import LINE_SUBTYPES, POINT_SUBTYPES, normalize_infra_subtype
 from app.geo.render_3d_properties import RENDER_3D_MODEL_ID_KEY, RENDER_3D_STYLE_KEY
 from app.models import InfrastructureLayer, InfrastructureObject, ProjectMap3dModel
 
@@ -44,6 +44,15 @@ def parse_custom_model_id(value: str | None) -> uuid.UUID | None:
         return None
 
 
+def validate_assignable_subtype(subtype: str) -> str:
+    st = normalize_infra_subtype(subtype)
+    if st in LINE_SUBTYPES:
+        raise HTTPException(status_code=400, detail="Line subtypes cannot use glTF models")
+    if st not in POINT_SUBTYPES:
+        raise HTTPException(status_code=400, detail=f"Unknown or unsupported point subtype: {subtype}")
+    return st
+
+
 async def validate_glb_upload(file: UploadFile) -> bytes:
     name = (file.filename or "").lower()
     if not name.endswith(".glb"):
@@ -58,35 +67,14 @@ async def validate_glb_upload(file: UploadFile) -> bytes:
     return raw
 
 
-async def list_custom_models_with_assignments(
-    db: AsyncSession, project_id: uuid.UUID
-) -> list[tuple[ProjectMap3dModel, uuid.UUID | None]]:
-    models = (
+async def list_custom_models(db: AsyncSession, project_id: uuid.UUID) -> list[ProjectMap3dModel]:
+    return (
         await db.scalars(
             select(ProjectMap3dModel)
             .where(ProjectMap3dModel.project_id == project_id)
             .order_by(ProjectMap3dModel.created_at.desc())
         )
     ).all()
-    if not models:
-        return []
-
-    layer_ids = (
-        await db.scalars(select(InfrastructureLayer.id).where(InfrastructureLayer.project_id == project_id))
-    ).all()
-    if not layer_ids:
-        return [(m, None) for m in models]
-
-    objects = (
-        await db.scalars(select(InfrastructureObject).where(InfrastructureObject.layer_id.in_(layer_ids)))
-    ).all()
-    assign_by_model: dict[uuid.UUID, uuid.UUID] = {}
-    for obj in objects:
-        mid = parse_custom_model_id((obj.properties or {}).get(RENDER_3D_MODEL_ID_KEY))
-        if mid is not None:
-            assign_by_model[mid] = obj.id
-
-    return [(m, assign_by_model.get(m.id)) for m in models]
 
 
 async def get_custom_model(
@@ -103,7 +91,9 @@ async def get_custom_model(
     return row
 
 
-async def clear_custom_model_assignments(db: AsyncSession, project_id: uuid.UUID, model_id: uuid.UUID) -> None:
+async def clear_object_overrides_for_custom_model(
+    db: AsyncSession, project_id: uuid.UUID, model_id: uuid.UUID
+) -> None:
     prop_id = custom_model_property_id(model_id)
     layer_ids = (
         await db.scalars(select(InfrastructureLayer.id).where(InfrastructureLayer.project_id == project_id))
@@ -120,40 +110,82 @@ async def clear_custom_model_assignments(db: AsyncSession, project_id: uuid.UUID
             obj.properties = props
 
 
-async def assign_custom_model_to_object(
-    db: AsyncSession,
-    project_id: uuid.UUID,
-    model_id: uuid.UUID,
-    object_id: uuid.UUID,
+async def _infra_object_in_project(
+    db: AsyncSession, project_id: uuid.UUID, object_id: uuid.UUID
 ) -> InfrastructureObject:
-    await get_custom_model(db, project_id, model_id)
-    layer_ids = (
-        await db.scalars(select(InfrastructureLayer.id).where(InfrastructureLayer.project_id == project_id))
-    ).all()
-    obj = await db.scalar(
-        select(InfrastructureObject).where(
+    result = await db.execute(
+        select(InfrastructureObject)
+        .join(InfrastructureLayer, InfrastructureObject.layer_id == InfrastructureLayer.id)
+        .where(
             InfrastructureObject.id == object_id,
-            InfrastructureObject.layer_id.in_(layer_ids),
+            InfrastructureLayer.project_id == project_id,
         )
     )
-    if not obj:
+    obj = result.scalar_one_or_none()
+    if obj is None:
         raise HTTPException(status_code=404, detail="Infrastructure object not found")
-    if obj.subtype in LINE_SUBTYPES:
-        raise HTTPException(status_code=400, detail="Line objects cannot use glTF models")
-
-    prop_id = custom_model_property_id(model_id)
-    await clear_custom_model_assignments(db, project_id, model_id)
-
-    props = dict(obj.properties or {})
-    props[RENDER_3D_MODEL_ID_KEY] = prop_id
-    props[RENDER_3D_STYLE_KEY] = "model"
-    from app.geo.render_3d_properties import apply_default_render_3d
-
-    obj.properties = apply_default_render_3d(obj.subtype, props)
     return obj
 
 
-def assert_can_set_custom_model_id(user, project, properties: dict | None) -> None:
+async def resolve_assign_subtype_payload(
+    db: AsyncSession,
+    project_id: uuid.UUID,
+    *,
+    subtype: str | None,
+    object_id: uuid.UUID | None,
+) -> str:
+    if subtype and str(subtype).strip():
+        return validate_assignable_subtype(subtype)
+    if object_id is not None:
+        obj = await _infra_object_in_project(db, project_id, object_id)
+        return validate_assignable_subtype(obj.subtype)
+    raise HTTPException(status_code=400, detail="subtype is required")
+
+
+async def assign_custom_model_to_subtype(
+    db: AsyncSession,
+    project_id: uuid.UUID,
+    model_id: uuid.UUID,
+    subtype: str,
+) -> ProjectMap3dModel:
+    st = validate_assignable_subtype(subtype)
+    row = await get_custom_model(db, project_id, model_id)
+    row.assigned_subtype = st
+    return row
+
+
+async def assert_custom_model_allowed_for_object(
+    db: AsyncSession,
+    project_id: uuid.UUID,
+    object_subtype: str,
+    properties: dict | None,
+) -> None:
+    if not properties:
+        return
+    raw = properties.get(RENDER_3D_MODEL_ID_KEY)
+    if not isinstance(raw, str) or not raw.strip().lower().startswith(CUSTOM_MODEL_ID_PREFIX):
+        return
+    model_id = parse_custom_model_id(raw)
+    if model_id is None:
+        raise HTTPException(status_code=400, detail="Invalid custom 3D model id")
+    row = await get_custom_model(db, project_id, model_id)
+    obj_st = normalize_infra_subtype(object_subtype)
+    if row.assigned_subtype != obj_st:
+        raise HTTPException(
+            status_code=400,
+            detail="Custom 3D model is not assigned to this object subtype",
+        )
+
+
+def assert_can_set_custom_model_id(
+    user,
+    project,
+    properties: dict | None,
+    *,
+    db: AsyncSession | None = None,
+    project_id: uuid.UUID | None = None,
+    object_subtype: str | None = None,
+) -> None:
     from app.models import Project
     from app.services.project_access import can_assign_map3d_custom_model
 
@@ -166,3 +198,15 @@ def assert_can_set_custom_model_id(user, project, properties: dict | None) -> No
                 status_code=403,
                 detail="Only administrators and project owners can assign custom 3D models",
             )
+
+
+async def assert_can_set_custom_model_id_async(
+    db: AsyncSession,
+    user,
+    project,
+    project_id: uuid.UUID,
+    object_subtype: str,
+    properties: dict | None,
+) -> None:
+    assert_can_set_custom_model_id(user, project, properties)
+    await assert_custom_model_allowed_for_object(db, project_id, object_subtype, properties)

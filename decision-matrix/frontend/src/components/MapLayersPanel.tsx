@@ -1,6 +1,7 @@
 import { useMemo, useState, type ReactNode } from 'react';
 import { ChevronDown, ChevronRight, X } from 'lucide-react';
 import { LAYER_VISIBILITY_GROUPS } from '../lib/api';
+import type { MapLayerOpenSections } from '../lib/mapLayerPreferences';
 
 type LayerRow = { id: string; name: string; is_visible: boolean };
 
@@ -33,6 +34,9 @@ type MapLayersPanelProps = {
   modelsToggleEnabled?: boolean;
   /** When true, layer visibility toggles are disabled (persisted server-side). */
   layerVisibilityReadOnly?: boolean;
+  /** Persisted accordion state (optional controlled mode). */
+  openSections?: MapLayerOpenSections;
+  onOpenSectionsChange?: (sections: MapLayerOpenSections) => void;
   onClose?: () => void;
 };
 
@@ -91,17 +95,23 @@ export function MapLayersPanel({
   onShowModelsChange,
   modelsToggleEnabled = false,
   layerVisibilityReadOnly = false,
+  openSections: openSectionsProp,
+  onOpenSectionsChange,
   onClose,
 }: MapLayersPanelProps) {
-  const [openSections, setOpenSections] = useState<Record<string, boolean>>({
+  const [openSectionsLocal, setOpenSectionsLocal] = useState<MapLayerOpenSections>({
     basemap: true,
     objects: false,
     sources: false,
     radii: false,
   });
+  const openSections = openSectionsProp ?? openSectionsLocal;
 
   const toggleSection = (id: string) => {
-    setOpenSections((prev) => ({ ...prev, [id]: !prev[id] }));
+    const key = id as keyof MapLayerOpenSections;
+    const next = { ...openSections, [key]: !openSections[key] };
+    if (onOpenSectionsChange) onOpenSectionsChange(next);
+    else setOpenSectionsLocal(next);
   };
 
   const allGroupSubtypes = useMemo(

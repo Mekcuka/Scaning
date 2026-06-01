@@ -16,6 +16,11 @@ export function customModelPropertyId(modelId: string): string {
   return id.toLowerCase().startsWith('custom:') ? id.toLowerCase() : `custom:${id}`;
 }
 
+/** Uploaded project GLB (`render_3d_model_id` prefix `custom:`). */
+export function isCustomGltfAssetId(assetId: string): boolean {
+  return assetId.trim().toLowerCase().startsWith('custom:');
+}
+
 function fileUrl(projectId: string, modelId: string): string {
   const base = API_BASE.endsWith('/') ? API_BASE.slice(0, -1) : API_BASE;
   return `${base}/projects/${projectId}/map3d-custom-models/${modelId}/file`;

@@ -104,11 +104,11 @@ flowchart TB
 | `render_3d_scale` | множитель размера 3D (модель, extrusion, трубы линий); по умолчанию `1`, диапазон 0.1–10 |
 | `render_3d_visible` | `false` — скрыть в 3D |
 | `render_3d_style` | `model` / `extrusion` |
-| `render_3d_model_id` | id glTF-ассета или алиас (`facility-large`, `stack`, `tank`, …); префикс `custom:{uuid}` — GLB, загруженный администратором |
+| `render_3d_model_id` | опционально: переопределение модели на объекте; пусто — встроенная Kenney по подтипу; `custom:{uuid}` — GLB проекта, если модель назначена на этот подтип |
 
-Панель объекта → вкладка «Дополнительно» (в 3D-режиме).
+Панель объекта → вкладка «Дополнительно» → блок **«Отображение в 3D»**: выпадающий список **«Модель 3D»** (`buildRender3dModelOptions`) — **Стандартная** (пустое значение, каталог [`map3dModelCatalog.ts`](../decision-matrix/frontend/src/lib/map3d/map3dModelCatalog.ts)) + все custom GLB с `assigned_subtype`, совпадающим с подтипом объекта.
 
-**Custom GLB:** страница `/import-3d` — загрузка `.glb` (до ~20 MB) только **администратором**; назначение **точечному** объекту и превью — **администратор** или **владелец проекта**. Файлы на диске backend (`data/map3d_models/{project_id}/{id}.glb`). Назначить `custom:*` через PATCH — те же роли, что и через UI назначения.
+**Custom GLB:** страница `/import-3d` — загрузка `.glb` (до ~20 MB) только **администратором**; **назначение на подтип** (`assigned_subtype` в `project_map3d_models`) и превью — **администратор** или **владелец проекта**. Файлы: `data/map3d_models/{project_id}/{id}.glb`. PATCH `render_3d_model_id: custom:*` — только если модель существует и `assigned_subtype` совпадает с подтипом объекта (иначе 400). Удаление GLB снимает override у объектов с этим `custom:{uuid}`.
 
 ### L3 — glTF на клиенте (реализовано)
 
@@ -139,7 +139,8 @@ flowchart TB
 ### 5.2 Окраска
 
 - Базовый цвет: цвет **слоя** или [`MAP_SUBTYPE_COLORS`](../decision-matrix/frontend/src/lib/mapIcons.ts)
-- На glTF: **палитра из 5 оттенков** по высоте вершин ([`map3dObjectPalette.ts`](../decision-matrix/frontend/src/lib/map3d/map3dObjectPalette.ts)); атлас Kenney отключается для читаемости цвета
+- **Встроенные** glTF (Kenney): **палитра из 5 оттенков** по высоте вершин ([`map3dObjectPalette.ts`](../decision-matrix/frontend/src/lib/map3d/map3dObjectPalette.ts)); атлас отключается для читаемости цвета слоя
+- **Custom GLB** (`custom:{uuid}`): **оригинальные PBR-текстуры и материалы** из файла; при выделении — только лёгкое emissive ([`map3dGltfLoader.ts`](../decision-matrix/frontend/src/lib/map3d/map3dGltfLoader.ts))
 - Выделение: лёгкое emissive-свечение
 
 ### 5.3 Extrusion (столбики)

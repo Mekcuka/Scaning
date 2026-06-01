@@ -4249,10 +4249,6 @@ tr:hover .inline-table-edit-trigger,
   pointer-events: none;
 }
 
-.import-3d-upload__btn {
-  width: 100%;
-}
-
 .import-3d-models-section {
   border-top: 1px solid var(--border);
   padding-top: 1rem;

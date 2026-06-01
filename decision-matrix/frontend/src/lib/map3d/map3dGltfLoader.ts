@@ -1,7 +1,7 @@
 import * as THREE from 'three';
 import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
 import { MAP3D_OBJECT_SCALE } from './map3dConfig';
-import { resolveGltfAssetDef } from './map3dCustomAssets';
+import { isCustomGltfAssetId, resolveGltfAssetDef } from './map3dCustomAssets';
 import type { Map3dGltfAssetDef } from './map3dGltfAssets';
 import {
   buildObjectColorPalette,
@@ -97,6 +97,54 @@ export function applyGltfInstanceColor(
   });
 }
 
+/** Keep glTF materials/maps; only selection highlight (custom uploads). */
+export function applyGltfInstanceSelection(group: THREE.Group, selected: boolean): void {
+  const tune = (m: THREE.Material): THREE.Material => {
+    const mat = m.clone();
+    if (mat instanceof THREE.MeshStandardMaterial) {
+      mat.emissive.set(selected ? '#ffffff' : '#000000');
+      mat.emissiveIntensity = selected ? 0.12 : 0;
+    } else if (mat instanceof THREE.MeshLambertMaterial) {
+      mat.emissive.set(selected ? '#ffffff' : '#000000');
+      mat.emissiveIntensity = selected ? 0.1 : 0;
+    }
+    return mat;
+  };
+
+  group.traverse((obj) => {
+    const mesh = obj as THREE.Mesh;
+    if (!mesh.isMesh || !mesh.material) return;
+    if (Array.isArray(mesh.material)) {
+      mesh.material = mesh.material.map(tune);
+    } else {
+      mesh.material = tune(mesh.material);
+    }
+  });
+}
+
+function applyGltfInstanceAppearance(
+  group: THREE.Group,
+  assetId: string,
+  colorHex: string,
+  selected: boolean,
+): void {
+  if (isCustomGltfAssetId(assetId)) {
+    applyGltfInstanceSelection(group, selected);
+  } else {
+    applyGltfInstanceColor(group, colorHex, selected);
+  }
+}
+
+/** Footprint center on lon/lat (XZ=0), base on ground (Y=0) — MapLibre anchor point. */
+export function anchorGltfGroupAtFootprint(group: THREE.Group): void {
+  group.updateMatrixWorld(true);
+  const box = new THREE.Box3().setFromObject(group);
+  const center = box.getCenter(new THREE.Vector3());
+  group.position.x -= center.x;
+  group.position.z -= center.z;
+  group.position.y -= box.min.y;
+}
+
 function normalizePrototype(scene: THREE.Group, def: Map3dGltfAssetDef): THREE.Group {
   const root = new THREE.Group();
   root.add(scene);
@@ -108,9 +156,7 @@ function normalizePrototype(scene: THREE.Group, def: Map3dGltfAssetDef): THREE.G
   const s = targetH / maxDim;
   root.scale.setScalar(s);
 
-  const box2 = new THREE.Box3().setFromObject(root);
-  const center = box2.getCenter(new THREE.Vector3());
-  root.position.set(-center.x, -box2.min.y, -center.z);
+  anchorGltfGroupAtFootprint(root);
 
   if (def.yawDeg) {
     root.rotation.y = (def.yawDeg * Math.PI) / 180;
@@ -143,7 +189,7 @@ export function loadGltfPrototype(assetId: string): Promise<THREE.Group> {
   return pending;
 }
 
-/** Instance-ready clone (normalized scale, layer color, sitting on Y=0). */
+/** Instance-ready clone (normalized scale; bundled assets use layer palette, custom GLB keeps textures). */
 export async function cloneGltfModel(
   assetId: string,
   colorHex: string,
@@ -151,7 +197,7 @@ export async function cloneGltfModel(
 ): Promise<THREE.Group> {
   const proto = await loadGltfPrototype(assetId);
   const group = proto.clone(true);
-  applyGltfInstanceColor(group, colorHex, selected);
+  applyGltfInstanceAppearance(group, assetId, colorHex, selected);
   return group;
 }
 
@@ -165,10 +211,10 @@ export async function cloneGltfModelToHeight(
   const group = await cloneGltfModel(assetId, colorHex, selected);
   const box = new THREE.Box3().setFromObject(group);
   const h = Math.max(box.max.y - box.min.y, 0.001);
-  group.scale.multiplyScalar(heightM / h);
-  group.updateMatrixWorld(true);
-  const box2 = new THREE.Box3().setFromObject(group);
-  group.position.y -= box2.min.y;
+  if (heightM > 0 && Number.isFinite(heightM)) {
+    group.scale.multiplyScalar(heightM / h);
+    anchorGltfGroupAtFootprint(group);
+  }
   return group;
 }
 

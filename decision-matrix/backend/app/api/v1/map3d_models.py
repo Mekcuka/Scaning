@@ -13,11 +13,12 @@ from app.models import ProjectMap3dModel, User
 from app.schemas import Map3dCustomModelAssign, Map3dCustomModelResponse
 from app.services.map3d_custom_models import (
     DEFAULT_TARGET_HEIGHT_M,
-    assign_custom_model_to_object,
-    clear_custom_model_assignments,
+    assign_custom_model_to_subtype,
+    clear_object_overrides_for_custom_model,
     get_custom_model,
-    list_custom_models_with_assignments,
+    list_custom_models,
     model_file_path,
+    resolve_assign_subtype_payload,
     validate_glb_upload,
 )
 from app.models.enums import AccessLevel, WriteScope
@@ -40,14 +41,14 @@ async def _require_map3d_assign(project_id: UUID, user: User, db: AsyncSession):
     return project
 
 
-def _to_response(row: ProjectMap3dModel, assigned_object_id: UUID | None) -> Map3dCustomModelResponse:
+def _to_response(row: ProjectMap3dModel) -> Map3dCustomModelResponse:
     return Map3dCustomModelResponse(
         id=row.id,
         project_id=row.project_id,
         filename=row.filename,
         target_height_m=float(row.target_height_m),
         created_at=row.created_at,
-        assigned_object_id=assigned_object_id,
+        assigned_subtype=row.assigned_subtype,
     )
 
 
@@ -61,8 +62,8 @@ async def list_map3d_custom_models(
     db: AsyncSession = Depends(get_db),
 ):
     await _get_user_project(project_id, user, db)
-    rows = await list_custom_models_with_assignments(db, project_id)
-    return [_to_response(m, assigned) for m, assigned in rows]
+    rows = await list_custom_models(db, project_id)
+    return [_to_response(m) for m in rows]
 
 
 @map3d_custom_models_router.post(
@@ -98,7 +99,7 @@ async def upload_map3d_custom_model(
 
     await db.commit()
     await db.refresh(row)
-    return _to_response(row, None)
+    return _to_response(row)
 
 
 @map3d_custom_models_router.get("/projects/{project_id}/map3d-custom-models/{model_id}/file")
@@ -128,7 +129,7 @@ async def delete_map3d_custom_model(
 ):
     await _get_user_project(project_id, user, db)
     row = await get_custom_model(db, project_id, model_id)
-    await clear_custom_model_assignments(db, project_id, model_id)
+    await clear_object_overrides_for_custom_model(db, project_id, model_id)
     path = model_file_path(project_id, row.id)
     await db.delete(row)
     await db.commit()
@@ -148,7 +149,10 @@ async def assign_map3d_custom_model(
     db: AsyncSession = Depends(get_db),
 ):
     await _require_map3d_assign(project_id, user, db)
-    await assign_custom_model_to_object(db, project_id, model_id, data.object_id)
+    subtype = await resolve_assign_subtype_payload(
+        db, project_id, subtype=data.subtype, object_id=data.object_id
+    )
+    row = await assign_custom_model_to_subtype(db, project_id, model_id, subtype)
     await db.commit()
-    row = await get_custom_model(db, project_id, model_id)
-    return _to_response(row, data.object_id)
+    await db.refresh(row)
+    return _to_response(row)

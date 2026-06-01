@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState, type ReactNode } from 'react';
+import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { Navigate, Link } from 'react-router-dom';
 import {
@@ -18,6 +18,9 @@ import {
   canAssignMap3dCustomModel,
   canUploadMap3dCustomModel,
 } from '../lib/permissions';
+import { setProjectCustomGltfAssets } from '../lib/map3d/map3dCustomAssets';
+import { clearGltfPrototypeCache } from '../lib/map3d/map3dGltfLoader';
+import { map3dAssignableSubtypes } from '../lib/map3d/render3dModelOptions';
 import { refreshMapQueries } from '../lib/mapQueries';
 import { useActiveProject } from '../hooks/useActiveProject';
 import { usePermissions } from '../hooks/usePermissions';
@@ -217,14 +220,21 @@ function GlbUploadZone({
           onChange={syncFileName}
         />
       </div>
-      <button
-        type="button"
-        className="btn btn-primary import-3d-upload__btn"
-        disabled={disabled || busy || !fileName}
-        onClick={onPick}
-      >
-        {busy ? 'Загрузка…' : 'Загрузить на сервер'}
-      </button>
+      <div className="import-3d-assign-actions">
+        <button
+          type="button"
+          className="btn btn-primary"
+          disabled={disabled || busy || !fileName}
+          onClick={onPick}
+        >
+          {busy ? 'Загрузка…' : 'Загрузить на сервер'}
+        </button>
+        {!fileName && !disabled ? (
+          <p className="import-3d-muted import-3d-assign-hint">
+            Выберите файл в зоне выше, чтобы загрузить
+          </p>
+        ) : null}
+      </div>
     </div>
   );
 }
@@ -236,7 +246,7 @@ export function Import3DPage() {
   const pushToast = useAppStore((s) => s.pushToast);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [assignModelId, setAssignModelId] = useState('');
-  const [assignObjectId, setAssignObjectId] = useState('');
+  const [assignSubtype, setAssignSubtype] = useState('');
 
   const canUpload = canUploadMap3dCustomModel(role);
   const canAssign = canAssignMap3dCustomModel(role, user?.id, activeProject);
@@ -248,6 +258,21 @@ export function Import3DPage() {
     enabled: !!projectId && hasPageAccess,
   });
 
+  const customModelsKey = useMemo(
+    () => models.map((m) => m.id).sort().join(','),
+    [models],
+  );
+
+  useEffect(() => {
+    if (!projectId) {
+      setProjectCustomGltfAssets('', []);
+      clearGltfPrototypeCache();
+      return;
+    }
+    setProjectCustomGltfAssets(projectId, models);
+    clearGltfPrototypeCache();
+  }, [projectId, models]);
+
   const { data: infraObjects = [] } = useQuery({
     queryKey: ['infra', projectId],
     queryFn: () => api.getInfraObjects(projectId!),
@@ -255,7 +280,15 @@ export function Import3DPage() {
   });
 
   const pointObjects = infraObjects.filter((o) => !isLineSubtype(o.subtype));
-  const objectNameById = new Map(pointObjects.map((o) => [o.id, o.name]));
+
+  const assignableSubtypeOptions = useMemo(
+    () =>
+      map3dAssignableSubtypes().map((st) => ({
+        value: st,
+        label: SUBTYPE_LABELS[st] ?? st,
+      })),
+    [],
+  );
 
   const denied = !projectsLoading && !hasPageAccess;
 
@@ -289,10 +322,10 @@ export function Import3DPage() {
   });
 
   const assignMut = useMutation({
-    mutationFn: ({ modelId, objectId }: { modelId: string; objectId: string }) =>
-      api.assignMap3dCustomModel(projectId!, modelId, objectId),
+    mutationFn: ({ modelId, subtype }: { modelId: string; subtype: string }) =>
+      api.assignMap3dCustomModel(projectId!, modelId, subtype.trim()),
     onSuccess: async () => {
-      pushToast('success', 'Модель назначена объекту');
+      pushToast('success', 'Модель назначена подтипу');
       await invalidateAll();
     },
     onError: (e: Error) => pushToast('error', e.message),
@@ -305,9 +338,8 @@ export function Import3DPage() {
   };
 
   const assignedLabel = (m: Map3dCustomModel) => {
-    if (!m.assigned_object_id) return '—';
-    const name = objectNameById.get(m.assigned_object_id);
-    return name ? `${name}` : m.assigned_object_id;
+    if (!m.assigned_subtype) return '—';
+    return SUBTYPE_LABELS[m.assigned_subtype] ?? m.assigned_subtype;
   };
 
   if (denied) {
@@ -316,7 +348,7 @@ export function Import3DPage() {
 
   const showUploadCard = canUpload;
   const showOwnerModelsCard = !canUpload && canAssign;
-  const assignReady = Boolean(projectId && assignModelId && assignObjectId);
+  const assignReady = Boolean(projectId && assignModelId && assignSubtype);
   const uploadStep = 1;
   const assignStep = showUploadCard ? 2 : 1;
 
@@ -419,8 +451,8 @@ export function Import3DPage() {
               <Import3dPanel
                 step={assignStep}
                 icon={<Box size={20} />}
-                title="Назначение объекту"
-                subtitle="Только точечная инфраструктура; на карте откройте режим 3D"
+                title="Назначение подтипу"
+                subtitle="Модель станет доступна в списке на карте для всех объектов этого типа"
               >
                 <div className="import-3d-assign-flow">
                   <div className="import-3d-assign-field">
@@ -442,24 +474,17 @@ export function Import3DPage() {
                   </div>
                   <ArrowRight className="import-3d-assign-arrow" aria-hidden />
                   <div className="import-3d-assign-field">
-                    <label className="form-label" htmlFor="import3d-assign-object">
-                      Объект на карте
+                    <label className="form-label" htmlFor="import3d-assign-subtype">
+                      Тип объекта
                     </label>
                     <AppSelect
-                      placeholder={
-                        pointObjects.length === 0
-                          ? 'Нет точечных объектов'
-                          : 'Выберите объект'
-                      }
-                      value={assignObjectId}
-                      onChange={setAssignObjectId}
-                      disabled={!projectId || pointObjects.length === 0}
+                      placeholder="Выберите подтип"
+                      value={assignSubtype}
+                      onChange={setAssignSubtype}
+                      disabled={!projectId}
                       options={[
                         { value: '', label: '— не выбрано —' },
-                        ...pointObjects.map((o) => ({
-                          value: o.id,
-                          label: `${o.name} (${SUBTYPE_LABELS[o.subtype] || o.subtype})`,
-                        })),
+                        ...assignableSubtypeOptions,
                       ]}
                     />
                   </div>
@@ -470,10 +495,10 @@ export function Import3DPage() {
                     className="btn btn-primary"
                     disabled={!assignReady || assignMut.isPending}
                     onClick={() =>
-                      assignMut.mutate({ modelId: assignModelId, objectId: assignObjectId })
+                      assignMut.mutate({ modelId: assignModelId, subtype: assignSubtype })
                     }
                   >
-                    {assignMut.isPending ? 'Назначение…' : 'Назначить объекту'}
+                    {assignMut.isPending ? 'Назначение…' : 'Назначить подтипу'}
                   </button>
                   {assignReady ? (
                     <Link to="/map" className="btn btn-secondary import-3d-map-link">
@@ -482,7 +507,7 @@ export function Import3DPage() {
                     </Link>
                   ) : (
                     <p className="import-3d-muted import-3d-assign-hint">
-                      Выберите модель и объект, чтобы продолжить
+                      Выберите модель и тип объекта, чтобы продолжить
                     </p>
                   )}
                 </div>
@@ -499,7 +524,7 @@ export function Import3DPage() {
             subtitle="Как модель будет выглядеть на карте"
           >
             {projectId ? (
-              <Import3dPreview objects={infraObjects} />
+              <Import3dPreview objects={infraObjects} customModelsKey={customModelsKey} />
             ) : (
               <div className="import-3d-empty import-3d-empty--compact">
                 <p className="import-3d-empty__title">Проект не выбран</p>

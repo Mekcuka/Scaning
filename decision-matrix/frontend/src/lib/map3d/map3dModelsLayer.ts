@@ -5,7 +5,8 @@ import maplibregl, {
 } from 'maplibre-gl';
 import * as THREE from 'three';
 import { MAP3D_OBJECT_SCALE } from './map3dConfig';
-import { cloneGltfModel } from './map3dGltfLoader';
+import { cloneGltfModelToHeight } from './map3dGltfLoader';
+import { effectiveRender3dHeightM } from './render3d';
 import { createProceduralModelMesh } from './map3dModelMeshes';
 import type { Map3dModelInstance } from './map3dModelInstances';
 
@@ -144,9 +145,15 @@ export class Map3dModelsCustomLayer implements CustomLayerInterface {
   }
 
   private proceduralPlaceholder(inst: Map3dModelInstance): THREE.Group {
+    const heightM = effectiveRender3dHeightM({
+      heightM: inst.heightM,
+      baseM: inst.baseM,
+      visible: true,
+      scale: inst.scale,
+    });
     return createProceduralModelMesh(
       inst.catalog.template,
-      inst.heightM,
+      heightM,
       inst.catalog.footprintScale,
       inst.color,
       inst.selected,
@@ -184,7 +191,13 @@ export class Map3dModelsCustomLayer implements CustomLayerInterface {
         continue;
       }
 
-      void cloneGltfModel(assetId, inst.color, inst.selected)
+      const heightM = effectiveRender3dHeightM({
+        heightM: inst.heightM,
+        baseM: inst.baseM,
+        visible: true,
+        scale: inst.scale,
+      });
+      void cloneGltfModelToHeight(assetId, inst.color, heightM, inst.selected)
         .then((group) => {
           if (gen !== this.meshLoadGeneration) {
             disposeGroup(group);
@@ -253,7 +266,7 @@ export class Map3dModelsCustomLayer implements CustomLayerInterface {
       const t = this.transformCache.get(inst.id);
       if (!group || !t) continue;
 
-      const scaleMul = (inst.selected ? 1.08 : 1) * inst.scale;
+      const scaleMul = inst.selected ? 1.08 : 1;
       buildLocalMatrix(t, scaleMul, this.localMatrix, this.rotX, this.rotY, this.rotZ);
 
       this.camera.projectionMatrix.copy(this.projMatrix).multiply(this.localMatrix);

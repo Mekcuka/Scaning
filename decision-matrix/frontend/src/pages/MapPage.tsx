@@ -65,7 +65,6 @@ import type { MapView3DHandle } from '../components/MapView3D';
 const MapView3D = lazy(() => import('../components/MapView3D'));
 import {
   LINE_SUBTYPES,
-  createDefaultSubtypeFilter,
   MAP_DRAWABLE_POINT_SUBTYPES,
   SUBTYPE_LABELS,
   api,
@@ -80,6 +79,7 @@ import {
   type POI,
 } from '../lib/api';
 import { useActiveProject } from '../hooks/useActiveProject';
+import { useMapLayerPreferences } from '../hooks/useMapLayerPreferences';
 import { usePermissions } from '../hooks/usePermissions';
 import { refreshMapQueries } from '../lib/mapQueries';
 import { formatLengthMeters, lineLengthMeters } from '../lib/mapMeasure';
@@ -154,9 +154,18 @@ export function MapPage() {
   const { projectId } = useActiveProject();
   const queryClient = useQueryClient();
   const pushToast = useAppStore((s) => s.pushToast);
-  const [showBasemap, setShowBasemap] = useState(true);
-  const [showTerrain, setShowTerrain] = useState(() => isMaptilerTerrainAvailable());
-  const [showModels, setShowModels] = useState(true);
+  const { prefs: layerPrefs, setPrefs: setLayerPrefs, setOpenSections: setLayerOpenSections } =
+    useMapLayerPreferences(projectId);
+  const {
+    showBasemap,
+    showTerrain,
+    showModels,
+    showPoisOnMap,
+    showRadii,
+    radiusVisible,
+    subtypeFilter,
+    openSections: layerOpenSections,
+  } = layerPrefs;
   const { is3dEnabled: map3dFeatureEnabled, displayMode: mapDisplayMode, setDisplayMode: setMapDisplayMode, mapIn3d } =
     useMapDisplayMode();
   const map3dRef = useRef<MapView3DHandle | null>(null);
@@ -171,13 +180,6 @@ export function MapPage() {
   const [selectMode, setSelectMode] = useState<SelectMode>('single');
   const [selectMenuOpen, setSelectMenuOpen] = useState(false);
   const [selectedPoiId, setSelectedPoiId] = useState<string | null>(null);
-  const [showRadii, setShowRadii] = useState(false);
-  const [radiusVisible, setRadiusVisible] = useState<Record<string, boolean>>({
-    gas_processing: true,
-    gtes: true,
-    substation: true,
-    refinery: true,
-  });
   const [lineDraft, setLineDraft] = useState<number[][]>([]);
   const [lineDraftPreview, setLineDraftPreview] = useState<[number, number] | null>(null);
   const [rulerPoints, setRulerPoints] = useState<number[][]>([]);
@@ -208,10 +210,8 @@ export function MapPage() {
   const [candidateParamType, setCandidateParamType] = useState<'external' | 'external_linear'>('external');
   const [pointMenuOpen, setPointMenuOpen] = useState(false);
   const [lineMenuOpen, setLineMenuOpen] = useState(false);
-  const [subtypeFilter, setSubtypeFilter] = useState(createDefaultSubtypeFilter);
   const [mapFocus, setMapFocus] = useState<MapFocusTarget | null>(null);
   const [mapEditEnabled, setMapEditEnabled] = useState(false);
-  const [showPoisOnMap, setShowPoisOnMap] = useState(true);
   const [mapScaleLabel, setMapScaleLabel] = useState('—');
 
   useEffect(() => {
@@ -338,12 +338,12 @@ export function MapPage() {
   });
 
   const setGroupSubtypesVisible = useCallback((subtypes: readonly string[], visible: boolean) => {
-    setSubtypeFilter((prev) => {
-      const next = { ...prev };
-      for (const st of subtypes) next[st] = visible;
-      return next;
+    setLayerPrefs((prev) => {
+      const subtypeFilter = { ...prev.subtypeFilter };
+      for (const st of subtypes) subtypeFilter[st] = visible;
+      return { ...prev, subtypeFilter };
     });
-  }, []);
+  }, [setLayerPrefs]);
 
   const isGroupVisible = useCallback(
     (subtypes: readonly string[]) => subtypes.every((st) => subtypeFilter[st] !== false),
@@ -729,7 +729,10 @@ export function MapPage() {
         void queryClient.invalidateQueries({ queryKey: ['layers', projectId] });
       }
 
-      setSubtypeFilter((prev) => ({ ...prev, [created.subtype]: true }));
+      setLayerPrefs((prev) => ({
+        ...prev,
+        subtypeFilter: { ...prev.subtypeFilter, [created.subtype]: true },
+      }));
       setFeatureSel(null);
 
       pushUndo({
@@ -768,12 +771,15 @@ export function MapPage() {
         void queryClient.invalidateQueries({ queryKey: ['layers', projectId] });
       }
 
-      setSubtypeFilter((prev) => ({ ...prev, [created.subtype]: true }));
+      setLayerPrefs((prev) => ({
+        ...prev,
+        subtypeFilter: { ...prev.subtypeFilter, [created.subtype]: true },
+      }));
       setFeatureSel(null);
       setModal(null);
       setLineDraft([]);
     },
-    [projectId, queryClient, layers, layerVisibilityMut, upsertInfraInCache],
+    [projectId, queryClient, layers, layerVisibilityMut, upsertInfraInCache, setLayerPrefs],
   );
 
   const placeInfraPointAt = useCallback(
@@ -2450,19 +2456,24 @@ export function MapPage() {
                 layerVisibilityReadOnly={!canWriteInfra}
                 layerVisibilityPending={layerVisibilityMut.isPending}
                 showPoisOnMap={showPoisOnMap}
-                onShowPoisChange={setShowPoisOnMap}
+                onShowPoisChange={(visible) => setLayerPrefs((p) => ({ ...p, showPoisOnMap: visible }))}
                 showRadii={showRadii}
-                onShowRadiiChange={setShowRadii}
+                onShowRadiiChange={(visible) => setLayerPrefs((p) => ({ ...p, showRadii: visible }))}
                 radiusVisible={radiusVisible}
                 onRadiusVisibleChange={(subtype, visible) =>
-                  setRadiusVisible((v) => ({ ...v, [subtype]: visible }))
+                  setLayerPrefs((p) => ({
+                    ...p,
+                    radiusVisible: { ...p.radiusVisible, [subtype]: visible },
+                  }))
                 }
+                openSections={layerOpenSections}
+                onOpenSectionsChange={setLayerOpenSections}
                 thresholdMeta={THRESHOLD_META}
                 thresholdKm={thresholdKm}
                 showBasemap={showBasemap}
-                onShowBasemapChange={setShowBasemap}
+                onShowBasemapChange={(visible) => setLayerPrefs((p) => ({ ...p, showBasemap: visible }))}
                 showTerrain={showTerrain}
-                onShowTerrainChange={setShowTerrain}
+                onShowTerrainChange={(visible) => setLayerPrefs((p) => ({ ...p, showTerrain: visible }))}
                 terrainToggleEnabled={mapIn3d && isMaptilerTerrainAvailable()}
                 terrainToggleHint={
                   !isMaptilerTerrainAvailable()
@@ -2472,7 +2483,7 @@ export function MapPage() {
                       : undefined
                 }
                 showModels={showModels}
-                onShowModelsChange={setShowModels}
+                onShowModelsChange={(visible) => setLayerPrefs((p) => ({ ...p, showModels: visible }))}
                 modelsToggleEnabled={mapIn3d}
                 onClose={() => setMapLayersOpen(false)}
               />
@@ -2602,6 +2613,7 @@ export function MapPage() {
             <ObjectDetailPanel
               selection={detailSelection}
               layers={layers}
+              map3dCustomModels={map3dCustomModels}
               saving={saveDetailMut.isPending}
               readOnly={
                 detailSelection.kind === 'poi' ? !canWriteProject : !canWriteInfra

@@ -4,7 +4,7 @@ from uuid import UUID
 import re
 from typing import Literal
 
-from pydantic import BaseModel, EmailStr, Field, field_validator
+from pydantic import BaseModel, EmailStr, Field, field_validator, model_validator
 
 
 class TokenResponse(BaseModel):
@@ -376,11 +376,21 @@ class Map3dCustomModelResponse(BaseModel):
     filename: str
     target_height_m: float
     created_at: datetime
-    assigned_object_id: UUID | None = None
+    assigned_subtype: str | None = None
 
 
 class Map3dCustomModelAssign(BaseModel):
-    object_id: UUID
+    """Assign GLB to a point subtype. ``object_id`` is deprecated (legacy clients)."""
+
+    subtype: str | None = None
+    object_id: UUID | None = None
+
+    @model_validator(mode="after")
+    def require_subtype_or_object_id(self) -> "Map3dCustomModelAssign":
+        has_subtype = bool(self.subtype and str(self.subtype).strip())
+        if has_subtype or self.object_id is not None:
+            return self
+        raise ValueError("subtype or object_id is required")
 
 
 class Render3DEffective(BaseModel):
