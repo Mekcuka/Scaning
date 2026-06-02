@@ -20,8 +20,10 @@ vi.mock('maplibre-gl', () => {
 
   class MockMap {
     handlers: Record<string, Array<(...args: unknown[]) => void>> = {};
+    options: { style: unknown };
 
-    constructor(public options: { style: unknown }) {
+    constructor(options: { style: unknown }) {
+      this.options = options;
       createdMapOptions.push({ style: options.style });
     }
 

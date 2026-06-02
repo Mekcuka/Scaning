@@ -5,14 +5,14 @@ import type { InfraObject } from './api';
 function pointObject(subtype: string): InfraObject {
   return {
     id: 'obj-1',
-    project_id: 'p1',
     name: 'Test',
     subtype,
+    category: 'point',
     lon: 37.6,
     lat: 55.75,
-    layer_id: null,
+    layer_id: '',
     properties: {},
-  };
+  } as InfraObject;
 }
 
 describe('infraSubtypeSelectOptions node cluster', () => {
