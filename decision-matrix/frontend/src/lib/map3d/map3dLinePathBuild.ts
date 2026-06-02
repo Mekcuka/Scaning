@@ -24,8 +24,20 @@ export function lineEndpointAttachAltitudeM(
 
 export type NormalizedLinePath3d = {
   path: [number, number][];
+  /** Wire / tube routing (endpoints may use attach height; interior uses plan corridor). */
   alts: number[];
+  /** Terrain ground at each vertex — for ЛЭП tower bases (same basis as point 3D models). */
+  towerAlts: number[];
 };
+
+/** Ground elevation at each path vertex (terrain + baseM), without wire-attach or corridor blend. */
+export function towerGroundAltsForPath(
+  map: import('maplibre-gl').Map,
+  path: [number, number][],
+  baseM: number,
+): number[] {
+  return path.map((p) => altitudeForModelPlacement(map, p[0], p[1], baseM));
+}
 
 /** Weak terrain follow along line interior — reduces false “inverted” bend in perspective. */
 export const PLAN_CORRIDOR_TERRAIN_BLEND = 0.15;
@@ -85,5 +97,7 @@ export function buildNormalizedLinePath3d(
     alts = applyPlanCorridorAlts(map, path, alts, baseM);
   }
 
-  return { path, alts };
+  const towerAlts = towerGroundAltsForPath(map, path, baseM);
+
+  return { path, alts, towerAlts };
 }

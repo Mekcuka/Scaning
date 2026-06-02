@@ -17,7 +17,9 @@
 | Превью отчёта (live) | `MapView3D` | нет |
 | PNG-снимок отчёта | 2D OpenLayers | без изменений |
 
-Переключатель **2D | 3D** в toolbar карты. Включение сборки: `VITE_MAP_3D_ENABLED=true` ([`map3dConfig.ts`](../decision-matrix/frontend/src/lib/map3d/map3dConfig.ts)).
+Переключатель **2D | 3D** в toolbar карты. При открытии вкладки «Карта» по умолчанию активен режим **2D**; режим **3D** включается вручную.
+При выключенной подложке («Спутник» в панели слоёв) тайлы Esri **не запрашиваются** в 3D (источник raster не создаётся). После первого входа в 3D экземпляр карты остаётся в DOM при возврате в 2D, чтобы не перезагружать слои при каждом переключении.
+Включение сборки: `VITE_MAP_3D_ENABLED=true` ([`map3dConfig.ts`](../decision-matrix/frontend/src/lib/map3d/map3dConfig.ts)).
 
 ---
 
@@ -76,9 +78,10 @@ flowchart TB
 | `map3dTerrain.ts` | `setTerrain`, hillshade |
 | `map3dModelsLayer.ts` | custom layer `dm-3d-models` (Three.js) |
 | `map3dLinesLayer.ts` | custom layer `dm-3d-lines` (трубы) |
-| `map3dGltfLoader.ts` | загрузка glTF, палитра по вершинам |
-| `map3dGltfAssets.ts` | пути к `/map3d-models/*.glb` |
-| `map3dCustomAssets.ts` | runtime-реестр загруженных GLB проекта (`custom:{uuid}`) |
+| `map3dGltfLoader.ts` | загрузка glTF, палитра по вершинам; custom GLB — через blob после авторизованного fetch |
+| `map3dGltfAssets.ts` | пути к `/map3d-models/*.glb` (bundled, статика frontend) |
+| `map3dCustomAssets.ts` | runtime-реестр загруженных GLB проекта (`custom:{uuid}`), URL `GET .../map3d-custom-models/{id}/file` |
+| `map3dCustomGlbFetch.ts` | `fetch` custom GLB с `Authorization: Bearer` и `cache: no-store` (GitHub Pages → API) |
 | `map3dModelCatalog.ts` | подтип → glTF asset / procedural template |
 | `render3dModelOptions.ts` | опции выпадающего списка «Модель 3D» (стандарт + custom по `assigned_subtypes`) |
 | `mapLayerPreferences.ts` | сохранение переключателей панели «Слои» в `localStorage` |
@@ -144,6 +147,14 @@ flowchart TB
 
 **API:** `GET/POST /api/v1/projects/{project_id}/map3d-custom-models`, `POST .../{model_id}/assign`, `GET .../{model_id}/file`, `DELETE .../{model_id}`. Ответ: `assigned_subtypes: string[]`.
 
+**Загрузка файла на клиенте (прод):**
+
+- JSON-запросы (`api.ts`) идут на `VITE_API_URL` с cookie + Bearer + CSRF (см. [auth-rbac.md](./auth-rbac.md)).
+- **Custom GLB** не грузятся напрямую через `GLTFLoader` по URL API: на cross-origin (GitHub Pages) cookie API недоступны для чтения, а `GLTFLoader` не добавляет `Authorization`.
+- Реализация: [`map3dCustomGlbFetch.ts`](../decision-matrix/frontend/src/lib/map3d/map3dCustomGlbFetch.ts) → `fetch(..., { credentials: 'include', Authorization: Bearer, cache: 'no-store' })` → blob → `GLTFLoader` ([`map3dGltfLoader.ts`](../decision-matrix/frontend/src/lib/map3d/map3dGltfLoader.ts)).
+- Bundled Kenney (`/Scaning/map3d-models/*.glb`) — по-прежнему с того же origin, что и frontend.
+- После `upload` / смены списка моделей: `setProjectCustomGltfAssets` + `clearGltfPrototypeCache()` ([`Import3DPage`](../decision-matrix/frontend/src/pages/Import3DPage.tsx), [`MapPage`](../decision-matrix/frontend/src/pages/MapPage.tsx)).
+
 ### L3 — glTF на клиенте (реализовано)
 
 - Ассеты: [`frontend/public/map3d-models/`](../decision-matrix/frontend/public/map3d-models/) (Kenney City Kit Industrial, **CC0**)
@@ -167,6 +178,7 @@ flowchart TB
 | `gtes`, `gpes` | `stack-large` |
 | `vies` | `stack-medium` |
 | `node`, `network_node`, `methanol_joint` | `tank` |
+| `power_line_node` | `transmission-tower` (стиль опоры ЛЭП, как у вершин `power_line`) |
 | `sand_quarry` | `facility-compact` (шаблон quarry в каталоге) |
 | `poi` | процедурный `poi_pin` (без glTF) |
 
@@ -296,7 +308,7 @@ python scripts/draw_demo_map_network.py --project-name "<имя проекта>"
 | Область | Команда |
 |---------|---------|
 | Frontend map3d + паритет 2D/3D | `cd decision-matrix/frontend && npm run test -- src/lib/map3d src/lib/linePath2d3dParity.test.ts` |
-| Frontend custom GLB / слои | `npm run test -- src/lib/map3d/map3dGltfLoader.test.ts src/lib/mapLayerPreferences.test.ts src/pages/Import3DPage.test.tsx` |
+| Frontend custom GLB / слои | `npm run test -- src/lib/map3d/map3dCustomGlbFetch.test.ts src/lib/map3d/map3dGltfLoader.test.ts src/lib/map3d/map3dCustomAssets.test.ts src/lib/mapLayerPreferences.test.ts src/pages/Import3DPage.test.tsx` |
 | Backend render_3d | `cd decision-matrix/backend && pytest tests/test_render_3d_properties.py tests/test_render_3d_import.py` |
 | Backend custom GLB API | `pytest tests/test_map3d_custom_models.py` |
 | Сборка | `npm run build` в `frontend` |
@@ -323,6 +335,9 @@ python scripts/draw_demo_map_network.py --project-name "<имя проекта>"
 | Подтип `ie` | иконка/3D-каталог есть; в `POINT_SUBTYPES` / группах слоёв может отсутствовать — проверьте фильтр слоёв |
 | Bundled glTF | только файлы в `public/map3d-models/`; custom — через `/import-3d` |
 | Несколько custom на один подтип | разрешено; на карте у каждой точки свой выбор в «Модель 3D» |
+| Custom GLB на проде (Pages) | обязателен `VITE_API_URL` с полным URL API; загрузка файла — Bearer (не только cookie) |
+| 404 custom GLB «from disk cache» | браузер закэшировал неудачный ответ; **Ctrl+F5** или очистка данных сайта; после фикса frontend — повторная загрузка с `cache: no-store` |
+| Файлы на VM | `backend/data/map3d_models/{project_id}/{id}.glb` — при пересоздании контейнера без volume файлы теряются (см. [DEPLOY.md](../DEPLOY.md)) |
 | Cesium / 3D-редактирование | вне scope |
 
 ---

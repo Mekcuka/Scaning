@@ -1,6 +1,7 @@
 import maplibregl from 'maplibre-gl';
 import * as THREE from 'three';
-import { MAP3D_POWER_LINE_TOWER_SCALE, scaleMap3dMeters } from './map3dConfig';
+import { scaleMap3dMeters } from './map3dConfig';
+import { powerLineInteriorTowerMeshHeightM } from './map3dPowerLineTowerHeight';
 import {
   powerLineVertexHasTower,
   type PowerLineWireEndpoint,
@@ -109,6 +110,8 @@ function wireOffsetIndex(i: number): number {
 export type PowerLineBuildInput = {
   path: [number, number][];
   alts: number[];
+  /** Per-vertex ground for tower bases; defaults to `alts` when omitted. */
+  towerAlts?: number[];
   startWire: PowerLineWireEndpoint;
   finishWire: PowerLineWireEndpoint;
   colorHex: string;
@@ -149,6 +152,7 @@ export function createPowerLineGroup(input: PowerLineBuildInput): PowerLineBuild
   const {
     path,
     alts,
+    towerAlts,
     startWire,
     finishWire,
     colorHex,
@@ -160,7 +164,7 @@ export function createPowerLineGroup(input: PowerLineBuildInput): PowerLineBuild
   if (path.length < 2) return null;
 
   const nominalH = Math.max(8, towerHeightM);
-  const towerH = scaleMap3dMeters(nominalH) * MAP3D_POWER_LINE_TOWER_SCALE;
+  const towerH = powerLineInteriorTowerMeshHeightM(towerHeightM);
   /** L1 line height for wire routing (no tower scale) — keeps plan bend same as 2D. */
   const wireAttachM = scaleMap3dMeters(nominalH);
   const wireRadius = scaleMap3dMeters(0.12);
@@ -174,8 +178,9 @@ export function createPowerLineGroup(input: PowerLineBuildInput): PowerLineBuild
   const root = new THREE.Group();
   const wireMat = createPowerLineWireMaterial(opacity, selected);
 
+  const towerAltSource = towerAlts ?? alts;
   const towerPositions = path.map((p, i) =>
-    vertexToLocalMeters(anchor, p[0], p[1], alts[i] ?? anchorAlt),
+    vertexToLocalMeters(anchor, p[0], p[1], towerAltSource[i] ?? anchorAlt),
   );
 
   const n = towerPositions.length;

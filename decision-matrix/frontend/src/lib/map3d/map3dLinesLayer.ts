@@ -13,13 +13,9 @@ import type { Map3dLineLayerData } from './map3dLineLayerData';
 import { buildNormalizedLinePath3d } from './map3dLinePathBuild';
 import { resolvePowerLineEndpoints } from './map3dPowerLineEndpoints';
 import type { InfraObject } from '../api';
+import { buildMap3dLinearFeatureMatrix } from './map3dThreeMatrix';
 
 export const MAP3D_LINES_LAYER_ID = 'dm-3d-lines';
-
-const MODEL_ROTATE_X = Math.PI / 2;
-
-/** Z mirror for linear 3D geometry only (tubes / ЛЭП), not point glTF models. */
-const LINE_FLIP_Z_MATRIX = new THREE.Matrix4().makeScale(1, 1, -1);
 
 type CachedLineAnchor = {
   translateX: number;
@@ -46,22 +42,6 @@ function buildAnchorTransform(lon: number, lat: number, altitudeM: number): Cach
     translateZ: mc.z,
     scale: mc.meterInMercatorCoordinateUnits(),
   };
-}
-
-function applyLineMatrix(
-  target: THREE.Matrix4,
-  t: CachedLineAnchor,
-  scaleMul: number,
-  rotX: THREE.Matrix4,
-): void {
-  const s = t.scale * scaleMul;
-  rotX.makeRotationAxis(new THREE.Vector3(1, 0, 0), MODEL_ROTATE_X);
-  target
-    .identity()
-    .makeTranslation(t.translateX, t.translateY, t.translateZ)
-    .scale(new THREE.Vector3(s, -s, s))
-    .multiply(rotX)
-    .multiply(LINE_FLIP_Z_MATRIX);
 }
 
 type RenderableLine = {
@@ -141,6 +121,7 @@ export class Map3dLinesCustomLayer implements CustomLayerInterface {
       if (built) {
         inst.path = built.path;
         inst.alts = built.alts;
+        inst.towerAlts = built.towerAlts;
       }
       const ep = resolvePowerLineEndpoints(
         map,
@@ -223,6 +204,7 @@ export class Map3dLinesCustomLayer implements CustomLayerInterface {
       const built = createPowerLineGroup({
         path: inst.path,
         alts: inst.alts,
+        towerAlts: inst.towerAlts,
         startWire: inst.startWire,
         finishWire: inst.finishWire,
         colorHex: inst.color,
@@ -296,7 +278,7 @@ export class Map3dLinesCustomLayer implements CustomLayerInterface {
 
     for (const r of this.renderables) {
       const scaleMul = r.selected ? 1.03 : 1;
-      applyLineMatrix(this.localMatrix, r.anchor, scaleMul, this.rotX);
+      buildMap3dLinearFeatureMatrix(r.anchor, scaleMul, this.localMatrix, this.rotX);
       this.camera.projectionMatrix.copy(this.projMatrix).multiply(this.localMatrix);
 
       for (const other of this.renderables) other.group.visible = false;

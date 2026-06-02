@@ -7,8 +7,9 @@ const STORAGE_KEY = 'dm-map-display-mode';
 
 function loadPersistedMode(): MapDisplayMode {
   try {
-    const v = localStorage.getItem(STORAGE_KEY);
-    return v === '3d' ? '3d' : '2d';
+    // UX: при первом открытии вкладки «Карта» всегда показываем 2D.
+    // Режим 3D не включается автоматически из прошлого значения.
+    return '2d';
   } catch {
     return '2d';
   }

@@ -44,7 +44,14 @@ POST /api/v1/auth/logout     — revoke refresh, clear cookies (нужен CSRF)
 GET  /api/v1/auth/me         — текущий пользователь (cookie или Bearer)
 ```
 
-Login/register **не требуют** CSRF. Остальные mutating запросы — CSRF обязателен.
+Login/register **не требуют** CSRF. Остальные mutating запросы — CSRF обязателен, **кроме** запросов с заголовком `Authorization: Bearer <access_token>` (CSRF не проверяется).
+
+Клиент (`frontend/src/lib/api.ts`):
+
+- после login/register — `access_token` / `refresh_token` и `X-CSRF-Token` в `sessionStorage`;
+- при старте приложения после успешного `GET /auth/me` — `syncClientAuthSession()` (refresh, если нет Bearer или CSRF в storage);
+- перед mutating без токена/CSRF — автоматический `POST /auth/refresh`;
+- при **403** с текстом «CSRF» — один повтор после refresh.
 
 ### Admin (только `admin`)
 
@@ -103,21 +110,29 @@ cd decision-matrix\backend
 
 ## Cross-origin (GitHub Pages + API)
 
-Прод: frontend `https://mekcuka.github.io`, API `https://erascaning.duckdns.org`.  
-Cookies `SameSite=None` могут **не сохраняться** в режиме инкогнито (блокировка сторонних cookie).
+Прод: frontend `https://mekcuka.github.io/Scaning/`, API `https://erascaning.duckdns.org/api/v1` (`VITE_API_URL` в GitHub Variables).
 
-После login/register API возвращает `access_token` и `refresh_token` в JSON; клиент хранит их в `sessionStorage` и шлёт `Authorization: Bearer …`.  
-Локально через Vite proxy cookies по-прежнему работают.
+| Механизм | Назначение |
+|----------|------------|
+| httpOnly cookies (`access_token`, `refresh_token`, `csrf_token`) | SameSite=None + Secure на API-домене |
+| JSON в теле login/register/refresh | `access_token`, `refresh_token` → `sessionStorage` |
+| `Authorization: Bearer` | JSON API и **загрузка custom GLB** (`map3dCustomGlbFetch.ts`) |
+| `X-CSRF-Token` + cookie `csrf_token` | mutating без Bearer (fallback); cookie API **нельзя прочитать** с github.io — токен дублируется из заголовка ответа в `sessionStorage` |
+
+Cookies могут **не отправляться** (инкогнито, блокировка third-party cookies). В этом случае работают Bearer + refresh по `sessionStorage`; при полной блокировке — повторный вход.
+
+**Не через `api.ts`:** Three.js `GLTFLoader` для bundled моделей (`/Scaning/map3d-models/…`) — same-origin Pages; для `GET .../map3d-custom-models/{id}/file` — только [`map3dCustomGlbFetch.ts`](../decision-matrix/frontend/src/lib/map3d/map3dCustomGlbFetch.ts).
 
 ## Устранение неполадок
 
 | Симптом | Решение |
 |---------|---------|
 | «Неверный email или пароль» для admin | Запустите `seed.py` для SQLite; проверьте email/пароль |
-| 401 после входа на проде / в инкогнито | Обновите frontend+backend (Bearer tokens); жёсткое обновление страницы |
-| `Request failed` / 401 после входа (localhost) | Очистите cookies; откройте `http://localhost:5173` (proxy) |
-| CORS | В `.env`: `CORS_ORIGINS` должен включать URL frontend |
-| CSRF validation failed | Перелогиньтесь; при Bearer-auth CSRF не требуется |
+| 401 после входа на проде / в инкогнито | Обновите frontend; жёсткое обновление (Ctrl+F5); проверьте `VITE_API_URL` |
+| `Request failed` / 401 после входа (localhost) | Очистите cookies; откройте `http://localhost:5173` (proxy), не задавайте `VITE_API_URL` на прямой backend |
+| CORS | В `.env` API: `CORS_ORIGINS` должен включать `https://mekcuka.github.io` (без path) |
+| CSRF validation failed / «Обновите страницу» при upload GLB | Обновите frontend (sync + retry); перелогин; при Bearer mutating CSRF не нужен |
+| Custom GLB 404 на карте после upload | Ctrl+F5 (сброс disk cache); проверьте файл на VM в `data/map3d_models/`; см. [map-3d-features.md](./map-3d-features.md) §12 |
 
 ## Тесты
 

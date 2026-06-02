@@ -17,7 +17,7 @@ import {
 import {
   addMap3dVectorLayers,
   getMap3dInteractiveLayerIds,
-  setBasemapVisibility,
+  syncMap3dBasemap,
   setMap3dInfraLinesPickOnly,
   setMap3dPointSymbolsVisibility,
 } from '../lib/map3d/map3dLayers';
@@ -206,7 +206,7 @@ const MapView3D = forwardRef<MapView3DHandle, MapView3DProps>(function MapView3D
 
     const map = new maplibregl.Map({
       container: containerRef.current,
-      style: createMap3dBaseStyle(),
+      style: createMap3dBaseStyle({ includeBasemap: showBasemap }),
       center: [initial.centerLon, initial.centerLat],
       zoom: initial.zoom,
       pitch: initial.pitch,
@@ -223,11 +223,10 @@ const MapView3D = forwardRef<MapView3DHandle, MapView3DProps>(function MapView3D
 
     map.on('load', () => {
       addMap3dVectorLayers(map);
-      ensureMap3dLinesLayer(map, linesLayer);
-      ensureMap3dModelsLayer(map, modelsLayer);
-      setBasemapVisibility(map, showBasemap);
+      syncMap3dBasemap(map, showBasemap);
       applyMap3dTerrain(map, showTerrain, terrainExaggeration);
       applyMap3dAtmosphere(map);
+      ensureMap3dLinesLayer(map, linesLayer);
       linesLayer.setInstances(
         buildMap3dLineLayerData(map, {
           infraObjects,
@@ -239,6 +238,7 @@ const MapView3D = forwardRef<MapView3DHandle, MapView3DProps>(function MapView3D
       setMap3dLinesLayerVisible(linesLayer, true);
       setMap3dInfraLinesPickOnly(map, true);
       if (showModels) {
+        ensureMap3dModelsLayer(map, modelsLayer);
         modelsLayer.setInstances(
           buildMap3dModelInstances({
             infraObjects,
@@ -248,8 +248,10 @@ const MapView3D = forwardRef<MapView3DHandle, MapView3DProps>(function MapView3D
             selectedFeatureId,
           }),
         );
+        setMap3dModelsLayerVisible(modelsLayer, true);
+      } else {
+        setMap3dModelsLayerVisible(modelsLayer, false);
       }
-      setMap3dModelsLayerVisible(modelsLayer, showModels);
       setMap3dPointSymbolsVisibility(map, !showModels);
     });
 
@@ -284,7 +286,7 @@ const MapView3D = forwardRef<MapView3DHandle, MapView3DProps>(function MapView3D
     const map = mapRef.current;
     if (!map) return;
     const apply = () => {
-      if (mapRef.current) setBasemapVisibility(mapRef.current, showBasemap);
+      if (mapRef.current) syncMap3dBasemap(mapRef.current, showBasemap);
     };
     if (map.isStyleLoaded()) apply();
     else map.once('load', apply);
@@ -331,11 +333,10 @@ const MapView3D = forwardRef<MapView3DHandle, MapView3DProps>(function MapView3D
     if (!map) return;
 
     const applyModels = () => {
-      if (!map.getLayer(modelsLayerRef.current.id)) {
-        ensureMap3dModelsLayer(map, modelsLayerRef.current);
-      }
-      setMap3dModelsLayerVisible(modelsLayerRef.current, showModels);
       if (showModels) {
+        if (!map.getLayer(modelsLayerRef.current.id)) {
+          ensureMap3dModelsLayer(map, modelsLayerRef.current);
+        }
         modelsLayerRef.current.setInstances(
           buildMap3dModelInstances({
             infraObjects,
@@ -345,7 +346,9 @@ const MapView3D = forwardRef<MapView3DHandle, MapView3DProps>(function MapView3D
             selectedFeatureId,
           }),
         );
+        setMap3dModelsLayerVisible(modelsLayerRef.current, true);
       } else {
+        setMap3dModelsLayerVisible(modelsLayerRef.current, false);
         modelsLayerRef.current.setInstances([]);
       }
       setMap3dPointSymbolsVisibility(map, !showModels);

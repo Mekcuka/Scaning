@@ -4,15 +4,18 @@ import maplibregl, {
   type Map as MapLibreMap,
 } from 'maplibre-gl';
 import * as THREE from 'three';
-import { MAP3D_OBJECT_SCALE } from './map3dConfig';
 import { cloneGltfModelToHeight } from './map3dGltfLoader';
+import { buildMap3dLinearFeatureMatrix, buildMap3dPointModelMatrix } from './map3dThreeMatrix';
+import {
+  powerLineNodeTowerRenderHeightM,
+  shouldRenderPointAsPowerLineTower,
+} from './map3dPowerLineNodeModel';
+import { clonePowerLineTowerToHeight } from './map3dPowerLineStyle';
 import { effectiveRender3dHeightM } from './render3d';
 import { createProceduralModelMesh } from './map3dModelMeshes';
 import type { Map3dModelInstance } from './map3dModelInstances';
 
 export const MAP3D_MODELS_LAYER_ID = 'dm-3d-models';
-
-const MODEL_ROTATE_X = Math.PI / 2;
 
 type MapWithTerrainQuery = MapLibreMap & {
   queryTerrainElevation?: (lngLat: [number, number]) => number | null | undefined;
@@ -66,28 +69,6 @@ function buildCachedTransform(
   };
 }
 
-/** Build local matrix l (MapLibre three.js example); meshes stay at origin. */
-function buildLocalMatrix(
-  t: CachedModelTransform,
-  scaleMul: number,
-  target: THREE.Matrix4,
-  rotX: THREE.Matrix4,
-  rotY: THREE.Matrix4,
-  rotZ: THREE.Matrix4,
-): THREE.Matrix4 {
-  const s = t.scale * scaleMul * MAP3D_OBJECT_SCALE;
-  rotX.makeRotationAxis(new THREE.Vector3(1, 0, 0), MODEL_ROTATE_X);
-  rotY.identity();
-  rotZ.identity();
-  return target
-    .identity()
-    .makeTranslation(t.translateX, t.translateY, t.translateZ)
-    .scale(new THREE.Vector3(s, -s, s))
-    .multiply(rotX)
-    .multiply(rotY)
-    .multiply(rotZ);
-}
-
 export class Map3dModelsCustomLayer implements CustomLayerInterface {
   id = MAP3D_MODELS_LAYER_ID;
   type: 'custom' = 'custom';
@@ -108,8 +89,6 @@ export class Map3dModelsCustomLayer implements CustomLayerInterface {
   private readonly projMatrix = new THREE.Matrix4();
   private readonly localMatrix = new THREE.Matrix4();
   private readonly rotX = new THREE.Matrix4();
-  private readonly rotY = new THREE.Matrix4();
-  private readonly rotZ = new THREE.Matrix4();
 
   setVisible(v: boolean): void {
     this.visible = v;
@@ -197,6 +176,27 @@ export class Map3dModelsCustomLayer implements CustomLayerInterface {
         visible: true,
         scale: inst.scale,
       });
+
+      if (shouldRenderPointAsPowerLineTower(inst.subtype)) {
+        const towerH = powerLineNodeTowerRenderHeightM(inst.heightM, inst.scale);
+        void clonePowerLineTowerToHeight(towerH, inst.selected)
+          .then((group) => {
+            if (gen !== this.meshLoadGeneration) {
+              disposeGroup(group);
+              return;
+            }
+            this.replaceInstanceGroup(inst.id, group);
+          })
+          .catch(() => {
+            if (gen !== this.meshLoadGeneration) return;
+            const placeholder = this.proceduralPlaceholder(inst);
+            this.objectGroups.set(inst.id, placeholder);
+            this.scene.add(placeholder);
+            this.map?.triggerRepaint();
+          });
+        continue;
+      }
+
       void cloneGltfModelToHeight(assetId, inst.color, heightM, inst.selected)
         .then((group) => {
           if (gen !== this.meshLoadGeneration) {
@@ -267,7 +267,11 @@ export class Map3dModelsCustomLayer implements CustomLayerInterface {
       if (!group || !t) continue;
 
       const scaleMul = inst.selected ? 1.08 : 1;
-      buildLocalMatrix(t, scaleMul, this.localMatrix, this.rotX, this.rotY, this.rotZ);
+      if (shouldRenderPointAsPowerLineTower(inst.subtype)) {
+        buildMap3dLinearFeatureMatrix(t, scaleMul, this.localMatrix, this.rotX);
+      } else {
+        buildMap3dPointModelMatrix(t, scaleMul, this.localMatrix, this.rotX);
+      }
 
       this.camera.projectionMatrix.copy(this.projMatrix).multiply(this.localMatrix);
 

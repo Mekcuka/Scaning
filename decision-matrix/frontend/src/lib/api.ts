@@ -1062,6 +1062,7 @@ export const POINT_SUBTYPES = [
   'sand_quarry',
   'methanol_facility',
   'methanol_joint',
+  'power_line_node',
   'offplot',
   'additional_facility',
 ] as const;
@@ -1108,6 +1109,7 @@ export const SUBTYPE_LABELS: Record<string, string> = {
   sand_quarry: 'Карьер песка',
   methanol_facility: 'Объект метанола',
   methanol_joint: 'Узел метанола',
+  power_line_node: 'Узел ЛЭП',
   additional_line: 'Доп. линия',
   additional_facility: 'Доп. объект',
   offplot: 'ВО',
@@ -1120,8 +1122,8 @@ export function createDefaultSubtypeFilter(): Record<string, boolean> {
 /** ГКС + УКГ + ТСГ — смена подтипа только внутри этой группы. */
 export const GKS_CLUSTER_SUBTYPES = ['gas_processing', 'ukg', 'tsg'] as const;
 
-/** Узел + узел метанола — смена подтипа только внутри этой пары. */
-export const NODE_CLUSTER_SUBTYPES = ['node', 'methanol_joint'] as const;
+/** Узел + узел метанола + узел ЛЭП — смена подтипа только внутри группы. */
+export const NODE_CLUSTER_SUBTYPES = ['node', 'methanol_joint', 'power_line_node'] as const;
 
 /** Подпись в меню «Точка» (если отличается от SUBTYPE_LABELS). */
 export const POINT_MENU_LABELS: Partial<Record<string, string>> = {
@@ -1204,6 +1206,7 @@ export const IMPORT_ONLY_POINT_SUBTYPES = [
   'oil_pumping_station',
   'methanol_facility',
   'methanol_joint',
+  'power_line_node',
 ] as const;
 
 const IMPORT_ONLY_POINT_SET = new Set<string>(IMPORT_ONLY_POINT_SUBTYPES);

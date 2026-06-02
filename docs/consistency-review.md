@@ -75,7 +75,7 @@
 | Async import без Celery | implementation-status, development-plan неделя 4 |
 | Расширенные подтипы карты vs 9 строк матрицы | map-objects §1.4, implementation-status |
 | 3D, PFD, песок, Искра — реализовано | map-3d-features, fluid-flow-schematic, spark-import-mapping |
-| Custom GLB, assign-by-subtype, layer prefs | map-3d-features § custom GLB, §7.2; user-flows §2.0–2.2; implementation-status |
+| Custom GLB, assign-by-subtype, layer prefs, cross-origin Bearer | map-3d-features § custom GLB, §12; auth-rbac § cross-origin; user-flows §2.2; DEPLOY § custom GLB |
 | PDF = client print; PPTX = server | decision-matrix/README, implementation-status |
 | TOPSIS / decision_matrices — удалено из UI | § «Удаление ранжирования» ниже |
 

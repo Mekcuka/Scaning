@@ -58,7 +58,8 @@
 
 > Детали: [map-3d-features.md](./map-3d-features.md).
 
-1. На `/map` включите **2D | 3D** (нужен `VITE_MAP_3D_ENABLED=true` и при необходимости `VITE_MAPTILER_KEY` в `frontend/.env`).
+1. На `/map` доступен переключатель **2D | 3D** (нужен `VITE_MAP_3D_ENABLED=true` и при необходимости `VITE_MAPTILER_KEY` в `frontend/.env`).
+   При открытии вкладки «Карта» режим по умолчанию — **2D**.
 2. В **3D** доступны:
    - навигация (pitch/bearing), выбор объектов;
    - **панель «Слои»** (боковая колонка на `/map`): подложка (спутник, рельеф MapTiler, 3D-модели точек), группы объектов по подтипам, импортированные слои-источники, радиусы порогов;
@@ -110,6 +111,10 @@
 5. На **«Карте»** → карточка объекта → «Дополнительно» → **«Модель 3D»**: «Стандартная» или custom из списка для подтипа; сохранение пишет `render_3d_model_id = custom:{uuid}` только для **конкретной** точки (переопределение)
 
 **API (кратко):** `GET/POST /projects/{id}/map3d-custom-models`, `POST .../{model_id}/assign` с телом `{ "subtypes": ["gtes", "node"] }` (полная замена набора; `[]` — снять), `GET .../file`, `DELETE`. В ответе — `assigned_subtypes: string[]`.
+
+**Прод (GitHub Pages):** после входа клиент синхронизирует Bearer и CSRF (`syncClientAuthSession`); загрузка GLB на сервер и отображение в 3D/превью используют разные каналы — файл модели запрашивается с `Authorization: Bearer` (см. [auth-rbac.md](./auth-rbac.md), [map-3d-features.md](./map-3d-features.md) § custom GLB).
+
+**Если модели не видны после upload:** жёсткое обновление страницы (Ctrl+F5); проверить назначение подтипов и выбор «Модель 3D» на точке; при «404 (from disk cache)» — очистить кэш сайта.
 
 Линейные подтипы glTF не поддерживают. Подробности: [map-3d-features.md](./map-3d-features.md).
 

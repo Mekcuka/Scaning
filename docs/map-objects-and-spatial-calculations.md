@@ -62,7 +62,7 @@
 | `vies` | ВИЭС | **Точка** | `POINT` | `area_facility` | «Точка» | — | да (с `gtes`, `gpes`) | external | 60 км |
 | `substation` | ПС/ТП | **Точка** | `POINT` | `electricity` | «Точка» | — | да | external | 25 км |
 | `refinery` | НПЗ | **Точка** | `POINT` | `area_facility` | «Точка» / импорт Искра (`DeliveryAcceptancePoint`, `CentralProcessingFacility`) | — | да | external | 100 км |
-| `node` | Узел | **Точка** | `POINT` | `network` | «Точка» / авто при рисовании линии | — | да (с `methanol_joint`) | — | — |
+| `node` | Узел | **Точка** | `POINT` | `network` | «Точка» / авто при рисовании линии | — | да (с `methanol_joint`, `power_line_node`) | — | — |
 | `pad` | Куст | **Точка** | `POINT` | `pad` | «Точка» | — | нет | — | — |
 | `preliminary_water_discharge_station` | УПСВ | **Точка** | `POINT` | `area_facility` | «Точка» | — | нет | — | — |
 | `booster_pumping_station` | ДНС | **Точка** | `POINT` | `area_facility` | «Точка» | — | нет | — | — |
@@ -70,7 +70,8 @@
 | `ground_pumping_station` | БКНС | **Точка** | `POINT` | `area_facility` | «Точка» | — | нет | — | — |
 | `sand_quarry` | Карьер песка | **Точка** | `POINT` | `area_facility` | «Точка» / импорт Искра | — | нет (только этот подтип) | — | — |
 | `methanol_facility` | Объект метанола | **Точка** | `POINT` | `area_facility` | импорт Искра | — | нет | — | — |
-| `methanol_joint` | Узел метанола | **Точка** | `POINT` | `network` | импорт Искра / смена у «Узел» | — | да (с `node`) | — | — |
+| `methanol_joint` | Узел метанола | **Точка** | `POINT` | `network` | импорт Искра / смена у «Узел» | — | да (с `node`, `power_line_node`) | — | — |
+| `power_line_node` | Узел ЛЭП | **Точка** | `POINT` | `electricity` | смена у «Узел» | — | да (с `node`, `methanol_joint`) | — | — |
 | `offplot` | ВО | **Точка** | `POINT` | `area_facility` | «Точка» / импорт Искра | — | нет | — | — |
 | `additional_facility` | Доп. объект | **Точка** | `POINT` | `area_facility` | «Точка» / импорт Искра | — | нет | — | — |
 | `autoroad` | Автодорога | **Линия** | `LINESTRING` | `road` | «Линия» | любая **Точка** | нет | internal (4 типа) | — |
@@ -86,7 +87,7 @@
 
 - **Вид «Точка» / «Линия»** — пункты меню на панели карты. В меню «Точка» нет **УКГ**, **ТСГ**, **НПС**, **объекта метанола**, отдельного пункта **узел метанола** (подтип `methanol_joint` — импорт Искра или смена у **Узел**). В меню есть **Узел** (`node`). **ГКС** и **НПЗ** (`refinery`) — в меню «Точка». Искра **ПСП** (`DeliveryAcceptancePoint`) импортируется как **НПЗ** (`refinery`).
 - **API площадных объектов НПЗ / НПС:** `POST /projects/{project_id}/infrastructure/facility-objects` — в теле **обязательно** `subtype`: `refinery` | `oil_pumping_station` (схема `FacilityInfraObjectCreate`). Общий `POST .../objects` для НПС вернёт 400 с подсказкой использовать этот endpoint.
-- **Карточка объекта** (`ObjectDetailPanel`, поле «Подтип»): линейные ↔ только линейные; точечные ↔ точечные. **Группа ГКС:** `gas_processing` / `ukg` / `tsg` → только **ГКС, УКГ, ТСГ**. **Группа ГТЭС:** `gtes` / `gpes` / `vies` → только **ГТЭС, ГПЭС, ВИЭС** (анализ POI по-прежнему одна строка «ГТЭС», ближайший — любой из трёх). **Группа узлов:** `node` / `methanol_joint` → **Узел**, **Узел метанола**. **Эксклюзивные** (не в списке у других): карьер песка, объект метанола, **ВО** (`offplot`), **доп. объект** (`additional_facility`). **Фиксированные:** `sand_quarry`, `ground_pumping_station`, НПС, объект метанола, **ВО**, **доп. объект**.
+- **Карточка объекта** (`ObjectDetailPanel`, поле «Подтип»): линейные ↔ только линейные; точечные ↔ точечные. **Группа ГКС:** `gas_processing` / `ukg` / `tsg` → только **ГКС, УКГ, ТСГ**. **Группа ГТЭС:** `gtes` / `gpes` / `vies` → только **ГТЭС, ГПЭС, ВИЭС** (анализ POI по-прежнему одна строка «ГТЭС», ближайший — любой из трёх). **Группа узлов:** `node` / `methanol_joint` / `power_line_node` → **Узел**, **Узел метанола**, **Узел ЛЭП** (отдельного пункта «Точка» для узла ЛЭП нет). **Эксклюзивные** (не в списке у других): карьер песка, объект метанола, **ВО** (`offplot`), **доп. объект** (`additional_facility`). **Фиксированные:** `sand_quarry`, `ground_pumping_station`, НПС, объект метанола, **ВО**, **доп. объект**.
 - **Концы линии (хранение и отображение):** начало и конец в БД/API — **точные** `lon`/`lat` привязанного точечного объекта (любой подтип, допуск **0,3 км** при рисовании/редактировании). Нормализация: `normalizeLinePathEndpoints` ([`lineEndpointRules.ts`](../decision-matrix/frontend/src/lib/lineEndpointRules.ts)), отображение 2D/3D: `linePathForDisplay` ([`infraGeometry.ts`](../decision-matrix/frontend/src/lib/infraGeometry.ts)); пул привязки на карте — **все** объекты проекта (`infraSnapPool`), не только отфильтрованные слоем. Backend при create/update: `snap_line_endpoints_to_point_objects` ([`line_endpoint_rules.py`](../decision-matrix/backend/app/services/line_endpoint_rules.py)). При загрузке карты (если есть право записи) — одноразовое выравнивание устаревших концов (`lineEndpointHealPayload` → PATCH). Автотест паритета lon/lat всех вершин: [`linePath2d3dParity.test.ts`](../decision-matrix/frontend/src/lib/linePath2d3dParity.test.ts).
 - **Рисование линии** (инструмент «Линия», только 2D):
   - **Начало** — обязательно на точечном объекте (клик по иконке или ≤300 м); иначе ошибка.
@@ -460,7 +461,7 @@ erDiagram
 **L3 (клиент, реализовано):**
 
 - glTF bundled: `frontend/public/map3d-models/*.glb` — [`map3dGltfAssets.ts`](../decision-matrix/frontend/src/lib/map3d/map3dGltfAssets.ts), [`map3dModelCatalog.ts`](../decision-matrix/frontend/src/lib/map3d/map3dModelCatalog.ts)
-- Custom GLB: [`map3dCustomAssets.ts`](../decision-matrix/frontend/src/lib/map3d/map3dCustomAssets.ts), API `map3d-custom-models`
+- Custom GLB: [`map3dCustomAssets.ts`](../decision-matrix/frontend/src/lib/map3d/map3dCustomAssets.ts), [`map3dCustomGlbFetch.ts`](../decision-matrix/frontend/src/lib/map3d/map3dCustomGlbFetch.ts) (Bearer на cross-origin), API `map3d-custom-models`
 - Окраска bundled: [`map3dObjectPalette.ts`](../decision-matrix/frontend/src/lib/map3d/map3dObjectPalette.ts); custom — оригинальные PBR-текстуры
 - Якорь модели: [`anchorGltfGroupAtFootprint`](../decision-matrix/frontend/src/lib/map3d/map3dGltfLoader.ts)
 - Процедурный fallback: [`map3dModelMeshes.ts`](../decision-matrix/frontend/src/lib/map3d/map3dModelMeshes.ts)
@@ -503,6 +504,7 @@ erDiagram
 | Дата | Изменение |
 |------|-----------|
 | 2026-05 | Custom GLB: назначение на несколько подтипов (`assigned_subtypes[]`), `render_3d_scale`, якорь glTF, панель «Слои» в localStorage |
+| 2026-05 | Cross-origin: Bearer + `map3dCustomGlbFetch` для `GET .../file`; sync CSRF/Bearer в `api.ts` — см. auth-rbac, map-3d-features §12 |
 | 2026-05 | 3D-линии: отражение корневой матрицы по **Z** (`dm-3d-lines` only); точечные glTF без отражения |
 | 2026-05 | Паритет вершин 2D/3D: единый `linePathForDisplay` + `infraSnapPool` (2D, GeoJSON pick, `buildNormalizedLinePath3d`, тест `linePath2d3dParity.test.ts`); коридор высот `planCorridorAlts`; snap при refresh рельефа |
 | 2026-05 | §1.5: правила рисования линии (начало/середина/конец, `node`), точная привязка концов (`linePathForDisplay`, `infraSnapPool`, heal); координаты — полные в БД, 3 знака в UI; §6.1 hotkeys; 3D-трубы = прямые сегменты |

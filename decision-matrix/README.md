@@ -15,7 +15,7 @@
 
 Фронтенд публикуется через GitHub Actions (см. [`../DEPLOY.md`](../DEPLOY.md)).
 
-После push в `main` сайт доступен по адресу `https://<user>.github.io/<repo>/`. Для работы API задайте переменную репозитория `VITE_API_URL` (URL развёрнутого backend).
+После push в `main` сайт доступен по адресу `https://<user>.github.io/<repo>/`. Для работы API задайте переменную репозитория `VITE_API_URL` (полный URL, например `https://erascaning.duckdns.org/api/v1`). На cross-origin клиент шлёт `Authorization: Bearer` и синхронизирует CSRF; custom GLB для 3D грузятся через `map3dCustomGlbFetch.ts` — см. [docs/auth-rbac.md](../docs/auth-rbac.md), [docs/map-3d-features.md](../docs/map-3d-features.md).
 
 ## Быстрый старт
 

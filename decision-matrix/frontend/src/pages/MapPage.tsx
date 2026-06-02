@@ -168,9 +168,16 @@ export function MapPage() {
   } = layerPrefs;
   const { is3dEnabled: map3dFeatureEnabled, displayMode: mapDisplayMode, setDisplayMode: setMapDisplayMode, mapIn3d } =
     useMapDisplayMode();
+  /** Keep 3D map mounted after first open to avoid reloading tiles on each 2D↔3D toggle. */
+  const [map3dKeepMounted, setMap3dKeepMounted] = useState(false);
   const map3dRef = useRef<MapView3DHandle | null>(null);
   const last2dViewRef = useRef<SavedMapViewState | null>(null);
   const lineHealAttemptedRef = useRef<Set<string>>(new Set());
+
+  useEffect(() => {
+    if (mapIn3d) setMap3dKeepMounted(true);
+  }, [mapIn3d]);
+
   const [mapLayersOpen, setMapLayersOpen] = useState(false);
   const [mapFullscreen, setMapFullscreen] = useState(false);
   const mapCanvasRef = useRef<HTMLDivElement>(null);
@@ -2491,37 +2498,48 @@ export function MapPage() {
 
             <div className="map-main-column">
               <div className="map-canvas-wrap" ref={mapCanvasRef}>
-          {mapIn3d ? (
-            <Suspense
-              fallback={
-                <div className="map-container flex items-center justify-center text-sm" style={{ height: '100%', color: 'var(--text-muted)' }}>
-                  Загрузка 3D…
-                </div>
-              }
+          {map3dFeatureEnabled && (map3dKeepMounted || mapIn3d) && (
+            <div
+              className="map-3d-host"
+              style={{
+                display: mapIn3d ? 'block' : 'none',
+                height: '100%',
+                width: '100%',
+              }}
+              aria-hidden={!mapIn3d}
             >
-              <MapView3D
-                ref={map3dRef}
-                viewStateId="main"
-                pois={showPoisOnMap ? pois : []}
-                infraObjects={filteredInfra}
-                infraSnapPool={infraObjects}
-                showBasemap={showBasemap}
-                showTerrain={showTerrain}
-                showModels={showModels}
-                connectionLines={connectionLines}
-                selectedPoi={selectedPoi}
-                selectedFeatureId={featureSel?.id ?? null}
-                onFeatureSelect={
-                  drawMode === 'select' && selectMode === 'single' ? setFeatureSel : undefined
+              <Suspense
+                fallback={
+                  <div className="map-container flex items-center justify-center text-sm" style={{ height: '100%', color: 'var(--text-muted)' }}>
+                    Загрузка 3D…
+                  </div>
                 }
-                thresholdCircles={thresholdCircles}
-                showRadii={showRadii}
-                layers={layers}
-                mapFocus={mapFocus}
-                height="100%"
-              />
-            </Suspense>
-          ) : (
+              >
+                <MapView3D
+                  ref={map3dRef}
+                  viewStateId="main"
+                  pois={showPoisOnMap ? pois : []}
+                  infraObjects={filteredInfra}
+                  infraSnapPool={infraObjects}
+                  showBasemap={showBasemap}
+                  showTerrain={showTerrain}
+                  showModels={showModels}
+                  connectionLines={connectionLines}
+                  selectedPoi={selectedPoi}
+                  selectedFeatureId={featureSel?.id ?? null}
+                  onFeatureSelect={
+                    drawMode === 'select' && selectMode === 'single' ? setFeatureSel : undefined
+                  }
+                  thresholdCircles={thresholdCircles}
+                  showRadii={showRadii}
+                  layers={layers}
+                  mapFocus={mapFocus}
+                  height="100%"
+                />
+              </Suspense>
+            </div>
+          )}
+          {!mapIn3d && (
           <MapView
             viewStateId="main"
             onViewStateSnapshot={(s) => {

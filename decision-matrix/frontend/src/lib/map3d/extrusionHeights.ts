@@ -12,7 +12,14 @@ export function defaultHeightForSubtype(subtype: string): number {
 /** Half-width of point footprint square (meters) for extrusion polygon. */
 export function footprintHalfSizeForSubtype(subtype: string): number {
   const h = defaultHeightForSubtype(subtype);
-  if (subtype === 'node' || subtype === 'methanol_joint' || subtype === 'network_node') return 8;
+  if (
+    subtype === 'node' ||
+    subtype === 'methanol_joint' ||
+    subtype === 'power_line_node' ||
+    subtype === 'network_node'
+  ) {
+    return 8;
+  }
   if (subtype === 'poi') return 12;
   return Math.min(40, Math.max(12, h * 1.2));
 }

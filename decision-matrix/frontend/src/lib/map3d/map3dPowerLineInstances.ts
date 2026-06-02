@@ -17,6 +17,7 @@ export type Map3dPowerLineInstance = {
   opacity: number;
   path: [number, number][];
   alts: number[];
+  towerAlts: number[];
   startWire: PowerLineWireEndpoint;
   finishWire: PowerLineWireEndpoint;
   towerHeightM: number;
@@ -53,7 +54,7 @@ export function buildMap3dPowerLineInstances(
       input.snapPool,
     );
     if (!built) continue;
-    const { path, alts } = built;
+    const { path, alts, towerAlts } = built;
     const { startWire, finishWire } = resolvePowerLineEndpoints(
       map,
       obj,
@@ -71,6 +72,7 @@ export function buildMap3dPowerLineInstances(
       opacity: obj.layer_id ? (maps.opacityByLayer[obj.layer_id] ?? 1) : 1,
       path,
       alts,
+      towerAlts,
       startWire,
       finishWire,
       towerHeightM: render.heightM * render.scale,

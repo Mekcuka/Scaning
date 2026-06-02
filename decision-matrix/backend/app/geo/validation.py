@@ -70,7 +70,8 @@ def validate_subtype_change(current: str, new: str) -> None:
         )
     if cur in NODE_CLUSTER_SUBTYPES and nxt not in NODE_CLUSTER_SUBTYPES:
         raise ValueError(
-            "Для узлов допустима смена только между подтипами «Узел» и «Узел метанола»."
+            "Для узлов допустима смена только между подтипами "
+            "«Узел», «Узел метанола» и «Узел ЛЭП»."
         )
     if cur in GTES_CLUSTER_SUBTYPES and nxt not in GTES_CLUSTER_SUBTYPES:
         raise ValueError(

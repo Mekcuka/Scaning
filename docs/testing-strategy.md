@@ -130,7 +130,7 @@ vi.mock('../lib/api', async (importOriginal) => {
 | § user-flows | Автотесты |
 |--------------|-----------|
 | §1 Регистрация / вход | E2E login + register flow, backend `test_auth_rbac` |
-| §2 Карта / импорт | map3d unit, map API integration, import preview, E2E map load |
+| §2 Карта / импорт | map3d unit (`map3dCustomGlbFetch`, `map3dGltfLoader`), map API integration, import preview, E2E map load |
 | §3 Анализ / проект | environment unit, projects API, E2E create/delete project |
 | §4 Потоки / песок | flow/sand API + services, E2E flows tab |
 | §5 Отчёты | one_pager API, pptx unit |

@@ -206,5 +206,8 @@ npm run dev
 - Ошибка CORS  
   Проверьте `CORS_ORIGINS` в `backend/.env` — должен совпадать с URL frontend (включая порт).
 
-- CSRF validation failed  
-  Перелогиньтесь. Mutating запросы должны идти с cookie `csrf_token` и заголовком `X-CSRF-Token`.
+- CSRF validation failed / «Обновите страницу» (в т.ч. upload GLB на проде)  
+  Перелогиньтесь или обновите frontend: клиент синхронизирует Bearer/CSRF через `POST /auth/refresh`; при `Authorization: Bearer` CSRF не проверяется. См. [docs/auth-rbac.md](../docs/auth-rbac.md).
+
+- Custom GLB не отображаются в 3D после загрузки (прод, 404 в Network)  
+  На GitHub Pages файлы моделей запрашиваются с API с Bearer (`map3dCustomGlbFetch.ts`), не через cookie-only GLTFLoader. Ctrl+F5 (сброс кэша 404). См. [docs/map-3d-features.md](../docs/map-3d-features.md) § custom GLB.

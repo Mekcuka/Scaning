@@ -1,5 +1,5 @@
 import * as THREE from 'three';
-import { loadGltfPrototype } from './map3dGltfLoader';
+import { anchorGltfGroupAtFootprint, loadGltfPrototype } from './map3dGltfLoader';
 
 export const POWER_LINE_TOWER_GLTF_ID = 'transmission-tower';
 
@@ -95,8 +95,6 @@ export async function clonePowerLineTowerToHeight(
   const box = new THREE.Box3().setFromObject(group);
   const h = Math.max(box.max.y - box.min.y, 0.001);
   group.scale.multiplyScalar(heightM / h);
-  group.updateMatrixWorld(true);
-  const box2 = new THREE.Box3().setFromObject(group);
-  group.position.y -= box2.min.y;
+  anchorGltfGroupAtFootprint(group);
   return group;
 }

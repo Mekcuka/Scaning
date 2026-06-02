@@ -40,6 +40,40 @@ describe('map3dPowerLineMeshes', () => {
     expect(countTowerGroups(built!.group)).toBe(1);
   });
 
+  it('places interior tower on towerAlts (ground), not elevated wire alts', () => {
+    const path: [number, number][] = [
+      [37.6, 55.7],
+      [37.61, 55.71],
+      [37.62, 55.72],
+    ];
+    const elevated = createPowerLineGroup({
+      path,
+      alts: [200, 180, 200],
+      startWire: wireEp(37.6, 55.7, 200),
+      finishWire: wireEp(37.62, 55.72, 200),
+      colorHex: '#ff0000',
+      opacity: 1,
+      towerHeightM: 10,
+      selected: false,
+      towerMode: 'procedural',
+    });
+    const grounded = createPowerLineGroup({
+      path,
+      alts: [200, 180, 200],
+      towerAlts: [200, 20, 200],
+      startWire: wireEp(37.6, 55.7, 200),
+      finishWire: wireEp(37.62, 55.72, 200),
+      colorHex: '#ff0000',
+      opacity: 1,
+      towerHeightM: 10,
+      selected: false,
+      towerMode: 'procedural',
+    });
+    const towerY = (g: THREE.Group) =>
+      g.children.find((c) => c instanceof THREE.Group && c.children.length > 3)!.position.y;
+    expect(towerY(grounded!.group)).toBeLessThan(towerY(elevated!.group));
+  });
+
   it('draws no towers on two-vertex line', () => {
     const built = createPowerLineGroup({
       path: [

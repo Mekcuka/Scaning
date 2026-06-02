@@ -6,7 +6,9 @@ import { buildMap3dPowerLineInstances } from './map3dPowerLineInstances';
 import {
   buildNormalizedLinePath3d,
   PLAN_CORRIDOR_TERRAIN_BLEND,
+  towerGroundAltsForPath,
 } from './map3dLinePathBuild';
+import { scaleMap3dMeters } from './map3dConfig';
 
 function fakeMap(): import('maplibre-gl').Map {
   return { getTerrain: () => null } as import('maplibre-gl').Map;
@@ -121,6 +123,33 @@ describe('3D line builders use normalized paths for all subtypes', () => {
     const built = buildNormalizedLinePath3d(fakeMap(), l, [net, joint], 0);
     expect(built!.path[0]).toEqual([net.lon, net.lat]);
     expect(built!.path[1]).toEqual([joint.lon, joint.lat]);
+  });
+});
+
+describe('towerGroundAltsForPath', () => {
+  it('uses terrain placement only (no wire-attach or corridor blend)', async () => {
+    const terrainMap = { getTerrain: () => ({}) } as import('maplibre-gl').Map;
+    const modelsLayer = await import('./map3dModelsLayer');
+    vi.spyOn(modelsLayer, 'altitudeForModelPlacement').mockReturnValue(12);
+
+    const nodeStart = point('pln-1', 'power_line_node', 37.6, 55.75);
+    const nodeEnd = point('pln-2', 'power_line_node', 37.62, 55.77);
+    const path: [number, number][] = [
+      [37.6, 55.75],
+      [37.61, 55.76],
+      [37.62, 55.77],
+    ];
+    const l = line('pl-1', 'power_line', path);
+    const built = buildNormalizedLinePath3d(terrainMap, l, [nodeStart, nodeEnd, l], 0);
+
+    expect(built).not.toBeNull();
+    const wireAttach = 12 + scaleMap3dMeters(10) * 0.88;
+    expect(built!.alts[0]).toBeCloseTo(wireAttach, 4);
+    expect(built!.alts[2]).toBeCloseTo(wireAttach, 4);
+    expect(built!.alts[1]).toBeGreaterThan(12);
+    expect(built!.towerAlts).toEqual([12, 12, 12]);
+    expect(towerGroundAltsForPath(terrainMap, path, 0)).toEqual([12, 12, 12]);
+    vi.restoreAllMocks();
   });
 });
 

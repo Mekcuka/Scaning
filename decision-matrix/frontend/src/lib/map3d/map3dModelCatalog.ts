@@ -57,6 +57,11 @@ export const MAP3D_MODEL_BY_SUBTYPE: Record<string, Map3dModelCatalogEntry> = {
   ie: { gltfAssetId: 'stack-medium', template: 'tall_stack', footprintScale: 0.55 },
   node: { gltfAssetId: 'tank', template: 'node', footprintScale: 1 },
   methanol_joint: { gltfAssetId: 'tank', template: 'node', footprintScale: 0.9 },
+  power_line_node: {
+    gltfAssetId: 'transmission-tower',
+    template: 'tall_stack',
+    footprintScale: 1,
+  },
   network_node: { gltfAssetId: 'tank', template: 'node', footprintScale: 1 },
   sand_quarry: { gltfAssetId: 'facility-compact', template: 'quarry', footprintScale: 1.8 },
   poi: { template: 'poi_pin', footprintScale: 1 },

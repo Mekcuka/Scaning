@@ -3,6 +3,7 @@ import type {
   Map as MapLibreMap,
   SymbolLayerSpecification,
 } from 'maplibre-gl';
+import { ESRI_WORLD_IMAGERY_URL } from './map3dBasemap';
 import { map3dIconImageExpression } from './map3dIcons';
 import { MAP3D_LAYER_IDS, MAP3D_SOURCE_IDS } from './map3dConfig';
 
@@ -211,9 +212,48 @@ export function addMap3dVectorLayers(map: MapLibreMap): void {
   });
 }
 
+function bottomStackLayerId(map: MapLibreMap): string | undefined {
+  const styleLayers = map.getStyle()?.layers;
+  return styleLayers?.[0]?.id;
+}
+
+/** Add/remove Esri basemap so hidden mode does not prefetch raster tiles. */
+export function syncMap3dBasemap(map: MapLibreMap, visible: boolean): void {
+  const hasLayer = !!map.getLayer(MAP3D_LAYER_IDS.basemap);
+  const hasSource = !!map.getSource(MAP3D_SOURCE_IDS.basemap);
+
+  if (visible) {
+    if (!hasSource) {
+      map.addSource(MAP3D_SOURCE_IDS.basemap, {
+        type: 'raster',
+        tiles: [ESRI_WORLD_IMAGERY_URL],
+        tileSize: 256,
+        attribution: 'Tiles © Esri',
+        maxzoom: 19,
+      });
+    }
+    if (!hasLayer) {
+      map.addLayer(
+        {
+          id: MAP3D_LAYER_IDS.basemap,
+          type: 'raster',
+          source: MAP3D_SOURCE_IDS.basemap,
+        },
+        bottomStackLayerId(map),
+      );
+    } else {
+      map.setLayoutProperty(MAP3D_LAYER_IDS.basemap, 'visibility', 'visible');
+    }
+    return;
+  }
+
+  if (hasLayer) map.removeLayer(MAP3D_LAYER_IDS.basemap);
+  if (hasSource) map.removeSource(MAP3D_SOURCE_IDS.basemap);
+}
+
+/** @deprecated Use syncMap3dBasemap — visibility-only hid tiles but still loaded them. */
 export function setBasemapVisibility(map: MapLibreMap, visible: boolean): void {
-  if (!map.getLayer(MAP3D_LAYER_IDS.basemap)) return;
-  map.setLayoutProperty(MAP3D_LAYER_IDS.basemap, 'visibility', visible ? 'visible' : 'none');
+  syncMap3dBasemap(map, visible);
 }
 
 /**

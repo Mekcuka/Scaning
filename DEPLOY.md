@@ -202,8 +202,24 @@ ssh -i "C:\Users\user\Documents\mykey\ssh-key\ssh-key-1779903372392" vovavolgin9
 - `curl https://erascaning.duckdns.org/health` -> `{"status":"ok"}`
 - Swagger: `https://erascaning.duckdns.org/api/v1/docs`
 - Frontend: https://mekcuka.github.io/Scaning/ — карта `/map`, переключатель **2D | 3D**
-- Frontend использует актуальный `VITE_API_URL`.
+- Frontend использует актуальный `VITE_API_URL` (`https://erascaning.duckdns.org/api/v1`).
+- **Импорт 3D:** upload GLB → назначение подтипов → 3D на карте / превью; custom GLB грузятся с API с Bearer (см. [docs/auth-rbac.md](docs/auth-rbac.md), [docs/map-3d-features.md](docs/map-3d-features.md)).
 - Карта (регрессия линий): pitch **0°** — изгиб 3D = 2D; концы ЛЭП на узлах после pan; см. [map-3d-features.md](docs/map-3d-features.md) §6.1
+
+### Custom GLB на VM (хранение)
+
+Файлы: `backend/data/map3d_models/{project_id}/{uuid}.glb` внутри контейнера backend.  
+При деплое без постоянного volume каталог **обнуляется** — записи в БД остаются, `GET .../file` отдаёт **404 Model file not found on disk**.
+
+Рекомендация для prod: смонтировать volume в `deploy/docker-compose.yml` на путь `data/map3d_models` (или вынести в object storage — post-MVP).
+
+### Типичные проблемы после релиза frontend
+
+| Симптом | Действие |
+|---------|----------|
+| «Ошибка CSRF» при upload GLB | Обновить frontend (sync Bearer/CSRF); Ctrl+F5; перелогин |
+| Custom GLB **404 (from disk cache)** на карте | Ctrl+F5; проверить наличие файла на VM; убедиться, что задеплоен frontend с `map3dCustomGlbFetch` |
+| Bundled Kenney не грузятся | Проверить `VITE_BASE_PATH` / `/Scaning/map3d-models/` в сборке Pages |
 
 ### Локальная проверка перед `git push`
 

@@ -21,6 +21,11 @@ export function ensureTerrainSource(map: MapLibreMap, key: string): void {
   });
 }
 
+function hillshadeBeforeLayerId(map: MapLibreMap): string | undefined {
+  if (map.getLayer(MAP3D_LAYER_IDS.basemap)) return MAP3D_LAYER_IDS.basemap;
+  return map.getStyle()?.layers?.[0]?.id;
+}
+
 export function ensureHillshadeLayer(map: MapLibreMap): void {
   if (map.getLayer(MAP3D_LAYER_IDS.hillshade)) return;
   if (!map.getSource(MAP3D_SOURCE_IDS.terrain)) return;
@@ -37,8 +42,14 @@ export function ensureHillshadeLayer(map: MapLibreMap): void {
         'hillshade-exaggeration': 0.35,
       },
     },
-    MAP3D_LAYER_IDS.basemap,
+    hillshadeBeforeLayerId(map),
   );
+}
+
+export function removeMap3dTerrain(map: MapLibreMap): void {
+  map.setTerrain(null);
+  if (map.getLayer(MAP3D_LAYER_IDS.hillshade)) map.removeLayer(MAP3D_LAYER_IDS.hillshade);
+  if (map.getSource(MAP3D_SOURCE_IDS.terrain)) map.removeSource(MAP3D_SOURCE_IDS.terrain);
 }
 
 export function applyMap3dTerrain(
@@ -48,10 +59,7 @@ export function applyMap3dTerrain(
 ): boolean {
   const key = getMaptilerKey();
   if (!enabled || !key) {
-    map.setTerrain(null);
-    if (map.getLayer(MAP3D_LAYER_IDS.hillshade)) {
-      map.setLayoutProperty(MAP3D_LAYER_IDS.hillshade, 'visibility', 'none');
-    }
+    removeMap3dTerrain(map);
     return false;
   }
 

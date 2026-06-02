@@ -19,6 +19,7 @@ POINT_SUBTYPES = frozenset(
         "sand_quarry",
         "methanol_facility",
         "methanol_joint",
+        "power_line_node",
         "offplot",
         "additional_facility",
     }
@@ -39,8 +40,8 @@ ALL_INFRA_SUBTYPES = POINT_SUBTYPES | LINE_SUBTYPES
 # ГКС / УКГ / ТСГ — в карточке объекта смена только внутри этой тройки.
 GKS_CLUSTER_SUBTYPES = frozenset({"gas_processing", "ukg", "tsg"})
 
-# Узел / узел метанола — смена подтипа только внутри пары.
-NODE_CLUSTER_SUBTYPES = frozenset({"node", "methanol_joint"})
+# Узел / узел метанола / узел ЛЭП — смена подтипа только внутри группы.
+NODE_CLUSTER_SUBTYPES = frozenset({"node", "methanol_joint", "power_line_node"})
 
 # ГТЭС / ГПЭС / ВИЭС — смена подтипа только внутри группы (на карте «Точка» → ИЭ, subtype gtes).
 GTES_CLUSTER_SUBTYPES = frozenset({"gtes", "gpes", "vies"})
@@ -74,10 +75,11 @@ IMPORT_ONLY_POINT_SUBTYPES = frozenset({
     "oil_pumping_station",
     "methanol_facility",
     "methanol_joint",
+    "power_line_node",
 })
 
 # Подтип узла без отдельного пункта «Точка» — импорт Искра или смена у объекта «Узел».
-NODE_DERIVED_POINT_SUBTYPES = frozenset({"methanol_joint"})
+NODE_DERIVED_POINT_SUBTYPES = frozenset({"methanol_joint", "power_line_node"})
 
 # Устаревшие коды подтипов → актуальные (Искра/БД до миграции).
 LEGACY_SUBTYPE_ALIASES: dict[str, str] = {
@@ -137,6 +139,7 @@ SUBTYPE_CATEGORY: dict[str, str] = {
     "sand_quarry": "area_facility",
     "methanol_facility": "area_facility",
     "methanol_joint": "network",
+    "power_line_node": "electricity",
     "offplot": "area_facility",
     "additional_facility": "area_facility",
 }
@@ -165,6 +168,7 @@ SUBTYPE_LABELS: dict[str, str] = {
     "sand_quarry": "Карьер песка",
     "methanol_facility": "Объект метанола",
     "methanol_joint": "Узел метанола",
+    "power_line_node": "Узел ЛЭП",
     "additional_line": "Доп. линия",
     "additional_facility": "Доп. объект",
     "offplot": "ВО",

@@ -53,7 +53,7 @@
 | Auth + RBAC | `api/v1/auth.py`, `admin.py`, `services/auth_tokens.py`, `project_access.py` | ✅ |
 | Проекты, POI, ставки, пороги | `api/v1/router.py`, `services/cost_rates.py`, `calculations.py` | ✅ |
 | Карта, слои, объекты | `api/v1/map.py` | ✅ |
-| Custom GLB 3D (`project_map3d_models`) | `api/v1/map3d_models.py`, `services/map3d_custom_models.py`, миграции `015`–`016` (`assigned_subtypes[]`) | ✅ |
+| Custom GLB 3D (`project_map3d_models`) | `api/v1/map3d_models.py`, `services/map3d_custom_models.py`, миграции `015`–`016` (`assigned_subtypes[]`); клиент: `map3dCustomGlbFetch.ts` (Bearer на проде) | ✅ |
 | Анализ окружения | `services/infrastructure_analysis.py`, `spatial.py` | ✅ |
 | Импорт | `services/import_service.py`, `spark_import.py`, `import_connections.py` | ✅ |
 | Async import | `schedule_async_import` (фоновые задачи asyncio, **не** Celery) | ✅ |
@@ -83,7 +83,7 @@
 | `/flows/*` | `FlowTechnologyPage`, … | ✅ |
 | `/admin` | `AdminUsersPage` | ✅ |
 
-**3D-карта:** `VITE_MAP_3D_ENABLED`, `VITE_MAPTILER_KEY` — см. [map-3d-features.md](./map-3d-features.md).
+**3D-карта:** `VITE_MAP_3D_ENABLED`, `VITE_MAPTILER_KEY`, `VITE_API_URL` (обязателен на GitHub Pages) — см. [map-3d-features.md](./map-3d-features.md), cross-origin auth — [auth-rbac.md](./auth-rbac.md).
 
 **Панель «Слои» на `/map`:** переключатели подложки, групп подтипов, POI, радиусов — в `localStorage` на проект (`mapLayerPreferences.ts`, ключ `dm-map-layer-prefs:{projectId}`). Видимость импортированных слоёв (`infrastructure_layers.is_visible`) — в БД.
 
@@ -163,3 +163,4 @@
 | Объекты карты | [map-objects-and-spatial-calculations.md](./map-objects-and-spatial-calculations.md) |
 | Импорт Искра | [spark-import-mapping.md](./spark-import-mapping.md) |
 | План (исторический) | [development-plan.md](./development-plan.md) |
+| План развития | [system-evolution-plan.md](./system-evolution-plan.md) |
