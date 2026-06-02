@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import type { InfraObject, InfraLayer } from '../api';
-import { buildMap3dGeoJson } from './geoJson';
+import { buildMap3dGeoJson, layerMaps, resolveColor } from './geoJson';
 import { RENDER_3D_HEIGHT_KEY } from './render3d';
 
 const baseInfra: InfraObject = {
@@ -143,5 +143,23 @@ describe('buildMap3dGeoJson', () => {
     };
     const bundle = buildMap3dGeoJson({ infraObjects: [obj], pois: [] });
     expect(bundle.infraExtrusions.features[0]!.properties?.extrusion_height_m).toBe(125);
+  });
+
+  it('resolveColor prefers subtype palette over layer tint for points', () => {
+    const layers: InfraLayer[] = [
+      {
+        id: 'layer-1',
+        name: 'Custom',
+        is_visible: true,
+        opacity: 1,
+        style_config: { color: '#123456' },
+      } as unknown as InfraLayer,
+    ];
+    const maps = layerMaps(layers);
+    expect(resolveColor('oil_pad', 'layer-1', maps)).toBe('#5d4037');
+    expect(resolveColor('gas_pad', 'layer-1', maps)).toBe('#fbc02d');
+    expect(resolveColor('oil_pad', 'layer-1', maps)).not.toBe(
+      resolveColor('gas_pad', 'layer-1', maps),
+    );
   });
 });

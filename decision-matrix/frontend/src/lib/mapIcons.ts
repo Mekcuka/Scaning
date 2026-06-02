@@ -13,6 +13,7 @@ import {
   Pipette,
   Zap,
 } from 'lucide-react';
+import { normalizeInfraSubtype } from './api';
 import { IeMapIcon } from './ieSubtypeIcons';
 
 type MapIconComponent = ComponentType<{ size?: number; color?: string; strokeWidth?: number }>;
@@ -29,7 +30,8 @@ const ICON_MAP: Record<string, MapIconComponent> = {
   substation: Zap,
   refinery: Factory,
   node: CircleDot,
-  pad: LandPlot,
+  oil_pad: LandPlot,
+  gas_pad: LandPlot,
   preliminary_water_discharge_station: Factory,
   booster_pumping_station: Factory,
   oil_pumping_station: Factory,
@@ -63,7 +65,8 @@ export const MAP_SUBTYPE_COLORS: Record<string, string> = {
   substation: '#f9a825',
   refinery: '#455a64',
   node: '#6a1b9a',
-  pad: '#00897b',
+  oil_pad: '#5d4037',
+  gas_pad: '#fbc02d',
   preliminary_water_discharge_station: '#0277bd',
   booster_pumping_station: '#1565c0',
   oil_pumping_station: '#5d4037',
@@ -86,11 +89,12 @@ export const MAP_SUBTYPE_COLORS: Record<string, string> = {
 
 const cache = new Map<string, string>();
 
-function renderIconDataUrl(key: string): string {
-  const iconKey = ICON_MAP[key] ? key : 'gas_processing';
-  if (cache.has(iconKey)) return cache.get(iconKey)!;
-  const Icon = ICON_MAP[iconKey] || Factory;
+function renderIconDataUrl(subtype: string): string {
+  const iconKey = ICON_MAP[subtype] ? subtype : 'gas_processing';
   const color = MAP_SUBTYPE_COLORS[iconKey] || '#666';
+  const cacheKey = `${iconKey}:${color}`;
+  if (cache.has(cacheKey)) return cache.get(cacheKey)!;
+  const Icon = ICON_MAP[iconKey] || Factory;
   const svg = renderToStaticMarkup(
     createElement(Icon, {
       size: iconKey === 'poi' ? 28 : 22,
@@ -100,12 +104,12 @@ function renderIconDataUrl(key: string): string {
     })
   );
   const url = `data:image/svg+xml;charset=utf-8,${encodeURIComponent(svg)}`;
-  cache.set(iconKey, url);
+  cache.set(cacheKey, url);
   return url;
 }
 
 export function iconDataUrl(subtype: string): string {
-  return renderIconDataUrl(ICON_MAP[subtype] ? subtype : 'gas_processing');
+  return renderIconDataUrl(normalizeInfraSubtype(subtype));
 }
 
 /** @deprecated use iconDataUrl — kept for callers; ИЭ subtypes share one icon shape. */

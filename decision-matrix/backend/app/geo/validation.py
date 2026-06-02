@@ -9,7 +9,9 @@ from app.geo.constants import (
     IMPORT_ONLY_POINT_SUBTYPES,
     LINE_SUBTYPES,
     NODE_CLUSTER_SUBTYPES,
+    PAD_CLUSTER_SUBTYPES,
     NODE_DERIVED_POINT_SUBTYPES,
+    PAD_DERIVED_POINT_SUBTYPES,
     POINT_SUBTYPES,
     SPARK_EXCLUSIVE_POINT_SUBTYPES,
     SUBTYPE_LABELS,
@@ -48,6 +50,10 @@ def validate_general_infra_create(subtype: str) -> None:
             raise ValueError(
                 f"Подтип «{label}»: импорт Искра или смена подтипа у объекта «Узел»."
             )
+        if st in PAD_DERIVED_POINT_SUBTYPES:
+            raise ValueError(
+                f"Подтип «{label}»: импорт Искра или смена подтипа у объекта «Куст»."
+            )
         if st in SPARK_EXCLUSIVE_POINT_SUBTYPES:
             raise ValueError(f"Подтип «{label}» создаётся только импортом Искра.")
         raise ValueError(
@@ -76,6 +82,11 @@ def validate_subtype_change(current: str, new: str) -> None:
     if cur in GTES_CLUSTER_SUBTYPES and nxt not in GTES_CLUSTER_SUBTYPES:
         raise ValueError(
             "Для объектов ИЭ допустима смена только между подтипами ГТЭС, ГПЭС и ВИЭС."
+        )
+    if cur in PAD_CLUSTER_SUBTYPES and nxt not in PAD_CLUSTER_SUBTYPES:
+        raise ValueError(
+            "Для кустов допустима смена только между подтипами "
+            "«Нефтяной куст» и «Газовый куст»."
         )
     if nxt in IE_DERIVED_POINT_SUBTYPES and cur not in GTES_CLUSTER_SUBTYPES:
         label = SUBTYPE_LABELS.get(nxt, nxt)

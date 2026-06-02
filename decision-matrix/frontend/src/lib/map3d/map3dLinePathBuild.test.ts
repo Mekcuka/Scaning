@@ -49,7 +49,7 @@ const line = (
 
 describe('buildNormalizedLinePath3d', () => {
   it('snaps start to pad for every linear subtype', () => {
-    const pad = point('pad-1', 'pad', 37.6, 55.75);
+    const pad = point('pad-1', 'oil_pad', 37.6, 55.75);
     const node = point('node-1', 'node', 37.7, 55.85);
 
     for (const subtype of LINE_SUBTYPES) {
@@ -66,7 +66,7 @@ describe('buildNormalizedLinePath3d', () => {
 });
 
 describe('3D line builders use normalized paths for all subtypes', () => {
-  const pad = point('pad-1', 'pad', 37.6, 55.75);
+  const pad = point('pad-1', 'oil_pad', 37.6, 55.75);
   const substation = point('ps-1', 'substation', 37.7, 55.85);
 
   const tubeSubtypes = LINE_SUBTYPES.filter((s) => s !== 'power_line');

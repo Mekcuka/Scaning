@@ -204,6 +204,7 @@ ssh -i "C:\Users\user\Documents\mykey\ssh-key\ssh-key-1779903372392" vovavolgin9
 - Frontend: https://mekcuka.github.io/Scaning/ — карта `/map`, переключатель **2D | 3D**
 - Frontend использует актуальный `VITE_API_URL` (`https://erascaning.duckdns.org/api/v1`).
 - **Импорт 3D:** upload GLB → назначение подтипов → 3D на карте / превью; custom GLB грузятся с API с Bearer (см. [docs/auth-rbac.md](docs/auth-rbac.md), [docs/map-3d-features.md](docs/map-3d-features.md)).
+- **Логистика песка:** `/flows/logistics` — схема с timeline (полная топология на любом годе, будущие объекты серые); быстрая смена года без remount React Flow (см. [map-objects-and-spatial-calculations.md](docs/map-objects-and-spatial-calculations.md) §1.7.1).
 - Карта (регрессия линий): pitch **0°** — изгиб 3D = 2D; концы ЛЭП на узлах после pan; см. [map-3d-features.md](docs/map-3d-features.md) §6.1
 
 ### Custom GLB на VM (хранение)

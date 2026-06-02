@@ -237,13 +237,15 @@ Geodesic-расстояние от POI до Point-объекта. Таблица
 | `infra_capacity_unit` | mvp | enum | `properties.capacity_unit` | то же | `thousand_t_per_year` \| `thousand_m3_per_year` |
 | `infra_network_id` | planned | uuid | `infrastructure_nodes.network_id` | — | FR-2.4.5 |
 
-Ключи пропускной способности — только для **точечных** подтипов, кроме: `node`, `pad`, `sand_quarry`, `substation`, `vies`, `gtes`, `gpes`. См. [map-objects-and-spatial-calculations.md](./map-objects-and-spatial-calculations.md) §1.6.
+Ключи пропускной способности — только для **точечных** подтипов, кроме: `node`, `oil_pad`, `gas_pad`, `sand_quarry`, `substation`, `vies`, `gtes`, `gpes`. См. [map-objects-and-spatial-calculations.md](./map-objects-and-spatial-calculations.md) §1.6.
 
 | ID | Статус | Тип | Хранение | UI | Примечание |
 |----|--------|-----|----------|-----|------------|
 | `sand_volume_initial_m3` | mvp | number | `properties` | Карта → карьер песка | Начальный запас, м³ |
 | `sand_volume_current_m3` | mvp | number | `properties` | то же | Текущий остаток, м³; рекомендуется ≤ initial |
-| `sand_volume_m3` | mvp | number | `properties` | Карта → точечный объект (кроме `node`, `sand_quarry`) | Спрос потребителя, м³ |
+| `sand_volume_m3` | mvp | number | `properties` | Карта → точечный объект (кроме `node`, `sand_quarry`) | Спрос потребителя, м³ в режиме «Объём на дату ввода» |
+| `sand_volume_by_year` | mvp | object | `properties` | Карта → вкладка **Логистика** | План спроса по календарным годам, м³; в расчёте — накопительная сумма на `as_of` |
+| `sand_volume_mode` | mvp | string | `properties` | Карта → вкладка **Логистика** | `single` — объём на дату ввода; `yearly` — план по годам (взаимоисключающие) |
 
 См. [map-objects-and-spatial-calculations.md](./map-objects-and-spatial-calculations.md) §1.7, расчёт — вкладка **Потоки → Логистика**.
 

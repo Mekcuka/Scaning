@@ -558,9 +558,27 @@ export const api = {
     request<NetworkNode[]>(`/projects/${projectId}/infrastructure/networks/${networkId}/nodes`),
   getNetworkEdges: (projectId: string, networkId: string) =>
     request<NetworkEdge[]>(`/projects/${projectId}/infrastructure/networks/${networkId}/edges`),
-  analyzeSandLogistics: (projectId: string) =>
+  analyzeSandLogistics: (
+    projectId: string,
+    options?: {
+      asOf?: string;
+      horizonFrom?: string;
+      horizonTo?: string;
+      rebuildNetwork?: boolean;
+    },
+  ) =>
     request<SandLogisticsResult>(`/projects/${projectId}/sand-logistics/analyze`, {
       method: 'POST',
+      body: JSON.stringify({
+        as_of: options?.asOf ?? null,
+        horizon_from: options?.horizonFrom ?? null,
+        horizon_to: options?.horizonTo ?? null,
+        rebuild_network: options?.rebuildNetwork ?? true,
+      }),
+    }),
+  getSandLogisticsResult: (projectId: string) =>
+    request<SandLogisticsResult | null>(`/projects/${projectId}/sand-logistics/result`, {
+      allowNotFound: true,
     }),
   getFlowSchematic: (projectId: string, poiId: string) =>
     request<import('./flowSchematic').FlowSchematicDto>(
@@ -956,6 +974,8 @@ export interface SandLogisticsConsumerRow {
   lat: number;
   snap_node_id?: string | null;
   demand_m3: number;
+  demand_plan_total_m3?: number;
+  demand_by_year_m3?: Record<string, number>;
   entry_date: string;
   in_service: boolean;
   nearest_quarry_id: string | null;
@@ -966,7 +986,18 @@ export interface SandLogisticsConsumerRow {
   greedy_quarry_id: string | null;
   greedy_quarry_name: string | null;
   greedy_allocated_m3: number;
+  allocation_by_year_m3?: Record<string, number>;
   proportional_allocations: SandLogisticsProportionalPart[];
+}
+
+export interface SandLogisticsYearStep {
+  year: number;
+  as_of: string;
+  subnet_count: number;
+  total_demand_m3: number;
+  total_allocated_m3: number;
+  unmet_m3: number;
+  subnets: SandLogisticsSubnet[];
 }
 
 export interface SandLogisticsSubnet {
@@ -984,13 +1015,18 @@ export interface SandLogisticsSubnet {
 
 export interface SandLogisticsResult {
   project_id: string;
+  horizon_from: string;
+  horizon_to: string;
   as_of: string;
   network_id: string;
   subnet_count: number;
   subnets: SandLogisticsSubnet[];
+  timeline: SandLogisticsYearStep[];
   warnings: string[];
   /** Имена всех карьеров/потребителей (в т.ч. вне подсетей) для подписей предупреждений */
   object_names: Record<string, string>;
+  /** ISO datetime when analysis was last saved to the project */
+  calculated_at?: string | null;
 }
 
 export interface ImportLog {
@@ -1044,6 +1080,16 @@ export interface OnePagerUpdatePayload {
   engineer_name?: string | null;
 }
 
+/** Legacy DB/API subtype codes → current codes (keep in sync with backend constants.py). */
+export const LEGACY_SUBTYPE_ALIASES: Record<string, string> = {
+  pad: 'oil_pad',
+};
+
+export function normalizeInfraSubtype(subtype: string): string {
+  const st = subtype.trim().toLowerCase();
+  return LEGACY_SUBTYPE_ALIASES[st] ?? st;
+}
+
 export const POINT_SUBTYPES = [
   'gas_processing',
   'ukg',
@@ -1054,7 +1100,8 @@ export const POINT_SUBTYPES = [
   'substation',
   'refinery',
   'node',
-  'pad',
+  'oil_pad',
+  'gas_pad',
   'preliminary_water_discharge_station',
   'booster_pumping_station',
   'oil_pumping_station',
@@ -1101,7 +1148,8 @@ export const SUBTYPE_LABELS: Record<string, string> = {
   substation: 'ПС/ТП',
   refinery: 'НПЗ',
   node: 'Узел',
-  pad: 'Куст',
+  oil_pad: 'Нефтяной куст',
+  gas_pad: 'Газовый куст',
   preliminary_water_discharge_station: 'УПСВ',
   booster_pumping_station: 'ДНС',
   oil_pumping_station: 'НПС',
@@ -1125,9 +1173,13 @@ export const GKS_CLUSTER_SUBTYPES = ['gas_processing', 'ukg', 'tsg'] as const;
 /** Узел + узел метанола + узел ЛЭП — смена подтипа только внутри группы. */
 export const NODE_CLUSTER_SUBTYPES = ['node', 'methanol_joint', 'power_line_node'] as const;
 
+/** Нефтяной / газовый куст — смена подтипа только внутри пары. */
+export const PAD_CLUSTER_SUBTYPES = ['oil_pad', 'gas_pad'] as const;
+
 /** Подпись в меню «Точка» (если отличается от SUBTYPE_LABELS). */
 export const POINT_MENU_LABELS: Partial<Record<string, string>> = {
   gtes: 'ИЭ',
+  oil_pad: 'Куст',
 };
 
 export function pointMenuLabel(subtype: string): string {
@@ -1163,7 +1215,7 @@ export const LAYER_VISIBILITY_GROUPS: { id: string; label: string; subtypes: rea
       'ground_pumping_station',
     ],
   },
-  { id: 'pads_quarry', label: 'Кусты и карьер', subtypes: ['pad', 'sand_quarry'] },
+  { id: 'pads_quarry', label: 'Куст и карьер', subtypes: ['oil_pad', 'gas_pad', 'sand_quarry'] },
   { id: 'offplot', label: 'ВО', subtypes: ['offplot'] },
   { id: 'additional_facility', label: 'Доп. объекты', subtypes: ['additional_facility'] },
   { id: 'additional_linear', label: 'Доп. линии', subtypes: ['additional_line'] },
@@ -1173,6 +1225,7 @@ export const LAYER_VISIBILITY_GROUPS: { id: string; label: string; subtypes: rea
 
 const GKS_CLUSTER_SET = new Set<string>(GKS_CLUSTER_SUBTYPES);
 const NODE_CLUSTER_SET = new Set<string>(NODE_CLUSTER_SUBTYPES);
+const PAD_CLUSTER_SET = new Set<string>(PAD_CLUSTER_SUBTYPES);
 const GTES_CLUSTER_SET = new Set<string>(GTES_CLUSTER_SUBTYPES);
 
 export function isGksClusterSubtype(subtype: string): boolean {
@@ -1181,6 +1234,10 @@ export function isGksClusterSubtype(subtype: string): boolean {
 
 export function isNodeClusterSubtype(subtype: string): boolean {
   return NODE_CLUSTER_SET.has(subtype);
+}
+
+export function isPadClusterSubtype(subtype: string): boolean {
+  return PAD_CLUSTER_SET.has(subtype);
 }
 
 export function isGtesClusterSubtype(subtype: string): boolean {
@@ -1207,7 +1264,11 @@ export const IMPORT_ONLY_POINT_SUBTYPES = [
   'methanol_facility',
   'methanol_joint',
   'power_line_node',
+  'gas_pad',
 ] as const;
+
+/** Подтип куста без пункта «Точка» — импорт Искра или смена у «Куст» (oil_pad). */
+export const PAD_DERIVED_POINT_SUBTYPES = ['gas_pad'] as const;
 
 const IMPORT_ONLY_POINT_SET = new Set<string>(IMPORT_ONLY_POINT_SUBTYPES);
 
@@ -1241,6 +1302,12 @@ export function infraSubtypeSelectOptions(object: InfraObject): { value: string;
       label: SUBTYPE_LABELS[value] || value,
     }));
   }
+  if (isPadClusterSubtype(object.subtype)) {
+    return PAD_CLUSTER_SUBTYPES.map((value) => ({
+      value,
+      label: SUBTYPE_LABELS[value] || value,
+    }));
+  }
   if (isGtesClusterSubtype(object.subtype)) {
     return GTES_CLUSTER_SUBTYPES.map((value) => ({
       value,
@@ -1258,7 +1325,8 @@ export function infraSubtypeSelectOptions(object: InfraObject): { value: string;
           !IMPORT_ONLY_POINT_SET.has(s) &&
           !EXCLUSIVE_POINT_SET.has(s) &&
           !GTES_CLUSTER_SET.has(s) &&
-          !NODE_CLUSTER_SET.has(s),
+          !NODE_CLUSTER_SET.has(s) &&
+          !PAD_CLUSTER_SET.has(s),
       );
   return keys.map((value) => ({ value, label: SUBTYPE_LABELS[value] || value }));
 }

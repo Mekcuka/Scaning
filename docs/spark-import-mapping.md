@@ -63,11 +63,11 @@
 | `DrillingSubstationKit` | `substation` | `electricity` | Polygon→Point | Буровая ПС |
 | `SingleAutomaticControlStation` | `substation` | `electricity` | Polygon→Point | АСУ ТП |
 | `DoubleAutomaticControlStation` | `substation` | `electricity` | Polygon→Point | |
-| `Pad` | `pad` | `pad` | Polygon→Point | `properties.spark_type`, `spark_pad_type`, `name` |
-| `GasUtilizingWellsPad` | `pad` | `pad` | Polygon→Point | |
-| `GasWellsPad` | `pad` | `pad` | Polygon→Point | |
-| `WaterUtilizingWellsPad` | `pad` | `pad` | Polygon→Point | |
-| `WaterSupplier` | `pad` | `pad` | Polygon→Point | Водоснабжение → куст |
+| `Pad` | `oil_pad` | `pad` | Polygon→Point | `properties.spark_type`, `spark_pad_type`, `name`; legacy `pad` → `oil_pad` |
+| `GasUtilizingWellsPad` | `gas_pad` | `pad` | Polygon→Point | |
+| `GasWellsPad` | `gas_pad` | `pad` | Polygon→Point | |
+| `WaterUtilizingWellsPad` | `oil_pad` | `pad` | Polygon→Point | |
+| `WaterSupplier` | `oil_pad` | `pad` | Polygon→Point | Водоснабжение → нефтяной куст |
 | `PreliminaryWaterDischargeStation` | `preliminary_water_discharge_station` | `area_facility` | Polygon→Point | УПСВ |
 | `BoosterPumpingStation` | `booster_pumping_station` | `area_facility` | Polygon→Point | ДНС |
 | `OilPumpingStation` | `oil_pumping_station` | `area_facility` | Polygon→Point | НПС |

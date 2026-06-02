@@ -103,7 +103,7 @@ def _parse_spark_object(
         "spark_type": spark_type,
         "spark_network": obj.get("network"),
     }
-    if subtype == "pad":
+    if subtype in ("oil_pad", "gas_pad"):
         extra_props["spark_pad_type"] = spark_type
 
     try:

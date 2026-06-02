@@ -10,7 +10,7 @@ import type { SandLogisticsResult } from './api';
 const consumer: SandLogisticsConsumerRow = {
   object_id: 'c1',
   name: 'Куст 1',
-  subtype: 'pad',
+  subtype: 'oil_pad',
   lon: 0,
   lat: 0,
   demand_m3: 100,
@@ -62,6 +62,8 @@ describe('findSandLogisticsConsumer', () => {
   it('finds consumer across subnets', () => {
     const result = {
       project_id: 'p1',
+      horizon_from: '2024-01-01',
+      horizon_to: '2024-12-31',
       as_of: '2024-06-01',
       network_id: 'n1',
       subnet_count: 1,
@@ -79,6 +81,7 @@ describe('findSandLogisticsConsumer', () => {
           warnings: [],
         },
       ],
+      timeline: [],
       warnings: [],
       object_names: {},
     } satisfies SandLogisticsResult;

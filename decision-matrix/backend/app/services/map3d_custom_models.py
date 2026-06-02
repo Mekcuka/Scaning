@@ -22,22 +22,31 @@ DEFAULT_TARGET_HEIGHT_M = 8.0
 
 def normalize_assigned_subtypes(raw: Any) -> list[str]:
     """Coerce DB JSON / legacy TEXT values to a list of subtype codes."""
+    items: list[str] = []
     if raw is None:
         return []
     if isinstance(raw, list):
-        return [str(x) for x in raw if str(x).strip()]
-    if isinstance(raw, str):
+        items = [str(x) for x in raw if str(x).strip()]
+    elif isinstance(raw, str):
         text = raw.strip()
         if not text or text == "[]":
             return []
         try:
             parsed = json.loads(text)
             if isinstance(parsed, list):
-                return [str(x) for x in parsed if str(x).strip()]
+                items = [str(x) for x in parsed if str(x).strip()]
+            else:
+                items = [text]
         except json.JSONDecodeError:
-            return [text]
-        return []
-    return []
+            items = [text]
+    seen: set[str] = set()
+    out: list[str] = []
+    for raw_st in items:
+        st = normalize_infra_subtype(raw_st)
+        if st and st not in seen:
+            seen.add(st)
+            out.append(st)
+    return out
 
 
 def map3d_models_root() -> Path:

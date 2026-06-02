@@ -1,5 +1,6 @@
 import type { Feature, FeatureCollection, LineString, Point, Polygon } from 'geojson';
 import type { AnalysisRow, InfraLayer, InfraObject, POI } from '../api';
+import { normalizeInfraSubtype } from '../api';
 import { LINE_SUBTYPES } from '../api';
 import { isLineSubtype } from '../infraGeometry';
 import { MAP_SUBTYPE_COLORS } from '../mapIcons';
@@ -59,11 +60,15 @@ export function resolveColor(
   layerId: string | null | undefined,
   maps: LayerMaps,
 ): string {
-  if (LINE_SUBTYPE_SET.has(subtype)) {
-    return MAP_SUBTYPE_COLORS[subtype] || '#666';
+  const st = subtype.trim().toLowerCase();
+  const canonical = MAP_SUBTYPE_COLORS[st];
+  if (LINE_SUBTYPE_SET.has(st)) {
+    return canonical || '#666';
   }
+  // Point markers: canonical palette (matches 2D Lucide icons), not layer tint.
+  if (canonical) return canonical;
   const custom = layerId ? maps.colorByLayer[layerId] : undefined;
-  return custom || MAP_SUBTYPE_COLORS[subtype] || '#666';
+  return custom || '#666';
 }
 
 export function layerVisible(
@@ -127,15 +132,16 @@ function infraToFeatures(
   for (const obj of infraObjects) {
     if (!layerVisible(obj.layer_id, maps)) continue;
 
-    const render = resolveRender3D(obj.subtype, obj.properties);
+    const st = normalizeInfraSubtype(obj.subtype);
+    const render = resolveRender3D(st, obj.properties);
     if (!render.visible) continue;
 
-    const color = resolveColor(obj.subtype, obj.layer_id, maps);
+    const color = resolveColor(st, obj.layer_id, maps);
     const opacity = obj.layer_id ? (maps.opacityByLayer[obj.layer_id] ?? 1) : 1;
     const baseProps = {
       id: obj.id,
       name: obj.name,
-      subtype: obj.subtype,
+      subtype: st,
       layer_id: obj.layer_id ?? '',
       featureKind: 'infra' as const,
       color,
@@ -144,7 +150,7 @@ function infraToFeatures(
       extrusion_base_m: render.baseM,
     };
 
-    if (isLineSubtype(obj.subtype)) {
+    if (isLineSubtype(st)) {
       const path = linePathForDisplay(obj, snapPool);
       if (!path || path.length < 2) continue;
       lineFeatures.push({
@@ -152,7 +158,7 @@ function infraToFeatures(
         id: obj.id,
         properties: {
           ...baseProps,
-          line_width: LINE_WIDTH_BY_SUBTYPE[obj.subtype] ?? 3,
+          line_width: LINE_WIDTH_BY_SUBTYPE[st] ?? 3,
         },
         geometry: {
           type: 'LineString',
@@ -169,9 +175,9 @@ function infraToFeatures(
       geometry: { type: 'Point', coordinates: [obj.lon, obj.lat] },
     });
 
-    if (!shouldBuildPointExtrusion(obj.subtype, obj.properties, showModels)) continue;
+    if (!shouldBuildPointExtrusion(st, obj.properties, showModels)) continue;
 
-    const half = scaleMap3dMeters(footprintHalfSizeForSubtype(obj.subtype) * render.scale);
+    const half = scaleMap3dMeters(footprintHalfSizeForSubtype(st) * render.scale);
     extrusionFeatures.push({
       type: 'Feature',
       id: obj.id,

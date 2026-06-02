@@ -63,7 +63,7 @@ export function createDefaultApiMocks(): ApiMockOverrides {
     getFlowSchematic: vi.fn().mockResolvedValue({ nodes: [], edges: [], source: 'computed', warnings: [] }),
     saveFlowSchematic: vi.fn().mockResolvedValue({ nodes: [], edges: [], source: 'computed', warnings: [] }),
     analyzeSandLogistics: vi.fn().mockResolvedValue({ subnets: [], subnet_count: 0, as_of: '2024-01-01' }),
-    getSandLogistics: vi.fn().mockResolvedValue({}),
+    getSandLogisticsResult: vi.fn().mockResolvedValue(null),
     login: vi.fn().mockResolvedValue({ id: 'u1', email: 'a@b.ru', username: 'u', role: 'analyst' }),
     register: vi.fn().mockResolvedValue({ id: 'u1', email: 'a@b.ru', username: 'u', role: 'analyst' }),
     me: vi.fn().mockResolvedValue({ id: 'u1', email: 'a@b.ru', username: 'u', role: 'analyst', is_active: true }),

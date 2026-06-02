@@ -5,6 +5,15 @@ import { catalogEntryForSubtype, MAP3D_MODEL_BY_SUBTYPE } from './map3dModelCata
 
 export type Render3dModelSelectOption = { value: string; label: string };
 
+function customModelAssignedToSubtype(subtype: string, model: Map3dCustomModel): boolean {
+  const st = subtype.trim().toLowerCase();
+  const assigned = (model.assigned_subtypes ?? []).map((s) => s.trim().toLowerCase());
+  if (assigned.includes(st)) return true;
+  // Legacy GLB assignments before oil_pad / gas_pad split.
+  if (st === 'oil_pad' && assigned.includes('pad')) return true;
+  return false;
+}
+
 /** Point subtypes that support bundled glTF on the 3D map. */
 export function map3dAssignableSubtypes(): string[] {
   return Object.keys(MAP3D_MODEL_BY_SUBTYPE)
@@ -29,7 +38,7 @@ export function buildRender3dModelOptions(
     },
   ];
   for (const m of models) {
-    if ((m.assigned_subtypes ?? []).map((s) => s.toLowerCase()).includes(st)) {
+    if (customModelAssignedToSubtype(st, m)) {
       options.push({
         value: customModelPropertyId(m.id),
         label: m.filename,

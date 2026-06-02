@@ -39,11 +39,11 @@ SPARK_TYPE_TO_SUBTYPE: dict[str, str | None] = {
     "SingleAutomaticControlStation": "substation",
     "DoubleAutomaticControlStation": "substation",
     # Pads
-    "Pad": "pad",
-    "GasUtilizingWellsPad": "pad",
-    "GasWellsPad": "pad",
-    "WaterUtilizingWellsPad": "pad",
-    "WaterSupplier": "pad",
+    "Pad": "oil_pad",
+    "WaterUtilizingWellsPad": "oil_pad",
+    "WaterSupplier": "oil_pad",
+    "GasUtilizingWellsPad": "gas_pad",
+    "GasWellsPad": "gas_pad",
     # Pumping / water (separate subtypes)
     "PreliminaryWaterDischargeStation": "preliminary_water_discharge_station",
     "BoosterPumpingStation": "booster_pumping_station",

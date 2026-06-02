@@ -38,9 +38,13 @@ import {
   isSandQuarrySubtype,
   pointShowsSandDemand,
   mergeQuarryVolumes,
-  mergeSandDemandM3,
+  mergeSandVolumeForSave,
   readQuarryVolumes,
   readSandDemandM3,
+  readSandVolumeByYear,
+  readSandVolumeInputMode,
+  SAND_VOLUME_INPUT_MODE_OPTIONS,
+  type SandVolumeInputMode,
 } from '../lib/infraSandVolumes';
 import {
   mergeEntryDate,
@@ -71,6 +75,10 @@ import { AppSelect } from './AppSelect';
 import { DeferredNumberInput } from './DeferredNumberInput';
 import { PoiParamsForm } from './PoiParamsForm';
 import { SandHaulLegDetails } from './logistics/SandHaulLegDetails';
+import {
+  SandVolumeYearPlanEditor,
+  sandVolumeYearPlanDirty,
+} from './logistics/SandVolumeYearPlanEditor';
 
 export type SelectedFeature =
   | { kind: 'poi'; poi: POI }
@@ -99,6 +107,23 @@ function PanelSection({ title, children }: { title: string; children: ReactNode 
 
 function FieldLabel({ children }: { children: ReactNode }) {
   return <span className="object-detail-panel__label">{children}</span>;
+}
+
+function sandDemandFieldsDirty(
+  properties: Record<string, unknown> | null | undefined,
+  draft: {
+    mode: SandVolumeInputMode;
+    singleDemand: string;
+    yearPlan: Record<string, number>;
+  },
+): boolean {
+  if (draft.mode !== readSandVolumeInputMode(properties)) return true;
+  if (draft.mode === 'yearly') {
+    return sandVolumeYearPlanDirty(draft.yearPlan, readSandVolumeByYear(properties));
+  }
+  const saved = readSandDemandM3(properties);
+  const savedStr = saved > 0 ? String(saved) : '';
+  return draft.singleDemand !== savedStr;
 }
 
 type InfraDetailTab = 'main' | 'logistics' | 'extra';
@@ -240,6 +265,8 @@ export function ObjectDetailPanel({
   const [sandInitialM3, setSandInitialM3] = useState('');
   const [sandCurrentM3, setSandCurrentM3] = useState('');
   const [sandDemandM3, setSandDemandM3] = useState('');
+  const [sandVolumeByYear, setSandVolumeByYear] = useState<Record<string, number>>({});
+  const [sandVolumeMode, setSandVolumeMode] = useState<SandVolumeInputMode>('single');
   const [entryDate, setEntryDate] = useState('');
   const [capacityValue, setCapacityValue] = useState<number | ''>('');
   const [render3dHeight, setRender3dHeight] = useState('');
@@ -280,12 +307,16 @@ export function ObjectDetailPanel({
     } else if (pointShowsSandDemand(o.subtype)) {
       const d = readSandDemandM3(o.properties);
       setSandDemandM3(d > 0 ? String(d) : '');
+      setSandVolumeByYear(readSandVolumeByYear(o.properties));
+      setSandVolumeMode(readSandVolumeInputMode(o.properties));
       setSandInitialM3('');
       setSandCurrentM3('');
     } else {
       setSandInitialM3('');
       setSandCurrentM3('');
       setSandDemandM3('');
+      setSandVolumeByYear({});
+      setSandVolumeMode('single');
     }
     setEntryDate(objectShowsEntryDate(o.subtype) ? readEntryDateIso(o.properties) : '');
     setCapacityValue(capacityDraftFromObject(o));
@@ -332,7 +363,7 @@ export function ObjectDetailPanel({
         props = mergeQuarryVolumes(props, initial, current);
       } else if (pointShowsSandDemand(subtype)) {
         const demand = sandDemandM3.trim() ? parseFloat(sandDemandM3) : null;
-        props = mergeSandDemandM3(props, demand);
+        props = mergeSandVolumeForSave(props, sandVolumeMode, demand, sandVolumeByYear);
       }
       if (objectShowsEntryDate(subtype)) {
         props = mergeEntryDate(props, entryDate.trim() || null);
@@ -359,7 +390,7 @@ export function ObjectDetailPanel({
         if (render3dStyle === 'model' || render3dStyle === 'extrusion') {
           props[RENDER_3D_STYLE_KEY] = render3dStyle;
         } else {
-          delete props[RENDER_3D_STYLE_KEY];
+          props[RENDER_3D_STYLE_KEY] = null;
         }
         const mid = render3dModelId.trim();
         if (mid) {
@@ -368,7 +399,7 @@ export function ObjectDetailPanel({
             props[RENDER_3D_STYLE_KEY] = 'model';
           }
         } else {
-          delete props[RENDER_3D_MODEL_ID_KEY];
+          props[RENDER_3D_MODEL_ID_KEY] = null;
         }
       }
       payload.properties = props;
@@ -417,6 +448,8 @@ export function ObjectDetailPanel({
     sandInitialM3,
     sandCurrentM3,
     sandDemandM3,
+    sandVolumeByYear,
+    sandVolumeMode,
     entryDate,
     capacityValue,
     render3dHeight,
@@ -505,10 +538,11 @@ export function ObjectDetailPanel({
           sandCurrentM3 !== (origQ.current > 0 ? String(origQ.current) : ''))) ||
       (pointShowsSandDemand(infraObject.subtype) &&
         !isLine &&
-        sandDemandM3 !==
-          (readSandDemandM3(infraObject.properties) > 0
-            ? String(readSandDemandM3(infraObject.properties))
-            : ''));
+        sandDemandFieldsDirty(infraObject.properties, {
+          mode: sandVolumeMode,
+          singleDemand: sandDemandM3,
+          yearPlan: sandVolumeByYear,
+        }));
     const entryDirty =
       objectShowsEntryDate(infraObject.subtype) &&
       entryDate !== readEntryDateIso(infraObject.properties);
@@ -558,6 +592,8 @@ export function ObjectDetailPanel({
     sandInitialM3,
     sandCurrentM3,
     sandDemandM3,
+    sandVolumeByYear,
+    sandVolumeMode,
     entryDate,
     capacityValue,
     render3dHeight,
@@ -613,10 +649,11 @@ export function ObjectDetailPanel({
             sandCurrentM3 !== (origQ.current > 0 ? String(origQ.current) : ''))) ||
         (pointShowsSandDemand(infraObject.subtype) &&
           !isLine &&
-          sandDemandM3 !==
-            (readSandDemandM3(infraObject.properties) > 0
-              ? String(readSandDemandM3(infraObject.properties))
-              : ''));
+          sandDemandFieldsDirty(infraObject.properties, {
+            mode: sandVolumeMode,
+            singleDemand: sandDemandM3,
+            yearPlan: sandVolumeByYear,
+          }));
       const entryDirty =
         objectShowsEntryDate(infraObject.subtype) &&
         entryDate !== readEntryDateIso(infraObject.properties);
@@ -668,7 +705,9 @@ export function ObjectDetailPanel({
       sandInitialM3,
       sandCurrentM3,
       sandDemandM3,
-      entryDate,
+    sandVolumeByYear,
+    sandVolumeMode,
+    entryDate,
       subtype,
       layerId,
       lon,
@@ -947,19 +986,51 @@ export function ObjectDetailPanel({
                       </div>
                     )}
                     {showSandDemandField && (
-                      <label className="object-detail-panel__field">
-                        <FieldLabel>Объём песка (спрос), м³</FieldLabel>
-                        <input
-                          className="input object-detail-panel__input"
-                          type="number"
-                          min={0}
-                          step="any"
-                          value={sandDemandM3}
-                          readOnly={readOnly}
-                          disabled={readOnly}
-                          onChange={(e) => setSandDemandM3(e.target.value)}
-                        />
-                      </label>
+                      <>
+                        <label className="object-detail-panel__field">
+                          <FieldLabel>Способ задания спроса</FieldLabel>
+                          <AppSelect
+                            variant="sm"
+                            fullWidth
+                            ariaLabel="Способ задания объёма песка"
+                            options={SAND_VOLUME_INPUT_MODE_OPTIONS}
+                            value={sandVolumeMode}
+                            disabled={readOnly}
+                            onChange={(value) => {
+                              if (value === 'single' || value === 'yearly') {
+                                setSandVolumeMode(value);
+                              }
+                            }}
+                          />
+                        </label>
+                        {sandVolumeMode === 'single' ? (
+                          <label className="object-detail-panel__field">
+                            <FieldLabel>Объём песка (спрос), м³</FieldLabel>
+                            <input
+                              className="input object-detail-panel__input"
+                              type="number"
+                              min={0}
+                              step="any"
+                              value={sandDemandM3}
+                              readOnly={readOnly}
+                              disabled={readOnly}
+                              onChange={(e) => setSandDemandM3(e.target.value)}
+                            />
+                            <p className="object-detail-panel__hint text-xs">
+                              Полный объём спроса учитывается с даты ввода объекта.
+                            </p>
+                          </label>
+                        ) : (
+                          <div className="object-detail-panel__subsection">
+                            <SandVolumeYearPlanEditor
+                              key={`${infraObjectId ?? 'sand-plan'}-${sandVolumeMode}`}
+                              value={sandVolumeByYear}
+                              onChange={setSandVolumeByYear}
+                              readOnly={readOnly}
+                            />
+                          </div>
+                        )}
+                      </>
                     )}
                     {showSandDemandField && infraObjectId && (
                       <div className="object-detail-panel__subsection">

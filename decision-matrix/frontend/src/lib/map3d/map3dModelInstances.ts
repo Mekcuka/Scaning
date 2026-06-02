@@ -1,4 +1,5 @@
 import type { InfraLayer, InfraObject, POI } from '../api';
+import { normalizeInfraSubtype } from '../api';
 import { isLineSubtype } from '../infraGeometry';
 import { MAP_SUBTYPE_COLORS } from '../mapIcons';
 import {
@@ -58,25 +59,26 @@ export function buildMap3dModelInstances(input: {
 
   for (const obj of input.infraObjects) {
     if (!layerVisible(obj.layer_id, maps)) continue;
-    if (isLineSubtype(obj.subtype)) continue;
+    const st = normalizeInfraSubtype(obj.subtype);
+    if (isLineSubtype(st)) continue;
 
-    const render = resolveRender3D(obj.subtype, obj.properties);
+    const render = resolveRender3D(st, obj.properties);
     if (!render.visible) continue;
-    if (!shouldUse3dModel(obj.subtype, obj.properties)) continue;
+    if (!shouldUse3dModel(st, obj.properties)) continue;
 
-    const catalog = resolveMap3dCatalog(obj.subtype, obj.properties);
+    const catalog = resolveMap3dCatalog(st, obj.properties);
     if (!catalog) continue;
 
     out.push({
       id: obj.id,
       kind: 'infra',
-      subtype: obj.subtype,
+      subtype: st,
       lon: obj.lon,
       lat: obj.lat,
       heightM: render.heightM,
       baseM: render.baseM,
       scale: render.scale,
-      color: resolveColor(obj.subtype, obj.layer_id, maps),
+      color: resolveColor(st, obj.layer_id, maps),
       catalog,
       selected: selectedId === obj.id,
     });

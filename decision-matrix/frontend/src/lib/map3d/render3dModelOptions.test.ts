@@ -46,4 +46,11 @@ describe('render3dModelOptions', () => {
       ),
     ).toBe('custom:aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee');
   });
+
+  it('matches legacy pad assignment to oil_pad', () => {
+    const models = [baseModel({ assigned_subtypes: ['pad'], filename: 'legacy-pad.glb' })];
+    const opts = buildRender3dModelOptions('oil_pad', models);
+    expect(opts).toHaveLength(2);
+    expect(opts[1]!.label).toBe('legacy-pad.glb');
+  });
 });

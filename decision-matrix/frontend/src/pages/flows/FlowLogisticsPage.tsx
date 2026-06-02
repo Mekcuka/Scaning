@@ -1,6 +1,6 @@
 import { Link } from 'react-router-dom';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState, useTransition } from 'react';
 import { Network } from 'lucide-react';
 import { api } from '../../lib/api';
 import {
@@ -8,56 +8,120 @@ import {
   subnetTabLabel,
   subnetTabTitle,
 } from '../../components/logistics/SandLogisticsSubnetPanel';
-import { formatEntryDateRu } from '../../lib/infraEntryDate';
+import { formatEntryDateRu, todayIsoLocal } from '../../lib/infraEntryDate';
+import { computeHorizonBoundsFromInfra } from '../../lib/infraSandVolumes';
 import {
   buildGlobalSandLogisticsWarningLines,
+  hasLegacySandLogisticsSession,
+  horizonYearRange,
   loadActiveSubnetIndex,
-  loadSandLogisticsFromSession,
+  loadSandLogisticsHorizonTo,
+  loadSandLogisticsViewAsOf,
   normalizeSandLogisticsResult,
+  prefetchSchematicSubnetsAtView,
+  resolveSubnetsAtView,
+  resolveSubnetForSchematicAtView,
   saveActiveSubnetIndex,
-  saveSandLogisticsToSession,
+  saveSandLogisticsHorizonTo,
+  saveSandLogisticsViewAsOf,
+  clearLegacySandLogisticsSession,
   withInfraObjectNames,
 } from '../../lib/sandLogisticsResult';
+import { useProjectSandLogistics } from '../../hooks/useProjectSandLogistics';
 import { useFlowSchematicContext } from './flowSchematicContext';
 import { useAppStore } from '../../store';
+
+function formatCalculatedAtRu(iso: string | null | undefined): string | null {
+  if (!iso) return null;
+  const d = new Date(iso);
+  if (Number.isNaN(d.getTime())) return null;
+  return d.toLocaleString('ru-RU', {
+    day: '2-digit',
+    month: '2-digit',
+    year: 'numeric',
+    hour: '2-digit',
+    minute: '2-digit',
+  });
+}
 
 export function FlowLogisticsPage() {
   const { projectId } = useFlowSchematicContext();
   const pushToast = useAppStore((s) => s.pushToast);
   const queryClient = useQueryClient();
 
-  const { data: result } = useQuery({
-    queryKey: ['sand-logistics', projectId],
-    queryFn: () => (projectId ? loadSandLogisticsFromSession(projectId) : null),
-    enabled: !!projectId,
-    staleTime: Infinity,
-    gcTime: Infinity,
-  });
+  const { data: result, isLoading: resultLoading } = useProjectSandLogistics(projectId);
 
   const { data: infraObjects = [] } = useQuery({
     queryKey: ['infra', projectId],
     queryFn: () => api.getInfraObjects(projectId!),
-    enabled: !!projectId && !!result,
+    enabled: !!projectId,
     staleTime: 60_000,
   });
 
+  const autoBounds = useMemo(
+    () => (infraObjects.length > 0 ? computeHorizonBoundsFromInfra(infraObjects) : null),
+    [infraObjects],
+  );
+
   const resultWithNames = useMemo(
     () => (result ? withInfraObjectNames(result, infraObjects) : null),
-    [result, infraObjects]
+    [result, infraObjects],
   );
 
   const [activeSubnetIndex, setActiveSubnetIndex] = useState(0);
-
-  const subnets = result?.subnets ?? [];
-  const maxSubnetIndex = Math.max(0, subnets.length - 1);
+  const [horizonTo, setHorizonTo] = useState(() =>
+    projectId ? loadSandLogisticsHorizonTo(projectId) ?? todayIsoLocal() : todayIsoLocal(),
+  );
+  const [viewAsOf, setViewAsOf] = useState(() =>
+    projectId ? loadSandLogisticsViewAsOf(projectId, todayIsoLocal()) : todayIsoLocal(),
+  );
 
   useEffect(() => {
-    if (!projectId || subnets.length === 0) {
+    if (autoBounds) {
+      setHorizonTo((prev) => {
+        const stored = projectId ? loadSandLogisticsHorizonTo(projectId) : null;
+        return stored ?? prev ?? autoBounds.horizonTo;
+      });
+    }
+  }, [autoBounds, projectId]);
+
+  useEffect(() => {
+    if (result?.horizon_to) {
+      setHorizonTo(result.horizon_to);
+      if (projectId) saveSandLogisticsHorizonTo(projectId, result.horizon_to);
+    }
+    if (result?.as_of) {
+      setViewAsOf((prev) => {
+        const stored = projectId ? loadSandLogisticsViewAsOf(projectId, result.as_of) : result.as_of;
+        return stored ?? prev;
+      });
+    }
+  }, [result?.horizon_to, result?.as_of, projectId]);
+
+  const horizonFrom = autoBounds?.horizonFrom ?? result?.horizon_from ?? todayIsoLocal();
+  const analyzeHorizonMismatch =
+    result != null && result.horizon_to !== horizonTo;
+  const viewAsOfMismatch = result != null && result.as_of !== viewAsOf;
+
+  const timelineSubnets = useMemo(
+    () => (resultWithNames ? resolveSubnetsAtView(resultWithNames, viewAsOf) : []),
+    [resultWithNames, viewAsOf],
+  );
+
+  const canonicalSubnets = resultWithNames?.subnets ?? [];
+
+  const legacySessionOnly =
+    !result && !resultLoading && projectId != null && hasLegacySandLogisticsSession(projectId);
+
+  const maxSubnetIndex = Math.max(0, canonicalSubnets.length - 1);
+
+  useEffect(() => {
+    if (!projectId || canonicalSubnets.length === 0) {
       setActiveSubnetIndex(0);
       return;
     }
     setActiveSubnetIndex(loadActiveSubnetIndex(projectId, maxSubnetIndex));
-  }, [projectId, subnets.length, maxSubnetIndex]);
+  }, [projectId, canonicalSubnets.length, maxSubnetIndex]);
 
   useEffect(() => {
     if (activeSubnetIndex > maxSubnetIndex) {
@@ -65,24 +129,57 @@ export function FlowLogisticsPage() {
     }
   }, [activeSubnetIndex, maxSubnetIndex]);
 
-  const activeSubnet = subnets[activeSubnetIndex] ?? null;
+  const activeCanonicalSubnet = canonicalSubnets[activeSubnetIndex] ?? null;
+  const activeSubnet =
+    activeCanonicalSubnet && resultWithNames
+      ? resolveSubnetForSchematicAtView(resultWithNames, activeCanonicalSubnet, viewAsOf)
+      : null;
 
   const selectSubnet = (index: number) => {
     setActiveSubnetIndex(index);
     if (projectId) saveActiveSubnetIndex(projectId, index);
   };
 
+  const [isViewTransitionPending, startViewTransition] = useTransition();
+
+  const handleViewAsOfChange = useCallback(
+    (next: string) => {
+      startViewTransition(() => {
+        setViewAsOf(next);
+        if (projectId) saveSandLogisticsViewAsOf(projectId, next);
+      });
+    },
+    [projectId],
+  );
+
+  useEffect(() => {
+    if (!resultWithNames?.timeline.length) return;
+    prefetchSchematicSubnetsAtView(resultWithNames);
+  }, [resultWithNames]);
+
+  const viewYears = useMemo(
+    () => (result ? horizonYearRange(result) : []),
+    [result],
+  );
+
   const analyzeMut = useMutation({
-    mutationFn: () => api.analyzeSandLogistics(projectId!),
+    mutationFn: () =>
+      api.analyzeSandLogistics(projectId!, {
+        horizonFrom,
+        horizonTo,
+        asOf: viewAsOf,
+      }),
     onSuccess: (data) => {
       const normalized = normalizeSandLogisticsResult(data);
       queryClient.setQueryData(['sand-logistics', projectId], normalized);
       if (projectId) {
-        saveSandLogisticsToSession(projectId, normalized);
+        saveSandLogisticsHorizonTo(projectId, horizonTo);
+        saveSandLogisticsViewAsOf(projectId, viewAsOf);
         saveActiveSubnetIndex(projectId, 0);
+        clearLegacySandLogisticsSession(projectId);
       }
       setActiveSubnetIndex(0);
-      pushToast('success', 'Логистика песка рассчитана');
+      pushToast('success', 'Логистика песка рассчитана и сохранена в проект');
     },
     onError: (err) => {
       pushToast('error', err instanceof Error ? err.message : 'Ошибка расчёта');
@@ -91,8 +188,11 @@ export function FlowLogisticsPage() {
 
   const globalWarningLines = useMemo(
     () => (resultWithNames ? buildGlobalSandLogisticsWarningLines(resultWithNames) : []),
-    [resultWithNames]
+    [resultWithNames],
   );
+
+  const calculatedAtLabel = formatCalculatedAtRu(result?.calculated_at);
+  const showViewSlice = viewYears.length > 1;
 
   return (
     <section className="card p-4 flow-schematic-window space-y-6">
@@ -100,23 +200,81 @@ export function FlowLogisticsPage() {
         <div>
           <p className="flow-schematic-window-subtitle text-sm text-[var(--text-muted)]">
             Распределение объёмов песка по карьерам и потребителям внутри каждой связной подсети
-            автодорог с карьером. Выберите подсеть для индивидуального анализа схемы, таблиц и
-            диаграмм. Задайте объёмы на{' '}
+            автодорог с карьером. Расчёт выполняется по годам внутри горизонта; срез на схеме можно
+            менять без пересчёта. Задайте объёмы на{' '}
             <Link to="/map" className="text-[var(--accent)] underline">
               карте
             </Link>
             , постройте сеть и нажмите расчёт.
           </p>
         </div>
-        <button
-          type="button"
-          className="btn btn-primary shrink-0"
-          disabled={!projectId || analyzeMut.isPending}
-          onClick={() => analyzeMut.mutate()}
-        >
-          {analyzeMut.isPending ? 'Расчёт…' : 'Рассчитать логистику песка'}
-        </button>
+        <div className="flex flex-wrap items-end gap-3 shrink-0">
+          <label className="flex flex-col gap-1 text-xs text-[var(--text-muted)]">
+            Горизонт с
+            <input
+              type="date"
+              className="input text-sm"
+              value={horizonFrom}
+              readOnly
+              title="Минимальная дата ввода объектов и автодорог"
+            />
+          </label>
+          <label className="flex flex-col gap-1 text-xs text-[var(--text-muted)]">
+            Горизонт по
+            <input
+              type="date"
+              className="input text-sm"
+              value={horizonTo}
+              onChange={(e) => {
+                const next = e.target.value || autoBounds?.horizonTo || todayIsoLocal();
+                setHorizonTo(next);
+                if (projectId) saveSandLogisticsHorizonTo(projectId, next);
+              }}
+            />
+          </label>
+          {autoBounds && (
+            <button
+              type="button"
+              className="btn btn-secondary text-sm shrink-0"
+              onClick={() => {
+                setHorizonTo(autoBounds.horizonTo);
+                if (projectId) saveSandLogisticsHorizonTo(projectId, autoBounds.horizonTo);
+              }}
+            >
+              Подставить автоматически
+            </button>
+          )}
+          <button
+            type="button"
+            className="btn btn-primary shrink-0"
+            disabled={!projectId || analyzeMut.isPending}
+            onClick={() => analyzeMut.mutate()}
+          >
+            {analyzeMut.isPending ? 'Расчёт…' : 'Рассчитать логистику песка'}
+          </button>
+        </div>
       </div>
+
+      {legacySessionOnly && (
+        <p className="text-xs text-amber-600 dark:text-amber-400" role="status">
+          В браузере остался старый результат (до сохранения в проект). Нажмите «Рассчитать», чтобы
+          записать его в базу и открыть на других устройствах.
+        </p>
+      )}
+
+      {analyzeHorizonMismatch && (
+        <p className="text-xs text-amber-600 dark:text-amber-400" role="status">
+          Выбран конец горизонта {formatEntryDateRu(horizonTo)}, а сохранён расчёт до{' '}
+          {formatEntryDateRu(result!.horizon_to)}. Нажмите «Рассчитать», чтобы обновить.
+        </p>
+      )}
+
+      {viewAsOfMismatch && !analyzeHorizonMismatch && (
+        <p className="text-xs text-amber-600 dark:text-amber-400" role="status">
+          Сохранён срез на {formatEntryDateRu(result!.as_of)}; для схемы выбран{' '}
+          {formatEntryDateRu(viewAsOf)} (без пересчёта).
+        </p>
+      )}
 
       {result && globalWarningLines.length > 0 && (
         <div
@@ -135,25 +293,36 @@ export function FlowLogisticsPage() {
       {result && (
         <>
           <p className="text-xs text-[var(--text-muted)]">
-            Дата расчёта: {formatEntryDateRu(result.as_of)} · подсетей с карьерами:{' '}
-            {result.subnet_count}
+            Горизонт {formatEntryDateRu(result.horizon_from)} — {formatEntryDateRu(result.horizon_to)}
+            {showViewSlice ? ` · срез на ${formatEntryDateRu(viewAsOf)}` : ''}
+            {' · '}подсетей с карьерами: {result.subnet_count}
+            {timelineSubnets.length !== result.subnet_count
+              ? ` · на срезе активных: ${timelineSubnets.length}`
+              : ''}
+            {calculatedAtLabel ? ` · рассчитано: ${calculatedAtLabel}` : ''}
           </p>
 
-          {subnets.length === 0 && (
+          {canonicalSubnets.length === 0 && (
             <p className="text-sm text-[var(--text-muted)] py-4 text-center">
               Нет связных подсетей автодорог с карьерами. Проверьте сеть на карте и предупреждения
               выше.
             </p>
           )}
 
-          {subnets.length === 1 && activeSubnet && resultWithNames && (
-            <SandLogisticsSubnetPanel subnet={activeSubnet} result={resultWithNames} />
+          {canonicalSubnets.length === 1 && activeSubnet && activeCanonicalSubnet && resultWithNames && (
+            <SandLogisticsSubnetPanel
+              canonicalSubnet={activeCanonicalSubnet}
+              sliceSubnet={activeSubnet}
+              result={resultWithNames}
+              viewAsOf={viewAsOf}
+              onViewAsOfChange={handleViewAsOfChange}
+            />
           )}
 
-          {subnets.length > 1 && (
+          {canonicalSubnets.length > 1 && (
             <>
               <nav className="parameters-subnav" aria-label="Подсети логистики песка">
-                {subnets.map((subnet, index) => {
+                {canonicalSubnets.map((subnet, index) => {
                   const active = index === activeSubnetIndex;
                   const hasWarnings = subnet.warnings.length > 0;
                   return (
@@ -180,9 +349,18 @@ export function FlowLogisticsPage() {
                 })}
               </nav>
 
-              {activeSubnet && resultWithNames && (
-                <div id={`sand-subnet-panel-${activeSubnet.subnet_index}`}>
-                  <SandLogisticsSubnetPanel subnet={activeSubnet} result={resultWithNames} />
+              {activeSubnet && activeCanonicalSubnet && resultWithNames && (
+                <div
+                  id={`sand-subnet-panel-${activeCanonicalSubnet.subnet_index}`}
+                  aria-busy={isViewTransitionPending}
+                >
+                  <SandLogisticsSubnetPanel
+                    canonicalSubnet={activeCanonicalSubnet}
+                    sliceSubnet={activeSubnet}
+                    result={resultWithNames}
+                    viewAsOf={viewAsOf}
+                    onViewAsOfChange={handleViewAsOfChange}
+                  />
                 </div>
               )}
             </>
@@ -190,7 +368,7 @@ export function FlowLogisticsPage() {
         </>
       )}
 
-      {!result && !analyzeMut.isPending && (
+      {!result && !analyzeMut.isPending && !resultLoading && (
         <p className="text-[var(--text-muted)] py-8 text-center text-sm">
           Нажмите «Рассчитать логистику песка», чтобы получить таблицы и диаграммы.
         </p>

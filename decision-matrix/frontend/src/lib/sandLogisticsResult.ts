@@ -4,9 +4,14 @@ import type {
   SandLogisticsQuarryRow,
   SandLogisticsResult,
   SandLogisticsSubnet,
+  SandLogisticsYearStep,
 } from './api';
-import type { SandLogisticsLineStyle } from './sandLogisticsFlow';
-import { DEFAULT_ENTRY_DATE_ISO, todayIsoLocal } from './infraEntryDate';
+import type {
+  SandLogisticsEdgeLabelMode,
+  SandLogisticsLineStyle,
+  SandLogisticsNodeFilterMode,
+} from './sandLogisticsFlow';
+import { DEFAULT_ENTRY_DATE_ISO, isInService, todayIsoLocal } from './infraEntryDate';
 
 export function sandLogisticsStorageKey(projectId: string): string {
   return `sand-logistics:${projectId}`;
@@ -32,6 +37,13 @@ function normalizeConsumer(row: Partial<SandLogisticsConsumerRow>): SandLogistic
     lat: Number(row.lat) || 0,
     snap_node_id: row.snap_node_id ?? null,
     demand_m3: Number(row.demand_m3) || 0,
+    demand_plan_total_m3: Number(row.demand_plan_total_m3) || Number(row.demand_m3) || 0,
+    demand_by_year_m3:
+      row.demand_by_year_m3 && typeof row.demand_by_year_m3 === 'object'
+        ? Object.fromEntries(
+            Object.entries(row.demand_by_year_m3).map(([y, v]) => [y, Number(v) || 0]),
+          )
+        : {},
     entry_date: row.entry_date ?? DEFAULT_ENTRY_DATE_ISO,
     in_service: row.in_service !== false,
     nearest_quarry_id: row.nearest_quarry_id ?? null,
@@ -42,6 +54,12 @@ function normalizeConsumer(row: Partial<SandLogisticsConsumerRow>): SandLogistic
     greedy_quarry_id: row.greedy_quarry_id ?? null,
     greedy_quarry_name: row.greedy_quarry_name ?? null,
     greedy_allocated_m3: Number(row.greedy_allocated_m3) || 0,
+    allocation_by_year_m3:
+      row.allocation_by_year_m3 && typeof row.allocation_by_year_m3 === 'object'
+        ? Object.fromEntries(
+            Object.entries(row.allocation_by_year_m3).map(([y, v]) => [y, Number(v) || 0]),
+          )
+        : {},
     proportional_allocations: Array.isArray(row.proportional_allocations)
       ? row.proportional_allocations.map((p) =>
           normalizeProportionalPart(p as Partial<SandLogisticsProportionalPart>),
@@ -80,6 +98,18 @@ function normalizeSubnet(row: Partial<SandLogisticsSubnet>, index: number): Sand
     quarries: Array.isArray(row.quarries) ? row.quarries.map(normalizeQuarry) : [],
     consumers: Array.isArray(row.consumers) ? row.consumers.map(normalizeConsumer) : [],
     warnings: Array.isArray(row.warnings) ? row.warnings : [],
+  };
+}
+
+function normalizeYearStep(row: Partial<SandLogisticsYearStep>, index: number): SandLogisticsYearStep {
+  return {
+    year: Number(row.year) || index,
+    as_of: row.as_of ?? todayIsoLocal(),
+    subnet_count: Number(row.subnet_count) || 0,
+    total_demand_m3: Number(row.total_demand_m3) || 0,
+    total_allocated_m3: Number(row.total_allocated_m3) || 0,
+    unmet_m3: Number(row.unmet_m3) || 0,
+    subnets: Array.isArray(row.subnets) ? row.subnets.map((s, i) => normalizeSubnet(s, i + 1)) : [],
   };
 }
 
@@ -133,15 +163,214 @@ export function normalizeSandLogisticsResult(raw: unknown): SandLogisticsResult 
     }
   }
 
+  const asOf = r.as_of ?? todayIsoLocal();
+  const horizonFrom = r.horizon_from ?? asOf;
+  const horizonTo = r.horizon_to ?? asOf;
+  const timeline = Array.isArray(r.timeline)
+    ? r.timeline.map((step, i) => normalizeYearStep(step as Partial<SandLogisticsYearStep>, i))
+    : [];
+
   return {
     project_id: r.project_id ?? '',
-    as_of: r.as_of ?? todayIsoLocal(),
+    horizon_from: horizonFrom,
+    horizon_to: horizonTo,
+    as_of: asOf,
     network_id: r.network_id ?? '',
     subnet_count: Number(r.subnet_count) || subnets.length,
     subnets,
+    timeline,
     warnings: Array.isArray(r.warnings) ? r.warnings : [],
     object_names: objectNames,
+    calculated_at: r.calculated_at ?? null,
   };
+}
+
+/** Subnets for schematic/tables at a view date (from timeline or fallback). */
+export function resolveSubnetsAtView(
+  result: SandLogisticsResult,
+  viewAsOf: string,
+): SandLogisticsSubnet[] {
+  if (!result.timeline.length) return result.subnets;
+  const viewYear = Number.parseInt(viewAsOf.slice(0, 4), 10);
+  const step =
+    result.timeline.find((t) => t.as_of === viewAsOf) ??
+    result.timeline.find((t) => t.year === viewYear);
+  if (step?.subnets.length) return step.subnets;
+  return result.subnets;
+}
+
+/** Timeline step for a view date, if the result has a horizon timeline. */
+export function resolveViewTimelineStep(
+  result: SandLogisticsResult,
+  viewAsOf: string,
+): SandLogisticsYearStep | null {
+  if (!result.timeline.length) return null;
+  const viewYear = Number.parseInt(viewAsOf.slice(0, 4), 10);
+  return (
+    result.timeline.find((t) => t.as_of === viewAsOf) ??
+    result.timeline.find((t) => t.year === viewYear) ??
+    null
+  );
+}
+
+function mergeQuarryForSchematicAtView(
+  canonical: SandLogisticsQuarryRow,
+  atView: SandLogisticsQuarryRow | undefined,
+  viewAsOf: string,
+): SandLogisticsQuarryRow {
+  const inServiceAtView = isInService(canonical.entry_date, viewAsOf);
+  if (!inServiceAtView) {
+    return {
+      ...canonical,
+      in_service: false,
+      greedy_allocated_m3: 0,
+      greedy_remaining_m3: 0,
+    };
+  }
+  if (atView) {
+    return {
+      ...canonical,
+      ...atView,
+      snap_node_id: canonical.snap_node_id ?? atView.snap_node_id,
+      lon: canonical.lon,
+      lat: canonical.lat,
+      entry_date: canonical.entry_date,
+      in_service: true,
+    };
+  }
+  return {
+    ...canonical,
+    in_service: true,
+    greedy_allocated_m3: 0,
+    greedy_remaining_m3: canonical.initial_m3,
+  };
+}
+
+function mergeConsumerForSchematicAtView(
+  canonical: SandLogisticsConsumerRow,
+  atView: SandLogisticsConsumerRow | undefined,
+  viewAsOf: string,
+): SandLogisticsConsumerRow {
+  const inServiceAtView = isInService(canonical.entry_date, viewAsOf);
+  if (!inServiceAtView) {
+    return {
+      ...canonical,
+      in_service: false,
+      demand_m3: 0,
+      greedy_allocated_m3: 0,
+      greedy_quarry_id: null,
+      greedy_quarry_name: null,
+    };
+  }
+  if (atView) {
+    return {
+      ...canonical,
+      ...atView,
+      snap_node_id: canonical.snap_node_id ?? atView.snap_node_id,
+      lon: canonical.lon,
+      lat: canonical.lat,
+      entry_date: canonical.entry_date,
+      in_service: true,
+    };
+  }
+  return {
+    ...canonical,
+    in_service: true,
+    demand_m3: 0,
+    greedy_allocated_m3: 0,
+    greedy_quarry_id: null,
+    greedy_quarry_name: null,
+  };
+}
+
+/**
+ * Полная топология подсети (как в финальном расчёте) с объёмами и in_service на дату среза.
+ * Не введённые к срезу объекты остаются на схеме (серые), с нулевыми отгрузками.
+ */
+let schematicSliceCacheResult: SandLogisticsResult | null = null;
+const schematicSliceCache = new Map<string, SandLogisticsSubnet>();
+
+function schematicSliceCacheKey(subnetIndex: number, viewAsOf: string): string {
+  return `${subnetIndex}|${viewAsOf}`;
+}
+
+export function clearSchematicSliceCache(): void {
+  schematicSliceCache.clear();
+  schematicSliceCacheResult = null;
+}
+
+function buildSubnetForSchematicAtView(
+  result: SandLogisticsResult,
+  canonicalSubnet: SandLogisticsSubnet,
+  viewAsOf: string,
+): SandLogisticsSubnet {
+  const step = resolveViewTimelineStep(result, viewAsOf);
+  const atViewSubnet = step?.subnets.find((s) => s.subnet_index === canonicalSubnet.subnet_index);
+  const quarryById = new Map((atViewSubnet?.quarries ?? []).map((q) => [q.object_id, q]));
+  const consumerById = new Map((atViewSubnet?.consumers ?? []).map((c) => [c.object_id, c]));
+
+  return {
+    ...canonicalSubnet,
+    network_nodes: canonicalSubnet.network_nodes,
+    network_edges: canonicalSubnet.network_edges,
+    quarries: canonicalSubnet.quarries.map((q) =>
+      mergeQuarryForSchematicAtView(q, quarryById.get(q.object_id), viewAsOf),
+    ),
+    consumers: canonicalSubnet.consumers.map((c) =>
+      mergeConsumerForSchematicAtView(c, consumerById.get(c.object_id), viewAsOf),
+    ),
+  };
+}
+
+export function resolveSubnetForSchematicAtView(
+  result: SandLogisticsResult,
+  canonicalSubnet: SandLogisticsSubnet,
+  viewAsOf: string,
+): SandLogisticsSubnet {
+  if (schematicSliceCacheResult !== result) {
+    schematicSliceCache.clear();
+    schematicSliceCacheResult = result;
+  }
+  const cacheKey = schematicSliceCacheKey(canonicalSubnet.subnet_index, viewAsOf);
+  const cached = schematicSliceCache.get(cacheKey);
+  if (cached) return cached;
+
+  const merged = buildSubnetForSchematicAtView(result, canonicalSubnet, viewAsOf);
+  schematicSliceCache.set(cacheKey, merged);
+  return merged;
+}
+
+/** Прогревает кэш slice-подсетей для всех годов горизонта (requestIdleCallback). */
+export function prefetchSchematicSubnetsAtView(result: SandLogisticsResult): void {
+  if (!result.timeline.length) return;
+
+  const run = () => {
+    for (const year of horizonYearRange(result)) {
+      const viewAsOf = yearEndIso(year);
+      for (const canonical of result.subnets) {
+        resolveSubnetForSchematicAtView(result, canonical, viewAsOf);
+      }
+    }
+  };
+
+  if (typeof requestIdleCallback !== 'undefined') {
+    requestIdleCallback(run);
+  } else {
+    setTimeout(run, 0);
+  }
+}
+
+export function horizonYearRange(result: SandLogisticsResult): number[] {
+  const fromYear = Number.parseInt(result.horizon_from.slice(0, 4), 10);
+  const toYear = Number.parseInt(result.horizon_to.slice(0, 4), 10);
+  if (!Number.isFinite(fromYear) || !Number.isFinite(toYear)) return [];
+  const years: number[] = [];
+  for (let y = fromYear; y <= toYear; y += 1) years.push(y);
+  return years;
+}
+
+export function yearEndIso(year: number): string {
+  return `${year}-12-31`;
 }
 
 export function withInfraObjectNames(
@@ -156,21 +385,20 @@ export function withInfraObjectNames(
   return { ...result, object_names };
 }
 
-export function loadSandLogisticsFromSession(projectId: string): SandLogisticsResult | null {
+/** Legacy sessionStorage payload (pre-DB persist); for migration banner only. */
+export function hasLegacySandLogisticsSession(projectId: string): boolean {
   try {
-    const raw = sessionStorage.getItem(sandLogisticsStorageKey(projectId));
-    if (!raw) return null;
-    return normalizeSandLogisticsResult(JSON.parse(raw));
+    return sessionStorage.getItem(sandLogisticsStorageKey(projectId)) != null;
   } catch {
-    return null;
+    return false;
   }
 }
 
-export function saveSandLogisticsToSession(projectId: string, result: SandLogisticsResult): void {
+export function clearLegacySandLogisticsSession(projectId: string): void {
   try {
-    sessionStorage.setItem(sandLogisticsStorageKey(projectId), JSON.stringify(result));
+    sessionStorage.removeItem(sandLogisticsStorageKey(projectId));
   } catch {
-    /* quota / private mode */
+    /* ignore */
   }
 }
 
@@ -346,6 +574,178 @@ export function saveSandLogisticsLineStyle(
 ): void {
   try {
     sessionStorage.setItem(sandLogisticsLineStyleKey(projectId), style);
+  } catch {
+    /* quota / private mode */
+  }
+}
+
+export function sandLogisticsEdgeLabelModeKey(projectId: string): string {
+  return `sand-logistics:edge-labels:${projectId}`;
+}
+
+const VALID_EDGE_LABEL_MODES = new Set<SandLogisticsEdgeLabelMode>(['all', 'key', 'hidden']);
+
+export function loadSandLogisticsEdgeLabelMode(projectId: string): SandLogisticsEdgeLabelMode {
+  try {
+    const raw = sessionStorage.getItem(sandLogisticsEdgeLabelModeKey(projectId));
+    if (raw && VALID_EDGE_LABEL_MODES.has(raw as SandLogisticsEdgeLabelMode)) {
+      return raw as SandLogisticsEdgeLabelMode;
+    }
+  } catch {
+    /* ignore */
+  }
+  return 'key';
+}
+
+export function saveSandLogisticsEdgeLabelMode(
+  projectId: string,
+  mode: SandLogisticsEdgeLabelMode
+): void {
+  try {
+    sessionStorage.setItem(sandLogisticsEdgeLabelModeKey(projectId), mode);
+  } catch {
+    /* quota / private mode */
+  }
+}
+
+export function sandLogisticsHorizonToKey(projectId: string): string {
+  return `sand-logistics-horizon-to:${projectId}`;
+}
+
+export function loadSandLogisticsHorizonTo(projectId: string): string | null {
+  try {
+    const raw = sessionStorage.getItem(sandLogisticsHorizonToKey(projectId));
+    if (raw && /^\d{4}-\d{2}-\d{2}$/.test(raw)) return raw;
+  } catch {
+    /* ignore */
+  }
+  return null;
+}
+
+export function saveSandLogisticsHorizonTo(projectId: string, horizonTo: string): void {
+  try {
+    sessionStorage.setItem(sandLogisticsHorizonToKey(projectId), horizonTo);
+  } catch {
+    /* quota / private mode */
+  }
+}
+
+export function sandLogisticsViewAsOfKey(projectId: string): string {
+  return `sand-logistics-view-as-of:${projectId}`;
+}
+
+export function loadSandLogisticsViewAsOf(projectId: string, fallback: string): string {
+  try {
+    const raw = sessionStorage.getItem(sandLogisticsViewAsOfKey(projectId));
+    if (raw && /^\d{4}-\d{2}-\d{2}$/.test(raw)) return raw;
+  } catch {
+    /* ignore */
+  }
+  return fallback;
+}
+
+export function saveSandLogisticsViewAsOf(projectId: string, viewAsOf: string): void {
+  try {
+    sessionStorage.setItem(sandLogisticsViewAsOfKey(projectId), viewAsOf);
+  } catch {
+    /* quota / private mode */
+  }
+}
+
+export function sandLogisticsAsOfKey(projectId: string): string {
+  return `sand-logistics-as-of:${projectId}`;
+}
+
+export function loadSandLogisticsAsOf(projectId: string): string {
+  try {
+    const raw = sessionStorage.getItem(sandLogisticsAsOfKey(projectId));
+    if (raw && /^\d{4}-\d{2}-\d{2}$/.test(raw)) return raw;
+  } catch {
+    /* ignore */
+  }
+  return todayIsoLocal();
+}
+
+export function saveSandLogisticsAsOf(projectId: string, asOf: string): void {
+  try {
+    sessionStorage.setItem(sandLogisticsAsOfKey(projectId), asOf);
+  } catch {
+    /* quota / private mode */
+  }
+}
+
+export function sandLogisticsNodeFilterKey(projectId: string): string {
+  return `sand-logistics:node-filter:${projectId}`;
+}
+
+const VALID_NODE_FILTERS = new Set<SandLogisticsNodeFilterMode>([
+  'all_planned',
+  'in_service',
+  'allocated_only',
+]);
+
+export function loadSandLogisticsNodeFilterMode(projectId: string): SandLogisticsNodeFilterMode {
+  try {
+    const raw = sessionStorage.getItem(sandLogisticsNodeFilterKey(projectId));
+    if (raw && VALID_NODE_FILTERS.has(raw as SandLogisticsNodeFilterMode)) {
+      return raw as SandLogisticsNodeFilterMode;
+    }
+  } catch {
+    /* ignore */
+  }
+  return 'all_planned';
+}
+
+export function saveSandLogisticsNodeFilterMode(
+  projectId: string,
+  mode: SandLogisticsNodeFilterMode,
+): void {
+  try {
+    sessionStorage.setItem(sandLogisticsNodeFilterKey(projectId), mode);
+  } catch {
+    /* quota / private mode */
+  }
+}
+
+export function sandLogisticsShowPlannedRoutesKey(projectId: string): string {
+  return `sand-logistics:planned-routes:${projectId}`;
+}
+
+export function loadSandLogisticsShowPlannedRoutes(projectId: string): boolean {
+  try {
+    const raw = sessionStorage.getItem(sandLogisticsShowPlannedRoutesKey(projectId));
+    if (raw === '0') return false;
+    if (raw === '1') return true;
+  } catch {
+    /* ignore */
+  }
+  return true;
+}
+
+export function saveSandLogisticsShowPlannedRoutes(projectId: string, value: boolean): void {
+  try {
+    sessionStorage.setItem(sandLogisticsShowPlannedRoutesKey(projectId), value ? '1' : '0');
+  } catch {
+    /* quota / private mode */
+  }
+}
+
+export function sandLogisticsGroupByEntryYearKey(projectId: string): string {
+  return `sand-logistics:group-by-year:${projectId}`;
+}
+
+export function loadSandLogisticsGroupByEntryYear(projectId: string): boolean {
+  try {
+    return sessionStorage.getItem(sandLogisticsGroupByEntryYearKey(projectId)) === '1';
+  } catch {
+    /* ignore */
+  }
+  return false;
+}
+
+export function saveSandLogisticsGroupByEntryYear(projectId: string, value: boolean): void {
+  try {
+    sessionStorage.setItem(sandLogisticsGroupByEntryYearKey(projectId), value ? '1' : '0');
   } catch {
     /* quota / private mode */
   }

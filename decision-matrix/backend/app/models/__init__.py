@@ -1,5 +1,5 @@
 import uuid
-from datetime import datetime
+from datetime import date, datetime
 
 from sqlalchemy import JSON, Boolean, Date, DateTime, Float, ForeignKey, Integer, String, Text, UniqueConstraint, Uuid, func
 from sqlalchemy.orm import Mapped, mapped_column, relationship
@@ -76,6 +76,9 @@ class Project(Base):
     map3d_models: Mapped[list["ProjectMap3dModel"]] = relationship(
         back_populates="project", cascade="all, delete-orphan"
     )
+    sand_logistics_result: Mapped["ProjectSandLogisticsResult | None"] = relationship(
+        back_populates="project", uselist=False, cascade="all, delete-orphan"
+    )
 
 
 class ProjectMap3dModel(Base):
@@ -112,6 +115,30 @@ class ProjectEconomicParams(Base):
     params: Mapped[dict] = mapped_column(JSON, default=dict)
 
     project: Mapped["Project"] = relationship(back_populates="economic_params")
+
+
+class ProjectSandLogisticsResult(Base):
+    """Last sand logistics analysis snapshot per project."""
+
+    __tablename__ = "project_sand_logistics_results"
+
+    id: Mapped[uuid.UUID] = mapped_column(Uuid, primary_key=True, default=uuid.uuid4)
+    project_id: Mapped[uuid.UUID] = mapped_column(
+        Uuid, ForeignKey("projects.id", ondelete="CASCADE"), unique=True
+    )
+    as_of: Mapped[date] = mapped_column(Date, nullable=False)
+    horizon_from: Mapped[date | None] = mapped_column(Date, nullable=True)
+    horizon_to: Mapped[date | None] = mapped_column(Date, nullable=True)
+    network_id: Mapped[uuid.UUID | None] = mapped_column(Uuid, nullable=True)
+    result: Mapped[dict] = mapped_column(JSON, default=dict)
+    calculated_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now(), onupdate=func.now()
+    )
+    calculated_by_user_id: Mapped[uuid.UUID | None] = mapped_column(
+        Uuid, ForeignKey("users.id", ondelete="SET NULL"), nullable=True
+    )
+
+    project: Mapped["Project"] = relationship(back_populates="sand_logistics_result")
 
 
 class ProjectDistanceDefaults(Base):

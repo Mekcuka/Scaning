@@ -568,6 +568,8 @@ class SandLogisticsConsumerRow(BaseModel):
     lat: float
     snap_node_id: str | None = None
     demand_m3: float
+    demand_plan_total_m3: float = 0.0
+    demand_by_year_m3: dict[str, float] = Field(default_factory=dict)
     entry_date: str = "2020-01-01"
     in_service: bool = True
     nearest_quarry_id: str | None = None
@@ -578,6 +580,7 @@ class SandLogisticsConsumerRow(BaseModel):
     greedy_quarry_id: str | None = None
     greedy_quarry_name: str | None = None
     greedy_allocated_m3: float = 0.0
+    allocation_by_year_m3: dict[str, float] = Field(default_factory=dict)
     proportional_allocations: list[SandLogisticsProportionalPart] = Field(default_factory=list)
 
 
@@ -610,14 +613,35 @@ class SandLogisticsSubnetResult(BaseModel):
     warnings: list[str] = Field(default_factory=list)
 
 
+class SandLogisticsYearStep(BaseModel):
+    year: int
+    as_of: str
+    subnet_count: int = 0
+    total_demand_m3: float = 0.0
+    total_allocated_m3: float = 0.0
+    unmet_m3: float = 0.0
+    subnets: list[SandLogisticsSubnetResult] = Field(default_factory=list)
+
+
 class SandLogisticsAnalyzeResponse(BaseModel):
     project_id: str
+    horizon_from: str = "2020-01-01"
+    horizon_to: str = "2020-01-01"
     as_of: str = "2020-01-01"
     network_id: str
     subnet_count: int = 0
     subnets: list[SandLogisticsSubnetResult] = Field(default_factory=list)
+    timeline: list[SandLogisticsYearStep] = Field(default_factory=list)
     warnings: list[str] = Field(default_factory=list)
     object_names: dict[str, str] = Field(default_factory=dict)
+    calculated_at: str | None = None
+
+
+class SandLogisticsAnalyzeRequest(BaseModel):
+    horizon_from: date | None = None
+    horizon_to: date | None = None
+    as_of: date | None = None
+    rebuild_network: bool = True
 
 
 class ImportJobResponse(BaseModel):

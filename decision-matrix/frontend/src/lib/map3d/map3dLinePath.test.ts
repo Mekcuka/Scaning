@@ -7,7 +7,7 @@ const point = (id: string, lon: number, lat: number): InfraObject =>
   ({
     id,
     name: id,
-    subtype: 'pad',
+    subtype: 'oil_pad',
     category: 'point',
     lon,
     lat,

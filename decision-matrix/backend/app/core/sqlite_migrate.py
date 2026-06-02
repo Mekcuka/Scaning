@@ -72,6 +72,37 @@ def patch_sqlite_schema(conn: Connection) -> None:
         )
         """,
     )
+    _create_table_if_missing(
+        conn,
+        "project_sand_logistics_results",
+        """
+        CREATE TABLE project_sand_logistics_results (
+            id CHAR(32) PRIMARY KEY,
+            project_id CHAR(32) NOT NULL UNIQUE,
+            as_of DATE NOT NULL,
+            horizon_from DATE,
+            horizon_to DATE,
+            network_id CHAR(32),
+            result JSON NOT NULL DEFAULT '{}',
+            calculated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+            calculated_by_user_id CHAR(32),
+            FOREIGN KEY(project_id) REFERENCES projects(id) ON DELETE CASCADE,
+            FOREIGN KEY(calculated_by_user_id) REFERENCES users(id) ON DELETE SET NULL
+        )
+        """,
+    )
+    _add_column_if_missing(
+        conn,
+        "project_sand_logistics_results",
+        "horizon_from",
+        "horizon_from DATE",
+    )
+    _add_column_if_missing(
+        conn,
+        "project_sand_logistics_results",
+        "horizon_to",
+        "horizon_to DATE",
+    )
 
     _add_column_if_missing(
         conn,

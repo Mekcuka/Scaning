@@ -170,7 +170,7 @@ async def draw(project_id: UUID, *, replace: bool) -> None:
             await _create_infra_object_record(
                 db,
                 project_id=project_id,
-                data=InfraObjectCreate(name=name, subtype="pad", lon=lon, lat=lat),
+                data=InfraObjectCreate(name=name, subtype="oil_pad", lon=lon, lat=lat),
             )
             created_points += 1
 

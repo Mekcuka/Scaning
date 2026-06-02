@@ -1,12 +1,17 @@
 import { useQuery } from '@tanstack/react-query';
-import { loadSandLogisticsFromSession } from '../lib/sandLogisticsResult';
+import { api } from '../lib/api';
+import { normalizeSandLogisticsResult } from '../lib/sandLogisticsResult';
 
-/** Cached sand logistics result from session (after «Потоки → Логистика» analyze). */
+/** Last sand logistics result persisted on the project (GET from API). */
 export function useProjectSandLogistics(projectId: string | null | undefined) {
   return useQuery({
     queryKey: ['sand-logistics', projectId],
-    queryFn: () => (projectId ? loadSandLogisticsFromSession(projectId) : null),
+    queryFn: async () => {
+      if (!projectId) return null;
+      const data = await api.getSandLogisticsResult(projectId);
+      return data ? normalizeSandLogisticsResult(data) : null;
+    },
     enabled: Boolean(projectId),
-    staleTime: Infinity,
+    staleTime: 60_000,
   });
 }

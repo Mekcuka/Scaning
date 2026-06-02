@@ -1,13 +1,21 @@
 import type { ReactNode } from 'react';
-import { describe, expect, it, beforeEach } from 'vitest';
+import { describe, expect, it, vi, beforeEach } from 'vitest';
 import { renderHook, waitFor } from '@testing-library/react';
 import { QueryClientProvider } from '@tanstack/react-query';
 import { useProjectSandLogistics } from './useProjectSandLogistics';
 import { createTestQueryClient } from '../test/renderWithProviders';
-import {
-  normalizeSandLogisticsResult,
-  saveSandLogisticsToSession,
-} from '../lib/sandLogisticsResult';
+import { api } from '../lib/api';
+
+vi.mock('../lib/api', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('../lib/api')>();
+  return {
+    ...actual,
+    api: {
+      ...actual.api,
+      getSandLogisticsResult: vi.fn(),
+    },
+  };
+});
 
 function wrapper({ children }: { children: ReactNode }) {
   const client = createTestQueryClient();
@@ -16,17 +24,34 @@ function wrapper({ children }: { children: ReactNode }) {
 
 describe('useProjectSandLogistics', () => {
   beforeEach(() => {
-    sessionStorage.clear();
+    vi.mocked(api.getSandLogisticsResult).mockReset();
   });
 
-  it('loads cached result from session', async () => {
-    saveSandLogisticsToSession(
-      'p-sand',
-      normalizeSandLogisticsResult({ subnets: [], warnings: [] }),
-    );
+  it('loads result from API', async () => {
+    vi.mocked(api.getSandLogisticsResult).mockResolvedValue({
+      project_id: 'p-sand',
+      horizon_from: '2025-01-01',
+      horizon_to: '2025-12-31',
+      as_of: '2025-01-01',
+      network_id: '',
+      subnet_count: 0,
+      subnets: [],
+      timeline: [],
+      warnings: [],
+      object_names: {},
+      calculated_at: '2025-06-01T12:00:00+00:00',
+    });
     const { result } = renderHook(() => useProjectSandLogistics('p-sand'), { wrapper });
     await waitFor(() => expect(result.current.isSuccess).toBe(true));
     expect(result.current.data?.subnets).toEqual([]);
+    expect(result.current.data?.calculated_at).toBeTruthy();
+  });
+
+  it('returns null when API returns null (404)', async () => {
+    vi.mocked(api.getSandLogisticsResult).mockResolvedValue(null);
+    const { result } = renderHook(() => useProjectSandLogistics('p-empty'), { wrapper });
+    await waitFor(() => expect(result.current.isSuccess).toBe(true));
+    expect(result.current.data).toBeNull();
   });
 
   it('returns null when projectId is missing', async () => {

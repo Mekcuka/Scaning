@@ -77,7 +77,7 @@ function expectSamePathEverywhere(
 }
 
 describe('line path 2D/3D vertex parity', () => {
-  const pad = point('pad-1', 'pad', 37.6, 55.75);
+  const pad = point('pad-1', 'oil_pad', 37.6, 55.75);
   const node = point('node-1', 'node', 37.7, 55.85);
   const substation = point('ps-1', 'substation', 37.72, 55.88);
 

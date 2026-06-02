@@ -15,9 +15,6 @@ vi.mock('../hooks/usePermissions', () => ({
 vi.mock('../hooks/useMediaQuery', () => ({
   useIsMobile: () => false,
 }));
-vi.mock('../components/MapView3D', () => ({
-  default: () => <div data-testid="mock-matrix-3d" />,
-}));
 
 describe('MatrixPage', () => {
   let queryClient: QueryClient;

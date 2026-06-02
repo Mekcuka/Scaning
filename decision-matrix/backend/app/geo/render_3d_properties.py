@@ -17,6 +17,9 @@ DEFAULT_RENDER_3D_SCALE = 1.0
 MIN_RENDER_3D_SCALE = 0.1
 MAX_RENDER_3D_SCALE = 10.0
 
+# PATCH with null/blank clears these keys (partial merge keeps other properties).
+_NULLABLE_PROPERTY_KEYS = frozenset({RENDER_3D_MODEL_ID_KEY, RENDER_3D_STYLE_KEY})
+
 _RESERVED_IMPORT_PROP_KEYS = frozenset({"type", "subtype", "name"})
 
 
@@ -172,3 +175,16 @@ def apply_default_render_3d(subtype: str, properties: dict | None) -> dict:
     if RENDER_3D_VISIBLE_KEY not in props:
         props[RENDER_3D_VISIBLE_KEY] = True
     return props
+
+
+def merge_infra_properties_patch(existing: dict | None, patch: dict) -> dict:
+    """Shallow merge; ``None`` or blank string in patch removes nullable keys."""
+    merged = dict(existing or {})
+    for key, value in patch.items():
+        if key in _NULLABLE_PROPERTY_KEYS and (
+            value is None or (isinstance(value, str) and not value.strip())
+        ):
+            merged.pop(key, None)
+            continue
+        merged[key] = value
+    return merged

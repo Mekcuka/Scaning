@@ -13,7 +13,7 @@ import Point from 'ol/geom/Point';
 import LineString from 'ol/geom/LineString';
 import { circular as circularPolygon } from 'ol/geom/Polygon';
 import { Circle as CircleStyle, Fill, Icon, Stroke, Style, Text } from 'ol/style';
-import { LINE_SUBTYPES, type InfraLayer } from '../lib/api';
+import { LINE_SUBTYPES, normalizeInfraSubtype, type InfraLayer } from '../lib/api';
 import Select from 'ol/interaction/Select';
 import Modify from 'ol/interaction/Modify';
 import DragBox from 'ol/interaction/DragBox';
@@ -1513,7 +1513,7 @@ export function MapView({
       const lineGeom = infraLineGeometry(obj, snapPool);
       const attrs = {
         name: obj.name,
-        subtype: obj.subtype,
+        subtype: normalizeInfraSubtype(obj.subtype),
         layer_id: obj.layer_id,
         featureKind: 'infra',
       };

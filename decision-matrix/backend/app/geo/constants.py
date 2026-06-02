@@ -11,7 +11,8 @@ POINT_SUBTYPES = frozenset(
         "substation",
         "refinery",
         "node",
-        "pad",
+        "oil_pad",
+        "gas_pad",
         "preliminary_water_discharge_station",
         "booster_pumping_station",
         "oil_pumping_station",
@@ -46,6 +47,9 @@ NODE_CLUSTER_SUBTYPES = frozenset({"node", "methanol_joint", "power_line_node"})
 # ГТЭС / ГПЭС / ВИЭС — смена подтипа только внутри группы (на карте «Точка» → ИЭ, subtype gtes).
 GTES_CLUSTER_SUBTYPES = frozenset({"gtes", "gpes", "vies"})
 
+# Нефтяной / газовый куст — смена подтипа только внутри пары.
+PAD_CLUSTER_SUBTYPES = frozenset({"oil_pad", "gas_pad"})
+
 # Подтипы без пункта «Точка» — импорт Искра или смена у объекта группы ИЭ.
 IE_DERIVED_POINT_SUBTYPES = frozenset({"gpes", "vies"})
 
@@ -76,14 +80,19 @@ IMPORT_ONLY_POINT_SUBTYPES = frozenset({
     "methanol_facility",
     "methanol_joint",
     "power_line_node",
+    "gas_pad",
 })
 
 # Подтип узла без отдельного пункта «Точка» — импорт Искра или смена у объекта «Узел».
 NODE_DERIVED_POINT_SUBTYPES = frozenset({"methanol_joint", "power_line_node"})
 
+# Подтип куста без пункта «Точка» — импорт Искра или смена у объекта «Куст» (oil_pad).
+PAD_DERIVED_POINT_SUBTYPES = frozenset({"gas_pad"})
+
 # Устаревшие коды подтипов → актуальные (Искра/БД до миграции).
 LEGACY_SUBTYPE_ALIASES: dict[str, str] = {
     "delivery_acceptance_point": "refinery",
+    "pad": "oil_pad",
 }
 
 
@@ -131,7 +140,8 @@ SUBTYPE_CATEGORY: dict[str, str] = {
     "substation": "electricity",
     "refinery": "area_facility",
     "node": "network",
-    "pad": "pad",
+    "oil_pad": "pad",
+    "gas_pad": "pad",
     "preliminary_water_discharge_station": "area_facility",
     "booster_pumping_station": "area_facility",
     "oil_pumping_station": "area_facility",
@@ -160,7 +170,8 @@ SUBTYPE_LABELS: dict[str, str] = {
     "substation": "ПС/ТП",
     "refinery": "НПЗ",
     "node": "Узел",
-    "pad": "Куст",
+    "oil_pad": "Нефтяной куст",
+    "gas_pad": "Газовый куст",
     "preliminary_water_discharge_station": "УПСВ",
     "booster_pumping_station": "ДНС",
     "oil_pumping_station": "НПС",

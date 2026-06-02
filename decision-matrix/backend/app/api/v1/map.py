@@ -501,14 +501,13 @@ async def update_infra_object(
         await _get_layer(payload["layer_id"], project_id, db)
         obj.layer_id = payload["layer_id"]
     if "properties" in payload:
-        from app.geo.render_3d_properties import apply_default_render_3d
+        from app.geo.render_3d_properties import apply_default_render_3d, merge_infra_properties_patch
         from app.services.map3d_custom_models import assert_can_set_custom_model_id_async
 
         await assert_can_set_custom_model_id_async(
             db, user, project, project_id, subtype, payload["properties"]
         )
-        merged_props = dict(obj.properties or {})
-        merged_props.update(payload["properties"])
+        merged_props = merge_infra_properties_patch(obj.properties, payload["properties"])
         await assert_can_set_custom_model_id_async(
             db, user, project, project_id, subtype, merged_props
         )

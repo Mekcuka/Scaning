@@ -340,3 +340,75 @@ def test_upload_oil_drum_red_glb_fixture(client):
     assert file_res.status_code == 200
     assert file_res.content[:4] == b"glTF"
     assert len(file_res.content) == len(raw)
+
+
+def test_map3d_clear_custom_model_with_null(client):
+    project, _ = create_test_project(client, email="admin@test.ru", name="test_map3d_clear_model")
+    pid = project["id"]
+    headers = _admin_headers(client)
+    layer = create_test_layer(client, pid, headers)
+    pad = create_test_infra_point(client, pid, layer["id"], headers, name="pad_a", subtype="oil_pad")
+
+    upload = client.post(
+        f"/api/v1/projects/{pid}/map3d-custom-models",
+        files={"file": ("jack.glb", MINIMAL_GLB, "model/gltf-binary")},
+        headers=headers,
+    )
+    assert upload.status_code == 201, upload.text
+    model_id = upload.json()["id"]
+    assign = client.post(
+        f"/api/v1/projects/{pid}/map3d-custom-models/{model_id}/assign",
+        json={"subtype": "oil_pad"},
+        headers=headers,
+    )
+    assert assign.status_code == 200, assign.text
+
+    set_custom = client.patch(
+        f"/api/v1/projects/{pid}/infrastructure/objects/{pad['id']}",
+        json={"properties": {"render_3d_model_id": f"custom:{model_id}"}},
+        headers=headers,
+    )
+    assert set_custom.status_code == 200, set_custom.text
+
+    clear = client.patch(
+        f"/api/v1/projects/{pid}/infrastructure/objects/{pad['id']}",
+        json={
+            "properties": {
+                "render_3d_model_id": None,
+                "render_3d_visible": True,
+                "render_3d_height_m": 8,
+            }
+        },
+        headers=headers,
+    )
+    assert clear.status_code == 200, clear.text
+    assert clear.json()["properties"].get("render_3d_model_id") in (None, "")
+
+
+def test_map3d_custom_model_legacy_pad_assignment(client):
+    project, _ = create_test_project(client, email="admin@test.ru", name="test_map3d_legacy_pad")
+    pid = project["id"]
+    headers = _admin_headers(client)
+    layer = create_test_layer(client, pid, headers)
+    pad = create_test_infra_point(client, pid, layer["id"], headers, name="pad_b", subtype="oil_pad")
+
+    upload = client.post(
+        f"/api/v1/projects/{pid}/map3d-custom-models",
+        files={"file": ("legacy.glb", MINIMAL_GLB, "model/gltf-binary")},
+        headers=headers,
+    )
+    model_id = upload.json()["id"]
+    assign = client.post(
+        f"/api/v1/projects/{pid}/map3d-custom-models/{model_id}/assign",
+        json={"subtype": "pad"},
+        headers=headers,
+    )
+    assert assign.status_code == 200, assign.text
+    assert assign.json()["assigned_subtypes"] == ["oil_pad"]
+
+    ok = client.patch(
+        f"/api/v1/projects/{pid}/infrastructure/objects/{pad['id']}",
+        json={"properties": {"render_3d_model_id": f"custom:{model_id}"}},
+        headers=headers,
+    )
+    assert ok.status_code == 200, ok.text

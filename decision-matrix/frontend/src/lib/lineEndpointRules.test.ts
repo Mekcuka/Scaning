@@ -25,7 +25,7 @@ const pointObj = (id: string, subtype: string, lon: number, lat: number): InfraO
 
 describe('snapLineDrawPoint', () => {
   it('snaps to point under cursor when drawing', () => {
-    const objects = [pointObj('1', 'pad', 37.6, 55.75)];
+    const objects = [pointObj('1', 'oil_pad', 37.6, 55.75)];
     const snapped = snapLineDrawPoint(
       'autoroad',
       [38, 56],
@@ -44,10 +44,10 @@ describe('snapLineDrawPoint', () => {
 
 describe('nearestPointLineEndpoint', () => {
   it('snaps to nearest point object regardless of line subtype', () => {
-    const objects = [pointObj('1', 'pad', 37.6, 55.75)];
+    const objects = [pointObj('1', 'oil_pad', 37.6, 55.75)];
     const nearest = nearestPointLineEndpoint('oil_pipeline', 'finish', [37.6001, 55.7501], objects);
     expect(nearest).not.toBeNull();
-    expect(nearest!.object.subtype).toBe('pad');
+    expect(nearest!.object.subtype).toBe('oil_pad');
     expect(nearest!.distanceKm).toBeLessThan(0.3);
   });
 
@@ -74,7 +74,7 @@ describe('nearestPointLineEndpoint', () => {
 
 describe('lineEndpointAttachmentsFromObject', () => {
   it('finds attachments via snapPool when node is not in infraObjects', () => {
-    const pad = pointObj('pad-1', 'pad', 37.6, 55.75);
+    const pad = pointObj('pad-1', 'oil_pad', 37.6, 55.75);
     const node = pointObj('node-1', 'node', 37.7, 55.85);
     const lineObj = {
       id: 'line-1',
@@ -102,7 +102,7 @@ describe('lineEndpointAttachmentsFromObject', () => {
 
 describe('normalizeLinePathEndpoints', () => {
   it('replaces endpoints with exact object coordinates', () => {
-    const pad = pointObj('pad-1', 'pad', 37.6, 55.75);
+    const pad = pointObj('pad-1', 'oil_pad', 37.6, 55.75);
     const path = normalizeLinePathEndpoints(
       'power_line',
       [
@@ -163,7 +163,7 @@ describe('constrainLineCoordinatesOnEdit', () => {
   it('reconnects endpoint to another nearby point object', () => {
     const nodeA = pointObj('n1', 'node', 37.6, 55.75);
     const nodeB = pointObj('n2', 'node', 37.7, 55.85);
-    const nodeC = pointObj('n3', 'pad', 37.8001, 55.9501);
+    const nodeC = pointObj('n3', 'oil_pad', 37.8001, 55.9501);
     const pool = [nodeA, nodeB, nodeC];
     const startAttach = findLineEndpointAttachment('oil_pipeline', 'start', [37.6, 55.75], pool);
     const finishAttach = findLineEndpointAttachment('oil_pipeline', 'finish', [37.7, 55.85], pool);

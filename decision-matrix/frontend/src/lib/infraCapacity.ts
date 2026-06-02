@@ -3,7 +3,8 @@ import { isLineSubtype } from './infraGeometry';
 /** Точечные подтипы без поля «Пропускная способность». */
 export const THROUGHPUT_CAPACITY_EXCLUDED_SUBTYPES = new Set([
   'node',
-  'pad',
+  'oil_pad',
+  'gas_pad',
   'sand_quarry',
   'offplot',
   'additional_facility',

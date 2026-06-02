@@ -12,7 +12,7 @@ from app.services.line_endpoint_rules import (
 )
 
 
-def _point_obj(lon: float, lat: float, subtype: str = "pad") -> InfrastructureObject:
+def _point_obj(lon: float, lat: float, subtype: str = "oil_pad") -> InfrastructureObject:
     return InfrastructureObject(
         id=uuid.uuid4(),
         layer_id=uuid.uuid4(),

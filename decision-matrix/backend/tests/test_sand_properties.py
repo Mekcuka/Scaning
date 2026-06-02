@@ -17,7 +17,7 @@ def test_default_quarry_volumes():
 
 
 def test_default_consumer_demand():
-    props = apply_default_sand_volumes("pad", {})
+    props = apply_default_sand_volumes("oil_pad", {})
     assert props[SAND_VOLUME_DEMAND_M3] == DEFAULT_SAND_DEMAND_M3
 
 
@@ -27,5 +27,5 @@ def test_skips_line_and_node():
 
 
 def test_preserves_explicit_values():
-    props = apply_default_sand_volumes("pad", {SAND_VOLUME_DEMAND_M3: 42.0})
+    props = apply_default_sand_volumes("oil_pad", {SAND_VOLUME_DEMAND_M3: 42.0})
     assert props[SAND_VOLUME_DEMAND_M3] == 42.0

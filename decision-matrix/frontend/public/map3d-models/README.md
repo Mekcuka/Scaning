@@ -12,7 +12,7 @@ Bundled low-poly **industrial** glTF models from [Kenney — City Kit (Industria
 | `stack-medium.glb` | Средние дымовые трубы |
 | `stack-small.glb` | Небольшие трубы |
 | `tank.glb` | Узлы, резервуары, соединения |
-| `oil-pump-jack.glb` | Куст (`pad`) — станок-качалка |
+| `oil-pump-jack.glb` | Нефтяной / газовый куст (`oil_pad`, `gas_pad`) — станок-качалка |
 | `transmission-tower.glb` | Опоры ЛЭП (промежуточные вершины) |
 
 Texture: `textures/colormap.png` (embedded in glb).

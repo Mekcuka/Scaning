@@ -165,7 +165,7 @@
 
 На **точечных** объектах инфраструктуры в `ObjectDetailPanel` доступно поле **«Пропускная способность»** (`properties.throughput_capacity_annual`, `properties.capacity_unit`).
 
-**Исключения** (поле не показывается): `node`, `pad`, `sand_quarry`, `substation`, `vies`, `gtes`, `gpes`.
+**Исключения** (поле не показывается): `node`, `oil_pad`, `gas_pad`, `sand_quarry`, `substation`, `vies`, `gtes`, `gpes`.
 
 Единицы: **тыс. т/год** (по умолчанию), **тыс. м³/год** — для `gas_processing`.
 

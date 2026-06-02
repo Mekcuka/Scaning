@@ -93,7 +93,9 @@ npm run test:e2e
 | MapPage integration (mock MapView + OL) | готово | MapPage ~76% |
 | CI gate `src/pages/**` | **77%** (ступень к 80%) | **~78–79%** |
 
-**MapPage:** `MapPage.integration.test.tsx`, `MapPage.mock.integration.test.tsx`, `MapPage.workflows.test.tsx`, `MapPage.readonly.test.tsx`, `MapPage.ol.integration.test.tsx`, `MapPage.helpers.test.ts` (экспорт `mergeInfraPropertiesForSave`, `lineCoordsOrEndpoints`, `sameCoord`, `linkCoordMatch`). Мок `MapView` с прокидыванием `onMapClick` / `onFeatureSelect` / `onFinishLine` даёт основной прирост; OL-клики — дополнение. До **80% по всей папке** остаётся ~**1–2%** (~70–90 строк), в основном ветки `MapPage.tsx`.
+**MapPage:** `MapPage.integration.test.tsx`, …
+
+**Логистика песка (frontend unit):** `sandLogisticsFlow.test.ts` (layout/slice, geo-ordering, adaptive spacing), `sandLogisticsResult.test.ts` (`resolveSubnetForSchematicAtView`, slice cache), `sandLogisticsSchematicTimeline.test.ts`, `SandLogisticsSubnetPanel.test.tsx` (смена года без remount схемы), `FlowLogisticsPage.test.tsx`.
 
 Шаблон API-мока:
 
@@ -118,7 +120,9 @@ vi.mock('../lib/api', async (importOriginal) => {
 | `test_project_delete.py` | cascade delete |
 | `test_map_api_crud.py` | layer, point, line objects |
 | `test_flow_api.py` | flow-schematic, economic-flow |
-| `test_sand_api.py` | sand-logistics analyze |
+| `test_sand_api.py` | sand-logistics analyze + GET result persist |
+| `test_sand_logistics_store.py` | store helpers / row_to_response |
+| `test_sand_logistics_horizon*.py` | годовая симуляция, display subnets |
 | `test_graph_api.py` | networks build/list |
 | `test_import_geojson.py` | import preview |
 | `test_import_service_rows.py` | `import_rows_to_layer` |
@@ -132,7 +136,7 @@ vi.mock('../lib/api', async (importOriginal) => {
 | §1 Регистрация / вход | E2E login + register flow, backend `test_auth_rbac` |
 | §2 Карта / импорт | map3d unit (`map3dCustomGlbFetch`, `map3dGltfLoader`), map API integration, import preview, E2E map load |
 | §3 Анализ / проект | environment unit, projects API, E2E create/delete project |
-| §4 Потоки / песок | flow/sand API + services, E2E flows tab |
+| §4 Потоки / песок | flow/sand API + services, `sandLogisticsFlow`/`sandLogisticsResult` unit, `SandLogisticsSubnetPanel` (timeline), E2E flows tab |
 | §5 Отчёты | one_pager API, pptx unit |
 | §6 Параметры / ставки | Parameters/Rates smoke, E2E parameters |
 

@@ -58,8 +58,8 @@ describe('map3dLinePlanParity', () => {
 
 describe('2D / 3D / GeoJSON path parity', () => {
   const pad = {
-    id: 'pad',
-    subtype: 'pad',
+    id: 'oil_pad',
+    subtype: 'oil_pad',
     lon: 37.6,
     lat: 55.75,
   } as InfraObject;

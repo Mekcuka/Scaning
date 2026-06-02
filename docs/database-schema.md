@@ -499,6 +499,24 @@ CREATE TABLE project_cost_rates (
 CREATE INDEX idx_project_cost_rates_project_id ON project_cost_rates(project_id);
 ```
 
+### Таблица project_sand_logistics_results (снимок логистики песка)
+
+Один последний результат расчёта на проект. Заполняется при `POST .../sand-logistics/analyze`; читается через `GET .../sand-logistics/result`.
+
+```sql
+CREATE TABLE project_sand_logistics_results (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    project_id UUID NOT NULL UNIQUE REFERENCES projects(id) ON DELETE CASCADE,
+    as_of DATE NOT NULL,
+    network_id UUID,
+    result JSONB NOT NULL DEFAULT '{}',
+    calculated_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    calculated_by_user_id UUID REFERENCES users(id) ON DELETE SET NULL
+);
+```
+
+Поле `result` хранит `subnet_count`, `subnets`, `warnings`, `object_names`. Верхнеуровневые `project_id`, `as_of`, `network_id` дублируются в колонках для индексации и отображения.
+
 ### Таблица points_of_interest (точки интереса)
 ```sql
 CREATE TABLE points_of_interest (

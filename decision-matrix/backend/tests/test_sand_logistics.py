@@ -1,5 +1,6 @@
 """Unit tests for sand logistics graph and allocation."""
 
+from datetime import date
 from uuid import UUID, uuid4
 
 from app.services.sand_logistics import (
@@ -85,9 +86,9 @@ def test_greedy_allocation_logic():
     q2 = uuid4()
     quarry_remaining = {q1: 100.0, q2: 50.0}
     consumers = [
-        (_PointSite(uuid4(), "C1", "pad", 0, 0, demand_m3=80), q1),
-        (_PointSite(uuid4(), "C2", "pad", 0, 0, demand_m3=40), q1),
-        (_PointSite(uuid4(), "C3", "pad", 0, 0, demand_m3=30), q2),
+        (_PointSite(uuid4(), "C1", "oil_pad", 0, 0, demand_m3=80), q1),
+        (_PointSite(uuid4(), "C2", "oil_pad", 0, 0, demand_m3=40), q1),
+        (_PointSite(uuid4(), "C3", "oil_pad", 0, 0, demand_m3=30), q2),
     ]
     # sorted by pretend distance order
     greedy: dict = {}
@@ -127,8 +128,8 @@ def test_analyze_subnet_isolates_allocation():
     _add_undirected_edge(g, n2, n3, 1.0)
 
     q_a = _PointSite(uuid4(), "Q-A", "sand_quarry", 37.0, 55.0, current_m3=100.0, node_id=n0)
-    c_near = _PointSite(uuid4(), "C-near", "pad", 37.01, 55.0, demand_m3=30.0, node_id=n1)
-    c_far = _PointSite(uuid4(), "C-far", "pad", 37.03, 55.0, demand_m3=50.0, node_id=n3)
+    c_near = _PointSite(uuid4(), "C-near", "oil_pad", 37.01, 55.0, demand_m3=30.0, node_id=n1)
+    c_far = _PointSite(uuid4(), "C-far", "oil_pad", 37.03, 55.0, demand_m3=50.0, node_id=n3)
 
     island_a = {n0, n1}
     out_near = _analyze_subnet(
@@ -150,7 +151,7 @@ def test_proportional_allocations_include_distance_km():
     n0, n1, n2, n3 = ids
     q_near = _PointSite(uuid4(), "Q-near", "sand_quarry", 37.0, 55.0, current_m3=500.0, node_id=n0)
     q_far = _PointSite(uuid4(), "Q-far", "sand_quarry", 37.03, 55.0, current_m3=500.0, node_id=n3)
-    consumer = _PointSite(uuid4(), "Pad-1", "pad", 37.02, 55.0, demand_m3=100.0, node_id=n2)
+    consumer = _PointSite(uuid4(), "Pad-1", "oil_pad", 37.02, 55.0, demand_m3=100.0, node_id=n2)
     component = set(ids)
     out = _analyze_subnet(
         g, [q_near, q_far], [consumer], [], {}, component=component, subnet_index=1
@@ -173,3 +174,43 @@ def test_proportional_allocations_include_distance_km():
         by_quarry[str(q_far.object_id)]["allocated_m3"]
         > by_quarry[str(q_near.object_id)]["allocated_m3"]
     )
+
+
+def test_greedy_tiebreak_by_entry_date():
+    """Same distance to quarry — earlier entry_date gets sand first when capacity limited."""
+    g = _RoadGraph()
+    n0, n1 = uuid4(), uuid4()
+    g.coords[n0] = (37.0, 55.0)
+    g.coords[n1] = (37.01, 55.0)
+    _add_undirected_edge(g, n0, n1, 1.0)
+
+    q = _PointSite(
+        uuid4(), "Q", "sand_quarry", 37.0, 55.0, current_m3=100.0, node_id=n0
+    )
+    early = _PointSite(
+        uuid4(),
+        "Early",
+        "oil_pad",
+        37.01,
+        55.0,
+        demand_m3=80.0,
+        entry_date=date(2020, 1, 1),
+        node_id=n1,
+    )
+    late = _PointSite(
+        uuid4(),
+        "Late",
+        "oil_pad",
+        37.01,
+        55.0,
+        demand_m3=80.0,
+        entry_date=date(2024, 1, 1),
+        node_id=n1,
+    )
+
+    out = _analyze_subnet(
+        g, [q], [early, late], [], {}, component={n0, n1}, subnet_index=1
+    )
+    by_id = {r["object_id"]: r for r in out["consumers"]}
+    assert by_id[str(early.object_id)]["greedy_allocated_m3"] == 80.0
+    assert by_id[str(late.object_id)]["greedy_allocated_m3"] == 20.0

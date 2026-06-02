@@ -17,7 +17,7 @@ const pointObj = (id: string, subtype: string, lon: number, lat: number): InfraO
 
 /** Contract from docs/map-objects-and-spatial-calculations.md §1.4 */
 describe('map line drawing rules (contract)', () => {
-  const pad = pointObj('pad', 'pad', 37.6, 55.75);
+  const pad = pointObj('oil_pad', 'oil_pad', 37.6, 55.75);
 
   it('start must snap to a point object (≤300 m)', () => {
     const snapped = snapLineDrawPoint('oil_pipeline', [37.6001, 55.7501], [pad], null, 'start');

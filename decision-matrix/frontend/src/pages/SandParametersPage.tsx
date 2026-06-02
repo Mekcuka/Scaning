@@ -4,10 +4,14 @@ import { Link } from 'react-router-dom';
 import { MapPin, Search } from 'lucide-react';
 import { api, SUBTYPE_LABELS, type InfraObject } from '../lib/api';
 import {
+  effectiveSandDemandForObject,
   infraObjectShowsSandDemand,
-  mergeSandDemandM3,
+  mergeSandVolumeForSave,
   readSandDemandM3,
+  readSandVolumeInputMode,
+  sandDemandPlanTotalM3,
 } from '../lib/infraSandVolumes';
+import { findSandLogisticsConsumer } from '../lib/sandLogisticsHaulLegs';
 import { useAppStore } from '../store';
 import { usePermissions } from '../hooks/usePermissions';
 import { useProjectSandLogistics } from '../hooks/useProjectSandLogistics';
@@ -18,6 +22,11 @@ import {
   TableExcelExportButton,
 } from '../components/TableExcelExportButton';
 import { sandDemandTableExportColumns } from '../lib/tableExcelExportData';
+
+function fmtM3(v: number | null | undefined): string {
+  if (v == null || v <= 0) return '—';
+  return v.toLocaleString('ru-RU', { maximumFractionDigits: 1 });
+}
 
 function sandDemandDisplayValue(obj: InfraObject): number | '' {
   const v = readSandDemandM3(obj.properties);
@@ -75,7 +84,7 @@ export function SandParametersPage() {
     }) => {
       const numVal = value === '' ? null : value;
       return api.updateInfraObject(projectId!, object.id, {
-        properties: mergeSandDemandM3(object.properties, numVal),
+        properties: mergeSandVolumeForSave(object.properties, 'single', numVal, {}),
       });
     },
     onMutate: ({ object, value }) => {
@@ -84,7 +93,7 @@ export function SandParametersPage() {
       queryClient.setQueryData<InfraObject[]>(['infra', projectId], (prev) =>
         (prev ?? []).map((o) =>
           o.id === object.id
-            ? { ...o, properties: mergeSandDemandM3(o.properties, numVal) }
+            ? { ...o, properties: mergeSandVolumeForSave(o.properties, 'single', numVal, {}) }
             : o
         )
       );
@@ -156,6 +165,8 @@ export function SandParametersPage() {
                   <th scope="col">Объект</th>
                   <th scope="col">Подтип</th>
                   <th scope="col">Объём песка (спрос), м³</th>
+                  <th scope="col">План Σ, м³</th>
+                  <th scope="col">Спрос на дату</th>
                   <th scope="col">Плечо возки</th>
                   <th scope="col" className="table-excel-export-th">
                     <TableExcelExportButton
@@ -171,6 +182,15 @@ export function SandParametersPage() {
               <tbody>
                 {filteredObjects.map((obj) => {
                   const isSaving = savingId === obj.id;
+                  const planTotal = sandDemandPlanTotalM3(obj.properties);
+                  const calcRow = sandLogistics
+                    ? findSandLogisticsConsumer(sandLogistics, obj.id)
+                    : null;
+                  const effectiveOnDate =
+                    calcRow?.demand_m3 ??
+                    (sandLogistics?.as_of
+                      ? effectiveSandDemandForObject(obj, sandLogistics.as_of)
+                      : null);
                   return (
                     <tr key={obj.id}>
                       <th scope="row" className="parameters-table__name">
@@ -178,21 +198,42 @@ export function SandParametersPage() {
                       </th>
                       <td>{SUBTYPE_LABELS[obj.subtype] || obj.subtype}</td>
                       <td>
-                        <DeferredNumberInput
-                          allowEmpty
-                          min={0}
-                          className="input parameters-table__input"
-                          placeholder="Не задан"
-                          value={sandDemandDisplayValue(obj)}
-                          readOnly={!canWriteProject}
-                          disabled={isSaving || !canWriteProject}
-                          onCommit={(v) => {
-                            saveMut.mutate({
-                              object: obj,
-                              value: v === '' ? '' : typeof v === 'number' ? v : Number(v),
-                            });
-                          }}
-                        />
+                        {readSandVolumeInputMode(obj.properties) === 'yearly' ? (
+                          <span
+                            className="text-sm text-[var(--text-muted)]"
+                            title="Редактирование — карточка объекта на карте, вкладка Логистика"
+                          >
+                            План по годам
+                          </span>
+                        ) : (
+                          <DeferredNumberInput
+                            allowEmpty
+                            min={0}
+                            className="input parameters-table__input"
+                            placeholder="Не задан"
+                            value={sandDemandDisplayValue(obj)}
+                            readOnly={!canWriteProject}
+                            disabled={isSaving || !canWriteProject}
+                            onCommit={(v) => {
+                              saveMut.mutate({
+                                object: obj,
+                                value: v === '' ? '' : typeof v === 'number' ? v : Number(v),
+                              });
+                            }}
+                          />
+                        )}
+                      </td>
+                      <td className="tabular-nums text-[var(--text-muted)]">
+                        {readSandVolumeInputMode(obj.properties) === 'yearly' ? (
+                          <span title="План по годам (редактирование — карточка на карте)">
+                            {fmtM3(planTotal)} · по годам
+                          </span>
+                        ) : (
+                          '—'
+                        )}
+                      </td>
+                      <td className="tabular-nums">
+                        {sandLogistics?.as_of ? fmtM3(effectiveOnDate) : '—'}
                       </td>
                       <td className="parameters-table__haul-leg align-top">
                         <SandHaulLegDetails
