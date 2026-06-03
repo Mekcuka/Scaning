@@ -1,7 +1,6 @@
-"""Stateless autoroad network planner (MST, spurs, intersections).
+"""Stateless autoroad network planner (MST, access nodes, intersections).
 
-Connects all selected terminals: uses existing autoroad graph when that is the
-shortest route; otherwise builds new straight ``autoroad`` segments (MST edges).
+Topology: facility → access node (~50 m) → autoroad network → access node → facility.
 """
 
 from __future__ import annotations
@@ -11,6 +10,7 @@ from dataclasses import dataclass
 from uuid import UUID
 
 from app.geo.constants import NODE_CLUSTER_SUBTYPES
+from app.services.autoroad_network.access_nodes import access_node_coordinates
 from app.services.autoroad_network.graph_from_polylines import (
     build_graph_from_polylines,
     polylines_from_roads,
@@ -87,31 +87,32 @@ def _snap_terminal_to_network(
     return _SnapInfo(best_nid, slon, slat, None)
 
 
-def _needs_connector(obj_lon: float, obj_lat: float, snap_lon: float, snap_lat: float) -> bool:
-    return haversine_km(obj_lon, obj_lat, snap_lon, snap_lat) > 0.02
+def _needs_spur(access_lon: float, access_lat: float, snap_lon: float, snap_lat: float) -> bool:
+    return haversine_km(access_lon, access_lat, snap_lon, snap_lat) > 0.02
 
 
 def _pair_cost(
-    ta: PlanTerminalInput,
-    tb: PlanTerminalInput,
+    access_a: tuple[float, float],
+    access_b: tuple[float, float],
     sa: _SnapInfo,
     sb: _SnapInfo,
     graph_dist: dict[UUID, dict[UUID, float]],
     graph_prev: dict[UUID, dict[UUID, UUID | None]],
 ) -> tuple[float, str]:
     """Return (cost_km, route_mode) where mode is ``graph`` or ``direct``."""
-    direct = haversine_km(ta.lon, ta.lat, tb.lon, tb.lat)
+    direct = haversine_km(access_a[0], access_a[1], access_b[0], access_b[1])
     if sa.graph_node_id and sb.graph_node_id:
         na, nb = sa.graph_node_id, sb.graph_node_id
         path_d = graph_dist.get(na, {}).get(nb, math.inf)
-        if path_d < math.inf and path_d <= direct:
-            return path_d, "graph"
+        if path_d < math.inf:
+            return min(path_d, direct), "graph"
     return direct, "direct"
 
 
 def plan_from_request(req: NetworkPlanRequest) -> NetworkPlanResponse:
     opts = req.options
     snap_tol = opts.snap_tolerance_km
+    access_offset = opts.access_node_offset_km
     max_n = opts.max_terminals
 
     warnings: list[str] = []
@@ -136,11 +137,30 @@ def plan_from_request(req: NetworkPlanRequest) -> NetworkPlanResponse:
 
     terminal_by_id = {t.id: t for t in req.terminals}
     snap_by_id: dict[UUID, _SnapInfo] = {}
+    access_by_id: dict[UUID, tuple[float, float]] = {}
     terminal_results: list[PlanTerminalResult] = []
+    new_nodes: list[PlannedNodeOut] = []
 
     for t in req.terminals:
         si = _snap_terminal_to_network(t.lon, t.lat, g, polylines, snap_tolerance_km=snap_tol)
         snap_by_id[t.id] = si
+        others = [o for o in req.terminals if o.id != t.id]
+        alon, alat = access_node_coordinates(
+            t,
+            snap_lon=si.snap_lon,
+            snap_lat=si.snap_lat,
+            other_terminals=others,
+            offset_km=access_offset,
+        )
+        access_by_id[t.id] = (alon, alat)
+        new_nodes.append(
+            PlannedNodeOut(
+                lon=alon,
+                lat=alat,
+                reason="terminal_access",
+                terminal_id=t.id,
+            )
+        )
         terminal_results.append(
             PlanTerminalResult(
                 id=t.id,
@@ -148,6 +168,8 @@ def plan_from_request(req: NetworkPlanRequest) -> NetworkPlanResponse:
                 warning=si.warning,
                 snap_lon=si.snap_lon,
                 snap_lat=si.snap_lat,
+                access_lon=alon,
+                access_lat=alat,
                 graph_attached=si.graph_node_id is not None and si.warning is None,
                 graph_node_id=str(si.graph_node_id) if si.graph_node_id else None,
             )
@@ -167,14 +189,19 @@ def plan_from_request(req: NetworkPlanRequest) -> NetworkPlanResponse:
 
     for a in terminal_ids:
         dist_matrix[a] = {}
-        ta = terminal_by_id[a]
         sa = snap_by_id[a]
+        access_a = access_by_id[a]
         for b in terminal_ids:
             if a == b:
                 dist_matrix[a][b] = 0.0
                 continue
             cost, mode = _pair_cost(
-                ta, terminal_by_id[b], sa, snap_by_id[b], graph_dist, graph_prev
+                access_a,
+                access_by_id[b],
+                sa,
+                snap_by_id[b],
+                graph_dist,
+                graph_prev,
             )
             dist_matrix[a][b] = cost
             route_mode[(a, b)] = mode
@@ -188,8 +215,6 @@ def plan_from_request(req: NetworkPlanRequest) -> NetworkPlanResponse:
 
     for a, b in mst_edges:
         mode = route_mode.get((a, b), "direct")
-        ta = terminal_by_id[a]
-        tb = terminal_by_id[b]
         if mode == "graph":
             na = snap_by_id[a].graph_node_id
             nb = snap_by_id[b].graph_node_id
@@ -198,33 +223,46 @@ def plan_from_request(req: NetworkPlanRequest) -> NetworkPlanResponse:
                 for edge in shortest_path_edges(g, prev, na, nb):
                     used_edge_ids.add(str(edge.id))
         else:
-            km = haversine_km(ta.lon, ta.lat, tb.lon, tb.lat)
+            aa = access_by_id[a]
+            ab = access_by_id[b]
+            km = haversine_km(aa[0], aa[1], ab[0], ab[1])
             new_lines.append(
                 PlannedLineOut(
                     kind="link",
-                    coordinates=[[ta.lon, ta.lat], [tb.lon, tb.lat]],
-                    snap_start_object_id=a,
-                    snap_finish_object_id=b,
+                    coordinates=[[aa[0], aa[1]], [ab[0], ab[1]]],
+                    snap_start_terminal_id=a,
+                    snap_finish_terminal_id=b,
                 )
             )
             total_km += km
 
     for t in req.terminals:
         si = snap_by_id[t.id]
-        if si.graph_node_id and si.snap_lon is not None and si.snap_lat is not None:
-            if _needs_connector(t.lon, t.lat, si.snap_lon, si.snap_lat):
+        alon, alat = access_by_id[t.id]
+        km_obj = haversine_km(t.lon, t.lat, alon, alat)
+        new_lines.append(
+            PlannedLineOut(
+                kind="connector",
+                coordinates=[[t.lon, t.lat], [alon, alat]],
+                snap_start_object_id=t.id,
+                snap_finish_terminal_id=t.id,
+            )
+        )
+        total_km += km_obj
+
+        if si.snap_lon is not None and si.snap_lat is not None:
+            if _needs_spur(alon, alat, si.snap_lon, si.snap_lat):
                 new_lines.append(
                     PlannedLineOut(
-                        kind="connector",
-                        coordinates=[[t.lon, t.lat], [si.snap_lon, si.snap_lat]],
-                        snap_start_object_id=t.id,
+                        kind="network_tie",
+                        coordinates=[[alon, alat], [si.snap_lon, si.snap_lat]],
+                        snap_start_terminal_id=t.id,
                     )
                 )
-                total_km += haversine_km(t.lon, t.lat, si.snap_lon, si.snap_lat)
+                total_km += haversine_km(alon, alat, si.snap_lon, si.snap_lat)
 
-    new_nodes: list[PlannedNodeOut] = []
     splits: list[PlannedSplitOut] = []
-    node_keys: set[tuple[int, int]] = set()
+    node_keys: set[tuple[int, int]] = {_coord_key(n.lon, n.lat) for n in new_nodes}
 
     for pl in new_lines:
         if len(pl.coordinates) < 2:
@@ -270,7 +308,10 @@ def plan_from_request(req: NetworkPlanRequest) -> NetworkPlanResponse:
             {
                 "type": "Feature",
                 "geometry": {"type": "Point", "coordinates": [nd.lon, nd.lat]},
-                "properties": {"reason": nd.reason},
+                "properties": {
+                    "reason": nd.reason,
+                    "terminal_id": str(nd.terminal_id) if nd.terminal_id else None,
+                },
             }
         )
 

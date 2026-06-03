@@ -5,7 +5,7 @@
 
 **Связанные документы:** [map-objects-and-spatial-calculations.md](./map-objects-and-spatial-calculations.md) §1.8–§1.9, [user-flows.md](./user-flows.md) §2.0.2–§2.0.4, [architecture.md](./architecture.md), [implementation-status.md](./implementation-status.md), [DEPLOY.md](../DEPLOY.md).
 
-**Цель:** связать **все** выбранные терминалы: MST с метрикой `min(путь по сети, прямая)` — существующие `autoroad` без дублирования, иначе новые участки и подъезды; **`node`** только на перекрёстках. Реализация — **самостоятельный сервис** с явным API «вход → план → выход»; основное приложение — клиент (BFF) и запись в БД.
+**Цель:** связать **все** выбранные терминалы по цепочке **объект → узел доступа (~50 м) → автодорога → узел → объект**: MST по координатам узлов доступа; существующие `autoroad` без дублирования; перекрёстки — `node` (`reason=intersection`). Реализация — **самостоятельный сервис** с явным API «вход → план → выход»; BFF и запись в БД.
 
 ---
 
@@ -17,10 +17,11 @@
 | Контракт | **Plan (stateless):** геометрия сети + терминалы на входе, план новых линий/узлов на выходе |
 | Persist | **BFF монолита** после plan: транзакция, `line_split`, `build_network_from_lines`, jobs |
 | Терминалы | Все точечные подтипы **кроме** `NODE_CLUSTER_SUBTYPES`: `node`, `methanol_joint`, `power_line_node` |
-| Перекрёстки | Только `subtype=node` (UI «Узел»), дедуп ~**0,05 км** |
+| Узел доступа | `subtype=node`, **50 м** (`access_node_offset_km=0.05`) от терминала к snap/центроиду остальных; `reason=terminal_access` |
+| Перекрёстки | `subtype=node`, `reason=intersection`, дедуп ~**0,05 км** |
 | POI | Не терминалы (`points_of_interest` вне scope) |
-| Snap к автодороге | **0,3 км** (`ENDPOINT_SNAP_TOLERANCE_KM`); вне допуска — `warning`, соединение по **прямой** (`link`) |
-| Метрика MST | `min(кратчайший путь по графу autoroad, haversine между терминалами)` |
+| Snap к автодороге | **0,3 км**; вне допуска — `warning`, MST по прямым `link` между **узлами доступа** |
+| Метрика MST | Между узлами доступа: путь по графу `autoroad` (если связаны) иначе прямая `link` |
 | Лимит | До **50** терминалов за запуск |
 | Геометрия новых участков | Прямые сегменты в lon/lat (без рельефа) |
 | UI | Режим **«Построить сеть автодорог»** (пошаговый выбор точек на карте) |
@@ -86,7 +87,8 @@ decision-matrix/
 | Роль | Подтипы | Кто создаёт |
 |------|---------|-------------|
 | **Терминал (выбирает пользователь)** | Все `POINT`, кроме `node`, `methanol_joint`, `power_line_node` | Уже на карте |
-| **Узел перекрёстка** | `node` | Алгоритм при пересечении новой линии с существующей |
+| **Узел доступа** | `node` | Алгоритм: **50 м** от терминала (`terminal_access`) |
+| **Узел перекрёстка** | `node` | Алгоритм при пересечении новой линии с существующей (`intersection`) |
 | **Не терминал** | POI, все `LINE_*`, расчётные `InfrastructureNode` (не рисуются на карте) | — |
 
 Константа исключения: `NODE_CLUSTER_SUBTYPES` в [`constants.py`](../decision-matrix/backend/app/geo/constants.py).
@@ -122,6 +124,7 @@ decision-matrix/
   "options": {
     "snap_tolerance_km": 0.3,
     "node_dedup_km": 0.05,
+    "access_node_offset_km": 0.05,
     "max_terminals": 50
   }
 }
@@ -149,12 +152,18 @@ decision-matrix/
   "new_lines": [
     {
       "kind": "connector",
-      "coordinates": [[37.6, 55.75], [37.601, 55.751]],
+      "coordinates": [[37.6, 55.75], [37.6004, 55.7502]],
       "snap_start_object_id": "660e8400-e29b-41d4-a716-446655440001",
-      "snap_finish_object_id": null
+      "snap_finish_terminal_id": "660e8400-e29b-41d4-a716-446655440001"
+    },
+    {
+      "kind": "network_tie",
+      "coordinates": [[37.6004, 55.7502], [37.601, 55.751]],
+      "snap_start_terminal_id": "660e8400-e29b-41d4-a716-446655440001"
     }
   ],
   "new_nodes": [
+    { "lon": 37.6004, "lat": 55.7502, "reason": "terminal_access", "terminal_id": "660e8400-e29b-41d4-a716-446655440001" },
     { "lon": 37.62, "lat": 55.76, "reason": "intersection" }
   ],
   "splits": [
@@ -177,8 +186,8 @@ decision-matrix/
 
 | Поле | Смысл |
 |------|--------|
-| `new_lines[].kind` | `connector` (подъезд к сети) \| `link` (новый участок MST между терминалами) \| `bridge` (legacy, не используется) |
-| `new_nodes` | Будущие объекты `subtype=node` |
+| `new_lines[].kind` | `connector` (объект→узел ~50 м) \| `network_tie` (узел→snap на дороге) \| `link` (MST между узлами доступа) \| `bridge` (legacy) |
+| `new_nodes` | `terminal_access` (узел у терминала) \| `intersection` (перекрёсток) |
 | `splits` | Разрез существующих `autoroad` в точке пересечения |
 | `warnings` | `too_far_from_autoroad` (терминал вне snap, но участвует в MST по прямой), `no_autoroad_polylines`, … |
 

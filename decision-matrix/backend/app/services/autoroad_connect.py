@@ -38,7 +38,9 @@ class PlannedLine:
     end_lat: float
     snap_start_object_id: UUID | None = None
     snap_finish_object_id: UUID | None = None
-    kind: str = "connector"  # connector | link | bridge (legacy)
+    snap_start_terminal_id: UUID | None = None
+    snap_finish_terminal_id: UUID | None = None
+    kind: str = "connector"  # connector | link | network_tie | bridge (legacy)
 
 
 @dataclass
@@ -54,6 +56,7 @@ class PlannedNode:
     lon: float
     lat: float
     reason: str = "intersection"
+    terminal_id: UUID | None = None
 
 
 @dataclass
@@ -207,13 +210,22 @@ async def apply_autoroad_connect_plan(
         ).all()
     )
 
+    access_node_by_terminal: dict[UUID, InfrastructureObject] = {}
+
     for pn in plan.new_nodes:
         key = _coord_key(pn.lon, pn.lat)
         if key in node_by_key:
+            if pn.terminal_id is not None:
+                access_node_by_terminal[pn.terminal_id] = node_by_key[key]
             continue
         n_node += 1
+        name = (
+            f"Узел_доступа_{n_node}"
+            if pn.reason == "terminal_access"
+            else f"Узел_{n_node}"
+        )
         data = InfraObjectCreate(
-            name=f"Узел_{n_node}",
+            name=name,
             subtype="node",
             lon=pn.lon,
             lat=pn.lat,
@@ -222,6 +234,8 @@ async def apply_autoroad_connect_plan(
         obj = await _create_infra_object_record(db, project_id=project_id, data=data)
         node_by_key[key] = obj
         created_nodes.append(obj)
+        if pn.terminal_id is not None:
+            access_node_by_terminal[pn.terminal_id] = obj
 
     split_done: set[UUID] = set()
     for sp in plan.splits:
@@ -292,10 +306,21 @@ async def apply_autoroad_connect_plan(
 
     for pl in plan.new_lines:
         n_road += 1
+        start_id = pl.snap_start_object_id
+        if pl.snap_start_terminal_id is not None:
+            access = access_node_by_terminal.get(pl.snap_start_terminal_id)
+            if access is not None:
+                start_id = access.id
+
         finish_id = pl.snap_finish_object_id
-        sk = _coord_key(pl.end_lon, pl.end_lat)
-        if sk in node_by_key:
-            finish_id = node_by_key[sk].id
+        if pl.snap_finish_terminal_id is not None:
+            access = access_node_by_terminal.get(pl.snap_finish_terminal_id)
+            if access is not None:
+                finish_id = access.id
+        else:
+            sk = _coord_key(pl.end_lon, pl.end_lat)
+            if sk in node_by_key:
+                finish_id = node_by_key[sk].id
 
         data = InfraObjectCreate(
             name=f"Автодорога_{n_road}",
@@ -305,7 +330,7 @@ async def apply_autoroad_connect_plan(
             end_lon=pl.end_lon,
             end_lat=pl.end_lat,
             layer_id=layer.id,
-            line_snap_start_object_id=pl.snap_start_object_id,
+            line_snap_start_object_id=start_id,
             line_snap_finish_object_id=finish_id,
         )
         obj = await _create_infra_object_record(db, project_id=project_id, data=data)

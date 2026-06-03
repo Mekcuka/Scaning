@@ -9,6 +9,13 @@ from app.services.autoroad_network.schemas import ExistingAutoroadInput
 from app.services.road_graph import RoadGraph, add_undirected_edge, haversine_km
 
 
+class _PolylineEdgeRef:
+    """Minimal edge handle so ``shortest_path_edges`` can report ``road.id``."""
+
+    def __init__(self, road_id: UUID) -> None:
+        self.id = road_id
+
+
 def _vertex_node_id(road_id: UUID, index: int) -> UUID:
     return uuid.uuid5(uuid.NAMESPACE_URL, f"autoroad-network:{road_id}:{index}")
 
@@ -29,7 +36,7 @@ def build_graph_from_polylines(roads: list[ExistingAutoroadInput]) -> RoadGraph:
             ca, cb = g.coords[a], g.coords[b]
             w = haversine_km(ca[0], ca[1], cb[0], cb[1])
             if w > 0:
-                add_undirected_edge(g, a, b, w)
+                add_undirected_edge(g, a, b, w, db_edge=_PolylineEdgeRef(road.id))
     return g
 
 
