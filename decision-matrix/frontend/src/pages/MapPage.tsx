@@ -1183,7 +1183,7 @@ export function MapPage() {
       });
       pushToast('error', err instanceof Error ? err.message : 'Не удалось удалить объекты');
     },
-    onSettled: async (_data, error) => {
+    onSettled: async () => {
       if (!projectId) return;
       await queryClient.cancelQueries({ queryKey: ['infra', projectId] });
       await queryClient.cancelQueries({ queryKey: ['pois', projectId] });
