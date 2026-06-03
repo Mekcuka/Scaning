@@ -26,6 +26,23 @@ def haversine_km(lon1: float, lat1: float, lon2: float, lat2: float) -> float:
     return r * 2 * math.atan2(math.sqrt(a), math.sqrt(1 - a))
 
 
+def geodesic_midpoint(
+    lon1: float, lat1: float, lon2: float, lat2: float
+) -> tuple[float, float]:
+    """Great-circle midpoint between two WGS84 points."""
+    phi1, lam1 = math.radians(lat1), math.radians(lon1)
+    phi2, lam2 = math.radians(lat2), math.radians(lon2)
+    dlam = lam2 - lam1
+    bx = math.cos(phi2) * math.cos(dlam)
+    by = math.cos(phi2) * math.sin(dlam)
+    phi3 = math.atan2(
+        math.sin(phi1) + math.sin(phi2),
+        math.sqrt((math.cos(phi1) + bx) ** 2 + by**2),
+    )
+    lam3 = lam1 + math.atan2(by, math.cos(phi1) + bx)
+    return math.degrees(lam3), math.degrees(phi3)
+
+
 @dataclass
 class RoadGraph:
     adj: dict[UUID, list[tuple[UUID, float]]] = field(default_factory=dict)

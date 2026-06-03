@@ -38,6 +38,10 @@ import {
   type MapGroupSelectionItem,
 } from '../components/MapGroupSelectionPanel';
 import { isAutoroadNetworkTerminal } from '../lib/autoroadNetwork';
+import {
+  linesFromAutoroadPlanPreview,
+  type AutoroadPlanPreviewLine,
+} from '../lib/autoroadPlanPreview';
 import { MapDisplayModeToggle } from '../components/MapDisplayModeToggle';
 import { MapLayersPanel } from '../components/MapLayersPanel';
 import { ObjectDetailPanel, type SelectedFeature } from '../components/ObjectDetailPanel';
@@ -59,6 +63,7 @@ import {
 } from '../components/MapView';
 import { iconDataUrl } from '../lib/mapIcons';
 import { useMapDisplayMode } from '../hooks/useMapDisplayMode';
+import { useAutoroadConnectConfirm } from '../hooks/useAutoroadConnectConfirm';
 import {
   isMaptilerTerrainAvailable,
   MAP3D_TERRAIN_TOAST_KEY,
@@ -197,6 +202,8 @@ export function lineCoordsOrEndpoints(obj: InfraObject): [number, number][] | nu
 
 export function MapPage() {
   const { canWriteProject, canWriteInfra } = usePermissions();
+  const { requestConfirm: requestAutoroadConfirm, modal: autoroadConfirmModal } =
+    useAutoroadConnectConfirm();
   const canEditMap = canWriteProject || canWriteInfra;
   const { projectId } = useActiveProject();
   const queryClient = useQueryClient();
@@ -240,6 +247,9 @@ export function MapPage() {
   const [drawMode, setDrawMode] = useState<DrawMode>('select');
   const [selectMode, setSelectMode] = useState<SelectMode>('single');
   const [autoroadNetworkTerminalIds, setAutoroadNetworkTerminalIds] = useState<string[]>([]);
+  const [autoroadPlanPreviewLines, setAutoroadPlanPreviewLines] = useState<AutoroadPlanPreviewLine[]>(
+    [],
+  );
   const [selectMenuOpen, setSelectMenuOpen] = useState(false);
   const [selectedPoiId, setSelectedPoiId] = useState<string | null>(null);
   const [lineDraft, setLineDraft] = useState<number[][]>([]);
@@ -326,6 +336,7 @@ export function MapPage() {
     }
     if (drawMode !== 'autoroad_network') {
       setAutoroadNetworkTerminalIds([]);
+      setAutoroadPlanPreviewLines([]);
     }
   }, [drawMode]);
 
@@ -1354,23 +1365,7 @@ export function MapPage() {
         object_ids: objectIds,
         dry_run: true,
       })) as AutoroadConnectResult;
-      const warnLines =
-        preview.warnings.length > 0
-          ? `\n\nПредупреждения: ${preview.warnings.slice(0, 5).join('; ')}`
-          : '';
-      const farCount = preview.terminals.filter((t) => t.warning).length;
-      const farNote =
-        farCount > 0 ? `\nОбъектов вне 300 м от дороги: ${farCount}.` : '';
-      const msg = [
-        `Новых линий: ${preview.new_line_count}, узлов: ${preview.new_node_count}, разрезов: ${preview.split_count}.`,
-        `Длина новых участков: ~${preview.total_new_km.toFixed(2)} км.`,
-        farNote,
-        warnLines,
-        '\n\nПрименить соединение?',
-      ]
-        .filter(Boolean)
-        .join('');
-      if (!window.confirm(msg)) {
+      if (!(await requestAutoroadConfirm(preview, 'connect'))) {
         return null;
       }
       const applyRes = await api.autoroadConnect(projectId!, {
@@ -1421,23 +1416,11 @@ export function MapPage() {
   const runAutoroadNetworkFlow = useMutation({
     mutationFn: async (objectIds: string[]) => {
       const preview = await api.autoroadNetworkPlan(projectId!, { object_ids: objectIds });
-      const warnLines =
-        preview.warnings.length > 0
-          ? `\n\nПредупреждения: ${preview.warnings.slice(0, 5).join('; ')}`
-          : '';
-      const farCount = preview.terminals.filter((t) => t.warning).length;
-      const farNote =
-        farCount > 0 ? `\nОбъектов вне 300 м от дороги: ${farCount}.` : '';
-      const msg = [
-        `Новых линий: ${preview.new_line_count}, узлов: ${preview.new_node_count}, разрезов: ${preview.split_count}.`,
-        `Длина новых участков: ~${preview.total_new_km.toFixed(2)} км.`,
-        farNote,
-        warnLines,
-        '\n\nПрименить соединение?',
-      ]
-        .filter(Boolean)
-        .join('');
-      if (!window.confirm(msg)) return null;
+      setAutoroadPlanPreviewLines(linesFromAutoroadPlanPreview(preview.preview));
+      if (!(await requestAutoroadConfirm(preview, 'network'))) {
+        setAutoroadPlanPreviewLines([]);
+        return null;
+      }
       const applyRes = await api.autoroadNetworkApply(projectId!, { object_ids: objectIds });
       if (isProjectJobCreateResponse(applyRes)) {
         const job = await pollProjectJobUntilDone(projectId!, applyRes.job_id, {
@@ -1448,6 +1431,7 @@ export function MapPage() {
       return applyRes;
     },
     onSuccess: (result) => {
+      setAutoroadPlanPreviewLines([]);
       if (!result) return;
       void queryClient.invalidateQueries({ queryKey: ['activeJob', projectId] });
       const createdIds = [...(result.created_line_ids ?? []), ...(result.created_node_ids ?? [])];
@@ -1470,6 +1454,7 @@ export function MapPage() {
       invalidateMap();
     },
     onError: (err) => {
+      setAutoroadPlanPreviewLines([]);
       pushToast('error', err instanceof Error ? err.message : 'Не удалось построить сеть');
     },
   });
@@ -3418,6 +3403,7 @@ export function MapPage() {
             thresholdCircles={thresholdCircles}
             draftLine={lineDraft}
             draftLinePreview={lineDraftPreview}
+            autoroadPlanPreviewLines={autoroadPlanPreviewLines}
             measureLine={rulerPoints}
             measurePreview={rulerPreview}
             measureCompletedLines={rulerCompleted}
@@ -3548,6 +3534,8 @@ export function MapPage() {
             </div>
           </div>
       </div>
+
+      {autoroadConfirmModal}
 
       {deleteConfirm && (
         <AppModal

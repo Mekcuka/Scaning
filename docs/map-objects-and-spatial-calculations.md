@@ -228,17 +228,18 @@ flowchart LR
 
 **Режимы UI:** (1) **«Построить сеть»** — пошаговый выбор терминалов, `POST .../autoroad-network/plan|apply`; (2) **групповое выделение** — **«Соединить автодорогами»**, `POST .../infrastructure/autoroad-connect` (deprecated, тот же planner). Код: `app/services/autoroad_network/plan_core.py`, apply — `autoroad_connect.py`, граф — `road_graph.py`.
 
-**Алгоритм (оба режима):**
+**Алгоритм (оба режима, `plan_core.py`):**
 
-1. Пересборка топологии (`build_network_from_lines`), граф по рёбрам `autoroad` (вес = `length_km`).
-2. **Нет дорог на карте:** MST прямых `link` между координатами (2 объекта — одна общая линия); ≤1 `line_snap` на терминал.
-3. **Есть polylines:** на каждый терминал — **≤1** `connector` object→**ближайшая** точка на полилинии (без лимита 300 m; warning `far_from_autoroad` при >0,3 km). **Нет** прямых `link` object↔object.
-4. **Уже подключён** (конец `autoroad` в ≤20 m от объекта) — подъезд не создавать (`already_connected`).
-5. **Разрыв сети:** MST по компонентам графа; новые `link` только **между snap-точками** на линиях; в одной компоненте — путь по `used_existing_edge_ids`.
-6. **Apply:** `line_preserve_geometry`; junction/intersection через `node_by_key`.
-7. **Перекрёстки** — `intersection` + `line_split`; preview при `dry_run`.
+1. Пересборка топологии при apply (`build_network_from_lines`), граф по рёбрам `autoroad` (вес = `length_km`).
+2. **Связность:** все выбранные терминалы должны оказаться в **одной** связной сети; иначе предупреждение `terminals_not_connected`.
+3. **Терминал не перекрёсток:** ≤1 автодорога с привязкой к объекту; стыки нескольких дорог — только в `subtype=node` (junction / intersection).
+4. **Нет дорог на карте:** 2 терминала — `link` Т↔Т; **3+** — MST + Steiner: `●` на ребре; степень 2 — магистраль `●—●`; степень ≥3 — hub `J_T` и звезда; после упрощения коллинеарной магистрали — **`_repair_planned_line_topology`** (узел `●` и разрез сегмента при Т-примыкании под 90°); preview на карте до apply; `acute_bend_deg` при острых углах.
+5. **Есть polylines:** на каждый терминал — **≤1** `connector` object→**ближайшая** точка на полилинии (warning `far_from_autoroad` при >0,3 km, подъезд всё равно). **Нет** прямых `link` object↔object.
+6. **Уже подключён** (конец `autoroad` в ≤20 m) — подъезд не создавать (`already_connected`).
+7. **Разрыв сети:** MST **мостов** между компонентами; новые `link` только **между snap** на линиях; в одной компоненте — путь по `used_existing_edge_ids` (Dijkstra).
+8. **Apply:** `line_preserve_geometry`; junction/intersection через `node_by_key`; preview при `dry_run`.
 
-Подробности — [autoroad-network-plan.md](./autoroad-network-plan.md) §0, §5.
+Подробности, схемы и UX — [autoroad-network-plan.md](./autoroad-network-plan.md).
 
 Лимит: до **50** `object_ids` в запросе. Отмена на карте (Ctrl+Z) — удаление созданных линий и узлов (`create_clipboard_group` → batch delete). Расчётные `InfrastructureNode` в БД по-прежнему **не отображаются** на карте; для перекрёстков нужны объекты **`node`**.
 
@@ -697,7 +698,8 @@ sequenceDiagram
 | 2026-06 | §1.9: фоновые задачи проекта (`project_jobs`, Redis + ARQ, worker); сериализация по `project_id` |
 | 2026-06 | [autoroad-network-plan.md](./autoroad-network-plan.md): план выделенного сервиса plan API, BFF, UI «Построить сеть» |
 | 2026-06 | §1.8: серверное соединение точек автодорогами (`autoroad-connect`, `road_graph`, `line_split`); UI в панели группового выделения |
-| 2026-06 | §1.8: MST на всех терминалах, `min(сеть, прямая)`; новые `link` без нарисованных дорог; UI «Построить сеть» |
+| 2026-06 | §1.8: качество Steiner (MST по ●, geodesic midpoint, collinear simplify) |
+| 2026-06 | §1.8: MST + Steiner без дорог, обязательная связность, `terminals_not_connected` |
 | 2026-06 | §6.1.2: rAF pointermove, spatial hit-test, точечный hover, memo MapView, idle sync слоя, LOD default 1:500 000, perf checklist |
 | 2026-06 | §6.1.2: throttling bbox, синхронизация full+bbox кэшей при CRUD/геометрии (`mapQueries`), overlay merge; footer без координат курсора |
 | 2026-06 | §6.1.1: групповое перемещение с привязкой линий (`mapGroupLinePatches`, merge концов, `translating` + resync слоя); §1.5 ссылка на batch |

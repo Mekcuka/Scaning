@@ -231,6 +231,8 @@ export interface MapViewProps {
   draftLine?: number[][];
   /** Dashed segment from last draft vertex to cursor (line draw mode). */
   draftLinePreview?: [number, number] | null;
+  /** Autoroad network plan overlay (before apply). */
+  autoroadPlanPreviewLines?: { coordinates: number[][]; kind: string }[];
   /** Active measure polyline (lon/lat vertices). */
   measureLine?: number[][];
   measurePreview?: [number, number] | null;
@@ -502,6 +504,7 @@ function MapViewInner({
   thresholdCircles = [],
   draftLine = [],
   draftLinePreview = null,
+  autoroadPlanPreviewLines = [],
   measureLine = [],
   measurePreview = null,
   measureCompletedLines = [],
@@ -659,6 +662,16 @@ function MapViewInner({
         if (subtype === 'measure') {
           return new Style({
             stroke: new Stroke({ color: '#c45c00', width: 2.5, lineDash: [8, 6] }),
+          });
+        }
+        if (subtype === 'autoroad-plan-link') {
+          return new Style({
+            stroke: new Stroke({ color: '#7b1fa2', width: 3, lineDash: [10, 6] }),
+          });
+        }
+        if (subtype === 'autoroad-plan-connector') {
+          return new Style({
+            stroke: new Stroke({ color: '#e65100', width: 2.5, lineDash: [6, 6] }),
           });
         }
         const id = feature.get('id') as string;
@@ -1873,7 +1886,9 @@ function MapViewInner({
       .filter((f) =>
         f.get('subtype') === 'draft' ||
         f.get('subtype') === 'draft-preview' ||
-        f.get('subtype') === 'draft-point'
+        f.get('subtype') === 'draft-point' ||
+        f.get('subtype') === 'autoroad-plan-link' ||
+        f.get('subtype') === 'autoroad-plan-connector'
       )
       .forEach((f) => lines.removeFeature(f));
 
@@ -1938,7 +1953,26 @@ function MapViewInner({
         })
       );
     }
-  }, [draftLine, draftLinePreview, measureLine, measurePreview, measureCompletedLines]);
+
+    autoroadPlanPreviewLines.forEach((pl, i) => {
+      if (pl.coordinates.length < 2) return;
+      const subtype = pl.kind === 'connector' ? 'autoroad-plan-connector' : 'autoroad-plan-link';
+      lines.addFeature(
+        new Feature({
+          geometry: new LineString(pl.coordinates.map((c) => fromLonLat([c[0], c[1]]))),
+          subtype,
+          id: `autoroad-plan-${i}`,
+        })
+      );
+    });
+  }, [
+    draftLine,
+    draftLinePreview,
+    measureLine,
+    measurePreview,
+    measureCompletedLines,
+    autoroadPlanPreviewLines,
+  ]);
 
   useEffect(() => {
     const map = mapRef.current;

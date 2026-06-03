@@ -27,7 +27,7 @@
 
 ### Autoroad Network (планировщик)
 
-**Stateless** plan: терминалы + полилинии `autoroad` → MST на всех терминалах с метрикой `min(путь по графу, прямая)` → новые линии (`link`, `connector`), узлы на перекрёстках, разрезы. BFF загружает snapshot из БД, вызывает `plan_core` (in-process) или HTTP-сервис `:8001`, применяет в транзакции (`apply`, job `autoroad_connect`, `build_network_from_lines`). См. [autoroad-network-plan.md](./autoroad-network-plan.md).
+**Stateless** plan (`plan_core`): терминалы + полилинии `autoroad` → **связная** сеть. Без дорог: 2 `Т` — `link`; 3+ — **MST + Steiner** (`_plan_off_network_steiner_mst`). С дорогами: подъезды к snap, Dijkstra, MST-мосты snap↔snap. Терминал не перекрёсток; `terminals_not_connected`; ≤1 autoroad на объект. BFF → `plan` / `apply` + job `autoroad_connect`. См. [autoroad-network-plan.md](./autoroad-network-plan.md).
 
 ```
 MapPage ──► BFF /autoroad-network/plan|apply ──► Autoroad Network Service

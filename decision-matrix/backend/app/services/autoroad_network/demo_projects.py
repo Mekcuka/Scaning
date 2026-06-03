@@ -57,7 +57,7 @@ DEMO_SCENARIOS: tuple[AutoroadNetworkDemoScenario, ...] = (
         title="2 объекта без дорог",
         description=(
             "Два куста без существующей сети: одна прямая autoroad между объектами "
-            "(результат MST для пары терминалов)."
+            "(одна прямая autoroad между терминалами)."
         ),
         objects=(
             _InfraSpec("a", "Куст А", "oil_pad", 37.600, 55.750),
@@ -68,7 +68,7 @@ DEMO_SCENARIOS: tuple[AutoroadNetworkDemoScenario, ...] = (
     AutoroadNetworkDemoScenario(
         slug="off_network_three",
         title="3 объекта без дорог",
-        description="Три объекта без дорог: MST из двух прямых участков, у каждого объекта не более одной привязки.",
+        description="Три объекта без дорог: MST с узлами на рёбрах, по одному подъезду на объект.",
         objects=(
             _InfraSpec("a", "Куст-1", "oil_pad", 37.600, 55.750),
             _InfraSpec("b", "Куст-2", "refinery", 37.620, 55.750),

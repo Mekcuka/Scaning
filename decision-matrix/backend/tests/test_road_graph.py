@@ -7,6 +7,8 @@ from app.services.road_graph import (
     RoadGraph,
     add_undirected_edge,
     dijkstra_with_prev,
+    geodesic_midpoint,
+    haversine_km,
     mst_terminal_edges,
     shortest_path_nodes,
 )
@@ -29,6 +31,14 @@ def test_dijkstra_with_prev_path():
     assert dist[ids[3]] == 4.0
     path = shortest_path_nodes(prev, ids[0], ids[3])
     assert path == ids
+
+
+def test_geodesic_midpoint_between_endpoints():
+    lon1, lat1 = 37.60, 55.75
+    lon2, lat2 = 37.64, 55.75
+    mlon, mlat = geodesic_midpoint(lon1, lat1, lon2, lat2)
+    assert haversine_km(lon1, lat1, mlon, mlat) < haversine_km(lon1, lat1, lon2, lat2)
+    assert haversine_km(mlon, mlat, lon2, lat2) < haversine_km(lon1, lat1, lon2, lat2)
 
 
 def test_mst_three_terminals():
