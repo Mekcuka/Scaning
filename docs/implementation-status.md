@@ -64,7 +64,7 @@
 | Схема потоков | `api/v1/flow.py`, `fluid_flow_schematic.py`, `flow_schematic_merge.py` | ✅ |
 | Песок / логистика | `api/v1/sand_logistics.py`, `sand_logistics.py`, `sand_logistics_store.py` | ✅ (результат в БД; схема: timeline, полная топология на любом годе, layout/slice, адаптивные отступы) |
 | Экономика потоков | `economic_flow_schematic.py`, `economic_rates.py` | ✅ |
-| Автосеть автодорог | `plan_core`: узел доступа 50 м + MST по узлам; `connector`/`network_tie`/`link`; BFF `autoroad-network/plan|apply`; job `autoroad_connect` | ✅ |
+| Автосеть автодорог | `plan_core`: MST + ≤1 autoroad на терминал; `connector`/`link`; BFF `autoroad-network/plan|apply`; job `autoroad_connect` | ✅ |
 | Autoroad Network Service (HTTP :8001) | `services/autoroad-network/` | ⬜ опционально (`AUTOROAD_NETWORK_INPROCESS=false`) |
 | UI «Построить сеть» | `MapPage` drawMode `autoroad_network`, `AutoroadNetworkPanel`, `lib/autoroadNetwork.ts` | ✅ |
 
@@ -157,7 +157,7 @@
 
 ## Тестирование и CI
 
-- Backend: `tests/test_admin_jobs.py` (admin list/cancel/health HTTP), `tests/test_job_queue.py` (очередь `decision-matrix`), `tests/test_project_jobs.py`; `tests/test_autoroad_network_plan.py`, `tests/test_autoroad_connect.py` (узел доступа 50 m, MST по access-точкам, plan/apply).
+- Backend: `tests/test_admin_jobs.py` (admin list/cancel/health HTTP), `tests/test_job_queue.py` (очередь `decision-matrix`), `tests/test_project_jobs.py`; `tests/test_autoroad_network_plan.py`, `tests/test_autoroad_connect.py` (MST, ≤1 autoroad на терминал, plan/apply).
 - Frontend: `AdminJobsPage.test.tsx` (журнал, кнопка «Отменить» только для активных задач); `mapFeatureGeometrySync.test.ts` (drag точки/линии, methanol_facility).
 - GitHub Actions: [`.github/workflows/ci.yml`](../.github/workflows/ci.yml) — lint, unit, coverage gates, E2E.
 - Husky / lint-staged в корне — **не** настроены ([development-plan.md](./development-plan.md) этап 1).

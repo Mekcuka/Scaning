@@ -5,7 +5,7 @@
 
 **Связанные документы:** [map-objects-and-spatial-calculations.md](./map-objects-and-spatial-calculations.md) §1.8–§1.9, [user-flows.md](./user-flows.md) §2.0.2–§2.0.4, [architecture.md](./architecture.md), [implementation-status.md](./implementation-status.md), [DEPLOY.md](../DEPLOY.md).
 
-**Цель:** связать **все** выбранные терминалы по цепочке **объект → узел доступа (~50 м) → автодорога → узел → объект**: MST по координатам узлов доступа; существующие `autoroad` без дублирования; перекрёстки — `node` (`reason=intersection`). Реализация — **самостоятельный сервис** с явным API «вход → план → выход»; BFF и запись в БД.
+**Цель:** связать **все** выбранные терминалы через MST по координатам объектов / существующей сети `autoroad`; **не более одной** новой линии `autoroad` с привязкой (`line_snap`) к каждому объекту; перекрёстки — `node` (`reason=intersection`). Реализация — **самостоятельный сервис** с явным API «вход → план → выход»; BFF и запись в БД.
 
 ---
 
@@ -17,11 +17,11 @@
 | Контракт | **Plan (stateless):** геометрия сети + терминалы на входе, план новых линий/узлов на выходе |
 | Persist | **BFF монолита** после plan: транзакция, `line_split`, `build_network_from_lines`, jobs |
 | Терминалы | Все точечные подтипы **кроме** `NODE_CLUSTER_SUBTYPES`: `node`, `methanol_joint`, `power_line_node` |
-| Узел доступа | `subtype=node`, **50 м** (`access_node_offset_km=0.05`) от терминала к snap/центроиду остальных; `reason=terminal_access` |
+| Подключение к объекту | **Не более одной** новой `autoroad` с `line_snap` на терминал за запуск |
 | Перекрёстки | `subtype=node`, `reason=intersection`, дедуп ~**0,05 км** |
 | POI | Не терминалы (`points_of_interest` вне scope) |
-| Snap к автодороге | **0,3 км**; вне допуска — `warning`, MST по прямым `link` между **узлами доступа** |
-| Метрика MST | Между узлами доступа: путь по графу `autoroad` (если связаны) иначе прямая `link` |
+| Snap к автодороге | **0,3 км**; вне допуска — `warning`, MST по прямым `link` между координатами |
+| Метрика MST | Между терминалами: `min(путь по графу autoroad, прямая haversine)` |
 | Лимит | До **50** терминалов за запуск |
 | Геометрия новых участков | Прямые сегменты в lon/lat (без рельефа) |
 | UI | Режим **«Построить сеть автодорог»** (пошаговый выбор точек на карте) |
@@ -87,7 +87,6 @@ decision-matrix/
 | Роль | Подтипы | Кто создаёт |
 |------|---------|-------------|
 | **Терминал (выбирает пользователь)** | Все `POINT`, кроме `node`, `methanol_joint`, `power_line_node` | Уже на карте |
-| **Узел доступа** | `node` | Алгоритм: **50 м** от терминала (`terminal_access`) |
 | **Узел перекрёстка** | `node` | Алгоритм при пересечении новой линии с существующей (`intersection`) |
 | **Не терминал** | POI, все `LINE_*`, расчётные `InfrastructureNode` (не рисуются на карте) | — |
 
@@ -124,7 +123,6 @@ decision-matrix/
   "options": {
     "snap_tolerance_km": 0.3,
     "node_dedup_km": 0.05,
-    "access_node_offset_km": 0.05,
     "max_terminals": 50
   }
 }
@@ -152,18 +150,17 @@ decision-matrix/
   "new_lines": [
     {
       "kind": "connector",
-      "coordinates": [[37.6, 55.75], [37.6004, 55.7502]],
-      "snap_start_object_id": "660e8400-e29b-41d4-a716-446655440001",
-      "snap_finish_terminal_id": "660e8400-e29b-41d4-a716-446655440001"
+      "coordinates": [[37.6, 55.75], [37.601, 55.751]],
+      "snap_start_object_id": "660e8400-e29b-41d4-a716-446655440001"
     },
     {
-      "kind": "network_tie",
-      "coordinates": [[37.6004, 55.7502], [37.601, 55.751]],
-      "snap_start_terminal_id": "660e8400-e29b-41d4-a716-446655440001"
+      "kind": "link",
+      "coordinates": [[37.60, 55.75], [37.64, 55.76]],
+      "snap_start_object_id": "660e8400-e29b-41d4-a716-446655440001",
+      "snap_finish_object_id": "770e8400-e29b-41d4-a716-446655440003"
     }
   ],
   "new_nodes": [
-    { "lon": 37.6004, "lat": 55.7502, "reason": "terminal_access", "terminal_id": "660e8400-e29b-41d4-a716-446655440001" },
     { "lon": 37.62, "lat": 55.76, "reason": "intersection" }
   ],
   "splits": [
@@ -186,12 +183,14 @@ decision-matrix/
 
 | Поле | Смысл |
 |------|--------|
-| `new_lines[].kind` | `connector` (объект→узел ~50 м) \| `network_tie` (узел→snap на дороге) \| `link` (MST между узлами доступа) \| `bridge` (legacy) |
-| `new_nodes` | `terminal_access` (узел у терминала) \| `intersection` (перекрёсток) |
+| `new_lines[].kind` | `connector` (объект→snap, если >20 m) \| `link` (MST; snap к объектам только если у терминала ещё нет линии) \| `bridge` (legacy) |
+| `new_nodes` | `intersection` (перекрёсток) |
 | `splits` | Разрез существующих `autoroad` в точке пересечения |
 | `warnings` | `too_far_from_autoroad` (терминал вне snap, но участвует в MST по прямой), `no_autoroad_polylines`, … |
 
-**Пример без сети на карте:** два терминала, `existing_autoroads: []` → одна линия `kind: "link"` между координатами объектов, `used_existing_edge_ids: []`.
+**Пример без сети на карте:** два терминала, `existing_autoroads: []` → **одна** линия `kind: "link"` с `snap_start_object_id` и `snap_finish_object_id`, `used_existing_edge_ids: []`.
+
+**Пример трёх терминалов без дорог:** две линии `link` (MST); у каждого объекта ровно **одна** линия с его `line_snap` — у терминала с degree 2 вторая линия сходится геометрически в его координаты без повторного snap.
 
 **Опционально позже:** `GET /v1/health`, `GET /v1/meta/eligible-terminal-subtypes`.
 
@@ -233,8 +232,8 @@ Frontend и внешние клиенты вызывают **только BFF** 
 2. **Snap** каждого терминала к ближайшей точке на полилинии; дальше `snap_tolerance_km` → `warning`, но терминал **всё равно** участвует в MST.
 3. **MST** (Крускал) на **всех** выбранных терминалах. Стоимость ребра `(A, B)` = `min(кратчайший путь по графу, прямая haversine)` — если сеть короче, используется она; иначе строится новый участок.
 4. Ребро MST по **графу** — пути по существующим рёбрам **не создают** новых линий (`used_existing_edge_ids`).
-5. Ребро MST **прямое** (`kind=link`) — новая `autoroad` между координатами терминалов; `snap_start` / `snap_finish` на объекты.
-6. **Подъезды** (`connector`) — от координат объекта до точки snap, если объект дальше ~20 м от дороги.
+5. Ребро MST **прямое** (`kind=link`) — новая `autoroad`; `snap_start` / `snap_finish` на объекты только если у терминала ещё нет другой линии с его snap (для двух объектов без дорог — одна общая линия с обоими snap).
+6. **Подъезды** (`connector`) — от объекта до точки snap на дороге, если объект дальше ~20 m; **не более одного** connector с snap на терминал.
 7. **Перекрёстки** — пересечение новых участков с существующими линиями: `new_nodes` + `splits` (плоская lon/lat).
 8. BFF при apply: транзакция, создание объектов, `line_split`, снова `build_network_from_lines`.
 

@@ -56,8 +56,6 @@ def plan_response_to_connect_plan(
                 end_lat=ln.coordinates[-1][1],
                 snap_start_object_id=ln.snap_start_object_id,
                 snap_finish_object_id=ln.snap_finish_object_id,
-                snap_start_terminal_id=ln.snap_start_terminal_id,
-                snap_finish_terminal_id=ln.snap_finish_terminal_id,
                 kind=ln.kind,
             )
         )
@@ -78,7 +76,6 @@ def plan_response_to_connect_plan(
                 lon=nd.lon,
                 lat=nd.lat,
                 reason=nd.reason,
-                terminal_id=nd.terminal_id,
             )
         )
 

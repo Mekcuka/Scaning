@@ -3,14 +3,21 @@
 import asyncio
 from uuid import uuid4
 
-from app.services.autoroad_network.access_nodes import destination_toward_km
-from app.services.autoroad_network.plan_core import plan_from_request
+from app.services.autoroad_network.plan_core import (
+    _object_snap_count,
+    plan_from_request,
+)
 from app.services.autoroad_network.schemas import (
     ExistingAutoroadInput,
     NetworkPlanRequest,
     PlanTerminalInput,
 )
-from app.services.road_graph import haversine_km
+
+
+def _assert_one_autoroad_per_terminal(out, terminal_ids):
+    for tid in terminal_ids:
+        assert _object_snap_count(out.new_lines, tid) <= 1
+    assert not any("multiple_autoroad_connections" in w for w in out.warnings)
 
 
 def test_plan_rejects_node_cluster():
@@ -28,7 +35,7 @@ def test_plan_rejects_node_cluster():
     assert "excluded_terminal_subtype" in "".join(out.warnings)
 
 
-def test_plan_two_terminals_no_road_builds_access_topology():
+def test_plan_two_terminals_no_road_single_link():
     p1 = uuid4()
     p2 = uuid4()
     req = NetworkPlanRequest(
@@ -40,26 +47,35 @@ def test_plan_two_terminals_no_road_builds_access_topology():
         existing_autoroads=[],
     )
     out = plan_from_request(req)
-    assert "insufficient_snapped_terminals" not in out.warnings
-    access_nodes = [n for n in out.new_nodes if n.reason == "terminal_access"]
-    assert len(access_nodes) == 2
-    connectors = [ln for ln in out.new_lines if ln.kind == "connector"]
-    assert len(connectors) == 2
-    link = next(ln for ln in out.new_lines if ln.kind == "link")
-    assert link.snap_start_terminal_id == p1
-    assert link.snap_finish_terminal_id == p2
-    assert link.snap_start_object_id is None
-    assert link.snap_finish_object_id is None
-    t1 = next(tr for tr in out.terminals if tr.id == p1)
-    dist = haversine_km(37.60, 55.75, t1.access_lon, t1.access_lat)
-    assert 0.045 <= dist <= 0.055
+    assert len(out.new_lines) == 1
+    link = out.new_lines[0]
+    assert link.kind == "link"
+    assert link.snap_start_object_id == p1
+    assert link.snap_finish_object_id == p2
+    assert not out.new_nodes
+    _assert_one_autoroad_per_terminal(out, [p1, p2])
 
 
-def test_access_node_offset_50m():
-    lon, lat = 37.60, 55.75
-    target_lon, target_lat = 37.64, 55.76
-    alon, alat = destination_toward_km(lon, lat, target_lon, target_lat, 0.05)
-    assert 0.045 <= haversine_km(lon, lat, alon, alat) <= 0.055
+def test_plan_three_terminals_one_autoroad_per_object():
+    p1 = uuid4()
+    p2 = uuid4()
+    p3 = uuid4()
+    req = NetworkPlanRequest(
+        project_id=uuid4(),
+        terminals=[
+            PlanTerminalInput(id=p1, subtype="gas_processing", name="A", lon=37.60, lat=55.75),
+            PlanTerminalInput(id=p2, subtype="refinery", name="B", lon=37.62, lat=55.75),
+            PlanTerminalInput(id=p3, subtype="oil_pad", name="C", lon=37.64, lat=55.75),
+        ],
+        existing_autoroads=[],
+    )
+    out = plan_from_request(req)
+    links = [ln for ln in out.new_lines if ln.kind == "link"]
+    assert len(links) == 2
+    _assert_one_autoroad_per_terminal(out, [p1, p2, p3])
+    assert _object_snap_count(out.new_lines, p1) == 1
+    assert _object_snap_count(out.new_lines, p2) == 1
+    assert _object_snap_count(out.new_lines, p3) == 1
 
 
 def test_plan_two_terminals_on_road_uses_graph():
@@ -84,10 +100,34 @@ def test_plan_two_terminals_on_road_uses_graph():
     assert len(attached) >= 2
     assert len(out.used_existing_edge_ids) >= 1
     assert not any(ln.kind == "link" for ln in out.new_lines)
-    assert len([n for n in out.new_nodes if n.reason == "terminal_access"]) == 2
+    assert not any(n.reason == "terminal_access" for n in out.new_nodes)
+    _assert_one_autoroad_per_terminal(out, [p1, p2])
 
 
-def test_plan_methanol_facility_has_access_node():
+def test_plan_two_on_road_no_duplicate_connectors():
+    road_id = uuid4()
+    p1 = uuid4()
+    p2 = uuid4()
+    req = NetworkPlanRequest(
+        project_id=uuid4(),
+        terminals=[
+            PlanTerminalInput(id=p1, subtype="gas_processing", name="A", lon=37.60, lat=55.751),
+            PlanTerminalInput(id=p2, subtype="refinery", name="B", lon=37.64, lat=55.751),
+        ],
+        existing_autoroads=[
+            ExistingAutoroadInput(
+                id=road_id,
+                coordinates=[[37.60, 55.75], [37.64, 55.75]],
+            )
+        ],
+    )
+    out = plan_from_request(req)
+    connectors = [ln for ln in out.new_lines if ln.kind == "connector"]
+    assert len(connectors) <= 2
+    _assert_one_autoroad_per_terminal(out, [p1, p2])
+
+
+def test_plan_methanol_facility_off_network_single_link():
     p1 = uuid4()
     p2 = uuid4()
     req = NetworkPlanRequest(
@@ -101,7 +141,9 @@ def test_plan_methanol_facility_has_access_node():
         existing_autoroads=[],
     )
     out = plan_from_request(req)
-    assert any(n.reason == "terminal_access" and n.terminal_id == p1 for n in out.new_nodes)
+    assert len(out.new_lines) == 1
+    assert out.new_lines[0].snap_start_object_id == p1
+    assert out.new_lines[0].snap_finish_object_id == p2
 
 
 def test_build_connect_plan_integration():
@@ -174,4 +216,4 @@ async def _test_build_connect_integration():
         plan = await build_autoroad_connect_plan(db, project.id, [p1.id, p2.id])
         snapped = [t for t in plan.terminals if t.graph_node_id]
         assert len(snapped) >= 2
-        assert len([n for n in plan.new_nodes if n.reason == "terminal_access"]) == 2
+        assert not any(n.reason == "terminal_access" for n in plan.new_nodes)

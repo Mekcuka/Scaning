@@ -23,7 +23,6 @@ class ExistingAutoroadInput(BaseModel):
 class PlanOptionsInput(BaseModel):
     snap_tolerance_km: float = 0.3
     node_dedup_km: float = 0.05
-    access_node_offset_km: float = 0.05
     max_terminals: int = 50
 
 
@@ -40,8 +39,6 @@ class PlanTerminalResult(BaseModel):
     warning: str | None = None
     snap_lon: float | None = None
     snap_lat: float | None = None
-    access_lon: float | None = None
-    access_lat: float | None = None
     graph_attached: bool = False
     graph_node_id: str | None = None
 
@@ -51,15 +48,12 @@ class PlannedLineOut(BaseModel):
     coordinates: list[list[float]]
     snap_start_object_id: UUID | None = None
     snap_finish_object_id: UUID | None = None
-    snap_start_terminal_id: UUID | None = None
-    snap_finish_terminal_id: UUID | None = None
 
 
 class PlannedNodeOut(BaseModel):
     lon: float
     lat: float
     reason: str = "intersection"
-    terminal_id: UUID | None = None
 
 
 class PlannedSplitOut(BaseModel):
