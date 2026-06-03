@@ -330,6 +330,7 @@ jobs:
           docker compose pull
           docker compose up -d --remove-orphans
           docker compose exec -T api python seed.py || true
+          docker compose exec -T api python seed_autoroad_network_demos.py || true
           REMOTE
 
       - name: Smoke health check

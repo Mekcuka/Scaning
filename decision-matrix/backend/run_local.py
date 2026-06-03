@@ -52,6 +52,7 @@ def main():
     asyncio.run(init_db())
     print("Seeding demo data...")
     subprocess.run([sys.executable, "seed.py"], cwd=BACKEND_DIR, check=True)
+    subprocess.run([sys.executable, "seed_autoroad_network_demos.py"], cwd=BACKEND_DIR, check=True)
     free_listening_port(LOCAL_PORT)
     print(f"Starting backend on http://localhost:{LOCAL_PORT}")
     subprocess.run(

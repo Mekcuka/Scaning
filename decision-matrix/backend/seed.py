@@ -46,14 +46,20 @@ async def seed():
         if existing_project:
             if existing_project.visibility != "published":
                 existing_project.visibility = "published"
+            from app.services.autoroad_network.demo_projects import ensure_autoroad_network_demo_projects
+
+            created_demos = await ensure_autoroad_network_demo_projects(db)
             await db.commit()
             if created_users:
                 print("Added demo users:", ", ".join(created_users))
             else:
                 print("Demo users already present")
+            if created_demos:
+                print("Created autoroad network demos:", ", ".join(created_demos))
             print("Demo accounts:")
             for email, _, role, password in DEMO_USERS:
                 print(f"  {email} / {password} ({role.value})")
+            print("Run seed_autoroad_network_demos.py to list demo project URLs.")
             return
 
         if created_users:
@@ -131,6 +137,12 @@ async def seed():
         for email, _, role, password in DEMO_USERS:
             print(f"  {email} / {password} ({role.value})")
         print(f"Published project id: {project.id}")
+
+        from app.services.autoroad_network.demo_projects import ensure_autoroad_network_demo_projects
+
+        created_demos = await ensure_autoroad_network_demo_projects(db)
+        if created_demos:
+            print("Autoroad network demos:", ", ".join(created_demos))
 
 
 if __name__ == "__main__":
