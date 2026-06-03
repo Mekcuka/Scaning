@@ -157,7 +157,7 @@
 
 ## Тестирование и CI
 
-- Backend: `tests/test_admin_jobs.py` (admin list/cancel/health HTTP), `tests/test_job_queue.py` (очередь `decision-matrix`), `tests/test_project_jobs.py`.
+- Backend: `tests/test_admin_jobs.py` (admin list/cancel/health HTTP), `tests/test_job_queue.py` (очередь `decision-matrix`), `tests/test_project_jobs.py`; `tests/test_autoroad_network_plan.py`, `tests/test_autoroad_connect.py` (узел доступа 50 m, MST по access-точкам, plan/apply).
 - Frontend: `AdminJobsPage.test.tsx` (журнал, кнопка «Отменить» только для активных задач); `mapFeatureGeometrySync.test.ts` (drag точки/линии, methanol_facility).
 - GitHub Actions: [`.github/workflows/ci.yml`](../.github/workflows/ci.yml) — lint, unit, coverage gates, E2E.
 - Husky / lint-staged в корне — **не** настроены ([development-plan.md](./development-plan.md) этап 1).
