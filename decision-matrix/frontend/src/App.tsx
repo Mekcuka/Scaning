@@ -7,6 +7,8 @@ import { ProtectedRoute } from './components/ProtectedRoute';
 import { RoleProtectedRoute } from './components/RoleProtectedRoute';
 import { RouteFallback } from './routes/lazyPages';
 import {
+  AdminJobsPage,
+  AdminLayout,
   AdminUsersPage,
   DashboardPage,
   EntryDatesParametersPage,
@@ -74,7 +76,11 @@ function AppRoutes() {
                   </Route>
                   <Route path="/import-3d" element={<Import3DPage />} />
                   <Route element={<RoleProtectedRoute roles={['admin']} />}>
-                    <Route path="/admin" element={<AdminUsersPage />} />
+                    <Route path="/admin" element={<AdminLayout />}>
+                      <Route index element={<Navigate to="/admin/users" replace />} />
+                      <Route path="users" element={<AdminUsersPage />} />
+                      <Route path="jobs" element={<AdminJobsPage />} />
+                    </Route>
                   </Route>
                 </Route>
               </Route>

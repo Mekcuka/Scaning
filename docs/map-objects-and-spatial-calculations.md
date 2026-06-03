@@ -250,7 +250,7 @@ flowchart LR
 
 **Сериализация:** не более **одной** активной задачи (`pending` / `running`) на `project_id` — второй запрос → **409** с `active_job_id`. В воркере дополнительно `pg_advisory_xact_lock` на проект.
 
-**API:** `POST /projects/{id}/jobs`, `GET /projects/{id}/jobs/{job_id}`, `GET /projects/{id}/jobs/active`. Существующие endpoint (`autoroad-connect` apply, `sand-logistics/analyze`, `pois/analyze-all`, `import/*/async`) при включённой очереди возвращают **202** и `{ job_id, job_type, status }`; UI опрашивает job до `completed` и читает `result`.
+**API:** `POST /projects/{id}/jobs`, `GET /projects/{id}/jobs/{job_id}`, `GET /projects/{id}/jobs/active`, `POST /projects/{id}/jobs/{job_id}/cancel`. Для **admin:** `GET /admin/jobs`, `GET /admin/jobs/health`, `POST /admin/jobs/{id}/cancel` (UI: `/admin/jobs`). Существующие endpoint (`autoroad-connect` apply, `sand-logistics/analyze`, `pois/analyze-all`, `import/*/async`) при включённой очереди возвращают **202** и `{ job_id, job_type, status }`; UI опрашивает job до `completed` и читает `result`.
 
 **Preview** autoroad (`dry_run: true`) остаётся **синхронным** в HTTP. Локально без Redis: `JOBS_SYNC_FALLBACK=true` — задачи в `asyncio.create_task` в процессе API. Deploy: [DEPLOY.md](../DEPLOY.md) — сервисы `redis` и `worker`.
 

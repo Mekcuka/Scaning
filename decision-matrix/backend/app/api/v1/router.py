@@ -8,6 +8,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.api.deps import get_current_user, verify_csrf
 from app.api.rbac import require_roles
 from app.api.v1.admin import admin_router
+from app.api.v1.admin_jobs import admin_jobs_router
 from app.api.v1.auth import auth_router
 from app.core.database import get_db
 from app.models import (
@@ -51,6 +52,7 @@ from app.services.serializers import load_project_owners, poi_to_response, proje
 router = APIRouter(dependencies=[Depends(verify_csrf)])
 router.include_router(auth_router)
 router.include_router(admin_router)
+router.include_router(admin_jobs_router)
 router.include_router(one_pagers_router)
 router.include_router(map_router)
 router.include_router(graph_router)

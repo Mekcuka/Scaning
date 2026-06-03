@@ -13,6 +13,8 @@ from app.core.config import settings
 from app.core.database import async_session
 from app.models import ImportLog, ProjectJob
 from app.services.project_jobs import (
+    JOB_STATUS_PENDING,
+    JOB_STATUS_RUNNING,
     JOB_TYPE_AUTOROAD_CONNECT,
     JOB_TYPE_IMPORT_FILE,
     JOB_TYPE_POI_ANALYZE_ALL,
@@ -90,12 +92,16 @@ async def execute_project_job(job_id: UUID) -> None:
         if not job:
             logger.warning("Job %s not found", job_id)
             return
-        if job.status not in ("pending", "running"):
+        if job.status not in (JOB_STATUS_PENDING, JOB_STATUS_RUNNING):
             return
         try:
             await _acquire_project_advisory_lock(db, job.project_id)
-            await mark_job_running(db, job)
-            await db.flush()
+            job = await db.get(ProjectJob, job_id)
+            if not job or job.status not in (JOB_STATUS_PENDING, JOB_STATUS_RUNNING):
+                return
+            if job.status == JOB_STATUS_PENDING:
+                await mark_job_running(db, job)
+                await db.flush()
 
             if job.job_type == JOB_TYPE_AUTOROAD_CONNECT:
                 result = await _run_autoroad_connect(db, job)
@@ -109,7 +115,7 @@ async def execute_project_job(job_id: UUID) -> None:
                 raise ValueError(f"Unsupported job_type: {job.job_type}")
 
             job = await db.get(ProjectJob, job_id)
-            if job:
+            if job and job.status == JOB_STATUS_RUNNING:
                 await mark_job_completed(db, job, result)
             await db.commit()
         except Exception as e:
@@ -117,6 +123,6 @@ async def execute_project_job(job_id: UUID) -> None:
             await db.rollback()
             async with async_session() as db2:
                 job = await db2.get(ProjectJob, job_id)
-                if job:
+                if job and job.status == JOB_STATUS_RUNNING:
                     await mark_job_failed(db2, job, str(e))
                     await db2.commit()

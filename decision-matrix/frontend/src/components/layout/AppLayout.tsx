@@ -35,7 +35,7 @@ const NAV = [
   { to: '/report', icon: FileText, label: 'Отчёты', end: true },
   { to: '/import', icon: Upload, label: 'Импорт', end: true },
   { to: '/import-3d', icon: Box, label: 'Импорт 3D', end: true },
-  { to: '/admin', icon: Shield, label: 'Администрирование', end: true },
+  { to: '/admin', icon: Shield, label: 'Администрирование', end: false },
 ] as const;
 
 export function AppLayout() {

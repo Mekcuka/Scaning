@@ -1,5 +1,4 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { Shield } from 'lucide-react';
 import { api } from '../lib/api';
 import { ROLE_LABELS, type UserRole } from '../lib/permissions';
 import { useAppStore, useAuthStore } from '../store';
@@ -39,16 +38,6 @@ export function AdminUsersPage() {
 
   return (
     <div className="page-stack">
-      <div className="flex items-center gap-3 mb-6">
-        <Shield size={24} className="text-blue-600" />
-        <div>
-          <h1 className="text-2xl font-bold">Администрирование</h1>
-          <p className="text-sm" style={{ color: 'var(--text-muted)' }}>
-            Управление пользователями и ролями
-          </p>
-        </div>
-      </div>
-
       {stats && (
         <div className="grid grid-cols-3 gap-4 mb-6">
           {[

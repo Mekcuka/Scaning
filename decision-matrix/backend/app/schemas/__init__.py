@@ -474,6 +474,28 @@ class ProjectJobResponse(BaseModel):
     model_config = {"from_attributes": True}
 
 
+class ProjectJobAdminItem(ProjectJobResponse):
+    user_email: str = ""
+    user_username: str = ""
+    project_name: str = ""
+
+
+class ProjectJobAdminListResponse(BaseModel):
+    items: list[ProjectJobAdminItem]
+    total: int
+    limit: int
+    offset: int
+
+
+class AdminJobsHealthResponse(BaseModel):
+    redis_ok: bool
+    redis_error: str | None = None
+    queue_name: str
+    jobs_use_queue: bool
+    jobs_by_status: dict[str, int] = Field(default_factory=dict)
+    active_jobs: list[dict] = Field(default_factory=list)
+
+
 class AutoroadConnectResponse(BaseModel):
     dry_run: bool
     terminals: list[dict] = Field(default_factory=list)

@@ -40,7 +40,7 @@
 | `/report` | Отчёты (одностраничники) | admin, analyst, viewer |
 | `/import` | Импорт | admin, analyst, data_manager |
 | `/import-3d` | Импорт 3D (custom GLB) | admin (загрузка); admin + владелец проекта (назначение) |
-| `/admin` | Администрирование | admin |
+| `/admin/users`, `/admin/jobs` | Администрирование (пользователи, журнал задач) | admin |
 
 **Отличие от FR-12.2.2:** отдельного пункта «Ставки» нет — ставки внутри **«Параметры»**; добавлены **«Параметры»** и **«Потоки»**. Редирект `/rates` → `/parameters/rates`.
 
@@ -50,7 +50,8 @@
 
 | Модуль | API / сервисы | Статус |
 |--------|---------------|--------|
-| Auth + RBAC | `api/v1/auth.py`, `admin.py`, `services/auth_tokens.py`, `project_access.py` | ✅ |
+| Auth + RBAC | `api/v1/auth.py`, `admin.py`, `admin_jobs.py`, `services/auth_tokens.py`, `project_access.py` | ✅ |
+| Фоновые задачи (admin) | `admin_jobs.py`, `services/admin_jobs.py`, `project_jobs.py`, ARQ worker | ✅ |
 | Проекты, POI, ставки, пороги | `api/v1/router.py`, `services/cost_rates.py`, `calculations.py` | ✅ |
 | Карта, слои, объекты | `api/v1/map.py` | ✅ |
 | Custom GLB 3D (`project_map3d_models`) | `api/v1/map3d_models.py`, `services/map3d_custom_models.py`, миграции `015`–`016` (`assigned_subtypes[]`); клиент: `map3dCustomGlbFetch.ts` (Bearer на проде) | ✅ |
@@ -81,7 +82,8 @@
 | `/import` | `ImportPage` | ✅ |
 | `/import-3d` | `Import3DPage` — custom GLB (admin upload; owner assign) | ✅ |
 | `/flows/*` | `FlowTechnologyPage`, … | ✅ |
-| `/admin` | `AdminUsersPage` | ✅ |
+| `/admin/users` | `AdminLayout` + `AdminUsersPage` | ✅ |
+| `/admin/jobs` | `AdminLayout` + `AdminJobsPage` (health, фильтры, отмена) | ✅ |
 
 **3D-карта:** `VITE_MAP_3D_ENABLED`, `VITE_MAPTILER_KEY`, `VITE_API_URL` (обязателен на GitHub Pages) — см. [map-3d-features.md](./map-3d-features.md), cross-origin auth — [auth-rbac.md](./auth-rbac.md).
 

@@ -72,6 +72,7 @@
 backend/app/
 ├── api/v1/auth.py           # register, login, refresh, logout, me
 ├── api/v1/admin.py          # users list, patch role/is_active, stats
+├── api/v1/admin_jobs.py     # jobs journal, health, cancel (admin)
 ├── api/rbac.py              # require_roles, require_admin
 ├── api/deps.py              # get_current_user (cookie/Bearer), verify_csrf
 ├── core/cookies.py          # Set-Cookie httpOnly + csrf_token
@@ -80,7 +81,8 @@ backend/app/
 └── services/project_access.py  # resolve_project, list_accessible_projects
 
 frontend/src/
-├── pages/LoginPage.tsx, RegisterPage.tsx, AdminUsersPage.tsx
+├── pages/LoginPage.tsx, RegisterPage.tsx, AdminUsersPage.tsx, AdminJobsPage.tsx
+├── components/layout/AdminLayout.tsx
 ├── lib/permissions.ts, hooks/usePermissions.ts
 └── components/RoleProtectedRoute.tsx
 ```
@@ -95,6 +97,9 @@ GET    /auth/me                - Текущий пользователь
 GET    /admin/users            - Список пользователей (admin)
 PATCH  /admin/users/:id        - Роль, is_active (admin)
 GET    /admin/stats            - Агрегаты (admin)
+GET    /admin/jobs             - Журнал задач (admin)
+GET    /admin/jobs/health      - Redis + счётчики (admin)
+POST   /admin/jobs/:id/cancel  - Отмена задачи (admin, идемпотентно)
 ```
 
 Подробнее: [auth-rbac.md](./auth-rbac.md)

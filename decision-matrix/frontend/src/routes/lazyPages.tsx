@@ -8,6 +8,10 @@ export function RouteFallback() {
 export const LoginPage = lazy(() => import('../pages/LoginPage').then((m) => ({ default: m.LoginPage })));
 export const RegisterPage = lazy(() => import('../pages/RegisterPage').then((m) => ({ default: m.RegisterPage })));
 export const AdminUsersPage = lazy(() => import('../pages/AdminUsersPage').then((m) => ({ default: m.AdminUsersPage })));
+export const AdminJobsPage = lazy(() => import('../pages/AdminJobsPage').then((m) => ({ default: m.AdminJobsPage })));
+export const AdminLayout = lazy(() =>
+  import('../components/layout/AdminLayout').then((m) => ({ default: m.AdminLayout })),
+);
 export const DashboardPage = lazy(() => import('../pages/DashboardPage').then((m) => ({ default: m.DashboardPage })));
 export const MapPage = lazy(() => import('../pages/MapPage').then((m) => ({ default: m.MapPage })));
 export const ImportPage = lazy(() => import('../pages/ImportPage').then((m) => ({ default: m.ImportPage })));

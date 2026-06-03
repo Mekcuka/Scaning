@@ -329,6 +329,27 @@ export const api = {
   updateAdminUser: (id: string, data: { role?: string; is_active?: boolean }) =>
     request(`/admin/users/${id}`, { method: 'PATCH', body: JSON.stringify(data) }),
   adminStats: () => request<{ users: number; projects: number; pois: number }>('/admin/stats'),
+  adminListJobs: (params?: {
+    status?: string[];
+    job_type?: string;
+    project_id?: string;
+    limit?: number;
+    offset?: number;
+  }) => {
+    const q = new URLSearchParams();
+    if (params?.status?.length) {
+      for (const s of params.status) q.append('status', s);
+    }
+    if (params?.job_type) q.set('job_type', params.job_type);
+    if (params?.project_id) q.set('project_id', params.project_id);
+    if (params?.limit != null) q.set('limit', String(params.limit));
+    if (params?.offset != null) q.set('offset', String(params.offset));
+    const qs = q.toString();
+    return request<ProjectJobAdminListResponse>(`/admin/jobs${qs ? `?${qs}` : ''}`);
+  },
+  adminJobsHealth: () => request<AdminJobsHealthResponse>('/admin/jobs/health'),
+  adminCancelJob: (jobId: string) =>
+    request<ProjectJobAdminItem>(`/admin/jobs/${jobId}/cancel`, { method: 'POST' }),
   projects: () => request<Project[]>('/projects'),
   createProject: (name: string, description?: string) =>
     request<Project>('/projects', { method: 'POST', body: JSON.stringify({ name, description }) }),
@@ -825,6 +846,35 @@ export interface ProjectJobResponse {
   started_at?: string | null;
   finished_at?: string | null;
   created_at?: string | null;
+}
+
+export interface ProjectJobAdminItem extends ProjectJobResponse {
+  user_email: string;
+  user_username: string;
+  project_name: string;
+}
+
+export interface ProjectJobAdminListResponse {
+  items: ProjectJobAdminItem[];
+  total: number;
+  limit: number;
+  offset: number;
+}
+
+export interface AdminJobsHealthResponse {
+  redis_ok: boolean;
+  redis_error?: string | null;
+  queue_name: string;
+  jobs_use_queue: boolean;
+  jobs_by_status: Record<string, number>;
+  active_jobs: Array<{
+    id: string;
+    job_type: string;
+    status: string;
+    project_id: string;
+    project_name?: string;
+    created_at?: string | null;
+  }>;
 }
 
 export interface AutoroadConnectResult {

@@ -1,5 +1,7 @@
 import { describe, expect, it, vi, beforeEach } from 'vitest';
 import { screen, waitFor } from '@testing-library/react';
+import { Route, Routes } from 'react-router-dom';
+import { AdminLayout } from '../components/layout/AdminLayout';
 import { AdminUsersPage } from './AdminUsersPage';
 import { renderPage } from '../test/pages/renderPage';
 import { seedAppStore, seedAuthUser } from '../test/pages/seedAppStore';
@@ -27,15 +29,29 @@ describe('AdminUsersPage', () => {
   });
 
   it('renders admin heading and stats', async () => {
-    renderPage(<AdminUsersPage />);
+    renderPage(
+      <Routes>
+        <Route path="/admin" element={<AdminLayout />}>
+          <Route path="users" element={<AdminUsersPage />} />
+        </Route>
+      </Routes>,
+      { initialEntries: ['/admin/users'] },
+    );
     expect(screen.getByText('Администрирование')).toBeInTheDocument();
     await waitFor(() => expect(screen.getByText('a@test.ru')).toBeInTheDocument());
-    expect(screen.getByText('Пользователи')).toBeInTheDocument();
+    expect(screen.getByRole('link', { name: /Пользователи/i })).toBeInTheDocument();
   });
 
   it('shows loading state', () => {
     vi.mocked(api.adminUsers).mockImplementation(() => new Promise(() => {}));
-    renderPage(<AdminUsersPage />);
+    renderPage(
+      <Routes>
+        <Route path="/admin" element={<AdminLayout />}>
+          <Route path="users" element={<AdminUsersPage />} />
+        </Route>
+      </Routes>,
+      { initialEntries: ['/admin/users'] },
+    );
     expect(screen.getByText('Загрузка...')).toBeInTheDocument();
   });
 });

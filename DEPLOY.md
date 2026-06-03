@@ -125,7 +125,9 @@ Get-Content -Raw "C:\Users\user\Documents\mykey\ssh-key\ssh-key-1779903372392" |
 | `JOBS_SYNC_FALLBACK` | `true` только для локальной отладки без Redis; на prod — **`false`** при заданном `REDIS_URL` |
 | Swagger | https://erascaning.duckdns.org/api/v1/docs |
 
-**Фоновые задачи:** контейнер **`worker`** (`arq app.worker.settings.WorkerSettings`) обрабатывает соединение автодорог, async-импорт, логистику песка и `analyze-all`. В проекте одновременно не более одной задачи в статусе `pending`/`running` (ответ **409** при конфликте). API: `POST/GET /projects/{id}/jobs`, `GET .../jobs/active`.
+**Фоновые задачи:** контейнер **`worker`** (`arq app.worker.settings.WorkerSettings`) обрабатывает соединение автодорог, async-импорт, логистику песка и `analyze-all`. В проекте одновременно не более одной задачи в статусе `pending`/`running` (ответ **409** при конфликте). API: `POST/GET /projects/{id}/jobs`, `GET .../jobs/active`, `POST .../jobs/{job_id}/cancel`.
+
+**Журнал задач (admin):** при `REDIS_URL` на VM администратор видит очередь в UI (**Администрирование → Журнал задач**, `/admin/jobs`): `GET /admin/jobs`, `GET /admin/jobs/health`, `POST /admin/jobs/{id}/cancel` (идемпотентная отмена с актуальным статусом). См. [docs/user-flows.md](docs/user-flows.md) §5.3.
 
 ### Runtime env на VM (один раз)
 
@@ -210,6 +212,7 @@ ssh -i "C:\Users\user\Documents\mykey\ssh-key\ssh-key-1779903372392" vovavolgin9
 - Frontend использует актуальный `VITE_API_URL` (`https://erascaning.duckdns.org/api/v1`).
 - **Импорт 3D:** upload GLB → назначение подтипов → 3D на карте / превью; custom GLB грузятся с API с Bearer (см. [docs/auth-rbac.md](docs/auth-rbac.md), [docs/map-3d-features.md](docs/map-3d-features.md)).
 - **Логистика песка:** `/flows/logistics` — схема с timeline (полная топология на любом годе, будущие объекты серые); быстрая смена года без remount React Flow (см. [map-objects-and-spatial-calculations.md](docs/map-objects-and-spatial-calculations.md) §1.7.1).
+- **Админ, журнал задач:** `/admin/jobs` — Redis OK, счётчики по статусам, отмена `pending`/`running`; после деплоя backend обязателен.
 - Карта (регрессия линий): pitch **0°** — изгиб 3D = 2D; концы ЛЭП на узлах после pan; см. [map-3d-features.md](docs/map-3d-features.md) §6.1
 - Карта 2D (производительность): на тяжёлом проекте — плавный pan/hover без лишних React commits; опционально — [testing-strategy.md](docs/testing-strategy.md) § «Карта 2D — ручной perf checklist»
 
