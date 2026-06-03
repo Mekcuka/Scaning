@@ -87,8 +87,21 @@ import {
 } from '../lib/api';
 import { useActiveProject } from '../hooks/useActiveProject';
 import { useMapLayerPreferences } from '../hooks/useMapLayerPreferences';
+import {
+  clampLineLodScaleThreshold,
+  formatScaleDenominator,
+  LINE_LOD_SCALE_MAX,
+  LINE_LOD_SCALE_MIN,
+  LINE_LOD_SCALE_STEP,
+  lineLodForScale,
+} from '../lib/mapLineLod';
 import { usePermissions } from '../hooks/usePermissions';
-import { refreshMapQueries } from '../lib/mapQueries';
+import {
+  patchInfraObjectsInQueries,
+  refreshMapQueries,
+  removeInfraObjectsFromQueries,
+  upsertInfraObjectInQueries,
+} from '../lib/mapQueries';
 import {
   MAP_INFRA_STALE_MS,
   MAP_VIEWPORT_MIN_OBJECTS,
@@ -97,6 +110,7 @@ import {
   isLineHealDoneForProject,
   markLineHealDoneForProject,
   mergeInfraForMapDisplay,
+  shouldUpdateMapBbox,
 } from '../lib/mapBboxUtils';
 import { formatLengthMeters, lineLengthMeters } from '../lib/mapMeasure';
 import { lineDraftFinishCoordinates } from '../lib/mapLineDraftFinish';
@@ -109,6 +123,7 @@ import {
   normalizeLinePathEndpoints,
 } from '../lib/lineEndpointRules';
 import { isLineSubtype, lineEndpointHealPayload } from '../lib/infraGeometry';
+import { InfraPointSnapIndex } from '../lib/infraSnapIndex';
 import {
   applyInfraLineSplit,
   resolveLineSplitCandidate,
@@ -144,7 +159,7 @@ import {
   partitionClipboardForPaste,
   poiClipboardToCreatePayload,
   infraPasteSubtypePlan,
-  remapLineEndpointsOnPaste,
+  remapLineEndpointsForPaste,
   type MapClipboardItem,
 } from '../lib/mapClipboard';
 import { buildMapSearchHits, filterInfraByMapQuery } from '../lib/mapSearch';
@@ -190,7 +205,9 @@ export function MapPage() {
   const pushToast = useAppStore((s) => s.pushToast);
   const mapRefreshNonce = useAppStore((s) => s.mapRefreshNonce);
   const [mapBbox, setMapBbox] = useState<string | null>(null);
-  const { prefs: layerPrefs, setPrefs: setLayerPrefs, setOpenSections: setLayerOpenSections } =
+  /** Local create/update visible in viewport mode until bbox refetch includes them. */
+  const [infraOverlayIds, setInfraOverlayIds] = useState<Set<string>>(() => new Set());
+  const { prefs: layerPrefs, setPrefs: setLayerPrefs, patchPrefs: patchLayerPrefs, setOpenSections: setLayerOpenSections } =
     useMapLayerPreferences(projectId ?? null);
   const {
     showBasemap,
@@ -209,6 +226,8 @@ export function MapPage() {
   const map3dRef = useRef<MapView3DHandle | null>(null);
   const last2dViewRef = useRef<SavedMapViewState | null>(null);
   const lineHealAttemptedRef = useRef<Set<string>>(new Set());
+  /** Lines just pasted from clipboard — skip auto-heal so geometry stays exact. */
+  const lineHealSkipIdsRef = useRef<Set<string>>(new Set());
 
   useEffect(() => {
     if (mapIn3d) setMap3dKeepMounted(true);
@@ -218,6 +237,7 @@ export function MapPage() {
   const [mapFullscreen, setMapFullscreen] = useState(false);
   const mapCanvasRef = useRef<HTMLDivElement>(null);
   const [cursor, setCursor] = useState<{ lon: number; lat: number } | null>(null);
+  const cursorRef = useRef<{ lon: number; lat: number } | null>(null);
   const [mapPointerInside, setMapPointerInside] = useState(false);
   const [drawMode, setDrawMode] = useState<DrawMode>('select');
   const [selectMode, setSelectMode] = useState<SelectMode>('single');
@@ -258,6 +278,7 @@ export function MapPage() {
   const [mapClipboard, setMapClipboard] = useState<MapClipboardItem[] | null>(null);
   const [pasteMode, setPasteMode] = useState(false);
   const [mapScaleLabel, setMapScaleLabel] = useState('—');
+  const [mapScaleDenominator, setMapScaleDenominator] = useState(0);
 
   useEffect(() => {
     if (!canEditMap) {
@@ -432,17 +453,57 @@ export function MapPage() {
         visibleLayersOnly: true,
       }),
     enabled: !!projectId && useViewportInfraLoad,
-    staleTime: 60_000,
+    staleTime: MAP_INFRA_STALE_MS,
+    refetchOnMount: false,
+    refetchOnWindowFocus: false,
     placeholderData: keepPreviousData,
   });
 
   const mapInfraSource = useMemo(() => {
     if (!useViewportInfraLoad) return infraObjects;
-    return mergeInfraForMapDisplay(infraViewport, infraObjects, displayKeepIds);
-  }, [useViewportInfraLoad, infraViewport, infraObjects, displayKeepIds]);
+    return mergeInfraForMapDisplay(
+      infraViewport,
+      infraObjects,
+      displayKeepIds,
+      infraOverlayIds,
+    );
+  }, [useViewportInfraLoad, infraViewport, infraObjects, displayKeepIds, infraOverlayIds]);
+
+  const infraSnapIndex = useMemo(
+    () => new InfraPointSnapIndex(infraObjects),
+    [infraObjects],
+  );
+
+  const needsCursorState =
+    pasteMode ||
+    drawMode === 'point' ||
+    drawMode === 'poi' ||
+    (drawMode === 'ruler' && rulerPoints.length >= 1) ||
+    (drawMode === 'line' && lineDraft.length >= 1);
+
+  useEffect(() => {
+    if (!useViewportInfraLoad || infraViewport.length === 0) return;
+    setInfraOverlayIds((prev) => {
+      const next = new Set(prev);
+      let changed = false;
+      for (const o of infraViewport) {
+        if (next.delete(o.id)) changed = true;
+      }
+      return changed ? next : prev;
+    });
+  }, [infraViewport, useViewportInfraLoad]);
+
+  useEffect(() => {
+    if (!projectId || mapEditEnabled) return;
+    if (infraObjects.length < MAP_VIEWPORT_MIN_OBJECTS) return;
+    void queryClient.invalidateQueries({
+      queryKey: ['infra', projectId],
+      predicate: (q) => q.queryKey[2] === 'bbox',
+    });
+  }, [mapEditEnabled, projectId, infraObjects.length, queryClient]);
 
   const handleMapBboxChange = useCallback((bbox: string) => {
-    setMapBbox(bbox);
+    setMapBbox((prev) => (shouldUpdateMapBbox(prev, bbox) ? bbox : prev));
   }, []);
 
   const { data: map3dCustomModels = [] } = useQuery({
@@ -708,6 +769,8 @@ export function MapPage() {
 
   const invalidateMap = () => {
     if (!projectId) return;
+    setInfraOverlayIds(new Set());
+    setMapBbox(null);
     queryClient.invalidateQueries({ queryKey: ['pois', projectId] });
     void refreshMapQueries(queryClient, projectId);
   };
@@ -747,15 +810,29 @@ export function MapPage() {
   const upsertInfraInCache = useCallback(
     (created: InfraObject) => {
       if (!projectId) return;
-      queryClient.setQueryData<InfraObject[]>(['infra', projectId], (prev) => {
-        const list = prev ?? [];
-        const idx = list.findIndex((o) => o.id === created.id);
-        if (idx >= 0) {
-          const next = [...list];
-          next[idx] = created;
-          return next;
+      upsertInfraObjectInQueries(queryClient, projectId, created);
+      setInfraOverlayIds((prev) => {
+        if (prev.has(created.id)) return prev;
+        const next = new Set(prev);
+        next.add(created.id);
+        return next;
+      });
+    },
+    [projectId, queryClient],
+  );
+
+  const removeInfraFromCaches = useCallback(
+    (ids: Iterable<string>) => {
+      if (!projectId) return;
+      removeInfraObjectsFromQueries(queryClient, projectId, ids);
+      setInfraOverlayIds((prev) => {
+        const drop = new Set(ids);
+        let changed = false;
+        const next = new Set(prev);
+        for (const id of drop) {
+          if (next.delete(id)) changed = true;
         }
-        return [...list, created];
+        return changed ? next : prev;
       });
     },
     [projectId, queryClient],
@@ -764,6 +841,7 @@ export function MapPage() {
   useEffect(() => {
     lineHealAttemptedRef.current.clear();
     setMapBbox(null);
+    setInfraOverlayIds(new Set());
   }, [projectId]);
 
   useEffect(() => {
@@ -781,6 +859,7 @@ export function MapPage() {
       for (const line of infraObjects) {
         if (!isLineSubtype(line.subtype)) continue;
         if (lineHealAttemptedRef.current.has(line.id)) continue;
+        if (lineHealSkipIdsRef.current.has(line.id)) continue;
         lineHealAttemptedRef.current.add(line.id);
         const payload = lineEndpointHealPayload(line, infraObjects);
         if (!payload || cancelled) continue;
@@ -1056,9 +1135,7 @@ export function MapPage() {
         .filter((o) => deleteIds.has(o.id))
         .map((o) => structuredClone(o));
       const snapshots = queryClient.getQueriesData<InfraObject[]>({ queryKey: ['infra', projectId] });
-      queryClient.setQueriesData<InfraObject[]>({ queryKey: ['infra', projectId] }, (old) =>
-        old ? old.filter((o) => !deleteIds.has(o.id)) : []
-      );
+      removeInfraFromCaches(deleteIds);
       return { snapshots, deleted, deletedGroup, deleteIds };
     },
     onError: (err, _id, ctx) => {
@@ -1120,9 +1197,7 @@ export function MapPage() {
       const poiIds = new Set(items.filter((sel) => sel.kind === 'poi').map((sel) => sel.id));
       const infraSnapshots = queryClient.getQueriesData<InfraObject[]>({ queryKey: ['infra', projectId] });
       const poiSnapshots = queryClient.getQueriesData<POI[]>({ queryKey: ['pois', projectId] });
-      queryClient.setQueriesData<InfraObject[]>({ queryKey: ['infra', projectId] }, (old) =>
-        old ? old.filter((o) => !allInfraIds.has(o.id)) : []
-      );
+      removeInfraFromCaches(allInfraIds);
       queryClient.setQueriesData<POI[]>({ queryKey: ['pois', projectId] }, (old) =>
         old ? old.filter((p) => !poiIds.has(p.id)) : []
       );
@@ -1363,9 +1438,7 @@ export function MapPage() {
           queryKey: ['flow-schematic', projectId, updated.id],
         });
       } else {
-        queryClient.setQueryData<InfraObject[]>(['infra', projectId], (old) =>
-          old?.map((o) => (o.id === updated.id ? { ...o, ...updated } : o)) ?? []
-        );
+        upsertInfraObjectInQueries(queryClient, projectId, updated as InfraObject);
       }
       const label =
         detailSelection.kind === 'poi'
@@ -1491,9 +1564,10 @@ export function MapPage() {
             end_lat: roundedCoords[roundedCoords.length - 1][1],
             coordinates: roundedCoords,
           };
-          queryClient.setQueriesData<InfraObject[]>({ queryKey: ['infra', projectId] }, (old) =>
-            old?.map((o) => (o.id === sel.id ? { ...o, ...payload } : o)) ?? []
+          patchInfraObjectsInQueries(queryClient, projectId, (o) =>
+            o.id === sel.id ? { ...o, ...payload } : o,
           );
+          setInfraOverlayIds((prev) => new Set(prev).add(sel.id));
           await api.updateInfraObject(projectId, sel.id, payload);
           if (saveSeq !== geometrySaveSeqRef.current) return;
           if (infraBefore) {
@@ -1561,13 +1635,17 @@ export function MapPage() {
             before: linePatch.before,
           }));
 
-          queryClient.setQueriesData<InfraObject[]>({ queryKey: ['infra', projectId] }, (old) =>
-            old?.map((o) => {
-              if (o.id === sel.id) return { ...o, lon: rLon, lat: rLat };
-              const linePatch = updatedLinePayloads.find((p) => p.id === o.id);
-              return linePatch ? { ...o, ...linePatch.payload } : o;
-            }) ?? []
-          );
+          const touchedIds = new Set<string>([sel.id, ...updatedLinePayloads.map((p) => p.id)]);
+          patchInfraObjectsInQueries(queryClient, projectId, (o) => {
+            if (o.id === sel.id) return { ...o, lon: rLon, lat: rLat };
+            const linePatch = updatedLinePayloads.find((p) => p.id === o.id);
+            return linePatch ? { ...o, ...linePatch.payload } : o;
+          });
+          setInfraOverlayIds((prev) => {
+            const next = new Set(prev);
+            for (const id of touchedIds) next.add(id);
+            return next;
+          });
           await api.updateInfraObject(projectId, sel.id, { lon: rLon, lat: rLat });
           for (const linePatch of updatedLinePayloads) {
             await api.updateInfraObject(projectId, linePatch.id, linePatch.payload);
@@ -1686,7 +1764,7 @@ export function MapPage() {
       const { pois: poiItems, pointInfra, lineInfra } = partitionClipboardForPaste(offsetItems);
       const createdPoiIds: string[] = [];
       const createdInfraIds: string[] = [];
-      const pastedPoints: InfraObject[] = [];
+      const sourceIdToCreated = new Map<string, InfraObject>();
 
       setGeometrySavePending((p) => p + 1);
       try {
@@ -1722,20 +1800,30 @@ export function MapPage() {
             });
           }
           createdInfraIds.push(created.id);
-          pastedPoints.push(created);
+          sourceIdToCreated.set(item.sourceId, created);
           upsertInfraInCache(created);
         }
 
         for (const item of lineInfra) {
           if (!canWriteInfra || item.kind !== 'infra') continue;
-          const remapped = remapLineEndpointsOnPaste(item.snapshot, pastedPoints);
-          const name = nextAutoName(remapped.subtype);
-          const payload = infraClipboardToCreatePayload(remapped, name);
+          const { snap, line_snap_start_object_id, line_snap_finish_object_id } =
+            remapLineEndpointsForPaste(
+              item.snapshot,
+              item.endpointAttach,
+              sourceIdToCreated,
+            );
+          const name = nextAutoName(snap.subtype);
+          const payload = infraClipboardToCreatePayload(snap, name, {
+            line_snap_start_object_id,
+            line_snap_finish_object_id,
+            line_preserve_geometry: true,
+          });
           const created = await api.createInfraObject(projectId, {
             ...payload,
             properties: mergeInfraPropertiesForSave(payload.subtype, payload.properties),
           });
           createdInfraIds.push(created.id);
+          lineHealSkipIdsRef.current.add(created.id);
           upsertInfraInCache(created);
         }
 
@@ -1909,14 +1997,21 @@ export function MapPage() {
         }
 
         if (pointSaves.length > 0 || lineSaves.length > 0) {
-          queryClient.setQueriesData<InfraObject[]>({ queryKey: ['infra', projectId] }, (old) =>
-            old?.map((o) => {
-              const pointSave = pointSaves.find((s) => s.id === o.id);
-              if (pointSave) return { ...o, lon: pointSave.lon, lat: pointSave.lat };
-              const lineSave = lineSaves.find((s) => s.id === o.id);
-              return lineSave ? { ...o, ...lineSave.payload } : o;
-            }) ?? [],
-          );
+          const touchedIds = new Set([
+            ...pointSaves.map((s) => s.id),
+            ...lineSaves.map((s) => s.id),
+          ]);
+          patchInfraObjectsInQueries(queryClient, projectId, (o) => {
+            const pointSave = pointSaves.find((s) => s.id === o.id);
+            if (pointSave) return { ...o, lon: pointSave.lon, lat: pointSave.lat };
+            const lineSave = lineSaves.find((s) => s.id === o.id);
+            return lineSave ? { ...o, ...lineSave.payload } : o;
+          });
+          setInfraOverlayIds((prev) => {
+            const next = new Set(prev);
+            for (const id of touchedIds) next.add(id);
+            return next;
+          });
           for (const save of pointSaves) {
             await api.updateInfraObject(projectId, save.id, { lon: save.lon, lat: save.lat });
           }
@@ -1948,6 +2043,54 @@ export function MapPage() {
     if (!pasteMode || !mapClipboard?.length || !cursor) return [];
     return clipboardPreviewAt(mapClipboard, cursor.lon, cursor.lat);
   }, [pasteMode, mapClipboard, cursor]);
+
+  const handlePointerMove = useCallback(
+    (lon: number, lat: number, overPoint?: { lon: number; lat: number }) => {
+      setMapPointerInside(true);
+      cursorRef.current = { lon, lat };
+      if (needsCursorState) {
+        setCursor((prev) =>
+          prev && prev.lon === lon && prev.lat === lat ? prev : { lon, lat },
+        );
+      }
+      if (drawMode === 'ruler' && rulerPoints.length >= 1) {
+        setRulerPreview([lon, lat]);
+      } else if (rulerPreview) {
+        setRulerPreview(null);
+      }
+      if (drawMode === 'line' && lineDraft.length >= 1) {
+        setLineDraftPreview(
+          snapLineDrawPoint(
+            infraForm.subtype,
+            [lon, lat],
+            infraObjects,
+            overPoint,
+            'finish',
+            infraSnapIndex,
+          ),
+        );
+      } else if (lineDraftPreview) {
+        setLineDraftPreview(null);
+      }
+    },
+    [
+      needsCursorState,
+      drawMode,
+      rulerPoints.length,
+      rulerPreview,
+      lineDraft.length,
+      lineDraftPreview,
+      infraForm.subtype,
+      infraObjects,
+      infraSnapIndex,
+    ],
+  );
+
+  const handlePointerLeave = useCallback(() => {
+    setMapPointerInside(false);
+    setLineDraftPreview(null);
+    setRulerPreview(null);
+  }, []);
 
   const finishRulerMeasurement = useCallback(
     (appendPreview = false) => {
@@ -2061,6 +2204,7 @@ export function MapPage() {
           infraObjects,
           overPoint,
           endpointKind,
+          infraSnapIndex,
         );
         if (lineDraft.length === 0) {
           if (!isLineEndpointSnapped(infraForm.subtype, 'start', snapped, infraObjects)) {
@@ -2088,6 +2232,7 @@ export function MapPage() {
       infraForm.subtype,
       infraObjects,
       lineDraft.length,
+      infraSnapIndex,
       nextAutoName,
       nextPoiAutoName,
       placeInfraPointAt,
@@ -2117,6 +2262,7 @@ export function MapPage() {
           infraObjects,
           null,
           'finish',
+          infraSnapIndex,
         );
       }
 
@@ -2237,6 +2383,7 @@ export function MapPage() {
       createInfraMut,
       infraForm.subtype,
       infraObjects,
+      infraSnapIndex,
       nextAutoName,
       projectId,
       pushToast,
@@ -3034,32 +3181,8 @@ export function MapPage() {
             onFinishMeasure={() => {
               if (drawMode === 'ruler') finishRulerMeasurement(true);
             }}
-            onPointerMove={(lon, lat, overPoint) => {
-              setMapPointerInside(true);
-              setCursor({ lon, lat });
-              if (drawMode === 'ruler' && rulerPoints.length >= 1) {
-                setRulerPreview([lon, lat]);
-              } else if (rulerPreview) {
-                setRulerPreview(null);
-              }
-              if (drawMode === 'line' && lineDraft.length >= 1) {
-                setLineDraftPreview(
-                  snapLineDrawPoint(
-                    infraForm.subtype,
-                    [lon, lat],
-                    infraObjects,
-                    overPoint,
-                    'finish',
-                  ),
-                );
-              } else if (lineDraftPreview) {
-                setLineDraftPreview(null);
-              }
-            }}
-            onPointerLeave={() => {
-              setMapPointerInside(false);
-              setLineDraftPreview(null);
-            }}
+            onPointerMove={handlePointerMove}
+            onPointerLeave={handlePointerLeave}
             placementPreview={
               !pasteMode && mapPointerInside && cursor
                 ? drawMode === 'point'
@@ -3099,7 +3222,11 @@ export function MapPage() {
             layers={layers}
             mapFocus={mapFocus}
             onFitView={handleFitMapView}
-            onViewChange={({ scaleLabel }) => setMapScaleLabel(scaleLabel)}
+            lineLodScaleThreshold={layerPrefs.lineLodScaleThreshold}
+            onViewChange={({ scaleLabel, scaleDenominator }) => {
+              setMapScaleLabel(scaleLabel);
+              setMapScaleDenominator(scaleDenominator);
+            }}
           />
           )}
 
@@ -3142,14 +3269,6 @@ export function MapPage() {
 
               <div className="map-footer">
                 <span>
-                  Координаты:{' '}
-                  <strong className="tabular">
-                    {cursor
-                      ? `${formatCoord(cursor.lat)}, ${formatCoord(cursor.lon)}`
-                      : '—'}
-                  </strong>
-                </span>
-                <span>
                   Масштаб: <strong>{mapScaleLabel}</strong>
                 </span>
                 {geometrySavePending > 0 && <span>Сохранение геометрии…</span>}
@@ -3172,6 +3291,36 @@ export function MapPage() {
                 )}
                 {!mapIn3d && geometrySavePending === 0 && drawMode === 'select' && mapFooterHint && (
                   <span>{mapFooterHint}</span>
+                )}
+                {!mapIn3d && (
+                  <div
+                    className="map-footer-lod"
+                    title="При масштабе карты 1:N не детальнее порога линия показывается только между концами (без промежуточных вершин)"
+                  >
+                    <span className="map-footer-lod-label">Упр. линий</span>
+                    <input
+                      type="range"
+                      className="map-footer-lod-slider"
+                      min={LINE_LOD_SCALE_MIN}
+                      max={LINE_LOD_SCALE_MAX}
+                      step={LINE_LOD_SCALE_STEP}
+                      value={layerPrefs.lineLodScaleThreshold}
+                      onChange={(e) =>
+                        patchLayerPrefs({
+                          lineLodScaleThreshold: clampLineLodScaleThreshold(Number(e.target.value)),
+                        })
+                      }
+                      aria-label="Порог масштаба упрощения линий"
+                    />
+                    <span className="map-footer-lod-value">
+                      от 1:{formatScaleDenominator(layerPrefs.lineLodScaleThreshold)}
+                      {mapScaleDenominator > 0 &&
+                      lineLodForScale(mapScaleDenominator, layerPrefs.lineLodScaleThreshold) ===
+                        'endpoints'
+                        ? ' · вкл.'
+                        : ''}
+                    </span>
+                  </div>
                 )}
               </div>
             </div>

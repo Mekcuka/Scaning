@@ -70,3 +70,35 @@ export function yearIndexInHorizon(viewAsOf: string, years: number[]): number {
   const idx = years.indexOf(viewYear);
   return idx >= 0 ? idx : Math.max(0, years.length - 1);
 }
+
+/** Max object markers drawn per year on the track (rest → «+N»). */
+export const SCHEMATIC_TIMELINE_MAX_VISIBLE_MARKERS = 4;
+
+export function groupMarkersByYear(
+  markers: SchematicTimelineMarker[],
+): Map<number, SchematicTimelineMarker[]> {
+  const map = new Map<number, SchematicTimelineMarker[]>();
+  for (const m of markers) {
+    const list = map.get(m.year) ?? [];
+    list.push(m);
+    map.set(m.year, list);
+  }
+  return map;
+}
+
+export type YearMarkerLayout = {
+  visible: SchematicTimelineMarker[];
+  overflowCount: number;
+};
+
+export function layoutYearMarkers(
+  markers: SchematicTimelineMarker[],
+  maxVisible = SCHEMATIC_TIMELINE_MAX_VISIBLE_MARKERS,
+): YearMarkerLayout {
+  const cap = Math.max(1, maxVisible);
+  const visible = markers.slice(0, cap);
+  return {
+    visible,
+    overflowCount: Math.max(0, markers.length - visible.length),
+  };
+}

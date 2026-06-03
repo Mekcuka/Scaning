@@ -299,6 +299,40 @@ export function clearSchematicSliceCache(): void {
   schematicSliceCacheResult = null;
 }
 
+const UNMET_DEMAND_PREFIX = 'unmet_demand:';
+
+/**
+ * Предупреждения unmet_demand должны совпадать с demand_m3 / greedy_allocated_m3 на срезе.
+ * Коды из канонической подсети (дата последнего расчёта) и одноразового greedy в API
+ * иначе расходятся со схемой при смене года на шкале.
+ */
+export function reconcileSubnetWarningsForSlice(
+  subnet: Pick<SandLogisticsSubnet, 'warnings' | 'consumers'>,
+  options?: {
+    timelineWarnings?: string[];
+    canonicalWarnings?: string[];
+  },
+): string[] {
+  const timelineOther = (options?.timelineWarnings ?? []).filter(
+    (w) => !w.startsWith(UNMET_DEMAND_PREFIX),
+  );
+  const canonicalOther = (options?.canonicalWarnings ?? subnet.warnings).filter(
+    (w) => !w.startsWith(UNMET_DEMAND_PREFIX),
+  );
+  const other = [...new Set([...timelineOther, ...canonicalOther])];
+
+  const unmet: string[] = [];
+  for (const c of subnet.consumers) {
+    if (!c.in_service) continue;
+    const demand = c.demand_m3 ?? 0;
+    const allocated = c.greedy_allocated_m3 ?? 0;
+    if (demand > allocated + 1e-6) {
+      unmet.push(`${UNMET_DEMAND_PREFIX}${c.object_id}`);
+    }
+  }
+  return [...other, ...unmet];
+}
+
 function buildSubnetForSchematicAtView(
   result: SandLogisticsResult,
   canonicalSubnet: SandLogisticsSubnet,
@@ -309,15 +343,25 @@ function buildSubnetForSchematicAtView(
   const quarryById = new Map((atViewSubnet?.quarries ?? []).map((q) => [q.object_id, q]));
   const consumerById = new Map((atViewSubnet?.consumers ?? []).map((c) => [c.object_id, c]));
 
+  const quarries = canonicalSubnet.quarries.map((q) =>
+    mergeQuarryForSchematicAtView(q, quarryById.get(q.object_id), viewAsOf),
+  );
+  const consumers = canonicalSubnet.consumers.map((c) =>
+    mergeConsumerForSchematicAtView(c, consumerById.get(c.object_id), viewAsOf),
+  );
+
   return {
     ...canonicalSubnet,
     network_nodes: canonicalSubnet.network_nodes,
     network_edges: canonicalSubnet.network_edges,
-    quarries: canonicalSubnet.quarries.map((q) =>
-      mergeQuarryForSchematicAtView(q, quarryById.get(q.object_id), viewAsOf),
-    ),
-    consumers: canonicalSubnet.consumers.map((c) =>
-      mergeConsumerForSchematicAtView(c, consumerById.get(c.object_id), viewAsOf),
+    quarries,
+    consumers,
+    warnings: reconcileSubnetWarningsForSlice(
+      { warnings: canonicalSubnet.warnings, consumers },
+      {
+        timelineWarnings: atViewSubnet?.warnings,
+        canonicalWarnings: canonicalSubnet.warnings,
+      },
     ),
   };
 }
@@ -383,6 +427,43 @@ export function withInfraObjectNames(
     if (trimmed) object_names[o.id] = trimmed;
   }
   return { ...result, object_names };
+}
+
+/** Browser-tab cache of last result (mirrors React Query; survives F5 in the same tab). */
+export function sandLogisticsSessionCacheKey(projectId: string): string {
+  return `sand-logistics-cache:${projectId}`;
+}
+
+export function saveSandLogisticsSessionCache(
+  projectId: string,
+  result: SandLogisticsResult,
+): void {
+  try {
+    sessionStorage.setItem(
+      sandLogisticsSessionCacheKey(projectId),
+      JSON.stringify(result),
+    );
+  } catch {
+    /* quota or private mode */
+  }
+}
+
+export function loadSandLogisticsSessionCache(projectId: string): SandLogisticsResult | null {
+  try {
+    const raw = sessionStorage.getItem(sandLogisticsSessionCacheKey(projectId));
+    if (!raw) return null;
+    return normalizeSandLogisticsResult(JSON.parse(raw));
+  } catch {
+    return null;
+  }
+}
+
+export function clearSandLogisticsSessionCache(projectId: string): void {
+  try {
+    sessionStorage.removeItem(sandLogisticsSessionCacheKey(projectId));
+  } catch {
+    /* ignore */
+  }
 }
 
 /** Legacy sessionStorage payload (pre-DB persist); for migration banner only. */
@@ -503,19 +584,53 @@ function warningLinesFromCodes(
   return lines;
 }
 
+function isGlobalWarningCode(code: string): boolean {
+  if (GLOBAL_WARNING_LABELS[code]) return true;
+  return !code.includes(':');
+}
+
+/** Warnings for the amber «Общие предупреждения» block at a view date. */
+export function collectSandLogisticsWarningsAtView(
+  result: SandLogisticsResult,
+  viewAsOf?: string,
+): string[] {
+  const sliceDate = viewAsOf ?? result.as_of;
+  const persistedGlobal = result.warnings.filter(isGlobalWarningCode);
+
+  const subnetsAtView = result.timeline.length
+    ? resolveSubnetsAtView(result, sliceDate)
+    : result.subnets;
+  const fromSubnets = subnetsAtView.flatMap((subnet) =>
+    reconcileSubnetWarningsForSlice(subnet),
+  );
+
+  if (result.timeline.length) {
+    return [...new Set([...persistedGlobal, ...fromSubnets])];
+  }
+
+  const persistedStructural = result.warnings.filter(
+    (code) => code.includes(':') && !code.startsWith(UNMET_DEMAND_PREFIX),
+  );
+  return [...new Set([...persistedGlobal, ...persistedStructural, ...fromSubnets])];
+}
+
 /** Group object-specific warnings; list object names instead of repeating generic text. */
-export function buildGlobalSandLogisticsWarningLines(result: SandLogisticsResult): string[] {
+export function buildGlobalSandLogisticsWarningLines(
+  result: SandLogisticsResult,
+  viewAsOf?: string,
+): string[] {
   const nameById = collectNameMap(result.subnets, result.object_names);
-  return warningLinesFromCodes(result.warnings, nameById);
+  return warningLinesFromCodes(collectSandLogisticsWarningsAtView(result, viewAsOf), nameById);
 }
 
 export function buildSubnetSandLogisticsWarningLines(
   subnet: SandLogisticsSubnet,
   result: SandLogisticsResult
 ): string[] {
-  if (!subnet.warnings.length) return [];
+  const warnings = reconcileSubnetWarningsForSlice(subnet);
+  if (!warnings.length) return [];
   const nameById = collectNameMap(result.subnets, result.object_names);
-  return warningLinesFromCodes(subnet.warnings, nameById);
+  return warningLinesFromCodes(warnings, nameById);
 }
 
 /** All warnings (global + per-subnet), merged for backward compatibility. */

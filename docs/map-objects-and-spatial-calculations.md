@@ -464,6 +464,59 @@ erDiagram
 
 Контекстные подсказки отображаются в footer карты (режим выбора, рисование, сохранение геометрии).
 
+#### 6.1.0 Копирование и вставка (Ctrl+C / Ctrl+V)
+
+**Цель:** вставленная группа повторяет геометрию оригинала (все вершины ломаной и длина в карточке объекта), а не «подтягивается» к случайным опорам в новом месте.
+
+**Включение:** «Редактирование на карте» → «Выбор» → **«Группа объектов»** (или одиночный выбор) → **Ctrl+C** → **Ctrl+V** → клик по карте (центр группы переносится в точку вставки). Кнопки «Копировать» / «Вставить» — в панели «Группа объектов» и в footer.
+
+```mermaid
+sequenceDiagram
+  participant User
+  participant Clipboard as mapClipboard
+  participant API
+  User->>Clipboard: Ctrl+C selection
+  Note over Clipboard: snapshot + endpointAttach inSelection
+  User->>Clipboard: Ctrl+V + click anchor
+  Clipboard->>Clipboard: applyOffsetToClipboard
+  Clipboard->>API: POST points then lines
+  Note over API: line_preserve_geometry=true
+  Note over API: line_snap_* only for twins in copy
+```
+
+| Этап | Поведение |
+|------|-----------|
+| **Копирование** | Снимок геометрии (`infraDetailUndo` / `poiDetailUndo`). Для линий: по **всем** точечным объектам проекта определяется привязка концов (≤300 м), в буфер пишутся `endpointAttach.startSourceId` / `finishSourceId` **только если** эта опора тоже в выделении. |
+| **Сдвиг** | `applyOffsetToClipboard` — один `Δlon/Δlat` для всей группы (центроид → точка клика). Все вершины `coordinates` сдвигаются одинаково; длина ломаной сохраняется. |
+| **Вставка (фронт)** | Сначала POI и точечная инфра, затем линии. `remapLineEndpointsForPaste` **не меняет** `coordinates` — только выставляет `line_snap_*` для созданных близнецов (`sourceId` → `newId`). |
+| **Вставка (API)** | Для каждой линии: `line_preserve_geometry: true`. Backend [`snap_line_endpoint_coords_preserve`](../decision-matrix/backend/app/services/line_endpoint_rules.py) подтягивает **только** концы с явным `line_snap_start_object_id` / `line_snap_finish_object_id`; остальные концы остаются на переданных координатах (без поиска ближайшего на карте). |
+| **Heal** | `lineEndpointHealPayload` **не** вызывается для id линий сразу после вставки (`lineHealSkipIdsRef` в `MapPage`). |
+
+**Рекомендуемый состав выделения**
+
+| Сценарий | Что включить в рамку |
+|----------|----------------------|
+| Цепочка автодорог с общим узлом | Все участки **и** узлы/кусты на стыках (каждый узел один раз) |
+| Участок + опоры на концах | Линия **и** точечные объекты, к которым она привязана в исходном проекте |
+| Только линии без узлов | Форма сохранится, но концы без twin-id не перепривязываются к «чужим» объектам; при необходимости связи с сетью — добавьте опоры в выделение |
+
+**Поля тела `POST …/infrastructure/objects` (линии при вставке)**
+
+| Поле | Назначение |
+|------|------------|
+| `coordinates` | Полная ломаная после сдвига (источник длины в UI) |
+| `line_preserve_geometry` | `true` — режим вставки из буфера |
+| `line_snap_start_object_id` | UUID созданного близнеца начала (если опора была в Ctrl+C) |
+| `line_snap_finish_object_id` | UUID созданного близнеца конца (аналогично) |
+
+**Чего не происходит (типичные ошибки до исправления)**
+
+- Поиск ближайшей точечной инфры **всего проекта** при создании линии (ломает цепочки вроде нескольких автодорог с одним узлом).
+- Перезапись первой/последней вершины на фронте по `lon/lat` узла вместо сдвинутого `coordinates[i]`.
+- Повторный heal после вставки.
+
+**Код и тесты:** [`mapClipboard.ts`](../decision-matrix/frontend/src/lib/mapClipboard.ts), [`MapPage.tsx`](../decision-matrix/frontend/src/pages/MapPage.tsx) (`executePaste`), [`mapClipboard.test.ts`](../decision-matrix/frontend/src/lib/mapClipboard.test.ts), [`test_line_endpoint_rules.py`](../decision-matrix/backend/tests/test_line_endpoint_rules.py) (`snap_line_endpoint_coords_preserve`).
+
 #### 6.1.1 Групповое перемещение (режим «Группа объектов»)
 
 **Включение:** «Редактирование на карте» → «Выбор» → **«Группа объектов»** (рамка, не Ctrl+клик). Перетаскивание — за любой объект в выделении; клик в пустое место снимает выделение.
@@ -481,7 +534,7 @@ erDiagram
 
 **Валидация (backend):** после PATCH линии — `validate_line_endpoint_matrix` (допуск **0,3 км**). Ошибка «Начальная/конечная точка линии не привязана…» означает, что сохранённые концы линии не совпали с точечными опорами (типично при частичном перемещении без merge концов — исправлено в batch-логике выше).
 
-**Ограничения:** только 2D (`MapView`); copy/paste/cut группы — отдельно (§6.1, Ctrl+C/V/X). 3D-режим карты групповое перемещение не дублирует.
+**Ограничения:** только 2D (`MapView`); copy/paste/cut группы — §6.1.0 и Ctrl+C/V/X; 3D-режим карты групповое перемещение и буфер обмена не дублирует.
 
 **Тесты:** [`mapGroupLinePatches.test.ts`](../decision-matrix/frontend/src/lib/mapGroupLinePatches.test.ts), интеграция — `batch move updates linked line when both endpoints move` в [`MapPage.mock.integration.test.tsx`](../decision-matrix/frontend/src/pages/MapPage.mock.integration.test.tsx).
 
@@ -489,12 +542,27 @@ erDiagram
 
 | Механизм | Поведение |
 |----------|-----------|
-| **Полный список** | `GET …/infrastructure/objects` без `bbox` — кэш React Query (`staleTime` ~5 мин), `infraSnapPool` для snap/heal/поиска |
-| **Viewport** | При просмотре (не edit) и **≥80** объектов: `bbox` с буфером ~12%, backend — `ST_Intersects` (PostGIS) / envelope (SQLite); на карту — подмножество + выбранные id |
+| **Полный список** | `GET …/infrastructure/objects` без `bbox` — кэш React Query (`staleTime` ~5 мин, `MAP_INFRA_STALE_MS`), `infraSnapPool` для snap/heal/поиска |
+| **Viewport** | При просмотре (**«Редактирование на карте» выкл.**) и **≥80** объектов (`MAP_VIEWPORT_MIN_OBJECTS`): `GET` с `bbox` + `visible_layers_only=true`, буфер ~12% (`expandMapBbox`); backend — `ST_Intersects` (PostGIS) / envelope (SQLite) — [`bbox_filter.py`](../decision-matrix/backend/app/geo/bbox_filter.py) |
+| **Режим редактирования** | При **вкл.** «Редактирование на карте» viewport-запросы **отключены** — на слой идёт полный кэш (актуальные create/update/delete без рассинхрона с bbox-срезом) |
+| **Throttling bbox** | После `moveend` (debounce ~400 ms) новый `bbox` в React Query **только если** видимая область вышла за буфер предыдущей загрузки (`shouldUpdateMapBbox` / `viewportInsideFetchedBuffer` в [`mapBboxUtils.ts`](../decision-matrix/frontend/src/lib/mapBboxUtils.ts)) — мелкий пан не дергает API |
+| **Слияние на карту** | `mergeInfraForMapDisplay`: bbox-срез + полный кэш; **выделение** (`displayKeepIds`); **overlay** (`infraOverlayIds`) — локально созданные/изменённые id до следующего bbox-refetch |
+| **Синхронизация кэшей** | Любое изменение инфраструктуры на карте патчит **все** запросы с ключом `['infra', projectId, …]` — [`mapQueries.ts`](../decision-matrix/frontend/src/lib/mapQueries.ts): `upsertInfraObjectInQueries`, `removeInfraObjectsFromQueries`, `patchInfraObjectsInQueries` (create, delete, paste, drag геометрии) |
+| **Сброс viewport** | `invalidateMap` / импорт / смена проекта: `setMapBbox(null)`, сброс overlay, `refreshMapQueries`; при **выкл.** редактирования на крупном проекте — один refetch bbox-среза |
 | **Snap** | Grid-index [`infraSnapIndex.ts`](../decision-matrix/frontend/src/lib/infraSnapIndex.ts) для `linePathForDisplay` |
-| **LOD линий** | При zoom &lt; 12 — отображение только двух концов (после snap); полный path при zoom ≥ 12; сохранение всегда по полной геометрии |
+| **LOD линий** | При масштабе карты **1:N** грубее порога (ползунок «Упр. линий» в footer, по умолчанию 1:500 000) — только два конца после snap; иначе полный path; порог в `localStorage` (`lineLodScaleThreshold`) |
 | **Heal концов** | Один раз на проект (`localStorage`); сброс после импорта (`bumpMapRefresh`) |
 | **Кластеризация точек** | Не используется (FR-2.4.3 вне текущей реализации) |
+| **Горячий путь мыши** | `pointermove` в `MapView`: один кадр через `requestAnimationFrame` ([`mapPointerThrottle.ts`](../decision-matrix/frontend/src/lib/mapPointerThrottle.ts)); hit-test по spatial index источника, без `forEachFeatureAtPixel` ([`mapHitTest.ts`](../decision-matrix/frontend/src/lib/mapHitTest.ts)); hover — `feature.changed()` только у старого/нового id |
+| **React state курсора** | `MapPage`: координаты в `ref` при просмотре/select; `setCursor` только для paste, point/poi, линейки (≥1 точка), черновика линии (≥1 вершина) |
+| **Синхронизация слоя** | `syncInfraDataToLayers`: при ≥150 объектах — `requestIdleCallback` (timeout 250 ms); snap-index пересобирается при смене id/координат точек snap-pool ([`infraSnapPoolSignature`](../decision-matrix/frontend/src/components/MapView.tsx)) |
+| **MapView memo** | `React.memo(MapView)` + стабильные `useCallback` колбэки с `MapPage` |
+
+**Подвал карты (footer):** масштаб 1:N, подсказки инструментов (линейка, линия), статус «Сохранение геометрии…»; строка координат курсора **не выводится** (координаты по-прежнему используются для paste/preview).
+
+**Тесты:** [`mapBboxUtils.test.ts`](../decision-matrix/frontend/src/lib/mapBboxUtils.test.ts), [`mapQueries.test.ts`](../decision-matrix/frontend/src/lib/mapQueries.test.ts), [`mapHitTest.test.ts`](../decision-matrix/frontend/src/lib/mapHitTest.test.ts), [`mapPointerThrottle.test.ts`](../decision-matrix/frontend/src/lib/mapPointerThrottle.test.ts).
+
+**Ручной perf baseline (тяжёлый проект, ≥200 объектов в viewport):** см. [testing-strategy.md](./testing-strategy.md) § «Карта 2D — ручной perf checklist».
 
 ### 6.2 Поиск и dev-порт
 
@@ -579,6 +647,8 @@ erDiagram
 
 | Дата | Изменение |
 |------|-----------|
+| 2026-06 | §6.1.2: rAF pointermove, spatial hit-test, точечный hover, memo MapView, idle sync слоя, LOD default 1:500 000, perf checklist |
+| 2026-06 | §6.1.2: throttling bbox, синхронизация full+bbox кэшей при CRUD/геометрии (`mapQueries`), overlay merge; footer без координат курсора |
 | 2026-06 | §6.1.1: групповое перемещение с привязкой линий (`mapGroupLinePatches`, merge концов, `translating` + resync слоя); §1.5 ссылка на batch |
 | 2026-05 | Custom GLB: назначение на несколько подтипов (`assigned_subtypes[]`), `render_3d_scale`, якорь glTF, панель «Слои» в localStorage |
 | 2026-05 | Cross-origin: Bearer + `map3dCustomGlbFetch` для `GET .../file`; sync CSRF/Bearer в `api.ts` — см. auth-rbac, map-3d-features §12 |

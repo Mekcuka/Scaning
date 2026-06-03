@@ -760,6 +760,11 @@ export interface InfraObjectCreate {
   layer_id?: string;
   description?: string;
   properties?: Record<string, unknown>;
+  /** Paste: snap start to this point object id (clipboard twin), not map-wide nearest. */
+  line_snap_start_object_id?: string;
+  line_snap_finish_object_id?: string;
+  /** Clipboard paste: keep submitted path; snap only explicit line_snap_* ends. */
+  line_preserve_geometry?: boolean;
 }
 
 /** НПЗ / НПС — subtype обязателен и только из этого списка. */

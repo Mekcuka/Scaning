@@ -1,3 +1,31 @@
+export function parseMapBbox(bbox: string): [number, number, number, number] | null {
+  const parts = bbox.split(',').map((x) => Number(x.trim()));
+  if (parts.length !== 4 || parts.some((n) => !Number.isFinite(n))) return null;
+  return parts as [number, number, number, number];
+}
+
+/** True if `viewport` lies entirely inside the buffered envelope of a prior fetch. */
+export function viewportInsideFetchedBuffer(
+  fetchedViewport: string,
+  viewport: string,
+  bufferRatio = 0.12,
+): boolean {
+  const outer = parseMapBbox(expandMapBbox(fetchedViewport, bufferRatio));
+  const inner = parseMapBbox(viewport);
+  if (!outer || !inner) return false;
+  const [oMinLon, oMinLat, oMaxLon, oMaxLat] = outer;
+  const [iMinLon, iMinLat, iMaxLon, iMaxLat] = inner;
+  return (
+    iMinLon >= oMinLon && iMinLat >= oMinLat && iMaxLon <= oMaxLon && iMaxLat <= oMaxLat
+  );
+}
+
+/** Skip bbox state/query updates while the user pans/zooms inside the last fetch buffer. */
+export function shouldUpdateMapBbox(prev: string | null, next: string, bufferRatio = 0.12): boolean {
+  if (!prev || prev === next) return !prev;
+  return !viewportInsideFetchedBuffer(prev, next, bufferRatio);
+}
+
 /** Parse `minLon,minLat,maxLon,maxLat` and expand by ratio (viewport buffer). */
 export function expandMapBbox(bbox: string, bufferRatio = 0.12): string {
   const parts = bbox.split(',').map((x) => Number(x.trim()));
@@ -8,16 +36,21 @@ export function expandMapBbox(bbox: string, bufferRatio = 0.12): string {
   return [minLon - dLon, minLat - dLat, maxLon + dLon, maxLat + dLat].join(',');
 }
 
-/** Merge viewport subset with objects that must stay visible (selection, paste). */
+/**
+ * Merge viewport bbox slice with full project list.
+ * `keepIds` — selection; `overlayIds` — local create/update not yet in viewport API slice.
+ */
 export function mergeInfraForMapDisplay<T extends { id: string }>(
   viewport: T[],
   full: T[],
   keepIds: Iterable<string>,
+  overlayIds?: Iterable<string>,
 ): T[] {
   const keep = new Set(keepIds);
-  if (keep.size === 0) return viewport.length ? viewport : full;
+  const overlay = new Set(overlayIds ?? []);
   const byId = new Map(full.map((o) => [o.id, o]));
   const out = new Map<string, T>();
+
   for (const o of viewport) {
     out.set(o.id, byId.get(o.id) ?? o);
   }
@@ -25,6 +58,12 @@ export function mergeInfraForMapDisplay<T extends { id: string }>(
     const obj = byId.get(id);
     if (obj) out.set(id, obj);
   }
+  for (const id of overlay) {
+    const obj = byId.get(id);
+    if (obj) out.set(id, obj);
+  }
+
+  if (out.size === 0) return full;
   return [...out.values()];
 }
 

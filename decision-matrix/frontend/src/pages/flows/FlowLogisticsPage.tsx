@@ -27,7 +27,10 @@ import {
   clearLegacySandLogisticsSession,
   withInfraObjectNames,
 } from '../../lib/sandLogisticsResult';
-import { useProjectSandLogistics } from '../../hooks/useProjectSandLogistics';
+import {
+  useProjectSandLogistics,
+  writeSandLogisticsCache,
+} from '../../hooks/useProjectSandLogistics';
 import { useFlowSchematicContext } from './flowSchematicContext';
 import { useAppStore } from '../../store';
 
@@ -171,8 +174,8 @@ export function FlowLogisticsPage() {
       }),
     onSuccess: (data) => {
       const normalized = normalizeSandLogisticsResult(data);
-      queryClient.setQueryData(['sand-logistics', projectId], normalized);
       if (projectId) {
+        writeSandLogisticsCache(queryClient, projectId, normalized);
         saveSandLogisticsHorizonTo(projectId, horizonTo);
         saveSandLogisticsViewAsOf(projectId, viewAsOf);
         saveActiveSubnetIndex(projectId, 0);
@@ -187,8 +190,9 @@ export function FlowLogisticsPage() {
   });
 
   const globalWarningLines = useMemo(
-    () => (resultWithNames ? buildGlobalSandLogisticsWarningLines(resultWithNames) : []),
-    [resultWithNames],
+    () =>
+      resultWithNames ? buildGlobalSandLogisticsWarningLines(resultWithNames, viewAsOf) : [],
+    [resultWithNames, viewAsOf],
   );
 
   const calculatedAtLabel = formatCalculatedAtRu(result?.calculated_at);
@@ -366,6 +370,10 @@ export function FlowLogisticsPage() {
             </>
           )}
         </>
+      )}
+
+      {!result && !analyzeMut.isPending && resultLoading && (
+        <p className="text-[var(--text-muted)] py-8 text-center text-sm">Загрузка сохранённого расчёта…</p>
       )}
 
       {!result && !analyzeMut.isPending && !resultLoading && (

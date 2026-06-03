@@ -336,6 +336,9 @@ async def _create_infra_object_record(
                 end_lon=end_lon,
                 end_lat=end_lat,
                 coordinates=line_coords,
+                line_snap_start_object_id=data.line_snap_start_object_id,
+                line_snap_finish_object_id=data.line_snap_finish_object_id,
+                line_preserve_geometry=data.line_preserve_geometry,
             )
         except LineEndpointRuleError as e:
             raise ValueError(str(e)) from e

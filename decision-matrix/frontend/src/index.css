@@ -2036,6 +2036,38 @@ table.data-table--projects .col-actions {
   color: var(--text);
 }
 
+.map-footer-lod {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-left: auto;
+  flex-shrink: 0;
+  padding-left: 12px;
+  border-left: 1px solid var(--border);
+}
+
+.map-footer-lod-label {
+  font-size: 0.72rem;
+  white-space: nowrap;
+  color: var(--text-muted);
+}
+
+.map-footer-lod-slider {
+  width: 96px;
+  height: 4px;
+  margin: 0;
+  accent-color: var(--accent, #2563eb);
+  cursor: pointer;
+}
+
+.map-footer-lod-value {
+  font-size: 0.72rem;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+  color: var(--text-muted);
+  min-width: 7.5rem;
+}
+
 .map-status {
   padding: 8px 14px;
   font-size: 0.8rem;
@@ -3453,8 +3485,30 @@ tr:hover .inline-table-edit-trigger,
   position: relative;
   flex: 1;
   min-width: 0;
-  height: 56px;
+  height: 64px;
   margin: 0 2px;
+  overflow: visible;
+}
+
+.sand-logistics-timeline__year-cluster {
+  position: absolute;
+  top: 2px;
+  transform: translateX(-50%);
+  display: flex;
+  flex-wrap: nowrap;
+  align-items: flex-end;
+  justify-content: center;
+  gap: 3px;
+  max-width: 72px;
+  z-index: 2;
+}
+
+.sand-logistics-timeline__year-cluster .sand-logistics-timeline__marker,
+.sand-logistics-timeline__year-cluster .sand-logistics-timeline__overflow {
+  position: relative;
+  top: auto;
+  left: auto;
+  flex-shrink: 0;
 }
 
 .sand-logistics-timeline__track-bg {
@@ -3496,23 +3550,19 @@ tr:hover .inline-table-edit-trigger,
 }
 
 .sand-logistics-timeline__marker {
-  position: absolute;
-  top: 22px;
-  transform: translate(-50%, -50%);
-  width: 12px;
-  height: 12px;
+  width: 10px;
+  height: 10px;
   padding: 0;
   border: 2px solid var(--surface, #fff);
   border-radius: 999px;
   cursor: pointer;
-  z-index: 2;
   transition: transform 0.12s ease, box-shadow 0.12s ease;
 }
 
 .sand-logistics-timeline__marker--quarry {
   background: #b45309;
   border-radius: 2px;
-  transform: translate(-50%, -50%) rotate(45deg);
+  transform: rotate(45deg);
 }
 
 .sand-logistics-timeline__marker--consumer {
@@ -3524,11 +3574,35 @@ tr:hover .inline-table-edit-trigger,
 }
 
 .sand-logistics-timeline__marker:hover {
-  transform: translate(-50%, -50%) scale(1.2);
+  transform: scale(1.15);
 }
 
 .sand-logistics-timeline__marker--quarry:hover {
-  transform: translate(-50%, -50%) rotate(45deg) scale(1.2);
+  transform: rotate(45deg) scale(1.15);
+}
+
+.sand-logistics-timeline__overflow {
+  min-width: 18px;
+  height: 16px;
+  padding: 0 4px;
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  background: var(--surface-2, #f1f5f9);
+  font-size: 0.5625rem;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  line-height: 14px;
+  color: var(--text-muted);
+  cursor: pointer;
+}
+
+.sand-logistics-timeline__overflow--active {
+  border-color: color-mix(in srgb, var(--accent, #2563eb) 50%, var(--border));
+  color: var(--accent, #2563eb);
+}
+
+.sand-logistics-timeline__overflow:hover {
+  background: color-mix(in srgb, var(--accent, #2563eb) 12%, var(--surface-2));
 }
 
 .sand-logistics-timeline__cursor {

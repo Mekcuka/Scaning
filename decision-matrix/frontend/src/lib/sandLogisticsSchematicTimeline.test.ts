@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 import {
   collectSubnetEntryMarkers,
   datePositionPct,
+  layoutYearMarkers,
   yearsInHorizon,
   yearIndexInHorizon,
 } from './sandLogisticsSchematicTimeline';
@@ -71,5 +72,18 @@ describe('sandLogisticsSchematicTimeline', () => {
   it('yearIndexInHorizon finds view year', () => {
     const years = [2024, 2025, 2026];
     expect(yearIndexInHorizon('2025-12-31', years)).toBe(1);
+  });
+
+  it('layoutYearMarkers caps visible markers per year', () => {
+    const markers = Array.from({ length: 12 }, (_, i) => ({
+      objectId: `o${i}`,
+      name: `Obj ${i}`,
+      kind: 'consumer' as const,
+      entryDate: '2020-06-01',
+      year: 2020,
+    }));
+    const layout = layoutYearMarkers(markers, 4);
+    expect(layout.visible).toHaveLength(4);
+    expect(layout.overflowCount).toBe(8);
   });
 });

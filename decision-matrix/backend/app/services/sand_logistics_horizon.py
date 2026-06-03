@@ -279,6 +279,12 @@ def _build_subnet_snapshot(
             row["greedy_quarry_id"] = None
             row["greedy_quarry_name"] = None
 
+    # Drop one-shot greedy unmet flags: snapshot uses full quarry current_m3, not sim remaining.
+    base["warnings"] = [
+        w
+        for w in base.get("warnings", [])
+        if not (isinstance(w, str) and w.startswith("unmet_demand:"))
+    ]
     extra_warnings: list[str] = []
     for row in base.get("consumers", []):
         if not row.get("in_service"):

@@ -5,9 +5,10 @@ import {
   clipboardCentroid,
   infraPasteSubtypePlan,
   partitionClipboardForPaste,
-  remapLineEndpointsOnPaste,
+  remapLineEndpointsForPaste,
   type MapClipboardItem,
 } from './mapClipboard';
+import { lineLengthMeters } from './mapMeasure';
 import type { InfraObject, POI } from './api';
 
 const poi: POI = {
@@ -39,6 +40,7 @@ const lineInfra: InfraObject = {
   end_lat: 55.755,
   coordinates: [
     [37.61, 55.751],
+    [37.63, 55.753],
     [37.65, 55.755],
   ],
   layer_id: 'layer-1',
@@ -59,6 +61,40 @@ describe('mapClipboard', () => {
     expect(items[1]?.kind === 'infra' && items[1].snapshot.subtype).toBe('autoroad');
   });
 
+  it('buildClipboardFromSelection omits attach when support point is not in selection', () => {
+    const externalNode: InfraObject = {
+      ...pointInfra,
+      id: 'pt-external',
+      lon: 37.65,
+      lat: 55.755,
+    };
+    const items = buildClipboardFromSelection(
+      [],
+      [externalNode, lineInfra],
+      [{ kind: 'infra', id: 'line-1' }],
+    );
+    const lineItem = items[0];
+    expect(lineItem?.kind).toBe('infra');
+    if (lineItem?.kind !== 'infra') throw new Error('expected line');
+    expect(lineItem.endpointAttach).toBeUndefined();
+  });
+
+  it('buildClipboardFromSelection records endpointAttach for line ends in selection', () => {
+    const items = buildClipboardFromSelection(
+      [],
+      [pointInfra, lineInfra],
+      [
+        { kind: 'infra', id: 'pt-1' },
+        { kind: 'infra', id: 'line-1' },
+      ],
+    );
+    const lineItem = items.find((i) => i.kind === 'infra' && i.snapshot.subtype === 'autoroad');
+    expect(lineItem?.kind).toBe('infra');
+    if (lineItem?.kind !== 'infra') throw new Error('expected line');
+    expect(lineItem.endpointAttach?.startSourceId).toBe('pt-1');
+    expect(lineItem.endpointAttach?.finishSourceId).toBeUndefined();
+  });
+
   it('applyOffsetToClipboard moves centroid to anchor', () => {
     const items = buildClipboardFromSelection([poi], [], [{ kind: 'poi', id: 'poi-1' }]);
     const shifted = applyOffsetToClipboard(items, 40, 50);
@@ -73,11 +109,11 @@ describe('mapClipboard', () => {
       [{ kind: 'infra', id: 'line-1' }],
     );
     const c = clipboardCentroid(items);
-    expect(c.lon).toBeCloseTo((37.61 + 37.65) / 2, 5);
-    expect(c.lat).toBeCloseTo((55.751 + 55.755) / 2, 5);
+    expect(c.lon).toBeCloseTo((37.61 + 37.63 + 37.65) / 3, 5);
+    expect(c.lat).toBeCloseTo((55.751 + 55.753 + 55.755) / 3, 5);
   });
 
-  it('remapLineEndpointsOnPaste snaps line to new point pool', () => {
+  it('remapLineEndpointsForPaste binds start to twin by sourceId', () => {
     const items = buildClipboardFromSelection(
       [],
       [pointInfra, lineInfra],
@@ -96,10 +132,50 @@ describe('mapClipboard', () => {
     };
     const lineItem = lines[0]!;
     if (lineItem.kind !== 'infra') throw new Error('expected infra line');
-    const lineSnap = lineItem.snapshot;
-    const remapped = remapLineEndpointsOnPaste(lineSnap, [createdPoint]);
-    expect(remapped.lon).toBeCloseTo(createdPoint.lon, 6);
-    expect(remapped.lat).toBeCloseTo(createdPoint.lat, 6);
+    const idMap = new Map<string, InfraObject>([['pt-1', createdPoint]]);
+    const { snap, line_snap_start_object_id } = remapLineEndpointsForPaste(
+      lineItem.snapshot,
+      lineItem.endpointAttach,
+      idMap,
+    );
+    expect(line_snap_start_object_id).toBe('new-pt');
+    expect(snap.coordinates).toEqual(lineItem.snapshot.coordinates);
+    expect(snap.lon).toBe(lineItem.snapshot.lon);
+  });
+
+  it('paste at two anchors yields equal line length when group includes node', () => {
+    const items = buildClipboardFromSelection(
+      [],
+      [pointInfra, lineInfra],
+      [
+        { kind: 'infra', id: 'pt-1' },
+        { kind: 'infra', id: 'line-1' },
+      ],
+    );
+
+    const pasteAt = (anchorLon: number, anchorLat: number) => {
+      const offset = applyOffsetToClipboard(items, anchorLon, anchorLat);
+      const { pointInfra: pts, lineInfra: lines } = partitionClipboardForPaste(offset);
+      const createdPoint: InfraObject = {
+        ...pointInfra,
+        id: `pt-${anchorLon}`,
+        lon: pts[0]!.snapshot.lon,
+        lat: pts[0]!.snapshot.lat,
+      };
+      const lineItem = lines[0]!;
+      if (lineItem.kind !== 'infra') throw new Error('expected line');
+      const idMap = new Map([['pt-1', createdPoint]]);
+      const { snap } = remapLineEndpointsForPaste(
+        lineItem.snapshot,
+        lineItem.endpointAttach,
+        idMap,
+      );
+      return lineLengthMeters(snap.coordinates!);
+    };
+
+    const lenA = pasteAt(37.62, 55.76);
+    const lenB = pasteAt(37.64, 55.74);
+    expect(Math.abs(lenA - lenB)).toBeLessThan(2);
   });
 
   it('infraPasteSubtypePlan maps gas_pad to oil_pad then patch', () => {

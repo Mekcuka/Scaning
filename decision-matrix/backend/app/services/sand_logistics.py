@@ -636,9 +636,8 @@ async def analyze_sand_logistics(
     )
     global_warnings.extend(sim_warnings)
 
-    for step in timeline:
-        for subnet in step.get("subnets", []):
-            global_warnings.extend(subnet.get("warnings", []))
+    for subnet in subnets:
+        global_warnings.extend(subnet.get("warnings", []))
 
     components = _connected_components(g_at_view.adj)
     quarry_subnet_node_sets: list[set[UUID]] = []

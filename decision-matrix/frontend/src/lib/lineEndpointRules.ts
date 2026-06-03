@@ -80,9 +80,10 @@ export function snapLineDrawPoint(
   infraObjects: InfraObject[],
   overPoint?: { lon: number; lat: number } | null,
   endpointKind: 'start' | 'finish' = 'finish',
+  snapIndex?: InfraPointSnapIndex,
 ): [number, number] {
   if (overPoint) return [overPoint.lon, overPoint.lat];
-  return snapLineEndpoint(lineSubtype, endpointKind, cursor, infraObjects);
+  return snapLineEndpoint(lineSubtype, endpointKind, cursor, infraObjects, snapIndex);
 }
 
 export function isLineEndpointSnapped(

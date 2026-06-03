@@ -5,9 +5,15 @@ import {
   normalizeSandLogisticsResult,
   resolveSubnetsAtView,
   resolveSubnetForSchematicAtView,
+  reconcileSubnetWarningsForSlice,
+  buildSubnetSandLogisticsWarningLines,
   clearSchematicSliceCache,
   horizonYearRange,
   sandLogisticsStorageKey,
+  sandLogisticsSessionCacheKey,
+  saveSandLogisticsSessionCache,
+  loadSandLogisticsSessionCache,
+  clearSandLogisticsSessionCache,
   hasLegacySandLogisticsSession,
 } from './sandLogisticsResult';
 import type { SandLogisticsResult } from './api';
@@ -49,6 +55,18 @@ describe('sandLogisticsResult', () => {
     sessionStorage.setItem(key, '{}');
     expect(hasLegacySandLogisticsSession('sess-proj')).toBe(true);
     sessionStorage.removeItem(key);
+  });
+
+  it('session cache round-trip separate from legacy key', () => {
+    const projectId = 'cache-proj';
+    const raw = complexSandLogisticsResult();
+    clearSandLogisticsSessionCache(projectId);
+    saveSandLogisticsSessionCache(projectId, raw);
+    expect(sessionStorage.getItem(sandLogisticsSessionCacheKey(projectId))).toBeTruthy();
+    expect(hasLegacySandLogisticsSession(projectId)).toBe(false);
+    const loaded = loadSandLogisticsSessionCache(projectId);
+    expect(loaded?.subnet_count).toBe(raw.subnet_count);
+    clearSandLogisticsSessionCache(projectId);
   });
 
   it('buildSandLogisticsWarningLines aggregates global and subnet', () => {
@@ -110,6 +128,16 @@ describe('sandLogisticsResult', () => {
     expect(lines.some((l) => l.includes('ГКС_3'))).toBe(true);
   });
 
+  it('buildGlobalSandLogisticsWarningLines respects viewAsOf for unmet_demand', () => {
+    const result = complexSandLogisticsResult();
+    const at2023 = buildGlobalSandLogisticsWarningLines(result, '2023-12-31');
+    const at2019 = buildGlobalSandLogisticsWarningLines(result, '2019-12-31');
+
+    expect(at2023.some((l) => l.includes('Неудовлетворённый спрос'))).toBe(true);
+    expect(at2019.some((l) => l.includes('Далекий ГКС'))).toBe(false);
+    expect(at2019.some((l) => l.includes('ГКС_3'))).toBe(true);
+  });
+
   it('resolveSubnetsAtView returns waiting subnet for early timeline year', () => {
     const result = complexSandLogisticsResult();
     const subnets2019 = resolveSubnetsAtView(result, '2019-12-31');
@@ -133,6 +161,32 @@ describe('sandLogisticsResult', () => {
     expect(at2019.consumers.length).toBe(canonical.consumers.length);
     expect(at2019.quarries.every((q) => !q.in_service)).toBe(true);
     expect(at2019.consumers.every((c) => !c.in_service)).toBe(true);
+  });
+
+  it('resolveSubnetForSchematicAtView drops stale unmet_demand when slice volumes are met', () => {
+    const result = complexSandLogisticsResult();
+    const canonical = mainQuarrySubnet();
+    const at2019 = resolveSubnetForSchematicAtView(result, canonical, '2019-12-31');
+    const lines = buildSubnetSandLogisticsWarningLines(at2019, result);
+
+    expect(canonical.warnings.some((w) => w.startsWith('unmet_demand:'))).toBe(true);
+    expect(lines.some((l) => l.includes('Неудовлетворённый спрос'))).toBe(false);
+  });
+
+  it('reconcileSubnetWarningsForSlice derives unmet only from in-service demand vs allocation', () => {
+    const subnet = mainQuarrySubnet();
+    const warnings = reconcileSubnetWarningsForSlice({
+      warnings: ['unmet_demand:stale', 'no_path:obj-a'],
+      consumers: [
+        {
+          ...subnet.consumers[1]!,
+          in_service: true,
+          demand_m3: 500,
+          greedy_allocated_m3: 500,
+        },
+      ],
+    });
+    expect(warnings).toEqual(['no_path:obj-a']);
   });
 
   it('resolveSubnetForSchematicAtView applies timeline volumes for in-service objects', () => {

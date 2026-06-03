@@ -5,6 +5,8 @@ import { formatEntryDateRu } from '../../lib/infraEntryDate';
 import {
   collectSubnetEntryMarkers,
   datePositionPct,
+  groupMarkersByYear,
+  layoutYearMarkers,
   viewAsOfForYear,
   yearIndexInHorizon,
   yearsInHorizon,
@@ -38,23 +40,7 @@ export function SandLogisticsSchematicTimeline({
   const viewYear = Number.parseInt(viewAsOf.slice(0, 4), 10);
   const viewPct = datePositionPct(viewAsOf, horizonFrom, horizonTo);
 
-  const markersByYear = useMemo(() => {
-    const map = new Map<number, number>();
-    for (const m of markers) {
-      map.set(m.year, (map.get(m.year) ?? 0) + 1);
-    }
-    return map;
-  }, [markers]);
-
-  const markersByDate = useMemo(() => {
-    const map = new Map<string, typeof markers>();
-    for (const marker of markers) {
-      const list = map.get(marker.entryDate) ?? [];
-      list.push(marker);
-      map.set(marker.entryDate, list);
-    }
-    return map;
-  }, [markers]);
+  const markersByYear = useMemo(() => groupMarkersByYear(markers), [markers]);
 
   const goToIndex = (idx: number) => {
     const clamped = Math.max(0, Math.min(years.length - 1, idx));
@@ -80,26 +66,51 @@ export function SandLogisticsSchematicTimeline({
           </span>
         );
       })}
-      {[...markersByDate.values()].flatMap((group) =>
-        group.map((marker, index) => {
-          const left = datePositionPct(marker.entryDate, horizonFrom, horizonTo);
-          const isPastSlice = marker.entryDate <= viewAsOf;
-          const stackOffset = group.length > 1 ? (index - (group.length - 1) / 2) * 14 : 0;
-          return (
-            <button
-              key={marker.objectId}
-              type="button"
-              className={`sand-logistics-timeline__marker sand-logistics-timeline__marker--${marker.kind}${
-                isPastSlice ? ' sand-logistics-timeline__marker--active' : ''
-              }`}
-              style={{ left: `${left}%`, top: `${22 + stackOffset}px` }}
-              title={`${marker.name} · ввод ${formatEntryDateRu(marker.entryDate)}`}
-              aria-label={`${marker.name}, ввод ${formatEntryDateRu(marker.entryDate)}`}
-              onClick={() => onViewAsOfChange(viewAsOfForYear(marker.year))}
-            />
-          );
-        }),
-      )}
+      {[...markersByYear.entries()].map(([year, yearMarkers]) => {
+        const left = datePositionPct(viewAsOfForYear(year), horizonFrom, horizonTo);
+        const { visible, overflowCount } = layoutYearMarkers(yearMarkers);
+        const sliceDate = viewAsOfForYear(year);
+        const isPastSlice = sliceDate <= viewAsOf;
+        const overflowTitle =
+          overflowCount > 0
+            ? `${year}: ещё ${overflowCount} ${overflowCount === 1 ? 'объект' : overflowCount < 5 ? 'объекта' : 'объектов'}`
+            : undefined;
+        return (
+          <div
+            key={year}
+            className="sand-logistics-timeline__year-cluster"
+            style={{ left: `${left}%` }}
+            title={overflowTitle}
+          >
+            {visible.map((marker) => {
+              const markerPast = marker.entryDate <= viewAsOf;
+              return (
+                <button
+                  key={marker.objectId}
+                  type="button"
+                  className={`sand-logistics-timeline__marker sand-logistics-timeline__marker--${marker.kind}${
+                    markerPast ? ' sand-logistics-timeline__marker--active' : ''
+                  }`}
+                  title={`${marker.name} · ввод ${formatEntryDateRu(marker.entryDate)}`}
+                  aria-label={`${marker.name}, ввод ${formatEntryDateRu(marker.entryDate)}`}
+                  onClick={() => onViewAsOfChange(viewAsOfForYear(marker.year))}
+                />
+              );
+            })}
+            {overflowCount > 0 && (
+              <button
+                type="button"
+                className={`sand-logistics-timeline__overflow${isPastSlice ? ' sand-logistics-timeline__overflow--active' : ''}`}
+                title={overflowTitle}
+                aria-label={`${year}, всего ${yearMarkers.length} вводов`}
+                onClick={() => onViewAsOfChange(sliceDate)}
+              >
+                +{overflowCount}
+              </button>
+            )}
+          </div>
+        );
+      })}
       <div className="sand-logistics-timeline__cursor" style={{ left: `${viewPct}%` }} />
       {showSlider && (
         <input
@@ -158,7 +169,7 @@ export function SandLogisticsSchematicTimeline({
       {showSlider && (
         <div className="sand-logistics-timeline__years" role="tablist" aria-label="Быстрый выбор года">
           {years.map((year) => {
-            const count = markersByYear.get(year) ?? 0;
+            const count = markersByYear.get(year)?.length ?? 0;
             const active = year === viewYear;
             return (
               <button

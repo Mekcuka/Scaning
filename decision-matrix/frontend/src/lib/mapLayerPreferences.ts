@@ -2,6 +2,10 @@
 
 import { createDefaultSubtypeFilter } from './api';
 import { isMaptilerTerrainAvailable } from './map3d/map3dConfig';
+import {
+  clampLineLodScaleThreshold,
+  DEFAULT_LINE_LOD_SCALE_THRESHOLD,
+} from './mapLineLod';
 
 export type MapLayerOpenSections = {
   basemap: boolean;
@@ -19,6 +23,8 @@ export type MapLayerPreferences = {
   radiusVisible: Record<string, boolean>;
   subtypeFilter: Record<string, boolean>;
   openSections: MapLayerOpenSections;
+  /** Simplify lines to 2 points when map scale 1:N is at or above this N. */
+  lineLodScaleThreshold: number;
 };
 
 const DEFAULT_RADIUS_VISIBLE: Record<string, boolean> = {
@@ -45,6 +51,7 @@ export function defaultMapLayerPreferences(): MapLayerPreferences {
     radiusVisible: { ...DEFAULT_RADIUS_VISIBLE },
     subtypeFilter: createDefaultSubtypeFilter(),
     openSections: { ...DEFAULT_OPEN_SECTIONS },
+    lineLodScaleThreshold: DEFAULT_LINE_LOD_SCALE_THRESHOLD,
   };
 }
 
@@ -92,6 +99,10 @@ export function loadMapLayerPreferences(projectId: string | null): MapLayerPrefe
       radiusVisible: mergeBoolRecord(defaults.radiusVisible, parsed.radiusVisible),
       subtypeFilter: mergeBoolRecord(defaults.subtypeFilter, parsed.subtypeFilter),
       openSections: parseOpenSections(parsed.openSections),
+      lineLodScaleThreshold:
+        typeof parsed.lineLodScaleThreshold === 'number'
+          ? clampLineLodScaleThreshold(parsed.lineLodScaleThreshold)
+          : defaults.lineLodScaleThreshold,
     };
   } catch {
     return defaults;

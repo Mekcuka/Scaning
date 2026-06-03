@@ -69,6 +69,20 @@ cd decision-matrix/frontend
 npm run test:e2e
 ```
 
+## Карта 2D — ручной perf checklist
+
+Зафиксировать **до/после** изменений производительности на одном тяжёлом проекте (≥200 объектов в viewport, режим просмотра с bbox при ≥80 объектах). Инструменты: Chrome **Performance** (FPS, Long Tasks >50 ms, `getImageData` / hit-test) и **React Profiler** (число commits).
+
+| # | Сценарий (10 с) | Что смотреть |
+|---|-----------------|-------------|
+| 1 | Панорамирование | FPS, Long Tasks; число `GET …/objects?bbox=` (должно не расти на мелком пане) |
+| 2 | Hover без инструментов | commits `MapPage`; время в hit-test; предупреждения `willReadFrequently` |
+| 3 | Рисование линии (edit, draft ≥1 вершина) | commits/с при движении мыши; отзывчивость preview |
+| 4 | Drag одной точки (edit) | длительность синхронизации слоя; «залипание» курсора |
+| 5 | Один zoom step + pan | LOD переключение; артефакты линий при быстром пане |
+
+Критерий успеха оптимизаций pointermove: заметно меньше React commits в сценарии 2; после spatial hit-test — почти нет canvas readback в Performance.
+
 ## Принципы «не навредить»
 
 - PR с тестами **без** изменения поведения, кроме точечного `data-testid` и extract pure helpers.
@@ -94,6 +108,8 @@ npm run test:e2e
 | CI gate `src/pages/**` | **77%** (ступень к 80%) | **~78–79%** |
 
 **MapPage:** `MapPage.integration.test.tsx`, …
+
+**Карта (unit, bbox/кэш):** [`mapBboxUtils.test.ts`](../decision-matrix/frontend/src/lib/mapBboxUtils.test.ts) (буфер bbox, merge viewport+overlay), [`mapQueries.test.ts`](../decision-matrix/frontend/src/lib/mapQueries.test.ts) (upsert/remove во full и bbox-кэше).
 
 **Логистика песка (frontend unit):** `sandLogisticsFlow.test.ts` (layout/slice, geo-ordering, adaptive spacing), `sandLogisticsResult.test.ts` (`resolveSubnetForSchematicAtView`, slice cache), `sandLogisticsSchematicTimeline.test.ts`, `SandLogisticsSubnetPanel.test.tsx` (смена года без remount схемы), `FlowLogisticsPage.test.tsx`.
 

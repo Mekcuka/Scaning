@@ -87,7 +87,7 @@
 
 **Панель «Слои» на `/map`:** переключатели подложки, групп подтипов, POI, радиусов — в `localStorage` на проект (`mapLayerPreferences.ts`, ключ `dm-map-layer-prefs:{projectId}`). Видимость импортированных слоёв (`infrastructure_layers.is_visible`) — в БД.
 
-**Загрузка объектов на `/map`:** гибрид полного кэша + bbox при просмотре (порог 80 объектов); API [`bbox_filter.py`](../decision-matrix/backend/app/geo/bbox_filter.py). Кластеризация точек (FR-2.4.3) — не реализована.
+**Загрузка объектов на `/map`:** гибрид полного кэша + bbox при просмотре (порог 80 объектов, буфер 12%, без лишних `GET` при мелком пане); синхронизация full+bbox кэшей при CRUD/геометрии (`mapQueries.ts`); API [`bbox_filter.py`](../decision-matrix/backend/app/geo/bbox_filter.py). **Плавность 2D:** rAF на `pointermove`, spatial hit-test (`mapHitTest.ts`), точечный hover, `React.memo(MapView)`, idle-sync слоя при ≥150 объектах, LOD линий по умолчанию 1:500 000 — §6.1.2 [map-objects-and-spatial-calculations.md](./map-objects-and-spatial-calculations.md). Кластеризация точек (FR-2.4.3) — не реализована.
 
 ---
 
@@ -96,7 +96,7 @@
 ### Реализовано
 
 - **FR-1:** регистрация, вход, JWT cookies, refresh rotation, logout, 4 роли, admin users/stats, `published` для viewer.
-- **FR-2:** слои, объекты, рисование 2D, импорт (CSV, GeoJSON, KML, Shapefile, Spark, API connections), `import_logs`, поиск на карте, пространственный анализ, радиусы, линии POI→external. **Производительность карты:** viewport `bbox` + `ST_Intersects`, React Query `staleTime`, grid snap-index, LOD линий по zoom, heal концов один раз на проект — [map-objects-and-spatial-calculations.md](./map-objects-and-spatial-calculations.md) §6.1.2.
+- **FR-2:** слои, объекты, рисование 2D, импорт (CSV, GeoJSON, KML, Shapefile, Spark, API connections), `import_logs`, поиск на карте, пространственный анализ, радиусы, линии POI→external. **Copy/paste группы (2D):** точное сохранение ломаной (`line_preserve_geometry`, привязка концов только к близнецам из выделения) — [map-objects-and-spatial-calculations.md](./map-objects-and-spatial-calculations.md) §6.1.0. **Производительность карты:** viewport `bbox` + буфер, throttling панорамирования, merge overlay, единый патч full+bbox кэшей, rAF/spatial hit-test/memo MapView, snap-index при рисовании линии, idle-sync слоя, LOD 1:500 000 — §6.1.2; ручной perf checklist — [testing-strategy.md](./testing-strategy.md).
 - **FR-4–7:** проекты, POI, 16 ставок, пороги, инженерные параметры, 9 строк анализа матрицы, стоимость, candidates, override.
 - **FR-8:** матрица (таблица + карточки), смена eng-параметров, фильтр превышений, мини-карта.
 - **FR-10:** иконки, радиусы, линии статусов.

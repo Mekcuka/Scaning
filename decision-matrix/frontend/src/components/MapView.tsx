@@ -1,4 +1,4 @@
-import { useEffect, useRef } from 'react';
+import { memo, useEffect, useRef } from 'react';
 import OlMap from 'ol/Map';
 import View from 'ol/View';
 import TileLayer from 'ol/layer/Tile';
@@ -31,6 +31,11 @@ import {
 import { closestPointOnPolyline } from '../lib/lineSplit';
 import { linePathForDisplay, type LinePathDisplayOptions } from '../lib/infraGeometry';
 import { InfraPointSnapIndex } from '../lib/infraSnapIndex';
+import {
+  DEFAULT_LINE_LOD_SCALE_THRESHOLD,
+  lineLodForScale,
+  type LineDisplayLod,
+} from '../lib/mapLineLod';
 import { MAP_SUBTYPE_COLORS, iconDataUrl } from '../lib/mapIcons';
 import {
   loadMapViewState,
@@ -39,9 +44,16 @@ import {
   type MapViewStateId,
 } from '../lib/mapViewState';
 import { useAppStore } from '../store';
+import {
+  resolveHoverFeatureIdAtCoordinate,
+  resolveInfraLineSplitAtCoordinate,
+  resolveInfraPointAtCoordinate,
+} from '../lib/mapHitTest';
+import { createPointerFrameScheduler, pointerCoordsChanged } from '../lib/mapPointerThrottle';
 import 'ol/ol.css';
 
-const LINE_LOD_ZOOM = 12;
+const MAP_VECTOR_RENDER_BUFFER = 120;
+const SYNC_IDLE_INFRA_THRESHOLD = 150;
 
 function geometrySyncKey(geometry: Point | LineString): string {
   return JSON.stringify(geometry.getCoordinates());
@@ -203,7 +215,9 @@ export interface MapViewProps {
     items: { sel: MapFeatureSelection; lon: number; lat: number; coords?: number[][] }[],
   ) => void | Promise<void>;
   onBboxChange?: (bbox: string) => void;
-  onViewChange?: (info: { zoom: number; scaleLabel: string }) => void;
+  onViewChange?: (info: { zoom: number; scaleLabel: string; scaleDenominator: number }) => void;
+  /** Simplify lines when map scale 1:N >= this N (default 500_000). */
+  lineLodScaleThreshold?: number;
   height?: string;
   connectionLines?: AnalysisRow[];
   selectedPoi?: POI | null;
@@ -447,7 +461,17 @@ function pointFeatureStyles(
   return hovered ? [softHoverRing(iconScale), ...base] : base;
 }
 
-export function MapView({
+function infraSnapPoolSignature(pool: readonly InfraObject[]): string {
+  const parts: string[] = [];
+  for (const o of pool) {
+    if (LINE_SUBTYPE_SET.has(o.subtype)) continue;
+    parts.push(`${o.id}:${o.lon}:${o.lat}`);
+  }
+  parts.sort();
+  return parts.join('|');
+}
+
+function MapViewInner({
   pois = [],
   infraObjects = [],
   infraSnapPool,
@@ -465,6 +489,7 @@ export function MapView({
   onBatchGeometryChange,
   onBboxChange,
   onViewChange,
+  lineLodScaleThreshold = DEFAULT_LINE_LOD_SCALE_THRESHOLD,
   height = '100%',
   connectionLines = [],
   selectedPoi = null,
@@ -541,8 +566,12 @@ export function MapView({
   const suppressDataSyncRef = useRef(false);
   const infraIdsRef = useRef<Set<string>>(new Set());
   const mapZoomRef = useRef(12);
-  const lineLodRef = useRef<'full' | 'endpoints'>('full');
+  const lineLodRef = useRef<LineDisplayLod>('full');
+  const mapScaleDenominatorRef = useRef(1);
+  const lineLodScaleThresholdRef = useRef(lineLodScaleThreshold);
+  lineLodScaleThresholdRef.current = lineLodScaleThreshold;
   const snapIndexRef = useRef<InfraPointSnapIndex | null>(null);
+  const lastPointerLonLatRef = useRef<{ lon: number; lat: number } | null>(null);
   const linkedLineDragRef = useRef<LinkedLineDragState | null>(null);
   const lineModifySessionRef = useRef<LineModifySession | null>(null);
   const modifySessionRef = useRef(0);
@@ -584,8 +613,12 @@ export function MapView({
   selectModeRef.current = selectMode;
   useIconsRef.current = useMapIcons;
 
+  const snapPoolSigRef = useRef('');
   useEffect(() => {
     const pool = infraSnapPool ?? infraObjects;
+    const sig = infraSnapPoolSignature(pool);
+    if (sig === snapPoolSigRef.current && snapIndexRef.current) return;
+    snapPoolSigRef.current = sig;
     snapIndexRef.current = new InfraPointSnapIndex(pool);
   }, [infraSnapPool, infraObjects]);
 
@@ -595,6 +628,9 @@ export function MapView({
     const lineLayer = new VectorLayer({
       source: lineSourceRef.current,
       zIndex: 3,
+      renderBuffer: MAP_VECTOR_RENDER_BUFFER,
+      updateWhileAnimating: false,
+      updateWhileInteracting: false,
       style: (feature) => {
         const subtype = feature.get('subtype') as string;
         if (subtype === 'draft') {
@@ -645,6 +681,9 @@ export function MapView({
     const pointLayer = new VectorLayer({
       source: pointSourceRef.current,
       zIndex: 4,
+      renderBuffer: MAP_VECTOR_RENDER_BUFFER,
+      updateWhileAnimating: false,
+      updateWhileInteracting: false,
       style: (feature) => {
         const subtype = feature.get('subtype') as string;
         const id = feature.get('id') as string;
@@ -809,65 +848,22 @@ export function MapView({
       onFeatureGroupSelectRef.current?.(selections);
     });
 
-    const resolveInfraPointAtPixel = (
-      pixel: number[],
-    ): { lon: number; lat: number; id: string } | null => {
-      const hit = map.forEachFeatureAtPixel(
-        pixel,
-        (feat, layer) => {
-          if (layer !== pointLayer) return undefined;
-          const features = feat.get('features') as Feature[] | undefined;
-          const inner = features?.length === 1 ? features[0] : feat;
-          const subtype = inner.get('subtype') as string;
-          const kind = inner.get('featureKind') as string;
-          const id = inner.get('id') as string | undefined;
-          if (!id || subtype === 'draft') return undefined;
-          if (kind !== 'infra') return undefined;
-          const geom = inner.getGeometry();
-          if (!(geom instanceof Point)) return undefined;
-          const [lon, lat] = transform(geom.getCoordinates(), 'EPSG:3857', 'EPSG:4326');
-          return { lon, lat, id };
-        },
-        { hitTolerance: 20, layerFilter: (l) => l === pointLayer },
-      );
-      return hit ?? null;
+    const resolveInfraPointAtPixel = (pixel: number[]) => {
+      const coordinate = map.getCoordinateFromPixel(pixel);
+      if (!coordinate) return null;
+      return resolveInfraPointAtCoordinate(map, pointSourceRef.current, coordinate, 20);
     };
 
-    const resolveInfraLineSplitAtPixel = (
-      pixel: number[],
-    ): MapClickHit['overLine'] | null => {
-      const hit = map.forEachFeatureAtPixel(
+    const resolveInfraLineSplitAtPixel = (pixel: number[]): MapClickHit['overLine'] | null => {
+      const coordinate = map.getCoordinateFromPixel(pixel);
+      if (!coordinate) return null;
+      return resolveInfraLineSplitAtCoordinate(
+        map,
+        lineSourceRef.current,
+        coordinate,
         pixel,
-        (feat, layer) => {
-          if (layer !== lineLayer) return undefined;
-          const features = feat.get('features') as Feature[] | undefined;
-          const inner = features?.length === 1 ? features[0] : feat;
-          const subtype = inner.get('subtype') as string;
-          const kind = inner.get('featureKind') as string;
-          const id = inner.get('id') as string | undefined;
-          if (!id || subtype === 'draft' || kind !== 'infra') return undefined;
-          if (!LINE_SUBTYPE_SET.has(subtype)) return undefined;
-          const geom = inner.getGeometry();
-          if (!(geom instanceof LineString)) return undefined;
-          return { feature: inner, id, geom };
-        },
-        { hitTolerance: 16, layerFilter: (l) => l === lineLayer },
+        16,
       );
-      if (!hit) return null;
-
-      const clickCoord = map.getCoordinateFromPixel(pixel);
-      if (!clickCoord) return null;
-      const [clickLon, clickLat] = transform(clickCoord, 'EPSG:3857', 'EPSG:4326');
-      const coords = lineCoordsFromGeometry(hit.geom);
-      const closest = closestPointOnPolyline([clickLon, clickLat], coords);
-      if (!closest) return null;
-
-      return {
-        lineId: hit.id,
-        lon: closest.point[0],
-        lat: closest.point[1],
-        segmentIndex: closest.segmentIndex,
-      };
     };
 
     const lineEndpointMoved = (
@@ -1422,10 +1418,19 @@ export function MapView({
       }
     });
     const refreshHover = (hit: string | null) => {
-      if (hit === hoveredIdRef.current) return;
+      const prev = hoveredIdRef.current;
+      if (hit === prev) return;
+      const pointSource = pointSourceRef.current;
+      const lineSource = lineSourceRef.current;
+      if (prev) {
+        const f = findSelectableLayerFeature(pointSource, lineSource, prev);
+        if (f) f.changed();
+      }
       hoveredIdRef.current = hit;
-      pointLayer.changed();
-      lineLayer.changed();
+      if (hit) {
+        const f = findSelectableLayerFeature(pointSource, lineSource, hit);
+        if (f) f.changed();
+      }
       if (containerRef.current) {
         const mode = drawModeRef.current;
         const inSelect = mode === 'select';
@@ -1444,25 +1449,35 @@ export function MapView({
       }
     };
 
+    let pendingPointer: { coordinate: number[]; lon: number; lat: number } | null = null;
+    const pointerScheduler = createPointerFrameScheduler(() => {
+      const p = pendingPointer;
+      if (!p) return;
+      const pointSource = pointSourceRef.current;
+      const lineSource = lineSourceRef.current;
+      const overPoint = resolveInfraPointAtCoordinate(map, pointSource, p.coordinate, 20);
+      if (pointerCoordsChanged(lastPointerLonLatRef.current, p.lon, p.lat)) {
+        lastPointerLonLatRef.current = { lon: p.lon, lat: p.lat };
+        onPointerMoveRef.current?.(
+          p.lon,
+          p.lat,
+          overPoint ? { lon: overPoint.lon, lat: overPoint.lat } : undefined,
+        );
+      }
+      const hit = resolveHoverFeatureIdAtCoordinate(
+        map,
+        pointSource,
+        lineSource,
+        p.coordinate,
+        8,
+      );
+      refreshHover(hit);
+    });
+
     map.on('pointermove', (evt) => {
       const [lon, lat] = transform(evt.coordinate, 'EPSG:3857', 'EPSG:4326');
-      const overPoint = resolveInfraPointAtPixel(evt.pixel);
-      onPointerMoveRef.current?.(lon, lat, overPoint ?? undefined);
-      const hit =
-        map.forEachFeatureAtPixel(
-          evt.pixel,
-          (feat, layer) => {
-            if (layer !== pointLayer && layer !== lineLayer) return undefined;
-            const features = feat.get('features') as Feature[] | undefined;
-            const inner = features?.length === 1 ? features[0] : feat;
-            const id = inner.get('id') as string | undefined;
-            const subtype = inner.get('subtype') as string | undefined;
-            if (!id || subtype === 'draft') return undefined;
-            return id;
-          },
-          { hitTolerance: 8, layerFilter: (l) => l === pointLayer || l === lineLayer }
-        ) || null;
-      refreshHover(hit);
+      pendingPointer = { coordinate: evt.coordinate, lon, lat };
+      pointerScheduler.schedule();
     });
 
     map.on('pointerdrag', applyLinkedLineDrag);
@@ -1483,19 +1498,21 @@ export function MapView({
       const resolution = view.getResolution();
       const center = view.getCenter();
       let scaleLabel = '—';
+      let scaleDenominator = 1;
       if (resolution != null && center) {
         const res = getPointResolution('EPSG:3857', resolution, center);
-        const scale = Math.max(1, Math.round(res * 39.37 * 72));
-        scaleLabel = `1:${scale.toLocaleString('ru-RU')}`;
+        scaleDenominator = Math.max(1, Math.round(res * 39.37 * 72));
+        scaleLabel = `1:${scaleDenominator.toLocaleString('ru-RU')}`;
       }
       mapZoomRef.current = zoom;
-      const lineLod: 'full' | 'endpoints' = zoom < LINE_LOD_ZOOM ? 'endpoints' : 'full';
+      mapScaleDenominatorRef.current = scaleDenominator;
+      const lineLod = lineLodForScale(scaleDenominator, lineLodScaleThresholdRef.current);
       if (lineLodRef.current !== lineLod) {
         lineLodRef.current = lineLod;
         syncInfraDataToLayersRef.current?.();
         lineLayerRef.current?.changed();
       }
-      onViewChangeRef.current?.({ zoom, scaleLabel });
+      onViewChangeRef.current?.({ zoom, scaleLabel, scaleDenominator });
     };
 
     const persistView = () => {
@@ -1523,8 +1540,11 @@ export function MapView({
         const [minX, minY, maxX, maxY] = extent;
         const [minLon, minLat] = transform([minX, minY], 'EPSG:3857', 'EPSG:4326');
         const [maxLon, maxLat] = transform([maxX, maxY], 'EPSG:3857', 'EPSG:4326');
-        onBboxChangeRef.current?.(`${minLon},${minLat},${maxLon},${maxLat}`);
-      }, 300);
+        const round = (n: number) => Math.round(n * 1e6) / 1e6;
+        onBboxChangeRef.current?.(
+          `${round(minLon)},${round(minLat)},${round(maxLon)},${round(maxLat)}`,
+        );
+      }, 400);
     });
     reportView();
 
@@ -1564,6 +1584,7 @@ export function MapView({
     }
 
     return () => {
+      pointerScheduler.cancel();
       clearTimeout(bboxTimer);
       resizeObserver?.disconnect();
       viewport.removeEventListener('mouseleave', onViewportLeave);
@@ -1729,8 +1750,10 @@ export function MapView({
       const snapPool = infraSnapPoolRef.current ?? infraObjectsRef.current;
       const infra = infraObjectsRef.current;
       const poisList = poisRef.current;
-      const zoom = mapZoomRef.current;
-      const lineLod: 'full' | 'endpoints' = zoom < LINE_LOD_ZOOM ? 'endpoints' : 'full';
+      const lineLod = lineLodForScale(
+        mapScaleDenominatorRef.current,
+        lineLodScaleThresholdRef.current,
+      );
       lineLodRef.current = lineLod;
       const lineDisplayOpts: LinePathDisplayOptions = {
         snapIndex: snapIndexRef.current ?? undefined,
@@ -1782,8 +1805,30 @@ export function MapView({
       suppressDataSyncRef.current = false;
     }
     if (suppressDataSyncRef.current) return;
-    syncInfraDataToLayersRef.current();
+    const runSync = () => {
+      if (!suppressDataSyncRef.current) syncInfraDataToLayersRef.current?.();
+    };
+    if (infraObjects.length >= SYNC_IDLE_INFRA_THRESHOLD) {
+      if (typeof requestIdleCallback !== 'undefined') {
+        const idleId = requestIdleCallback(runSync, { timeout: 250 });
+        return () => cancelIdleCallback(idleId);
+      }
+      const t = setTimeout(runSync, 0);
+      return () => clearTimeout(t);
+    }
+    runSync();
   }, [pois, infraObjects, infraSnapPool]);
+
+  useEffect(() => {
+    const lineLod = lineLodForScale(
+      mapScaleDenominatorRef.current,
+      lineLodScaleThreshold,
+    );
+    if (lineLodRef.current === lineLod) return;
+    lineLodRef.current = lineLod;
+    syncInfraDataToLayersRef.current?.();
+    lineLayerRef.current?.changed();
+  }, [lineLodScaleThreshold]);
 
   useEffect(() => {
     if (suppressDataSyncRef.current) return;
@@ -2036,3 +2081,5 @@ export function MapView({
     />
   );
 }
+
+export const MapView = memo(MapViewInner);

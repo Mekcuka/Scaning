@@ -1,7 +1,7 @@
 import { api, type InfraObject, type InfraObjectCreate, type POI } from './api';
 import type { MapFeatureSelection } from '../components/MapView';
 import { isLineSubtype } from './infraGeometry';
-import { normalizeLinePathEndpoints } from './lineEndpointRules';
+import { lineEndpointAttachmentsFromObject } from './lineEndpointRules';
 import {
   infraDetailUndo,
   poiDetailUndo,
@@ -10,9 +10,19 @@ import {
 } from './mapUndo';
 import { formValuesToPoiCreatePayload, poiToFormValues } from './poiParams';
 
+export type MapClipboardLineEndpointAttach = {
+  startSourceId?: string;
+  finishSourceId?: string;
+};
+
 export type MapClipboardItem =
   | { kind: 'poi'; sourceId: string; snapshot: PoiDetailUndo }
-  | { kind: 'infra'; sourceId: string; snapshot: InfraDetailUndo };
+  | {
+      kind: 'infra';
+      sourceId: string;
+      snapshot: InfraDetailUndo;
+      endpointAttach?: MapClipboardLineEndpointAttach;
+    };
 
 function linePathFromSnapshot(snap: InfraDetailUndo): [number, number][] | null {
   if (snap.coordinates && snap.coordinates.length >= 2) {
@@ -56,11 +66,44 @@ export function clipboardCentroid(items: MapClipboardItem[]): { lon: number; lat
   return { lon: lon / positions.length, lat: lat / positions.length };
 }
 
+function selectionInfraIds(selections: MapFeatureSelection[]): Set<string> {
+  const ids = new Set<string>();
+  for (const sel of selections) {
+    if (sel.kind === 'infra') ids.add(sel.id);
+  }
+  return ids;
+}
+
+function projectPointPool(infra: InfraObject[]): InfraObject[] {
+  return infra.filter((o) => !isLineSubtype(o.subtype));
+}
+
+/** Which line ends are tied to point objects in this copy (detect on full map; paste only twins in selection). */
+function endpointAttachForLine(
+  line: InfraObject,
+  allInfra: InfraObject[],
+  copiedInfraIds: Set<string>,
+): MapClipboardLineEndpointAttach | undefined {
+  const pointPool = projectPointPool(allInfra);
+  const endpoints = lineEndpointAttachmentsFromObject(line, pointPool, pointPool);
+  if (!endpoints) return undefined;
+  const attach: MapClipboardLineEndpointAttach = {};
+  if (endpoints.startAttach && copiedInfraIds.has(endpoints.startAttach.object.id)) {
+    attach.startSourceId = endpoints.startAttach.object.id;
+  }
+  if (endpoints.finishAttach && copiedInfraIds.has(endpoints.finishAttach.object.id)) {
+    attach.finishSourceId = endpoints.finishAttach.object.id;
+  }
+  if (!attach.startSourceId && !attach.finishSourceId) return undefined;
+  return attach;
+}
+
 export function buildClipboardFromSelection(
   pois: POI[],
   infra: InfraObject[],
   selections: MapFeatureSelection[],
 ): MapClipboardItem[] {
+  const copiedInfraIds = selectionInfraIds(selections);
   const items: MapClipboardItem[] = [];
   for (const sel of selections) {
     if (sel.kind === 'poi') {
@@ -68,7 +111,16 @@ export function buildClipboardFromSelection(
       if (poi) items.push({ kind: 'poi', sourceId: sel.id, snapshot: poiDetailUndo(poi) });
     } else {
       const obj = infra.find((o) => o.id === sel.id);
-      if (obj) items.push({ kind: 'infra', sourceId: sel.id, snapshot: infraDetailUndo(obj) });
+      if (!obj) continue;
+      const endpointAttach = isLineSubtype(obj.subtype)
+        ? endpointAttachForLine(obj, infra, copiedInfraIds)
+        : undefined;
+      items.push({
+        kind: 'infra',
+        sourceId: sel.id,
+        snapshot: infraDetailUndo(obj),
+        ...(endpointAttach ? { endpointAttach } : {}),
+      });
     }
   }
   return items;
@@ -157,29 +209,48 @@ export function clipboardPreviewAt(
   return out;
 }
 
-/** Snap line endpoints to pasted point objects from the same clipboard (≤300 m). */
+export type LinePasteRemapResult = {
+  snap: InfraDetailUndo;
+  line_snap_start_object_id?: string;
+  line_snap_finish_object_id?: string;
+};
+
+/**
+ * After paste: map snap ids to created twins; keep shifted polyline vertices unchanged.
+ * Geometry was already moved by applyOffsetToClipboard; rewriting ends to twin lon/lat
+ * can bend the line when stored coordinates[0] ≠ lon/lat.
+ */
+export function remapLineEndpointsForPaste(
+  lineSnap: InfraDetailUndo,
+  endpointAttach: MapClipboardLineEndpointAttach | undefined,
+  sourceIdToCreated: Map<string, InfraObject>,
+): LinePasteRemapResult {
+  let line_snap_start_object_id: string | undefined;
+  let line_snap_finish_object_id: string | undefined;
+
+  if (endpointAttach?.startSourceId) {
+    const pt = sourceIdToCreated.get(endpointAttach.startSourceId);
+    if (pt) line_snap_start_object_id = pt.id;
+  }
+  if (endpointAttach?.finishSourceId) {
+    const pt = sourceIdToCreated.get(endpointAttach.finishSourceId);
+    if (pt) line_snap_finish_object_id = pt.id;
+  }
+
+  return {
+    snap: lineSnap,
+    ...(line_snap_start_object_id ? { line_snap_start_object_id } : {}),
+    ...(line_snap_finish_object_id ? { line_snap_finish_object_id } : {}),
+  };
+}
+
+/** @deprecated Use remapLineEndpointsForPaste — nearest-neighbor snap changes line length. */
 export function remapLineEndpointsOnPaste(
   lineSnap: InfraDetailUndo,
   pastedPoints: InfraObject[],
 ): InfraDetailUndo {
-  const path = linePathFromSnapshot(lineSnap);
-  if (!path || path.length < 2) return lineSnap;
-
-  const pool = pastedPoints.filter((o) => !isLineSubtype(o.subtype));
-  const normalized = normalizeLinePathEndpoints(
-    lineSnap.subtype,
-    path,
-    pool,
-  );
-
-  return {
-    ...lineSnap,
-    lon: normalized[0]![0],
-    lat: normalized[0]![1],
-    end_lon: normalized[normalized.length - 1]![0],
-    end_lat: normalized[normalized.length - 1]![1],
-    coordinates: normalized,
-  };
+  const sourceIdToCreated = new Map(pastedPoints.map((o) => [o.id, o]));
+  return remapLineEndpointsForPaste(lineSnap, undefined, sourceIdToCreated).snap;
 }
 
 export function poiClipboardToCreatePayload(
@@ -193,6 +264,12 @@ export function poiClipboardToCreatePayload(
 export function infraClipboardToCreatePayload(
   snap: InfraDetailUndo,
   name: string,
+  snapIds?: Pick<
+    InfraObjectCreate,
+    | 'line_snap_start_object_id'
+    | 'line_snap_finish_object_id'
+    | 'line_preserve_geometry'
+  >,
 ): InfraObjectCreate {
   const desc =
     snap.properties && typeof snap.properties.description === 'string'
@@ -212,6 +289,13 @@ export function infraClipboardToCreatePayload(
       : {}),
     ...(snap.properties ? { properties: snap.properties } : {}),
     ...(desc ? { description: desc } : {}),
+    ...(snapIds?.line_snap_start_object_id
+      ? { line_snap_start_object_id: snapIds.line_snap_start_object_id }
+      : {}),
+    ...(snapIds?.line_snap_finish_object_id
+      ? { line_snap_finish_object_id: snapIds.line_snap_finish_object_id }
+      : {}),
+    ...(snapIds?.line_preserve_geometry ? { line_preserve_geometry: true } : {}),
   };
 }
 

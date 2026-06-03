@@ -340,6 +340,18 @@ class InfraObjectCreate(BaseModel):
     layer_id: UUID | None = None
     properties: dict = Field(default_factory=dict)
     description: str | None = None
+    line_snap_start_object_id: UUID | None = Field(
+        default=None,
+        description="При вставке: привязать начало линии к этому точечному объекту (не ближайший на карте)",
+    )
+    line_snap_finish_object_id: UUID | None = Field(
+        default=None,
+        description="При вставке: привязать конец линии к этому точечному объекту",
+    )
+    line_preserve_geometry: bool = Field(
+        default=False,
+        description="Вставка из буфера: не искать ближайшую опору на карте; только явные line_snap_*",
+    )
 
 
 class FacilityInfraObjectCreate(BaseModel):
