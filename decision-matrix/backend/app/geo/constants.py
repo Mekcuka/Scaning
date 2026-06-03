@@ -63,21 +63,22 @@ IMMUTABLE_POINT_SUBTYPES = frozenset({
     "additional_facility",
 })
 
-# Только импорт Искра; нельзя нарисовать «Точку» и нельзя переклассифицировать другие объекты.
-SPARK_EXCLUSIVE_POINT_SUBTYPES = frozenset({"methanol_facility"})
+# Подтипы, которые нельзя назначить другому объекту через смену подтипа (создание — отдельные правила).
+SPARK_EXCLUSIVE_POINT_SUBTYPES: frozenset[str] = frozenset()
 
 # Нельзя назначить другому объекту (создание карьера — «Точка» или импорт Искра).
-EXCLUSIVE_POINT_SUBTYPES = frozenset({"sand_quarry", "offplot", "additional_facility", *SPARK_EXCLUSIVE_POINT_SUBTYPES})
+EXCLUSIVE_POINT_SUBTYPES = frozenset(
+    {"sand_quarry", "offplot", "additional_facility", "methanol_facility"}
+)
 
 # НПЗ / НПС — отдельный POST .../facility-objects (subtype обязателен в теле).
 FACILITY_POINT_SUBTYPES = frozenset({"refinery", "oil_pumping_station"})
 
-# Не в меню «Точка»; создаются импортом Искра / facility-objects API.
+# Не в меню «Точка»; создаются импортом Искра, facility-objects API, сменой у базового подтипа или вставкой.
 IMPORT_ONLY_POINT_SUBTYPES = frozenset({
     "ukg",
     "tsg",
     "oil_pumping_station",
-    "methanol_facility",
     "methanol_joint",
     "power_line_node",
     "gas_pad",

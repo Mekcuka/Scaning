@@ -770,6 +770,15 @@ export interface InfraObjectCreate {
 /** НПЗ / НПС — subtype обязателен и только из этого списка. */
 export type FacilityPointSubtype = 'refinery' | 'oil_pumping_station';
 
+export const FACILITY_POINT_SUBTYPES: readonly FacilityPointSubtype[] = [
+  'refinery',
+  'oil_pumping_station',
+] as const;
+
+export function isFacilityPointSubtype(subtype: string): subtype is FacilityPointSubtype {
+  return (FACILITY_POINT_SUBTYPES as readonly string[]).includes(subtype);
+}
+
 export interface FacilityInfraObjectCreate {
   name: string;
   subtype: FacilityPointSubtype;
@@ -1267,14 +1276,13 @@ export const IMMUTABLE_POINT_SUBTYPES = [
   'additional_facility',
 ] as const;
 
-/** Искра/import only — not in map «Точка» menu or general POST /objects. */
+/** Не в меню «Точка»: Искра, facility-objects API или смена у базового подтипа (см. paste plan). */
 export const IMPORT_ONLY_POINT_SUBTYPES = [
   'ukg',
   'tsg',
   'gpes',
   'vies',
   'oil_pumping_station',
-  'methanol_facility',
   'methanol_joint',
   'power_line_node',
   'gas_pad',

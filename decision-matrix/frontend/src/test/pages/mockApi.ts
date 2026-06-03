@@ -44,6 +44,9 @@ export function createDefaultApiMocks(): ApiMockOverrides {
     createInfraObject: vi.fn().mockImplementation((_pid: string, data: { name?: string }) =>
       Promise.resolve({ ...sampleInfra[0], ...data, id: 'infra-new' }),
     ),
+    createFacilityInfraObject: vi.fn().mockImplementation((_pid: string, data: { name?: string }) =>
+      Promise.resolve({ ...sampleInfra[0], ...data, id: 'infra-facility-new' }),
+    ),
     updateInfraObject: vi.fn().mockResolvedValue(sampleInfra[0]),
     deleteInfraObject: vi.fn().mockResolvedValue(undefined),
     batchDeleteMapObjects: vi.fn().mockResolvedValue({

@@ -182,10 +182,33 @@ describe('mapClipboard', () => {
     expect(infraPasteSubtypePlan('oil_pad')).toEqual({
       createSubtype: 'oil_pad',
       targetSubtype: 'oil_pad',
+      useFacilityEndpoint: false,
     });
     expect(infraPasteSubtypePlan('gas_pad')).toEqual({
       createSubtype: 'oil_pad',
       targetSubtype: 'gas_pad',
+      useFacilityEndpoint: false,
+    });
+  });
+
+  it('infraPasteSubtypePlan creates methanol_facility via POST /objects', () => {
+    expect(infraPasteSubtypePlan('methanol_facility')).toEqual({
+      createSubtype: 'methanol_facility',
+      targetSubtype: 'methanol_facility',
+      useFacilityEndpoint: false,
+    });
+  });
+
+  it('infraPasteSubtypePlan routes НПЗ/НПС through facility-objects', () => {
+    expect(infraPasteSubtypePlan('refinery')).toEqual({
+      createSubtype: 'refinery',
+      targetSubtype: 'refinery',
+      useFacilityEndpoint: true,
+    });
+    expect(infraPasteSubtypePlan('oil_pumping_station')).toEqual({
+      createSubtype: 'oil_pumping_station',
+      targetSubtype: 'oil_pumping_station',
+      useFacilityEndpoint: true,
     });
   });
 

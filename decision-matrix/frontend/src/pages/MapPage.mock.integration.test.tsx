@@ -185,6 +185,17 @@ describe('MapPage mock MapView integration', () => {
     await waitFor(() => expect(api.createInfraObject).toHaveBeenCalled());
   });
 
+  it('places methanol_facility from point tool menu', async () => {
+    await renderMap();
+    await enableEdit();
+    await userEvent.click(screen.getByRole('button', { name: 'Точка' }));
+    await userEvent.click(screen.getByText('Объект метанола'));
+    mapProps().onMapClick?.(37.62, 55.76);
+    await waitFor(() => expect(api.createInfraObject).toHaveBeenCalled());
+    const payload = vi.mocked(api.createInfraObject).mock.calls.at(-1)?.[1];
+    expect(payload?.subtype).toBe('methanol_facility');
+  });
+
   it('selects feature, saves and deletes with confirmation', async () => {
     await renderMap();
     await enableEdit();
@@ -294,6 +305,53 @@ describe('MapPage mock MapView integration', () => {
     mapProps().onMapClick?.(38, 56);
     await waitFor(() => expect(api.createPoi).toHaveBeenCalled());
     await waitFor(() => expect(api.createInfraObject).toHaveBeenCalled());
+  });
+
+  it('paste methanol_facility via createInfraObject', async () => {
+    const methanol = makeInfraPoint({
+      id: 'mf-1',
+      subtype: 'methanol_facility',
+      name: 'Объект метанола_1',
+    });
+    vi.mocked(api.getInfraObjects).mockResolvedValue([methanol]);
+    await renderMap();
+    await enableEdit();
+    await userEvent.click(screen.getByRole('button', { name: /выбор/i }));
+    await userEvent.click(screen.getByText('Группа объектов'));
+    mapProps().onFeatureGroupSelect?.([{ kind: 'infra', id: methanol.id }]);
+    await waitFor(() => expect(screen.getByText(/Выбрано: 1/)).toBeInTheDocument());
+    const panel = screen.getByText(/Выбрано: 1/).closest('.map-group-panel')!;
+    await userEvent.click(within(panel as HTMLElement).getByRole('button', { name: /^Копировать$/ }));
+    await userEvent.click(within(panel as HTMLElement).getByRole('button', { name: /^Вставить$/ }));
+    mapProps().onMapClick?.(38, 56);
+    await waitFor(() => expect(api.createInfraObject).toHaveBeenCalled());
+    const createCall = vi.mocked(api.createInfraObject).mock.calls.at(-1)?.[1];
+    expect(createCall?.subtype).toBe('methanol_facility');
+    expect(api.createFacilityInfraObject).not.toHaveBeenCalled();
+    expect(api.updateInfraObject).not.toHaveBeenCalled();
+  });
+
+  it('paste oil_pumping_station uses facility-objects endpoint', async () => {
+    const nps = makeInfraPoint({
+      id: 'nps-1',
+      subtype: 'oil_pumping_station',
+      name: 'НПС_1',
+    });
+    vi.mocked(api.getInfraObjects).mockResolvedValue([nps]);
+    await renderMap();
+    await enableEdit();
+    await userEvent.click(screen.getByRole('button', { name: /выбор/i }));
+    await userEvent.click(screen.getByText('Группа объектов'));
+    mapProps().onFeatureGroupSelect?.([{ kind: 'infra', id: nps.id }]);
+    await waitFor(() => expect(screen.getByText(/Выбрано: 1/)).toBeInTheDocument());
+    const panel = screen.getByText(/Выбрано: 1/).closest('.map-group-panel')!;
+    await userEvent.click(within(panel as HTMLElement).getByRole('button', { name: /^Копировать$/ }));
+    await userEvent.click(within(panel as HTMLElement).getByRole('button', { name: /^Вставить$/ }));
+    mapProps().onMapClick?.(38, 56);
+    await waitFor(() => expect(api.createFacilityInfraObject).toHaveBeenCalled());
+    expect(api.createInfraObject).not.toHaveBeenCalled();
+    const facilityCall = vi.mocked(api.createFacilityInfraObject).mock.calls.at(-1)?.[1];
+    expect(facilityCall?.subtype).toBe('oil_pumping_station');
   });
 
   it('paste gas_pad creates oil_pad then updates subtype', async () => {

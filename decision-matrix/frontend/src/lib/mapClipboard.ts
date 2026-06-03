@@ -1,4 +1,11 @@
-import { api, type InfraObject, type InfraObjectCreate, type POI } from './api';
+import {
+  api,
+  isFacilityPointSubtype,
+  type FacilityInfraObjectCreate,
+  type InfraObject,
+  type InfraObjectCreate,
+  type POI,
+} from './api';
 import type { MapFeatureSelection } from '../components/MapView';
 import { isLineSubtype } from './infraGeometry';
 import { lineEndpointAttachmentsFromObject } from './lineEndpointRules';
@@ -316,10 +323,75 @@ const PASTE_INFRA_CREATE_BASE: Record<string, string> = {
 export function infraPasteSubtypePlan(subtype: string): {
   createSubtype: string;
   targetSubtype: string;
+  useFacilityEndpoint: boolean;
 } {
   const targetSubtype = subtype;
+  if (isFacilityPointSubtype(targetSubtype)) {
+    return { createSubtype: targetSubtype, targetSubtype, useFacilityEndpoint: true };
+  }
   const createSubtype = PASTE_INFRA_CREATE_BASE[targetSubtype] ?? targetSubtype;
-  return { createSubtype, targetSubtype };
+  return { createSubtype, targetSubtype, useFacilityEndpoint: false };
+}
+
+export type PasteInfraCreateDeps = {
+  createInfraObject: (
+    projectId: string,
+    data: InfraObjectCreate,
+    opts?: { timeoutMs?: number },
+  ) => Promise<InfraObject>;
+  createFacilityInfraObject: (
+    projectId: string,
+    data: FacilityInfraObjectCreate,
+  ) => Promise<InfraObject>;
+  updateInfraObject: (
+    projectId: string,
+    objectId: string,
+    data: Partial<InfraObjectCreate>,
+  ) => Promise<InfraObject>;
+  mergeProperties: (
+    subtype: string,
+    properties?: Record<string, unknown>,
+  ) => Record<string, unknown> | undefined;
+};
+
+/** Create one pasted point infra (facility endpoint, base+patch, or direct POST /objects). */
+export async function createInfraFromPasteSnapshot(
+  projectId: string,
+  snap: InfraDetailUndo,
+  name: string,
+  deps: PasteInfraCreateDeps,
+): Promise<InfraObject> {
+  const { createSubtype, targetSubtype, useFacilityEndpoint } = infraPasteSubtypePlan(snap.subtype);
+
+  if (useFacilityEndpoint && isFacilityPointSubtype(targetSubtype)) {
+    const payload = infraClipboardToCreatePayload(
+      { ...snap, subtype: targetSubtype },
+      name,
+    );
+    return deps.createFacilityInfraObject(projectId, {
+      name: payload.name,
+      subtype: targetSubtype,
+      lon: payload.lon,
+      lat: payload.lat,
+      layer_id: payload.layer_id,
+      ...(payload.description ? { description: payload.description } : {}),
+      properties: deps.mergeProperties(targetSubtype, payload.properties),
+    });
+  }
+
+  const snapForCreate =
+    createSubtype === targetSubtype ? snap : { ...snap, subtype: createSubtype };
+  const payload = infraClipboardToCreatePayload(snapForCreate, name);
+  let created = await deps.createInfraObject(projectId, {
+    ...payload,
+    properties: deps.mergeProperties(payload.subtype, payload.properties),
+  });
+  if (targetSubtype !== createSubtype) {
+    created = await deps.updateInfraObject(projectId, created.id, {
+      subtype: targetSubtype,
+    });
+  }
+  return created;
 }
 
 export function partitionClipboardForPaste(items: MapClipboardItem[]): {

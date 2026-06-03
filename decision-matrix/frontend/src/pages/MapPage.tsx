@@ -158,7 +158,7 @@ import {
   infraClipboardToCreatePayload,
   partitionClipboardForPaste,
   poiClipboardToCreatePayload,
-  infraPasteSubtypePlan,
+  createInfraFromPasteSnapshot,
   remapLineEndpointsForPaste,
   type MapClipboardItem,
 } from '../lib/mapClipboard';
@@ -1783,22 +1783,13 @@ export function MapPage() {
 
         for (const item of pointInfra) {
           if (!canWriteInfra || item.kind !== 'infra') continue;
-          const { createSubtype, targetSubtype } = infraPasteSubtypePlan(item.snapshot.subtype);
-          const name = nextAutoName(targetSubtype);
-          const snapForCreate =
-            createSubtype === targetSubtype
-              ? item.snapshot
-              : { ...item.snapshot, subtype: createSubtype };
-          const payload = infraClipboardToCreatePayload(snapForCreate, name);
-          let created = await api.createInfraObject(projectId, {
-            ...payload,
-            properties: mergeInfraPropertiesForSave(payload.subtype, payload.properties),
+          const name = nextAutoName(item.snapshot.subtype);
+          const created = await createInfraFromPasteSnapshot(projectId, item.snapshot, name, {
+            createInfraObject: api.createInfraObject,
+            createFacilityInfraObject: api.createFacilityInfraObject,
+            updateInfraObject: api.updateInfraObject,
+            mergeProperties: mergeInfraPropertiesForSave,
           });
-          if (targetSubtype !== createSubtype) {
-            created = await api.updateInfraObject(projectId, created.id, {
-              subtype: targetSubtype,
-            });
-          }
           createdInfraIds.push(created.id);
           sourceIdToCreated.set(item.sourceId, created);
           upsertInfraInCache(created);

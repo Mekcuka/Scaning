@@ -38,4 +38,14 @@ describe('infraSubtypeSelectOptions pad cluster', () => {
     expect(MAP_DRAWABLE_POINT_SUBTYPES).not.toContain('gas_pad');
     expect(pointMenuLabel('oil_pad')).toBe('Куст');
   });
+
+  it('includes methanol_facility in draw menu', () => {
+    expect(MAP_DRAWABLE_POINT_SUBTYPES).toContain('methanol_facility');
+    expect(pointMenuLabel('methanol_facility')).toBe('Объект метанола');
+  });
+
+  it('locks methanol_facility subtype in detail panel', () => {
+    const opts = infraSubtypeSelectOptions(pointObject('methanol_facility'));
+    expect(opts).toEqual([{ value: 'methanol_facility', label: 'Объект метанола' }]);
+  });
 });

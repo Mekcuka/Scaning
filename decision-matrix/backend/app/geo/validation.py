@@ -2,6 +2,7 @@
 
 from app.geo.constants import (
     EXCLUSIVE_POINT_SUBTYPES,
+    FACILITY_POINT_SUBTYPES,
     GKS_CLUSTER_SUBTYPES,
     GTES_CLUSTER_SUBTYPES,
     IE_DERIVED_POINT_SUBTYPES,
@@ -36,7 +37,7 @@ def validate_subtype_geometry(
 
 
 def validate_general_infra_create(subtype: str) -> None:
-    """НПС и import-only точки — только через POST /facility-objects или импорт Искра."""
+    """Блокирует только IE-производные и import-only подтипы; methanol_facility и прочие точки — POST /objects."""
     st = subtype.lower().strip()
     if st in IE_DERIVED_POINT_SUBTYPES:
         label = SUBTYPE_LABELS.get(st, st)
@@ -54,12 +55,16 @@ def validate_general_infra_create(subtype: str) -> None:
             raise ValueError(
                 f"Подтип «{label}»: импорт Искра или смена подтипа у объекта «Куст»."
             )
+        if st in FACILITY_POINT_SUBTYPES:
+            raise ValueError(
+                f"Подтип «{label}»: укажите subtype в теле запроса "
+                "POST /projects/{project_id}/infrastructure/facility-objects "
+                f"(subtype: {st})."
+            )
         if st in SPARK_EXCLUSIVE_POINT_SUBTYPES:
             raise ValueError(f"Подтип «{label}» создаётся только импортом Искра.")
         raise ValueError(
-            f"Подтип «{label}»: укажите subtype в теле запроса "
-            "POST /projects/{project_id}/infrastructure/facility-objects "
-            f"(subtype: {st})."
+            f"Подтип «{label}»: создаётся только импортом Искра или сменой подтипа у базового объекта."
         )
 
 
