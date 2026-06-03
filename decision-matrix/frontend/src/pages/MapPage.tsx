@@ -35,6 +35,7 @@ import {
   MapGroupSelectionPanel,
   type MapGroupSelectionItem,
 } from '../components/MapGroupSelectionPanel';
+import { MapDisplayModeToggle } from '../components/MapDisplayModeToggle';
 import { MapLayersPanel } from '../components/MapLayersPanel';
 import { ObjectDetailPanel, type SelectedFeature } from '../components/ObjectDetailPanel';
 import { PoiParamsForm } from '../components/PoiParamsForm';
@@ -2642,6 +2643,15 @@ export function MapPage() {
       <div className="card map-page-card flex flex-1 flex-col min-h-0 overflow-hidden">
           <div className="map-tools">
             <div className="map-tools-group map-tools-group--view">
+              {map3dFeatureEnabled && (
+                <>
+                  <MapDisplayModeToggle
+                    mode={mapDisplayMode}
+                    onChange={switchMapDisplayMode}
+                  />
+                  <div className="map-tools-sep map-display-mode-sep map-layers-toggle-sep" aria-hidden />
+                </>
+              )}
               <button
                 type="button"
                 className={`btn btn-sm map-tool-btn map-tool-btn--with-label btn-secondary map-layers-toggle${
@@ -2654,35 +2664,6 @@ export function MapPage() {
                 <Layers size={14} className="shrink-0" aria-hidden />
                 <span className="map-tool-label">Слои</span>
               </button>
-              {map3dFeatureEnabled && (
-                <>
-                  <div className="map-tools-sep map-layers-toggle-sep" aria-hidden />
-                  <div className="inline-flex rounded border overflow-hidden" style={{ borderColor: 'var(--border)' }}>
-                    <button
-                      type="button"
-                      className={`btn btn-sm map-tool-btn rounded-none border-0 ${
-                        mapDisplayMode === '2d' ? 'btn-primary active' : 'btn-secondary'
-                      }`}
-                      title="Карта 2D (редактирование)"
-                      aria-label="Карта 2D"
-                      onClick={() => switchMapDisplayMode('2d')}
-                    >
-                      2D
-                    </button>
-                    <button
-                      type="button"
-                      className={`btn btn-sm map-tool-btn rounded-none border-0 ${
-                        mapDisplayMode === '3d' ? 'btn-primary active' : 'btn-secondary'
-                      }`}
-                      title="Карта 3D (только просмотр)"
-                      aria-label="Карта 3D"
-                      onClick={() => switchMapDisplayMode('3d')}
-                    >
-                      3D
-                    </button>
-                  </div>
-                </>
-              )}
               <div className="map-tools-sep map-layers-toggle-sep map-fullscreen-sep" aria-hidden />
               <button
                 type="button"
@@ -3150,6 +3131,8 @@ export function MapPage() {
               className={`map-sidebar-panel${mapLayersOpen ? ' map-sidebar-panel--open' : ''}`}
             >
               <MapLayersPanel
+                mapDisplayMode={map3dFeatureEnabled ? mapDisplayMode : undefined}
+                onMapDisplayModeChange={map3dFeatureEnabled ? switchMapDisplayMode : undefined}
                 layers={layers}
                 isGroupVisible={isGroupVisible}
                 onGroupVisibility={setGroupSubtypesVisible}

@@ -784,6 +784,11 @@ table.data-table--projects .col-actions {
   justify-content: space-between;
   gap: 8px;
   margin-bottom: 6px;
+  flex-wrap: wrap;
+}
+
+.map-layers-panel-head .map-display-mode-toggle {
+  margin-left: auto;
 }
 
 .map-layers-panel-title {
@@ -1752,6 +1757,22 @@ table.data-table--projects .col-actions {
 
 .map-tool-label {
   white-space: nowrap;
+}
+
+/* 2D|3D toggle: always visible (unlike map-layers-toggle, which is mobile-only). */
+.map-display-mode-toggle {
+  display: inline-flex;
+  flex-shrink: 0;
+  align-items: stretch;
+}
+
+.map-display-mode-sep {
+  display: inline-block;
+  width: 1px;
+  height: 1.75rem;
+  margin-inline: 2px;
+  flex-shrink: 0;
+  background: var(--border);
 }
 
 .map-tool-btn--action {
@@ -4250,7 +4271,7 @@ tr:hover .inline-table-edit-trigger,
     display: inline;
   }
 
-  .map-tools-sep {
+  .map-tools-sep:not(.map-display-mode-sep) {
     display: none;
   }
 
