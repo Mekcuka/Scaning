@@ -31,6 +31,10 @@ import {
   buildMapFitAllFocus,
   connectionLinesFromAnalysis,
 } from '../lib/analysisDisplay';
+import {
+  MapGroupSelectionPanel,
+  type MapGroupSelectionItem,
+} from '../components/MapGroupSelectionPanel';
 import { MapLayersPanel } from '../components/MapLayersPanel';
 import { ObjectDetailPanel, type SelectedFeature } from '../components/ObjectDetailPanel';
 import { PoiParamsForm } from '../components/PoiParamsForm';
@@ -85,6 +89,15 @@ import { useActiveProject } from '../hooks/useActiveProject';
 import { useMapLayerPreferences } from '../hooks/useMapLayerPreferences';
 import { usePermissions } from '../hooks/usePermissions';
 import { refreshMapQueries } from '../lib/mapQueries';
+import {
+  MAP_INFRA_STALE_MS,
+  MAP_VIEWPORT_MIN_OBJECTS,
+  clearLineHealDoneForProject,
+  expandMapBbox,
+  isLineHealDoneForProject,
+  markLineHealDoneForProject,
+  mergeInfraForMapDisplay,
+} from '../lib/mapBboxUtils';
 import { formatLengthMeters, lineLengthMeters } from '../lib/mapMeasure';
 import { lineDraftFinishCoordinates } from '../lib/mapLineDraftFinish';
 import {
@@ -175,6 +188,8 @@ export function MapPage() {
   const { projectId } = useActiveProject();
   const queryClient = useQueryClient();
   const pushToast = useAppStore((s) => s.pushToast);
+  const mapRefreshNonce = useAppStore((s) => s.mapRefreshNonce);
+  const [mapBbox, setMapBbox] = useState<string | null>(null);
   const { prefs: layerPrefs, setPrefs: setLayerPrefs, setOpenSections: setLayerOpenSections } =
     useMapLayerPreferences(projectId ?? null);
   const {
@@ -344,6 +359,7 @@ export function MapPage() {
     queryKey: ['pois', projectId],
     queryFn: () => api.getPois(projectId!),
     enabled: !!projectId,
+    staleTime: MAP_INFRA_STALE_MS,
   });
 
   useEffect(() => {
@@ -360,7 +376,7 @@ export function MapPage() {
     queryKey: ['layers', projectId],
     queryFn: () => api.getLayers(projectId!),
     enabled: !!projectId,
-    refetchOnMount: 'always',
+    staleTime: MAP_INFRA_STALE_MS,
   });
 
   const layerVisibilityMut = useMutation({
@@ -390,9 +406,44 @@ export function MapPage() {
     queryKey: ['infra', projectId],
     queryFn: () => api.getInfraObjects(projectId!),
     enabled: !!projectId,
-    refetchOnMount: 'always',
+    staleTime: MAP_INFRA_STALE_MS,
     placeholderData: keepPreviousData,
   });
+
+  const useViewportInfraLoad =
+    !mapEditEnabled &&
+    infraObjects.length >= MAP_VIEWPORT_MIN_OBJECTS &&
+    mapBbox != null;
+
+  const displayKeepIds = useMemo(() => {
+    const ids = new Set<string>();
+    if (featureSel?.kind === 'infra') ids.add(featureSel.id);
+    for (const sel of featureGroupSel) {
+      if (sel.kind === 'infra') ids.add(sel.id);
+    }
+    return ids;
+  }, [featureSel, featureGroupSel]);
+
+  const { data: infraViewport = [] } = useQuery({
+    queryKey: ['infra', projectId, 'bbox', mapBbox],
+    queryFn: () =>
+      api.getInfraObjects(projectId!, {
+        bbox: expandMapBbox(mapBbox!),
+        visibleLayersOnly: true,
+      }),
+    enabled: !!projectId && useViewportInfraLoad,
+    staleTime: 60_000,
+    placeholderData: keepPreviousData,
+  });
+
+  const mapInfraSource = useMemo(() => {
+    if (!useViewportInfraLoad) return infraObjects;
+    return mergeInfraForMapDisplay(infraViewport, infraObjects, displayKeepIds);
+  }, [useViewportInfraLoad, infraViewport, infraObjects, displayKeepIds]);
+
+  const handleMapBboxChange = useCallback((bbox: string) => {
+    setMapBbox(bbox);
+  }, []);
 
   const { data: map3dCustomModels = [] } = useQuery({
     queryKey: ['map3d-custom-models', projectId],
@@ -423,8 +474,8 @@ export function MapPage() {
   );
 
   const searchFilteredInfra = useMemo(
-    () => filterInfraByMapQuery(infraObjects, searchQ, searchContext),
-    [infraObjects, searchQ, searchContext],
+    () => filterInfraByMapQuery(mapInfraSource, searchQ, searchContext),
+    [mapInfraSource, searchQ, searchContext],
   );
 
   const searchSuggestions = useMemo(
@@ -616,19 +667,33 @@ export function MapPage() {
     }));
   }, [selectedPoi, radiusVisible, distanceDefaults]);
 
-  const groupSelectionDetails = useMemo(() => {
-    return featureGroupSel
-      .map((sel) => {
-        if (sel.kind === 'poi') {
-          const poi = pois.find((p) => p.id === sel.id);
-          return poi ? { id: sel.id, name: poi.name, kind: 'poi' as const } : null;
+  const groupSelectionDetails = useMemo((): MapGroupSelectionItem[] => {
+    const out: MapGroupSelectionItem[] = [];
+    for (const sel of featureGroupSel) {
+      if (sel.kind === 'poi') {
+        const poi = pois.find((p) => p.id === sel.id);
+        if (poi) {
+          out.push({
+            id: sel.id,
+            name: poi.name,
+            kind: 'poi',
+            subtitle: 'Точка интереса',
+          });
         }
-        const obj = infraObjects.find((o) => o.id === sel.id);
-        return obj
-          ? { id: sel.id, name: obj.name, kind: 'infra' as const, subtitle: SUBTYPE_LABELS[obj.subtype] || obj.subtype }
-          : null;
-      })
-      .filter(Boolean) as { id: string; name: string; kind: 'poi' | 'infra'; subtitle?: string }[];
+        continue;
+      }
+      const obj = infraObjects.find((o) => o.id === sel.id);
+      if (obj) {
+        out.push({
+          id: sel.id,
+          name: obj.name,
+          kind: 'infra',
+          subtype: obj.subtype,
+          subtitle: SUBTYPE_LABELS[obj.subtype] || obj.subtype,
+        });
+      }
+    }
+    return out;
   }, [featureGroupSel, pois, infraObjects]);
 
   const detailSelection: SelectedFeature | null = useMemo(() => {
@@ -698,10 +763,18 @@ export function MapPage() {
 
   useEffect(() => {
     lineHealAttemptedRef.current.clear();
+    setMapBbox(null);
   }, [projectId]);
 
   useEffect(() => {
+    if (!projectId) return;
+    clearLineHealDoneForProject(projectId);
+    lineHealAttemptedRef.current.clear();
+  }, [projectId, mapRefreshNonce]);
+
+  useEffect(() => {
     if (!projectId || !canWriteInfra || infraObjects.length === 0) return;
+    if (isLineHealDoneForProject(projectId)) return;
     let cancelled = false;
     let healed = 0;
     void (async () => {
@@ -721,8 +794,11 @@ export function MapPage() {
           /* display snap still applies */
         }
       }
-      if (!cancelled && healed > 0) {
-        pushToast('info', `Выровнены концы ${healed} линейных объектов по привязке`);
+      if (!cancelled) {
+        markLineHealDoneForProject(projectId);
+        if (healed > 0) {
+          pushToast('info', `Выровнены концы ${healed} линейных объектов по привязке`);
+        }
       }
     })();
     return () => {
@@ -3019,7 +3095,7 @@ export function MapPage() {
             onBatchGeometryChange={
               mapEditEnabled && selectMode === 'box' ? handleBatchGeometryChange : undefined
             }
-            onBboxChange={undefined}
+            onBboxChange={handleMapBboxChange}
             connectionLines={connectionLines}
             selectedPoi={selectedPoi}
             selectedFeatureId={featureSel?.id ?? null}
@@ -3061,82 +3137,19 @@ export function MapPage() {
           {drawMode === 'select' &&
             selectMode === 'box' &&
             groupSelectionDetails.length > 0 && (
-            <div
-              className="map-group-panel absolute top-3 left-3 z-10 card p-3 w-64 max-h-72 flex flex-col shadow-lg"
-              style={{ background: 'var(--surface)' }}
-            >
-              <div className="flex items-center justify-between gap-2 mb-2 shrink-0">
-                <h3 className="font-semibold text-sm">Выбрано: {groupSelectionDetails.length}</h3>
-                <button
-                  type="button"
-                  className="btn btn-ghost btn-icon-touch p-1"
-                  onClick={() => setFeatureGroupSel([])}
-                  title="Сбросить выделение"
-                  aria-label="Сбросить выделение"
-                >
-                  <X size={14} />
-                </button>
-              </div>
-              <ul className="text-sm overflow-y-auto min-h-0 space-y-1">
-                {groupSelectionDetails.map((item) => (
-                  <li key={item.id} className="truncate py-0.5 border-b last:border-b-0" style={{ borderColor: 'var(--border)' }}>
-                    <div className="font-medium truncate">{item.name}</div>
-                    <div className="text-xs truncate" style={{ color: 'var(--text-muted)' }}>
-                      {item.kind === 'poi' ? 'Точка интереса' : item.subtitle}
-                    </div>
-                  </li>
-                ))}
-              </ul>
-              <p className="text-xs mt-2 shrink-0" style={{ color: 'var(--text-muted)' }}>
-                Перетащите объекты · клик в пустое — новое выделение
-              </p>
-              <div className="flex gap-1 mt-2 shrink-0">
-                <button
-                  type="button"
-                  className="btn btn-secondary text-xs flex-1 py-1.5"
-                  disabled={!canCopyMapSelection}
-                  title="Копировать (Ctrl+C)"
-                  onClick={copyMapSelection}
-                >
-                  <Copy size={12} className="inline mr-0.5" />
-                  Копировать
-                </button>
-                <button
-                  type="button"
-                  className="btn btn-secondary text-xs flex-1 py-1.5"
-                  disabled={!canPasteMapClipboard}
-                  title="Вставить (Ctrl+V)"
-                  onClick={enterPasteMode}
-                >
-                  <ClipboardPaste size={12} className="inline mr-0.5" />
-                  Вставить
-                </button>
-              </div>
-              <button
-                type="button"
-                className="btn btn-secondary text-xs mt-1 shrink-0 w-full py-1.5"
-                disabled={!canCutMapSelection}
-                title="Вырезать (Ctrl+X)"
-                onClick={cutMapSelection}
-              >
-                <Scissors size={12} className="inline mr-1" />
-                Вырезать
-              </button>
-              <button
-                type="button"
-                className="btn btn-secondary text-xs mt-1 shrink-0 w-full py-1.5"
-                onClick={requestDeleteGroupSelection}
-                disabled={deleteGroupMut.isPending || !canDeleteCurrentSelection}
-                title={
-                  !canDeleteCurrentSelection
-                    ? 'Недостаточно прав для удаления выбранных объектов'
-                    : undefined
-                }
-              >
-                <Trash2 size={12} className="inline mr-1" />
-                {deleteGroupMut.isPending ? 'Удаление…' : 'Удалить объекты'}
-              </button>
-            </div>
+            <MapGroupSelectionPanel
+              items={groupSelectionDetails}
+              onClear={() => setFeatureGroupSel([])}
+              onCopy={copyMapSelection}
+              onCut={cutMapSelection}
+              onPaste={enterPasteMode}
+              onDelete={requestDeleteGroupSelection}
+              canCopy={canCopyMapSelection}
+              canCut={canCutMapSelection}
+              canPaste={canPasteMapClipboard}
+              canDelete={canDeleteCurrentSelection}
+              deletePending={deleteGroupMut.isPending}
+            />
           )}
 
               </div>

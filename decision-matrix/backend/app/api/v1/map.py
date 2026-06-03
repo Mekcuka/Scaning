@@ -10,6 +10,7 @@ from app.api.deps import get_current_user
 from app.core.database import get_db
 from app.models.enums import AccessLevel, WriteScope
 from app.services.project_access import resolve_project
+from app.geo.bbox_filter import infra_bbox_filter
 from app.geo.constants import LINE_SUBTYPES
 from app.geo.geometry_utils import build_infra_geometry, line_coordinates_for_storage, point_wkt
 from app.geo.validation import (
@@ -202,12 +203,7 @@ async def list_infra_objects(
     if bbox:
         try:
             min_lon, min_lat, max_lon, max_lat = [float(x) for x in bbox.split(",")]
-            qry = qry.where(
-                InfrastructureObject.longitude >= min_lon,
-                InfrastructureObject.longitude <= max_lon,
-                InfrastructureObject.latitude >= min_lat,
-                InfrastructureObject.latitude <= max_lat,
-            )
+            qry = qry.where(infra_bbox_filter(min_lon, min_lat, max_lon, max_lat))
         except ValueError:
             raise HTTPException(status_code=400, detail="Invalid bbox format")
     result = await db.execute(qry)

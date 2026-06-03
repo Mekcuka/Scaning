@@ -1,5 +1,6 @@
 import type { InfraObject } from './api';
 import { getLineCoordinates, isLineSubtype } from './infraGeometry';
+import type { InfraPointSnapIndex } from './infraSnapIndex';
 
 export const LINE_ENDPOINT_SNAP_TOLERANCE_KM = 0.3;
 
@@ -18,7 +19,11 @@ function haversineKm(lon1: number, lat1: number, lon2: number, lat2: number): nu
 function nearestPointObject(
   point: [number, number],
   infraObjects: InfraObject[],
+  snapIndex?: InfraPointSnapIndex,
 ): { object: InfraObject; distanceKm: number } | null {
+  if (snapIndex) {
+    return snapIndex.nearest(point, LINE_ENDPOINT_SNAP_TOLERANCE_KM * 4);
+  }
   let best: InfraObject | null = null;
   let bestDist = Number.POSITIVE_INFINITY;
   for (const obj of infraObjects) {
@@ -38,9 +43,10 @@ export function snapLineEndpoint(
   _endpointKind: 'start' | 'finish',
   point: [number, number],
   infraObjects: InfraObject[],
+  snapIndex?: InfraPointSnapIndex,
 ): [number, number] {
   if (!isLineSubtype(lineSubtype)) return point;
-  const nearest = nearestPointObject(point, infraObjects);
+  const nearest = nearestPointObject(point, infraObjects, snapIndex);
   if (!nearest || nearest.distanceKm > LINE_ENDPOINT_SNAP_TOLERANCE_KM) return point;
   return [nearest.object.lon, nearest.object.lat];
 }
@@ -51,9 +57,10 @@ export function nearestAllowedLineEndpoint(
   _endpointKind: 'start' | 'finish',
   point: [number, number],
   infraObjects: InfraObject[],
+  snapIndex?: InfraPointSnapIndex,
 ): { object: InfraObject; distanceKm: number } | null {
   if (!isLineSubtype(lineSubtype)) return null;
-  return nearestPointObject(point, infraObjects);
+  return nearestPointObject(point, infraObjects, snapIndex);
 }
 
 export function nearestPointLineEndpoint(
@@ -61,8 +68,9 @@ export function nearestPointLineEndpoint(
   _endpointKind: 'start' | 'finish',
   point: [number, number],
   infraObjects: InfraObject[],
+  snapIndex?: InfraPointSnapIndex,
 ): { object: InfraObject; distanceKm: number } | null {
-  return nearestAllowedLineEndpoint(lineSubtype, _endpointKind, point, infraObjects);
+  return nearestAllowedLineEndpoint(lineSubtype, _endpointKind, point, infraObjects, snapIndex);
 }
 
 /** Snap while drawing: cursor over icon, or within tolerance to nearest point object. */
@@ -132,15 +140,17 @@ export function normalizeLinePathEndpoints(
   lineSubtype: string,
   path: [number, number][],
   infraObjects: InfraObject[],
+  snapIndex?: InfraPointSnapIndex,
 ): [number, number][] {
   if (path.length < 2) return path;
   const out = path.map((p) => [p[0], p[1]] as [number, number]);
-  const start = findLineEndpointAttachment(lineSubtype, 'start', out[0]!, infraObjects);
+  const start = findLineEndpointAttachment(lineSubtype, 'start', out[0]!, infraObjects, snapIndex);
   const finish = findLineEndpointAttachment(
     lineSubtype,
     'finish',
     out[out.length - 1]!,
     infraObjects,
+    snapIndex,
   );
   if (start) out[0] = [start.lon, start.lat];
   if (finish) out[out.length - 1] = [finish.lon, finish.lat];
@@ -164,8 +174,9 @@ export function findLineEndpointAttachment(
   endpointKind: 'start' | 'finish',
   point: [number, number],
   infraObjects: InfraObject[],
+  snapIndex?: InfraPointSnapIndex,
 ): LineEndpointAttachment | null {
-  const nearest = nearestPointLineEndpoint(lineSubtype, endpointKind, point, infraObjects);
+  const nearest = nearestPointLineEndpoint(lineSubtype, endpointKind, point, infraObjects, snapIndex);
   if (!nearest || nearest.distanceKm > LINE_ENDPOINT_SNAP_TOLERANCE_KM) return null;
   return { object: nearest.object, lon: nearest.object.lon, lat: nearest.object.lat };
 }

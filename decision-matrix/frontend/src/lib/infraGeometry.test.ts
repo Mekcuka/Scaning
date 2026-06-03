@@ -37,6 +37,19 @@ describe('linePathForDisplay', () => {
     expect(path).not.toBeNull();
     expect(path![path!.length - 1]).toEqual([37.7, 55.85]);
   });
+
+  it('lod endpoints returns only two vertices after snap', () => {
+    const n = node(37.7, 55.85);
+    const l = powerLine([
+      [37.6, 55.75],
+      [37.65, 55.8],
+      [37.70005, 55.85005],
+    ]);
+    const path = linePathForDisplay(l, [n], { lod: 'endpoints' });
+    expect(path).toHaveLength(2);
+    expect(path![0]).toEqual([37.6, 55.75]);
+    expect(path![1]).toEqual([37.7, 55.85]);
+  });
 });
 
 describe('lineEndpointHealPayload', () => {

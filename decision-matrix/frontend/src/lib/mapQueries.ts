@@ -6,6 +6,10 @@ export async function refreshMapQueries(queryClient: QueryClient, projectId: str
   useAppStore.getState().bumpMapRefresh();
   await queryClient.invalidateQueries({ queryKey: ['layers', projectId] });
   await queryClient.invalidateQueries({ queryKey: ['infra', projectId] });
+  await queryClient.invalidateQueries({
+    queryKey: ['infra', projectId],
+    predicate: (q) => q.queryKey[2] === 'bbox',
+  });
   await queryClient.refetchQueries({ queryKey: ['layers', projectId] });
   await queryClient.refetchQueries({ queryKey: ['infra', projectId] });
 }

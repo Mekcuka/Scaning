@@ -29,7 +29,8 @@ import {
   findLineEndpointAttachment,
 } from '../lib/lineEndpointRules';
 import { closestPointOnPolyline } from '../lib/lineSplit';
-import { linePathForDisplay } from '../lib/infraGeometry';
+import { linePathForDisplay, type LinePathDisplayOptions } from '../lib/infraGeometry';
+import { InfraPointSnapIndex } from '../lib/infraSnapIndex';
 import { MAP_SUBTYPE_COLORS, iconDataUrl } from '../lib/mapIcons';
 import {
   loadMapViewState,
@@ -40,8 +41,18 @@ import {
 import { useAppStore } from '../store';
 import 'ol/ol.css';
 
-function infraLineGeometry(obj: InfraObject, snapPool: InfraObject[]): LineString | null {
-  const path = linePathForDisplay(obj, snapPool);
+const LINE_LOD_ZOOM = 12;
+
+function geometrySyncKey(geometry: Point | LineString): string {
+  return JSON.stringify(geometry.getCoordinates());
+}
+
+function infraLineGeometry(
+  obj: InfraObject,
+  snapPool: InfraObject[],
+  displayOptions?: LinePathDisplayOptions,
+): LineString | null {
+  const path = linePathForDisplay(obj, snapPool, displayOptions);
   if (!path) return null;
   return new LineString(path.map((c) => fromLonLat([c[0], c[1]])));
 }
@@ -60,12 +71,18 @@ function syncFeaturesById(
   const keep = new Set<string>();
   for (const { id, geometry, attrs } of items) {
     keep.add(id);
+    const geomKey = geometrySyncKey(geometry);
     const found = existing.get(id);
     if (found) {
-      found.setGeometry(geometry.clone());
+      if (found.get('_geomKey') !== geomKey) {
+        found.setGeometry(geometry.clone());
+        found.set('_geomKey', geomKey);
+      }
       for (const [k, v] of Object.entries(attrs)) found.set(k, v);
     } else {
-      source.addFeature(new Feature({ geometry: geometry.clone(), id, ...attrs }));
+      source.addFeature(
+        new Feature({ geometry: geometry.clone(), id, _geomKey: geomKey, ...attrs }),
+      );
     }
   }
   existing.forEach((f, id) => {
@@ -523,6 +540,9 @@ export function MapView({
   const useIconsRef = useRef(useMapIcons);
   const suppressDataSyncRef = useRef(false);
   const infraIdsRef = useRef<Set<string>>(new Set());
+  const mapZoomRef = useRef(12);
+  const lineLodRef = useRef<'full' | 'endpoints'>('full');
+  const snapIndexRef = useRef<InfraPointSnapIndex | null>(null);
   const linkedLineDragRef = useRef<LinkedLineDragState | null>(null);
   const lineModifySessionRef = useRef<LineModifySession | null>(null);
   const modifySessionRef = useRef(0);
@@ -563,6 +583,11 @@ export function MapView({
   editModeRef.current = editMode;
   selectModeRef.current = selectMode;
   useIconsRef.current = useMapIcons;
+
+  useEffect(() => {
+    const pool = infraSnapPool ?? infraObjects;
+    snapIndexRef.current = new InfraPointSnapIndex(pool);
+  }, [infraSnapPool, infraObjects]);
 
   useEffect(() => {
     if (!containerRef.current) return;
@@ -1463,6 +1488,13 @@ export function MapView({
         const scale = Math.max(1, Math.round(res * 39.37 * 72));
         scaleLabel = `1:${scale.toLocaleString('ru-RU')}`;
       }
+      mapZoomRef.current = zoom;
+      const lineLod: 'full' | 'endpoints' = zoom < LINE_LOD_ZOOM ? 'endpoints' : 'full';
+      if (lineLodRef.current !== lineLod) {
+        lineLodRef.current = lineLod;
+        syncInfraDataToLayersRef.current?.();
+        lineLayerRef.current?.changed();
+      }
       onViewChangeRef.current?.({ zoom, scaleLabel });
     };
 
@@ -1697,12 +1729,19 @@ export function MapView({
       const snapPool = infraSnapPoolRef.current ?? infraObjectsRef.current;
       const infra = infraObjectsRef.current;
       const poisList = poisRef.current;
+      const zoom = mapZoomRef.current;
+      const lineLod: 'full' | 'endpoints' = zoom < LINE_LOD_ZOOM ? 'endpoints' : 'full';
+      lineLodRef.current = lineLod;
+      const lineDisplayOpts: LinePathDisplayOptions = {
+        snapIndex: snapIndexRef.current ?? undefined,
+        lod: lineLod,
+      };
 
       const lineItems: { id: string; geometry: LineString; attrs: Record<string, unknown> }[] = [];
       const pointItems: { id: string; geometry: Point; attrs: Record<string, unknown> }[] = [];
 
       infra.forEach((obj) => {
-        const lineGeom = infraLineGeometry(obj, snapPool);
+        const lineGeom = infraLineGeometry(obj, snapPool, lineDisplayOpts);
         const attrs = {
           name: obj.name,
           subtype: normalizeInfraSubtype(obj.subtype),

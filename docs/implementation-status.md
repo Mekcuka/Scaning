@@ -87,6 +87,8 @@
 
 **Панель «Слои» на `/map`:** переключатели подложки, групп подтипов, POI, радиусов — в `localStorage` на проект (`mapLayerPreferences.ts`, ключ `dm-map-layer-prefs:{projectId}`). Видимость импортированных слоёв (`infrastructure_layers.is_visible`) — в БД.
 
+**Загрузка объектов на `/map`:** гибрид полного кэша + bbox при просмотре (порог 80 объектов); API [`bbox_filter.py`](../decision-matrix/backend/app/geo/bbox_filter.py). Кластеризация точек (FR-2.4.3) — не реализована.
+
 ---
 
 ## Соответствие FR (выборочно)
@@ -94,7 +96,7 @@
 ### Реализовано
 
 - **FR-1:** регистрация, вход, JWT cookies, refresh rotation, logout, 4 роли, admin users/stats, `published` для viewer.
-- **FR-2:** слои, объекты, рисование 2D, импорт (CSV, GeoJSON, KML, Shapefile, Spark, API connections), `import_logs`, поиск на карте, пространственный анализ, радиусы, линии POI→external.
+- **FR-2:** слои, объекты, рисование 2D, импорт (CSV, GeoJSON, KML, Shapefile, Spark, API connections), `import_logs`, поиск на карте, пространственный анализ, радиусы, линии POI→external. **Производительность карты:** viewport `bbox` + `ST_Intersects`, React Query `staleTime`, grid snap-index, LOD линий по zoom, heal концов один раз на проект — [map-objects-and-spatial-calculations.md](./map-objects-and-spatial-calculations.md) §6.1.2.
 - **FR-4–7:** проекты, POI, 16 ставок, пороги, инженерные параметры, 9 строк анализа матрицы, стоимость, candidates, override.
 - **FR-8:** матрица (таблица + карточки), смена eng-параметров, фильтр превышений, мини-карта.
 - **FR-10:** иконки, радиусы, линии статусов.

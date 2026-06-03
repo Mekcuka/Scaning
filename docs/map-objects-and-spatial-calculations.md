@@ -485,6 +485,17 @@ erDiagram
 
 **Тесты:** [`mapGroupLinePatches.test.ts`](../decision-matrix/frontend/src/lib/mapGroupLinePatches.test.ts), интеграция — `batch move updates linked line when both endpoints move` в [`MapPage.mock.integration.test.tsx`](../decision-matrix/frontend/src/pages/MapPage.mock.integration.test.tsx).
 
+#### 6.1.2 Загрузка и производительность карты
+
+| Механизм | Поведение |
+|----------|-----------|
+| **Полный список** | `GET …/infrastructure/objects` без `bbox` — кэш React Query (`staleTime` ~5 мин), `infraSnapPool` для snap/heal/поиска |
+| **Viewport** | При просмотре (не edit) и **≥80** объектов: `bbox` с буфером ~12%, backend — `ST_Intersects` (PostGIS) / envelope (SQLite); на карту — подмножество + выбранные id |
+| **Snap** | Grid-index [`infraSnapIndex.ts`](../decision-matrix/frontend/src/lib/infraSnapIndex.ts) для `linePathForDisplay` |
+| **LOD линий** | При zoom &lt; 12 — отображение только двух концов (после snap); полный path при zoom ≥ 12; сохранение всегда по полной геометрии |
+| **Heal концов** | Один раз на проект (`localStorage`); сброс после импорта (`bumpMapRefresh`) |
+| **Кластеризация точек** | Не используется (FR-2.4.3 вне текущей реализации) |
+
 ### 6.2 Поиск и dev-порт
 
 - Поиск объектов на карте: название, подтип, имя слоя, строковые свойства (FR-2.3.6).

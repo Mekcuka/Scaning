@@ -1,5 +1,12 @@
 import { LINE_SUBTYPES, type InfraObject } from './api';
+import type { InfraPointSnapIndex } from './infraSnapIndex';
 import { normalizeLinePathEndpoints } from './lineEndpointRules';
+
+export type LinePathDisplayOptions = {
+  snapIndex?: InfraPointSnapIndex;
+  /** Display-only: two snapped endpoints when zoomed out. */
+  lod?: 'full' | 'endpoints';
+};
 
 export function isLineSubtype(subtype: string): boolean {
   return (LINE_SUBTYPES as readonly string[]).includes(subtype);
@@ -30,14 +37,21 @@ export function getLineCoordinates(obj: InfraObject): number[][] | null {
 export function linePathForDisplay(
   line: InfraObject,
   snapPool: InfraObject[],
+  options?: LinePathDisplayOptions,
 ): [number, number][] | null {
   const coords = getLineCoordinates(line);
   if (!coords || coords.length < 2) return null;
-  return normalizeLinePathEndpoints(
+  const path = normalizeLinePathEndpoints(
     line.subtype,
     coords.map((c) => [c[0], c[1]] as [number, number]),
     snapPool,
+    options?.snapIndex,
   );
+  if (!path) return null;
+  if (options?.lod === 'endpoints' && path.length > 2) {
+    return [path[0]!, path[path.length - 1]!];
+  }
+  return path;
 }
 
 /** True when two paths have the same vertex count and lon/lat per vertex (±ε). */
@@ -57,6 +71,7 @@ export function linePathsEqual(
 export function lineEndpointHealPayload(
   line: InfraObject,
   snapPool: InfraObject[],
+  snapIndex?: InfraPointSnapIndex,
 ): {
   lon: number;
   lat: number;
@@ -64,7 +79,7 @@ export function lineEndpointHealPayload(
   end_lat: number;
   coordinates: [number, number][];
 } | null {
-  const path = linePathForDisplay(line, snapPool);
+  const path = linePathForDisplay(line, snapPool, { snapIndex });
   const raw = getLineCoordinates(line);
   if (!path || !raw || raw.length < 2) return null;
 
