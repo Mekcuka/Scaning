@@ -64,7 +64,7 @@
 | Схема потоков | `api/v1/flow.py`, `fluid_flow_schematic.py`, `flow_schematic_merge.py` | ✅ |
 | Песок / логистика | `api/v1/sand_logistics.py`, `sand_logistics.py`, `sand_logistics_store.py` | ✅ (результат в БД; схема: timeline, полная топология на любом годе, layout/slice, адаптивные отступы) |
 | Экономика потоков | `economic_flow_schematic.py`, `economic_rates.py` | ✅ |
-| Автосеть автодорог | `plan_core`: hub junction + ≤1 autoroad/терминал; apply `line_preserve_geometry`; BFF `autoroad-network/plan|apply` | ✅ |
+| Автосеть автодорог | `plan_core`: spur-only при наличии сети, мосты snap↔snap, skip `already_connected`; apply `line_preserve_geometry`; BFF `autoroad-network/plan|apply` | ✅ |
 | Autoroad Network Service (HTTP :8001) | `services/autoroad-network/` | ⬜ опционально (`AUTOROAD_NETWORK_INPROCESS=false`) |
 | UI «Построить сеть» | `MapPage` drawMode `autoroad_network`, `AutoroadNetworkPanel`, `lib/autoroadNetwork.ts` | ✅ |
 

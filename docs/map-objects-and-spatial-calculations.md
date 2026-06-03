@@ -230,12 +230,15 @@ flowchart LR
 
 **Алгоритм (оба режима):**
 
-1. Пересборка топологии (`build_network_from_lines`), граф только по рёбрам `autoroad` (вес = `length_km`).
-2. Snap каждого терминала к полилинии автодороги (допуск **0,3 км**); дальше — `warning`, терминал всё равно в MST.
-3. **MST** по координатам терминалов: если оба на одной сети — путь по **существующим** `autoroad` (`used_existing_edge_ids`); иначе новый `link` между координатами.
-4. **Один подъезд на объект:** ≤1 `line_snap` на терминал; **hub** (MST degree ≥2) — `node` `junction` на snap + один `connector`; backbone без snap hub; apply — `line_preserve_geometry`.
-5. **Leaf:** `connector` object→snap если **>20 m**; off-network hub без snap — warning `hub_needs_road_snap`.
-6. **Перекрёстки** — `intersection` + `line_split`; preview при `dry_run`.
+1. Пересборка топологии (`build_network_from_lines`), граф по рёбрам `autoroad` (вес = `length_km`).
+2. **Нет дорог на карте:** MST прямых `link` между координатами (2 объекта — одна общая линия); ≤1 `line_snap` на терминал.
+3. **Есть polylines:** на каждый терминал — **≤1** `connector` object→**ближайшая** точка на полилинии (без лимита 300 m; warning `far_from_autoroad` при >0,3 km). **Нет** прямых `link` object↔object.
+4. **Уже подключён** (конец `autoroad` в ≤20 m от объекта) — подъезд не создавать (`already_connected`).
+5. **Разрыв сети:** MST по компонентам графа; новые `link` только **между snap-точками** на линиях; в одной компоненте — путь по `used_existing_edge_ids`.
+6. **Apply:** `line_preserve_geometry`; junction/intersection через `node_by_key`.
+7. **Перекрёстки** — `intersection` + `line_split`; preview при `dry_run`.
+
+Подробности — [autoroad-network-plan.md](./autoroad-network-plan.md) §0, §5.
 
 Лимит: до **50** `object_ids` в запросе. Отмена на карте (Ctrl+Z) — удаление созданных линий и узлов (`create_clipboard_group` → batch delete). Расчётные `InfrastructureNode` в БД по-прежнему **не отображаются** на карте; для перекрёстков нужны объекты **`node`**.
 
