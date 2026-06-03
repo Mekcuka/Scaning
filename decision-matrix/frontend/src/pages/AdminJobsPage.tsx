@@ -29,6 +29,18 @@ const STATUS_LABELS: Record<string, string> = {
   cancelled: 'Отменена',
 };
 
+const ACTIVE_STATUSES = new Set(['pending', 'running']);
+const POLL_ACTIVE_MS = 3_000;
+
+function countActiveJobs(counts: Record<string, number> | undefined): number {
+  if (!counts) return 0;
+  return (counts.pending ?? 0) + (counts.running ?? 0);
+}
+
+function listHasActiveJobs(items: ProjectJobAdminItem[] | undefined): boolean {
+  return (items ?? []).some((j) => ACTIVE_STATUSES.has(j.status));
+}
+
 function statusBadgeClass(status: string): string {
   switch (status) {
     case 'completed':
@@ -94,13 +106,25 @@ export function AdminJobsPage() {
   const { data: health, isFetching: healthLoading, refetch: refetchHealth } = useQuery({
     queryKey: ['admin-jobs-health'],
     queryFn: () => api.adminJobsHealth(),
-    refetchInterval: 30_000,
+    refetchInterval: (query) =>
+      countActiveJobs(query.state.data?.jobs_by_status) > 0 ? POLL_ACTIVE_MS : false,
+    refetchOnWindowFocus: true,
   });
 
-  const { data: list, isLoading, refetch: refetchList } = useQuery({
+  const { data: list, isLoading, isFetching: listFetching, refetch: refetchList } = useQuery({
     queryKey: ['admin-jobs', listParams],
     queryFn: () => api.adminListJobs(listParams),
+    refetchInterval: (query) => {
+      if (countActiveJobs(health?.jobs_by_status) > 0) return POLL_ACTIVE_MS;
+      if (listHasActiveJobs(query.state.data?.items)) return POLL_ACTIVE_MS;
+      return false;
+    },
+    refetchOnWindowFocus: true,
   });
+
+  const autoRefreshing =
+    countActiveJobs(health?.jobs_by_status) > 0 || listHasActiveJobs(list?.items);
+  const isRefreshing = healthLoading || listFetching;
 
   const cancelMutation = useMutation({
     mutationFn: (jobId: string) => api.adminCancelJob(jobId),
@@ -134,10 +158,17 @@ export function AdminJobsPage() {
       <div className="card mb-4">
         <div className="flex flex-wrap items-center justify-between gap-3 mb-3">
           <h2 className="text-lg font-semibold">Очередь и worker</h2>
-          <button type="button" className="btn btn-secondary btn-sm" onClick={refreshAll}>
-            <RefreshCw size={14} className={healthLoading ? 'animate-spin' : ''} aria-hidden />
-            Обновить
-          </button>
+          <div className="flex items-center gap-2">
+            {autoRefreshing && (
+              <span className="text-xs" style={{ color: 'var(--text-muted)' }}>
+                Автообновление
+              </span>
+            )}
+            <button type="button" className="btn btn-secondary btn-sm" onClick={refreshAll}>
+              <RefreshCw size={14} className={isRefreshing ? 'animate-spin' : ''} aria-hidden />
+              Обновить
+            </button>
+          </div>
         </div>
         <div className="flex flex-wrap gap-4 text-sm">
           <div>
@@ -249,7 +280,7 @@ export function AdminJobsPage() {
                       <td className="py-2 px-2 whitespace-nowrap">{formatDt(job.created_at)}</td>
                       <td className="py-2 px-2">
                         <Link to={`/projects/${job.project_id}`} className="text-blue-600 hover:underline">
-                          {job.project_name || job.project_id.slice(0, 8)}
+                          {job.project_name || job.project_id?.slice(0, 8) || '—'}
                         </Link>
                       </td>
                       <td className="py-2 px-2">
