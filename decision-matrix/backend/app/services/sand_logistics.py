@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-import heapq
 import math
 from dataclasses import dataclass, field
 from datetime import date
@@ -29,19 +28,19 @@ from app.models import (
     InfrastructureObject,
 )
 from app.services.graph_builder import build_network_from_lines, get_or_create_network
-from app.services.line_endpoint_rules import ENDPOINT_SNAP_TOLERANCE_KM
-from app.services.spatial import closest_point_on_segment, haversine_km, line_coords_from_object
+from app.services.road_graph import (
+    RoadGraph as _RoadGraph,
+    add_undirected_edge as _add_undirected_edge,
+    build_autoroad_graph,
+    build_autoroad_polylines,
+    connected_components as _connected_components,
+    dijkstra as _dijkstra,
+    nearest_autoroad_node as _nearest_autoroad_node,
+    nearest_node as _nearest_node,
+    snap_site_to_autoroad_network as _snap_site_to_autoroad_network,
+)
 
 _EPS_KM = 0.001
-
-
-def _haversine_km(lon1: float, lat1: float, lon2: float, lat2: float) -> float:
-    r = 6371.0
-    p1, p2 = math.radians(lat1), math.radians(lat2)
-    dp = math.radians(lat2 - lat1)
-    dl = math.radians(lon2 - lon1)
-    a = math.sin(dp / 2) ** 2 + math.cos(p1) * math.cos(p2) * math.sin(dl / 2) ** 2
-    return r * 2 * math.atan2(math.sqrt(a), math.sqrt(1 - a))
 
 
 @dataclass
@@ -59,127 +58,6 @@ class _PointSite:
     entry_date: date = field(default_factory=lambda: date(2020, 1, 1))
     in_service: bool = True
     node_id: UUID | None = None
-
-
-@dataclass
-class _RoadGraph:
-    adj: dict[UUID, list[tuple[UUID, float]]] = field(default_factory=dict)
-    coords: dict[UUID, tuple[float, float]] = field(default_factory=dict)
-
-
-def _add_undirected_edge(g: _RoadGraph, a: UUID, b: UUID, weight: float) -> None:
-    g.adj.setdefault(a, []).append((b, weight))
-    g.adj.setdefault(b, []).append((a, weight))
-
-
-def _dijkstra(g: _RoadGraph, start: UUID) -> dict[UUID, float]:
-    dist: dict[UUID, float] = {start: 0.0}
-    heap: list[tuple[float, UUID]] = [(0.0, start)]
-    while heap:
-        d, u = heapq.heappop(heap)
-        if d > dist.get(u, math.inf):
-            continue
-        for v, w in g.adj.get(u, []):
-            nd = d + w
-            if nd < dist.get(v, math.inf):
-                dist[v] = nd
-                heapq.heappush(heap, (nd, v))
-    return dist
-
-
-def _nearest_autoroad_node(
-    g: _RoadGraph,
-    lon: float,
-    lat: float,
-    *,
-    max_km: float = ENDPOINT_SNAP_TOLERANCE_KM,
-) -> tuple[UUID | None, float]:
-    """Snap only to vertices of the autoroad graph within max_km (same as line endpoints)."""
-    best_id: UUID | None = None
-    best_d = math.inf
-    for nid in g.adj:
-        coord = g.coords.get(nid)
-        if not coord:
-            continue
-        nlon, nlat = coord
-        d = _haversine_km(lon, lat, nlon, nlat)
-        if d < best_d:
-            best_d = d
-            best_id = nid
-    if best_id is None or best_d > max_km:
-        return None, best_d if best_d < math.inf else math.inf
-    return best_id, best_d
-
-
-def _distance_to_autoroad_polylines(
-    lon: float,
-    lat: float,
-    polylines: list[list[tuple[float, float]]],
-) -> float:
-    best = math.inf
-    for coords in polylines:
-        if len(coords) < 2:
-            continue
-        for i in range(len(coords) - 1):
-            a = coords[i]
-            b = coords[i + 1]
-            clon, clat = closest_point_on_segment(lon, lat, a[0], a[1], b[0], b[1])
-            d = haversine_km(lon, lat, clon, clat)
-            if d < best:
-                best = d
-    return best
-
-
-def _snap_site_to_autoroad_network(
-    g: _RoadGraph,
-    lon: float,
-    lat: float,
-    polylines: list[list[tuple[float, float]]],
-    *,
-    max_km: float = ENDPOINT_SNAP_TOLERANCE_KM,
-) -> tuple[UUID | None, float]:
-    """Object is on the network only if within max_km of an in-service autoroad polyline."""
-    line_dist = _distance_to_autoroad_polylines(lon, lat, polylines)
-    if line_dist > max_km:
-        return None, line_dist
-    nid, _ = _nearest_autoroad_node(g, lon, lat, max_km=max_km)
-    return nid, line_dist
-
-
-def _nearest_node(g: _RoadGraph, lon: float, lat: float) -> tuple[UUID | None, float]:
-    """Nearest graph coordinate (any node) — for display distance only."""
-    best_id: UUID | None = None
-    best_d = math.inf
-    for nid, (nlon, nlat) in g.coords.items():
-        d = _haversine_km(lon, lat, nlon, nlat)
-        if d < best_d:
-            best_d = d
-            best_id = nid
-    if best_id is None:
-        return None, math.inf
-    return best_id, best_d
-
-
-def _connected_components(adj: dict[UUID, list[tuple[UUID, float]]]) -> list[set[UUID]]:
-    seen: set[UUID] = set()
-    components: list[set[UUID]] = []
-    for start in adj:
-        if start in seen:
-            continue
-        stack = [start]
-        comp: set[UUID] = set()
-        while stack:
-            u = stack.pop()
-            if u in comp:
-                continue
-            comp.add(u)
-            for v, _ in adj.get(u, []):
-                if v not in comp:
-                    stack.append(v)
-        seen |= comp
-        if comp:
-            components.append(comp)
-    return components
 
 
 def _subnet_name(quarries: list[_PointSite], index: int) -> str:
@@ -560,33 +438,16 @@ async def analyze_sand_logistics(
         h_to = view_as_of
 
     def build_graph_at(calc_date: date) -> _RoadGraph:
-        g = _RoadGraph()
-        for n in nodes:
-            g.coords[n.id] = (n.longitude, n.latitude)
-        for edge in db_edges:
-            if edge.infrastructure_object_id is None:
-                continue
-            if subtype_by_obj.get(edge.infrastructure_object_id) != "autoroad":
-                continue
-            road_entry = entry_by_obj.get(edge.infrastructure_object_id)
-            if road_entry is not None and not is_in_service(road_entry, calc_date):
-                continue
-            w = max(float(edge.length_km or 0), 0.0)
-            if w <= 0:
-                continue
-            _add_undirected_edge(g, edge.from_node_id, edge.to_node_id, w)
-        return g
+        return build_autoroad_graph(
+            nodes,
+            db_edges,
+            subtype_by_obj,
+            calc_date=calc_date,
+            entry_by_obj=entry_by_obj,
+        )
 
     def build_polylines_at(calc_date: date) -> list[list[tuple[float, float]]]:
-        polylines: list[list[tuple[float, float]]] = []
-        for road in autoroad_objects:
-            road_entry = read_entry_date(road.properties)
-            if not is_in_service(road_entry, calc_date):
-                continue
-            coords = line_coords_from_object(road)
-            if len(coords) >= 2:
-                polylines.append(coords)
-        return polylines
+        return build_autoroad_polylines(autoroad_objects, calc_date=calc_date)
 
     g_at_view = build_graph_at(view_as_of)
     if not g_at_view.adj:

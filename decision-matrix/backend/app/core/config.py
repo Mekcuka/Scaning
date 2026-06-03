@@ -18,6 +18,13 @@ class Settings(BaseSettings):
     DEMO_USERS_ENABLED: bool = True
     ALLOW_REGISTRATION: bool = True
     LOG_JSON: bool = False
+    REDIS_URL: str = ""
+    ARQ_QUEUE_NAME: str = "decision-matrix"
+    JOBS_SYNC_FALLBACK: bool = True
+
+    @property
+    def jobs_use_queue(self) -> bool:
+        return bool(self.REDIS_URL.strip())
 
     @property
     def use_secure_cookies(self) -> bool:

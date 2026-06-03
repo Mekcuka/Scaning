@@ -3,6 +3,7 @@
 from uuid import UUID
 
 from fastapi import APIRouter, Depends, File, HTTPException, Query, UploadFile, status
+from fastapi.responses import JSONResponse
 from sqlalchemy import cast, delete, or_, select, String, update
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -40,6 +41,9 @@ from app.schemas import (
     InfraObjectCreate,
     InfraObjectResponse,
     InfraObjectUpdate,
+    AutoroadConnectRequest,
+    AutoroadConnectResponse,
+    ProjectJobCreateResponse,
     MapBatchDeleteRequest,
     MapBatchDeleteResponse,
     LayerCreate,
@@ -57,7 +61,7 @@ from app.services.import_service import (
     parse_import_content,
     run_file_import,
     run_shapefile_import,
-    schedule_async_import,
+    schedule_import_via_job,
 )
 from app.services.line_endpoint_rules import (
     LineEndpointRuleError,
@@ -303,11 +307,15 @@ async def _create_infra_object_record(
     from app.geo.entry_date import apply_default_entry_date
     from app.geo.render_3d_properties import apply_default_render_3d
     from app.geo.sand_properties import apply_default_sand_volumes
+    from app.geo.throughput_capacity import apply_default_throughput_capacity
 
     props = apply_default_entry_date(
         subtype,
-        apply_default_render_3d(
-            subtype, apply_default_sand_volumes(subtype, dict(data.properties))
+        apply_default_throughput_capacity(
+            subtype,
+            apply_default_render_3d(
+                subtype, apply_default_sand_volumes(subtype, dict(data.properties))
+            ),
         ),
     )
     if data.description:
@@ -425,6 +433,66 @@ async def create_facility_infra_object(
     await db.commit()
     await db.refresh(obj)
     return infra_to_response(obj)
+
+
+@map_router.post("/projects/{project_id}/infrastructure/autoroad-connect")
+async def autoroad_connect_objects(
+    project_id: UUID,
+    data: AutoroadConnectRequest,
+    user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    """Соединить выбранные точечные объекты по сети автодорог (MST + подъезды + мосты)."""
+    await _require_infra_write(project_id, user, db)
+    from app.services.autoroad_connect import run_autoroad_connect
+    from app.services.job_enqueue import commit_and_schedule, create_and_schedule_job, jobs_async_enabled
+    from app.services.project_jobs import JOB_TYPE_AUTOROAD_CONNECT, ActiveProjectJobError
+
+    try:
+        if data.dry_run:
+            result = await run_autoroad_connect(
+                db,
+                project_id,
+                data.object_ids,
+                dry_run=True,
+            )
+            return AutoroadConnectResponse(**result)
+
+        if jobs_async_enabled():
+            try:
+                job = await create_and_schedule_job(
+                    db,
+                    project_id=project_id,
+                    user_id=user.id,
+                    job_type=JOB_TYPE_AUTOROAD_CONNECT,
+                    payload={"object_ids": [str(i) for i in data.object_ids]},
+                )
+                await commit_and_schedule(db, job)
+            except ActiveProjectJobError as e:
+                raise HTTPException(
+                    status_code=409,
+                    detail={
+                        "message": "Project already has an active job",
+                        "active_job_id": str(e.active_job_id),
+                    },
+                ) from e
+            body = ProjectJobCreateResponse(
+                job_id=job.id,
+                job_type=job.job_type,
+                status=job.status,
+            )
+            return JSONResponse(status_code=202, content=body.model_dump(mode="json"))
+
+        result = await run_autoroad_connect(
+            db,
+            project_id,
+            data.object_ids,
+            dry_run=False,
+        )
+        await db.commit()
+        return AutoroadConnectResponse(**result)
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e)) from e
 
 
 @map_router.patch(
@@ -797,10 +865,23 @@ async def import_csv_async(
         source_type="csv_import",
         file_name=file.filename or "import.csv",
     )
-    await db.commit()
-    await db.refresh(log)
-    schedule_async_import(log.id, layer_id=layer.id, content=content, format="csv")
-    return log
+    from app.services.project_jobs import ActiveProjectJobError
+
+    try:
+        return await schedule_import_via_job(
+            db,
+            user_id=user.id,
+            project_id=project_id,
+            log=log,
+            layer_id=layer.id,
+            content=content,
+            format="csv",
+        )
+    except ActiveProjectJobError as e:
+        raise HTTPException(
+            status_code=409,
+            detail={"message": "Project already has an active job", "active_job_id": str(e.active_job_id)},
+        ) from e
 
 
 @map_router.post("/projects/{project_id}/import/kml", response_model=ImportLogResponse)
@@ -905,10 +986,23 @@ async def import_geojson_async(
         source_type="geojson_import",
         file_name=file.filename or "import.geojson",
     )
-    await db.commit()
-    await db.refresh(log)
-    schedule_async_import(log.id, layer_id=layer.id, content=content, format="geojson")
-    return log
+    from app.services.project_jobs import ActiveProjectJobError
+
+    try:
+        return await schedule_import_via_job(
+            db,
+            user_id=user.id,
+            project_id=project_id,
+            log=log,
+            layer_id=layer.id,
+            content=content,
+            format="geojson",
+        )
+    except ActiveProjectJobError as e:
+        raise HTTPException(
+            status_code=409,
+            detail={"message": "Project already has an active job", "active_job_id": str(e.active_job_id)},
+        ) from e
 
 
 @map_router.post("/projects/{project_id}/import/kml/async", response_model=ImportLogResponse, status_code=202)
@@ -938,10 +1032,23 @@ async def import_kml_async(
         source_type="kml_import",
         file_name=file.filename or "import.kml",
     )
-    await db.commit()
-    await db.refresh(log)
-    schedule_async_import(log.id, layer_id=layer.id, content=content, format="kml")
-    return log
+    from app.services.project_jobs import ActiveProjectJobError
+
+    try:
+        return await schedule_import_via_job(
+            db,
+            user_id=user.id,
+            project_id=project_id,
+            log=log,
+            layer_id=layer.id,
+            content=content,
+            format="kml",
+        )
+    except ActiveProjectJobError as e:
+        raise HTTPException(
+            status_code=409,
+            detail={"message": "Project already has an active job", "active_job_id": str(e.active_job_id)},
+        ) from e
 
 
 @map_router.post("/projects/{project_id}/import/spark", response_model=ImportLogResponse)
@@ -986,10 +1093,23 @@ async def import_spark_async(
         source_type="spark_import",
         file_name=file.filename or "export.json",
     )
-    await db.commit()
-    await db.refresh(log)
-    schedule_async_import(log.id, layer_id=layer.id, content=content, format="spark")
-    return log
+    from app.services.project_jobs import ActiveProjectJobError
+
+    try:
+        return await schedule_import_via_job(
+            db,
+            user_id=user.id,
+            project_id=project_id,
+            log=log,
+            layer_id=layer.id,
+            content=content,
+            format="spark",
+        )
+    except ActiveProjectJobError as e:
+        raise HTTPException(
+            status_code=409,
+            detail={"message": "Project already has an active job", "active_job_id": str(e.active_job_id)},
+        ) from e
 
 
 @map_router.get("/import/logs", response_model=list[ImportLogResponse])

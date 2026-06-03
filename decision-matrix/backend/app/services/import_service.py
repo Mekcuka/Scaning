@@ -235,13 +235,18 @@ async def import_rows_to_layer(
         from app.geo.entry_date import apply_default_entry_date
         from app.geo.render_3d_properties import apply_default_render_3d, merge_geojson_render_3d
         from app.geo.sand_properties import apply_default_sand_volumes
+        from app.geo.throughput_capacity import apply_default_throughput_capacity
 
         raw_props = merge_geojson_render_3d(dict(row.get("properties") or {}))
+        row_subtype = str(row["subtype"])
         props: dict = apply_default_entry_date(
-            str(row["subtype"]),
-            apply_default_render_3d(
-                str(row["subtype"]),
-                apply_default_sand_volumes(str(row["subtype"]), raw_props),
+            row_subtype,
+            apply_default_throughput_capacity(
+                row_subtype,
+                apply_default_render_3d(
+                    row_subtype,
+                    apply_default_sand_volumes(row_subtype, raw_props),
+                ),
             ),
         )
         line_coords = line_coordinates_for_storage(
@@ -517,7 +522,48 @@ async def process_import_log(
 
 
 def schedule_async_import(log_id: UUID, *, layer_id: UUID, content: str, format: str) -> None:
+    """Deprecated: use schedule_import_via_job."""
     asyncio.create_task(process_import_log(log_id, layer_id=layer_id, content=content, format=format))
+
+
+async def schedule_import_via_job(
+    db: AsyncSession,
+    *,
+    user_id: UUID,
+    project_id: UUID,
+    log: ImportLog,
+    layer_id: UUID,
+    content: str,
+    format: str,
+) -> ImportLog:
+    from app.services.job_enqueue import commit_and_schedule, create_and_schedule_job, jobs_async_enabled
+    from app.services.project_jobs import JOB_TYPE_IMPORT_FILE, ActiveProjectJobError
+
+    if not jobs_async_enabled():
+        await db.commit()
+        await db.refresh(log)
+        schedule_async_import(log.id, layer_id=layer_id, content=content, format=format)
+        return log
+
+    try:
+        job = await create_and_schedule_job(
+            db,
+            project_id=project_id,
+            user_id=user_id,
+            job_type=JOB_TYPE_IMPORT_FILE,
+            payload={
+                "log_id": str(log.id),
+                "layer_id": str(layer_id),
+                "format": format,
+                "content": content,
+            },
+        )
+        log.project_job_id = job.id
+        await commit_and_schedule(db, job)
+        await db.refresh(log)
+        return log
+    except ActiveProjectJobError:
+        raise
 
 
 async def run_shapefile_import(

@@ -1,22 +1,11 @@
 import { api, type InfraObject } from './api';
 import { isLineSubtype } from './infraGeometry';
-import { withDefaultInfraProperties } from './infraEntryDate';
-import { withDefaultRender3DProperties } from './map3d/render3d';
+import { mergeInfraPropertiesForSave } from './mergeInfraPropertiesForSave';
 import {
   buildLineSplitPlan,
   findLineSplitAtPoint,
   type LineSplitCandidate,
 } from './lineSplit';
-
-function mergeInfraPropertiesForSave(
-  subtype: string,
-  properties?: Record<string, unknown>,
-): Record<string, unknown> {
-  return withDefaultInfraProperties(
-    subtype,
-    withDefaultRender3DProperties(subtype, properties),
-  );
-}
 
 export type LineSplitHint = {
   lineId: string;

@@ -19,6 +19,19 @@ services:
         max-size: "10m"
         max-file: "5"
 
+  redis:
+    image: redis:7-alpine
+    container_name: decision-matrix-redis
+    restart: unless-stopped
+    command: ["redis-server", "--appendonly", "yes"]
+    volumes:
+      - redisdata:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 3s
+      retries: 5
+
   api:
     image: ${IMAGE_REF}
     container_name: decision-matrix-api
@@ -29,6 +42,8 @@ services:
       - "8000"
     depends_on:
       db:
+        condition: service_healthy
+      redis:
         condition: service_healthy
     healthcheck:
       test: ["CMD-SHELL", "python -c \"import urllib.request; urllib.request.urlopen('http://127.0.0.1:8000/health')\""]
@@ -63,7 +78,26 @@ services:
         max-size: "10m"
         max-file: "5"
 
+  worker:
+    image: ${IMAGE_REF}
+    container_name: decision-matrix-worker
+    restart: unless-stopped
+    env_file:
+      - /opt/decision-matrix/shared/app.env
+    command: ["arq", "app.worker.settings.WorkerSettings"]
+    depends_on:
+      db:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "5"
+
 volumes:
   pgdata:
+  redisdata:
   caddy_data:
   caddy_config:

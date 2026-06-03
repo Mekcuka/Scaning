@@ -8,10 +8,11 @@ import {
 import { makeInfraLine, makeInfraPoint } from '../test/fixtures/infra';
 
 describe('MapPage helpers', () => {
-  it('mergeInfraPropertiesForSave merges defaults', () => {
+  it('mergeInfraPropertiesForSave merges throughput and preserves extra props', () => {
     const props = mergeInfraPropertiesForSave('gas_processing', { foo: 1 });
-    expect(props).toBeDefined();
-    expect(typeof props).toBe('object');
+    expect(props.foo).toBe(1);
+    expect(props.throughput_capacity_annual).toBe(1200);
+    expect(props.capacity_unit).toBe('thousand_m3_per_year');
   });
 
   it('lineCoordsOrEndpoints from coordinates', () => {

@@ -441,6 +441,55 @@ class MapBatchDeleteResponse(BaseModel):
     network_rebuilt: bool = False
 
 
+class AutoroadConnectRequest(BaseModel):
+    object_ids: list[UUID] = Field(..., min_length=2, max_length=50)
+    dry_run: bool = False
+
+
+class ProjectJobCreateRequest(BaseModel):
+    job_type: str
+    payload: dict = Field(default_factory=dict)
+
+
+class ProjectJobCreateResponse(BaseModel):
+    job_id: UUID
+    job_type: str
+    status: str = "pending"
+
+
+class ProjectJobResponse(BaseModel):
+    id: UUID
+    project_id: UUID
+    user_id: UUID | None = None
+    job_type: str
+    status: str
+    payload: dict = Field(default_factory=dict)
+    result: dict | None = None
+    error_message: str | None = None
+    progress: float | None = None
+    started_at: datetime | None = None
+    finished_at: datetime | None = None
+    created_at: datetime | None = None
+
+    model_config = {"from_attributes": True}
+
+
+class AutoroadConnectResponse(BaseModel):
+    dry_run: bool
+    terminals: list[dict] = Field(default_factory=list)
+    new_line_count: int = 0
+    new_node_count: int = 0
+    split_count: int = 0
+    used_existing_edge_ids: list[str] = Field(default_factory=list)
+    total_new_km: float = 0.0
+    warnings: list[str] = Field(default_factory=list)
+    preview: dict | None = None
+    created_node_ids: list[str] = Field(default_factory=list)
+    created_line_ids: list[str] = Field(default_factory=list)
+    created_nodes: int = 0
+    created_lines: int = 0
+
+
 class AnalysisRowResponse(BaseModel):
     subtype: str
     param_type: str
@@ -482,6 +531,7 @@ class ImportPreviewResponse(BaseModel):
 class ImportLogResponse(BaseModel):
     id: UUID
     project_id: UUID | None = None
+    project_job_id: UUID | None = None
     source_type: str
     file_name: str | None
     status: str

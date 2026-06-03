@@ -1,6 +1,7 @@
 from uuid import UUID
 
 from fastapi import APIRouter, Depends, HTTPException, Query, status
+from fastapi.responses import JSONResponse
 from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -30,6 +31,7 @@ from app.schemas import (
     ProjectCreate,
     ProjectResponse,
     ProjectUpdate,
+    ProjectJobCreateResponse,
 )
 from app.services.cost_rates import DEFAULT_COST_RATES, merge_project_cost_rates
 from app.services.economic_rates import DEFAULT_ECONOMIC_PARAMS
@@ -39,6 +41,7 @@ from app.api.v1.flow import flow_router
 from app.api.v1.graph import graph_router
 from app.api.v1.import_connections import connections_router
 from app.api.v1.sand_logistics import sand_logistics_router
+from app.api.v1.jobs import jobs_router
 from app.api.v1.map import map_router
 from app.api.v1.one_pagers import one_pagers_router
 from app.geo.geometry_utils import point_wkt
@@ -54,6 +57,7 @@ router.include_router(graph_router)
 router.include_router(flow_router)
 router.include_router(connections_router)
 router.include_router(sand_logistics_router)
+router.include_router(jobs_router)
 
 
 @router.get("/projects", response_model=list[ProjectResponse])
@@ -273,6 +277,30 @@ async def analyze_all_pois(
     project_id: UUID, user: User = Depends(get_current_user), db: AsyncSession = Depends(get_db)
 ):
     await _get_user_project(project_id, user, db, min_access=AccessLevel.write)
+    from app.services.job_enqueue import commit_and_schedule, create_and_schedule_job, jobs_async_enabled
+    from app.services.project_jobs import JOB_TYPE_POI_ANALYZE_ALL, ActiveProjectJobError
+
+    if jobs_async_enabled():
+        try:
+            job = await create_and_schedule_job(
+                db,
+                project_id=project_id,
+                user_id=user.id,
+                job_type=JOB_TYPE_POI_ANALYZE_ALL,
+                payload={},
+            )
+            await commit_and_schedule(db, job)
+        except ActiveProjectJobError as e:
+            raise HTTPException(
+                status_code=409,
+                detail={
+                    "message": "Project already has an active job",
+                    "active_job_id": str(e.active_job_id),
+                },
+            ) from e
+        resp = ProjectJobCreateResponse(job_id=job.id, job_type=job.job_type, status=job.status)
+        return JSONResponse(status_code=202, content=resp.model_dump(mode="json"))
+
     payload = await run_project_pois_analysis(db, project_id)
     await db.commit()
     return payload

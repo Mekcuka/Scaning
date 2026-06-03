@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useMemo, useState } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { Link } from 'react-router-dom';
 import { MapPin, Search } from 'lucide-react';
@@ -6,11 +6,9 @@ import { api, SUBTYPE_LABELS, type InfraObject } from '../lib/api';
 import {
   capacityUnitLabel,
   defaultCapacityUnitForSubtype,
-  defaultThroughputCapacityForSubtype,
   effectiveThroughputCapacity,
   mergeThroughputCapacity,
   pointShowsThroughputCapacity,
-  readThroughputCapacity,
 } from '../lib/infraCapacity';
 import { useAppStore } from '../store';
 import { usePermissions } from '../hooks/usePermissions';
@@ -33,7 +31,6 @@ export function ParametersPage() {
   const queryClient = useQueryClient();
   const [search, setSearch] = useState('');
   const [savingId, setSavingId] = useState<string | null>(null);
-  const defaultsAppliedRef = useRef(false);
 
   const { data: infraObjects = [], isLoading } = useQuery({
     queryKey: ['infra', projectId],
@@ -65,41 +62,6 @@ export function ParametersPage() {
       return o.name.toLowerCase().includes(q) || subtypeLabel.includes(q);
     });
   }, [capacityObjects, search]);
-
-  useEffect(() => {
-    defaultsAppliedRef.current = false;
-  }, [projectId]);
-
-  useEffect(() => {
-    if (!projectId || isLoading || defaultsAppliedRef.current || !canWriteProject) return;
-
-    const toFill = capacityObjects.filter((o) => {
-      if (readThroughputCapacity(o.properties).value != null) return false;
-      return defaultThroughputCapacityForSubtype(o.subtype) != null;
-    });
-    if (toFill.length === 0) {
-      defaultsAppliedRef.current = true;
-      return;
-    }
-
-    defaultsAppliedRef.current = true;
-    void (async () => {
-      try {
-        for (const obj of toFill) {
-          const def = defaultThroughputCapacityForSubtype(obj.subtype)!;
-          await api.updateInfraObject(projectId, obj.id, {
-            properties: mergeThroughputCapacity(obj.properties, def.value, def.unit),
-          });
-        }
-        await queryClient.invalidateQueries({ queryKey: ['infra', projectId] });
-        await queryClient.invalidateQueries({ queryKey: ['economic-flow-schematic', projectId] });
-        pushToast('success', `Стандартные значения заданы для ${toFill.length} объектов`);
-      } catch (err) {
-        defaultsAppliedRef.current = false;
-        pushToast('error', err instanceof Error ? err.message : 'Не удалось задать стандартные значения');
-      }
-    })();
-  }, [projectId, isLoading, capacityObjects, queryClient, pushToast, canWriteProject]);
 
   const saveMut = useMutation({
     mutationFn: async ({
@@ -226,7 +188,7 @@ export function ParametersPage() {
                           title={
                             effective.isStored
                               ? undefined
-                              : 'Стандартное значение для подтипа (сохраняется автоматически)'
+                              : 'Норматив для подтипа (задаётся при создании объекта на карте)'
                           }
                           value={capacityDisplayValue(obj)}
                           readOnly={!canWriteProject}

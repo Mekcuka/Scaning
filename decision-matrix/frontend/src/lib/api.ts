@@ -359,9 +359,10 @@ export const api = {
   analyzePoi: (projectId: string, poiId: string) =>
     request<AnalysisResult>(`/projects/${projectId}/pois/${poiId}/analyze`, { method: 'POST' }),
   analyzeAllPois: (projectId: string) =>
-    request<ProjectAnalysisBatchResult>(`/projects/${projectId}/pois/analyze-all`, {
-      method: 'POST',
-    }),
+    request<ProjectAnalysisBatchResult | ProjectJobCreateResponse>(
+      `/projects/${projectId}/pois/analyze-all`,
+      { method: 'POST', timeoutMs: 120_000 },
+    ),
   getPoiAnalysis: (projectId: string, poiId: string) =>
     request<PoiAnalysisResponse>(`/projects/${projectId}/pois/${poiId}/analysis`),
   getCandidates: (
@@ -489,6 +490,28 @@ export const api = {
     ),
   deleteInfraObject: (projectId: string, objectId: string) =>
     request<void>(`/projects/${projectId}/infrastructure/objects/${objectId}`, { method: 'DELETE' }),
+  autoroadConnect: (
+    projectId: string,
+    data: { object_ids: string[]; dry_run?: boolean },
+    opts?: { timeoutMs?: number },
+  ) =>
+    request<AutoroadConnectResult | ProjectJobCreateResponse>(
+      `/projects/${projectId}/infrastructure/autoroad-connect`,
+      {
+        method: 'POST',
+        body: JSON.stringify(data),
+        timeoutMs: opts?.timeoutMs ?? 120_000,
+      },
+    ),
+  getActiveProjectJob: (projectId: string) =>
+    request<ProjectJobResponse | null>(`/projects/${projectId}/jobs/active`),
+  getProjectJob: (projectId: string, jobId: string) =>
+    request<ProjectJobResponse>(`/projects/${projectId}/jobs/${jobId}`),
+  createProjectJob: (projectId: string, data: { job_type: string; payload?: Record<string, unknown> }) =>
+    request<ProjectJobCreateResponse>(`/projects/${projectId}/jobs`, {
+      method: 'POST',
+      body: JSON.stringify(data),
+    }),
   batchDeleteMapObjects: (
     projectId: string,
     data: { object_ids: string[]; poi_ids?: string[] },
@@ -575,15 +598,19 @@ export const api = {
       rebuildNetwork?: boolean;
     },
   ) =>
-    request<SandLogisticsResult>(`/projects/${projectId}/sand-logistics/analyze`, {
-      method: 'POST',
-      body: JSON.stringify({
-        as_of: options?.asOf ?? null,
-        horizon_from: options?.horizonFrom ?? null,
-        horizon_to: options?.horizonTo ?? null,
-        rebuild_network: options?.rebuildNetwork ?? true,
-      }),
-    }),
+    request<SandLogisticsResult | ProjectJobCreateResponse>(
+      `/projects/${projectId}/sand-logistics/analyze`,
+      {
+        method: 'POST',
+        body: JSON.stringify({
+          as_of: options?.asOf ?? null,
+          horizon_from: options?.horizonFrom ?? null,
+          horizon_to: options?.horizonTo ?? null,
+          rebuild_network: options?.rebuildNetwork ?? true,
+        }),
+        timeoutMs: 120_000,
+      },
+    ),
   getSandLogisticsResult: (projectId: string) =>
     request<SandLogisticsResult | null>(`/projects/${projectId}/sand-logistics/result`, {
       allowNotFound: true,
@@ -777,6 +804,48 @@ export const FACILITY_POINT_SUBTYPES: readonly FacilityPointSubtype[] = [
 
 export function isFacilityPointSubtype(subtype: string): subtype is FacilityPointSubtype {
   return (FACILITY_POINT_SUBTYPES as readonly string[]).includes(subtype);
+}
+
+export interface ProjectJobCreateResponse {
+  job_id: string;
+  job_type: string;
+  status: string;
+}
+
+export interface ProjectJobResponse {
+  id: string;
+  project_id: string;
+  user_id?: string | null;
+  job_type: string;
+  status: string;
+  payload?: Record<string, unknown>;
+  result?: Record<string, unknown> | null;
+  error_message?: string | null;
+  progress?: number | null;
+  started_at?: string | null;
+  finished_at?: string | null;
+  created_at?: string | null;
+}
+
+export interface AutoroadConnectResult {
+  dry_run: boolean;
+  terminals: {
+    object_id: string;
+    name?: string;
+    graph_node_id?: string | null;
+    warning?: string | null;
+  }[];
+  new_line_count: number;
+  new_node_count: number;
+  split_count: number;
+  used_existing_edge_ids: string[];
+  total_new_km: number;
+  warnings: string[];
+  preview?: { type: string; features: unknown[] } | null;
+  created_node_ids: string[];
+  created_line_ids: string[];
+  created_nodes: number;
+  created_lines: number;
 }
 
 export interface FacilityInfraObjectCreate {

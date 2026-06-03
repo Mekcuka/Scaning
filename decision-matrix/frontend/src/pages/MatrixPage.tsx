@@ -2,6 +2,7 @@ import { Fragment, useEffect, useMemo, useState } from 'react';
 import { useMutation, useQueries, useQuery, useQueryClient } from '@tanstack/react-query';
 import { LayoutGrid, Table, Zap } from 'lucide-react';
 import { api, normalizePoiAnalysisResponse, type POI } from '../lib/api';
+import { analyzeAllPoisAndWait } from '../lib/runApiJob';
 import { buildMatrixRowsByPois, resolvePoiColumnAnalysis } from '../lib/matrixData';
 import { engineeringOptionsForKey, type EngineeringParamKey } from '../lib/poiParams';
 import { useAppStore } from '../store';
@@ -92,7 +93,7 @@ export function MatrixPage() {
   const colCount = columnNames.length + 1;
 
   const analyzeMut = useMutation({
-    mutationFn: () => api.analyzeAllPois(projectId!),
+    mutationFn: () => analyzeAllPoisAndWait(projectId!),
     onSuccess: async (batch) => {
       if (!projectId) return;
       for (const item of batch.results) {

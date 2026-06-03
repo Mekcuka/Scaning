@@ -3,6 +3,7 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useCallback, useEffect, useMemo, useState, useTransition } from 'react';
 import { Network } from 'lucide-react';
 import { api } from '../../lib/api';
+import { analyzeSandLogisticsAndWait } from '../../lib/runApiJob';
 import {
   SandLogisticsSubnetPanel,
   subnetTabLabel,
@@ -167,7 +168,7 @@ export function FlowLogisticsPage() {
 
   const analyzeMut = useMutation({
     mutationFn: () =>
-      api.analyzeSandLogistics(projectId!, {
+      analyzeSandLogisticsAndWait(projectId!, {
         horizonFrom,
         horizonTo,
         asOf: viewAsOf,
@@ -175,6 +176,7 @@ export function FlowLogisticsPage() {
     onSuccess: (data) => {
       const normalized = normalizeSandLogisticsResult(data);
       if (projectId) {
+        void queryClient.invalidateQueries({ queryKey: ['activeJob', projectId] });
         writeSandLogisticsCache(queryClient, projectId, normalized);
         saveSandLogisticsHorizonTo(projectId, horizonTo);
         saveSandLogisticsViewAsOf(projectId, viewAsOf);

@@ -97,3 +97,21 @@ export function mergeThroughputCapacity(
   }
   return next;
 }
+
+/** Persist subtype normative throughput when saving a new point from the map. */
+export function withDefaultThroughputCapacity(
+  subtype: string,
+  properties?: Record<string, unknown>,
+): Record<string, unknown> {
+  if (!pointShowsThroughputCapacity(subtype)) {
+    return { ...(properties ?? {}) };
+  }
+  if (readThroughputCapacity(properties).value != null) {
+    return { ...(properties ?? {}) };
+  }
+  const def = defaultThroughputCapacityForSubtype(subtype);
+  if (!def) {
+    return { ...(properties ?? {}) };
+  }
+  return mergeThroughputCapacity(properties, def.value, def.unit);
+}

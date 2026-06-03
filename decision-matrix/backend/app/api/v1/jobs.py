@@ -1,0 +1,91 @@
+"""Project background jobs API."""
+
+from uuid import UUID
+
+from fastapi import APIRouter, Depends, HTTPException, status
+from sqlalchemy.ext.asyncio import AsyncSession
+
+from app.api.deps import get_current_user
+from app.core.database import get_db
+from app.models import ProjectJob, User
+from app.models.enums import AccessLevel, WriteScope
+from app.schemas import ProjectJobCreateRequest, ProjectJobCreateResponse, ProjectJobResponse
+from app.services.job_queue import schedule_project_job
+from app.services.project_jobs import (
+    ALLOWED_JOB_TYPES,
+    ActiveProjectJobError,
+    create_project_job,
+    get_active_job_for_project,
+    job_to_dict,
+)
+from app.services.project_access import resolve_project
+
+jobs_router = APIRouter()
+
+
+def _job_response(job: ProjectJob) -> ProjectJobResponse:
+    return ProjectJobResponse.model_validate(job)
+
+
+@jobs_router.post(
+    "/projects/{project_id}/jobs",
+    response_model=ProjectJobCreateResponse,
+    status_code=status.HTTP_202_ACCEPTED,
+)
+async def create_project_job_endpoint(
+    project_id: UUID,
+    data: ProjectJobCreateRequest,
+    user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    await resolve_project(project_id, user, db, min_access=AccessLevel.write, write_scope=WriteScope.infra)
+    if data.job_type not in ALLOWED_JOB_TYPES:
+        raise HTTPException(status_code=400, detail=f"Unknown job_type: {data.job_type}")
+    try:
+        job = await create_project_job(
+            db,
+            project_id=project_id,
+            user_id=user.id,
+            job_type=data.job_type,
+            payload=data.payload,
+        )
+    except ActiveProjectJobError as e:
+        raise HTTPException(
+            status_code=409,
+            detail={"message": "Project already has an active job", "active_job_id": str(e.active_job_id)},
+        ) from e
+    await db.commit()
+    await db.refresh(job)
+    schedule_project_job(job.id)
+    return ProjectJobCreateResponse(
+        job_id=job.id,
+        job_type=job.job_type,
+        status=job.status,
+    )
+
+
+@jobs_router.get("/projects/{project_id}/jobs/active", response_model=ProjectJobResponse | None)
+async def get_active_project_job(
+    project_id: UUID,
+    user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    await resolve_project(project_id, user, db, min_access=AccessLevel.read, write_scope=WriteScope.infra)
+    job = await get_active_job_for_project(db, project_id)
+    if not job:
+        return None
+    return _job_response(job)
+
+
+@jobs_router.get("/projects/{project_id}/jobs/{job_id}", response_model=ProjectJobResponse)
+async def get_project_job(
+    project_id: UUID,
+    job_id: UUID,
+    user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    await resolve_project(project_id, user, db, min_access=AccessLevel.read, write_scope=WriteScope.infra)
+    job = await db.get(ProjectJob, job_id)
+    if not job or job.project_id != project_id:
+        raise HTTPException(status_code=404, detail="Job not found")
+    return _job_response(job)

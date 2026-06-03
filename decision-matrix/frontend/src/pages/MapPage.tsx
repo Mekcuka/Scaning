@@ -83,8 +83,10 @@ import {
   type InfraObject,
   type InfraObjectCreate,
   type PoiAnalysisResponse,
+  type AutoroadConnectResult,
   type POI,
 } from '../lib/api';
+import { analyzeAllPoisAndWait } from '../lib/runApiJob';
 import { useActiveProject } from '../hooks/useActiveProject';
 import { useMapLayerPreferences } from '../hooks/useMapLayerPreferences';
 import {
@@ -113,6 +115,7 @@ import {
   shouldUpdateMapBbox,
 } from '../lib/mapBboxUtils';
 import { formatLengthMeters, lineLengthMeters } from '../lib/mapMeasure';
+import { isProjectJobCreateResponse, pollProjectJobUntilDone } from '../lib/pollProjectJob';
 import { lineDraftFinishCoordinates } from '../lib/mapLineDraftFinish';
 import {
   resolveLineEndpoint,
@@ -140,8 +143,7 @@ import {
   lineEndpointPatchesToResults,
   type MovedPointUpdate,
 } from '../lib/mapGroupLinePatches';
-import { withDefaultInfraProperties } from '../lib/infraEntryDate';
-import { withDefaultRender3DProperties } from '../lib/map3d/render3d';
+import { mergeInfraPropertiesForSave } from '../lib/mergeInfraPropertiesForSave';
 import {
   infraDetailUndo,
   infraGeometryUndo,
@@ -166,15 +168,7 @@ import { buildMapSearchHits, filterInfraByMapQuery } from '../lib/mapSearch';
 import { THRESHOLD_META, MOVE_MATCH_EPS } from './map/mapConstants';
 import { PointSubtypeMenuItem } from './map/PointSubtypeMenuItem';
 
-export function mergeInfraPropertiesForSave(
-  subtype: string,
-  properties?: Record<string, unknown>,
-): Record<string, unknown> {
-  return withDefaultInfraProperties(
-    subtype,
-    withDefaultRender3DProperties(subtype, properties),
-  );
-}
+export { mergeInfraPropertiesForSave } from '../lib/mergeInfraPropertiesForSave';
 
 export function sameCoord(a: number, b: number): boolean {
   return Math.abs(a - b) <= MOVE_MATCH_EPS;
@@ -382,6 +376,14 @@ export function MapPage() {
     enabled: !!projectId,
     staleTime: MAP_INFRA_STALE_MS,
   });
+
+  const { data: activeProjectJob } = useQuery({
+    queryKey: ['activeJob', projectId],
+    queryFn: () => api.getActiveProjectJob(projectId!),
+    enabled: !!projectId,
+    refetchInterval: (query) => (query.state.data ? 2000 : false),
+  });
+  const projectJobBusy = Boolean(activeProjectJob);
 
   useEffect(() => {
     if (pois.length > 0 && !selectedPoiId) setSelectedPoiId(pois[0].id);
@@ -1064,7 +1066,7 @@ export function MapPage() {
       if (pois.length === 0) {
         return Promise.reject(new Error('Нет точек интереса для анализа'));
       }
-      return api.analyzeAllPois(projectId);
+      return analyzeAllPoisAndWait(projectId);
     },
     onMutate: async () => {
       if (projectId) {
@@ -1296,6 +1298,91 @@ export function MapPage() {
     if (sels.length === 0) return false;
     return sels.every((sel) => (sel.kind === 'poi' ? canWriteProject : canWriteInfra));
   }, [projectId, featureGroupSel, featureSel, canWriteProject, canWriteInfra]);
+
+  const autoroadConnectObjectIds = useMemo(() => {
+    return groupSelectionDetails
+      .filter(
+        (item) =>
+          item.kind === 'infra' && item.subtype != null && !isLineSubtype(item.subtype),
+      )
+      .map((item) => item.id);
+  }, [groupSelectionDetails]);
+
+  const canAutoroadConnect =
+    canWriteInfra &&
+    !projectJobBusy &&
+    autoroadConnectObjectIds.length >= 2 &&
+    autoroadConnectObjectIds.length === groupSelectionDetails.length;
+
+  const autoroadConnectMut = useMutation({
+    mutationFn: async (objectIds: string[]) => {
+      const preview = (await api.autoroadConnect(projectId!, {
+        object_ids: objectIds,
+        dry_run: true,
+      })) as AutoroadConnectResult;
+      const warnLines =
+        preview.warnings.length > 0
+          ? `\n\nПредупреждения: ${preview.warnings.slice(0, 5).join('; ')}`
+          : '';
+      const farCount = preview.terminals.filter((t) => t.warning).length;
+      const farNote =
+        farCount > 0 ? `\nОбъектов вне 300 м от дороги: ${farCount}.` : '';
+      const msg = [
+        `Новых линий: ${preview.new_line_count}, узлов: ${preview.new_node_count}, разрезов: ${preview.split_count}.`,
+        `Длина новых участков: ~${preview.total_new_km.toFixed(2)} км.`,
+        farNote,
+        warnLines,
+        '\n\nПрименить соединение?',
+      ]
+        .filter(Boolean)
+        .join('');
+      if (!window.confirm(msg)) {
+        return null;
+      }
+      const applyRes = await api.autoroadConnect(projectId!, {
+        object_ids: objectIds,
+        dry_run: false,
+      });
+      if (isProjectJobCreateResponse(applyRes)) {
+        const job = await pollProjectJobUntilDone(projectId!, applyRes.job_id, {
+          timeoutMs: 600_000,
+        });
+        return job.result as unknown as AutoroadConnectResult;
+      }
+      return applyRes;
+    },
+    onSuccess: (result) => {
+      if (!result) return;
+      void queryClient.invalidateQueries({ queryKey: ['activeJob', projectId] });
+      const createdIds = [...(result.created_line_ids ?? []), ...(result.created_node_ids ?? [])];
+      if (createdIds.length > 0) {
+        pushUndo({
+          kind: 'create_clipboard_group',
+          poiIds: [],
+          infraIds: createdIds,
+          label: 'соединение автодорогами',
+        });
+      }
+      const parts: string[] = [];
+      if (result.created_lines > 0) parts.push(`${result.created_lines} линий`);
+      if (result.created_nodes > 0) parts.push(`${result.created_nodes} узлов`);
+      pushToast(
+        'success',
+        parts.length > 0
+          ? `Соединение выполнено: ${parts.join(', ')}`
+          : 'Объекты уже связаны по существующей сети',
+      );
+      invalidateMap();
+    },
+    onError: (err) => {
+      pushToast('error', err instanceof Error ? err.message : 'Не удалось соединить автодорогами');
+    },
+  });
+
+  const handleAutoroadConnect = () => {
+    if (!canAutoroadConnect || autoroadConnectMut.isPending) return;
+    autoroadConnectMut.mutate(autoroadConnectObjectIds);
+  };
 
   const executeDeleteSingleSelection = () => {
     if (!projectId || !featureSel) return;
@@ -3253,6 +3340,9 @@ export function MapPage() {
               canPaste={canPasteMapClipboard}
               canDelete={canDeleteCurrentSelection}
               deletePending={deleteGroupMut.isPending}
+              canAutoroadConnect={canAutoroadConnect}
+              autoroadConnectPending={autoroadConnectMut.isPending || projectJobBusy}
+              onAutoroadConnect={canWriteInfra ? handleAutoroadConnect : undefined}
             />
           )}
 

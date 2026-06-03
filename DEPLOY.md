@@ -120,7 +120,12 @@ Get-Content -Raw "C:\Users\user\Documents\mykey\ssh-key\ssh-key-1779903372392" |
 |----------|----------------------|
 | `CORS_ORIGINS` | `http://localhost:5173,http://127.0.0.1:5173,https://mekcuka.github.io` (без пути `/Scaning` — origin только схема+хост). Дефолт в `deploy/setup-vm-app-env.ps1`. |
 | `DATABASE_URL` | При `-LocalDb`: `postgresql+asyncpg://sppr:<password>@db:5432/sppr` |
+| `REDIS_URL` | **`redis://redis:6379/0`** (сервис `redis` в `deploy/docker-compose.yml`; нужен для ARQ-очереди) |
+| `ARQ_QUEUE_NAME` | `decision-matrix` (опционально) |
+| `JOBS_SYNC_FALLBACK` | `true` только для локальной отладки без Redis; на prod — **`false`** при заданном `REDIS_URL` |
 | Swagger | https://erascaning.duckdns.org/api/v1/docs |
+
+**Фоновые задачи:** контейнер **`worker`** (`arq app.worker.settings.WorkerSettings`) обрабатывает соединение автодорог, async-импорт, логистику песка и `analyze-all`. В проекте одновременно не более одной задачи в статусе `pending`/`running` (ответ **409** при конфликте). API: `POST/GET /projects/{id}/jobs`, `GET .../jobs/active`.
 
 ### Runtime env на VM (один раз)
 

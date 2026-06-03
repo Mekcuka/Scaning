@@ -73,6 +73,9 @@ REFRESH_TOKEN_EXPIRE_DAYS=$RefreshTokenExpireDays
 CORS_ORIGINS=$CorsOrigins
 ALGORITHM=$Algorithm
 COOKIE_SECURE=true
+REDIS_URL=redis://redis:6379/0
+ARQ_QUEUE_NAME=decision-matrix
+JOBS_SYNC_FALLBACK=false
 "@
 
 $localAppEnv = Join-Path $env:TEMP "decision-matrix-app.env"

@@ -2,6 +2,7 @@ import { useParams, Link } from 'react-router-dom';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useState, useEffect } from 'react';
 import { api, normalizePoiAnalysisResponse } from '../lib/api';
+import { analyzeAllPoisAndWait } from '../lib/runApiJob';
 import { useAppStore } from '../store';
 import { usePermissions } from '../hooks/usePermissions';
 import { PoiParamsPanel } from '../components/PoiParamsPanel';
@@ -46,7 +47,7 @@ export function ProjectDetailPage() {
   });
 
   const analyzeMut = useMutation({
-    mutationFn: () => api.analyzeAllPois(id!),
+    mutationFn: () => analyzeAllPoisAndWait(id!),
     onSuccess: (batch) => {
       for (const item of batch.results) {
         queryClient.setQueryData(
