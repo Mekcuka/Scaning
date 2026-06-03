@@ -87,7 +87,7 @@
 | `/import-3d` | `Import3DPage` — custom GLB (admin upload; owner assign) | ✅ |
 | `/flows/*` | `FlowTechnologyPage`, … | ✅ |
 | `/admin/users` | `AdminLayout` + `AdminUsersPage` | ✅ |
-| `/admin/jobs` | `AdminLayout` + `AdminJobsPage` (health, фильтры, отмена, автообновление 3 с) | ✅ |
+| `/admin/jobs` | `AdminLayout` + `AdminJobsPage` (health, фильтры, отмена только `pending`/`running`, автообновление 3 с) | ✅ |
 
 **Оболочка (`AppLayout`):** выход (иконка `LogOut`) в нижней панели сайдбара; в шапке — тема и выбор проекта. PWA: `public/sw.js` — fallback на `index.html` для deep link (например `/Scaning/admin/jobs` на Pages).
 
@@ -95,7 +95,7 @@
 
 **Панель «Слои» на `/map`:** переключатели подложки, групп подтипов, POI, радиусов — в `localStorage` на проект (`mapLayerPreferences.ts`, ключ `dm-map-layer-prefs:{projectId}`). Видимость импортированных слоёв (`infrastructure_layers.is_visible`) — в БД.
 
-**Загрузка объектов на `/map`:** гибрид полного кэша + bbox при просмотре (порог 80 объектов, буфер 12%, без лишних `GET` при мелком пане); синхронизация full+bbox кэшей при CRUD/геометрии (`mapQueries.ts`); API [`bbox_filter.py`](../decision-matrix/backend/app/geo/bbox_filter.py). **Плавность 2D:** rAF на `pointermove`, spatial hit-test (`mapHitTest.ts`), точечный hover, `React.memo(MapView)`, idle-sync слоя при ≥150 объектах, LOD линий по умолчанию 1:500 000 — §6.1.2 [map-objects-and-spatial-calculations.md](./map-objects-and-spatial-calculations.md). Кластеризация точек (FR-2.4.3) — не реализована.
+**Загрузка объектов на `/map`:** гибрид полного кэша + bbox при просмотре (порог 80 объектов, буфер 12%, без лишних `GET` при мелком пане); синхронизация full+bbox кэшей при CRUD/геометрии (`mapQueries.ts`); API [`bbox_filter.py`](../decision-matrix/backend/app/geo/bbox_filter.py). **Плавность 2D:** rAF на `pointermove`, spatial hit-test (`mapHitTest.ts`), точечный hover, `React.memo(MapView)`, idle-sync слоя при ≥150 объектах, LOD линий по умолчанию 1:500 000 — §6.1.2 [map-objects-and-spatial-calculations.md](./map-objects-and-spatial-calculations.md). **Drag точек в editMode:** `updateWhileInteracting` + [`mapFeatureGeometrySync.ts`](../decision-matrix/frontend/src/lib/mapFeatureGeometrySync.ts). Кластеризация точек (FR-2.4.3) — не реализована.
 
 ---
 
@@ -158,7 +158,7 @@
 ## Тестирование и CI
 
 - Backend: `tests/test_admin_jobs.py` (admin list/cancel/health HTTP), `tests/test_job_queue.py` (очередь `decision-matrix`), `tests/test_project_jobs.py`.
-- Frontend: `src/pages/AdminJobsPage.test.tsx` (рендер журнала без падения).
+- Frontend: `AdminJobsPage.test.tsx` (журнал, кнопка «Отменить» только для активных задач); `mapFeatureGeometrySync.test.ts` (drag точки/линии, methanol_facility).
 - GitHub Actions: [`.github/workflows/ci.yml`](../.github/workflows/ci.yml) — lint, unit, coverage gates, E2E.
 - Husky / lint-staged в корне — **не** настроены ([development-plan.md](./development-plan.md) этап 1).
 - Деплой: [DEPLOY.md](../DEPLOY.md), GitHub Pages + VM workflow.

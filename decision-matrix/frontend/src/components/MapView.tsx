@@ -37,6 +37,11 @@ import {
 } from '../lib/mapLineLod';
 import { MAP_SUBTYPE_COLORS, iconDataUrl } from '../lib/mapIcons';
 import {
+  shouldUpdateVectorLayerWhileInteracting,
+  syncOuterGeometryToInnerFeature,
+  syncOuterGeometryToInnerFeatures,
+} from '../lib/mapFeatureGeometrySync';
+import {
   loadMapViewState,
   resolveInitialMapView,
   saveMapViewState,
@@ -870,6 +875,13 @@ function MapViewInner({
       original: [number, number],
     ): boolean => Math.abs(draft[0] - original[0]) > 1e-6 || Math.abs(draft[1] - original[1]) > 1e-6;
 
+    modify.on('modifying', () => {
+      const f = select.getFeatures().item(0);
+      if (f) syncOuterGeometryToInnerFeature(f);
+      pointLayerRef.current?.changed();
+      lineLayerRef.current?.changed();
+    });
+
     modify.on('modifystart', () => {
       const sessionId = ++modifySessionRef.current;
       suppressDataSyncRef.current = true;
@@ -1159,7 +1171,14 @@ function MapViewInner({
       lineLayerRef.current?.changed();
     };
 
-    translate.on('translating', applyLinkedLineDrag);
+    translate.on('translating', () => {
+      const selected: Feature[] = [];
+      select.getFeatures().forEach((f) => selected.push(f));
+      syncOuterGeometryToInnerFeatures(selected);
+      pointLayerRef.current?.changed();
+      lineLayerRef.current?.changed();
+      applyLinkedLineDrag();
+    });
 
     translate.on('translateend', () => {
       const sessionId = translateSessionRef.current;
@@ -1680,6 +1699,13 @@ function MapViewInner({
     if (!editMode) {
       suppressDataSyncRef.current = false;
     }
+  }, [editMode]);
+
+  /** Icons/lines must repaint during Modify/Translate; otherwise only handles move. */
+  useEffect(() => {
+    const live = shouldUpdateVectorLayerWhileInteracting(editMode);
+    pointLayerRef.current?.setUpdateWhileInteracting(live);
+    lineLayerRef.current?.setUpdateWhileInteracting(live);
   }, [editMode]);
 
   useEffect(() => {

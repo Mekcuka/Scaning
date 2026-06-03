@@ -111,7 +111,7 @@ npm run test:e2e
 
 **MapPage:** `MapPage.integration.test.tsx`, …
 
-**Карта (unit, bbox/кэш):** [`mapBboxUtils.test.ts`](../decision-matrix/frontend/src/lib/mapBboxUtils.test.ts) (буфер bbox, merge viewport+overlay), [`mapQueries.test.ts`](../decision-matrix/frontend/src/lib/mapQueries.test.ts) (upsert/remove во full и bbox-кэше).
+**Карта (unit, bbox/кэш):** [`mapBboxUtils.test.ts`](../decision-matrix/frontend/src/lib/mapBboxUtils.test.ts) (буфер bbox, merge viewport+overlay), [`mapQueries.test.ts`](../decision-matrix/frontend/src/lib/mapQueries.test.ts) (upsert/remove во full и bbox-кэше), [`mapFeatureGeometrySync.test.ts`](../decision-matrix/frontend/src/lib/mapFeatureGeometrySync.test.ts) (синхронизация inner-feature при drag, `updateWhileInteracting` policy).
 
 **Логистика песка (frontend unit):** `sandLogisticsFlow.test.ts` (layout/slice, geo-ordering, adaptive spacing), `sandLogisticsResult.test.ts` (`resolveSubnetForSchematicAtView`, slice cache), `sandLogisticsSchematicTimeline.test.ts`, `SandLogisticsSubnetPanel.test.tsx` (смена года без remount схемы), `FlowLogisticsPage.test.tsx`.
 

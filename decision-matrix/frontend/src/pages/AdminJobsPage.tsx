@@ -304,19 +304,19 @@ export function AdminJobsPage() {
                         {truncate(job.error_message)}
                       </td>
                       <td className="py-2 px-2">
-                        <button
-                          type="button"
-                          className="btn btn-secondary btn-sm"
-                          disabled={!canCancel || cancelMutation.isPending}
-                          title={
-                            canCancel
-                              ? 'Отменить задачу'
-                              : 'Отмена доступна только для задач в очереди или в работе'
-                          }
-                          onClick={() => cancelMutation.mutate(job.id)}
-                        >
-                          Отменить
-                        </button>
+                        {canCancel ? (
+                          <button
+                            type="button"
+                            className="btn btn-secondary btn-sm"
+                            disabled={cancelMutation.isPending}
+                            title="Отменить задачу"
+                            onClick={() => cancelMutation.mutate(job.id)}
+                          >
+                            Отменить
+                          </button>
+                        ) : (
+                          <span style={{ color: 'var(--text-muted)' }}>—</span>
+                        )}
                       </td>
                     </tr>
                   );

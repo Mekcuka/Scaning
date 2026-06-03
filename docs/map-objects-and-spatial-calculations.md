@@ -98,6 +98,7 @@
   - **Завершение** — двойной **ЛКМ** / двойной **ПКМ**, **Enter** или кнопка «Готово»; позиция конца из последнего клика/курсора (при Enter/«Готово» — с учётом превью курсора, если есть). Если конец ≤300 м от точечного объекта — привязка к его `lon`/`lat`; иначе создаётся **`node`** в этой точке, затем сохраняется линия. Если при этом узел попадает на геометрию **другой** линии (≤300 м, не у её концов) — эта линия **разделяется** на две части (как при установке точки на линию в режиме «Точка»).
   - Код: [`MapPage.tsx`](../decision-matrix/frontend/src/pages/MapPage.tsx) (`finishLineDraft`, `snapLineDrawPoint`), [`MapView.tsx`](../decision-matrix/frontend/src/components/MapView.tsx) (двойной клик/ПКМ).
 - **Редактирование линии** (режим «Редактирование на карте», инструмент «Выбор»): перетаскивание вершин; **двойной ЛКМ** по **промежуточной** вершине удаляет её (концы линии не удаляются). Конец нельзя оставить «в воздухе» — при попытке оторвать от точечного объекта он возвращается на место (уведомление только при перетаскивании конца, не при правке средних вершин). После правки — `constrainLineCoordinatesOnEdit` + `normalizeLinePathEndpoints`. Код: `MapView.tsx`, `lineEndpointRules.ts`.
+- **Перетаскивание точки** (одиночный «Выбор», в т.ч. **объект метанола** `methanol_facility`): иконка и ручка Modify/Translate двигаются вместе. В режиме редактирования на слоях точек/линий включается `updateWhileInteracting` (иначе OpenLayers перерисовывает только ручку, маркер остаётся на старом месте до отпускания мыши). При обёртке feature с `features: [inner]` геометрия копируется на inner во время `modifying` / `translating` — [`mapFeatureGeometrySync.ts`](../decision-matrix/frontend/src/lib/mapFeatureGeometrySync.ts), тесты [`mapFeatureGeometrySync.test.ts`](../decision-matrix/frontend/src/lib/mapFeatureGeometrySync.test.ts).
 - **Координаты:** в **БД и API** — полная точность (`float`). В **UI** (строка координат, поля в карточке) — **3 знака** после запятой (`formatCoord`, `COORD_DECIMALS` в [`coords.ts`](../decision-matrix/frontend/src/lib/coords.ts)). Клики и перетаскивание на карте сохраняют полные координаты; `coordForSave` в формах не перезаписывает точное значение, если пользователь не менял округлённое отображение.
 - **Анализ (км):** `autoroad`, `oil_pipeline`, `water_pipeline`, `power_line` — нормы км/КП; внешние Point — поиск в окружении; `gas_pipeline` / метанол / насосные станции / доп. линии в матрице анализа MVP не задействованы как internal.
 - **Импорт Искра:** полигоны площадных типов → `POINT` (центроид); см. [spark-import-mapping.md](./spark-import-mapping.md).
@@ -568,7 +569,7 @@ sequenceDiagram
 | Только **линия** | Концы не остаются «в воздухе»: snap/revert как при одиночном редактировании (`constrainLineCoordinatesOnEdit`). |
 | Часть цепочки вне рамки | Неперемещённые узлы и их концы линий не меняются. |
 
-**Визуализация во время drag (2D):** для точек в выделении `MapView` на событии `translating` подтягивает связанные линии, не попавшие в рамку (как при одиночном modify). После сохранения слой принудительно синхронизируется из `infraObjects` + `linePathForDisplay` (иначе возможны разрывы на экране при уже обновлённой длине в карточке объекта).
+**Визуализация во время drag (2D):** при `editMode` слои точек/линий с `updateWhileInteracting=true`; для точек в выделении `MapView` на `translating` / `modifying` подтягивает связанные линии, не попавшие в рамку (как при одиночном modify), и синхронизирует inner-feature при cluster-обёртке. После сохранения слой принудительно синхронизируется из `infraObjects` + `linePathForDisplay` (иначе возможны разрывы на экране при уже обновлённой длине в карточке объекта).
 
 **Сохранение (frontend):** `handleBatchGeometryChange` (`MapPage`) — фаза планирования → PATCH точек/POI → PATCH линий; undo: `patch_geometry_group`. Расчёт патчей линий: [`mapGroupLinePatches.ts`](../decision-matrix/frontend/src/lib/mapGroupLinePatches.ts) (`accumulateLineEndpointPatches`, `constrainGroupMovedLine`). Связь концов с точками по координатам: [`infraLinks.ts`](../decision-matrix/frontend/src/lib/infraLinks.ts) (`linkCoordMatch`, `lineCoordsOrEndpoints`).
 
@@ -687,7 +688,8 @@ sequenceDiagram
 
 | Дата | Изменение |
 |------|-----------|
-| 2026-06 | Admin `/admin/jobs`: журнал, health, отмена; enqueue в `ARQ_QUEUE_NAME`; worker guard при cancel; UI автообновление 3 с |
+| 2026-06 | 2D drag точек: `updateWhileInteracting` в editMode, `mapFeatureGeometrySync` (иконка + ручка вместе, в т.ч. `methanol_facility`) |
+| 2026-06 | Admin `/admin/jobs`: журнал, health, отмена; кнопка «Отменить» только для `pending`/`running`; автообновление 3 с |
 | 2026-06 | §1.9: фоновые задачи проекта (`project_jobs`, Redis + ARQ, worker); сериализация по `project_id` |
 | 2026-06 | [autoroad-network-plan.md](./autoroad-network-plan.md): план выделенного сервиса plan API, BFF, UI «Построить сеть» |
 | 2026-06 | §1.8: серверное соединение точек автодорогами (`autoroad-connect`, `road_graph`, `line_split`); UI в панели группового выделения |
