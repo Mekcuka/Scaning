@@ -21,7 +21,10 @@ async def _get_arq_pool():
     from arq import create_pool
     from arq.connections import RedisSettings
 
-    _arq_pool = await create_pool(RedisSettings.from_dsn(settings.REDIS_URL))
+    _arq_pool = await create_pool(
+        RedisSettings.from_dsn(settings.REDIS_URL),
+        default_queue_name=settings.ARQ_QUEUE_NAME,
+    )
     return _arq_pool
 
 
@@ -29,7 +32,11 @@ async def enqueue_project_job(job_id: UUID) -> None:
     if settings.jobs_use_queue:
         try:
             pool = await _get_arq_pool()
-            await pool.enqueue_job("execute_project_job_task", str(job_id))
+            await pool.enqueue_job(
+                "execute_project_job_task",
+                str(job_id),
+                _queue_name=settings.ARQ_QUEUE_NAME,
+            )
             return
         except Exception:
             logger.exception("ARQ enqueue failed for job %s, using in-process fallback", job_id)

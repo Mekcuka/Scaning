@@ -127,6 +127,8 @@ Get-Content -Raw "C:\Users\user\Documents\mykey\ssh-key\ssh-key-1779903372392" |
 
 **Фоновые задачи:** контейнер **`worker`** (`arq app.worker.settings.WorkerSettings`) обрабатывает соединение автодорог, async-импорт, логистику песка и `analyze-all`. В проекте одновременно не более одной задачи в статусе `pending`/`running` (ответ **409** при конфликте). API: `POST/GET /projects/{id}/jobs`, `GET .../jobs/active`, `POST .../jobs/{job_id}/cancel`.
 
+**Важно:** API и worker должны использовать одну очередь Redis — `ARQ_QUEUE_NAME` (по умолчанию `decision-matrix`). Если задачи «висят» в `pending`, проверьте `docker compose ps` (сервисы `redis`, `worker` up) и отмените зависшие записи в **Администрирование → Журнал задач**, затем перезапустите расчёт после деплоя.
+
 **Журнал задач (admin):** при `REDIS_URL` на VM администратор видит очередь в UI (**Администрирование → Журнал задач**, `/admin/jobs`): `GET /admin/jobs`, `GET /admin/jobs/health`, `POST /admin/jobs/{id}/cancel` (идемпотентная отмена с актуальным статусом). См. [docs/user-flows.md](docs/user-flows.md) §5.3.
 
 ### Runtime env на VM (один раз)
