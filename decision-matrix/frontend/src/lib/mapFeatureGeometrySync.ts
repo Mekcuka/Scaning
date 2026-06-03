@@ -34,3 +34,18 @@ export function syncOuterGeometryToInnerFeatures(features: readonly Feature[]): 
 export function shouldUpdateVectorLayerWhileInteracting(editMode: boolean): boolean {
   return editMode;
 }
+
+type OlLayerWithUpdateFlag = {
+  set: (key: string, value: boolean) => void;
+};
+
+/** OpenLayers stores `updateWhileInteracting` as a BaseObject property (no setter method). */
+export function applyVectorLayerUpdateWhileInteracting(
+  pointLayer: OlLayerWithUpdateFlag | null | undefined,
+  lineLayer: OlLayerWithUpdateFlag | null | undefined,
+  editMode: boolean,
+): void {
+  const live = shouldUpdateVectorLayerWhileInteracting(editMode);
+  pointLayer?.set('updateWhileInteracting', live);
+  lineLayer?.set('updateWhileInteracting', live);
+}

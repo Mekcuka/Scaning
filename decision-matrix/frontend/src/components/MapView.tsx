@@ -37,7 +37,7 @@ import {
 } from '../lib/mapLineLod';
 import { MAP_SUBTYPE_COLORS, iconDataUrl } from '../lib/mapIcons';
 import {
-  shouldUpdateVectorLayerWhileInteracting,
+  applyVectorLayerUpdateWhileInteracting,
   syncOuterGeometryToInnerFeature,
   syncOuterGeometryToInnerFeatures,
 } from '../lib/mapFeatureGeometrySync';
@@ -875,12 +875,14 @@ function MapViewInner({
       original: [number, number],
     ): boolean => Math.abs(draft[0] - original[0]) > 1e-6 || Math.abs(draft[1] - original[1]) > 1e-6;
 
-    modify.on('modifying', () => {
+    const refreshDraggedFeatureVisual = () => {
+      if (!editModeRef.current) return;
       const f = select.getFeatures().item(0);
-      if (f) syncOuterGeometryToInnerFeature(f);
+      if (!f) return;
+      syncOuterGeometryToInnerFeature(f);
       pointLayerRef.current?.changed();
       lineLayerRef.current?.changed();
-    });
+    };
 
     modify.on('modifystart', () => {
       const sessionId = ++modifySessionRef.current;
@@ -1500,7 +1502,10 @@ function MapViewInner({
       pointerScheduler.schedule();
     });
 
-    map.on('pointerdrag', applyLinkedLineDrag);
+    map.on('pointerdrag', () => {
+      refreshDraggedFeatureVisual();
+      applyLinkedLineDrag();
+    });
 
     const viewport = map.getViewport();
     const onViewportLeave = () => {
@@ -1703,9 +1708,11 @@ function MapViewInner({
 
   /** Icons/lines must repaint during Modify/Translate; otherwise only handles move. */
   useEffect(() => {
-    const live = shouldUpdateVectorLayerWhileInteracting(editMode);
-    pointLayerRef.current?.setUpdateWhileInteracting(live);
-    lineLayerRef.current?.setUpdateWhileInteracting(live);
+    applyVectorLayerUpdateWhileInteracting(
+      pointLayerRef.current,
+      lineLayerRef.current,
+      editMode,
+    );
   }, [editMode]);
 
   useEffect(() => {

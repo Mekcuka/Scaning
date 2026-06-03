@@ -1,9 +1,10 @@
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 import Feature from 'ol/Feature';
 import LineString from 'ol/geom/LineString';
 import Point from 'ol/geom/Point';
 import { fromLonLat } from 'ol/proj';
 import {
+  applyVectorLayerUpdateWhileInteracting,
   resolveInnerLayerFeature,
   shouldUpdateVectorLayerWhileInteracting,
   syncOuterGeometryToInnerFeature,
@@ -109,5 +110,18 @@ describe('shouldUpdateVectorLayerWhileInteracting', () => {
   it('is true only in map edit mode', () => {
     expect(shouldUpdateVectorLayerWhileInteracting(true)).toBe(true);
     expect(shouldUpdateVectorLayerWhileInteracting(false)).toBe(false);
+  });
+});
+
+describe('applyVectorLayerUpdateWhileInteracting', () => {
+  it('sets updateWhileInteracting on point and line layers via OL set()', () => {
+    const point = { set: vi.fn() };
+    const line = { set: vi.fn() };
+    applyVectorLayerUpdateWhileInteracting(point, line, true);
+    expect(point.set).toHaveBeenCalledWith('updateWhileInteracting', true);
+    expect(line.set).toHaveBeenCalledWith('updateWhileInteracting', true);
+    applyVectorLayerUpdateWhileInteracting(point, line, false);
+    expect(point.set).toHaveBeenCalledWith('updateWhileInteracting', false);
+    expect(line.set).toHaveBeenCalledWith('updateWhileInteracting', false);
   });
 });
