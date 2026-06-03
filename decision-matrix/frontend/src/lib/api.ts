@@ -489,6 +489,14 @@ export const api = {
     ),
   deleteInfraObject: (projectId: string, objectId: string) =>
     request<void>(`/projects/${projectId}/infrastructure/objects/${objectId}`, { method: 'DELETE' }),
+  batchDeleteMapObjects: (
+    projectId: string,
+    data: { object_ids: string[]; poi_ids?: string[] },
+  ) =>
+    request<{ deleted_objects: number; deleted_pois: number; network_rebuilt: boolean }>(
+      `/projects/${projectId}/map/batch-delete`,
+      { method: 'POST', body: JSON.stringify(data) },
+    ),
   importCsv: (projectId: string, file: File) => {
     const fd = new FormData();
     fd.append('file', file);

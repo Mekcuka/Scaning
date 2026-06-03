@@ -40,6 +40,8 @@ from app.schemas import (
     InfraObjectCreate,
     InfraObjectResponse,
     InfraObjectUpdate,
+    MapBatchDeleteRequest,
+    MapBatchDeleteResponse,
     LayerCreate,
     LayerResponse,
     LayerUpdate,
@@ -48,6 +50,7 @@ from app.schemas import (
 from app.services.analysis_override import parse_point_wkt, patch_analysis_subtype
 from app.services.infrastructure_analysis import build_enriched_analysis_from_db
 from app.services.graph_builder import build_network_from_lines, prune_disconnected_nodes
+from app.services.infra_delete import delete_infra_objects_batch, delete_pois_batch
 from app.services.import_service import (
     create_pending_import_log,
     detect_import_format,
@@ -518,6 +521,41 @@ async def update_infra_object(
     return infra_to_response(obj)
 
 
+@map_router.post(
+    "/projects/{project_id}/map/batch-delete",
+    response_model=MapBatchDeleteResponse,
+)
+async def batch_delete_map_objects(
+    project_id: UUID,
+    data: MapBatchDeleteRequest,
+    user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    """Delete many infra objects and/or POIs in one transaction (avoids parallel DELETE races)."""
+    if data.object_ids:
+        await _require_infra_write(project_id, user, db)
+    if data.poi_ids:
+        await _require_project_write(project_id, user, db)
+    if not data.object_ids and not data.poi_ids:
+        return MapBatchDeleteResponse(deleted_objects=0, deleted_pois=0, network_rebuilt=False)
+
+    object_ids = set(data.object_ids)
+    poi_ids = set(data.poi_ids)
+
+    if object_ids:
+        for oid in object_ids:
+            await _get_infra_object(oid, project_id, db)
+
+    deleted_objects, network_rebuilt = await delete_infra_objects_batch(db, project_id, object_ids)
+    deleted_pois = await delete_pois_batch(db, project_id, poi_ids)
+    await db.commit()
+    return MapBatchDeleteResponse(
+        deleted_objects=deleted_objects,
+        deleted_pois=deleted_pois,
+        network_rebuilt=network_rebuilt,
+    )
+
+
 @map_router.delete("/projects/{project_id}/infrastructure/objects/{object_id}", status_code=204)
 async def delete_infra_object(
     project_id: UUID,
@@ -526,71 +564,8 @@ async def delete_infra_object(
     db: AsyncSession = Depends(get_db),
 ):
     await _require_infra_write(project_id, user, db)
-    obj = await _get_infra_object(object_id, project_id, db)
-    delete_ids: set[UUID] = {object_id}
-    if obj.subtype not in LINE_SUBTYPES:
-        line_rows = (
-            await db.execute(
-                select(InfrastructureObject)
-                .join(InfrastructureLayer)
-                .where(
-                    InfrastructureLayer.project_id == project_id,
-                    InfrastructureObject.subtype.in_(LINE_SUBTYPES),
-                )
-            )
-        ).scalars().all()
-        point_lon = float(obj.longitude)
-        point_lat = float(obj.latitude)
-        for line in line_rows:
-            start_match = (
-                abs(float(line.longitude) - point_lon) <= COORD_MATCH_EPS
-                and abs(float(line.latitude) - point_lat) <= COORD_MATCH_EPS
-            )
-            end_match = (
-                line.end_longitude is not None
-                and line.end_latitude is not None
-                and abs(float(line.end_longitude) - point_lon) <= COORD_MATCH_EPS
-                and abs(float(line.end_latitude) - point_lat) <= COORD_MATCH_EPS
-            )
-            if start_match or end_match:
-                delete_ids.add(line.id)
-    await db.execute(
-        update(PoiInfrastructureAnalysis)
-        .where(PoiInfrastructureAnalysis.nearest_object_id.in_(delete_ids))
-        .values(nearest_object_id=None)
-    )
-    await db.execute(
-        update(PoiInfrastructureAnalysis)
-        .where(PoiInfrastructureAnalysis.overridden_object_id.in_(delete_ids))
-        .values(overridden_object_id=None)
-    )
-    network_ids = (
-        await db.execute(
-            select(InfrastructureNetwork.id).where(InfrastructureNetwork.project_id == project_id)
-        )
-    ).scalars().all()
-    await db.execute(
-        delete(InfrastructureEdge).where(InfrastructureEdge.infrastructure_object_id.in_(delete_ids))
-    )
-    await db.execute(
-        delete(InfrastructureNode).where(InfrastructureNode.infrastructure_object_id.in_(delete_ids))
-    )
-    line_deleted = (
-        await db.scalar(
-            select(InfrastructureObject.id)
-            .where(
-                InfrastructureObject.id.in_(delete_ids),
-                InfrastructureObject.subtype.in_(LINE_SUBTYPES),
-            )
-            .limit(1)
-        )
-    ) is not None
-    await db.execute(delete(InfrastructureObject).where(InfrastructureObject.id.in_(delete_ids)))
-    await db.flush()
-    for network_id in network_ids:
-        await prune_disconnected_nodes(db, network_id)
-    if line_deleted:
-        await build_network_from_lines(db, project_id)
+    await _get_infra_object(object_id, project_id, db)
+    await delete_infra_objects_batch(db, project_id, {object_id})
     await db.commit()
 
 

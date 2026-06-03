@@ -46,6 +46,11 @@ export function createDefaultApiMocks(): ApiMockOverrides {
     ),
     updateInfraObject: vi.fn().mockResolvedValue(sampleInfra[0]),
     deleteInfraObject: vi.fn().mockResolvedValue(undefined),
+    batchDeleteMapObjects: vi.fn().mockResolvedValue({
+      deleted_objects: 1,
+      deleted_pois: 0,
+      network_rebuilt: false,
+    }),
     updateLayer: vi.fn().mockResolvedValue(sampleLayers[0]),
     buildNetwork: vi.fn().mockResolvedValue({}),
     overrideAnalysis: vi.fn().mockResolvedValue(makeAnalysisResponse()),

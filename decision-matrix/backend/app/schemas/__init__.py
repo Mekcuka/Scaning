@@ -418,6 +418,17 @@ class InfraObjectResponse(BaseModel):
     render_3d_effective: Render3DEffective | None = None
 
 
+class MapBatchDeleteRequest(BaseModel):
+    object_ids: list[UUID] = Field(default_factory=list)
+    poi_ids: list[UUID] = Field(default_factory=list)
+
+
+class MapBatchDeleteResponse(BaseModel):
+    deleted_objects: int
+    deleted_pois: int
+    network_rebuilt: bool = False
+
+
 class AnalysisRowResponse(BaseModel):
     subtype: str
     param_type: str

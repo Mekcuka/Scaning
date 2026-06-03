@@ -1104,10 +1104,10 @@ export function MapPage() {
       const infraApiIds = infraDeleteApiIds(allInfraIds, currentInfra);
       const poiIds = items.filter((sel) => sel.kind === 'poi').map((sel) => sel.id);
 
-      await Promise.all([
-        ...poiIds.map((poiId) => api.deletePoi(projectId!, poiId)),
-        ...infraApiIds.map((infraId) => api.deleteInfraObject(projectId!, infraId)),
-      ]);
+      await api.batchDeleteMapObjects(projectId!, {
+        object_ids: infraApiIds,
+        poi_ids: poiIds,
+      });
     },
     onMutate: async (items) => {
       await queryClient.cancelQueries({ queryKey: ['infra', projectId] });
@@ -1183,22 +1183,8 @@ export function MapPage() {
       });
       pushToast('error', err instanceof Error ? err.message : 'Не удалось удалить объекты');
     },
-    onSettled: async (_data, error, _items, ctx) => {
+    onSettled: async (_data, error) => {
       if (!projectId) return;
-      const hadLineDelete =
-        ctx?.infraSnap?.some((o) =>
-          LINE_SUBTYPES.includes(o.subtype as (typeof LINE_SUBTYPES)[number]),
-        ) ?? false;
-      if (!error && hadLineDelete) {
-        try {
-          await api.buildNetwork(projectId);
-        } catch (err) {
-          pushToast(
-            'error',
-            err instanceof Error ? err.message : 'Не удалось пересобрать сеть после удаления',
-          );
-        }
-      }
       await queryClient.cancelQueries({ queryKey: ['infra', projectId] });
       await queryClient.cancelQueries({ queryKey: ['pois', projectId] });
       await queryClient.invalidateQueries({ queryKey: ['pois', projectId] });
