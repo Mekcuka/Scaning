@@ -17,7 +17,7 @@
 | Контракт | **Plan (stateless):** геометрия сети + терминалы на входе, план новых линий/узлов на выходе |
 | Persist | **BFF монолита** после plan: транзакция, `line_split`, `build_network_from_lines`, jobs |
 | Терминалы | Все точечные подтипы **кроме** `NODE_CLUSTER_SUBTYPES`: `node`, `methanol_joint`, `power_line_node` |
-| Подключение к объекту | **Не более одной** новой `autoroad` с `line_snap` на терминал за запуск |
+| Подключение к объекту | **Не более одной** новой `autoroad` с `line_snap` на терминал; hub (MST degree ≥2) — один `connector` object→`node` на snap; apply с `line_preserve_geometry` |
 | Перекрёстки | `subtype=node`, `reason=intersection`, дедуп ~**0,05 км** |
 | POI | Не терминалы (`points_of_interest` вне scope) |
 | Snap к автодороге | **0,3 км**; вне допуска — `warning`, MST по прямым `link` между координатами |
@@ -87,7 +87,8 @@ decision-matrix/
 | Роль | Подтипы | Кто создаёт |
 |------|---------|-------------|
 | **Терминал (выбирает пользователь)** | Все `POINT`, кроме `node`, `methanol_joint`, `power_line_node` | Уже на карте |
-| **Узел перекрёстка** | `node` | Алгоритм при пересечении новой линии с существующей (`intersection`) |
+| **Junction (hub)** | `node`, `reason=junction` | Алгоритм: snap hub-терминала (MST degree ≥2) |
+| **Узел перекрёстка** | `node`, `reason=intersection` | Пересечение новой линии с существующей |
 | **Не терминал** | POI, все `LINE_*`, расчётные `InfrastructureNode` (не рисуются на карте) | — |
 
 Константа исключения: `NODE_CLUSTER_SUBTYPES` в [`constants.py`](../decision-matrix/backend/app/geo/constants.py).
@@ -184,7 +185,7 @@ decision-matrix/
 | Поле | Смысл |
 |------|--------|
 | `new_lines[].kind` | `connector` (объект→snap, если >20 m) \| `link` (MST; snap к объектам только если у терминала ещё нет линии) \| `bridge` (legacy) |
-| `new_nodes` | `intersection` (перекрёсток) |
+| `new_nodes` | `junction` (hub на snap) \| `intersection` (перекрёсток) |
 | `splits` | Разрез существующих `autoroad` в точке пересечения |
 | `warnings` | `too_far_from_autoroad` (терминал вне snap, но участвует в MST по прямой), `no_autoroad_polylines`, … |
 
@@ -232,10 +233,10 @@ Frontend и внешние клиенты вызывают **только BFF** 
 2. **Snap** каждого терминала к ближайшей точке на полилинии; дальше `snap_tolerance_km` → `warning`, но терминал **всё равно** участвует в MST.
 3. **MST** (Крускал) на **всех** выбранных терминалах. Стоимость ребра `(A, B)` = `min(кратчайший путь по графу, прямая haversine)` — если сеть короче, используется она; иначе строится новый участок.
 4. Ребро MST по **графу** — пути по существующим рёбрам **не создают** новых линий (`used_existing_edge_ids`).
-5. Ребро MST **прямое** (`kind=link`) — новая `autoroad`; `snap_start` / `snap_finish` на объекты только если у терминала ещё нет другой линии с его snap (для двух объектов без дорог — одна общая линия с обоими snap).
-6. **Подъезды** (`connector`) — от объекта до точки snap на дороге, если объект дальше ~20 m; **не более одного** connector с snap на терминал.
-7. **Перекрёстки** — пересечение новых участков с существующими линиями: `new_nodes` + `splits` (плоская lon/lat).
-8. BFF при apply: транзакция, создание объектов, `line_split`, снова `build_network_from_lines`.
+5. **Hub** (MST degree ≥2): `node` `reason=junction` на snap; один `connector` object→junction; backbone `link` между junction / leaf, **без** snap hub на link. Hub без snap → warning `hub_needs_road_snap`.
+6. **Leaf** (degree 1): одна `link`/`connector` с `line_snap`; два объекта без дорог — одна общая `link`.
+7. **Apply:** `line_preserve_geometry=true` — свободные концы не автопривязываются к точкам в 0,3 км; junction/intersection — через `node_by_key`.
+8. **Перекрёстки** — `intersection` + `line_split`; `build_network_from_lines`.
 
 ```mermaid
 sequenceDiagram
@@ -330,6 +331,7 @@ sequenceDiagram
 
 | Дата | Изменение |
 |------|-----------|
+| 2026-06 | Hub junction на snap + `line_preserve_geometry` при apply (строго одна autoroad на объект) |
 | 2026-06 | Убран узел доступа 50 m; правило **≤1** новой `autoroad` с `line_snap` на терминал; два объекта без дорог — одна общая `link` |
 | 2026-06 | Первая версия: сервис + API in/out, BFF, UI «Построить сеть», фазы 0–5 |
 | 2026-06 | Алгоритм: MST на **всех** терминалах, `min(путь по сети, прямая)`; `kind=link` без сети; убраны отдельные мосты между компонентами |

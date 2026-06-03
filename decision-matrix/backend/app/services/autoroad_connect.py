@@ -297,6 +297,10 @@ async def apply_autoroad_connect_plan(
         n_road += 1
         start_id = pl.snap_start_object_id
         finish_id = pl.snap_finish_object_id
+        if start_id is None:
+            sk = _coord_key(pl.start_lon, pl.start_lat)
+            if sk in node_by_key:
+                start_id = node_by_key[sk].id
         if finish_id is None:
             sk = _coord_key(pl.end_lon, pl.end_lat)
             if sk in node_by_key:
@@ -312,6 +316,7 @@ async def apply_autoroad_connect_plan(
             layer_id=layer.id,
             line_snap_start_object_id=start_id,
             line_snap_finish_object_id=finish_id,
+            line_preserve_geometry=True,
         )
         obj = await _create_infra_object_record(db, project_id=project_id, data=data)
         created_lines.append(obj)

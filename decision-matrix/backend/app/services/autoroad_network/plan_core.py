@@ -3,6 +3,8 @@
 Connects all selected terminals: uses existing autoroad graph when that is the
 shortest route; otherwise builds new straight ``autoroad`` segments (MST edges).
 Each terminal gets at most one new autoroad with ``line_snap`` to the object.
+Hub terminals (MST degree >= 2) attach via a single connector to a junction node
+on the road snap; backbone links use junction coords, not facility coords.
 """
 
 from __future__ import annotations
@@ -110,6 +112,26 @@ def _pair_cost(
     return direct, "direct"
 
 
+def _mst_degree(mst_edges: list[tuple[UUID, UUID]], terminal_ids: list[UUID]) -> dict[UUID, int]:
+    degree = {tid: 0 for tid in terminal_ids}
+    for a, b in mst_edges:
+        degree[a] += 1
+        degree[b] += 1
+    return degree
+
+
+def _attachment_coords(
+    tid: UUID,
+    *,
+    terminal_by_id: dict[UUID, PlanTerminalInput],
+    hub_junctions: dict[UUID, tuple[float, float]],
+) -> tuple[float, float]:
+    if tid in hub_junctions:
+        return hub_junctions[tid]
+    t = terminal_by_id[tid]
+    return t.lon, t.lat
+
+
 def _object_snap_count(lines: list[PlannedLineOut], terminal_id: UUID) -> int:
     count = 0
     for ln in lines:
@@ -199,11 +221,42 @@ def plan_from_request(req: NetworkPlanRequest) -> NetworkPlanResponse:
             route_mode[(b, a)] = mode
 
     mst_edges = mst_terminal_edges(terminal_ids, dist_matrix)
+    degree = _mst_degree(mst_edges, terminal_ids)
+
+    hub_junctions: dict[UUID, tuple[float, float]] = {}
+    for tid in terminal_ids:
+        if degree[tid] < 2:
+            continue
+        si = snap_by_id[tid]
+        if si.snap_lon is not None and si.snap_lat is not None:
+            hub_junctions[tid] = (si.snap_lon, si.snap_lat)
+        else:
+            warnings.append(f"hub_needs_road_snap:{tid}")
 
     new_lines: list[PlannedLineOut] = []
+    new_nodes: list[PlannedNodeOut] = []
+    node_keys: set[tuple[int, int]] = set()
     total_km = 0.0
     used_edge_ids: set[str] = set()
     object_snaps_used: set[UUID] = set()
+
+    for _tid, (jlon, jlat) in hub_junctions.items():
+        key = _coord_key(jlon, jlat)
+        if key not in node_keys:
+            node_keys.add(key)
+            new_nodes.append(PlannedNodeOut(lon=jlon, lat=jlat, reason="junction"))
+
+    for tid, (jlon, jlat) in hub_junctions.items():
+        t = terminal_by_id[tid]
+        new_lines.append(
+            PlannedLineOut(
+                kind="connector",
+                coordinates=[[t.lon, t.lat], [jlon, jlat]],
+                snap_start_object_id=tid,
+            )
+        )
+        object_snaps_used.add(tid)
+        total_km += haversine_km(t.lon, t.lat, jlon, jlat)
 
     two_off_network = len(req.terminals) == 2 and not polylines
 
@@ -219,8 +272,8 @@ def plan_from_request(req: NetworkPlanRequest) -> NetworkPlanResponse:
                 for edge in shortest_path_edges(g, prev, na, nb):
                     used_edge_ids.add(str(edge.id))
         else:
-            km = haversine_km(ta.lon, ta.lat, tb.lon, tb.lat)
             if two_off_network:
+                km = haversine_km(ta.lon, ta.lat, tb.lon, tb.lat)
                 new_lines.append(
                     PlannedLineOut(
                         kind="link",
@@ -231,13 +284,20 @@ def plan_from_request(req: NetworkPlanRequest) -> NetworkPlanResponse:
                 )
                 object_snaps_used.add(a)
                 object_snaps_used.add(b)
+                total_km += km
             else:
-                snap_a = a not in object_snaps_used
-                snap_b = b not in object_snaps_used
+                alon, alat = _attachment_coords(
+                    a, terminal_by_id=terminal_by_id, hub_junctions=hub_junctions
+                )
+                blon, blat = _attachment_coords(
+                    b, terminal_by_id=terminal_by_id, hub_junctions=hub_junctions
+                )
+                snap_a = a not in hub_junctions and a not in object_snaps_used
+                snap_b = b not in hub_junctions and b not in object_snaps_used
                 new_lines.append(
                     PlannedLineOut(
                         kind="link",
-                        coordinates=[[ta.lon, ta.lat], [tb.lon, tb.lat]],
+                        coordinates=[[alon, alat], [blon, blat]],
                         snap_start_object_id=a if snap_a else None,
                         snap_finish_object_id=b if snap_b else None,
                     )
@@ -246,9 +306,11 @@ def plan_from_request(req: NetworkPlanRequest) -> NetworkPlanResponse:
                     object_snaps_used.add(a)
                 if snap_b:
                     object_snaps_used.add(b)
-            total_km += km
+                total_km += haversine_km(alon, alat, blon, blat)
 
     for t in req.terminals:
+        if t.id in hub_junctions:
+            continue
         si = snap_by_id[t.id]
         if si.graph_node_id and si.snap_lon is not None and si.snap_lat is not None:
             if _needs_connector(t.lon, t.lat, si.snap_lon, si.snap_lat):
@@ -265,9 +327,7 @@ def plan_from_request(req: NetworkPlanRequest) -> NetworkPlanResponse:
 
     _validate_one_autoroad_per_object(new_lines, terminal_ids, warnings)
 
-    new_nodes: list[PlannedNodeOut] = []
     splits: list[PlannedSplitOut] = []
-    node_keys: set[tuple[int, int]] = set()
 
     for pl in new_lines:
         if len(pl.coordinates) < 2:

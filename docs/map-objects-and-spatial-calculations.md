@@ -233,9 +233,9 @@ flowchart LR
 1. Пересборка топологии (`build_network_from_lines`), граф только по рёбрам `autoroad` (вес = `length_km`).
 2. Snap каждого терминала к полилинии автодороги (допуск **0,3 км**); дальше — `warning`, терминал всё равно в MST.
 3. **MST** по координатам терминалов: если оба на одной сети — путь по **существующим** `autoroad` (`used_existing_edge_ids`); иначе новый `link` между координатами.
-4. **Один подъезд на объект:** не более одной новой `autoroad` с `line_snap` к терминалу; для **двух** объектов без дорог — одна общая `link` с привязкой к обоим; для **3+** — snap назначается жадно по рёбрам MST (у hub-терминала вторая линия сходится геометрически без повторного snap).
-5. **Подъезды** (`connector`) — объект→snap на дороге, если расстояние **>20 м** и у терминала ещё нет линии с snap.
-6. **Перекрёстки** — пересечение новых участков с существующими линиями: `node` + `line_split`. Транзакция; `build_network_from_lines`. Preview GeoJSON при `dry_run`.
+4. **Один подъезд на объект:** ≤1 `line_snap` на терминал; **hub** (MST degree ≥2) — `node` `junction` на snap + один `connector`; backbone без snap hub; apply — `line_preserve_geometry`.
+5. **Leaf:** `connector` object→snap если **>20 m**; off-network hub без snap — warning `hub_needs_road_snap`.
+6. **Перекрёстки** — `intersection` + `line_split`; preview при `dry_run`.
 
 Лимит: до **50** `object_ids` в запросе. Отмена на карте (Ctrl+Z) — удаление созданных линий и узлов (`create_clipboard_group` → batch delete). Расчётные `InfrastructureNode` в БД по-прежнему **не отображаются** на карте; для перекрёстков нужны объекты **`node`**.
 
@@ -688,7 +688,7 @@ sequenceDiagram
 
 | Дата | Изменение |
 |------|-----------|
-| 2026-06 | Автосеть: убран узел доступа 50 m; правило ≤1 autoroad с line_snap на терминал |
+| 2026-06 | Hub junction на snap + `line_preserve_geometry` при apply |
 | 2026-06 | 2D drag точек: `updateWhileInteracting` в editMode, `mapFeatureGeometrySync` (иконка + ручка вместе, в т.ч. `methanol_facility`) |
 | 2026-06 | Admin `/admin/jobs`: журнал, health, отмена; кнопка «Отменить» только для `pending`/`running`; автообновление 3 с |
 | 2026-06 | §1.9: фоновые задачи проекта (`project_jobs`, Redis + ARQ, worker); сериализация по `project_id` |
