@@ -92,7 +92,7 @@ export function resolveHoverFeatureIdAtCoordinate(
     if (!id || subtype === 'draft') return;
     const geom = inner.getGeometry();
     if (!geom) return;
-    let dist2 = Number.POSITIVE_INFINITY;
+    let dist2: number;
     if (geom instanceof Point) {
       const c = geom.getCoordinates();
       const dx = c[0]! - coordinate[0]!;

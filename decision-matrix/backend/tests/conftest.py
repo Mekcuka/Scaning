@@ -14,6 +14,9 @@ os.environ["DATABASE_URL"] = f"sqlite+aiosqlite:///{_TEST_DB.as_posix()}"
 os.environ.setdefault("SECRET_KEY", "test-secret-key")
 os.environ.setdefault("DEMO_USERS_ENABLED", "false")
 os.environ.setdefault("ENVIRONMENT", "test")
+# API tests expect synchronous analyze/import (200), not 202 job enqueue.
+os.environ.setdefault("JOBS_SYNC_FALLBACK", "false")
+os.environ["REDIS_URL"] = ""
 
 from app.core.database import async_session
 from app.core.security import get_password_hash

@@ -69,6 +69,7 @@ jobs:
       SECRET_KEY: ci-test-secret-key-not-for-production
       DEMO_USERS_ENABLED: "false"
       ENVIRONMENT: test
+      JOBS_SYNC_FALLBACK: "false"
       PYTHONPATH: .
     steps:
       - uses: actions/checkout@v4
@@ -139,6 +140,7 @@ jobs:
           SECRET_KEY: e2e-test-secret
           DEMO_USERS_ENABLED: "false"
           ENVIRONMENT: test
+          JOBS_SYNC_FALLBACK: "false"
           PYTHONPATH: .
         run: |
           mkdir -p data
