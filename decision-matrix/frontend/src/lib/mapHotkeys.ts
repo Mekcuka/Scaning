@@ -11,12 +11,18 @@ export type MapHotkeyHandlers = {
   onDelete: () => void;
   onToggleEdit: () => void;
   onFinishLine?: () => void;
+  onCopy?: () => void;
+  onPaste?: () => void;
+  onCut?: () => void;
 };
 
 export type UseMapHotkeysOptions = MapHotkeyHandlers & {
   enabled?: boolean;
   canDelete?: boolean;
   canToggleEdit?: boolean;
+  canCopy?: boolean;
+  canPaste?: boolean;
+  canCut?: boolean;
   drawMode: string;
 };
 
@@ -29,6 +35,12 @@ export function useMapHotkeys({
   onDelete,
   onToggleEdit,
   onFinishLine,
+  onCopy,
+  onPaste,
+  onCut,
+  canCopy = false,
+  canPaste = false,
+  canCut = false,
 }: UseMapHotkeysOptions): void {
   useEffect(() => {
     if (!enabled) return;
@@ -53,6 +65,23 @@ export function useMapHotkeys({
         return;
       }
 
+      const mod = e.ctrlKey || e.metaKey;
+      if (mod && e.key.toLowerCase() === 'c' && canCopy && onCopy) {
+        e.preventDefault();
+        onCopy();
+        return;
+      }
+      if (mod && e.key.toLowerCase() === 'v' && canPaste && onPaste) {
+        e.preventDefault();
+        onPaste();
+        return;
+      }
+      if (mod && e.key.toLowerCase() === 'x' && canCut && onCut) {
+        e.preventDefault();
+        onCut();
+        return;
+      }
+
       if (e.key === 'Enter' && drawMode === 'line' && onFinishLine) {
         e.preventDefault();
         onFinishLine();
@@ -70,5 +99,11 @@ export function useMapHotkeys({
     onDelete,
     onToggleEdit,
     onFinishLine,
+    onCopy,
+    onPaste,
+    onCut,
+    canCopy,
+    canPaste,
+    canCut,
   ]);
 }

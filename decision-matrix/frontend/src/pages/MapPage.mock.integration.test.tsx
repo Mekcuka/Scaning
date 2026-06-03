@@ -14,7 +14,7 @@ import { renderPage } from '../test/pages/renderPage';
 import { seedAppStore } from '../test/pages/seedAppStore';
 import { api } from '../lib/api';
 import { sampleInfra, samplePois } from '../test/fixtures/map';
-import { makeInfraPoint } from '../test/fixtures/infra';
+import { makeInfraLine, makeInfraPoint } from '../test/fixtures/infra';
 import type { MockMapViewProps } from '../test/mocks/MockMapView';
 
 const mapCapture = vi.hoisted(() => ({
@@ -271,6 +271,126 @@ describe('MapPage mock MapView integration', () => {
       { kind: 'infra', id: sampleInfra[0]!.id },
     ]);
     await waitFor(() => expect(screen.getByText(/Выбрано: 2/)).toBeInTheDocument());
+  });
+
+  it('copy group and paste via map click', async () => {
+    await renderMap();
+    await enableEdit();
+    await userEvent.click(screen.getByRole('button', { name: /выбор/i }));
+    await userEvent.click(screen.getByText('Группа объектов'));
+    mapProps().onFeatureGroupSelect?.([
+      { kind: 'poi', id: 'poi-1' },
+      { kind: 'infra', id: sampleInfra[0]!.id },
+    ]);
+    await waitFor(() => expect(screen.getByText(/Выбрано: 2/)).toBeInTheDocument());
+    const panel = screen.getByText(/Выбрано: 2/).closest('.map-group-panel');
+    expect(panel).toBeTruthy();
+    await userEvent.click(within(panel as HTMLElement).getByRole('button', { name: /^Копировать$/ }));
+    const pasteBtn = within(panel as HTMLElement).getByRole('button', { name: /^Вставить$/ });
+    await waitFor(() => expect(pasteBtn).not.toBeDisabled());
+    await userEvent.click(pasteBtn);
+    await waitFor(() => expect(mapProps().pasteMode).toBe(true));
+    await waitFor(() => expect(mapProps().onMapClick).toBeTypeOf('function'));
+    mapProps().onMapClick?.(38, 56);
+    await waitFor(() => expect(api.createPoi).toHaveBeenCalled());
+    await waitFor(() => expect(api.createInfraObject).toHaveBeenCalled());
+  });
+
+  it('paste gas_pad creates oil_pad then updates subtype', async () => {
+    const gasPad = makeInfraPoint({
+      id: 'pad-gas',
+      subtype: 'gas_pad',
+      name: 'Газовый куст_1',
+    });
+    vi.mocked(api.getInfraObjects).mockResolvedValue([gasPad]);
+    await renderMap();
+    await enableEdit();
+    await userEvent.click(screen.getByRole('button', { name: /выбор/i }));
+    await userEvent.click(screen.getByText('Группа объектов'));
+    mapProps().onFeatureGroupSelect?.([{ kind: 'infra', id: gasPad.id }]);
+    await waitFor(() => expect(screen.getByText(/Выбрано: 1/)).toBeInTheDocument());
+    const panel = screen.getByText(/Выбрано: 1/).closest('.map-group-panel')!;
+    await userEvent.click(within(panel as HTMLElement).getByRole('button', { name: /^Копировать$/ }));
+    await userEvent.click(within(panel as HTMLElement).getByRole('button', { name: /^Вставить$/ }));
+    mapProps().onMapClick?.(38, 56);
+    await waitFor(() => expect(api.createInfraObject).toHaveBeenCalled());
+    const createCall = vi.mocked(api.createInfraObject).mock.calls.at(-1)?.[1];
+    expect(createCall?.subtype).toBe('oil_pad');
+    await waitFor(() =>
+      expect(api.updateInfraObject).toHaveBeenCalledWith(
+        'p1',
+        'infra-new',
+        expect.objectContaining({ subtype: 'gas_pad' }),
+      ),
+    );
+  });
+
+  it('batch geometry change updates multiple objects', async () => {
+    await renderMap();
+    await enableEdit();
+    await userEvent.click(screen.getByRole('button', { name: /выбор/i }));
+    await userEvent.click(screen.getByText('Группа объектов'));
+    mapProps().onFeatureGroupSelect?.([{ kind: 'poi', id: 'poi-1' }]);
+    await waitFor(() => expect(mapProps().onBatchGeometryChange).toBeTruthy());
+    await mapProps().onBatchGeometryChange?.([
+      { sel: { kind: 'poi', id: 'poi-1' }, lon: 38, lat: 56 },
+    ]);
+    await waitFor(() => expect(api.updatePoi).toHaveBeenCalled());
+  });
+
+  it('batch move updates linked line when both endpoints move', async () => {
+    const pointA = makeInfraPoint({
+      id: 'gks-a',
+      subtype: 'gas_processing',
+      name: 'GKS_A',
+      lon: 37.6,
+      lat: 55.75,
+    });
+    const pointB = makeInfraPoint({
+      id: 'gks-b',
+      subtype: 'gas_processing',
+      name: 'GKS_B',
+      lon: 37.7,
+      lat: 55.76,
+    });
+    const line = makeInfraLine({
+      id: 'pipe-1',
+      subtype: 'gas_pipeline',
+      lon: 37.6,
+      lat: 55.75,
+      end_lon: 37.7,
+      end_lat: 55.76,
+      coordinates: [
+        [37.6, 55.75],
+        [37.7, 55.76],
+      ],
+    });
+    vi.mocked(api.getInfraObjects).mockResolvedValue([pointA, pointB, line]);
+    await renderMap();
+    await enableEdit();
+    await userEvent.click(screen.getByRole('button', { name: /выбор/i }));
+    await userEvent.click(screen.getByText('Группа объектов'));
+    await waitFor(() => expect(mapProps().onBatchGeometryChange).toBeTruthy());
+    vi.mocked(api.updateInfraObject).mockClear();
+    await mapProps().onBatchGeometryChange?.([
+      { sel: { kind: 'infra', id: 'gks-a' }, lon: 37.61, lat: 55.751 },
+      { sel: { kind: 'infra', id: 'gks-b' }, lon: 37.71, lat: 55.761 },
+    ]);
+    await waitFor(() => expect(api.updateInfraObject).toHaveBeenCalled());
+    const lineUpdates = vi
+      .mocked(api.updateInfraObject)
+      .mock.calls.filter((c) => c[1] === 'pipe-1');
+    expect(lineUpdates).toHaveLength(1);
+    expect(lineUpdates[0]![2]).toMatchObject({
+      coordinates: [
+        [37.61, 55.751],
+        [37.71, 55.761],
+      ],
+    });
+    const pointUpdates = vi
+      .mocked(api.updateInfraObject)
+      .mock.calls.filter((c) => c[1] === 'gks-a' || c[1] === 'gks-b');
+    expect(pointUpdates).toHaveLength(2);
   });
 
   it('geometry change triggers infra update', async () => {

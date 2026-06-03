@@ -50,6 +50,18 @@ export type MapUndoEntry =
   | { kind: 'patch_infra_detail'; objectId: string; before: InfraDetailUndo; label: string }
   | { kind: 'patch_poi_detail'; poiId: string; before: PoiDetailUndo; label: string }
   | { kind: 'patch_infra_batch'; entries: { objectId: string; before: InfraGeometryUndo }[]; label: string }
+  | {
+      kind: 'patch_geometry_group';
+      poiEntries: { poiId: string; before: PoiGeometryUndo }[];
+      infraEntries: { objectId: string; before: InfraGeometryUndo }[];
+      label: string;
+    }
+  | {
+      kind: 'create_clipboard_group';
+      poiIds: string[];
+      infraIds: string[];
+      label: string;
+    }
   | { kind: 'restore_group'; pois: POI[]; infra: InfraObject[]; label: string };
 
 function infraSnapshotToCreate(obj: InfraObject): InfraObjectCreate {
@@ -190,6 +202,25 @@ export async function applyMapUndo(entry: MapUndoEntry, projectId: string): Prom
     case 'patch_poi_detail':
       await api.updatePoi(projectId, entry.poiId, entry.before);
       return;
+    case 'patch_geometry_group':
+      for (const item of entry.poiEntries) {
+        await api.updatePoi(projectId, item.poiId, item.before);
+      }
+      for (const item of entry.infraEntries) {
+        await api.updateInfraObject(projectId, item.objectId, infraUndoToPatch(item.before));
+      }
+      return;
+    case 'create_clipboard_group':
+      await Promise.all([
+        ...entry.poiIds.map((id) => api.deletePoi(projectId, id)),
+        ...entry.infraIds.map((id) => api.deleteInfraObject(projectId, id)),
+      ]);
+      try {
+        if (entry.infraIds.length > 0) await api.buildNetwork(projectId);
+      } catch {
+        /* best-effort */
+      }
+      return;
     case 'restore_group':
       await restoreGroup(
         projectId,
@@ -254,7 +285,11 @@ export function useMapUndo(options: {
       invalidateMap();
       await refreshMapQueries(queryClient, projectId);
       const restoredCount =
-        entry.kind === 'restore_group' ? entry.pois.length + entry.infra.length : undefined;
+        entry.kind === 'restore_group'
+          ? entry.pois.length + entry.infra.length
+          : entry.kind === 'create_clipboard_group'
+            ? entry.poiIds.length + entry.infraIds.length
+            : undefined;
       setLastUndoMessage(
         restoredCount != null && restoredCount > 1
           ? `Отменено: восстановлено ${restoredCount} объектов`

@@ -8,11 +8,11 @@ function sameCoord(a: number, b: number): boolean {
 }
 
 /** Exact match or same rounded display (legacy lines saved with 3-decimal ends). */
-function linkCoordMatch(a: number, b: number): boolean {
+export function linkCoordMatch(a: number, b: number): boolean {
   return sameCoord(a, b) || roundCoord(a) === roundCoord(b);
 }
 
-function lineCoordsOrEndpoints(obj: InfraObject): [number, number][] | null {
+export function lineCoordsOrEndpoints(obj: InfraObject): [number, number][] | null {
   if (obj.coordinates && obj.coordinates.length >= 2) {
     return obj.coordinates.map(([lon, lat]) => [lon, lat]);
   }

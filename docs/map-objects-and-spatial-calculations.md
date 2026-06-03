@@ -91,7 +91,7 @@
 - **Вид «Точка» / «Линия»** — пункты меню на панели карты. В меню «Точка» нет **УКГ**, **ТСГ**, **НПС**, **объекта метанола**, отдельного пункта **узел метанола** (подтип `methanol_joint` — импорт Искра или смена у **Узел**). В меню есть **Узел** (`node`). **ГКС** и **НПЗ** (`refinery`) — в меню «Точка». Искра **ПСП** (`DeliveryAcceptancePoint`) импортируется как **НПЗ** (`refinery`).
 - **API площадных объектов НПЗ / НПС:** `POST /projects/{project_id}/infrastructure/facility-objects` — в теле **обязательно** `subtype`: `refinery` | `oil_pumping_station` (схема `FacilityInfraObjectCreate`). Общий `POST .../objects` для НПС вернёт 400 с подсказкой использовать этот endpoint.
 - **Карточка объекта** (`ObjectDetailPanel`, поле «Подтип»): линейные ↔ только линейные; точечные ↔ точечные. **Группа ГКС:** `gas_processing` / `ukg` / `tsg` → только **ГКС, УКГ, ТСГ**. **Группа ГТЭС:** `gtes` / `gpes` / `vies` → только **ГТЭС, ГПЭС, ВИЭС** (анализ POI по-прежнему одна строка «ГТЭС», ближайший — любой из трёх). **Группа узлов:** `node` / `methanol_joint` / `power_line_node` → **Узел**, **Узел метанола**, **Узел ЛЭП** (отдельного пункта «Точка» для узла ЛЭП нет). **Группа кустов:** `oil_pad` / `gas_pad` → только **Нефтяной куст**, **Газовый куст**; в меню «Точка» один пункт **«Куст»** (`oil_pad` по умолчанию), `gas_pad` — импорт Искра или смена подтипа в карточке (legacy `pad` в API → `oil_pad`). **Эксклюзивные** (не в списке у других): карьер песка, объект метанола, **ВО** (`offplot`), **доп. объект** (`additional_facility`). **Фиксированные:** `sand_quarry`, `ground_pumping_station`, НПС, объект метанола, **ВО**, **доп. объект**.
-- **Концы линии (хранение и отображение):** начало и конец в БД/API — **точные** `lon`/`lat` привязанного точечного объекта (любой подтип, допуск **0,3 км** при рисовании/редактировании). Нормализация: `normalizeLinePathEndpoints` ([`lineEndpointRules.ts`](../decision-matrix/frontend/src/lib/lineEndpointRules.ts)), отображение 2D/3D: `linePathForDisplay` ([`infraGeometry.ts`](../decision-matrix/frontend/src/lib/infraGeometry.ts)); пул привязки на карте — **все** объекты проекта (`infraSnapPool`), не только отфильтрованные слоем. Backend при create/update: `snap_line_endpoints_to_point_objects` ([`line_endpoint_rules.py`](../decision-matrix/backend/app/services/line_endpoint_rules.py)). При загрузке карты (если есть право записи) — одноразовое выравнивание устаревших концов (`lineEndpointHealPayload` → PATCH). Автотест паритета lon/lat всех вершин: [`linePath2d3dParity.test.ts`](../decision-matrix/frontend/src/lib/linePath2d3dParity.test.ts).
+- **Концы линии (хранение и отображение):** начало и конец в БД/API — **точные** `lon`/`lat` привязанного точечного объекта (любой подтип, допуск **0,3 км** при рисовании/редактировании). Нормализация: `normalizeLinePathEndpoints` ([`lineEndpointRules.ts`](../decision-matrix/frontend/src/lib/lineEndpointRules.ts)), отображение 2D/3D: `linePathForDisplay` ([`infraGeometry.ts`](../decision-matrix/frontend/src/lib/infraGeometry.ts)); пул привязки на карте — **все** объекты проекта (`infraSnapPool`), не только отфильтрованные слоем. Backend при create/update: `snap_line_endpoints_to_point_objects` ([`line_endpoint_rules.py`](../decision-matrix/backend/app/services/line_endpoint_rules.py)). При загрузке карты (если есть право записи) — одноразовое выравнивание устаревших концов (`lineEndpointHealPayload` → PATCH). **Групповое перемещение** точек тянет связанные линии по тем же правилам координат (`linkCoordMatch`, [`mapGroupLinePatches.ts`](../decision-matrix/frontend/src/lib/mapGroupLinePatches.ts)) — см. **§6.1.1**. Автотест паритета lon/lat всех вершин: [`linePath2d3dParity.test.ts`](../decision-matrix/frontend/src/lib/linePath2d3dParity.test.ts).
 - **Рисование линии** (инструмент «Линия», только 2D):
   - **Начало** — обязательно на точечном объекте (клик по иконке или ≤300 м); иначе ошибка.
   - **Промежуточные вершины** — свободно (без snap к ближайшему объекту).
@@ -452,6 +452,9 @@ erDiagram
 |---------|----------|
 | **E** | Включить/выключить «Редактирование на карте» |
 | **Del** / **Backspace** | Удалить выбранный объект или группу |
+| **Ctrl+C** | Копировать выбранный объект или группу (режим «Группа объектов» / одиночный выбор) |
+| **Ctrl+V** | Вставить из буфера (следующий клик по карте — точка вставки) |
+| **Ctrl+X** | Вырезать (копировать + удалить с подтверждением) |
 | **Ctrl+Z** | Отменить последнее действие на карте |
 | **Enter** | Завершить черновик линии (режим «Линия») |
 | **Escape** | Закрыть модал, поиск или выйти из режима рисования |
@@ -460,6 +463,27 @@ erDiagram
 | **Двойной ЛКМ** (выбор + редактирование, линия выбрана) | Удалить **промежуточную** вершину (не концы) |
 
 Контекстные подсказки отображаются в footer карты (режим выбора, рисование, сохранение геометрии).
+
+#### 6.1.1 Групповое перемещение (режим «Группа объектов»)
+
+**Включение:** «Редактирование на карте» → «Выбор» → **«Группа объектов»** (рамка, не Ctrl+клик). Перетаскивание — за любой объект в выделении; клик в пустое место снимает выделение.
+
+| Сценарий выделения | Поведение при drag / сохранении |
+|--------------------|----------------------------------|
+| Несколько **точек**, общая линия **не** в рамке | Линия обновляется: каждый перемещённый конец → новые `lon`/`lat` точки; остальные вершины без изменений. Оба конца одной линии в группе — **один** PATCH с merge обоих концов. |
+| Точки **и** линия в рамке | Линия: `constrainGroupMovedLine` — концы на перемещённых опорах в новых координатах, на неперемещённых — координаты опоры из `infraSnapPool`; промежуточные вершины — сдвиг Translate. |
+| Только **линия** | Концы не остаются «в воздухе»: snap/revert как при одиночном редактировании (`constrainLineCoordinatesOnEdit`). |
+| Часть цепочки вне рамки | Неперемещённые узлы и их концы линий не меняются. |
+
+**Визуализация во время drag (2D):** для точек в выделении `MapView` на событии `translating` подтягивает связанные линии, не попавшие в рамку (как при одиночном modify). После сохранения слой принудительно синхронизируется из `infraObjects` + `linePathForDisplay` (иначе возможны разрывы на экране при уже обновлённой длине в карточке объекта).
+
+**Сохранение (frontend):** `handleBatchGeometryChange` (`MapPage`) — фаза планирования → PATCH точек/POI → PATCH линий; undo: `patch_geometry_group`. Расчёт патчей линий: [`mapGroupLinePatches.ts`](../decision-matrix/frontend/src/lib/mapGroupLinePatches.ts) (`accumulateLineEndpointPatches`, `constrainGroupMovedLine`). Связь концов с точками по координатам: [`infraLinks.ts`](../decision-matrix/frontend/src/lib/infraLinks.ts) (`linkCoordMatch`, `lineCoordsOrEndpoints`).
+
+**Валидация (backend):** после PATCH линии — `validate_line_endpoint_matrix` (допуск **0,3 км**). Ошибка «Начальная/конечная точка линии не привязана…» означает, что сохранённые концы линии не совпали с точечными опорами (типично при частичном перемещении без merge концов — исправлено в batch-логике выше).
+
+**Ограничения:** только 2D (`MapView`); copy/paste/cut группы — отдельно (§6.1, Ctrl+C/V/X). 3D-режим карты групповое перемещение не дублирует.
+
+**Тесты:** [`mapGroupLinePatches.test.ts`](../decision-matrix/frontend/src/lib/mapGroupLinePatches.test.ts), интеграция — `batch move updates linked line when both endpoints move` в [`MapPage.mock.integration.test.tsx`](../decision-matrix/frontend/src/pages/MapPage.mock.integration.test.tsx).
 
 ### 6.2 Поиск и dev-порт
 
@@ -544,6 +568,7 @@ erDiagram
 
 | Дата | Изменение |
 |------|-----------|
+| 2026-06 | §6.1.1: групповое перемещение с привязкой линий (`mapGroupLinePatches`, merge концов, `translating` + resync слоя); §1.5 ссылка на batch |
 | 2026-05 | Custom GLB: назначение на несколько подтипов (`assigned_subtypes[]`), `render_3d_scale`, якорь glTF, панель «Слои» в localStorage |
 | 2026-05 | Cross-origin: Bearer + `map3dCustomGlbFetch` для `GET .../file`; sync CSRF/Bearer в `api.ts` — см. auth-rbac, map-3d-features §12 |
 | 2026-05 | 3D-линии: отражение корневой матрицы по **Z** (`dm-3d-lines` only); точечные glTF без отражения |

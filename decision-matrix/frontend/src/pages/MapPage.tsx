@@ -2,6 +2,8 @@ import { lazy, Suspense, useCallback, useEffect, useMemo, useRef, useState } fro
 import { keepPreviousData, useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import {
   BoxSelect,
+  ClipboardPaste,
+  Copy,
   Layers,
   MapPin,
   Maximize2,
@@ -11,6 +13,7 @@ import {
   PenLine,
   Pencil,
   Ruler,
+  Scissors,
   Search,
   Trash2,
   Undo2,
@@ -102,6 +105,13 @@ import {
   expandInfraDeleteIds,
   infraDeleteApiIds,
 } from '../lib/infraLinks';
+import {
+  accumulateLineEndpointPatches,
+  buildMovedPositionsMap,
+  constrainGroupMovedLine,
+  lineEndpointPatchesToResults,
+  type MovedPointUpdate,
+} from '../lib/mapGroupLinePatches';
 import { withDefaultInfraProperties } from '../lib/infraEntryDate';
 import { withDefaultRender3DProperties } from '../lib/map3d/render3d';
 import {
@@ -113,6 +123,17 @@ import {
 } from '../lib/mapUndo';
 import { useAppStore } from '../store';
 import { useMapHotkeys } from '../lib/mapHotkeys';
+import {
+  applyOffsetToClipboard,
+  buildClipboardFromSelection,
+  clipboardPreviewAt,
+  infraClipboardToCreatePayload,
+  partitionClipboardForPaste,
+  poiClipboardToCreatePayload,
+  infraPasteSubtypePlan,
+  remapLineEndpointsOnPaste,
+  type MapClipboardItem,
+} from '../lib/mapClipboard';
 import { buildMapSearchHits, filterInfraByMapQuery } from '../lib/mapSearch';
 import { THRESHOLD_META, MOVE_MATCH_EPS } from './map/mapConstants';
 import { PointSubtypeMenuItem } from './map/PointSubtypeMenuItem';
@@ -219,6 +240,8 @@ export function MapPage() {
   const [lineMenuOpen, setLineMenuOpen] = useState(false);
   const [mapFocus, setMapFocus] = useState<MapFocusTarget | null>(null);
   const [mapEditEnabled, setMapEditEnabled] = useState(false);
+  const [mapClipboard, setMapClipboard] = useState<MapClipboardItem[] | null>(null);
+  const [pasteMode, setPasteMode] = useState(false);
   const [mapScaleLabel, setMapScaleLabel] = useState('—');
 
   useEffect(() => {
@@ -259,6 +282,7 @@ export function MapPage() {
     if (drawMode !== 'select') {
       setFeatureSel(null);
       setFeatureGroupSel([]);
+      setPasteMode(false);
     }
   }, [drawMode]);
 
@@ -274,6 +298,7 @@ export function MapPage() {
     }
     setFeatureSel(null);
     setFeatureGroupSel([]);
+    setPasteMode(false);
     setDrawMode((m) => (m === 'ruler' ? m : 'select'));
     setLineDraft([]);
     setSelectMenuOpen(false);
@@ -1178,6 +1203,10 @@ export function MapPage() {
   };
 
   const handleMapEscape = useCallback(() => {
+    if (pasteMode) {
+      setPasteMode(false);
+      return;
+    }
     if (deleteConfirm) {
       setDeleteConfirm(null);
       return;
@@ -1210,6 +1239,7 @@ export function MapPage() {
     lineMenuOpen,
     selectMenuOpen,
     cancelDrawingSelection,
+    pasteMode,
   ]);
 
   const saveDetailMut = useMutation({
@@ -1531,6 +1561,332 @@ export function MapPage() {
     [projectId, queryClient, pois, infraObjects, pushUndo, pushToast]
   );
 
+  const getActiveMapSelections = useCallback((): MapFeatureSelection[] => {
+    if (selectMode === 'box' && featureGroupSel.length > 0) return featureGroupSel;
+    if (featureSel) return [featureSel];
+    return [];
+  }, [selectMode, featureGroupSel, featureSel]);
+
+  const filterSelectionsForCopy = useCallback(
+    (selections: MapFeatureSelection[]) => {
+      const allowed: MapFeatureSelection[] = [];
+      let skipped = 0;
+      for (const sel of selections) {
+        if (sel.kind === 'poi' && canWriteProject) allowed.push(sel);
+        else if (sel.kind === 'infra' && canWriteInfra) allowed.push(sel);
+        else skipped += 1;
+      }
+      return { allowed, skipped };
+    },
+    [canWriteProject, canWriteInfra],
+  );
+
+  const copyMapSelection = useCallback((): boolean => {
+    const { allowed, skipped } = filterSelectionsForCopy(getActiveMapSelections());
+    if (allowed.length === 0) {
+      pushToast('info', 'Нет объектов для копирования');
+      return false;
+    }
+    const items = buildClipboardFromSelection(pois, infraObjects, allowed);
+    setMapClipboard(items);
+    if (skipped > 0) {
+      pushToast('info', `Скопировано ${items.length}; без прав: ${skipped}`);
+    } else {
+      pushToast('success', `Скопировано объектов: ${items.length}`);
+    }
+    return true;
+  }, [filterSelectionsForCopy, getActiveMapSelections, pois, infraObjects, pushToast]);
+
+  const enterPasteMode = useCallback(() => {
+    if (!mapClipboard?.length) {
+      pushToast('info', 'Буфер пуст — сначала скопируйте объекты (Ctrl+C)');
+      return;
+    }
+    if (geometrySavePending > 0) {
+      pushToast('info', 'Дождитесь сохранения геометрии');
+      return;
+    }
+    setPasteMode(true);
+    setDrawMode('select');
+    setSelectMenuOpen(false);
+    pushToast('info', 'Кликните на карте — место вставки');
+  }, [mapClipboard, geometrySavePending, pushToast]);
+
+  const executePaste = useCallback(
+    async (anchorLon: number, anchorLat: number) => {
+      if (!projectId || !mapClipboard?.length) return;
+      if (geometrySavePending > 0) {
+        pushToast('info', 'Дождитесь сохранения геометрии');
+        return;
+      }
+      setPasteMode(false);
+      const offsetItems = applyOffsetToClipboard(mapClipboard, anchorLon, anchorLat);
+      const { pois: poiItems, pointInfra, lineInfra } = partitionClipboardForPaste(offsetItems);
+      const createdPoiIds: string[] = [];
+      const createdInfraIds: string[] = [];
+      const pastedPoints: InfraObject[] = [];
+
+      setGeometrySavePending((p) => p + 1);
+      try {
+        let poiList = queryClient.getQueryData<POI[]>(['pois', projectId]) ?? pois;
+        for (const item of poiItems) {
+          if (!canWriteProject) continue;
+          const payload = poiClipboardToCreatePayload(item.snapshot);
+          payload.name = nextPoiAutoName(poiList);
+          const created = await api.createPoi(projectId, payload);
+          createdPoiIds.push(created.id);
+          poiList = [...poiList, created];
+          queryClient.setQueriesData<POI[]>({ queryKey: ['pois', projectId] }, (old) =>
+            [...(old ?? []), created],
+          );
+        }
+
+        for (const item of pointInfra) {
+          if (!canWriteInfra || item.kind !== 'infra') continue;
+          const { createSubtype, targetSubtype } = infraPasteSubtypePlan(item.snapshot.subtype);
+          const name = nextAutoName(targetSubtype);
+          const snapForCreate =
+            createSubtype === targetSubtype
+              ? item.snapshot
+              : { ...item.snapshot, subtype: createSubtype };
+          const payload = infraClipboardToCreatePayload(snapForCreate, name);
+          let created = await api.createInfraObject(projectId, {
+            ...payload,
+            properties: mergeInfraPropertiesForSave(payload.subtype, payload.properties),
+          });
+          if (targetSubtype !== createSubtype) {
+            created = await api.updateInfraObject(projectId, created.id, {
+              subtype: targetSubtype,
+            });
+          }
+          createdInfraIds.push(created.id);
+          pastedPoints.push(created);
+          upsertInfraInCache(created);
+        }
+
+        for (const item of lineInfra) {
+          if (!canWriteInfra || item.kind !== 'infra') continue;
+          const remapped = remapLineEndpointsOnPaste(item.snapshot, pastedPoints);
+          const name = nextAutoName(remapped.subtype);
+          const payload = infraClipboardToCreatePayload(remapped, name);
+          const created = await api.createInfraObject(projectId, {
+            ...payload,
+            properties: mergeInfraPropertiesForSave(payload.subtype, payload.properties),
+          });
+          createdInfraIds.push(created.id);
+          upsertInfraInCache(created);
+        }
+
+        const total = createdPoiIds.length + createdInfraIds.length;
+        if (total === 0) {
+          pushToast('error', 'Не удалось вставить объекты — проверьте права или состав буфера');
+          return;
+        }
+        if (total > 0) {
+          pushUndo({
+            kind: 'create_clipboard_group',
+            poiIds: createdPoiIds,
+            infraIds: createdInfraIds,
+            label: `вставка ${total} объектов`,
+          });
+          if (lineInfra.length > 0) {
+            try {
+              await api.buildNetwork(projectId);
+            } catch {
+              /* best-effort */
+            }
+          }
+          invalidateMap();
+          pushToast('success', `Вставлено объектов: ${total}`);
+          if (createdPoiIds[0]) {
+            setFeatureSel({ kind: 'poi', id: createdPoiIds[0] });
+            setSelectMode('single');
+            setFeatureGroupSel([]);
+          } else if (createdInfraIds[0]) {
+            setFeatureSel({ kind: 'infra', id: createdInfraIds[0] });
+            setSelectMode('single');
+            setFeatureGroupSel([]);
+          }
+        }
+      } catch (e) {
+        pushToast('error', e instanceof Error ? e.message : 'Не удалось вставить объекты');
+      } finally {
+        setGeometrySavePending((p) => Math.max(0, p - 1));
+      }
+    },
+    [
+      projectId,
+      mapClipboard,
+      geometrySavePending,
+      queryClient,
+      pois,
+      canWriteProject,
+      canWriteInfra,
+      nextPoiAutoName,
+      nextAutoName,
+      upsertInfraInCache,
+      pushUndo,
+      invalidateMap,
+      pushToast,
+    ],
+  );
+
+  const cutMapSelection = useCallback(() => {
+    if (!copyMapSelection()) return;
+    requestDeleteSelection();
+  }, [copyMapSelection, requestDeleteSelection]);
+
+  const handleBatchGeometryChange = useCallback(
+    async (
+      items: { sel: MapFeatureSelection; lon: number; lat: number; coords?: number[][] }[],
+    ) => {
+      if (!projectId || items.length === 0) return;
+
+      const currentInfra =
+        queryClient.getQueryData<InfraObject[]>(['infra', projectId]) ?? infraObjects;
+      const currentPois = queryClient.getQueryData<POI[]>(['pois', projectId]) ?? pois;
+
+      const poiEntries: { poiId: string; before: ReturnType<typeof poiGeometryUndo> }[] = [];
+      const infraEntries: { objectId: string; before: ReturnType<typeof infraGeometryUndo> }[] = [];
+
+      const poiSaves: { id: string; lon: number; lat: number }[] = [];
+      const pointSaves: { id: string; lon: number; lat: number; before: InfraObject }[] = [];
+      const lineSaves: { id: string; payload: Partial<InfraObjectCreate>; before: InfraObject }[] =
+        [];
+      const pendingLineMoves: {
+        id: string;
+        coords: number[][];
+        infraBefore: InfraObject;
+      }[] = [];
+
+      const movedLineIds = new Set<string>();
+      const movedPointUpdates: MovedPointUpdate[] = [];
+      const movedPositionEntries: { id: string; lon: number; lat: number }[] = [];
+
+      for (const item of items) {
+        const { sel, lon: rLon, lat: rLat, coords } = item;
+        if (sel.kind === 'poi') {
+          const poiBefore = currentPois.find((p) => p.id === sel.id);
+          if (!poiBefore) continue;
+          poiEntries.push({ poiId: sel.id, before: poiGeometryUndo(poiBefore) });
+          poiSaves.push({ id: sel.id, lon: rLon, lat: rLat });
+          movedPositionEntries.push({ id: sel.id, lon: rLon, lat: rLat });
+          continue;
+        }
+
+        const infraBefore = currentInfra.find((o) => o.id === sel.id);
+        if (!infraBefore) continue;
+
+        if (coords && coords.length >= 2) {
+          movedLineIds.add(sel.id);
+          movedPositionEntries.push({ id: sel.id, lon: rLon, lat: rLat });
+          pendingLineMoves.push({ id: sel.id, coords, infraBefore });
+          continue;
+        }
+
+        if (LINE_SUBTYPES.includes(infraBefore.subtype as (typeof LINE_SUBTYPES)[number])) continue;
+
+        infraEntries.push({ objectId: sel.id, before: infraGeometryUndo(infraBefore) });
+        pointSaves.push({ id: sel.id, lon: rLon, lat: rLat, before: infraBefore });
+        movedPointUpdates.push({
+          id: sel.id,
+          oldLon: infraBefore.lon,
+          oldLat: infraBefore.lat,
+          newLon: rLon,
+          newLat: rLat,
+        });
+        movedPositionEntries.push({ id: sel.id, lon: rLon, lat: rLat });
+      }
+
+      const movedPositions = buildMovedPositionsMap(movedPositionEntries);
+      for (const { id, coords, infraBefore } of pendingLineMoves) {
+        const roundedCoords = constrainGroupMovedLine(
+          infraBefore,
+          coords,
+          movedPositions,
+          currentInfra,
+        );
+        const payload = {
+          lon: roundedCoords[0]![0],
+          lat: roundedCoords[0]![1],
+          end_lon: roundedCoords[roundedCoords.length - 1]![0],
+          end_lat: roundedCoords[roundedCoords.length - 1]![1],
+          coordinates: roundedCoords,
+        };
+        infraEntries.push({ objectId: id, before: infraGeometryUndo(infraBefore) });
+        lineSaves.push({ id, payload, before: infraBefore });
+      }
+
+      const linkedLinePatches = lineEndpointPatchesToResults(
+        accumulateLineEndpointPatches(currentInfra, movedPointUpdates, movedLineIds),
+      );
+      for (const patch of linkedLinePatches) {
+        infraEntries.push({ objectId: patch.lineId, before: patch.before });
+        lineSaves.push({
+          id: patch.lineId,
+          payload: patch.payload,
+          before: currentInfra.find((o) => o.id === patch.lineId) ?? ({
+            ...patch.before,
+            id: patch.lineId,
+          } as InfraObject),
+        });
+      }
+
+      setGeometrySavePending((p) => p + 1);
+      try {
+        if (poiSaves.length > 0) {
+          queryClient.setQueriesData<POI[]>({ queryKey: ['pois', projectId] }, (old) =>
+            old?.map((p) => {
+              const save = poiSaves.find((s) => s.id === p.id);
+              return save ? { ...p, lon: save.lon, lat: save.lat } : p;
+            }) ?? [],
+          );
+          for (const save of poiSaves) {
+            await api.updatePoi(projectId, save.id, { lon: save.lon, lat: save.lat });
+          }
+        }
+
+        if (pointSaves.length > 0 || lineSaves.length > 0) {
+          queryClient.setQueriesData<InfraObject[]>({ queryKey: ['infra', projectId] }, (old) =>
+            old?.map((o) => {
+              const pointSave = pointSaves.find((s) => s.id === o.id);
+              if (pointSave) return { ...o, lon: pointSave.lon, lat: pointSave.lat };
+              const lineSave = lineSaves.find((s) => s.id === o.id);
+              return lineSave ? { ...o, ...lineSave.payload } : o;
+            }) ?? [],
+          );
+          for (const save of pointSaves) {
+            await api.updateInfraObject(projectId, save.id, { lon: save.lon, lat: save.lat });
+          }
+          for (const save of lineSaves) {
+            await api.updateInfraObject(projectId, save.id, save.payload);
+          }
+        }
+
+        const total = poiEntries.length + infraEntries.length;
+        if (total > 0) {
+          pushUndo({
+            kind: 'patch_geometry_group',
+            poiEntries,
+            infraEntries,
+            label: `перемещение ${items.length} объектов`,
+          });
+        }
+      } catch (e) {
+        pushToast('error', e instanceof Error ? e.message : 'Не удалось сохранить геометрию');
+        invalidateMap();
+      } finally {
+        setGeometrySavePending((p) => Math.max(0, p - 1));
+      }
+    },
+    [projectId, queryClient, pois, infraObjects, pushUndo, pushToast, invalidateMap],
+  );
+
+  const clipboardPreviewPoints = useMemo(() => {
+    if (!pasteMode || !mapClipboard?.length || !cursor) return [];
+    return clipboardPreviewAt(mapClipboard, cursor.lon, cursor.lat);
+  }, [pasteMode, mapClipboard, cursor]);
+
   const finishRulerMeasurement = useCallback(
     (appendPreview = false) => {
       if (rulerClickTimerRef.current) {
@@ -1594,6 +1950,10 @@ export function MapPage() {
 
   const handleMapClick = useCallback(
     (lon: number, lat: number, hit?: MapClickHit) => {
+      if (pasteMode) {
+        void executePaste(lon, lat);
+        return;
+      }
       if (drawMode === 'ruler') {
         handleRulerClick(lon, lat);
         return;
@@ -1657,6 +2017,8 @@ export function MapPage() {
       }
     },
     [
+      pasteMode,
+      executePaste,
       canWriteProject,
       canWriteInfra,
       drawMode,
@@ -1827,6 +2189,12 @@ export function MapPage() {
     [lineDraftPreview],
   );
 
+  const hasMapSelection = getActiveMapSelections().length > 0;
+  const canCopyMapSelection =
+    mapEditEnabled && hasMapSelection && (canWriteProject || canWriteInfra);
+  const canPasteMapClipboard = mapEditEnabled && (mapClipboard?.length ?? 0) > 0;
+  const canCutMapSelection = canCopyMapSelection && canDeleteCurrentSelection;
+
   useMapHotkeys({
     drawMode,
     canDelete:
@@ -1837,8 +2205,14 @@ export function MapPage() {
       !deleteGroupMut.isPending &&
       !deleteInfraMut.isPending,
     canToggleEdit: canEditMap,
+    canCopy: canCopyMapSelection && !deleteConfirm && !modal,
+    canPaste: canPasteMapClipboard && !deleteConfirm && !modal,
+    canCut: canCutMapSelection && !deleteConfirm && !modal,
     onEscape: handleMapEscape,
     onDelete: requestDeleteSelection,
+    onCopy: copyMapSelection,
+    onPaste: enterPasteMode,
+    onCut: cutMapSelection,
     onToggleEdit: () => setMapEditEnabled((on) => !on),
     onFinishLine:
       drawMode === 'line'
@@ -1847,6 +2221,9 @@ export function MapPage() {
   });
 
   const mapFooterHint = useMemo(() => {
+    if (pasteMode) {
+      return 'Кликните на карте — вставить · Esc — отмена';
+    }
     if (drawMode !== 'select') return null;
     if (mapEditEnabled) {
       if (
@@ -1856,15 +2233,17 @@ export function MapPage() {
         return 'Перетащите вершину; двойной ЛКМ по средней — удалить; концы — на объектах (≤300 м), иначе возврат · Del — удалить · Ctrl+Z — отмена';
       }
       if (detailSelection) {
-        return 'Перетащите объект для перемещения · Del — удалить · Ctrl+Z — отмена';
+        return 'Перетащите объект · Ctrl+C/V/X · Del · Ctrl+Z — отмена';
       }
       if (selectMode === 'box') {
-        return 'Зажмите ЛКМ — выделить группу · Del — удалить · Ctrl+Z — отмена';
+        return featureGroupSel.length > 0
+          ? 'Перетащите выделение · клик в пустое — снять выделение · Ctrl+C/V/X · Del · Ctrl+Z'
+          : 'Рамка — выделить объекты · Ctrl+C/V/X';
       }
       return 'Выберите объект или включите инструмент рисования · E — редактирование';
     }
     return 'Включите редактирование (E) для перемещения объектов';
-  }, [drawMode, mapEditEnabled, detailSelection, selectMode]);
+  }, [drawMode, mapEditEnabled, detailSelection, selectMode, pasteMode, featureGroupSel.length]);
 
   const drawActionsVisible = drawMode === 'line' || drawMode === 'ruler';
   const drawStepBackDisabled =
@@ -2065,6 +2444,36 @@ export function MapPage() {
               onClick={() => void performUndo()}
             >
               <Undo2 size={14} />
+            </button>
+            <button
+              type="button"
+              className="btn btn-sm map-tool-btn btn-secondary"
+              title="Копировать (Ctrl+C)"
+              aria-label="Копировать"
+              disabled={!canCopyMapSelection}
+              onClick={copyMapSelection}
+            >
+              <Copy size={14} />
+            </button>
+            <button
+              type="button"
+              className="btn btn-sm map-tool-btn btn-secondary"
+              title="Вставить (Ctrl+V)"
+              aria-label="Вставить"
+              disabled={!canPasteMapClipboard}
+              onClick={enterPasteMode}
+            >
+              <ClipboardPaste size={14} />
+            </button>
+            <button
+              type="button"
+              className="btn btn-sm map-tool-btn btn-secondary"
+              title="Вырезать (Ctrl+X)"
+              aria-label="Вырезать"
+              disabled={!canCutMapSelection}
+              onClick={cutMapSelection}
+            >
+              <Scissors size={14} />
             </button>
             <button
               type="button"
@@ -2553,7 +2962,7 @@ export function MapPage() {
             selectMode={selectMode}
             editMode={mapEditEnabled}
             onMapClick={
-              drawMode === 'ruler' || (projectId && drawMode !== 'select')
+              pasteMode || drawMode === 'ruler' || (projectId && drawMode !== 'select')
                 ? handleMapClick
                 : undefined
             }
@@ -2590,7 +2999,7 @@ export function MapPage() {
               setLineDraftPreview(null);
             }}
             placementPreview={
-              mapPointerInside && cursor
+              !pasteMode && mapPointerInside && cursor
                 ? drawMode === 'point'
                   ? { subtype: infraForm.subtype, lon: cursor.lon, lat: cursor.lat }
                   : drawMode === 'poi'
@@ -2598,6 +3007,8 @@ export function MapPage() {
                     : null
                 : null
             }
+            clipboardPreviewPoints={clipboardPreviewPoints}
+            pasteMode={pasteMode}
             onFeatureSelect={
               drawMode === 'select' && selectMode === 'single' ? setFeatureSel : undefined
             }
@@ -2605,6 +3016,9 @@ export function MapPage() {
               drawMode === 'select' && selectMode === 'box' ? setFeatureGroupSel : undefined
             }
             onGeometryChange={mapEditEnabled ? handleGeometryChange : undefined}
+            onBatchGeometryChange={
+              mapEditEnabled && selectMode === 'box' ? handleBatchGeometryChange : undefined
+            }
             onBboxChange={undefined}
             connectionLines={connectionLines}
             selectedPoi={selectedPoi}
@@ -2639,6 +3053,8 @@ export function MapPage() {
               onClose={() => setFeatureSel(null)}
               onSave={(data) => saveDetailMut.mutate(data)}
               onDelete={requestDeleteSelection}
+              onCopy={canCopyMapSelection ? copyMapSelection : undefined}
+              onCut={canCutMapSelection ? cutMapSelection : undefined}
             />
           )}
 
@@ -2672,11 +3088,43 @@ export function MapPage() {
                 ))}
               </ul>
               <p className="text-xs mt-2 shrink-0" style={{ color: 'var(--text-muted)' }}>
-                Зажмите ЛКМ и выделите прямоугольником
+                Перетащите объекты · клик в пустое — новое выделение
               </p>
+              <div className="flex gap-1 mt-2 shrink-0">
+                <button
+                  type="button"
+                  className="btn btn-secondary text-xs flex-1 py-1.5"
+                  disabled={!canCopyMapSelection}
+                  title="Копировать (Ctrl+C)"
+                  onClick={copyMapSelection}
+                >
+                  <Copy size={12} className="inline mr-0.5" />
+                  Копировать
+                </button>
+                <button
+                  type="button"
+                  className="btn btn-secondary text-xs flex-1 py-1.5"
+                  disabled={!canPasteMapClipboard}
+                  title="Вставить (Ctrl+V)"
+                  onClick={enterPasteMode}
+                >
+                  <ClipboardPaste size={12} className="inline mr-0.5" />
+                  Вставить
+                </button>
+              </div>
               <button
                 type="button"
-                className="btn btn-secondary text-xs mt-2 shrink-0 w-full py-1.5"
+                className="btn btn-secondary text-xs mt-1 shrink-0 w-full py-1.5"
+                disabled={!canCutMapSelection}
+                title="Вырезать (Ctrl+X)"
+                onClick={cutMapSelection}
+              >
+                <Scissors size={12} className="inline mr-1" />
+                Вырезать
+              </button>
+              <button
+                type="button"
+                className="btn btn-secondary text-xs mt-1 shrink-0 w-full py-1.5"
                 onClick={requestDeleteGroupSelection}
                 disabled={deleteGroupMut.isPending || !canDeleteCurrentSelection}
                 title={

@@ -16,10 +16,11 @@ import { Circle as CircleStyle, Fill, Icon, Stroke, Style, Text } from 'ol/style
 import { LINE_SUBTYPES, normalizeInfraSubtype, type InfraLayer } from '../lib/api';
 import Select from 'ol/interaction/Select';
 import Modify from 'ol/interaction/Modify';
+import Translate from 'ol/interaction/Translate';
 import DragBox from 'ol/interaction/DragBox';
 import DragPan from 'ol/interaction/DragPan';
 import { defaults as defaultInteractions } from 'ol/interaction/defaults';
-import { click } from 'ol/events/condition';
+import { click, mouseActionButton } from 'ol/events/condition';
 import Overlay from 'ol/Overlay';
 import type { AnalysisRow, InfraObject, POI } from '../lib/api';
 import { isValidAnalysisAnchor } from '../lib/analysisDisplay';
@@ -180,6 +181,10 @@ export interface MapViewProps {
   onFeatureSelect?: (sel: MapFeatureSelection | null) => void;
   onFeatureGroupSelect?: (sels: MapFeatureSelection[]) => void;
   onGeometryChange?: (sel: MapFeatureSelection, lon: number, lat: number, coords?: number[][]) => void;
+  /** Group move in box-select mode (Translate interaction). */
+  onBatchGeometryChange?: (
+    items: { sel: MapFeatureSelection; lon: number; lat: number; coords?: number[][] }[],
+  ) => void | Promise<void>;
   onBboxChange?: (bbox: string) => void;
   onViewChange?: (info: { zoom: number; scaleLabel: string }) => void;
   height?: string;
@@ -210,6 +215,10 @@ export interface MapViewProps {
   editMode?: boolean;
   /** Ghost icon at cursor while placing point infrastructure. */
   placementPreview?: { subtype: string; lon: number; lat: number } | null;
+  /** Ghost markers while positioning clipboard paste. */
+  clipboardPreviewPoints?: { subtype: string; lon: number; lat: number }[];
+  /** When true, map click in select mode runs onMapClick (paste anchor). */
+  pasteMode?: boolean;
   /** Remember pan/zoom per project when leaving the page (main / matrix / report). */
   viewStateId?: MapViewStateId;
   /** Optional sub-key (e.g. POI id on the report map). */
@@ -222,8 +231,7 @@ export interface MapViewProps {
 
 type LinkedLineDragState = {
   sessionId: number;
-  pointId: string;
-  links: { lineId: string; start: boolean; end: boolean }[];
+  links: { lineId: string; start: boolean; end: boolean; pointId: string }[];
 };
 
 type LineModifySession = {
@@ -437,6 +445,7 @@ export function MapView({
   onFeatureSelect,
   onFeatureGroupSelect,
   onGeometryChange,
+  onBatchGeometryChange,
   onBboxChange,
   onViewChange,
   height = '100%',
@@ -459,6 +468,8 @@ export function MapView({
   onFitView,
   editMode = false,
   placementPreview = null,
+  clipboardPreviewPoints = [],
+  pasteMode = false,
   viewStateId,
   viewStateScope = null,
   persistViewState = true,
@@ -469,6 +480,11 @@ export function MapView({
   layersRef.current = layers;
   const infraObjectsRef = useRef(infraObjects);
   infraObjectsRef.current = infraObjects;
+  const infraSnapPoolRef = useRef(infraSnapPool);
+  infraSnapPoolRef.current = infraSnapPool;
+  const poisRef = useRef(pois);
+  poisRef.current = pois;
+  const syncInfraDataToLayersRef = useRef<(() => void) | null>(null);
   const containerRef = useRef<HTMLDivElement>(null);
   const mapRef = useRef<OlMap | null>(null);
   const pointSourceRef = useRef(new VectorSource());
@@ -478,6 +494,7 @@ export function MapView({
   const connectionSourceRef = useRef(new VectorSource());
   const selectRef = useRef<Select | null>(null);
   const modifyRef = useRef<Modify | null>(null);
+  const translateRef = useRef<Translate | null>(null);
   const dragBoxRef = useRef<DragBox | null>(null);
   const dragPanRef = useRef<DragPan | null>(null);
   const pointLayerRef = useRef<VectorLayer<VectorSource> | null>(null);
@@ -490,6 +507,7 @@ export function MapView({
   const onFeatureSelectRef = useRef(onFeatureSelect);
   const onFeatureGroupSelectRef = useRef(onFeatureGroupSelect);
   const onGeometryChangeRef = useRef(onGeometryChange);
+  const onBatchGeometryChangeRef = useRef(onBatchGeometryChange);
   const onBboxChangeRef = useRef(onBboxChange);
   const onViewChangeRef = useRef(onViewChange);
   const onFitViewRef = useRef(onFitView);
@@ -499,6 +517,7 @@ export function MapView({
   const cursorMeasureOverlayRef = useRef<Overlay | null>(null);
   const anchorMeasureOverlaysRef = useRef<Overlay[]>([]);
   const drawModeRef = useRef(drawMode);
+  const pasteModeRef = useRef(pasteMode);
   const editModeRef = useRef(editMode);
   const selectModeRef = useRef(selectMode);
   const useIconsRef = useRef(useMapIcons);
@@ -507,6 +526,10 @@ export function MapView({
   const linkedLineDragRef = useRef<LinkedLineDragState | null>(null);
   const lineModifySessionRef = useRef<LineModifySession | null>(null);
   const modifySessionRef = useRef(0);
+  const translateSessionRef = useRef(0);
+  const translateStartGeomsRef = useRef(
+    new Map<string, { sel: MapFeatureSelection; lon: number; lat: number; coords?: number[][] }>(),
+  );
   const suppressMapClickRef = useRef(false);
   const lineRightClickRef = useRef({ at: 0, x: 0, y: 0 });
   const persistViewStateRef = useRef(persistViewState);
@@ -528,6 +551,7 @@ export function MapView({
   onFeatureSelectRef.current = onFeatureSelect;
   onFeatureGroupSelectRef.current = onFeatureGroupSelect;
   onGeometryChangeRef.current = onGeometryChange;
+  onBatchGeometryChangeRef.current = onBatchGeometryChange;
   onBboxChangeRef.current = onBboxChange;
   onViewChangeRef.current = onViewChange;
   onFitViewRef.current = onFitView;
@@ -535,6 +559,7 @@ export function MapView({
   onFinishMeasureRef.current = onFinishMeasure;
   draftLineRef.current = draftLine;
   drawModeRef.current = drawMode;
+  pasteModeRef.current = pasteMode;
   editModeRef.current = editMode;
   selectModeRef.current = selectMode;
   useIconsRef.current = useMapIcons;
@@ -697,6 +722,14 @@ export function MapView({
     const modify = new Modify({ features: select.getFeatures() });
     const dragBox = new DragBox({
       className: 'ol-dragbox-select',
+      condition: (evt) => {
+        if (!mouseActionButton(evt)) return false;
+        if (drawModeRef.current !== 'select' || selectModeRef.current !== 'box') return false;
+        if (pasteModeRef.current) return false;
+        // While group is selected, drag moves features (Translate), not a new box.
+        if (select.getFeatures().getLength() > 0) return false;
+        return true;
+      },
     });
     selectRef.current = select;
     modifyRef.current = modify;
@@ -874,10 +907,10 @@ export function MapView({
         const start = Math.hypot(first[0] - pointCoord[0], first[1] - pointCoord[1]) <= LINE_ENDPOINT_FOLLOW_TOLERANCE_M;
         const end = Math.hypot(last[0] - pointCoord[0], last[1] - pointCoord[1]) <= LINE_ENDPOINT_FOLLOW_TOLERANCE_M;
         if (!start && !end) return;
-        links.push({ lineId, start, end });
+        links.push({ lineId, start, end, pointId: id });
       });
       if (links.length > 0) {
-        linkedLineDragRef.current = { sessionId, pointId: id, links };
+        linkedLineDragRef.current = { sessionId, links };
       }
     });
 
@@ -889,6 +922,7 @@ export function MapView({
         linkedLineDragRef.current = null;
         lineModifySessionRef.current = null;
         suppressDataSyncRef.current = false;
+        syncInfraDataToLayersRef.current?.();
       };
       if (!editModeRef.current) {
         finishSession();
@@ -982,10 +1016,187 @@ export function MapView({
       }
     });
 
+    const translate = new Translate({ features: select.getFeatures() });
+    translateRef.current = translate;
+
+    const readFeatureGeometry = (
+      f: Feature,
+    ): { sel: MapFeatureSelection; lon: number; lat: number; coords?: number[][] } | null => {
+      const members = f.get('features') as Feature[] | undefined;
+      const inner = members?.length === 1 ? members[0] : f;
+      const kind = inner.get('featureKind') as string;
+      const id = inner.get('id') as string;
+      if (!id || !kind) return null;
+      const sel: MapFeatureSelection =
+        kind === 'poi' ? { kind: 'poi', id } : { kind: 'infra', id };
+      const geom = f.getGeometry();
+      if (geom instanceof Point) {
+        const [lon, lat] = transform(geom.getCoordinates(), 'EPSG:3857', 'EPSG:4326');
+        return { sel, lon, lat };
+      }
+      if (geom instanceof LineString) {
+        const coords = lineCoordsFromGeometry(geom);
+        if (coords.length < 2) return null;
+        const [lon, lat] = coords[0]!;
+        return { sel, lon, lat, coords };
+      }
+      return null;
+    };
+
+    const collectLinkedLinesForPoint = (
+      pointId: string,
+      pointCoord: number[],
+      excludeLineIds: Set<string>,
+    ): LinkedLineDragState['links'] => {
+      const links: LinkedLineDragState['links'] = [];
+      lineSourceRef.current.getFeatures().forEach((lineFeature) => {
+        const lineId = lineFeature.get('id') as string | undefined;
+        const lineSubtype = lineFeature.get('subtype') as string | undefined;
+        if (!lineId || !lineSubtype || lineSubtype === 'draft' || lineSubtype === 'measure') return;
+        if (!LINE_SUBTYPES.includes(lineSubtype as typeof LINE_SUBTYPES[number])) return;
+        if (excludeLineIds.has(lineId)) return;
+        const lineGeom = lineFeature.getGeometry();
+        if (!(lineGeom instanceof LineString)) return;
+        const coords = lineGeom.getCoordinates();
+        if (coords.length < 2) return;
+        const first = coords[0];
+        const last = coords[coords.length - 1];
+        const start =
+          Math.hypot(first[0] - pointCoord[0], first[1] - pointCoord[1]) <=
+          LINE_ENDPOINT_FOLLOW_TOLERANCE_M;
+        const end =
+          Math.hypot(last[0] - pointCoord[0], last[1] - pointCoord[1]) <=
+          LINE_ENDPOINT_FOLLOW_TOLERANCE_M;
+        if (!start && !end) return;
+        links.push({ lineId, start, end, pointId });
+      });
+      return links;
+    };
+
+    translate.on('translatestart', () => {
+      const sessionId = ++translateSessionRef.current;
+      suppressDataSyncRef.current = true;
+      translateStartGeomsRef.current.clear();
+      linkedLineDragRef.current = null;
+      if (!editModeRef.current || selectModeRef.current !== 'box') return;
+      const collection = select.getFeatures();
+      const selectedLineIds = new Set<string>();
+      collection.forEach((f) => {
+        const parsed = readFeatureGeometry(f);
+        if (!parsed) return;
+        translateStartGeomsRef.current.set(parsed.sel.id, parsed);
+        if (parsed.coords && parsed.coords.length >= 2) selectedLineIds.add(parsed.sel.id);
+      });
+
+      const mergedLinks: LinkedLineDragState['links'] = [];
+      collection.forEach((f) => {
+        const members = f.get('features') as Feature[] | undefined;
+        const inner = members?.length === 1 ? members[0] : f;
+        const id = inner.get('id') as string | undefined;
+        const kind = inner.get('featureKind') as string | undefined;
+        const geom = f.getGeometry();
+        if (!id || kind !== 'infra' || !(geom instanceof Point)) return;
+        const pointCoord = geom.getCoordinates();
+        mergedLinks.push(...collectLinkedLinesForPoint(id, pointCoord, selectedLineIds));
+      });
+      if (mergedLinks.length > 0) {
+        linkedLineDragRef.current = { sessionId, links: mergedLinks };
+      }
+      void sessionId;
+    });
+
+    const applyLinkedLineDrag = () => {
+      const dragState = linkedLineDragRef.current;
+      if (!dragState || !editModeRef.current) return;
+      const collection = select.getFeatures();
+      const pointCoordsById = new Map<string, number[]>();
+      collection.forEach((f) => {
+        const members = f.get('features') as Feature[] | undefined;
+        const inner = members?.length === 1 ? members[0] : f;
+        const id = inner.get('id') as string | undefined;
+        const geom = f.getGeometry();
+        if (!id || !(geom instanceof Point)) return;
+        pointCoordsById.set(id, geom.getCoordinates());
+      });
+      if (pointCoordsById.size === 0) return;
+
+      for (const link of dragState.links) {
+        const pointCoord = pointCoordsById.get(link.pointId);
+        if (!pointCoord) continue;
+        const lineFeature = lineSourceRef.current
+          .getFeatures()
+          .find((lf) => (lf.get('id') as string | undefined) === link.lineId);
+        if (!lineFeature) continue;
+        const lineGeom = lineFeature.getGeometry();
+        if (!(lineGeom instanceof LineString)) continue;
+        const current = lineGeom.getCoordinates();
+        if (current.length < 2) continue;
+        const next = current.map((c) => [c[0], c[1]]);
+        if (link.start) next[0] = [pointCoord[0], pointCoord[1]];
+        if (link.end) next[next.length - 1] = [pointCoord[0], pointCoord[1]];
+        lineFeature.setGeometry(new LineString(next));
+      }
+      lineLayerRef.current?.changed();
+    };
+
+    translate.on('translating', applyLinkedLineDrag);
+
+    translate.on('translateend', () => {
+      const sessionId = translateSessionRef.current;
+      const finishSession = () => {
+        linkedLineDragRef.current = null;
+        suppressDataSyncRef.current = false;
+        syncInfraDataToLayersRef.current?.();
+      };
+      if (!editModeRef.current || selectModeRef.current !== 'box') {
+        finishSession();
+        return;
+      }
+      const collection = select.getFeatures();
+      const changes: {
+        sel: MapFeatureSelection;
+        lon: number;
+        lat: number;
+        coords?: number[][];
+      }[] = [];
+      collection.forEach((f) => {
+        const parsed = readFeatureGeometry(f);
+        if (!parsed) return;
+        const start = translateStartGeomsRef.current.get(parsed.sel.id);
+        if (!start) return;
+        const moved =
+          Math.abs(parsed.lon - start.lon) > 1e-9 ||
+          Math.abs(parsed.lat - start.lat) > 1e-9 ||
+          (parsed.coords &&
+            start.coords &&
+            (parsed.coords.length !== start.coords.length ||
+              parsed.coords.some(
+                (c, i) =>
+                  Math.abs(c[0]! - start.coords![i]![0]!) > 1e-9 ||
+                  Math.abs(c[1]! - start.coords![i]![1]!) > 1e-9,
+              )));
+        if (moved) changes.push(parsed);
+      });
+      translateStartGeomsRef.current.clear();
+      if (changes.length === 0) {
+        finishSession();
+        return;
+      }
+      const save = onBatchGeometryChangeRef.current?.(changes);
+      if (save != null && typeof (save as Promise<void>).then === 'function') {
+        (save as Promise<void>).finally(finishSession);
+      } else {
+        finishSession();
+      }
+      void sessionId;
+    });
+
     map.addInteraction(select);
     map.addInteraction(modify);
     map.addInteraction(dragBox);
+    map.addInteraction(translate);
     dragBox.setActive(false);
+    translate.setActive(false);
 
     const DOUBLE_RMB_MS = 650;
     const DOUBLE_RMB_MAX_PX = 28;
@@ -1072,6 +1283,11 @@ export function MapView({
           ...(overPoint ? { overPoint } : {}),
           ...(overLine ? { overLine } : {}),
         });
+        return;
+      }
+      if (pasteModeRef.current) {
+        const [lon, lat] = transform(evt.coordinate, 'EPSG:3857', 'EPSG:4326');
+        onMapClickRef.current?.(lon, lat);
         return;
       }
       if (selectModeRef.current === 'box') {
@@ -1224,31 +1440,7 @@ export function MapView({
       refreshHover(hit);
     });
 
-    map.on('pointerdrag', () => {
-      const dragState = linkedLineDragRef.current;
-      if (!dragState || !editModeRef.current) return;
-      const collection = select.getFeatures();
-      const f = collection.item(0);
-      if (!f) return;
-      const geom = f.getGeometry();
-      if (!(geom instanceof Point)) return;
-      const pointCoord = geom.getCoordinates();
-      for (const link of dragState.links) {
-        const lineFeature = lineSourceRef.current
-          .getFeatures()
-          .find((f) => (f.get('id') as string | undefined) === link.lineId);
-        if (!lineFeature) continue;
-        const lineGeom = lineFeature.getGeometry();
-        if (!(lineGeom instanceof LineString)) continue;
-        const current = lineGeom.getCoordinates();
-        if (current.length < 2) continue;
-        const next = current.map((c) => [c[0], c[1]]);
-        if (link.start) next[0] = [pointCoord[0], pointCoord[1]];
-        if (link.end) next[next.length - 1] = [pointCoord[0], pointCoord[1]];
-        lineFeature.setGeometry(new LineString(next));
-      }
-      lineLayer.changed();
-    });
+    map.on('pointerdrag', applyLinkedLineDrag);
 
     const viewport = map.getViewport();
     const onViewportLeave = () => {
@@ -1401,27 +1593,34 @@ export function MapView({
     const isSingle = isSelect && selectMode === 'single';
     const isBox = isSelect && selectMode === 'box';
     const canModify = editMode && isSingle;
-    selectRef.current?.setActive(isSingle);
-    modifyRef.current?.setActive(canModify);
-    dragBoxRef.current?.setActive(isBox);
-    dragPanRef.current?.setActive(!isBox);
+    const hasGroupSelection = selectedFeatureIds.length > 0;
+    const canTranslate =
+      editMode && isBox && hasGroupSelection && !!onBatchGeometryChangeRef.current;
+    const pasteActive = pasteMode;
+    selectRef.current?.setActive(isSingle && !pasteActive);
+    modifyRef.current?.setActive(canModify && !pasteActive);
+    translateRef.current?.setActive(canTranslate && !pasteActive);
+    dragBoxRef.current?.setActive(isBox && !pasteActive && !hasGroupSelection);
+    dragPanRef.current?.setActive(pasteActive || !isBox || hasGroupSelection);
     if (containerRef.current) {
       const isPointPlace = drawMode === 'point' || drawMode === 'poi';
-      const cursor = isRuler || isPointPlace
+      const cursor = pasteActive || isRuler || isPointPlace
         ? 'crosshair'
-        : !editMode
-          ? 'default'
-          : isBox
-            ? 'crosshair'
-            : isSelect
-              ? 'default'
-              : 'crosshair';
+        : canTranslate
+          ? 'grab'
+          : !editMode
+            ? 'default'
+            : isBox
+              ? 'crosshair'
+              : isSelect
+                ? 'default'
+                : 'crosshair';
       containerRef.current.style.cursor = cursor;
     }
     if (!isSelect) {
       selectRef.current?.getFeatures().clear();
     }
-  }, [drawMode, selectMode, editMode]);
+  }, [drawMode, selectMode, editMode, pasteMode, selectedFeatureIds.length, onBatchGeometryChange]);
 
   useEffect(() => {
     if (!editMode) {
@@ -1492,6 +1691,49 @@ export function MapView({
   }, [selectedFeatureIds, selectMode, editMode, pois, infraObjects]);
 
   useEffect(() => {
+    syncInfraDataToLayersRef.current = () => {
+      const points = pointSourceRef.current;
+      const lines = lineSourceRef.current;
+      const snapPool = infraSnapPoolRef.current ?? infraObjectsRef.current;
+      const infra = infraObjectsRef.current;
+      const poisList = poisRef.current;
+
+      const lineItems: { id: string; geometry: LineString; attrs: Record<string, unknown> }[] = [];
+      const pointItems: { id: string; geometry: Point; attrs: Record<string, unknown> }[] = [];
+
+      infra.forEach((obj) => {
+        const lineGeom = infraLineGeometry(obj, snapPool);
+        const attrs = {
+          name: obj.name,
+          subtype: normalizeInfraSubtype(obj.subtype),
+          layer_id: obj.layer_id,
+          featureKind: 'infra',
+        };
+        if (lineGeom) {
+          lineItems.push({ id: obj.id, geometry: lineGeom, attrs });
+        } else {
+          pointItems.push({
+            id: obj.id,
+            geometry: new Point(fromLonLat([obj.lon, obj.lat])),
+            attrs,
+          });
+        }
+      });
+
+      poisList.forEach((poi) => {
+        pointItems.push({
+          id: poi.id,
+          geometry: new Point(fromLonLat([poi.lon, poi.lat])),
+          attrs: { name: poi.name, subtype: 'poi', featureKind: 'poi' },
+        });
+      });
+
+      syncFeaturesById(lines, lineItems, 'draft');
+      syncFeaturesById(points, pointItems);
+      lineLayerRef.current?.changed();
+      pointLayerRef.current?.changed();
+    };
+
     const nextIds = new Set(infraObjects.map((o) => o.id));
     const prevIds = infraIdsRef.current;
     const hasNewInfra = [...nextIds].some((id) => !prevIds.has(id));
@@ -1501,45 +1743,7 @@ export function MapView({
       suppressDataSyncRef.current = false;
     }
     if (suppressDataSyncRef.current) return;
-
-    const points = pointSourceRef.current;
-    const lines = lineSourceRef.current;
-
-    const lineItems: { id: string; geometry: LineString; attrs: Record<string, unknown> }[] = [];
-    const pointItems: { id: string; geometry: Point; attrs: Record<string, unknown> }[] = [];
-
-    const snapPool = infraSnapPool ?? infraObjects;
-    infraObjects.forEach((obj) => {
-      const lineGeom = infraLineGeometry(obj, snapPool);
-      const attrs = {
-        name: obj.name,
-        subtype: normalizeInfraSubtype(obj.subtype),
-        layer_id: obj.layer_id,
-        featureKind: 'infra',
-      };
-      if (lineGeom) {
-        lineItems.push({ id: obj.id, geometry: lineGeom, attrs });
-      } else {
-        pointItems.push({
-          id: obj.id,
-          geometry: new Point(fromLonLat([obj.lon, obj.lat])),
-          attrs,
-        });
-      }
-    });
-
-    pois.forEach((poi) => {
-      pointItems.push({
-        id: poi.id,
-        geometry: new Point(fromLonLat([poi.lon, poi.lat])),
-        attrs: { name: poi.name, subtype: 'poi', featureKind: 'poi' },
-      });
-    });
-
-    syncFeaturesById(lines, lineItems, 'draft');
-    syncFeaturesById(points, pointItems);
-
-    pointLayerRef.current?.changed();
+    syncInfraDataToLayersRef.current();
   }, [pois, infraObjects, infraSnapPool]);
 
   useEffect(() => {
@@ -1740,14 +1944,24 @@ export function MapView({
   useEffect(() => {
     const source = placementPreviewSourceRef.current;
     source.clear();
-    if (!placementPreview) return;
-    source.addFeature(
-      new Feature({
-        geometry: new Point(fromLonLat([placementPreview.lon, placementPreview.lat])),
-        subtype: placementPreview.subtype,
-      })
-    );
-  }, [placementPreview]);
+    if (placementPreview) {
+      source.addFeature(
+        new Feature({
+          geometry: new Point(fromLonLat([placementPreview.lon, placementPreview.lat])),
+          subtype: placementPreview.subtype,
+        }),
+      );
+    }
+    for (const pt of clipboardPreviewPoints) {
+      source.addFeature(
+        new Feature({
+          geometry: new Point(fromLonLat([pt.lon, pt.lat])),
+          subtype: pt.subtype,
+          clipboardPreview: true,
+        }),
+      );
+    }
+  }, [placementPreview, clipboardPreviewPoints]);
 
   useEffect(() => {
     const map = mapRef.current;

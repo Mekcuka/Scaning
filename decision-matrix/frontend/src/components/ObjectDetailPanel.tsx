@@ -4,6 +4,7 @@ import {
   Calculator,
   Copy,
   FileText,
+  Scissors,
   Settings2,
   Trash2,
   Truck,
@@ -91,6 +92,8 @@ interface ObjectDetailPanelProps {
   onSave: (data: Record<string, unknown>) => void;
   onDelete: () => void;
   onClose: () => void;
+  onCopy?: () => void;
+  onCut?: () => void;
   saving?: boolean;
   readOnly?: boolean;
   deleteDisabled?: boolean;
@@ -250,6 +253,8 @@ export function ObjectDetailPanel({
   onSave,
   onDelete,
   onClose,
+  onCopy,
+  onCut,
   saving,
   readOnly = false,
   deleteDisabled = false,
@@ -783,15 +788,39 @@ export function ObjectDetailPanel({
             <span className="object-detail-panel__badge">{isPoi ? 'Точка интереса' : subtypeLabel}</span>
           </div>
         </div>
-        <button
-          type="button"
-          className="btn btn-ghost btn-icon-touch object-detail-panel__close"
-          onClick={onClose}
-          title="Закрыть (Esc)"
-          aria-label="Закрыть"
-        >
-          <X size={16} />
-        </button>
+        <div className="flex items-center gap-0.5 shrink-0">
+          {onCopy && (
+            <button
+              type="button"
+              className="btn btn-ghost btn-icon-touch"
+              onClick={onCopy}
+              title="Копировать (Ctrl+C)"
+              aria-label="Копировать"
+            >
+              <Copy size={15} />
+            </button>
+          )}
+          {onCut && (
+            <button
+              type="button"
+              className="btn btn-ghost btn-icon-touch"
+              onClick={onCut}
+              title="Вырезать (Ctrl+X)"
+              aria-label="Вырезать"
+            >
+              <Scissors size={15} />
+            </button>
+          )}
+          <button
+            type="button"
+            className="btn btn-ghost btn-icon-touch object-detail-panel__close"
+            onClick={onClose}
+            title="Закрыть (Esc)"
+            aria-label="Закрыть"
+          >
+            <X size={16} />
+          </button>
+        </div>
       </header>
 
       {isPoi && poiForm ? (
