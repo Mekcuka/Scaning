@@ -21,6 +21,9 @@ class Settings(BaseSettings):
     REDIS_URL: str = ""
     ARQ_QUEUE_NAME: str = "decision-matrix"
     JOBS_SYNC_FALLBACK: bool = True
+    # Expire stuck jobs so a new calculation can start (worker down / crash).
+    JOB_STALE_PENDING_SECONDS: int = 900
+    JOB_STALE_RUNNING_SECONDS: int = 660
 
     @property
     def jobs_use_queue(self) -> bool:

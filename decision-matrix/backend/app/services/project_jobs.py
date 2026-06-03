@@ -10,6 +10,7 @@ from sqlalchemy import select
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.core.config import settings
 from app.models import ProjectJob
 
 JOB_STATUS_PENDING = "pending"
@@ -43,6 +44,49 @@ class ActiveProjectJobError(Exception):
         super().__init__(f"Project already has active job {active_job_id}")
 
 
+def _utcnow() -> datetime:
+    return datetime.now(timezone.utc)
+
+
+def is_job_stale(job: ProjectJob, *, now: datetime | None = None) -> bool:
+    """True if pending/running job is older than configured thresholds."""
+    now = now or _utcnow()
+    if job.status == JOB_STATUS_PENDING:
+        created = job.created_at
+        if created is None:
+            return False
+        if created.tzinfo is None:
+            created = created.replace(tzinfo=timezone.utc)
+        return (now - created).total_seconds() > settings.JOB_STALE_PENDING_SECONDS
+    if job.status == JOB_STATUS_RUNNING:
+        anchor = job.started_at or job.created_at
+        if anchor is None:
+            return False
+        if anchor.tzinfo is None:
+            anchor = anchor.replace(tzinfo=timezone.utc)
+        return (now - anchor).total_seconds() > settings.JOB_STALE_RUNNING_SECONDS
+    return False
+
+
+async def expire_stale_job_if_needed(db: AsyncSession, job: ProjectJob) -> bool:
+    """Mark a stale active job as failed. Returns True if the job was expired."""
+    if job.status not in ACTIVE_STATUSES or not is_job_stale(job):
+        return False
+    await mark_job_failed(
+        db,
+        job,
+        "Задача зависла (истёк таймаут ожидания). Повторите расчёт.",
+    )
+    return True
+
+
+async def reconcile_stale_active_job(db: AsyncSession, project_id: UUID) -> None:
+    """Clear a stuck pending/running job before creating a new one."""
+    active = await get_active_job_for_project(db, project_id)
+    if active is not None:
+        await expire_stale_job_if_needed(db, active)
+
+
 async def get_active_job_for_project(db: AsyncSession, project_id: UUID) -> ProjectJob | None:
     row = await db.scalar(
         select(ProjectJob)
@@ -66,6 +110,7 @@ async def create_project_job(
 ) -> ProjectJob:
     if job_type not in ALLOWED_JOB_TYPES:
         raise ValueError(f"Unknown job_type: {job_type}")
+    await reconcile_stale_active_job(db, project_id)
     active = await get_active_job_for_project(db, project_id)
     if active is not None:
         raise ActiveProjectJobError(active.id)
@@ -104,8 +149,33 @@ async def mark_job_completed(db: AsyncSession, job: ProjectJob, result: dict[str
 async def mark_job_failed(db: AsyncSession, job: ProjectJob, message: str) -> None:
     job.status = JOB_STATUS_FAILED
     job.error_message = message[:4000]
-    job.finished_at = datetime.now(timezone.utc)
+    job.finished_at = _utcnow()
     await db.flush()
+
+
+async def mark_job_cancelled(db: AsyncSession, job: ProjectJob, message: str = "Отменено пользователем") -> None:
+    job.status = JOB_STATUS_CANCELLED
+    job.error_message = message[:4000]
+    job.finished_at = _utcnow()
+    await db.flush()
+
+
+async def cancel_active_job(
+    db: AsyncSession,
+    *,
+    project_id: UUID,
+    job_id: UUID,
+) -> ProjectJob:
+    """Cancel pending job or force-cancel stale running job."""
+    job = await db.get(ProjectJob, job_id)
+    if not job or job.project_id != project_id:
+        raise ValueError("Job not found")
+    if job.status not in ACTIVE_STATUSES:
+        raise ValueError("Job is not active")
+    if job.status == JOB_STATUS_RUNNING and not is_job_stale(job):
+        raise ValueError("Running job is not stale; wait for completion or worker timeout")
+    await mark_job_cancelled(db, job)
+    return job
 
 
 def job_to_dict(job: ProjectJob) -> dict[str, Any]:

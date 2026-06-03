@@ -14,9 +14,12 @@ from app.services.job_queue import schedule_project_job
 from app.services.project_jobs import (
     ALLOWED_JOB_TYPES,
     ActiveProjectJobError,
+    cancel_active_job,
     create_project_job,
+    expire_stale_job_if_needed,
     get_active_job_for_project,
     job_to_dict,
+    reconcile_stale_active_job,
 )
 from app.services.project_access import resolve_project
 
@@ -71,9 +74,38 @@ async def get_active_project_job(
     db: AsyncSession = Depends(get_db),
 ):
     await resolve_project(project_id, user, db, min_access=AccessLevel.read, write_scope=WriteScope.infra)
+    await reconcile_stale_active_job(db, project_id)
+    await db.commit()
     job = await get_active_job_for_project(db, project_id)
     if not job:
         return None
+    return _job_response(job)
+
+
+@jobs_router.post("/projects/{project_id}/jobs/{job_id}/cancel", response_model=ProjectJobResponse)
+async def cancel_project_job(
+    project_id: UUID,
+    job_id: UUID,
+    user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    await resolve_project(project_id, user, db, min_access=AccessLevel.write, write_scope=WriteScope.infra)
+    job = await db.get(ProjectJob, job_id)
+    if not job or job.project_id != project_id:
+        raise HTTPException(status_code=404, detail="Job not found")
+    if await expire_stale_job_if_needed(db, job):
+        await db.commit()
+        await db.refresh(job)
+        return _job_response(job)
+    try:
+        job = await cancel_active_job(db, project_id=project_id, job_id=job_id)
+    except ValueError as e:
+        msg = str(e)
+        if "not found" in msg.lower():
+            raise HTTPException(status_code=404, detail=msg) from e
+        raise HTTPException(status_code=409, detail=msg) from e
+    await db.commit()
+    await db.refresh(job)
     return _job_response(job)
 
 
