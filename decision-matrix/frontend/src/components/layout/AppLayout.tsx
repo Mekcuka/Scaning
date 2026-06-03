@@ -1,5 +1,11 @@
 import { useEffect, useState } from 'react';
-import { NavLink, Outlet, useLocation, useNavigate } from 'react-router-dom';
+import {
+  NavLink,
+  Outlet,
+  useLocation,
+  useNavigate,
+  type Location,
+} from 'react-router-dom';
 import {
   LayoutDashboard,
   Map,
@@ -157,8 +163,10 @@ export function AppLayout() {
               }
               {...(item.section
                 ? {
-                    isActive: (_api, location) =>
-                      pathBelongsToSection(location.pathname, item.section!),
+                    isActive: (
+                      _api: { isActive: boolean; isPending: boolean },
+                      location: Location,
+                    ) => pathBelongsToSection(location.pathname, item.section!),
                   }
                 : {})}
             >
