@@ -28,7 +28,6 @@ import {
   constrainLineCoordinatesOnEdit,
   findLineEndpointAttachment,
 } from '../lib/lineEndpointRules';
-import { closestPointOnPolyline } from '../lib/lineSplit';
 import { linePathForDisplay, type LinePathDisplayOptions } from '../lib/infraGeometry';
 import { InfraPointSnapIndex } from '../lib/infraSnapIndex';
 import {

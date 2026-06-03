@@ -6,10 +6,10 @@ import { removeInfraObjectsFromQueries, upsertInfraObjectInQueries } from './map
 function stubInfra(id: string): InfraObject {
   return {
     id,
-    project_id: 'p1',
     layer_id: 'l1',
     name: id,
     subtype: 'node',
+    category: 'internal',
     lon: 1,
     lat: 2,
     properties: {},

@@ -49,7 +49,10 @@ export function resolveInfraPointAtCoordinate(
   hitTolerancePx = 20,
 ): { lon: number; lat: number; id: string } | null {
   const extent = extentAroundCoordinate(map, coordinate, hitTolerancePx);
-  let best: { lon: number; lat: number; id: string; dist2: number } | null = null;
+  let bestLon = 0;
+  let bestLat = 0;
+  let bestId = '';
+  let bestDist2 = Number.POSITIVE_INFINITY;
   pointSource.forEachFeatureIntersectingExtent(extent, (feat) => {
     const inner = innerFeature(feat as Feature);
     const hit = infraPointFromFeature(inner);
@@ -60,11 +63,15 @@ export function resolveInfraPointAtCoordinate(
     const dx = c[0]! - coordinate[0]!;
     const dy = c[1]! - coordinate[1]!;
     const dist2 = dx * dx + dy * dy;
-    if (!best || dist2 < best.dist2) {
-      best = { ...hit, dist2 };
+    if (dist2 < bestDist2) {
+      bestDist2 = dist2;
+      bestLon = hit.lon;
+      bestLat = hit.lat;
+      bestId = hit.id;
     }
   });
-  return best ? { lon: best.lon, lat: best.lat, id: best.id } : null;
+  if (!Number.isFinite(bestDist2) || bestDist2 === Number.POSITIVE_INFINITY) return null;
+  return { lon: bestLon, lat: bestLat, id: bestId };
 }
 
 export function resolveHoverFeatureIdAtCoordinate(
@@ -124,7 +131,7 @@ export function resolveInfraLineSplitAtCoordinate(
   map: OlMap,
   lineSource: VectorSource,
   coordinate: Coordinate,
-  pixel: number[],
+  _pixel: number[],
   hitTolerancePx = 16,
 ): {
   lineId: string;
@@ -133,7 +140,8 @@ export function resolveInfraLineSplitAtCoordinate(
   segmentIndex: number;
 } | null {
   const extent = extentAroundCoordinate(map, coordinate, hitTolerancePx);
-  let hit: LineSplitHit | null = null;
+  let lineId = '';
+  let lineGeom: LineString | undefined;
   let bestDist2 = Number.POSITIVE_INFINITY;
 
   lineSource.forEachFeatureIntersectingExtent(extent, (feat) => {
@@ -151,21 +159,22 @@ export function resolveInfraLineSplitAtCoordinate(
     const dist2 = dx * dx + dy * dy;
     if (dist2 < bestDist2) {
       bestDist2 = dist2;
-      hit = { feature: inner, id, geom };
+      lineId = id;
+      lineGeom = geom;
     }
   });
 
-  if (!hit) return null;
+  if (!lineGeom) return null;
 
   const [clickLon, clickLat] = transform(coordinate, 'EPSG:3857', 'EPSG:4326');
-  const coords = hit.geom
+  const coords = lineGeom
     .getCoordinates()
-    .map((c) => transform(c, 'EPSG:3857', 'EPSG:4326') as [number, number]);
+    .map((c: Coordinate) => transform(c, 'EPSG:3857', 'EPSG:4326') as [number, number]);
   const closest = closestPointOnPolyline([clickLon, clickLat], coords);
   if (!closest) return null;
 
   return {
-    lineId: hit.id,
+    lineId,
     lon: closest.point[0],
     lat: closest.point[1],
     segmentIndex: closest.segmentIndex,
