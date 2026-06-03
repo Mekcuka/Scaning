@@ -1,9 +1,7 @@
 import { useMemo, useState, type ReactNode } from 'react';
 import { ChevronDown, ChevronRight, X } from 'lucide-react';
 import { LAYER_VISIBILITY_GROUPS } from '../lib/api';
-import type { MapDisplayMode } from '../hooks/useMapDisplayMode';
 import type { MapLayerOpenSections } from '../lib/mapLayerPreferences';
-import { MapDisplayModeToggle } from './MapDisplayModeToggle';
 
 type LayerRow = { id: string; name: string; is_visible: boolean };
 
@@ -40,9 +38,6 @@ type MapLayersPanelProps = {
   openSections?: MapLayerOpenSections;
   onOpenSectionsChange?: (sections: MapLayerOpenSections) => void;
   onClose?: () => void;
-  /** When set, show 2D|3D switch in the panel header (desktop sidebar). */
-  mapDisplayMode?: MapDisplayMode;
-  onMapDisplayModeChange?: (mode: MapDisplayMode) => void;
 };
 
 function Section({
@@ -103,8 +98,6 @@ export function MapLayersPanel({
   openSections: openSectionsProp,
   onOpenSectionsChange,
   onClose,
-  mapDisplayMode,
-  onMapDisplayModeChange,
 }: MapLayersPanelProps) {
   const [openSectionsLocal, setOpenSectionsLocal] = useState<MapLayerOpenSections>({
     basemap: true,
@@ -130,9 +123,6 @@ export function MapLayersPanel({
     <div className="map-layers-panel">
       <div className="map-layers-panel-head">
         <h3 className="map-layers-panel-title">Слои</h3>
-        {mapDisplayMode != null && onMapDisplayModeChange ? (
-          <MapDisplayModeToggle mode={mapDisplayMode} onChange={onMapDisplayModeChange} />
-        ) : null}
         {onClose ? (
           <button
             type="button"

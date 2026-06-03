@@ -21,22 +21,54 @@ import { useAuthStore, useAppStore } from '../../store';
 import { usePermissions } from '../../hooks/usePermissions';
 import { canSeeNav, ROLE_LABELS } from '../../lib/permissions';
 import { useActiveProject } from '../../hooks/useActiveProject';
+import {
+  navLinkTargetForSection,
+  pathBelongsToSection,
+  rememberSectionFromPath,
+  type NavSection,
+} from '../../lib/sectionNavMemory';
 import { AppSelect } from '../AppSelect';
 import { ToastStack } from '../ToastStack';
 import { ReadOnlyBanner } from '../ReadOnlyBanner';
 
-const NAV = [
-  { to: '/', icon: LayoutDashboard, label: 'Дашборд', end: true },
-  { to: '/projects', icon: FolderOpen, label: 'Проекты', end: true },
-  { to: '/map', icon: Map, label: 'Карта', end: true },
-  { to: '/parameters', icon: SlidersHorizontal, label: 'Параметры', end: false },
-  { to: '/flows', icon: GitBranch, label: 'Потоки', end: false },
-  { to: '/matrix', icon: Grid3X3, label: 'Матрица', end: true },
-  { to: '/report', icon: FileText, label: 'Отчёты', end: true },
-  { to: '/import', icon: Upload, label: 'Импорт', end: true },
-  { to: '/import-3d', icon: Box, label: 'Импорт 3D', end: true },
-  { to: '/admin', icon: Shield, label: 'Администрирование', end: false },
-] as const;
+type NavItem = {
+  label: string;
+  icon: typeof LayoutDashboard;
+  end: boolean;
+  permissionPath: string;
+  to?: string;
+  section?: NavSection;
+};
+
+const NAV: NavItem[] = [
+  { to: '/', permissionPath: '/', icon: LayoutDashboard, label: 'Дашборд', end: true },
+  { to: '/projects', permissionPath: '/projects', icon: FolderOpen, label: 'Проекты', end: true },
+  { to: '/map', permissionPath: '/map', icon: Map, label: 'Карта', end: true },
+  {
+    section: 'parameters',
+    permissionPath: '/parameters',
+    icon: SlidersHorizontal,
+    label: 'Параметры',
+    end: true,
+  },
+  { section: 'flows', permissionPath: '/flows', icon: GitBranch, label: 'Потоки', end: true },
+  { to: '/matrix', permissionPath: '/matrix', icon: Grid3X3, label: 'Матрица', end: true },
+  { to: '/report', permissionPath: '/report', icon: FileText, label: 'Отчёты', end: true },
+  { to: '/import', permissionPath: '/import', icon: Upload, label: 'Импорт', end: true },
+  { to: '/import-3d', permissionPath: '/import-3d', icon: Box, label: 'Импорт 3D', end: true },
+  {
+    section: 'admin',
+    permissionPath: '/admin',
+    icon: Shield,
+    label: 'Администрирование',
+    end: true,
+  },
+];
+
+function navItemTarget(item: NavItem): string {
+  if (item.section) return navLinkTargetForSection(item.section);
+  return item.to ?? '/';
+}
 
 export function AppLayout() {
   const { user, logout } = useAuthStore();
@@ -51,6 +83,10 @@ export function AppLayout() {
 
   useEffect(() => {
     setNavOpen(false);
+  }, [pathname]);
+
+  useEffect(() => {
+    rememberSectionFromPath(pathname);
   }, [pathname]);
 
   useEffect(() => {
@@ -72,8 +108,8 @@ export function AppLayout() {
     navigate('/login');
   };
 
-  const visibleNav = NAV.filter(({ to }) =>
-    canSeeNav(role, to, { userId: user?.id, activeProject }),
+  const visibleNav = NAV.filter((item) =>
+    canSeeNav(role, item.permissionPath, { userId: user?.id, activeProject }),
   );
 
   const closeNav = () => setNavOpen(false);
@@ -105,10 +141,13 @@ export function AppLayout() {
           </div>
         </div>
         <nav className="flex-1 min-h-0 overflow-y-auto py-3">
-          {visibleNav.map(({ to, icon: Icon, label, end }) => (
+          {visibleNav.map((item) => {
+            const { icon: Icon, label, end } = item;
+            const target = navItemTarget(item);
+            return (
             <NavLink
-              key={to}
-              to={to}
+              key={label}
+              to={target}
               end={end}
               onClick={closeNav}
               className={({ isActive }) =>
@@ -116,11 +155,18 @@ export function AppLayout() {
                   isActive ? 'bg-white/10 text-white' : 'hover:bg-white/5'
                 }`
               }
+              {...(item.section
+                ? {
+                    isActive: (_api, location) =>
+                      pathBelongsToSection(location.pathname, item.section!),
+                  }
+                : {})}
             >
               <Icon size={18} />
               {label}
             </NavLink>
-          ))}
+            );
+          })}
         </nav>
         <div className="p-4 border-t border-white/10 flex items-center gap-2 shrink-0">
           <div className="w-8 h-8 rounded-full bg-blue-600 flex items-center justify-center text-xs text-white font-medium shrink-0">

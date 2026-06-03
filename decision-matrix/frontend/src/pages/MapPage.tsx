@@ -12,6 +12,7 @@ import {
   MousePointer2,
   PenLine,
   Pencil,
+  Route,
   Ruler,
   Scissors,
   Search,
@@ -31,10 +32,12 @@ import {
   buildMapFitAllFocus,
   connectionLinesFromAnalysis,
 } from '../lib/analysisDisplay';
+import { AutoroadNetworkPanel } from '../components/AutoroadNetworkPanel';
 import {
   MapGroupSelectionPanel,
   type MapGroupSelectionItem,
 } from '../components/MapGroupSelectionPanel';
+import { isAutoroadNetworkTerminal } from '../lib/autoroadNetwork';
 import { MapDisplayModeToggle } from '../components/MapDisplayModeToggle';
 import { MapLayersPanel } from '../components/MapLayersPanel';
 import { ObjectDetailPanel, type SelectedFeature } from '../components/ObjectDetailPanel';
@@ -236,6 +239,7 @@ export function MapPage() {
   const [mapPointerInside, setMapPointerInside] = useState(false);
   const [drawMode, setDrawMode] = useState<DrawMode>('select');
   const [selectMode, setSelectMode] = useState<SelectMode>('single');
+  const [autoroadNetworkTerminalIds, setAutoroadNetworkTerminalIds] = useState<string[]>([]);
   const [selectMenuOpen, setSelectMenuOpen] = useState(false);
   const [selectedPoiId, setSelectedPoiId] = useState<string | null>(null);
   const [lineDraft, setLineDraft] = useState<number[][]>([]);
@@ -286,7 +290,12 @@ export function MapPage() {
 
   useEffect(() => {
     if (!canWriteProject && drawMode === 'poi') setDrawMode('select');
-    if (!canWriteInfra && (drawMode === 'point' || drawMode === 'line')) setDrawMode('select');
+    if (
+      !canWriteInfra &&
+      (drawMode === 'point' || drawMode === 'line' || drawMode === 'autoroad_network')
+    ) {
+      setDrawMode('select');
+    }
   }, [canWriteProject, canWriteInfra, drawMode]);
 
   const toggleMapFullscreen = useCallback(async () => {
@@ -314,6 +323,9 @@ export function MapPage() {
       setFeatureSel(null);
       setFeatureGroupSel([]);
       setPasteMode(false);
+    }
+    if (drawMode !== 'autoroad_network') {
+      setAutoroadNetworkTerminalIds([]);
     }
   }, [drawMode]);
 
@@ -605,6 +617,7 @@ export function MapPage() {
     (mode: '2d' | '3d') => {
       if (mode === '3d' && drawMode !== 'select') {
         setDrawMode('select');
+        setAutoroadNetworkTerminalIds([]);
         setLineDraft([]);
         setLineDraftPreview(null);
         setRulerPoints([]);
@@ -1304,10 +1317,30 @@ export function MapPage() {
     return groupSelectionDetails
       .filter(
         (item) =>
-          item.kind === 'infra' && item.subtype != null && !isLineSubtype(item.subtype),
+          item.kind === 'infra' &&
+          item.subtype != null &&
+          !isLineSubtype(item.subtype) &&
+          isAutoroadNetworkTerminal(item.kind, item.subtype),
       )
       .map((item) => item.id);
   }, [groupSelectionDetails]);
+
+  const autoroadNetworkDetails = useMemo((): MapGroupSelectionItem[] => {
+    const byId = new Map(infraObjects.map((o) => [o.id, o]));
+    const out: MapGroupSelectionItem[] = [];
+    for (const id of autoroadNetworkTerminalIds) {
+      const o = byId.get(id);
+      if (!o) continue;
+      out.push({
+        id: o.id,
+        name: o.name,
+        kind: 'infra',
+        subtype: o.subtype,
+        subtitle: o.subtype,
+      });
+    }
+    return out;
+  }, [autoroadNetworkTerminalIds, infraObjects]);
 
   const canAutoroadConnect =
     canWriteInfra &&
@@ -1384,6 +1417,65 @@ export function MapPage() {
     if (!canAutoroadConnect || autoroadConnectMut.isPending) return;
     autoroadConnectMut.mutate(autoroadConnectObjectIds);
   };
+
+  const runAutoroadNetworkFlow = useMutation({
+    mutationFn: async (objectIds: string[]) => {
+      const preview = await api.autoroadNetworkPlan(projectId!, { object_ids: objectIds });
+      const warnLines =
+        preview.warnings.length > 0
+          ? `\n\nПредупреждения: ${preview.warnings.slice(0, 5).join('; ')}`
+          : '';
+      const farCount = preview.terminals.filter((t) => t.warning).length;
+      const farNote =
+        farCount > 0 ? `\nОбъектов вне 300 м от дороги: ${farCount}.` : '';
+      const msg = [
+        `Новых линий: ${preview.new_line_count}, узлов: ${preview.new_node_count}, разрезов: ${preview.split_count}.`,
+        `Длина новых участков: ~${preview.total_new_km.toFixed(2)} км.`,
+        farNote,
+        warnLines,
+        '\n\nПрименить соединение?',
+      ]
+        .filter(Boolean)
+        .join('');
+      if (!window.confirm(msg)) return null;
+      const applyRes = await api.autoroadNetworkApply(projectId!, { object_ids: objectIds });
+      if (isProjectJobCreateResponse(applyRes)) {
+        const job = await pollProjectJobUntilDone(projectId!, applyRes.job_id, {
+          timeoutMs: 600_000,
+        });
+        return job.result as unknown as AutoroadConnectResult;
+      }
+      return applyRes;
+    },
+    onSuccess: (result) => {
+      if (!result) return;
+      void queryClient.invalidateQueries({ queryKey: ['activeJob', projectId] });
+      const createdIds = [...(result.created_line_ids ?? []), ...(result.created_node_ids ?? [])];
+      if (createdIds.length > 0) {
+        pushUndo({
+          kind: 'create_clipboard_group',
+          poiIds: [],
+          infraIds: createdIds,
+          label: 'построение сети автодорог',
+        });
+      }
+      pushToast(
+        'success',
+        result.created_lines || result.created_nodes
+          ? `Сеть построена: ${result.created_lines ?? 0} линий, ${result.created_nodes ?? 0} узлов`
+          : 'Объекты уже связаны по существующей сети',
+      );
+      setAutoroadNetworkTerminalIds([]);
+      setDrawMode('select');
+      invalidateMap();
+    },
+    onError: (err) => {
+      pushToast('error', err instanceof Error ? err.message : 'Не удалось построить сеть');
+    },
+  });
+
+  const canAutoroadNetworkPreview =
+    canWriteInfra && !projectJobBusy && autoroadNetworkTerminalIds.length >= 2;
 
   const executeDeleteSingleSelection = () => {
     if (!projectId || !featureSel) return;
@@ -2238,6 +2330,24 @@ export function MapPage() {
         void executePaste(lon, lat);
         return;
       }
+      if (drawMode === 'autoroad_network') {
+        if (!canWriteInfra) return;
+        const over = hit?.overPoint;
+        if (!over?.id) {
+          pushToast('info', 'Кликните по точечному объекту инфраструктуры');
+          return;
+        }
+        const obj = infraObjects.find((o) => o.id === over.id);
+        if (!obj) return;
+        if (!isAutoroadNetworkTerminal('infra', obj.subtype)) {
+          pushToast('info', 'Узлы (Узел / метанол / ЛЭП) не выбираются — только перекрёстки');
+          return;
+        }
+        setAutoroadNetworkTerminalIds((ids) =>
+          ids.includes(obj.id) ? ids.filter((x) => x !== obj.id) : [...ids, obj.id],
+        );
+        return;
+      }
       if (drawMode === 'ruler') {
         handleRulerClick(lon, lat);
         return;
@@ -2307,6 +2417,8 @@ export function MapPage() {
       canWriteProject,
       canWriteInfra,
       drawMode,
+      infraObjects,
+      pushToast,
       handleRulerClick,
       infraForm.subtype,
       infraObjects,
@@ -2511,6 +2623,9 @@ export function MapPage() {
   const mapFooterHint = useMemo(() => {
     if (pasteMode) {
       return 'Кликните на карте — вставить · Esc — отмена';
+    }
+    if (drawMode === 'autoroad_network') {
+      return 'Клик по точке — добавить/убрать терминал · панель справа — предпросмотр';
     }
     if (drawMode !== 'select') return null;
     if (mapEditEnabled) {
@@ -2837,6 +2952,31 @@ export function MapPage() {
             </div>
             <button
               type="button"
+              className={`btn btn-sm map-tool-btn map-tool-btn--with-label ${drawMode === 'autoroad_network' ? 'btn-primary active' : 'btn-secondary'}`}
+              disabled={!canWriteInfra || mapIn3d || projectJobBusy}
+              title={
+                mapIn3d
+                  ? 'Только в режиме 2D'
+                  : 'Построить сеть автодорог между выбранными точками'
+              }
+              aria-label="Построить сеть автодорог"
+              onClick={() => {
+                if (drawMode === 'autoroad_network') {
+                  setDrawMode('select');
+                  return;
+                }
+                setLineDraft([]);
+                setPointMenuOpen(false);
+                setLineMenuOpen(false);
+                setSelectMenuOpen(false);
+                setDrawMode('autoroad_network');
+              }}
+            >
+              <Route size={14} className="shrink-0" aria-hidden />
+              <span className="map-tool-label">Сеть</span>
+            </button>
+            <button
+              type="button"
               className={`btn btn-sm map-tool-btn map-tool-btn--with-label ${drawMode === 'poi' ? 'btn-primary active' : 'btn-secondary'}`}
               disabled={!canWriteProject || mapIn3d}
               title={
@@ -3131,8 +3271,6 @@ export function MapPage() {
               className={`map-sidebar-panel${mapLayersOpen ? ' map-sidebar-panel--open' : ''}`}
             >
               <MapLayersPanel
-                mapDisplayMode={map3dFeatureEnabled ? mapDisplayMode : undefined}
-                onMapDisplayModeChange={map3dFeatureEnabled ? switchMapDisplayMode : undefined}
                 layers={layers}
                 isGroupVisible={isGroupVisible}
                 onGroupVisibility={setGroupSubtypesVisible}
@@ -3232,7 +3370,10 @@ export function MapPage() {
             selectMode={selectMode}
             editMode={mapEditEnabled}
             onMapClick={
-              pasteMode || drawMode === 'ruler' || (projectId && drawMode !== 'select')
+              pasteMode ||
+              drawMode === 'ruler' ||
+              drawMode === 'autoroad_network' ||
+              (projectId && drawMode !== 'select')
                 ? handleMapClick
                 : undefined
             }
@@ -3261,6 +3402,11 @@ export function MapPage() {
             onFeatureGroupSelect={
               drawMode === 'select' && selectMode === 'box' ? setFeatureGroupSel : undefined
             }
+            selectedFeatureIds={
+              drawMode === 'autoroad_network'
+                ? autoroadNetworkTerminalIds
+                : featureGroupSel.map((s) => s.id)
+            }
             onGeometryChange={mapEditEnabled ? handleGeometryChange : undefined}
             onBatchGeometryChange={
               mapEditEnabled && selectMode === 'box' ? handleBatchGeometryChange : undefined
@@ -3269,7 +3415,6 @@ export function MapPage() {
             connectionLines={connectionLines}
             selectedPoi={selectedPoi}
             selectedFeatureId={featureSel?.id ?? null}
-            selectedFeatureIds={featureGroupSel.map((s) => s.id)}
             thresholdCircles={thresholdCircles}
             draftLine={lineDraft}
             draftLinePreview={lineDraftPreview}
@@ -3305,6 +3450,19 @@ export function MapPage() {
               onDelete={requestDeleteSelection}
               onCopy={canCopyMapSelection ? copyMapSelection : undefined}
               onCut={canCutMapSelection ? cutMapSelection : undefined}
+            />
+          )}
+
+          {drawMode === 'autoroad_network' && (
+            <AutoroadNetworkPanel
+              items={autoroadNetworkDetails}
+              onClear={() => setAutoroadNetworkTerminalIds([])}
+              onPreview={() => {
+                if (!canAutoroadNetworkPreview || runAutoroadNetworkFlow.isPending) return;
+                runAutoroadNetworkFlow.mutate(autoroadNetworkTerminalIds);
+              }}
+              canPreview={canAutoroadNetworkPreview}
+              pending={runAutoroadNetworkFlow.isPending}
             />
           )}
 

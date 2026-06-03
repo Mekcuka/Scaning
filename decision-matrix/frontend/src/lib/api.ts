@@ -286,6 +286,10 @@ function applyAuthSession(session: AuthSession): AuthUser {
   return user;
 }
 
+function isNotFoundApiError(err: unknown): boolean {
+  return err instanceof Error && /\bnot found\b/i.test(err.message);
+}
+
 export const api = {
   login: async (email: string, password: string) => {
     const session = await request<AuthSession>('/auth/login', {
@@ -524,6 +528,60 @@ export const api = {
         timeoutMs: opts?.timeoutMs ?? 120_000,
       },
     ),
+  autoroadNetworkPlan: async (
+    projectId: string,
+    data: { object_ids: string[] },
+    opts?: { timeoutMs?: number },
+  ) => {
+    const timeoutMs = opts?.timeoutMs ?? 120_000;
+    try {
+      return await request<AutoroadConnectResult>(
+        `/projects/${projectId}/autoroad-network/plan`,
+        {
+          method: 'POST',
+          body: JSON.stringify({ ...data, dry_run: true }),
+          timeoutMs,
+        },
+      );
+    } catch (err) {
+      if (!isNotFoundApiError(err)) throw err;
+      return request<AutoroadConnectResult>(
+        `/projects/${projectId}/infrastructure/autoroad-connect`,
+        {
+          method: 'POST',
+          body: JSON.stringify({ ...data, dry_run: true }),
+          timeoutMs,
+        },
+      );
+    }
+  },
+  autoroadNetworkApply: async (
+    projectId: string,
+    data: { object_ids: string[] },
+    opts?: { timeoutMs?: number },
+  ) => {
+    const timeoutMs = opts?.timeoutMs ?? 120_000;
+    try {
+      return await request<AutoroadConnectResult | ProjectJobCreateResponse>(
+        `/projects/${projectId}/autoroad-network/apply`,
+        {
+          method: 'POST',
+          body: JSON.stringify({ ...data, dry_run: false }),
+          timeoutMs,
+        },
+      );
+    } catch (err) {
+      if (!isNotFoundApiError(err)) throw err;
+      return request<AutoroadConnectResult | ProjectJobCreateResponse>(
+        `/projects/${projectId}/infrastructure/autoroad-connect`,
+        {
+          method: 'POST',
+          body: JSON.stringify({ ...data, dry_run: false }),
+          timeoutMs,
+        },
+      );
+    }
+  },
   getActiveProjectJob: (projectId: string) =>
     request<ProjectJobResponse | null>(`/projects/${projectId}/jobs/active`),
   getProjectJob: (projectId: string, jobId: string) =>

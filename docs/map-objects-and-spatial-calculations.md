@@ -223,15 +223,18 @@ flowchart LR
 
 ### 1.8 Соединение точечных объектов автодорогами (сервер)
 
-Пользователь выбирает **≥ 2** точечных объекта инфраструктуры (без линий и POI) в режиме группового выделения и запускает **«Соединить автодорогами»**. Backend (`POST /projects/{id}/infrastructure/autoroad-connect`, `app/services/autoroad_connect.py`, общий граф — `road_graph.py`):
+> **Полный план (целевая архитектура):** отдельный сервис с API plan in/out, BFF и UI «Построить сеть» — [autoroad-network-plan.md](./autoroad-network-plan.md). Терминалы: любые точечные подтипы **кроме** группы узлов (`node`, `methanol_joint`, `power_line_node`); перекрёстки — только `subtype=node`.
+
+**Режимы UI:** (1) **«Построить сеть»** — пошаговый выбор терминалов, `POST .../autoroad-network/plan|apply`; (2) **групповое выделение** — **«Соединить автодорогами»**, `POST .../infrastructure/autoroad-connect` (deprecated, тот же planner). Код: `app/services/autoroad_network/plan_core.py`, apply — `autoroad_connect.py`, граф — `road_graph.py`.
+
+**Алгоритм (оба режима):**
 
 1. Пересборка топологии (`build_network_from_lines`), граф только по рёбрам `autoroad` (вес = `length_km`).
-2. Snap каждого объекта к ближайшей точке на полилинии автодороги (допуск **0,3 км**, как `ENDPOINT_SNAP_TOLERANCE_KM`); объекты дальше — в `warnings`, без автоматического соединения.
-3. **MST** (Крускал) на терминалах с метрикой кратчайшего пути по сети; объединение путей MST по существующим рёбрам (линии на карте **не перерисовываются**).
-4. **Мосты** — прямые новые `autoroad` между ближайшими точками несвязных компонент сети, пока все выбранные терминалы в одной мета-компоненте.
-5. **Подъезды** — новые `autoroad` от объекта до точки snap, с `line_snap_start_object_id` на объект.
-6. **Перекрёстки** — пересечение новых участков с существующими линиями: создание `InfrastructureObject` subtype **`node`** (как при ручном разрезе), разрез линии (`line_split.py`, аналог `lineSplit.ts` на фронте). Пересечения считаются в плоской lon/lat (как snap линий).
-7. Транзакция; в конце снова `build_network_from_lines`. Ответ: счётчики, `warnings`, `preview` (GeoJSON при `dry_run: true`).
+2. Snap каждого объекта к ближайшей точке на полилинии автодороги (допуск **0,3 км**); объекты дальше — `warning`, но **все выбранные терминалы** участвуют в соединении.
+3. **MST** (Крускал) на всех терминалах: стоимость ребра = `min(путь по сети, прямая между объектами)`. Оптимальный маршрут по **существующим** дорогам не дублируется на карте; иначе создаётся новая линия `autoroad` (`kind=link`).
+4. **Подъезды** — новые `autoroad` от объекта до точки snap (если объект не на линии), с `line_snap_start_object_id`.
+5. **Перекрёстки** — пересечение новых участков с существующими линиями: `subtype=node`, разрез линии (`line_split.py`). Пересечения — плоская lon/lat.
+6. Транзакция; в конце снова `build_network_from_lines`. Ответ: счётчики, `warnings`, `preview` (GeoJSON при `dry_run: true`).
 
 Лимит: до **50** `object_ids` в запросе. Отмена на карте (Ctrl+Z) — удаление созданных линий и узлов (`create_clipboard_group` → batch delete). Расчётные `InfrastructureNode` в БД по-прежнему **не отображаются** на карте; для перекрёстков нужны объекты **`node`**.
 
@@ -252,7 +255,11 @@ flowchart LR
 
 **API:** `POST /projects/{id}/jobs`, `GET /projects/{id}/jobs/{job_id}`, `GET /projects/{id}/jobs/active`, `POST /projects/{id}/jobs/{job_id}/cancel`. Для **admin:** `GET /admin/jobs`, `GET /admin/jobs/health`, `POST /admin/jobs/{id}/cancel` (UI: `/admin/jobs`). Существующие endpoint (`autoroad-connect` apply, `sand-logistics/analyze`, `pois/analyze-all`, `import/*/async`) при включённой очереди возвращают **202** и `{ job_id, job_type, status }`; UI опрашивает job до `completed` и читает `result`.
 
+**Постановка в очередь:** `services/job_queue.py` — `create_pool(..., default_queue_name=ARQ_QUEUE_NAME)` и `enqueue_job(..., _queue_name=ARQ_QUEUE_NAME)`; worker слушает ту же очередь (`WorkerSettings.queue_name`). Имя по умолчанию: `decision-matrix` (не `arq:queue`).
+
 **Preview** autoroad (`dry_run: true`) остаётся **синхронным** в HTTP. Локально без Redis: `JOBS_SYNC_FALLBACK=true` — задачи в `asyncio.create_task` в процессе API. Deploy: [DEPLOY.md](../DEPLOY.md) — сервисы `redis` и `worker`.
+
+**Админ-журнал (UI):** `/admin/jobs` — health Redis, таблица задач, отмена; автообновление 3 с при активных статусах ([user-flows.md](./user-flows.md) §5.3).
 
 #### 1.7.1 Схема движения песка (React Flow)
 
@@ -680,8 +687,11 @@ sequenceDiagram
 
 | Дата | Изменение |
 |------|-----------|
+| 2026-06 | Admin `/admin/jobs`: журнал, health, отмена; enqueue в `ARQ_QUEUE_NAME`; worker guard при cancel; UI автообновление 3 с |
 | 2026-06 | §1.9: фоновые задачи проекта (`project_jobs`, Redis + ARQ, worker); сериализация по `project_id` |
+| 2026-06 | [autoroad-network-plan.md](./autoroad-network-plan.md): план выделенного сервиса plan API, BFF, UI «Построить сеть» |
 | 2026-06 | §1.8: серверное соединение точек автодорогами (`autoroad-connect`, `road_graph`, `line_split`); UI в панели группового выделения |
+| 2026-06 | §1.8: MST на всех терминалах, `min(сеть, прямая)`; новые `link` без нарисованных дорог; UI «Построить сеть» |
 | 2026-06 | §6.1.2: rAF pointermove, spatial hit-test, точечный hover, memo MapView, idle sync слоя, LOD default 1:500 000, perf checklist |
 | 2026-06 | §6.1.2: throttling bbox, синхронизация full+bbox кэшей при CRUD/геометрии (`mapQueries`), overlay merge; footer без координат курсора |
 | 2026-06 | §6.1.1: групповое перемещение с привязкой линий (`mapGroupLinePatches`, merge концов, `translating` + resync слоя); §1.5 ссылка на batch |

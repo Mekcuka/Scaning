@@ -17,6 +17,7 @@ Workflow: `.github/workflows/deploy-pages.yml`
 
 Проверьте один раз:
 - `Settings -> Pages -> Build and deployment -> Source -> GitHub Actions`.
+- Сборка копирует `dist/index.html` → `dist/404.html` (SPA на GitHub Pages); `public/sw.js` отдаёт `index.html` при навигации на вложенные маршруты (`/Scaning/admin/jobs` и т.д.). После обновления SW — жёсткое обновление страницы (Ctrl+Shift+R).
 - `Settings -> Secrets and variables -> Actions -> Variables`:
   - `VITE_API_URL` — **`https://erascaning.duckdns.org/api/v1`**
   - `VITE_MAP_3D_ENABLED` — `true` (переключатель 2D/3D на карте)
@@ -127,9 +128,9 @@ Get-Content -Raw "C:\Users\user\Documents\mykey\ssh-key\ssh-key-1779903372392" |
 
 **Фоновые задачи:** контейнер **`worker`** (`arq app.worker.settings.WorkerSettings`) обрабатывает соединение автодорог, async-импорт, логистику песка и `analyze-all`. В проекте одновременно не более одной задачи в статусе `pending`/`running` (ответ **409** при конфликте). API: `POST/GET /projects/{id}/jobs`, `GET .../jobs/active`, `POST .../jobs/{job_id}/cancel`.
 
-**Важно:** API и worker должны использовать одну очередь Redis — `ARQ_QUEUE_NAME` (по умолчанию `decision-matrix`). Если задачи «висят» в `pending`, проверьте `docker compose ps` (сервисы `redis`, `worker` up) и отмените зависшие записи в **Администрирование → Журнал задач**, затем перезапустите расчёт после деплоя.
+**Важно:** API и worker должны использовать **одну** очередь Redis — `ARQ_QUEUE_NAME` (по умолчанию `decision-matrix`). В `services/job_queue.py` при постановке задачи в ARQ явно передаётся это имя (не дефолтный `arq:queue` библиотеки). Если задачи «висят» в `pending`, проверьте `docker compose ps` (сервисы `redis`, `worker` up) и отмените зависшие записи в **Администрирование → Журнал задач**, затем перезапустите расчёт.
 
-**Журнал задач (admin):** при `REDIS_URL` на VM администратор видит очередь в UI (**Администрирование → Журнал задач**, `/admin/jobs`): `GET /admin/jobs`, `GET /admin/jobs/health`, `POST /admin/jobs/{id}/cancel` (идемпотентная отмена с актуальным статусом). См. [docs/user-flows.md](docs/user-flows.md) §5.3.
+**Журнал задач (admin):** при `REDIS_URL` на VM администратор видит очередь в UI (**Администрирование → Журнал задач**, `/admin/jobs`): `GET /admin/jobs`, `GET /admin/jobs/health`, `POST /admin/jobs/{id}/cancel` (идемпотентная отмена с актуальным статусом). Список и счётчики автообновляются каждые 3 с, пока есть `pending`/`running`. См. [docs/user-flows.md](docs/user-flows.md) §5.3.
 
 ### Runtime env на VM (один раз)
 
@@ -214,7 +215,7 @@ ssh -i "C:\Users\user\Documents\mykey\ssh-key\ssh-key-1779903372392" vovavolgin9
 - Frontend использует актуальный `VITE_API_URL` (`https://erascaning.duckdns.org/api/v1`).
 - **Импорт 3D:** upload GLB → назначение подтипов → 3D на карте / превью; custom GLB грузятся с API с Bearer (см. [docs/auth-rbac.md](docs/auth-rbac.md), [docs/map-3d-features.md](docs/map-3d-features.md)).
 - **Логистика песка:** `/flows/logistics` — схема с timeline (полная топология на любом годе, будущие объекты серые); быстрая смена года без remount React Flow (см. [map-objects-and-spatial-calculations.md](docs/map-objects-and-spatial-calculations.md) §1.7.1).
-- **Админ, журнал задач:** `/admin/jobs` — Redis OK, счётчики по статусам, отмена `pending`/`running`; после деплоя backend обязателен.
+- **Админ, журнал задач:** https://mekcuka.github.io/Scaning/admin/jobs — Redis OK, автообновление статусов, отмена `pending`/`running`; нужны backend с `admin/jobs` и актуальный frontend.
 - Карта (регрессия линий): pitch **0°** — изгиб 3D = 2D; концы ЛЭП на узлах после pan; см. [map-3d-features.md](docs/map-3d-features.md) §6.1
 - Карта 2D (производительность): на тяжёлом проекте — плавный pan/hover без лишних React commits; опционально — [testing-strategy.md](docs/testing-strategy.md) § «Карта 2D — ручной perf checklist»
 

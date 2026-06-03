@@ -51,7 +51,8 @@
 | Модуль | API / сервисы | Статус |
 |--------|---------------|--------|
 | Auth + RBAC | `api/v1/auth.py`, `admin.py`, `admin_jobs.py`, `services/auth_tokens.py`, `project_access.py` | ✅ |
-| Фоновые задачи (admin) | `admin_jobs.py`, `services/admin_jobs.py`, `project_jobs.py`, ARQ worker | ✅ |
+| Фоновые задачи (проект) | `project_jobs.py`, `job_queue.py` (enqueue в `ARQ_QUEUE_NAME`), `project_job_run.py`, worker | ✅ |
+| Фоновые задачи (admin) | `api/v1/admin_jobs.py`, `services/admin_jobs.py` | ✅ |
 | Проекты, POI, ставки, пороги | `api/v1/router.py`, `services/cost_rates.py`, `calculations.py` | ✅ |
 | Карта, слои, объекты | `api/v1/map.py` | ✅ |
 | Custom GLB 3D (`project_map3d_models`) | `api/v1/map3d_models.py`, `services/map3d_custom_models.py`, миграции `015`–`016` (`assigned_subtypes[]`); клиент: `map3dCustomGlbFetch.ts` (Bearer на проде) | ✅ |
@@ -63,6 +64,9 @@
 | Схема потоков | `api/v1/flow.py`, `fluid_flow_schematic.py`, `flow_schematic_merge.py` | ✅ |
 | Песок / логистика | `api/v1/sand_logistics.py`, `sand_logistics.py`, `sand_logistics_store.py` | ✅ (результат в БД; схема: timeline, полная топология на любом годе, layout/slice, адаптивные отступы) |
 | Экономика потоков | `economic_flow_schematic.py`, `economic_rates.py` | ✅ |
+| Автосеть автодорог | `plan_core`: MST всех терминалов, `min(сеть, прямая)`; BFF `autoroad-network/plan|apply`; job `autoroad_connect`; legacy `autoroad-connect` | ✅ |
+| Autoroad Network Service (HTTP :8001) | `services/autoroad-network/` | ⬜ опционально (`AUTOROAD_NETWORK_INPROCESS=false`) |
+| UI «Построить сеть» | `MapPage` drawMode `autoroad_network`, `AutoroadNetworkPanel`, `lib/autoroadNetwork.ts` | ✅ |
 
 **БД:** SQLite (`run_local.py`) или PostgreSQL + PostGIS (`DATABASE_URL` в `.env`). Geodesic: PostGIS `geography` или haversine fallback.
 
@@ -83,7 +87,9 @@
 | `/import-3d` | `Import3DPage` — custom GLB (admin upload; owner assign) | ✅ |
 | `/flows/*` | `FlowTechnologyPage`, … | ✅ |
 | `/admin/users` | `AdminLayout` + `AdminUsersPage` | ✅ |
-| `/admin/jobs` | `AdminLayout` + `AdminJobsPage` (health, фильтры, отмена) | ✅ |
+| `/admin/jobs` | `AdminLayout` + `AdminJobsPage` (health, фильтры, отмена, автообновление 3 с) | ✅ |
+
+**Оболочка (`AppLayout`):** выход (иконка `LogOut`) в нижней панели сайдбара; в шапке — тема и выбор проекта. PWA: `public/sw.js` — fallback на `index.html` для deep link (например `/Scaning/admin/jobs` на Pages).
 
 **3D-карта:** `VITE_MAP_3D_ENABLED`, `VITE_MAPTILER_KEY`, `VITE_API_URL` (обязателен на GitHub Pages) — см. [map-3d-features.md](./map-3d-features.md), cross-origin auth — [auth-rbac.md](./auth-rbac.md).
 
@@ -97,7 +103,7 @@
 
 ### Реализовано
 
-- **FR-1:** регистрация, вход, JWT cookies, refresh rotation, logout, 4 роли, admin users/stats, `published` для viewer.
+- **FR-1:** регистрация, вход, JWT cookies, refresh rotation, logout, 4 роли, admin users/stats, журнал фоновых задач (`/admin/jobs`), `published` для viewer.
 - **FR-2:** слои, объекты, рисование 2D, импорт (CSV, GeoJSON, KML, Shapefile, Spark, API connections), `import_logs`, поиск на карте, пространственный анализ, радиусы, линии POI→external. **Copy/paste группы (2D):** точное сохранение ломаной (`line_preserve_geometry`, привязка концов только к близнецам из выделения) — [map-objects-and-spatial-calculations.md](./map-objects-and-spatial-calculations.md) §6.1.0. **Производительность карты:** viewport `bbox` + буфер, throttling панорамирования, merge overlay, единый патч full+bbox кэшей, rAF/spatial hit-test/memo MapView, snap-index при рисовании линии, idle-sync слоя, LOD 1:500 000 — §6.1.2; ручной perf checklist — [testing-strategy.md](./testing-strategy.md).
 - **FR-4–7:** проекты, POI, 16 ставок, пороги, инженерные параметры, 9 строк анализа матрицы, стоимость, candidates, override.
 - **FR-8:** матрица (таблица + карточки), смена eng-параметров, фильтр превышений, мини-карта.
@@ -145,12 +151,14 @@
 
 Базовый URL: `/api/v1`. Полный список — Swagger `/api/v1/docs` и [decision-matrix/README.md](../decision-matrix/README.md).
 
-Группы: `auth`, `admin`, `projects`, `projects/{id}/pois`, `projects/{id}/infrastructure/*`, `projects/{id}/map3d-custom-models` (upload / list / assign-by-subtype / file), `projects/{id}/pois/{id}/analysis`, `projects/{id}/import/*`, `import/logs`, `projects/{id}/one-pagers`, `projects/{id}/flow-schematic`, `projects/{id}/infrastructure/networks`, `projects/{id}/import_connections`, `projects/{id}/sand-logistics` (GET result, POST analyze).
+Группы: `auth`, `admin`, `admin/jobs` (list, health, cancel), `projects`, `projects/{id}/pois`, `projects/{id}/infrastructure/*`, `projects/{id}/map3d-custom-models` (upload / list / assign-by-subtype / file), `projects/{id}/pois/{id}/analysis`, `projects/{id}/import/*`, `import/logs`, `projects/{id}/one-pagers`, `projects/{id}/flow-schematic`, `projects/{id}/infrastructure/networks`, `projects/{id}/import_connections`, `projects/{id}/sand-logistics` (GET result, POST analyze).
 
 ---
 
 ## Тестирование и CI
 
+- Backend: `tests/test_admin_jobs.py` (admin list/cancel/health HTTP), `tests/test_job_queue.py` (очередь `decision-matrix`), `tests/test_project_jobs.py`.
+- Frontend: `src/pages/AdminJobsPage.test.tsx` (рендер журнала без падения).
 - GitHub Actions: [`.github/workflows/ci.yml`](../.github/workflows/ci.yml) — lint, unit, coverage gates, E2E.
 - Husky / lint-staged в корне — **не** настроены ([development-plan.md](./development-plan.md) этап 1).
 - Деплой: [DEPLOY.md](../DEPLOY.md), GitHub Pages + VM workflow.

@@ -784,11 +784,6 @@ table.data-table--projects .col-actions {
   justify-content: space-between;
   gap: 8px;
   margin-bottom: 6px;
-  flex-wrap: wrap;
-}
-
-.map-layers-panel-head .map-display-mode-toggle {
-  margin-left: auto;
 }
 
 .map-layers-panel-title {
@@ -3949,10 +3944,6 @@ tr:hover .inline-table-edit-trigger,
 
   .projects-table-card > .card-header.projects-table-card__header .btn {
     order: 3;
-  }
-
-  .btn-logout-label {
-    display: none;
   }
 
   .app-main {

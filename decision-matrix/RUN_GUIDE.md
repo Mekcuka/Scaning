@@ -197,6 +197,9 @@ npm run dev
 - Порт `5173` или `8000` занят  
   Освободите порт или запустите сервис на другом порту. Добавьте новый порт frontend в `CORS_ORIGINS`. Не открывайте одновременно `localhost:5173` и `localhost:5174` — см. §7 «Карта».
 
+- **«Построить сеть» / Not Found** при вызове API  
+  Часто на порту `8000` висит **старый** uvicorn без маршрутов `autoroad-network`. Закройте лишние терминалы с backend или выполните `Get-Process python* | Stop-Process -Force`, затем **один** раз `python run_local.py` (скрипт освобождает порт 8000 на Windows). Проверка: в Swagger (`http://127.0.0.1:8000/api/v1/docs`) должны быть `POST .../autoroad-network/plan` и `.../apply`. UI открывайте на **5173** (`npm run dev`), не на `:8000`.
+
 - `pip install` падает на зависимостях  
   Обновите pip: `python -m pip install --upgrade pip`.
 

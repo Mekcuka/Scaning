@@ -17,6 +17,7 @@ function renderRedirect() {
       <Route path="/flows" element={<FlowsIndexRedirect />} />
       <Route path="/flows/logistics" element={<div>logistics-page</div>} />
       <Route path="/flows/technology" element={<div>technology-page</div>} />
+      <Route path="/flows/economic" element={<div>economic-page</div>} />
     </Routes>,
     { initialEntries: ['/flows'] },
   );
@@ -24,6 +25,7 @@ function renderRedirect() {
 
 describe('FlowsIndexRedirect', () => {
   beforeEach(() => {
+    sessionStorage.clear();
     seedAppStore({ currentProjectId: 'p1' });
   });
 
@@ -45,5 +47,11 @@ describe('FlowsIndexRedirect', () => {
     seedAppStore({ currentProjectId: null });
     renderRedirect();
     await waitFor(() => expect(screen.getByText('technology-page')).toBeInTheDocument());
+  });
+
+  it('redirects to last visited flows tab when saved', async () => {
+    sessionStorage.setItem('dm-nav-last-section:flows', '/flows/economic');
+    renderRedirect();
+    await waitFor(() => expect(screen.getByText('economic-page')).toBeInTheDocument());
   });
 });

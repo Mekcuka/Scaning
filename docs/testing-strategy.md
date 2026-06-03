@@ -104,6 +104,8 @@ npm run test:e2e
 |------|--------|----------------------|
 | Инфраструктура harness + fixtures | готово | — |
 | Auth, report utils, flows, admin | готово | |
+| Admin jobs (`test_admin_jobs.py`, `AdminJobsPage.test.tsx`) | готово | |
+| Job queue (`test_job_queue.py`, имя очереди ARQ) | готово | |
 | MapPage integration (mock MapView + OL) | готово | MapPage ~76% |
 | CI gate `src/pages/**` | **77%** (ступень к 80%) | **~78–79%** |
 

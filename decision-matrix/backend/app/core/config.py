@@ -24,6 +24,8 @@ class Settings(BaseSettings):
     # Expire stuck jobs so a new calculation can start (worker down / crash).
     JOB_STALE_PENDING_SECONDS: int = 900
     JOB_STALE_RUNNING_SECONDS: int = 660
+    AUTOROAD_NETWORK_SERVICE_URL: str = ""
+    AUTOROAD_NETWORK_INPROCESS: bool = True
 
     @property
     def jobs_use_queue(self) -> bool:

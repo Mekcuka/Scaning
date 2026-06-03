@@ -3,6 +3,7 @@ import { BrowserRouter, Routes, Route, Navigate, useLocation } from 'react-route
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { ErrorBoundary } from './components/ErrorBoundary';
 import { AppLayout } from './components/layout/AppLayout';
+import { SectionIndexRedirect } from './components/layout/SectionIndexRedirect';
 import { ProtectedRoute } from './components/ProtectedRoute';
 import { RoleProtectedRoute } from './components/RoleProtectedRoute';
 import { RouteFallback } from './routes/lazyPages';
@@ -52,7 +53,7 @@ function AppRoutes() {
                   <Route path="/" element={<DashboardPage />} />
                   <Route path="/map" element={<MapPage />} />
                   <Route path="/parameters" element={<ParametersLayout />}>
-                    <Route index element={<Navigate to="capacity" replace />} />
+                    <Route index element={<SectionIndexRedirect section="parameters" />} />
                     <Route path="capacity" element={<ParametersPage />} />
                     <Route path="sand" element={<SandParametersPage />} />
                     <Route path="entry-dates" element={<EntryDatesParametersPage />} />
@@ -77,7 +78,7 @@ function AppRoutes() {
                   <Route path="/import-3d" element={<Import3DPage />} />
                   <Route element={<RoleProtectedRoute roles={['admin']} />}>
                     <Route path="/admin" element={<AdminLayout />}>
-                      <Route index element={<Navigate to="/admin/users" replace />} />
+                      <Route index element={<SectionIndexRedirect section="admin" />} />
                       <Route path="users" element={<AdminUsersPage />} />
                       <Route path="jobs" element={<AdminJobsPage />} />
                     </Route>

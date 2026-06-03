@@ -43,6 +43,7 @@ from app.api.v1.graph import graph_router
 from app.api.v1.import_connections import connections_router
 from app.api.v1.sand_logistics import sand_logistics_router
 from app.api.v1.jobs import jobs_router
+from app.api.v1.autoroad_network import autoroad_network_router
 from app.api.v1.map import map_router
 from app.api.v1.one_pagers import one_pagers_router
 from app.geo.geometry_utils import point_wkt
@@ -55,6 +56,7 @@ router.include_router(admin_router)
 router.include_router(admin_jobs_router)
 router.include_router(one_pagers_router)
 router.include_router(map_router)
+router.include_router(autoroad_network_router)
 router.include_router(graph_router)
 router.include_router(flow_router)
 router.include_router(connections_router)

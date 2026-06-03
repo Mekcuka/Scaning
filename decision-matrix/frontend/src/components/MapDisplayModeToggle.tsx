@@ -10,8 +10,7 @@ type MapDisplayModeToggleProps = {
 export function MapDisplayModeToggle({ mode, onChange, className = '' }: MapDisplayModeToggleProps) {
   return (
     <div
-      className={`map-display-mode-toggle inline-flex rounded border overflow-hidden ${className}`.trim()}
-      style={{ borderColor: 'var(--border)' }}
+      className={`map-display-mode-toggle inline-flex rounded overflow-hidden ${className}`.trim()}
       role="group"
       aria-label="Режим карты"
     >

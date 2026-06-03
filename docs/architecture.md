@@ -4,7 +4,8 @@
 > **Геометрия и пространственные расчёты:** [map-objects-and-spatial-calculations.md](./map-objects-and-spatial-calculations.md).  
 > **Расчётные функции:** [calculation-functions.md](./calculation-functions.md).  
 > **Схема потоков (PFD):** [fluid-flow-schematic.md](./fluid-flow-schematic.md) — отдельный визуальный поток от анализа окружения; использует граф сети и POI, не таблицу `poi_infrastructure_analysis`.  
-> **Статус реализации:** [implementation-status.md](./implementation-status.md).
+> **Статус реализации:** [implementation-status.md](./implementation-status.md).  
+> **Автопостроение сети автодорог (сервис):** [autoroad-network-plan.md](./autoroad-network-plan.md).
 
 ## Актуальная реализация (FastAPI + React, май 2026)
 
@@ -20,8 +21,19 @@
 | Flows PFD | `api/v1/flow.py`, `fluid_flow_schematic.py` | `pages/flows/*`, `FlowSchematicEditor` |
 | Graph | `api/v1/graph.py`, `graph_builder.py` | PFD + карта |
 | Sand | `api/v1/sand_logistics.py` | `SandParametersPage`, logistics schematic |
+| Autoroad network | BFF `autoroad-network/plan|apply`, `plan_core` (in-process по умолчанию); legacy `map.py` → `autoroad-connect` | «Сеть» на карте; группа «Соединить автодорогами» |
 
 **Префикс API:** `/api/v1/projects/{project_id}/...` для проектных ресурсов; Swagger — `/api/v1/docs`.
+
+### Autoroad Network (планировщик)
+
+**Stateless** plan: терминалы + полилинии `autoroad` → MST на всех терминалах с метрикой `min(путь по графу, прямая)` → новые линии (`link`, `connector`), узлы на перекрёстках, разрезы. BFF загружает snapshot из БД, вызывает `plan_core` (in-process) или HTTP-сервис `:8001`, применяет в транзакции (`apply`, job `autoroad_connect`, `build_network_from_lines`). См. [autoroad-network-plan.md](./autoroad-network-plan.md).
+
+```
+MapPage ──► BFF /autoroad-network/plan|apply ──► Autoroad Network Service
+                    │                                    │
+                    └──────── PostgreSQL ◄───────────────┘ (только BFF пишет)
+```
 
 ---
 
@@ -73,6 +85,9 @@ backend/app/
 ├── api/v1/auth.py           # register, login, refresh, logout, me
 ├── api/v1/admin.py          # users list, patch role/is_active, stats
 ├── api/v1/admin_jobs.py     # jobs journal, health, cancel (admin)
+├── services/job_queue.py    # ARQ enqueue (queue name = ARQ_QUEUE_NAME)
+├── services/admin_jobs.py   # admin list/health/cancel
+├── services/project_job_run.py  # worker + guard при отмене
 ├── api/rbac.py              # require_roles, require_admin
 ├── api/deps.py              # get_current_user (cookie/Bearer), verify_csrf
 ├── core/cookies.py          # Set-Cookie httpOnly + csrf_token
@@ -82,7 +97,8 @@ backend/app/
 
 frontend/src/
 ├── pages/LoginPage.tsx, RegisterPage.tsx, AdminUsersPage.tsx, AdminJobsPage.tsx
-├── components/layout/AdminLayout.tsx
+├── components/layout/AdminLayout.tsx, AppLayout.tsx (sidebar logout)
+├── public/sw.js             # PWA: SPA fallback для deep links на Pages
 ├── lib/permissions.ts, hooks/usePermissions.ts
 └── components/RoleProtectedRoute.tsx
 ```

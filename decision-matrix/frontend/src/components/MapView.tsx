@@ -116,7 +116,7 @@ export interface ThresholdCircle {
   visible: boolean;
 }
 
-export type DrawMode = 'select' | 'poi' | 'point' | 'line' | 'ruler';
+export type DrawMode = 'select' | 'poi' | 'point' | 'line' | 'ruler' | 'autoroad_network';
 
 export type SelectMode = 'single' | 'box';
 
@@ -1296,7 +1296,9 @@ function MapViewInner({
         const overLine =
           mode === 'point' ? resolveInfraLineSplitAtPixel(evt.pixel) ?? undefined : undefined;
         const overPoint =
-          mode === 'line' || (mode === 'point' && !overLine)
+          mode === 'line' ||
+          mode === 'autoroad_network' ||
+          (mode === 'point' && !overLine)
             ? resolveInfraPointAtPixel(evt.pixel) ?? undefined
             : undefined;
         onMapClickRef.current?.(lon, lat, {

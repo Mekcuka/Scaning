@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-import math
 from dataclasses import dataclass, field
 from typing import Any
 from uuid import UUID
@@ -10,37 +9,10 @@ from uuid import UUID
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.geo.constants import LINE_SUBTYPES, POINT_SUBTYPES
-from app.models import (
-    InfrastructureEdge,
-    InfrastructureLayer,
-    InfrastructureNetwork,
-    InfrastructureNode,
-    InfrastructureObject,
-)
+from app.models import InfrastructureLayer, InfrastructureObject
 from app.schemas import InfraObjectCreate
 from app.services.graph_builder import build_network_from_lines
-from app.services.line_endpoint_rules import ENDPOINT_SNAP_TOLERANCE_KM
-from app.services.line_split import (
-    build_line_split_plan,
-    find_segment_intersections,
-    is_near_line_endpoint,
-    line_geometry_fields_from_coords,
-)
-from app.services.road_graph import (
-    RoadGraph,
-    build_autoroad_graph,
-    build_autoroad_polylines,
-    closest_point_on_polyline_for_snap,
-    connected_components,
-    dijkstra_with_prev,
-    haversine_km,
-    min_bridge_between_components,
-    mst_terminal_edges,
-    node_component,
-    shortest_path_edges,
-)
-from app.services.spatial import line_coords_from_object
+from app.services.line_split import build_line_split_plan
 
 MAX_CONNECT_OBJECTS = 50
 NODE_DEDUP_KM = 0.05
@@ -66,7 +38,7 @@ class PlannedLine:
     end_lat: float
     snap_start_object_id: UUID | None = None
     snap_finish_object_id: UUID | None = None
-    kind: str = "connector"  # connector | bridge
+    kind: str = "connector"  # connector | link | bridge (legacy)
 
 
 @dataclass
@@ -142,54 +114,16 @@ def _coord_key(lon: float, lat: float) -> tuple[int, int]:
     return (round(lon * 1e5), round(lat * 1e5))
 
 
-def _snap_terminal_to_network(
-    lon: float,
-    lat: float,
-    g: RoadGraph,
-    polylines: list[list[tuple[float, float]]],
-) -> tuple[UUID | None, float | None, float | None, str | None]:
-    on_poly = math.inf
-    poly_snap: tuple[float, float] | None = None
-    for pl in polylines:
-        slon, slat, _ = closest_point_on_polyline_for_snap(lon, lat, pl)
-        d = haversine_km(lon, lat, slon, slat)
-        if d < on_poly:
-            on_poly = d
-            poly_snap = (slon, slat)
-
-    if on_poly > ENDPOINT_SNAP_TOLERANCE_KM:
-        return None, None, None, "too_far_from_autoroad"
-
-    slon, slat = poly_snap if poly_snap else (lon, lat)
-    best_nid: UUID | None = None
-    best_d = math.inf
-    for nid in g.adj:
-        nc = g.coords.get(nid)
-        if not nc:
-            continue
-        d = haversine_km(slon, slat, nc[0], nc[1])
-        if d < best_d:
-            best_d = d
-            best_nid = nid
-    if best_nid is None or best_d > ENDPOINT_SNAP_TOLERANCE_KM:
-        return None, slon, slat, "no_graph_node"
-    return best_nid, slon, slat, None
-
-
-def _needs_connector(
-    obj_lon: float,
-    obj_lat: float,
-    snap_lon: float,
-    snap_lat: float,
-) -> bool:
-    return haversine_km(obj_lon, obj_lat, snap_lon, snap_lat) > 0.02
-
-
 async def build_autoroad_connect_plan(
     db: AsyncSession,
     project_id: UUID,
     object_ids: list[UUID],
 ) -> AutoroadConnectPlan:
+    from app.geo.constants import NODE_CLUSTER_SUBTYPES
+    from app.services.autoroad_network.bridge import plan_response_to_connect_plan
+    from app.services.autoroad_network.client import compute_network_plan
+    from app.services.autoroad_network.snapshot import build_plan_request
+
     plan = AutoroadConnectPlan()
     if len(object_ids) < 2:
         plan.warnings.append("need_at_least_two_objects")
@@ -198,215 +132,31 @@ async def build_autoroad_connect_plan(
         plan.warnings.append(f"too_many_objects_max_{MAX_CONNECT_OBJECTS}")
         return plan
 
-    await build_network_from_lines(db, project_id)
-
-    net = await db.scalar(
-        select(InfrastructureNetwork).where(InfrastructureNetwork.project_id == project_id).limit(1)
-    )
-    if not net:
-        plan.warnings.append("no_autoroad_network")
-        return plan
-
-    nodes = (
-        await db.execute(select(InfrastructureNode).where(InfrastructureNode.network_id == net.id))
-    ).scalars().all()
-    db_edges = (
-        await db.execute(select(InfrastructureEdge).where(InfrastructureEdge.network_id == net.id))
-    ).scalars().all()
-
-    obj_ids_edge = {e.infrastructure_object_id for e in db_edges if e.infrastructure_object_id}
-    subtype_by_obj: dict[UUID, str] = {}
-    if obj_ids_edge:
-        rows = (
-            await db.execute(
-                select(InfrastructureObject.id, InfrastructureObject.subtype).where(
-                    InfrastructureObject.id.in_(obj_ids_edge)
-                )
-            )
-        ).all()
-        subtype_by_obj = {oid: st for oid, st in rows}
-
-    g = build_autoroad_graph(nodes, db_edges, subtype_by_obj)
-    if not g.adj:
-        plan.warnings.append("no_autoroad_edges")
-
-    autoroad_q = (
-        select(InfrastructureObject)
-        .join(InfrastructureLayer)
-        .where(
-            InfrastructureLayer.project_id == project_id,
-            InfrastructureObject.subtype == "autoroad",
-            InfrastructureObject.end_longitude.isnot(None),
-        )
-    )
-    autoroad_objects = (await db.execute(autoroad_q)).scalars().all()
-    polylines = build_autoroad_polylines(autoroad_objects)
-
     points_q = (
         select(InfrastructureObject)
         .join(InfrastructureLayer)
         .where(
             InfrastructureLayer.project_id == project_id,
             InfrastructureObject.id.in_(object_ids),
-            InfrastructureObject.end_longitude.is_(None),
         )
     )
-    points = (await db.execute(points_q)).scalars().all()
-    by_id = {p.id: p for p in points}
-    missing = [str(i) for i in object_ids if i not in by_id]
-    if missing:
-        plan.warnings.append(f"invalid_or_line_objects:{','.join(missing[:5])}")
+    rows = (await db.execute(points_q)).scalars().all()
+    for obj in rows:
+        if obj.subtype in NODE_CLUSTER_SUBTYPES:
+            plan.warnings.append(f"excluded_terminal_subtype:{obj.subtype}")
+            return plan
 
-    terminals: list[TerminalSnap] = []
-    for oid in object_ids:
-        obj = by_id.get(oid)
-        if not obj:
-            continue
-        if obj.subtype in LINE_SUBTYPES or obj.subtype not in POINT_SUBTYPES:
-            plan.warnings.append(f"not_point:{obj.id}")
-            continue
-        nid, slon, slat, warn = _snap_terminal_to_network(
-            obj.longitude, obj.latitude, g, polylines
-        )
-        terminals.append(
-            TerminalSnap(
-                object_id=obj.id,
-                name=obj.name,
-                lon=obj.longitude,
-                lat=obj.latitude,
-                graph_node_id=nid,
-                snap_lon=slon,
-                snap_lat=slat,
-                warning=warn,
-            )
-        )
-
-    snapped = [t for t in terminals if t.graph_node_id and t.snap_lon is not None]
-    if len(snapped) < 2:
-        plan.terminals = terminals
-        plan.warnings.append("insufficient_snapped_terminals")
+    req = await build_plan_request(db, project_id, object_ids)
+    if len(req.terminals) < 2:
+        plan.warnings.append("need_at_least_two_objects")
+        missing = [str(i) for i in object_ids if i not in {t.id for t in req.terminals}]
+        if missing:
+            plan.warnings.append(f"invalid_or_line_objects:{','.join(missing[:5])}")
         return plan
 
-    terminal_node_ids = [t.graph_node_id for t in snapped if t.graph_node_id]
-    dist_matrix: dict[UUID, dict[UUID, float]] = {}
-    prev_cache: dict[UUID, dict[UUID, UUID | None]] = {}
-    for a in terminal_node_ids:
-        dist_matrix[a] = {}
-        d, prev = dijkstra_with_prev(g, a)
-        prev_cache[a] = prev
-        for b in terminal_node_ids:
-            dist_matrix[a][b] = d.get(b, math.inf)
-
-    mst_edges = mst_terminal_edges(terminal_node_ids, dist_matrix)
-    used_edge_ids: set[str] = set()
-    for a, b in mst_edges:
-        prev = prev_cache.get(a, {})
-        for edge in shortest_path_edges(g, prev, a, b):
-            used_edge_ids.add(str(edge.id))
-    plan.used_existing_edge_ids = sorted(used_edge_ids)
-
-    comps = connected_components(g.adj)
-    comp_by_node: dict[UUID, set[UUID]] = {}
-    for comp in comps:
-        for nid in comp:
-            comp_by_node[nid] = comp
-
-    terminal_comps: set[frozenset[UUID]] = {
-        frozenset(comp_by_node[t.graph_node_id])
-        for t in snapped
-        if t.graph_node_id and t.graph_node_id in comp_by_node
-    }
-
-    if len(terminal_comps) > 1:
-        comp_list = list(terminal_comps)
-        parent = {i: i for i in range(len(comp_list))}
-
-        def find(i: int) -> int:
-            while parent[i] != i:
-                parent[i] = parent[parent[i]]
-                i = parent[i]
-            return i
-
-        def union(i: int, j: int) -> None:
-            ri, rj = find(i), find(j)
-            if ri != rj:
-                parent[rj] = ri
-
-        bridges: list[tuple[int, int, float]] = []
-        for i in range(len(comp_list)):
-            for j in range(i + 1, len(comp_list)):
-                br = min_bridge_between_components(comp_list[i], comp_list[j], g)
-                if br:
-                    bridges.append((i, j, br[2]))
-        bridges.sort(key=lambda x: x[2])
-        for i, j, _ in bridges:
-            if find(i) != find(j):
-                union(i, j)
-                ca, cb = comp_list[i], comp_list[j]
-                br = min_bridge_between_components(ca, cb, g)
-                if br:
-                    na, nb, _ = br
-                    ca_coord = g.coords[na]
-                    cb_coord = g.coords[nb]
-                    plan.new_lines.append(
-                        PlannedLine(
-                            start_lon=ca_coord[0],
-                            start_lat=ca_coord[1],
-                            end_lon=cb_coord[0],
-                            end_lat=cb_coord[1],
-                            kind="bridge",
-                        )
-                    )
-                    plan.total_new_km += haversine_km(
-                        ca_coord[0], ca_coord[1], cb_coord[0], cb_coord[1]
-                    )
-
-    for t in snapped:
-        if t.snap_lon is None or t.snap_lat is None:
-            continue
-        if _needs_connector(t.lon, t.lat, t.snap_lon, t.snap_lat):
-            plan.new_lines.append(
-                PlannedLine(
-                    start_lon=t.lon,
-                    start_lat=t.lat,
-                    end_lon=t.snap_lon,
-                    end_lat=t.snap_lat,
-                    snap_start_object_id=t.object_id,
-                    kind="connector",
-                )
-            )
-            plan.total_new_km += haversine_km(t.lon, t.lat, t.snap_lon, t.snap_lat)
-
-    node_keys: set[tuple[int, int]] = set()
-    for pl in plan.new_lines:
-        seg = ((pl.start_lon, pl.start_lat), (pl.end_lon, pl.end_lat))
-        for road in autoroad_objects:
-            rcoords = line_coords_from_object(road)
-            for i in range(len(rcoords) - 1):
-                rseg = (rcoords[i], rcoords[i + 1])
-                hit = find_segment_intersections(seg, rseg)
-                if not hit:
-                    continue
-                ix, iy = hit
-                if is_near_line_endpoint(ix, iy, rcoords):
-                    continue
-                plan.splits.append(
-                    PlannedSplit(
-                        line_id=road.id,
-                        segment_index=i,
-                        split_lon=ix,
-                        split_lat=iy,
-                    )
-                )
-                key = _coord_key(ix, iy)
-                if key not in node_keys:
-                    node_keys.add(key)
-                    plan.new_nodes.append(
-                        PlannedNode(lon=ix, lat=iy, reason="intersection")
-                    )
-
-    plan.terminals = terminals
-    return plan
+    resp = await compute_network_plan(req)
+    coords = {t.id: (t.lon, t.lat) for t in req.terminals}
+    return plan_response_to_connect_plan(resp, coords_by_id=coords)
 
 
 async def apply_autoroad_connect_plan(
@@ -583,8 +333,13 @@ async def run_autoroad_connect(
     if dry_run:
         out["dry_run"] = True
         return out
-    if plan.warnings and "insufficient_snapped_terminals" in plan.warnings:
-        raise ValueError("Недостаточно объектов в пределах 300 м от автодорог")
+    if (
+        not plan.new_lines
+        and not plan.used_existing_edge_ids
+        and "need_at_least_two_objects" not in plan.warnings
+        and not any(w.startswith("excluded_") for w in plan.warnings)
+    ):
+        raise ValueError("Не удалось построить соединение между выбранными объектами")
     applied = await apply_autoroad_connect_plan(db, project_id, plan)
     out.update(applied)
     out["dry_run"] = False

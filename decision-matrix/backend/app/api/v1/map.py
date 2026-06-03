@@ -442,7 +442,7 @@ async def autoroad_connect_objects(
     user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
 ):
-    """Соединить выбранные точечные объекты по сети автодорог (MST + подъезды + мосты)."""
+    """Соединить выбранные точечные объекты по сети автодорог (deprecated — use autoroad-network)."""
     await _require_infra_write(project_id, user, db)
     from app.services.autoroad_connect import run_autoroad_connect
     from app.services.job_enqueue import commit_and_schedule, create_and_schedule_job, jobs_async_enabled

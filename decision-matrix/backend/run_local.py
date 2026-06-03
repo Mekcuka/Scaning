@@ -7,8 +7,35 @@ import sys
 from pathlib import Path
 
 BACKEND_DIR = Path(__file__).resolve().parent
+LOCAL_PORT = int(os.environ.get("SPPR_LOCAL_PORT", "8000"))
 
 os.environ["DATABASE_URL"] = "sqlite+aiosqlite:///./data/sppr.db"
+
+
+def free_listening_port(port: int) -> None:
+    """Stop processes listening on *port* (Windows dev: stale uvicorn reloaders)."""
+    if sys.platform != "win32":
+        return
+    out = subprocess.run(
+        ["netstat", "-ano"],
+        capture_output=True,
+        text=True,
+        check=False,
+    ).stdout
+    pids: set[str] = set()
+    token = f":{port}"
+    for line in out.splitlines():
+        if token not in line or "LISTENING" not in line:
+            continue
+        parts = line.split()
+        if parts and parts[-1].isdigit():
+            pids.add(parts[-1])
+    for pid in sorted(pids, key=int):
+        subprocess.run(
+            ["taskkill", "/F", "/T", "/PID", pid],
+            capture_output=True,
+            check=False,
+        )
 
 
 async def init_db():
@@ -25,9 +52,20 @@ def main():
     asyncio.run(init_db())
     print("Seeding demo data...")
     subprocess.run([sys.executable, "seed.py"], cwd=BACKEND_DIR, check=True)
-    print("Starting backend on http://localhost:8000")
+    free_listening_port(LOCAL_PORT)
+    print(f"Starting backend on http://localhost:{LOCAL_PORT}")
     subprocess.run(
-        [sys.executable, "-m", "uvicorn", "app.main:app", "--reload", "--host", "127.0.0.1", "--port", "8000"],
+        [
+            sys.executable,
+            "-m",
+            "uvicorn",
+            "app.main:app",
+            "--reload",
+            "--host",
+            "127.0.0.1",
+            "--port",
+            str(LOCAL_PORT),
+        ],
         cwd=BACKEND_DIR,
     )
 
