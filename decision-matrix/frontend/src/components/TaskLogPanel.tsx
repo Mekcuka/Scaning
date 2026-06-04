@@ -247,7 +247,10 @@ export function TaskLogPanel({ projectId }: { projectId: string | null }) {
         projectId,
         job: activeProjectJob,
         httpSteps: existing?.kind === 'project_job' ? existing.httpSteps : [],
-        updatedAt: Date.now(),
+        updatedAt:
+          existing?.kind === 'project_job'
+            ? existing.updatedAt
+            : new Date(activeProjectJob.created_at ?? 0).getTime(),
       });
     }
     return [...byId.values()].sort((a, b) => {

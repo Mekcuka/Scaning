@@ -148,7 +148,7 @@ export const useTaskLogStore = create<TaskLogState>((set, get) => ({
       responseBody,
     };
     set((s) => {
-      let list = [...(s.byProject[projectId] ?? loadProjectEntries(projectId))];
+      const list = [...(s.byProject[projectId] ?? loadProjectEntries(projectId))];
       const targetFlowId = flowId ?? s.activeFlowId;
       let flowEntry = targetFlowId
         ? list.find((e) => e.kind === 'http_flow' && e.id === targetFlowId)
@@ -166,7 +166,6 @@ export const useTaskLogStore = create<TaskLogState>((set, get) => ({
           startedAt: Date.now(),
           steps: [],
         };
-        list = [flowEntry, ...list];
       }
 
       if (flowEntry.kind !== 'http_flow') return s;
