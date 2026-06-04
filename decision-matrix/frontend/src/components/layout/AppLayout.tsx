@@ -227,7 +227,7 @@ export function AppLayout() {
                   />
                 </label>
               )}
-              <TaskLogPanel projectId={projectId} />
+              <TaskLogPanel projectId={projectId ?? null} />
               <button type="button" className="btn btn-ghost p-2 shrink-0" onClick={toggleTheme} title="Тема">
                 {theme === 'light' ? <Moon size={18} /> : <Sun size={18} />}
               </button>

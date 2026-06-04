@@ -45,7 +45,6 @@ export function linePathForDisplay(
     line.subtype,
     coords.map((c) => [c[0], c[1]] as [number, number]),
     snapPool,
-    options?.snapIndex,
   );
   if (!path) return null;
   if (options?.lod === 'endpoints' && path.length > 2) {

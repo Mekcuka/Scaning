@@ -123,11 +123,11 @@ async def _test_apply_dry_run():
         p1 = InfrastructureObject(
             layer_id=layer.id,
             name="P1",
-            subtype="node",
+            subtype="gas_processing",
             category="point",
             longitude=37.61,
             latitude=55.76,
-            geometry=build_infra_geometry("node", 37.61, 55.76),
+            geometry=build_infra_geometry("gas_processing", 37.61, 55.76),
         )
         p2 = InfrastructureObject(
             layer_id=layer.id,

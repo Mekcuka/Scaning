@@ -57,7 +57,7 @@ export function nearestPointLineEndpoint(
 
 /** Snap while drawing: only when cursor is over a point icon (overPoint). */
 export function snapLineDrawPoint(
-  lineSubtype: string,
+  _lineSubtype: string,
   cursor: [number, number],
   infraObjects: InfraObject[],
   overPoint?: { lon: number; lat: number; id?: string } | null,

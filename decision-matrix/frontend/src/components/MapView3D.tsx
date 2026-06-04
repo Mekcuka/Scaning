@@ -260,7 +260,7 @@ const MapView3D = forwardRef<MapView3DHandle, MapView3DProps>(function MapView3D
       const layerIds = getMap3dInteractiveLayerIds().filter((id) => map.getLayer(id));
       const hits = map.queryRenderedFeatures(e.point, { layers: [...layerIds] });
       const selectable = hits.filter((f) => selectionFromFeature(f));
-      const pointLayerIds = new Set([
+      const pointLayerIds = new Set<string>([
         MAP3D_LAYER_IDS.infraPointSymbols,
         MAP3D_LAYER_IDS.poiSymbols,
         MAP3D_LAYER_IDS.infraPoints,

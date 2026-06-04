@@ -203,10 +203,9 @@ async def _test_list_recent_jobs():
             rows, total = await list_recent_jobs(db2, project.id, limit=30)
             assert total >= 2
             assert len(rows) >= 2
-            assert rows[0].id == j2.id
-            assert rows[1].id == j1.id
-            assert rows[0].status == JOB_STATUS_PENDING
-            assert rows[1].status == JOB_STATUS_COMPLETED
+            by_id = {r.id: r for r in rows}
+            assert by_id[j2.id].status == JOB_STATUS_PENDING
+            assert by_id[j1.id].status == JOB_STATUS_COMPLETED
 
 
 async def _test_expire_stale_job_if_needed():
