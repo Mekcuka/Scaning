@@ -54,6 +54,7 @@ def plan_response_to_connect_plan(
                 start_lat=ln.coordinates[0][1],
                 end_lon=ln.coordinates[-1][0],
                 end_lat=ln.coordinates[-1][1],
+                coordinates=[[float(c[0]), float(c[1])] for c in ln.coordinates],
                 snap_start_object_id=ln.snap_start_object_id,
                 snap_finish_object_id=ln.snap_finish_object_id,
                 kind=ln.kind,

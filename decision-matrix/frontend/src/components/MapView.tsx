@@ -24,6 +24,7 @@ import { click, mouseActionButton } from 'ol/events/condition';
 import Overlay from 'ol/Overlay';
 import type { AnalysisRow, InfraObject, POI } from '../lib/api';
 import { isValidAnalysisAnchor } from '../lib/analysisDisplay';
+import { linkCoordMatch } from '../lib/infraLinks';
 import {
   constrainLineCoordinatesOnEdit,
   findLineEndpointAttachment,
@@ -204,7 +205,7 @@ export interface MapViewProps {
   onMapClick?: (lon: number, lat: number, hit?: MapClickHit) => void;
   onFinishLine?: (
     coords: number[][],
-    finishAt?: { lon: number; lat: number },
+    finishAt?: { lon: number; lat: number; id?: string },
     splitHint?: { lineId: string; segmentIndex: number; snapLon?: number; snapLat?: number },
   ) => void;
   /** Double-click / finish current measure polyline (ruler mode). */
@@ -371,7 +372,14 @@ function lineStyleForStatus(status: string): Style {
 const HOVER_GLOW = 'rgba(33, 150, 243, 0.28)';
 const HOVER_RING_FILL = 'rgba(33, 150, 243, 0.1)';
 const HOVER_RING_STROKE = 'rgba(33, 150, 243, 0.45)';
-const LINE_ENDPOINT_FOLLOW_TOLERANCE_M = 250;
+function lineEndMatchesStoredPoint(
+  end3857: number[],
+  pointLon: number,
+  pointLat: number,
+): boolean {
+  const [lon, lat] = transform(end3857, 'EPSG:3857', 'EPSG:4326');
+  return linkCoordMatch(lon, pointLon) && linkCoordMatch(lat, pointLat);
+}
 
 function lineStrokeStyles(color: string, width: number, hovered: boolean): Style[] {
   if (!hovered) {
@@ -818,6 +826,41 @@ function MapViewInner({
 
     select.on('select', (e) => {
       if (drawModeRef.current !== 'select' || selectModeRef.current !== 'single') return;
+      const evt = e.mapBrowserEvent;
+      const collection = select.getFeatures();
+      if (evt) {
+        const id = resolveHoverFeatureIdAtCoordinate(
+          map,
+          pointSourceRef.current,
+          lineSourceRef.current,
+          evt.coordinate,
+          6,
+        );
+        if (!id) {
+          onFeatureSelectRef.current?.(null);
+          return;
+        }
+        const f = findSelectableLayerFeature(
+          pointSourceRef.current,
+          lineSourceRef.current,
+          id,
+        );
+        if (!f) {
+          onFeatureSelectRef.current?.(null);
+          return;
+        }
+        const sel = resolveFeatureSelection(f);
+        if (!sel) {
+          onFeatureSelectRef.current?.(null);
+          return;
+        }
+        if (collection.getLength() !== 1 || collection.item(0) !== f) {
+          collection.clear();
+          collection.push(f);
+        }
+        onFeatureSelectRef.current?.(sel);
+        return;
+      }
       const f = e.selected[0];
       if (!f) {
         onFeatureSelectRef.current?.(null);
@@ -938,7 +981,8 @@ function MapViewInner({
       }
 
       if (!(geom instanceof Point)) return;
-      const pointCoord = geom.getCoordinates();
+      const pointObj = infraObjectsRef.current.find((o) => o.id === id);
+      if (!pointObj) return;
       const links: LinkedLineDragState['links'] = [];
       lineSourceRef.current.getFeatures().forEach((lineFeature) => {
         const lineId = lineFeature.get('id') as string | undefined;
@@ -949,10 +993,10 @@ function MapViewInner({
         if (!(lineGeom instanceof LineString)) return;
         const coords = lineGeom.getCoordinates();
         if (coords.length < 2) return;
-        const first = coords[0];
-        const last = coords[coords.length - 1];
-        const start = Math.hypot(first[0] - pointCoord[0], first[1] - pointCoord[1]) <= LINE_ENDPOINT_FOLLOW_TOLERANCE_M;
-        const end = Math.hypot(last[0] - pointCoord[0], last[1] - pointCoord[1]) <= LINE_ENDPOINT_FOLLOW_TOLERANCE_M;
+        const first = coords[0]!;
+        const last = coords[coords.length - 1]!;
+        const start = lineEndMatchesStoredPoint(first, pointObj.lon, pointObj.lat);
+        const end = lineEndMatchesStoredPoint(last, pointObj.lon, pointObj.lat);
         if (!start && !end) return;
         links.push({ lineId, start, end, pointId: id });
       });
@@ -1092,7 +1136,8 @@ function MapViewInner({
 
     const collectLinkedLinesForPoint = (
       pointId: string,
-      pointCoord: number[],
+      pointLon: number,
+      pointLat: number,
       excludeLineIds: Set<string>,
     ): LinkedLineDragState['links'] => {
       const links: LinkedLineDragState['links'] = [];
@@ -1106,14 +1151,10 @@ function MapViewInner({
         if (!(lineGeom instanceof LineString)) return;
         const coords = lineGeom.getCoordinates();
         if (coords.length < 2) return;
-        const first = coords[0];
-        const last = coords[coords.length - 1];
-        const start =
-          Math.hypot(first[0] - pointCoord[0], first[1] - pointCoord[1]) <=
-          LINE_ENDPOINT_FOLLOW_TOLERANCE_M;
-        const end =
-          Math.hypot(last[0] - pointCoord[0], last[1] - pointCoord[1]) <=
-          LINE_ENDPOINT_FOLLOW_TOLERANCE_M;
+        const first = coords[0]!;
+        const last = coords[coords.length - 1]!;
+        const start = lineEndMatchesStoredPoint(first, pointLon, pointLat);
+        const end = lineEndMatchesStoredPoint(last, pointLon, pointLat);
         if (!start && !end) return;
         links.push({ lineId, start, end, pointId });
       });
@@ -1143,8 +1184,9 @@ function MapViewInner({
         const kind = inner.get('featureKind') as string | undefined;
         const geom = f.getGeometry();
         if (!id || kind !== 'infra' || !(geom instanceof Point)) return;
-        const pointCoord = geom.getCoordinates();
-        mergedLinks.push(...collectLinkedLinesForPoint(id, pointCoord, selectedLineIds));
+        const pointObj = infraObjectsRef.current.find((o) => o.id === id);
+        if (!pointObj) return;
+        mergedLinks.push(...collectLinkedLinesForPoint(id, pointObj.lon, pointObj.lat, selectedLineIds));
       });
       if (mergedLinks.length > 0) {
         linkedLineDragRef.current = { sessionId, links: mergedLinks };
@@ -1260,11 +1302,12 @@ function MapViewInner({
     ): {
       lon: number;
       lat: number;
+      id?: string;
       splitHint?: { lineId: string; segmentIndex: number; snapLon: number; snapLat: number };
     } | null => {
       const pixel = map.getEventPixel(e as UIEvent);
       const hit = resolveInfraPointAtPixel(pixel);
-      if (hit) return hit;
+      if (hit) return { lon: hit.lon, lat: hit.lat, id: hit.id };
       const overLine = resolveInfraLineSplitAtPixel(pixel);
       if (overLine) {
         return {
@@ -1290,8 +1333,8 @@ function MapViewInner({
       if (coords.length < 2) return false;
       const finishAt = finishAtFromPointerEvent(e);
       if (!finishAt) return false;
-      const { lon, lat, splitHint } = finishAt;
-      onFinishLineRef.current?.(coords, { lon, lat }, splitHint);
+      const { lon, lat, id, splitHint } = finishAt;
+      onFinishLineRef.current?.(coords, { lon, lat, id }, splitHint);
       return true;
     };
 

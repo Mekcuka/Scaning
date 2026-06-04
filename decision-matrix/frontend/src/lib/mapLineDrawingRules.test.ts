@@ -19,9 +19,20 @@ const pointObj = (id: string, subtype: string, lon: number, lat: number): InfraO
 describe('map line drawing rules (contract)', () => {
   const pad = pointObj('oil_pad', 'oil_pad', 37.6, 55.75);
 
-  it('start must snap to a point object (≤300 m)', () => {
-    const snapped = snapLineDrawPoint('oil_pipeline', [37.6001, 55.7501], [pad], null, 'start');
+  it('start requires exact point coords via icon click', () => {
+    const snapped = snapLineDrawPoint(
+      'oil_pipeline',
+      [37.6001, 55.7501],
+      [pad],
+      { lon: 37.6, lat: 55.75, id: 'oil_pad' },
+      'start',
+    );
     expect(isLineEndpointSnapped('oil_pipeline', 'start', snapped, [pad])).toBe(true);
+  });
+
+  it('start away from point is not snapped', () => {
+    const snapped = snapLineDrawPoint('oil_pipeline', [37.61, 55.76], [pad], null, 'start');
+    expect(isLineEndpointSnapped('oil_pipeline', 'start', snapped, [pad])).toBe(false);
   });
 
   it('finish in empty space plans node creation', () => {
@@ -30,8 +41,8 @@ describe('map line drawing rules (contract)', () => {
     if (resolved.ok) expect(resolved.createNode).toBe(true);
   });
 
-  it('finish near object attaches without new node', () => {
-    const resolved = resolveLineEndpoint('power_line', 'finish', [37.6001, 55.7501], [pad]);
+  it('finish with exact point coords attaches without new node', () => {
+    const resolved = resolveLineEndpoint('power_line', 'finish', [37.6, 55.75], [pad]);
     expect(resolved.ok).toBe(true);
     if (resolved.ok) {
       expect(resolved.createNode).toBe(false);

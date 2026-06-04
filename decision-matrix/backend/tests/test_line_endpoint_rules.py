@@ -1,4 +1,4 @@
-"""Line endpoint snap to point object coordinates."""
+"""Line endpoint snap to point object coordinates (exact match)."""
 
 import uuid
 
@@ -6,7 +6,6 @@ import pytest
 
 from app.models import InfrastructureObject
 from app.services.line_endpoint_rules import (
-    ENDPOINT_SNAP_TOLERANCE_KM,
     LineEndpointRuleError,
     snap_line_endpoint_coords,
     snap_line_endpoint_coords_preserve,
@@ -31,19 +30,17 @@ def _point_obj(lon: float, lat: float, subtype: str = "oil_pad") -> Infrastructu
 
 def test_snap_rewrites_endpoints_to_exact_object_coords():
     pad = _point_obj(37.6, 55.75)
-    near_start = (37.6001, 55.7501)
-    near_finish = (37.7001, 55.8501)
     node = _point_obj(37.7, 55.85, subtype="node")
 
     lon, lat, end_lon, end_lat, coords = snap_line_endpoint_coords(
-        lon=near_start[0],
-        lat=near_start[1],
-        end_lon=near_finish[0],
-        end_lat=near_finish[1],
+        lon=37.6,
+        lat=55.75,
+        end_lon=37.7,
+        end_lat=55.85,
         coordinates=[
-            [near_start[0], near_start[1]],
+            [37.6, 55.75],
             [37.65, 55.8],
-            [near_finish[0], near_finish[1]],
+            [37.7, 55.85],
         ],
         candidates=[pad, node],
     )
@@ -58,7 +55,7 @@ def test_snap_rewrites_endpoints_to_exact_object_coords():
     assert coords[1] == [37.65, 55.8]
 
 
-def test_snap_rejects_endpoint_outside_tolerance():
+def test_snap_rejects_endpoint_without_coord_match():
     pad = _point_obj(37.6, 55.75)
     with pytest.raises(LineEndpointRuleError):
         snap_line_endpoint_coords(
@@ -71,10 +68,6 @@ def test_snap_rejects_endpoint_outside_tolerance():
         )
 
 
-def test_tolerance_constant_matches_frontend():
-    assert ENDPOINT_SNAP_TOLERANCE_KM == 0.3
-
-
 def test_preserve_geometry_keeps_unsnapped_end():
     """Clipboard paste: finish stays on submitted path when only start has twin id."""
     pad = _point_obj(37.6, 55.75)
@@ -82,11 +75,11 @@ def test_preserve_geometry_keeps_unsnapped_end():
     mid = (37.65, 55.8)
 
     lon, lat, end_lon, end_lat, coords = snap_line_endpoint_coords_preserve(
-        lon=37.6001,
-        lat=55.7501,
+        lon=37.6,
+        lat=55.75,
         end_lon=far_finish[0],
         end_lat=far_finish[1],
-        coordinates=[[37.6001, 55.7501], list(mid), list(far_finish)],
+        coordinates=[[37.6, 55.75], list(mid), list(far_finish)],
         forced_start=pad,
         forced_finish=None,
     )
@@ -104,14 +97,13 @@ def test_forced_start_snap_ignores_closer_neighbor():
     pad = _point_obj(37.6, 55.75)
     closer = _point_obj(37.60005, 55.75005)
     far_finish = _point_obj(37.7, 55.85, subtype="node")
-    near_start = (37.6001, 55.7501)
 
     lon, lat, end_lon, end_lat, coords = snap_line_endpoint_coords(
-        lon=near_start[0],
-        lat=near_start[1],
-        end_lon=37.7001,
-        end_lat=55.8501,
-        coordinates=[[near_start[0], near_start[1]], [37.65, 55.8], [37.7001, 55.8501]],
+        lon=37.6,
+        lat=55.75,
+        end_lon=37.7,
+        end_lat=55.85,
+        coordinates=[[37.6, 55.75], [37.65, 55.8], [37.7, 55.85]],
         candidates=[pad, closer, far_finish],
         forced_start=pad,
         forced_finish=None,
@@ -120,4 +112,4 @@ def test_forced_start_snap_ignores_closer_neighbor():
     assert lon == pad.longitude
     assert lat == pad.latitude
     assert end_lon == far_finish.longitude
-    assert coords[0] == [pad.longitude, pad.latitude]
+    assert end_lat == far_finish.latitude

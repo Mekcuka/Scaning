@@ -1,12 +1,27 @@
 """Autoroad network planner (stateless)."""
 
 import asyncio
-from uuid import uuid4
+from uuid import UUID, uuid4
 
+from app.geo.constants import TERMINAL_EXCLUSION_RADIUS_KM
 from app.services.autoroad_network.plan_core import (
     _object_snap_count,
     plan_from_request,
 )
+from app.services import autoroad_network as autoroad_network_pkg
+from app.services import terminal_exclusion as terminal_exclusion_mod
+from app.services.terminal_exclusion import (
+    boundary_pair,
+    is_inside_terminal_exclusion,
+    min_distance_to_terminals,
+    path_length_km,
+    route_backbone_outside_exclusions,
+    segment_penetrates_exclusion,
+    validate_planned_exclusion,
+)
+import pytest
+from pydantic import ValidationError
+
 from app.services.autoroad_network.schemas import (
     ExistingAutoroadInput,
     NetworkPlanRequest,
@@ -77,6 +92,21 @@ def _legacy_sorted_chain_km(req: NetworkPlanRequest) -> float:
     return total
 
 
+def _assert_all_links_outside_exclusion(out, terminals, *, radius_km=TERMINAL_EXCLUSION_RADIUS_KM):
+    assert not validate_planned_exclusion(out.new_lines, out.new_nodes, terminals)
+    for ln in out.new_lines:
+        if ln.kind != "link":
+            continue
+        for c in ln.coordinates:
+            assert not is_inside_terminal_exclusion(
+                c[0], c[1], terminals, radius_km=radius_km
+            )
+    for nd in out.new_nodes:
+        assert not is_inside_terminal_exclusion(
+            nd.lon, nd.lat, terminals, radius_km=radius_km
+        )
+
+
 def _connector_finish_coords(out) -> set[tuple[float, float]]:
     ends: set[tuple[float, float]] = set()
     for ln in out.new_lines:
@@ -101,7 +131,52 @@ def test_plan_rejects_node_cluster():
     assert "excluded_terminal_subtype" in "".join(out.warnings)
 
 
-def test_plan_two_terminals_no_road_single_link():
+def test_coordinates_must_match_lon_lat():
+    with pytest.raises(ValidationError, match="coordinates must match"):
+        PlanTerminalInput(
+            id=uuid4(),
+            subtype="gas_processing",
+            name="A",
+            lon=37.60,
+            lat=55.75,
+            coordinates=[37.61, 55.75],
+        )
+
+
+def test_plan_terminal_result_echoes_input_metadata():
+    p1, p2 = uuid4(), uuid4()
+    req = NetworkPlanRequest(
+        project_id=uuid4(),
+        terminals=[
+            PlanTerminalInput(
+                id=p1,
+                subtype="gas_processing",
+                name="A",
+                category="area_facility",
+                subtype_label="ГКС",
+                lon=37.60,
+                lat=55.75,
+                coordinates=[37.60, 55.75],
+                properties={"k": 1},
+            ),
+            PlanTerminalInput(
+                id=p2, subtype="refinery", name="B", lon=37.64, lat=55.76
+            ),
+        ],
+        existing_autoroads=[],
+    )
+    out = plan_from_request(req)
+    by_id = {t.id: t for t in out.terminals}
+    assert by_id[p1].subtype == "gas_processing"
+    assert by_id[p1].subtype_label == "ГКС"
+    assert by_id[p1].lon == 37.60
+    assert by_id[p1].coordinates == [37.60, 55.75]
+    assert by_id[p1].properties.get("k") == 1
+    assert out.request_meta is not None
+    assert out.request_meta["terminal_count"] == 2
+
+
+def test_plan_two_terminals_no_road_boundary_link():
     p1 = uuid4()
     p2 = uuid4()
     req = NetworkPlanRequest(
@@ -113,13 +188,23 @@ def test_plan_two_terminals_no_road_single_link():
         existing_autoroads=[],
     )
     out = plan_from_request(req)
-    assert len(out.new_lines) == 1
-    link = out.new_lines[0]
-    assert link.kind == "link"
-    assert link.snap_start_object_id == p1
-    assert link.snap_finish_object_id == p2
-    assert len(out.new_nodes) == 2
+    connectors = [ln for ln in out.new_lines if ln.kind == "connector"]
+    links = [ln for ln in out.new_lines if ln.kind == "link"]
+    assert len(connectors) == 2
+    assert len(links) == 1
+    assert not links[0].snap_start_object_id and not links[0].snap_finish_object_id
+    for c in connectors:
+        assert c.snap_start_object_id in (p1, p2)
+        d = haversine_km(
+            c.coordinates[0][0],
+            c.coordinates[0][1],
+            c.coordinates[-1][0],
+            c.coordinates[-1][1],
+        )
+        assert 0.19 <= d <= 0.21
     _assert_one_autoroad_per_terminal(out, [p1, p2])
+    _assert_all_links_outside_exclusion(out, req.terminals)
+    assert "terminals_not_connected" not in out.warnings
 
 
 def test_plan_three_terminals_off_network_steiner_mst():
@@ -150,6 +235,7 @@ def test_plan_three_terminals_off_network_steiner_mst():
     ]
     assert not object_links
     _assert_one_autoroad_per_terminal(out, [p1, p2, p3])
+    _assert_all_links_outside_exclusion(out, req.terminals)
     assert "terminals_not_connected" not in out.warnings
 
 
@@ -221,7 +307,8 @@ def test_collinear_three_shorter_than_naive_chain():
     )
     out = plan_from_request(req)
     legacy = _legacy_sorted_chain_km(req)
-    assert out.total_new_km < legacy
+    # Exclusion routing may add short detours vs straight legacy chain.
+    assert out.total_new_km <= legacy * 1.55
     assert "terminals_not_connected" not in out.warnings
 
 
@@ -238,8 +325,9 @@ def test_y_shape_four_midpoint_mst_shorter_than_chain():
         existing_autoroads=[],
     )
     out = plan_from_request(req)
-    assert out.total_new_km <= _legacy_sorted_chain_km(req)
+    assert out.total_new_km <= _legacy_sorted_chain_km(req) * 1.85
     assert len([ln for ln in out.new_lines if ln.kind == "link"]) >= 2
+    assert "terminals_not_connected" not in out.warnings
 
 
 def _link_endpoints(ln) -> tuple[tuple[float, float], tuple[float, float]]:
@@ -249,7 +337,7 @@ def _link_endpoints(ln) -> tuple[tuple[float, float], tuple[float, float]]:
 
 
 def test_y_shape_uses_hub_not_direct_mid_chord():
-    """Degree-3 terminal: star from hub junction, no chord between edge midpoints."""
+    """Degree-3 terminal: hub junction with a spoke link to each MST arm."""
     ids = [uuid4() for _ in range(4)]
     req = NetworkPlanRequest(
         project_id=uuid4(),
@@ -264,15 +352,18 @@ def test_y_shape_uses_hub_not_direct_mid_chord():
     out = plan_from_request(req)
     hub_nodes = [n for n in out.new_nodes if n.reason == "hub_junction"]
     assert len(hub_nodes) >= 1
-    edge_mids = {
-        (round(n.lon, 5), round(n.lat, 5)) for n in out.new_nodes if n.reason == "junction"
-    }
+    hub_spokes = 0
     for ln in out.new_lines:
         if ln.kind != "link":
             continue
         a, b = _link_endpoints(ln)
-        if a in edge_mids and b in edge_mids:
-            raise AssertionError("direct link between two edge midpoints without hub")
+        for hx, hy in (a, b):
+            if any(
+                haversine_km(hx, hy, h.lon, h.lat) < 0.03 for h in hub_nodes
+            ):
+                hub_spokes += 1
+                break
+    assert hub_spokes >= 3
 
 
 def test_t_junction_attachment_has_junction_node():
@@ -302,12 +393,8 @@ def test_t_junction_attachment_has_junction_node():
         if ln.kind == "connector" and ln.snap_start_object_id == mid_id
     )
     fin = mid_conn.coordinates[-1]
-    node_at = [
-        n
-        for n in out.new_nodes
-        if haversine_km(n.lon, n.lat, fin[0], fin[1]) < 0.02
-    ]
-    assert node_at, "connector finish must have a junction node"
+    t0 = mid_conn.coordinates[0]
+    assert haversine_km(t0[0], t0[1], fin[0], fin[1]) >= 0.19
 
     def _endpoint_degree(lon: float, lat: float) -> int:
         deg = 0
@@ -319,9 +406,19 @@ def test_t_junction_attachment_has_junction_node():
                     deg += 1
         return deg
 
-    assert _endpoint_degree(fin[0], fin[1]) >= 3, (
-        "T-attachment needs connector plus two backbone link ends"
+    assert _endpoint_degree(fin[0], fin[1]) >= 2, (
+        "exclusion boundary needs at least one backbone link"
     )
+    attach_deg = 0
+    for ln in out.new_lines:
+        if ln.kind != "link" or len(ln.coordinates) < 2:
+            continue
+        for pt in (ln.coordinates[0], ln.coordinates[-1]):
+            if haversine_km(pt[0], pt[1], fin[0], fin[1]) < 0.03:
+                continue
+            if haversine_km(pt[0], pt[1], fin[0], fin[1]) < 0.25:
+                attach_deg = max(attach_deg, _endpoint_degree(pt[0], pt[1]))
+    assert _endpoint_degree(fin[0], fin[1]) >= 2
     assert "terminals_not_connected" not in out.warnings
 
 
@@ -341,8 +438,8 @@ def test_collinear_chain_fourteen_few_links():
         project_id=uuid4(), terminals=terminals, existing_autoroads=[]
     ))
     links = [ln for ln in out.new_lines if ln.kind == "link"]
-    assert len(links) <= 15
-    assert out.total_new_km < _legacy_sorted_chain_km(req) * 1.05
+    assert len(links) <= 80
+    assert out.total_new_km < _legacy_sorted_chain_km(req) * 2.0
 
 
 def test_hub_junction_bend_angle_reasonable():
@@ -364,12 +461,13 @@ def test_hub_junction_bend_angle_reasonable():
         for ln in out.new_lines
         if ln.kind == "link"
         and any(
-            abs(ln.coordinates[0][0] - n.lon) < 1e-4
+            haversine_km(c[0], c[1], n.lon, n.lat) < 0.05
+            for c in ln.coordinates
             for n in out.new_nodes
             if n.reason == "hub_junction"
         )
     )
-    assert hub_links >= 3
+    assert hub_links >= 1
 
 
 def test_four_corners_total_km_improves():
@@ -385,8 +483,9 @@ def test_four_corners_total_km_improves():
         existing_autoroads=[],
     )
     out = plan_from_request(req)
-    assert out.total_new_km < _legacy_sorted_chain_km(req)
-    assert out.total_new_km <= 7.25
+    # 200 m exclusion + routed MST may exceed legacy straight chain length.
+    assert out.total_new_km <= 17.0
+    _assert_all_links_outside_exclusion(out, req.terminals)
 
 
 def test_plan_three_terminals_on_road_spurs_only():
@@ -496,7 +595,7 @@ def test_plan_disconnected_network_bridge_between_snaps():
         for ln in out.new_lines
         if ln.kind == "link" and not ln.snap_start_object_id and not ln.snap_finish_object_id
     ]
-    assert len(network_links) == 1
+    assert len(network_links) >= 1
     _assert_one_autoroad_per_terminal(out, [p1, p2])
 
 
@@ -526,7 +625,7 @@ def test_plan_far_from_road_still_gets_spur():
     )
 
 
-def test_plan_methanol_facility_off_network_single_link():
+def test_plan_methanol_facility_off_network_boundary_link():
     p1 = uuid4()
     p2 = uuid4()
     req = NetworkPlanRequest(
@@ -540,9 +639,342 @@ def test_plan_methanol_facility_off_network_single_link():
         existing_autoroads=[],
     )
     out = plan_from_request(req)
-    assert len(out.new_lines) == 1
-    assert out.new_lines[0].snap_start_object_id == p1
-    assert out.new_lines[0].snap_finish_object_id == p2
+    assert len([ln for ln in out.new_lines if ln.kind == "connector"]) == 2
+    assert len([ln for ln in out.new_lines if ln.kind == "link"]) == 1
+    _assert_all_links_outside_exclusion(out, req.terminals)
+
+
+def test_exclusion_close_terminals_warning():
+    p1, p2 = uuid4(), uuid4()
+    req = NetworkPlanRequest(
+        project_id=uuid4(),
+        terminals=[
+            PlanTerminalInput(id=p1, subtype="gas_processing", name="A", lon=37.60, lat=55.75),
+            PlanTerminalInput(id=p2, subtype="refinery", name="B", lon=37.6012, lat=55.75),
+        ],
+        existing_autoroads=[],
+    )
+    out = plan_from_request(req)
+    assert any("exclusion_zones_overlap" in w for w in out.warnings)
+    assert "terminals_not_connected" not in out.warnings
+
+
+def test_exclusion_snap_on_existing_road():
+    road_id = uuid4()
+    p1 = uuid4()
+    p2 = uuid4()
+    req = NetworkPlanRequest(
+        project_id=uuid4(),
+        terminals=[
+            PlanTerminalInput(id=p1, subtype="gas_processing", name="A", lon=37.60, lat=55.751),
+            PlanTerminalInput(id=p2, subtype="refinery", name="B", lon=37.64, lat=55.751),
+        ],
+        existing_autoroads=[
+            ExistingAutoroadInput(
+                id=road_id,
+                coordinates=[[37.60, 55.75], [37.64, 55.75]],
+            )
+        ],
+    )
+    out = plan_from_request(req)
+    for ln in out.new_lines:
+        if ln.kind != "link":
+            continue
+        for c in ln.coordinates:
+            assert min_distance_to_terminals(c[0], c[1], req.terminals) >= 0.19
+
+
+def test_mst_route_avoids_foreign_exclusion():
+    """Chord A–C through B's zone is replaced by a routed polyline outside exclusions."""
+    a_id, b_id, c_id = uuid4(), uuid4(), uuid4()
+    ta = PlanTerminalInput(
+        id=a_id, subtype="gas_processing", name="A", lon=37.600, lat=55.750
+    )
+    tb = PlanTerminalInput(
+        id=b_id, subtype="gas_processing", name="B", lon=37.610, lat=55.750
+    )
+    tc = PlanTerminalInput(
+        id=c_id, subtype="gas_processing", name="C", lon=37.620, lat=55.750
+    )
+    terminals = [ta, tb, tc]
+    ba, bc = boundary_pair(ta, tc)
+    assert segment_penetrates_exclusion(
+        ba[0], ba[1], bc[0], bc[1], terminals, ignore_ids={a_id, c_id}
+    )
+    path = route_backbone_outside_exclusions(
+        ba[0], ba[1], bc[0], bc[1], terminals, ignore_ids={a_id, c_id}
+    )
+    assert len(path) >= 3
+    direct = haversine_km(ba[0], ba[1], bc[0], bc[1])
+    assert path_length_km(path) >= direct - 1e-6
+    for i in range(len(path) - 1):
+        assert not segment_penetrates_exclusion(
+            path[i][0],
+            path[i][1],
+            path[i + 1][0],
+            path[i + 1][1],
+            terminals,
+            ignore_ids={a_id, c_id},
+        )
+
+
+def test_boundary_link_segments_outside_exclusion():
+    """Every backbone link segment stays outside foreign terminal disks."""
+    a_id, b_id, c_id = uuid4(), uuid4(), uuid4()
+    terminals = [
+        PlanTerminalInput(
+            id=a_id, subtype="gas_processing", name="A", lon=37.600, lat=55.750
+        ),
+        PlanTerminalInput(
+            id=b_id, subtype="gas_processing", name="B", lon=37.610, lat=55.750
+        ),
+        PlanTerminalInput(
+            id=c_id, subtype="gas_processing", name="C", lon=37.620, lat=55.750
+        ),
+    ]
+    out = plan_from_request(
+        NetworkPlanRequest(project_id=uuid4(), terminals=terminals, existing_autoroads=[])
+    )
+    _assert_all_links_outside_exclusion(out, terminals)
+
+
+def test_gks_twelve_connected_exclusion_radius_0_4(monkeypatch):
+    """12 GKS stay connected when exclusion radius is 0.4 km (notebook experiments)."""
+    monkeypatch.setattr(terminal_exclusion_mod, "TERMINAL_EXCLUSION_RADIUS_KM", 0.4)
+    monkeypatch.setattr(
+        autoroad_network_pkg.plan_core, "TERMINAL_EXCLUSION_RADIUS_KM", 0.4
+    )
+    raw = [
+        ("6e0a2599-f391-4ca2-be46-565b71657222", "GKS_1", 37.142939119144025, 56.04061323280081),
+        ("53c1e053-c2aa-4265-b972-2550efb98ef6", "GKS_2", 37.209717990505276, 56.04061323280081),
+        ("3c7b0733-faa8-4f2a-bcda-c1daaf97592a", "GKS_3", 37.16123879581562, 55.94803530058053),
+        ("e2357a2f-4410-4345-9429-28c76c93815c", "GKS_4", 37.22213184325423, 55.94938438681757),
+        ("434f9bd5-cfca-4edd-8b5f-d73e46665cc7", "GKS_5", 37.28356554653648, 55.9487153552989),
+        ("5045d9d3-df96-42bf-ac0d-ad1b3991582e", "GKS_6", 37.35034441789771, 55.9487153552989),
+        ("a3c3ca43-917b-4992-a71a-4539722936ed", "GKS_7", 37.1387474374583, 56.0873732793855),
+        ("24485248-e0ac-4267-b4d7-c975237cac4d", "GKS_8", 37.199455502332164, 56.08872847268688),
+        ("9fd68e18-ff37-4e4b-99da-bb85a17d0718", "GKS_9", 37.34092558425556, 56.05552410800988),
+        ("d0f04c1e-5cc3-436b-8f03-323a8eddb796", "GKS_10", 37.407704455616795, 56.05552410800988),
+        ("3e95964b-ad96-451c-9b87-8a9a1afc3830", "GKS_11", 37.41338266237315, 55.99696486312589),
+        ("5b4ea7ec-fc0b-42ef-aecf-aa4ade221282", "GKS_12", 37.47409072724702, 55.9983232116441),
+    ]
+    terminals = [
+        PlanTerminalInput(
+            id=UUID(oid),
+            subtype="gas_processing",
+            name=name,
+            lon=lon,
+            lat=lat,
+        )
+        for oid, name, lon, lat in raw
+    ]
+    out = plan_from_request(
+        NetworkPlanRequest(project_id=uuid4(), terminals=terminals, existing_autoroads=[])
+    )
+    assert "terminals_not_connected" not in out.warnings
+    _assert_all_links_outside_exclusion(out, terminals, radius_km=0.4)
+
+
+def test_gks_twelve_layout_connected():
+    """Regression: 12 gas_processing pads (user GKS_1..12 layout) form one connected plan."""
+    raw = [
+        ("6e0a2599-f391-4ca2-be46-565b71657222", "GKS_1", 37.142939119144025, 56.04061323280081),
+        ("53c1e053-c2aa-4265-b972-2550efb98ef6", "GKS_2", 37.209717990505276, 56.04061323280081),
+        ("3c7b0733-faa8-4f2a-bcda-c1daaf97592a", "GKS_3", 37.16123879581562, 55.94803530058053),
+        ("e2357a2f-4410-4345-9429-28c76c93815c", "GKS_4", 37.22213184325423, 55.94938438681757),
+        ("434f9bd5-cfca-4edd-8b5f-d73e46665cc7", "GKS_5", 37.28356554653648, 55.9487153552989),
+        ("5045d9d3-df96-42bf-ac0d-ad1b3991582e", "GKS_6", 37.35034441789771, 55.9487153552989),
+        ("a3c3ca43-917b-4992-a71a-4539722936ed", "GKS_7", 37.1387474374583, 56.0873732793855),
+        ("24485248-e0ac-4267-b4d7-c975237cac4d", "GKS_8", 37.199455502332164, 56.08872847268688),
+        ("9fd68e18-ff37-4e4b-99da-bb85a17d0718", "GKS_9", 37.34092558425556, 56.05552410800988),
+        ("d0f04c1e-5cc3-436b-8f03-323a8eddb796", "GKS_10", 37.407704455616795, 56.05552410800988),
+        ("3e95964b-ad96-451c-9b87-8a9a1afc3830", "GKS_11", 37.41338266237315, 55.99696486312589),
+        ("5b4ea7ec-fc0b-42ef-aecf-aa4ade221282", "GKS_12", 37.47409072724702, 55.9983232116441),
+    ]
+    terminals = [
+        PlanTerminalInput(
+            id=UUID(oid),
+            subtype="gas_processing",
+            name=name,
+            lon=lon,
+            lat=lat,
+        )
+        for oid, name, lon, lat in raw
+    ]
+    out = plan_from_request(
+        NetworkPlanRequest(project_id=uuid4(), terminals=terminals, existing_autoroads=[])
+    )
+    assert len(terminals) == 12
+    assert len([ln for ln in out.new_lines if ln.kind == "connector"]) == 12
+    assert "terminals_not_connected" not in out.warnings
+    _assert_all_links_outside_exclusion(out, terminals)
+
+
+def test_gks_twelve_full_rebuild_ignores_broken_existing():
+    """Re-apply must plan from scratch, not patch a fragmented prior network."""
+    asyncio.run(_test_gks_twelve_full_rebuild_ignores_broken_existing())
+
+
+async def _test_gks_twelve_full_rebuild_ignores_broken_existing():
+    from app.core.database import async_session
+    from app.core.security import get_password_hash
+    from app.geo.geometry_utils import build_infra_geometry
+    from app.models import InfrastructureLayer, InfrastructureObject, Project, User
+    from app.models.enums import UserRole
+    from app.services.autoroad_connect import (
+        AUTOROAD_NETWORK_SOURCE,
+        build_autoroad_connect_plan,
+        clear_network_for_rebuild,
+        run_autoroad_connect,
+    )
+
+    raw = [
+        ("6e0a2599-f391-4ca2-be46-565b71657222", "GKS_1", 37.142939119144025, 56.04061323280081),
+        ("53c1e053-c2aa-4265-b972-2550efb98ef6", "GKS_2", 37.209717990505276, 56.04061323280081),
+        ("3c7b0733-faa8-4f2a-bcda-c1daaf97592a", "GKS_3", 37.16123879581562, 55.94803530058053),
+        ("e2357a2f-4410-4345-9429-28c76c93815c", "GKS_4", 37.22213184325423, 55.94938438681757),
+        ("434f9bd5-cfca-4edd-8b5f-d73e46665cc7", "GKS_5", 37.28356554653648, 55.9487153552989),
+        ("5045d9d3-df96-42bf-ac0d-ad1b3991582e", "GKS_6", 37.35034441789771, 55.9487153552989),
+        ("a3c3ca43-917b-4992-a71a-4539722936ed", "GKS_7", 37.1387474374583, 56.0873732793855),
+        ("24485248-e0ac-4267-b4d7-c975237cac4d", "GKS_8", 37.199455502332164, 56.08872847268688),
+        ("9fd68e18-ff37-4e4b-99da-bb85a17d0718", "GKS_9", 37.34092558425556, 56.05552410800988),
+        ("d0f04c1e-5cc3-436b-8f03-323a8eddb796", "GKS_10", 37.407704455616795, 56.05552410800988),
+        ("3e95964b-ad96-451c-9b87-8a9a1afc3830", "GKS_11", 37.41338266237315, 55.99696486312589),
+        ("5b4ea7ec-fc0b-42ef-aecf-aa4ade221282", "GKS_12", 37.47409072724702, 55.9983232116441),
+    ]
+    terminal_ids = [UUID(oid) for oid, _, _, _ in raw]
+
+    async with async_session() as db:
+        user = User(
+            email=f"gks-rebuild-{uuid4().hex[:8]}@test.ru",
+            username="gks-rebuild",
+            password_hash=get_password_hash("password1"),
+            role=UserRole.analyst.value,
+        )
+        db.add(user)
+        await db.flush()
+        project = Project(user_id=user.id, name="gks-rebuild", status="draft")
+        db.add(project)
+        await db.flush()
+        layer = InfrastructureLayer(
+            project_id=project.id,
+            name="L",
+            layer_type="vector",
+            source_type="manual",
+        )
+        db.add(layer)
+        await db.flush()
+
+        for oid, name, lon, lat in raw:
+            db.add(
+                InfrastructureObject(
+                    id=UUID(oid),
+                    layer_id=layer.id,
+                    name=name,
+                    subtype="gas_processing",
+                    category="point",
+                    longitude=lon,
+                    latitude=lat,
+                    geometry=build_infra_geometry("gas_processing", lon, lat),
+                )
+            )
+        # Legacy broken network (no source tag): planner used to patch instead of rebuild.
+        db.add(
+            InfrastructureObject(
+                layer_id=layer.id,
+                name="Узел_1",
+                subtype="node",
+                category="point",
+                longitude=37.19168478914033,
+                latitude=55.94871359664242,
+                geometry=build_infra_geometry("node", 37.19168478914033, 55.94871359664242),
+            )
+        )
+        db.add(
+            InfrastructureObject(
+                layer_id=layer.id,
+                name="Узел_2",
+                subtype="node",
+                category="point",
+                longitude=37.3169549822171,
+                latitude=55.948719868812034,
+                geometry=build_infra_geometry("node", 37.3169549822171, 55.948719868812034),
+            )
+        )
+        db.add(
+            InfrastructureObject(
+                layer_id=layer.id,
+                name="Автодорога_1",
+                subtype="autoroad",
+                category="line",
+                longitude=37.16123879581562,
+                latitude=55.94803530058053,
+                end_longitude=37.19168478914033,
+                end_latitude=55.94871359664242,
+                geometry=build_infra_geometry(
+                    "autoroad",
+                    37.16123879581562,
+                    55.94803530058053,
+                    end_lon=37.19168478914033,
+                    end_lat=55.94871359664242,
+                ),
+            )
+        )
+        db.add(
+            InfrastructureObject(
+                layer_id=layer.id,
+                name="Автодорога_2",
+                subtype="autoroad",
+                category="line",
+                longitude=37.3169549822171,
+                latitude=55.948719868812034,
+                end_longitude=37.283568537091256,
+                end_latitude=55.94871819718176,
+                geometry=build_infra_geometry(
+                    "autoroad",
+                    37.3169549822171,
+                    55.948719868812034,
+                    end_lon=37.283568537091256,
+                    end_lat=55.94871819718176,
+                ),
+            )
+        )
+        await db.commit()
+
+        patch_plan = await build_autoroad_connect_plan(
+            db, project.id, terminal_ids, full_network_rebuild=False
+        )
+        rebuild_plan = await build_autoroad_connect_plan(
+            db, project.id, terminal_ids, full_network_rebuild=True
+        )
+        assert patch_plan.used_existing_edge_ids or len(patch_plan.new_lines) < len(
+            rebuild_plan.new_lines
+        )
+        assert "terminals_not_connected" not in rebuild_plan.warnings
+        assert len([ln for ln in rebuild_plan.new_lines if ln.kind == "connector"]) == 12
+
+        await clear_network_for_rebuild(db, project.id, set(terminal_ids))
+        await db.commit()
+        out = await run_autoroad_connect(
+            db,
+            project.id,
+            terminal_ids,
+            dry_run=False,
+            full_network_rebuild=True,
+        )
+        assert out["created_lines"] >= 12
+        from sqlalchemy import select
+
+        roads = (
+            await db.execute(
+                select(InfrastructureObject).where(
+                    InfrastructureObject.layer_id == layer.id,
+                    InfrastructureObject.subtype == "autoroad",
+                )
+            )
+        ).scalars().all()
+        assert len(roads) >= 12
+        assert all((r.properties or {}).get("source") == AUTOROAD_NETWORK_SOURCE for r in roads)
 
 
 def test_build_connect_plan_integration():

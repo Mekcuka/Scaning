@@ -480,6 +480,12 @@ class ProjectJobAdminItem(ProjectJobResponse):
     project_name: str = ""
 
 
+class ProjectJobListResponse(BaseModel):
+    items: list[ProjectJobResponse]
+    total: int
+    limit: int
+
+
 class ProjectJobAdminListResponse(BaseModel):
     items: list[ProjectJobAdminItem]
     total: int

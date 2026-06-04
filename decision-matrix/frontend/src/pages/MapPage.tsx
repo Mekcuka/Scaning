@@ -39,7 +39,8 @@ import {
 } from '../components/MapGroupSelectionPanel';
 import { isAutoroadNetworkTerminal } from '../lib/autoroadNetwork';
 import {
-  linesFromAutoroadPlanPreview,
+  linesFromNetworkPlanResponse,
+  networkPlanToConnectPreview,
   type AutoroadPlanPreviewLine,
 } from '../lib/autoroadPlanPreview';
 import { MapDisplayModeToggle } from '../components/MapDisplayModeToggle';
@@ -93,6 +94,7 @@ import {
   type InfraObjectCreate,
   type PoiAnalysisResponse,
   type AutoroadConnectResult,
+  type AutoroadNetworkApplyResult,
   type POI,
 } from '../lib/api';
 import { analyzeAllPoisAndWait } from '../lib/runApiJob';
@@ -125,6 +127,8 @@ import {
 } from '../lib/mapBboxUtils';
 import { formatLengthMeters, lineLengthMeters } from '../lib/mapMeasure';
 import { isProjectJobCreateResponse, pollProjectJobUntilDone } from '../lib/pollProjectJob';
+import { taskLog } from '../lib/taskLog/store';
+import { useActiveProjectJob } from '../hooks/useActiveProjectJob';
 import { lineDraftFinishCoordinates } from '../lib/mapLineDraftFinish';
 import {
   resolveLineEndpoint,
@@ -401,13 +405,7 @@ export function MapPage() {
     staleTime: MAP_INFRA_STALE_MS,
   });
 
-  const { data: activeProjectJob } = useQuery({
-    queryKey: ['activeJob', projectId],
-    queryFn: () => api.getActiveProjectJob(projectId!),
-    enabled: !!projectId,
-    refetchInterval: (query) => (query.state.data ? 2000 : false),
-  });
-  const projectJobBusy = Boolean(activeProjectJob);
+  const { projectJobBusy } = useActiveProjectJob(projectId);
 
   useEffect(() => {
     if (pois.length > 0 && !selectedPoiId) setSelectedPoiId(pois[0].id);
@@ -1361,24 +1359,37 @@ export function MapPage() {
 
   const autoroadConnectMut = useMutation({
     mutationFn: async (objectIds: string[]) => {
-      const preview = (await api.autoroadConnect(projectId!, {
-        object_ids: objectIds,
-        dry_run: true,
-      })) as AutoroadConnectResult;
-      if (!(await requestAutoroadConfirm(preview, 'connect'))) {
-        return null;
-      }
-      const applyRes = await api.autoroadConnect(projectId!, {
-        object_ids: objectIds,
-        dry_run: false,
-      });
-      if (isProjectJobCreateResponse(applyRes)) {
-        const job = await pollProjectJobUntilDone(projectId!, applyRes.job_id, {
-          timeoutMs: 600_000,
+      const flowId = taskLog.startHttpFlow(
+        projectId!,
+        'autoroad_connect',
+        'Соединение автодорогами',
+      );
+      try {
+        const preview = (await api.autoroadConnect(projectId!, {
+          object_ids: objectIds,
+          dry_run: true,
+        })) as AutoroadConnectResult;
+        if (!(await requestAutoroadConfirm(preview, 'connect'))) {
+          taskLog.endHttpFlow(flowId, 'cancelled');
+          return null;
+        }
+        const applyRes = await api.autoroadConnect(projectId!, {
+          object_ids: objectIds,
+          dry_run: false,
         });
-        return job.result as unknown as AutoroadConnectResult;
+        if (isProjectJobCreateResponse(applyRes)) {
+          const job = await pollProjectJobUntilDone(projectId!, applyRes.job_id, {
+            timeoutMs: 600_000,
+          });
+          taskLog.endHttpFlow(flowId, 'completed');
+          return job.result as unknown as AutoroadConnectResult;
+        }
+        taskLog.endHttpFlow(flowId, 'completed');
+        return applyRes;
+      } catch (e) {
+        taskLog.endHttpFlow(flowId, 'failed');
+        throw e;
       }
-      return applyRes;
     },
     onSuccess: (result) => {
       if (!result) return;
@@ -1415,20 +1426,42 @@ export function MapPage() {
 
   const runAutoroadNetworkFlow = useMutation({
     mutationFn: async (objectIds: string[]) => {
-      const preview = await api.autoroadNetworkPlan(projectId!, { object_ids: objectIds });
-      setAutoroadPlanPreviewLines(linesFromAutoroadPlanPreview(preview.preview));
-      if (!(await requestAutoroadConfirm(preview, 'network'))) {
-        setAutoroadPlanPreviewLines([]);
-        return null;
-      }
-      const applyRes = await api.autoroadNetworkApply(projectId!, { object_ids: objectIds });
-      if (isProjectJobCreateResponse(applyRes)) {
-        const job = await pollProjectJobUntilDone(projectId!, applyRes.job_id, {
-          timeoutMs: 600_000,
+      const flowId = taskLog.startHttpFlow(
+        projectId!,
+        'autoroad_network',
+        'Построение сети автодорог',
+      );
+      try {
+        const planRequest = await api.autoroadNetworkBuildRequest(projectId!, {
+          object_ids: objectIds,
+          full_network_rebuild: true,
         });
-        return job.result as unknown as AutoroadConnectResult;
+        const plan = await api.autoroadNetworkCompute(projectId!, planRequest);
+        setAutoroadPlanPreviewLines(linesFromNetworkPlanResponse(plan));
+        const previewForModal = networkPlanToConnectPreview(plan);
+        if (!(await requestAutoroadConfirm(previewForModal, 'network'))) {
+          setAutoroadPlanPreviewLines([]);
+          taskLog.endHttpFlow(flowId, 'cancelled');
+          return null;
+        }
+        const applyRes = await api.autoroadNetworkApply(projectId!, {
+          object_ids: objectIds,
+          plan,
+          full_network_rebuild: true,
+        });
+        if (isProjectJobCreateResponse(applyRes)) {
+          const job = await pollProjectJobUntilDone(projectId!, applyRes.job_id, {
+            timeoutMs: 600_000,
+          });
+          taskLog.endHttpFlow(flowId, 'completed');
+          return job.result as unknown as AutoroadNetworkApplyResult;
+        }
+        taskLog.endHttpFlow(flowId, 'completed');
+        return applyRes;
+      } catch (e) {
+        taskLog.endHttpFlow(flowId, 'failed');
+        throw e;
       }
-      return applyRes;
     },
     onSuccess: (result) => {
       setAutoroadPlanPreviewLines([]);
@@ -2222,7 +2255,6 @@ export function MapPage() {
             infraObjects,
             overPoint,
             'finish',
-            infraSnapIndex,
           ),
         );
       } else if (lineDraftPreview) {
@@ -2378,14 +2410,14 @@ export function MapPage() {
           infraObjects,
           overPoint,
           endpointKind,
-          infraSnapIndex,
         );
         if (lineDraft.length === 0) {
+          if (!overPoint?.id) {
+            pushToast('error', 'Начало линии — клик по точечному объекту на карте');
+            return;
+          }
           if (!isLineEndpointSnapped(infraForm.subtype, 'start', snapped, infraObjects)) {
-            pushToast(
-              'error',
-              'Начало линии — на точечном объекте (клик по иконке или в пределах 300 м)',
-            );
+            pushToast('error', 'Начало линии — клик по точечному объекту на карте');
             return;
           }
           setLineDraft([snapped]);
@@ -2421,7 +2453,7 @@ export function MapPage() {
   const finishLineDraft = useCallback(
     async (
       coords: number[][],
-      finishAt?: { lon: number; lat: number },
+      finishAt?: { lon: number; lat: number; id?: string },
       splitHint?: LineSplitHint,
     ) => {
       if (!projectId) return;
@@ -2436,15 +2468,18 @@ export function MapPage() {
           subtype,
           [finishAt.lon, finishAt.lat],
           infraObjects,
-          null,
+          finishAt.id
+            ? { lon: finishAt.lon, lat: finishAt.lat, id: finishAt.id }
+            : null,
           'finish',
-          infraSnapIndex,
         );
       }
 
       const infraPool =
         queryClient.getQueryData<InfraObject[]>(['infra', projectId]) ?? infraObjects;
       let pool = infraPool;
+      let lineSnapStartId: string | undefined;
+      let lineSnapFinishId: string | undefined;
 
       const applyEndpoint = async (
         index: number,
@@ -2477,6 +2512,7 @@ export function MapPage() {
             pool = [...pool, node];
             upsertInfraInCache(node);
             draft[index] = [node.lon, node.lat];
+            if (kind === 'finish') lineSnapFinishId = node.id;
 
             if (splitFound) {
               try {
@@ -2527,6 +2563,10 @@ export function MapPage() {
           }
         } else {
           draft[index] = [resolved.lon, resolved.lat];
+          if (resolved.attachedTo) {
+            if (kind === 'start') lineSnapStartId = resolved.attachedTo.id;
+            else lineSnapFinishId = resolved.attachedTo.id;
+          }
         }
         return true;
       };
@@ -2544,6 +2584,8 @@ export function MapPage() {
           end_lon: prepared[prepared.length - 1][0],
           end_lat: prepared[prepared.length - 1][1],
           coordinates: prepared.map(([lo, la]) => [lo, la] as [number, number]),
+          ...(lineSnapStartId ? { line_snap_start_object_id: lineSnapStartId } : {}),
+          ...(lineSnapFinishId ? { line_snap_finish_object_id: lineSnapFinishId } : {}),
         });
         setFeatureSel(null);
         setLineDraft([]);
@@ -2618,7 +2660,7 @@ export function MapPage() {
         detailSelection?.kind === 'infra' &&
         isLineSubtype(detailSelection.object.subtype)
       ) {
-        return 'Перетащите вершину; двойной ЛКМ по средней — удалить; концы — на объектах (≤300 м), иначе возврат · Del — удалить · Ctrl+Z — отмена';
+        return 'Перетащите вершину; двойной ЛКМ по средней — удалить; концы — на точечных объектах (точные координаты), иначе возврат · Del — удалить · Ctrl+Z — отмена';
       }
       if (detailSelection) {
         return 'Перетащите объект · Ctrl+C/V/X · Del · Ctrl+Z — отмена';
@@ -3442,6 +3484,7 @@ export function MapPage() {
           {drawMode === 'autoroad_network' && (
             <AutoroadNetworkPanel
               items={autoroadNetworkDetails}
+              onClose={cancelDrawingSelection}
               onClear={() => setAutoroadNetworkTerminalIds([])}
               onPreview={() => {
                 if (!canAutoroadNetworkPreview || runAutoroadNetworkFlow.isPending) return;
@@ -3490,7 +3533,7 @@ export function MapPage() {
                 {geometrySavePending === 0 && drawMode === 'line' && (
                   <span>
                     {lineDraft.length === 0
-                      ? 'Линия: первая точка — на точечном объекте (клик по иконке или ≤300 м)'
+                      ? 'Линия: первая точка — клик по точечному объекту на карте'
                       : 'Промежуточные вершины — свободно; двойной ЛКМ/ПКМ, Enter или «Готово» — завершить (в пустом месте — узел)'}
                   </span>
                 )}

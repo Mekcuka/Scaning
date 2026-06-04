@@ -3,6 +3,11 @@ import { Link } from 'react-router-dom';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { RefreshCw } from 'lucide-react';
 import { api, type ProjectJobAdminItem } from '../lib/api';
+import {
+  ACTIVE_JOB_STATUSES as ACTIVE_STATUSES,
+  jobStatusLabel,
+  jobTypeLabel,
+} from '../lib/taskLog/jobLabels';
 import { useAppStore } from '../store';
 
 const JOB_STATUSES = ['pending', 'running', 'completed', 'failed', 'cancelled'] as const;
@@ -14,22 +19,13 @@ const JOB_TYPES = [
   'import_file',
 ] as const;
 
-const JOB_TYPE_LABELS: Record<string, string> = {
-  sand_logistics_analyze: 'Логистика песка',
-  poi_analyze_all: 'Анализ POI',
-  autoroad_connect: 'Подключение AutoRoad',
-  import_file: 'Импорт файла',
-};
-
 const STATUS_LABELS: Record<string, string> = {
-  pending: 'В очереди',
-  running: 'Выполняется',
-  completed: 'Завершена',
-  failed: 'Ошибка',
-  cancelled: 'Отменена',
+  pending: jobStatusLabel('pending'),
+  running: jobStatusLabel('running'),
+  completed: jobStatusLabel('completed'),
+  failed: jobStatusLabel('failed'),
+  cancelled: jobStatusLabel('cancelled'),
 };
-
-const ACTIVE_STATUSES = new Set(['pending', 'running']);
 const POLL_ACTIVE_MS = 3_000;
 
 function countActiveJobs(counts: Record<string, number> | undefined): number {
@@ -235,7 +231,7 @@ export function AdminJobsPage() {
             <option value="">Все</option>
             {JOB_TYPES.map((t) => (
               <option key={t} value={t}>
-                {JOB_TYPE_LABELS[t]}
+                {jobTypeLabel(t)}
               </option>
             ))}
           </select>
@@ -291,7 +287,7 @@ export function AdminJobsPage() {
                           </div>
                         )}
                       </td>
-                      <td className="py-2 px-2">{JOB_TYPE_LABELS[job.job_type] ?? job.job_type}</td>
+                      <td className="py-2 px-2">{jobTypeLabel(job.job_type)}</td>
                       <td className="py-2 px-2">
                         <span className={statusBadgeClass(job.status)}>
                           {STATUS_LABELS[job.status] ?? job.status}

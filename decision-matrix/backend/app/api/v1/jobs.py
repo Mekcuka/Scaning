@@ -2,14 +2,19 @@
 
 from uuid import UUID
 
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, Query, status
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.api.deps import get_current_user
 from app.core.database import get_db
 from app.models import ProjectJob, User
 from app.models.enums import AccessLevel, WriteScope
-from app.schemas import ProjectJobCreateRequest, ProjectJobCreateResponse, ProjectJobResponse
+from app.schemas import (
+    ProjectJobCreateRequest,
+    ProjectJobCreateResponse,
+    ProjectJobListResponse,
+    ProjectJobResponse,
+)
 from app.services.job_queue import schedule_project_job
 from app.services.project_jobs import (
     ALLOWED_JOB_TYPES,
@@ -18,7 +23,7 @@ from app.services.project_jobs import (
     create_project_job,
     expire_stale_job_if_needed,
     get_active_job_for_project,
-    job_to_dict,
+    list_recent_jobs,
     reconcile_stale_active_job,
 )
 from app.services.project_access import resolve_project
@@ -64,6 +69,22 @@ async def create_project_job_endpoint(
         job_id=job.id,
         job_type=job.job_type,
         status=job.status,
+    )
+
+
+@jobs_router.get("/projects/{project_id}/jobs", response_model=ProjectJobListResponse)
+async def list_project_jobs(
+    project_id: UUID,
+    limit: int = Query(30, ge=1, le=100),
+    user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    await resolve_project(project_id, user, db, min_access=AccessLevel.read, write_scope=WriteScope.infra)
+    rows, total = await list_recent_jobs(db, project_id, limit=limit)
+    return ProjectJobListResponse(
+        items=[_job_response(j) for j in rows],
+        total=total,
+        limit=limit,
     )
 
 

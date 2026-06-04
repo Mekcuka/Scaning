@@ -3,6 +3,7 @@ import type { MapGroupSelectionItem } from './MapGroupSelectionPanel';
 
 type Props = {
   items: MapGroupSelectionItem[];
+  onClose: () => void;
   onClear: () => void;
   onPreview: () => void;
   canPreview: boolean;
@@ -11,6 +12,7 @@ type Props = {
 
 export function AutoroadNetworkPanel({
   items,
+  onClose,
   onClear,
   onPreview,
   canPreview,
@@ -30,9 +32,9 @@ export function AutoroadNetworkPanel({
         <button
           type="button"
           className="btn btn-ghost btn-sm p-1"
-          title="Очистить выбор"
-          aria-label="Очистить"
-          onClick={onClear}
+          title="Закрыть построение сети"
+          aria-label="Закрыть"
+          onClick={onClose}
         >
           <X size={14} />
         </button>

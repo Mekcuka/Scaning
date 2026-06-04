@@ -6,7 +6,7 @@ from datetime import datetime, timezone
 from typing import Any
 from uuid import UUID
 
-from sqlalchemy import select
+from sqlalchemy import func, select
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -85,6 +85,31 @@ async def reconcile_stale_active_job(db: AsyncSession, project_id: UUID) -> None
     active = await get_active_job_for_project(db, project_id)
     if active is not None:
         await expire_stale_job_if_needed(db, active)
+
+
+async def list_recent_jobs(
+    db: AsyncSession,
+    project_id: UUID,
+    *,
+    limit: int = 30,
+) -> tuple[list[ProjectJob], int]:
+    """Recent jobs for a project, newest first."""
+    limit = max(1, min(limit, 100))
+    total = int(
+        await db.scalar(
+            select(func.count()).select_from(ProjectJob).where(ProjectJob.project_id == project_id)
+        )
+        or 0
+    )
+    rows = (
+        await db.execute(
+            select(ProjectJob)
+            .where(ProjectJob.project_id == project_id)
+            .order_by(ProjectJob.created_at.desc(), ProjectJob.id.desc())
+            .limit(limit)
+        )
+    ).scalars().all()
+    return list(rows), total
 
 
 async def get_active_job_for_project(db: AsyncSession, project_id: UUID) -> ProjectJob | None:

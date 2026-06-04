@@ -185,3 +185,6 @@ SUBTYPE_LABELS: dict[str, str] = {
     "additional_facility": "Доп. объект",
     "offplot": "ВО",
 }
+
+# Autoroad network planner: no link/junction geometry inside this radius (km) around terminals.
+TERMINAL_EXCLUSION_RADIUS_KM = 0.2

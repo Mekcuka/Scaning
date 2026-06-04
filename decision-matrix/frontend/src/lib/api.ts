@@ -5,6 +5,12 @@ import {
   persistAuthTokens,
   type AuthSessionTokens,
 } from './authSession';
+import { taskLog } from './taskLog/store';
+import {
+  extractProjectIdFromPath,
+  parseRequestBody,
+  shouldLogHttpPath,
+} from './taskLog/loggablePaths';
 
 const API_BASE = import.meta.env.VITE_API_URL || '/api/v1';
 const REQUEST_TIMEOUT_MS = 12_000;
@@ -224,13 +230,54 @@ async function request<T>(path: string, options: RequestOptions = {}): Promise<T
   if (res.status === 404 && allowNotFound) {
     return null as T;
   }
+  const projectId = extractProjectIdFromPath(path);
+  const logHttp = Boolean(projectId && shouldLogHttpPath(path, method));
+  const requestBody = logHttp ? parseRequestBody(fetchOptions.body ?? null) : null;
+
   if (!res.ok) {
     const err = await res.json().catch(() => ({ detail: res.statusText }));
+    if (logHttp && projectId) {
+      taskLog.recordHttpStep({
+        projectId,
+        method,
+        path,
+        status: res.status,
+        requestBody,
+        responseBody: err,
+      });
+    }
     throw new Error(formatApiError(err.detail, res.statusText || 'Request failed'));
   }
   storeCsrfFromResponse(res);
   if (res.status === 204) return undefined as T;
-  return res.json();
+  const data = (await res.json()) as T;
+  if (logHttp && projectId) {
+    taskLog.recordHttpStep({
+      projectId,
+      method,
+      path,
+      status: res.status,
+      requestBody,
+      responseBody: data,
+    });
+    if (
+      res.status === 202 &&
+      data &&
+      typeof data === 'object' &&
+      'job_id' in data &&
+      typeof (data as { job_id: unknown }).job_id === 'string'
+    ) {
+      const envelope = data as { job_id: string; job_type?: string; status?: string };
+      taskLog.registerJob({
+        projectId,
+        jobId: envelope.job_id,
+        jobType: envelope.job_type ?? 'unknown',
+        status: envelope.status,
+        payload: requestBody as Record<string, unknown> | undefined,
+      });
+    }
+  }
+  return data;
 }
 
 async function requestBlob(path: string, options: RequestOptions = {}): Promise<Blob> {
@@ -528,6 +575,54 @@ export const api = {
         timeoutMs: opts?.timeoutMs ?? 120_000,
       },
     ),
+  autoroadNetworkBuildRequest: (
+    projectId: string,
+    data: { object_ids: string[]; full_network_rebuild?: boolean },
+    opts?: { timeoutMs?: number },
+  ) =>
+    request<NetworkPlanRequest>(`/projects/${projectId}/autoroad-network/request`, {
+      method: 'POST',
+      body: JSON.stringify({
+        object_ids: data.object_ids,
+        full_network_rebuild: data.full_network_rebuild ?? true,
+      }),
+      timeoutMs: opts?.timeoutMs ?? 120_000,
+    }),
+
+  autoroadNetworkCompute: (
+    projectId: string,
+    planRequest: NetworkPlanRequest,
+    opts?: { timeoutMs?: number },
+  ) =>
+    request<NetworkPlanResponse>(`/projects/${projectId}/autoroad-network/compute`, {
+      method: 'POST',
+      body: JSON.stringify(planRequest),
+      timeoutMs: opts?.timeoutMs ?? 120_000,
+    }),
+
+  autoroadNetworkApply: (
+    projectId: string,
+    data: {
+      object_ids: string[];
+      plan: NetworkPlanResponse;
+      full_network_rebuild?: boolean;
+    },
+    opts?: { timeoutMs?: number },
+  ) =>
+    request<AutoroadNetworkApplyResult | ProjectJobCreateResponse>(
+      `/projects/${projectId}/autoroad-network/apply`,
+      {
+        method: 'POST',
+        body: JSON.stringify({
+          object_ids: data.object_ids,
+          plan: data.plan,
+          full_network_rebuild: data.full_network_rebuild ?? true,
+        }),
+        timeoutMs: opts?.timeoutMs ?? 120_000,
+      },
+    ),
+
+  /** @deprecated Use buildRequest + compute */
   autoroadNetworkPlan: async (
     projectId: string,
     data: { object_ids: string[] },
@@ -539,7 +634,7 @@ export const api = {
         `/projects/${projectId}/autoroad-network/plan`,
         {
           method: 'POST',
-          body: JSON.stringify({ ...data, dry_run: true }),
+          body: JSON.stringify({ ...data, dry_run: true, full_network_rebuild: true }),
           timeoutMs,
         },
       );
@@ -555,37 +650,16 @@ export const api = {
       );
     }
   },
-  autoroadNetworkApply: async (
-    projectId: string,
-    data: { object_ids: string[] },
-    opts?: { timeoutMs?: number },
-  ) => {
-    const timeoutMs = opts?.timeoutMs ?? 120_000;
-    try {
-      return await request<AutoroadConnectResult | ProjectJobCreateResponse>(
-        `/projects/${projectId}/autoroad-network/apply`,
-        {
-          method: 'POST',
-          body: JSON.stringify({ ...data, dry_run: false }),
-          timeoutMs,
-        },
-      );
-    } catch (err) {
-      if (!isNotFoundApiError(err)) throw err;
-      return request<AutoroadConnectResult | ProjectJobCreateResponse>(
-        `/projects/${projectId}/infrastructure/autoroad-connect`,
-        {
-          method: 'POST',
-          body: JSON.stringify({ ...data, dry_run: false }),
-          timeoutMs,
-        },
-      );
-    }
-  },
   getActiveProjectJob: (projectId: string) =>
     request<ProjectJobResponse | null>(`/projects/${projectId}/jobs/active`),
+  listProjectJobs: (projectId: string, opts?: { limit?: number }) => {
+    const limit = opts?.limit ?? 30;
+    return request<ProjectJobListResponse>(`/projects/${projectId}/jobs?limit=${limit}`);
+  },
   getProjectJob: (projectId: string, jobId: string) =>
     request<ProjectJobResponse>(`/projects/${projectId}/jobs/${jobId}`),
+  cancelProjectJob: (projectId: string, jobId: string) =>
+    request<ProjectJobResponse>(`/projects/${projectId}/jobs/${jobId}/cancel`, { method: 'POST' }),
   createProjectJob: (projectId: string, data: { job_type: string; payload?: Record<string, unknown> }) =>
     request<ProjectJobCreateResponse>(`/projects/${projectId}/jobs`, {
       method: 'POST',
@@ -906,6 +980,12 @@ export interface ProjectJobResponse {
   created_at?: string | null;
 }
 
+export interface ProjectJobListResponse {
+  items: ProjectJobResponse[];
+  total: number;
+  limit: number;
+}
+
 export interface ProjectJobAdminItem extends ProjectJobResponse {
   user_email: string;
   user_username: string;
@@ -933,6 +1013,92 @@ export interface AdminJobsHealthResponse {
     project_name?: string;
     created_at?: string | null;
   }>;
+}
+
+export interface PlanTerminalInput {
+  id: string;
+  subtype: string;
+  name: string;
+  lon: number;
+  lat: number;
+  category?: string;
+  subtype_label?: string;
+  properties?: Record<string, unknown>;
+  coordinates?: [number, number];
+}
+
+export interface ExistingAutoroadInput {
+  id: string;
+  coordinates: number[][];
+  name?: string;
+  subtype?: string;
+}
+
+export interface NetworkPlanRequest {
+  project_id: string;
+  terminals: PlanTerminalInput[];
+  existing_autoroads: ExistingAutoroadInput[];
+  options?: {
+    snap_tolerance_km?: number;
+    node_dedup_km?: number;
+    max_terminals?: number;
+  };
+}
+
+export interface PlanTerminalResult {
+  id: string;
+  name: string;
+  subtype?: string;
+  category?: string;
+  subtype_label?: string;
+  lon?: number;
+  lat?: number;
+  coordinates?: [number, number];
+  properties?: Record<string, unknown>;
+  warning?: string | null;
+  snap_lon?: number | null;
+  snap_lat?: number | null;
+  graph_attached?: boolean;
+  graph_node_id?: string | null;
+}
+
+export interface PlannedLineOut {
+  kind: string;
+  coordinates: number[][];
+  snap_start_object_id?: string | null;
+  snap_finish_object_id?: string | null;
+}
+
+export interface NetworkPlanResponse {
+  terminals: PlanTerminalResult[];
+  new_lines: PlannedLineOut[];
+  new_nodes: { lon: number; lat: number; reason: string }[];
+  splits: {
+    line_id: string;
+    segment_index: number;
+    split_lon: number;
+    split_lat: number;
+  }[];
+  used_existing_edge_ids: string[];
+  total_new_km: number;
+  warnings: string[];
+  preview?: { type: string; features: unknown[] } | null;
+  request_meta?: {
+    project_id?: string;
+    terminal_count?: number;
+    existing_road_count?: number;
+  } | null;
+  new_line_count: number;
+  new_node_count: number;
+  split_count: number;
+}
+
+export interface AutoroadNetworkApplyResult {
+  plan: NetworkPlanResponse;
+  created_node_ids: string[];
+  created_line_ids: string[];
+  created_nodes: number;
+  created_lines: number;
 }
 
 export interface AutoroadConnectResult {

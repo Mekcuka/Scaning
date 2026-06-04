@@ -1,0 +1,179 @@
+{
+  "project_id": "a38a2462-59ce-4128-a893-af03e7a513d0",
+  "terminals": [
+    {
+      "id": "6e0a2599-f391-4ca2-be46-565b71657222",
+      "subtype": "gas_processing",
+      "name": "GKS_1",
+      "lon": 37.142939119144025,
+      "lat": 56.04061323280081,
+      "category": "area_facility",
+      "subtype_label": "ГКС",
+      "properties": {},
+      "coordinates": [
+        37.142939119144025,
+        56.04061323280081
+      ]
+    },
+    {
+      "id": "53c1e053-c2aa-4265-b972-2550efb98ef6",
+      "subtype": "gas_processing",
+      "name": "GKS_2",
+      "lon": 37.209717990505276,
+      "lat": 56.04061323280081,
+      "category": "area_facility",
+      "subtype_label": "ГКС",
+      "properties": {},
+      "coordinates": [
+        37.209717990505276,
+        56.04061323280081
+      ]
+    },
+    {
+      "id": "3c7b0733-faa8-4f2a-bcda-c1daaf97592a",
+      "subtype": "gas_processing",
+      "name": "GKS_3",
+      "lon": 37.16123879581562,
+      "lat": 55.94803530058053,
+      "category": "area_facility",
+      "subtype_label": "ГКС",
+      "properties": {},
+      "coordinates": [
+        37.16123879581562,
+        55.94803530058053
+      ]
+    },
+    {
+      "id": "e2357a2f-4410-4345-9429-28c76c93815c",
+      "subtype": "gas_processing",
+      "name": "GKS_4",
+      "lon": 37.22213184325423,
+      "lat": 55.94938438681757,
+      "category": "area_facility",
+      "subtype_label": "ГКС",
+      "properties": {},
+      "coordinates": [
+        37.22213184325423,
+        55.94938438681757
+      ]
+    },
+    {
+      "id": "434f9bd5-cfca-4edd-8b5f-d73e46665cc7",
+      "subtype": "gas_processing",
+      "name": "GKS_5",
+      "lon": 37.28356554653648,
+      "lat": 55.9487153552989,
+      "category": "area_facility",
+      "subtype_label": "ГКС",
+      "properties": {},
+      "coordinates": [
+        37.28356554653648,
+        55.9487153552989
+      ]
+    },
+    {
+      "id": "5045d9d3-df96-42bf-ac0d-ad1b3991582e",
+      "subtype": "gas_processing",
+      "name": "GKS_6",
+      "lon": 37.35034441789771,
+      "lat": 55.9487153552989,
+      "category": "area_facility",
+      "subtype_label": "ГКС",
+      "properties": {},
+      "coordinates": [
+        37.35034441789771,
+        55.9487153552989
+      ]
+    },
+    {
+      "id": "a3c3ca43-917b-4992-a71a-4539722936ed",
+      "subtype": "gas_processing",
+      "name": "GKS_7",
+      "lon": 37.1387474374583,
+      "lat": 56.0873732793855,
+      "category": "area_facility",
+      "subtype_label": "ГКС",
+      "properties": {},
+      "coordinates": [
+        37.1387474374583,
+        56.0873732793855
+      ]
+    },
+    {
+      "id": "24485248-e0ac-4267-b4d7-c975237cac4d",
+      "subtype": "gas_processing",
+      "name": "GKS_8",
+      "lon": 37.199455502332164,
+      "lat": 56.08872847268688,
+      "category": "area_facility",
+      "subtype_label": "ГКС",
+      "properties": {},
+      "coordinates": [
+        37.199455502332164,
+        56.08872847268688
+      ]
+    },
+    {
+      "id": "9fd68e18-ff37-4e4b-99da-bb85a17d0718",
+      "subtype": "gas_processing",
+      "name": "GKS_9",
+      "lon": 37.34092558425556,
+      "lat": 56.05552410800988,
+      "category": "area_facility",
+      "subtype_label": "ГКС",
+      "properties": {},
+      "coordinates": [
+        37.34092558425556,
+        56.05552410800988
+      ]
+    },
+    {
+      "id": "d0f04c1e-5cc3-436b-8f03-323a8eddb796",
+      "subtype": "gas_processing",
+      "name": "GKS_10",
+      "lon": 37.407704455616795,
+      "lat": 56.05552410800988,
+      "category": "area_facility",
+      "subtype_label": "ГКС",
+      "properties": {},
+      "coordinates": [
+        37.407704455616795,
+        56.05552410800988
+      ]
+    },
+    {
+      "id": "3e95964b-ad96-451c-9b87-8a9a1afc3830",
+      "subtype": "gas_processing",
+      "name": "GKS_11",
+      "lon": 37.41338266237315,
+      "lat": 55.99696486312589,
+      "category": "area_facility",
+      "subtype_label": "ГКС",
+      "properties": {},
+      "coordinates": [
+        37.41338266237315,
+        55.99696486312589
+      ]
+    },
+    {
+      "id": "5b4ea7ec-fc0b-42ef-aecf-aa4ade221282",
+      "subtype": "gas_processing",
+      "name": "GKS_12",
+      "lon": 37.47409072724702,
+      "lat": 55.9983232116441,
+      "category": "area_facility",
+      "subtype_label": "ГКС",
+      "properties": {},
+      "coordinates": [
+        37.47409072724702,
+        55.9983232116441
+      ]
+    }
+  ],
+  "existing_autoroads": [],
+  "options": {
+    "snap_tolerance_km": 0.3,
+    "node_dedup_km": 0.05,
+    "max_terminals": 50
+  }
+}

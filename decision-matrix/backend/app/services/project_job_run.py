@@ -38,9 +38,28 @@ async def _acquire_project_advisory_lock(db: AsyncSession, project_id: UUID) -> 
 
 async def _run_autoroad_connect(db: AsyncSession, job: ProjectJob) -> dict[str, Any]:
     from app.services.autoroad_connect import run_autoroad_connect
+    from app.services.autoroad_network.pipeline import apply_network_plan_response
+    from app.services.autoroad_network.schemas import NetworkPlanResponse
 
     object_ids = [UUID(x) for x in job.payload.get("object_ids", [])]
-    return await run_autoroad_connect(db, job.project_id, object_ids, dry_run=False)
+    full_rebuild = bool(job.payload.get("full_network_rebuild", True))
+    raw_plan = job.payload.get("plan")
+    if raw_plan:
+        resp = NetworkPlanResponse.model_validate(raw_plan)
+        return await apply_network_plan_response(
+            db,
+            job.project_id,
+            resp,
+            object_ids,
+            full_network_rebuild=full_rebuild,
+        )
+    return await run_autoroad_connect(
+        db,
+        job.project_id,
+        object_ids,
+        dry_run=False,
+        full_network_rebuild=full_rebuild,
+    )
 
 
 async def _run_import_file(db: AsyncSession, job: ProjectJob) -> dict[str, Any]:

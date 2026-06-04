@@ -1,15 +1,17 @@
 """Stateless autoroad network planner.
 
 When existing autoroad polylines are present, each terminal gets at most one
-``connector`` (object → nearest point on the network). Connectivity between
+``connector`` (object → exclusion boundary, 200 m). Connectivity between
 terminals uses the existing graph; gaps between disconnected components are
-filled with new ``link`` segments between network attachment points only (never
-object ↔ object). Terminals already connected to the network are skipped.
+filled with new ``link`` segments between points outside terminal exclusion
+zones only (never object ↔ object). Terminals already connected to the network
+are skipped.
 
-Without polylines: two terminals → one ``link``; three or more → MST with
-Steiner ``junction`` on each edge, path ``link`` between mids at degree-2
-terminals, hub ``junction`` + star ``link`` at degree ≥3, collinear
-simplify, bend-angle warnings (leaf-only terminals).
+Without polylines: two terminals → two connectors + one ``link`` between
+boundary points; three or more → MST with Steiner ``junction`` outside
+exclusion zones, path ``link`` between mids at degree-2 terminals, hub
+``junction`` + star ``link`` at degree ≥3, collinear simplify, bend-angle
+warnings (leaf-only terminals).
 """
 
 from __future__ import annotations
@@ -33,6 +35,7 @@ from app.services.autoroad_network.schemas import (
     PlannedSplitOut,
     PlanTerminalInput,
     PlanTerminalResult,
+    terminal_result_from_input,
 )
 from app.services.line_split import find_segment_intersections, is_near_line_endpoint
 from app.services.road_graph import (
@@ -46,11 +49,31 @@ from app.services.road_graph import (
     shortest_path_edges,
 )
 from app.services.spatial import closest_point_on_segment
+from app.services.terminal_exclusion import (
+    TERMINAL_EXCLUSION_RADIUS_KM,
+    boundary_pair,
+    check_exclusion_zones_overlap,
+    closest_point_on_polyline_min_dist_from,
+    exclusion_boundary_point,
+    is_inside_terminal_exclusion,
+    path_length_km,
+    point_along_geodesic,
+    relocate_if_inside_exclusion,
+    route_backbone_outside_exclusions,
+    sanitize_path_vertices,
+    segment_attach_outside_exclusion,
+    validate_planned_exclusion,
+)
 
 CONNECTOR_MIN_KM = 0.02
 ALREADY_CONNECTED_KM = 0.02
 FAR_FROM_ROAD_INFO_KM = 0.3
 ATTACH_PROJ_TOL_KM = LINE_SPLIT_ENDPOINT_MIN_KM
+
+
+def _connectivity_glue_km() -> float:
+    """Connector boundary ↔ backbone union tolerance (scales with exclusion radius)."""
+    return max(0.5, TERMINAL_EXCLUSION_RADIUS_KM * 1.25)
 
 
 @dataclass
@@ -68,22 +91,198 @@ def _coord_key(lon: float, lat: float) -> tuple[int, int]:
     return (round(lon * 1e5), round(lat * 1e5))
 
 
+def _emit_terminal_connector(
+    new_lines: list[PlannedLineOut],
+    t: PlanTerminalInput,
+    target_lon: float,
+    target_lat: float,
+) -> tuple[float, float, float]:
+    """Connector T → exclusion boundary (200 m) toward target; returns B and length km."""
+    blon, blat = exclusion_boundary_point(t.lon, t.lat, target_lon, target_lat)
+    new_lines.append(
+        PlannedLineOut(
+            kind="connector",
+            coordinates=[[t.lon, t.lat], [blon, blat]],
+            snap_start_object_id=t.id,
+        )
+    )
+    return blon, blat, haversine_km(t.lon, t.lat, blon, blat)
+
+
+def _link_endpoints_match(
+    lon1: float,
+    lat1: float,
+    lon2: float,
+    lat2: float,
+    a: list[float],
+    b: list[float],
+    *,
+    tol_km: float = 0.02,
+) -> bool:
+    fwd = (
+        haversine_km(lon1, lat1, a[0], a[1]) <= tol_km
+        and haversine_km(lon2, lat2, b[0], b[1]) <= tol_km
+    )
+    rev = (
+        haversine_km(lon1, lat1, b[0], b[1]) <= tol_km
+        and haversine_km(lon2, lat2, a[0], a[1]) <= tol_km
+    )
+    return fwd or rev
+
+
+def _has_link_between(
+    lines: list[PlannedLineOut],
+    lon1: float,
+    lat1: float,
+    lon2: float,
+    lat2: float,
+) -> bool:
+    for ln in lines:
+        if ln.kind != "link" or len(ln.coordinates) < 2:
+            continue
+        if _link_endpoints_match(
+            lon1, lat1, lon2, lat2, ln.coordinates[0], ln.coordinates[-1]
+        ):
+            return True
+    return False
+
+
+def _emit_link_outside(
+    new_lines: list[PlannedLineOut],
+    lon1: float,
+    lat1: float,
+    lon2: float,
+    lat2: float,
+    terminals: list[PlanTerminalInput],
+) -> float:
+    """Emit a link with both endpoints outside all terminal exclusion zones."""
+    o1_lon, o1_lat = lon1, lat1
+    if is_inside_terminal_exclusion(lon1, lat1, terminals):
+        o1_lon, o1_lat = relocate_if_inside_exclusion(lon1, lat1, terminals, lon2, lat2)
+    o2_lon, o2_lat = lon2, lat2
+    if is_inside_terminal_exclusion(lon2, lat2, terminals):
+        o2_lon, o2_lat = relocate_if_inside_exclusion(
+            lon2, lat2, terminals, o1_lon, o1_lat
+        )
+    return _emit_link(new_lines, o1_lon, o1_lat, o2_lon, o2_lat)
+
+
+def _path_point_at_fraction(
+    path: list[tuple[float, float]], fraction: float
+) -> tuple[float, float]:
+    if not path:
+        return (0.0, 0.0)
+    if len(path) == 1 or fraction <= 0.0:
+        return path[0]
+    if fraction >= 1.0:
+        return path[-1]
+    total = path_length_km(path)
+    if total < 1e-12:
+        return path[0]
+    target = total * fraction
+    acc = 0.0
+    for i in range(len(path) - 1):
+        seg = haversine_km(path[i][0], path[i][1], path[i + 1][0], path[i + 1][1])
+        if acc + seg >= target:
+            f = (target - acc) / seg if seg > 1e-12 else 0.0
+            return point_along_geodesic(
+                path[i][0], path[i][1], path[i + 1][0], path[i + 1][1], f
+            )
+        acc += seg
+    return path[-1]
+
+
+def _attach_on_edge_path(
+    tid: UUID,
+    terminal_by_id: dict[UUID, PlanTerminalInput],
+    path: list[tuple[float, float]],
+) -> tuple[float, float]:
+    """Endpoint of ``path`` on this terminal's exclusion boundary (not frozenset order)."""
+    t = terminal_by_id[tid]
+    d0 = haversine_km(t.lon, t.lat, path[0][0], path[0][1])
+    d1 = haversine_km(t.lon, t.lat, path[-1][0], path[-1][1])
+    return path[0] if d0 <= d1 else path[-1]
+
+
+def _emit_link_path_outside(
+    new_lines: list[PlannedLineOut],
+    path: list[tuple[float, float]],
+    terminals: list[PlanTerminalInput],
+) -> float:
+    """Emit one backbone link as a polyline outside exclusion zones."""
+    if len(path) < 2:
+        return 0.0
+    path = sanitize_path_vertices(path, terminals)
+    if len(path) < 2:
+        return 0.0
+    coords: list[list[float]] = []
+    for i, (lon, lat) in enumerate(path):
+        hint_lon = path[i + 1][0] if i + 1 < len(path) else path[i - 1][0]
+        hint_lat = path[i + 1][1] if i + 1 < len(path) else path[i - 1][1]
+        olon, olat = lon, lat
+        if is_inside_terminal_exclusion(lon, lat, terminals):
+            olon, olat = relocate_if_inside_exclusion(
+                lon, lat, terminals, hint_lon, hint_lat
+            )
+        if coords and haversine_km(coords[-1][0], coords[-1][1], olon, olat) < 0.005:
+            continue
+        coords.append([olon, olat])
+    if len(coords) < 2:
+        return 0.0
+    total = 0.0
+    for i in range(len(coords) - 1):
+        total += haversine_km(
+            coords[i][0], coords[i][1], coords[i + 1][0], coords[i + 1][1]
+        )
+    if total < CONNECTOR_MIN_KM:
+        return 0.0
+    new_lines.append(PlannedLineOut(kind="link", coordinates=coords))
+    return total
+
+
+def _ensure_junction_outside(
+    lon: float,
+    lat: float,
+    new_nodes: list[PlannedNodeOut],
+    node_keys: set[tuple[int, int]],
+    terminals: list[PlanTerminalInput],
+    *,
+    toward_lon: float,
+    toward_lat: float,
+    reason: str = "junction",
+) -> tuple[float, float]:
+    out_lon, out_lat = relocate_if_inside_exclusion(
+        lon, lat, terminals, toward_lon, toward_lat
+    )
+    _ensure_junction(out_lon, out_lat, new_nodes, node_keys, reason=reason)
+    return out_lon, out_lat
+
+
 def _nearest_polyline_snap(
     lon: float,
     lat: float,
     polylines: list[list[tuple[float, float]]],
     road_ids: list[UUID],
-) -> tuple[float, float, float, UUID | None]:
+    *,
+    min_km: float | None = None,
+) -> tuple[float, float, float, UUID | None] | None:
+    """Nearest polyline point at least ``min_km`` from (lon, lat), or None."""
+    if min_km is None:
+        min_km = TERMINAL_EXCLUSION_RADIUS_KM
     best_d = math.inf
-    best: tuple[float, float] = (lon, lat)
+    best: tuple[float, float] | None = None
     best_road: UUID | None = None
     for pl, rid in zip(polylines, road_ids, strict=False):
-        slon, slat, _ = closest_point_on_polyline_for_snap(lon, lat, pl)
-        d = haversine_km(lon, lat, slon, slat)
+        hit = closest_point_on_polyline_min_dist_from(lon, lat, pl, min_km)
+        if hit is None:
+            continue
+        slon, slat, d = hit
         if d < best_d:
             best_d = d
             best = (slon, slat)
             best_road = rid
+    if best is None:
+        return None
     return best[0], best[1], best_d, best_road
 
 
@@ -175,12 +374,19 @@ def _snap_terminal(
     snap_tolerance_km: float,
 ) -> _SnapInfo:
     already = _terminal_already_connected(t.lon, t.lat, roads)
-    slon, slat, dist, road_id = _nearest_polyline_snap(t.lon, t.lat, polylines, road_ids)
-    nid, _ = _nearest_graph_node(g, slon, slat, max_km=snap_tolerance_km)
+    snap_hit = _nearest_polyline_snap(t.lon, t.lat, polylines, road_ids)
     warning: str | None = None
+    if snap_hit is None:
+        slon, slat, dist, road_id = _nearest_polyline_snap_legacy(
+            t.lon, t.lat, polylines, road_ids
+        )
+        warning = "no_snap_outside_exclusion"
+    else:
+        slon, slat, dist, road_id = snap_hit
+    nid, _ = _nearest_graph_node(g, slon, slat, max_km=snap_tolerance_km)
     if already:
         warning = "already_connected"
-    elif dist > FAR_FROM_ROAD_INFO_KM:
+    elif warning is None and dist > FAR_FROM_ROAD_INFO_KM:
         warning = "far_from_autoroad"
     return _SnapInfo(
         graph_node_id=nid,
@@ -191,6 +397,25 @@ def _snap_terminal(
         warning=warning,
         already_connected=already,
     )
+
+
+def _nearest_polyline_snap_legacy(
+    lon: float,
+    lat: float,
+    polylines: list[list[tuple[float, float]]],
+    road_ids: list[UUID],
+) -> tuple[float, float, float, UUID | None]:
+    best_d = math.inf
+    best: tuple[float, float] = (lon, lat)
+    best_road: UUID | None = None
+    for pl, rid in zip(polylines, road_ids, strict=False):
+        slon, slat, _ = closest_point_on_polyline_for_snap(lon, lat, pl)
+        d = haversine_km(lon, lat, slon, slat)
+        if d < best_d:
+            best_d = d
+            best = (slon, slat)
+            best_road = rid
+    return best[0], best[1], best_d, best_road
 
 
 def _needs_connector(obj_lon: float, obj_lat: float, snap_lon: float, snap_lat: float) -> bool:
@@ -361,13 +586,16 @@ def _emit_link(
     lon2: float,
     lat2: float,
 ) -> float:
+    km = haversine_km(lon1, lat1, lon2, lat2)
+    if km < CONNECTOR_MIN_KM:
+        return 0.0
     new_lines.append(
         PlannedLineOut(
             kind="link",
             coordinates=[[lon1, lat1], [lon2, lat2]],
         )
     )
-    return haversine_km(lon1, lat1, lon2, lat2)
+    return km
 
 
 def _terminal_hub_point(
@@ -586,6 +814,8 @@ def _simplify_collinear_backbone(
     """Merge collinear link chains and shorten connectors via backbone projection."""
     hub_ids = hub_terminal_ids or set()
     hubs = hub_positions or []
+    hub_coord_keys = {_coord_key(h[0], h[1]) for h in hubs}
+    lonlat_by_id = {tid: (t.lon, t.lat) for tid, t in terminal_by_id.items()}
     while True:
         adj: dict[tuple[int, int], list[tuple[tuple[int, int], int]]] = {}
         mid_coords: dict[tuple[int, int], tuple[float, float]] = {}
@@ -612,9 +842,37 @@ def _simplify_collinear_backbone(
             far2 = _link_far_endpoint(ln2, mid_ck)
             if not _collinear_triple(far1, mid_pt, far2):
                 continue
+            if mid_ck in hub_coord_keys:
+                continue
+            o1_lon, o1_lat = relocate_if_inside_exclusion(
+                far1[0], far1[1], list(terminal_by_id.values()), far2[0], far2[1]
+            )
+            o2_lon, o2_lat = relocate_if_inside_exclusion(
+                far2[0], far2[1], list(terminal_by_id.values()), o1_lon, o1_lat
+            )
+            trial_lines = [
+                PlannedLineOut(
+                    kind=ln.kind,
+                    coordinates=[list(c) for c in ln.coordinates],
+                    snap_start_object_id=ln.snap_start_object_id,
+                    snap_finish_object_id=ln.snap_finish_object_id,
+                )
+                for ln in new_lines
+            ]
+            trial_lines[i1] = PlannedLineOut(
+                kind="link",
+                coordinates=[[o1_lon, o1_lat], [o2_lon, o2_lat]],
+            )
+            trial_lines[i2] = PlannedLineOut(kind="link", coordinates=[])
+            trial_w: list[str] = []
+            _validate_terminal_connectivity(
+                terminal_ids, lonlat_by_id, trial_lines, trial_w
+            )
+            if "terminals_not_connected" in trial_w:
+                continue
             new_lines[i1] = PlannedLineOut(
                 kind="link",
-                coordinates=[[far1[0], far1[1]], [far2[0], far2[1]]],
+                coordinates=[[o1_lon, o1_lat], [o2_lon, o2_lat]],
             )
             new_lines[i2] = PlannedLineOut(kind="link", coordinates=[])
             merged = True
@@ -646,21 +904,47 @@ def _simplify_collinear_backbone(
                 key=lambda m: (m[0] - mids[0][0]) * ux + (m[1] - mids[0][1]) * uy,
             )
             first, last = ordered[0], ordered[-1]
-            plon, plat = closest_point_on_segment(
-                t.lon, t.lat, first[0], first[1], last[0], last[1]
+            plon, plat = segment_attach_outside_exclusion(
+                t.lon, t.lat, first, last, list(terminal_by_id.values())
             )
         else:
             plon, plat = min(
                 mids,
                 key=lambda m: haversine_km(t.lon, t.lat, m[0], m[1]),
             )
+            plon, plat = segment_attach_outside_exclusion(
+                t.lon, t.lat, mids[0], mids[-1], list(terminal_by_id.values())
+            )
 
+        toward_lon, toward_lat = plon, plat
+        if keys:
+            far_mid = max(
+                (edge_mid[ek] for ek in keys),
+                key=lambda m: haversine_km(t.lon, t.lat, m[0], m[1]),
+            )
+            toward_lon, toward_lat = far_mid[0], far_mid[1]
+        blon, blat = exclusion_boundary_point(t.lon, t.lat, toward_lon, toward_lat)
         for ln in new_lines:
             if ln.kind != "connector" or ln.snap_start_object_id != tid:
                 continue
             if len(ln.coordinates) < 2:
                 continue
-            ln.coordinates = [[t.lon, t.lat], [plon, plat]]
+            ln.coordinates = [[t.lon, t.lat], [blon, blat]]
+            attach_lon, attach_lat = plon, plat
+            if (
+                haversine_km(blon, blat, attach_lon, attach_lat) > CONNECTOR_MIN_KM
+                and not _has_link_between(
+                    new_lines, blon, blat, attach_lon, attach_lat
+                )
+            ):
+                _emit_link_outside(
+                    new_lines,
+                    blon,
+                    blat,
+                    attach_lon,
+                    attach_lat,
+                    list(terminal_by_id.values()),
+                )
             break
 
     _repair_planned_line_topology(
@@ -767,6 +1051,7 @@ def _validate_terminal_connectivity(
         for other in items[1:]:
             union(items[0], other)
 
+    glue_km = _connectivity_glue_km()
     for ln in lines:
         if ln.kind != "connector" or len(ln.coordinates) < 2:
             continue
@@ -778,14 +1063,20 @@ def _validate_terminal_connectivity(
         for other in lines:
             if other.kind != "link" or len(other.coordinates) < 2:
                 continue
+            for c in other.coordinates:
+                if haversine_km(plon, plat, c[0], c[1]) <= glue_km:
+                    union(pk, _k_coord(c[0], c[1]))
             a, b = other.coordinates[0], other.coordinates[-1]
             clon, clat = closest_point_on_segment(
                 plon, plat, a[0], a[1], b[0], b[1]
             )
-            if haversine_km(plon, plat, clon, clat) > 0.01:
+            if haversine_km(plon, plat, clon, clat) > glue_km:
                 continue
             union(pk, _k_coord(a[0], a[1]))
             union(pk, _k_coord(b[0], b[1]))
+            for end in (a, b):
+                if haversine_km(plon, plat, end[0], end[1]) <= glue_km:
+                    union(pk, _k_coord(end[0], end[1]))
 
     roots = {find(_k_tid(tid)) for tid in terminal_ids}
     if len(roots) > 1:
@@ -836,7 +1127,8 @@ def _plan_off_network_steiner_mst(
     node_keys: set[tuple[int, int]],
     warnings: list[str],
 ) -> float:
-    """MST on terminals; junction at each edge midpoint; leaf connectors only."""
+    """MST on boundary-route lengths; backbone polylines outside exclusion zones."""
+    terminals = req.terminals
     dist_matrix: dict[UUID, dict[UUID, float]] = {}
     for a in terminal_ids:
         dist_matrix[a] = {}
@@ -846,9 +1138,19 @@ def _plan_off_network_steiner_mst(
                 dist_matrix[a][b] = 0.0
             else:
                 tb = terminal_by_id[b]
-                dist_matrix[a][b] = haversine_km(ta.lon, ta.lat, tb.lon, tb.lat)
+                ba, bb = boundary_pair(ta, tb)
+                path = route_backbone_outside_exclusions(
+                    ba[0],
+                    ba[1],
+                    bb[0],
+                    bb[1],
+                    terminals,
+                    ignore_ids={a, b},
+                )
+                dist_matrix[a][b] = path_length_km(path)
 
     mst_edges = mst_terminal_edges(terminal_ids, dist_matrix)
+    edge_path: dict[frozenset[UUID], list[tuple[float, float]]] = {}
     edge_mid: dict[frozenset[UUID], tuple[float, float]] = {}
     terminal_edges: dict[UUID, list[frozenset[UUID]]] = {tid: [] for tid in terminal_ids}
     total_km = 0.0
@@ -856,13 +1158,29 @@ def _plan_off_network_steiner_mst(
     for a, b in mst_edges:
         ek = _edge_key(a, b)
         ta, tb = terminal_by_id[a], terminal_by_id[b]
-        mlon, mlat = _geographic_midpoint(ta.lon, ta.lat, tb.lon, tb.lat)
-        edge_mid[ek] = (mlon, mlat)
-        _ensure_junction(mlon, mlat, new_nodes, node_keys)
+        ba, bb = boundary_pair(ta, tb)
+        path = route_backbone_outside_exclusions(
+            ba[0], ba[1], bb[0], bb[1], terminals, ignore_ids={a, b}
+        )
+        edge_path[ek] = path
+        jlon, jlat = _path_point_at_fraction(path, 0.5)
+        edge_mid[ek] = (jlon, jlat)
+        _ensure_junction_outside(
+            jlon,
+            jlat,
+            new_nodes,
+            node_keys,
+            terminals,
+            toward_lon=ta.lon,
+            toward_lat=ta.lat,
+        )
         terminal_edges[a].append(ek)
         terminal_edges[b].append(ek)
 
-    seen_mid_links: set[tuple] = set()
+    for path in edge_path.values():
+        total_km += _emit_link_path_outside(new_lines, path, terminals)
+
+    seen_attach_links: set[tuple] = set()
     hub_terminal_ids: set[UUID] = {
         tid for tid in terminal_ids if len(terminal_edges.get(tid, [])) >= 3
     }
@@ -875,51 +1193,93 @@ def _plan_off_network_steiner_mst(
             continue
 
         if len(keys) == 1:
-            m = edge_mid[keys[0]]
-            total_km += haversine_km(t.lon, t.lat, m[0], m[1])
-            new_lines.append(
-                PlannedLineOut(
-                    kind="connector",
-                    coordinates=[[t.lon, t.lat], [m[0], m[1]]],
-                    snap_start_object_id=tid,
-                )
+            ek = keys[0]
+            path = edge_path[ek]
+            near = _attach_on_edge_path(tid, terminal_by_id, path)
+            if len(path) < 2:
+                toward = path[0]
+            elif near == path[0]:
+                toward = path[1]
+            else:
+                toward = path[-2]
+            blon, blat, conn_km = _emit_terminal_connector(
+                new_lines, t, toward[0], toward[1]
             )
+            total_km += conn_km
+            attach = near
+            if (
+                haversine_km(blon, blat, attach[0], attach[1]) > CONNECTOR_MIN_KM
+                and not _has_link_between(
+                    new_lines, blon, blat, attach[0], attach[1]
+                )
+            ):
+                spur = route_backbone_outside_exclusions(
+                    blon, blat, attach[0], attach[1], terminals, ignore_ids={tid}
+                )
+                total_km += _emit_link_path_outside(new_lines, spur, terminals)
         elif len(keys) == 2:
             ek1, ek2 = keys[0], keys[1]
-            m1, m2 = edge_mid[ek1], edge_mid[ek2]
+            p1 = _attach_on_edge_path(tid, terminal_by_id, edge_path[ek1])
+            p2 = _attach_on_edge_path(tid, terminal_by_id, edge_path[ek2])
             pair = _mid_link_pair_key(ek1, ek2)
-            if pair not in seen_mid_links:
-                seen_mid_links.add(pair)
-                total_km += _emit_link(
-                    new_lines, m1[0], m1[1], m2[0], m2[1]
+            if pair not in seen_attach_links:
+                seen_attach_links.add(pair)
+                cross = route_backbone_outside_exclusions(
+                    p1[0], p1[1], p2[0], p2[1], terminals, ignore_ids={tid}
                 )
-            plon, plat = closest_point_on_segment(
-                t.lon, t.lat, m1[0], m1[1], m2[0], m2[1]
+                total_km += _emit_link_path_outside(new_lines, cross, terminals)
+            plon, plat = segment_attach_outside_exclusion(
+                t.lon, t.lat, p1, p2, terminals
             )
-            total_km += haversine_km(t.lon, t.lat, plon, plat)
-            new_lines.append(
-                PlannedLineOut(
-                    kind="connector",
-                    coordinates=[[t.lon, t.lat], [plon, plat]],
-                    snap_start_object_id=tid,
+            blon, blat, conn_km = _emit_terminal_connector(new_lines, t, plon, plat)
+            total_km += conn_km
+            if (
+                haversine_km(blon, blat, plon, plat) > CONNECTOR_MIN_KM
+                and not _has_link_between(new_lines, blon, blat, plon, plat)
+            ):
+                spur = route_backbone_outside_exclusions(
+                    blon, blat, plon, plat, terminals, ignore_ids={tid}
                 )
-            )
+                total_km += _emit_link_path_outside(new_lines, spur, terminals)
         else:
-            mids = [edge_mid[ek] for ek in keys]
-            hlon, hlat = _terminal_hub_point(mids)
-            hub_positions.append((hlon, hlat))
-            _ensure_junction(hlon, hlat, new_nodes, node_keys, reason="hub_junction")
-            total_km += haversine_km(t.lon, t.lat, hlon, hlat)
-            new_lines.append(
-                PlannedLineOut(
-                    kind="connector",
-                    coordinates=[[t.lon, t.lat], [hlon, hlat]],
-                    snap_start_object_id=tid,
-                )
-            )
+            attach_pts: list[tuple[float, float]] = []
             for ek in keys:
-                mlon, mlat = edge_mid[ek]
-                total_km += _emit_link(new_lines, hlon, hlat, mlon, mlat)
+                attach_pts.append(
+                    _attach_on_edge_path(tid, terminal_by_id, edge_path[ek])
+                )
+            hlon, hlat = _terminal_hub_point(attach_pts)
+            hlon, hlat = relocate_if_inside_exclusion(
+                hlon, hlat, terminals, t.lon, t.lat
+            )
+            hub_positions.append((hlon, hlat))
+            _ensure_junction_outside(
+                hlon,
+                hlat,
+                new_nodes,
+                node_keys,
+                terminals,
+                toward_lon=t.lon,
+                toward_lat=t.lat,
+                reason="hub_junction",
+            )
+            blon, blat, conn_km = _emit_terminal_connector(new_lines, t, hlon, hlat)
+            total_km += conn_km
+            if (
+                haversine_km(blon, blat, hlon, hlat) > CONNECTOR_MIN_KM
+                and not _has_link_between(new_lines, blon, blat, hlon, hlat)
+            ):
+                spur = route_backbone_outside_exclusions(
+                    blon, blat, hlon, hlat, terminals, ignore_ids={tid}
+                )
+                total_km += _emit_link_path_outside(new_lines, spur, terminals)
+            for pt in attach_pts:
+                star = route_backbone_outside_exclusions(
+                    hlon, hlat, pt[0], pt[1], terminals, ignore_ids={tid}
+                )
+                if len(star) >= 2:
+                    star[0] = (hlon, hlat)
+                    star[-1] = (pt[0], pt[1])
+                total_km += _emit_link_path_outside(new_lines, star, terminals)
 
     _simplify_collinear_backbone(
         new_lines,
@@ -938,25 +1298,43 @@ def _plan_off_network_steiner_mst(
 def _plan_off_network(req: NetworkPlanRequest, warnings: list[str]) -> NetworkPlanResponse:
     terminal_by_id = {t.id: t for t in req.terminals}
     terminal_ids = [t.id for t in req.terminals]
+    terminals = req.terminals
     lonlat_by_id = {t.id: (t.lon, t.lat) for t in req.terminals}
     new_lines: list[PlannedLineOut] = []
     new_nodes: list[PlannedNodeOut] = []
     node_keys: set[tuple[int, int]] = set()
     total_km = 0.0
+    warnings.extend(check_exclusion_zones_overlap(terminals))
 
     if len(terminal_ids) == 2:
         a, b = terminal_ids[0], terminal_ids[1]
         ta, tb = terminal_by_id[a], terminal_by_id[b]
-        km = haversine_km(ta.lon, ta.lat, tb.lon, tb.lat)
-        new_lines.append(
-            PlannedLineOut(
-                kind="link",
-                coordinates=[[ta.lon, ta.lat], [tb.lon, tb.lat]],
-                snap_start_object_id=a,
-                snap_finish_object_id=b,
-            )
+        b1_lon, b1_lat, km1 = _emit_terminal_connector(new_lines, ta, tb.lon, tb.lat)
+        b2_lon, b2_lat, km2 = _emit_terminal_connector(new_lines, tb, ta.lon, ta.lat)
+        total_km += km1 + km2
+        _ensure_junction_outside(
+            b1_lon,
+            b1_lat,
+            new_nodes,
+            node_keys,
+            terminals,
+            toward_lon=b2_lon,
+            toward_lat=b2_lat,
         )
-        total_km += km
+        _ensure_junction_outside(
+            b2_lon,
+            b2_lat,
+            new_nodes,
+            node_keys,
+            terminals,
+            toward_lon=b1_lon,
+            toward_lat=b1_lat,
+        )
+        ba, bb = boundary_pair(ta, tb)
+        backbone = route_backbone_outside_exclusions(
+            ba[0], ba[1], bb[0], bb[1], terminals, ignore_ids={a, b}
+        )
+        total_km += _emit_link_path_outside(new_lines, backbone, terminals)
     else:
         total_km += _plan_off_network_steiner_mst(
             req,
@@ -969,15 +1347,7 @@ def _plan_off_network(req: NetworkPlanRequest, warnings: list[str]) -> NetworkPl
         )
 
     terminal_results = [
-        PlanTerminalResult(
-            id=t.id,
-            name=t.name,
-            warning=None,
-            snap_lon=None,
-            snap_lat=None,
-            graph_attached=False,
-            graph_node_id=None,
-        )
+        terminal_result_from_input(t, warning=None)
         for t in req.terminals
     ]
     _validate_one_autoroad_per_object(new_lines, terminal_ids, warnings)
@@ -1016,9 +1386,8 @@ def _plan_with_network(
         )
         snap_by_id[t.id] = si
         terminal_results.append(
-            PlanTerminalResult(
-                id=t.id,
-                name=t.name,
+            terminal_result_from_input(
+                t,
                 warning=si.warning,
                 snap_lon=si.snap_lon,
                 snap_lat=si.snap_lat,
@@ -1053,39 +1422,95 @@ def _plan_with_network(
     used_edge_ids: set[str] = set()
     object_snaps_used: set[UUID] = set()
 
-    for t in req.terminals:
+    terminals = req.terminals
+    for t in terminals:
         si = snap_by_id[t.id]
         if si.already_connected:
+            continue
+        if si.warning == "no_snap_outside_exclusion":
             continue
         if not _needs_connector(t.lon, t.lat, si.snap_lon, si.snap_lat):
             continue
         if t.id in object_snaps_used:
             continue
-        _ensure_junction(si.snap_lon, si.snap_lat, new_nodes, node_keys)
-        new_lines.append(
-            PlannedLineOut(
-                kind="connector",
-                coordinates=[[t.lon, t.lat], [si.snap_lon, si.snap_lat]],
-                snap_start_object_id=t.id,
-            )
+        blon, blat, conn_km = _emit_terminal_connector(
+            new_lines, t, si.snap_lon, si.snap_lat
         )
+        total_km += conn_km
+        _ensure_junction_outside(
+            blon,
+            blat,
+            new_nodes,
+            node_keys,
+            terminals,
+            toward_lon=si.snap_lon,
+            toward_lat=si.snap_lat,
+        )
+        _ensure_junction_outside(
+            si.snap_lon,
+            si.snap_lat,
+            new_nodes,
+            node_keys,
+            terminals,
+            toward_lon=blon,
+            toward_lat=blat,
+        )
+        if (
+            haversine_km(blon, blat, si.snap_lon, si.snap_lat) > CONNECTOR_MIN_KM
+            and not _has_link_between(
+                new_lines, blon, blat, si.snap_lon, si.snap_lat
+            )
+        ):
+            total_km += _emit_link_outside(
+                new_lines,
+                blon,
+                blat,
+                si.snap_lon,
+                si.snap_lat,
+                terminals,
+            )
         object_snaps_used.add(t.id)
-        total_km += haversine_km(t.lon, t.lat, si.snap_lon, si.snap_lat)
+
+    for comp_id, pt in list(rep_point.items()):
+        rep_point[comp_id] = relocate_if_inside_exclusion(
+            pt[0],
+            pt[1],
+            terminals,
+            pt[0] + 1e-4,
+            pt[1],
+        )
 
     unique_comps = sorted(set(terminal_comp.values()))
     comp_mst = _mst_component_edges(unique_comps, rep_point)
     for c1, c2 in comp_mst:
         p1 = rep_point[c1]
         p2 = rep_point[c2]
-        _ensure_junction(p1[0], p1[1], new_nodes, node_keys)
-        _ensure_junction(p2[0], p2[1], new_nodes, node_keys)
-        new_lines.append(
-            PlannedLineOut(
-                kind="link",
-                coordinates=[[p1[0], p1[1]], [p2[0], p2[1]]],
-            )
+        _ensure_junction_outside(
+            p1[0],
+            p1[1],
+            new_nodes,
+            node_keys,
+            terminals,
+            toward_lon=p2[0],
+            toward_lat=p2[1],
         )
-        total_km += haversine_km(p1[0], p1[1], p2[0], p2[1])
+        _ensure_junction_outside(
+            p2[0],
+            p2[1],
+            new_nodes,
+            node_keys,
+            terminals,
+            toward_lon=p1[0],
+            toward_lat=p1[1],
+        )
+        total_km += _emit_link_outside(
+            new_lines,
+            p1[0],
+            p1[1],
+            p2[0],
+            p2[1],
+            terminals,
+        )
 
     graph_node_ids = {si.graph_node_id for si in snap_by_id.values() if si.graph_node_id}
     graph_prev: dict[UUID, dict[UUID, UUID | None]] = {}
@@ -1110,6 +1535,7 @@ def _plan_with_network(
             for edge in shortest_path_edges(g, prev, na, nb):
                 used_edge_ids.add(str(edge.id))
 
+    warnings.extend(check_exclusion_zones_overlap(req.terminals))
     _validate_one_autoroad_per_object(new_lines, terminal_ids, warnings)
     _repair_planned_line_topology(new_lines, new_nodes, node_keys)
     lonlat_by_id = {t.id: (t.lon, t.lat) for t in req.terminals}
@@ -1172,6 +1598,139 @@ def _collect_splits(
     return splits
 
 
+def _exclusion_relocate_hint(
+    lon: float,
+    lat: float,
+    terminals: list[PlanTerminalInput],
+    *,
+    fallback_lon: float,
+    fallback_lat: float,
+) -> tuple[float, float]:
+    """Direction away from the nearest terminal (toward the farthest one)."""
+    if not terminals:
+        return fallback_lon, fallback_lat
+    nearest_d = math.inf
+    farthest_d = -1.0
+    hint_lon, hint_lat = fallback_lon, fallback_lat
+    for t in terminals:
+        d = haversine_km(lon, lat, t.lon, t.lat)
+        if d < nearest_d:
+            nearest_d = d
+        if d > farthest_d:
+            farthest_d = d
+            hint_lon, hint_lat = t.lon, t.lat
+    return hint_lon, hint_lat
+
+
+def _ensure_connector_backbone_spurs(
+    lines: list[PlannedLineOut],
+    terminals: list[PlanTerminalInput],
+) -> float:
+    """Bridge connector boundaries into the largest link-graph component."""
+    extra_km = 0.0
+    parent: dict[str, str] = {}
+
+    def _find(x: str) -> str:
+        parent.setdefault(x, x)
+        while parent[x] != x:
+            parent[x] = parent[parent[x]]
+            x = parent[x]
+        return x
+
+    def _union(a: str, b: str) -> None:
+        ra, rb = _find(a), _find(b)
+        if ra != rb:
+            parent[rb] = ra
+
+    def _pt_key(lon: float, lat: float) -> str:
+        return f"c:{_coord_key(lon, lat)}"
+
+    backbone_pts: list[tuple[float, float]] = []
+    for ln in lines:
+        if ln.kind != "link" or len(ln.coordinates) < 2:
+            continue
+        a, b = ln.coordinates[0], ln.coordinates[-1]
+        if haversine_km(a[0], a[1], b[0], b[1]) < CONNECTOR_MIN_KM:
+            continue
+        backbone_pts.append((a[0], a[1]))
+        backbone_pts.append((b[0], b[1]))
+        ka, kb = _pt_key(a[0], a[1]), _pt_key(b[0], b[1])
+        _union(ka, kb)
+
+    if not backbone_pts:
+        return 0.0
+
+    for ln in lines:
+        if ln.kind != "connector" or len(ln.coordinates) < 2:
+            continue
+        blon, blat = ln.coordinates[-1][0], ln.coordinates[-1][1]
+        _union(_pt_key(blon, blat), f"t:{ln.snap_start_object_id}")
+
+    comp_pts: dict[str, list[tuple[float, float]]] = {}
+    for lon, lat in backbone_pts:
+        comp_pts.setdefault(_find(_pt_key(lon, lat)), []).append((lon, lat))
+    for ln in lines:
+        if ln.kind != "connector" or len(ln.coordinates) < 2:
+            continue
+        c = ln.coordinates[-1]
+        comp_pts.setdefault(_find(_pt_key(c[0], c[1])), []).append((c[0], c[1]))
+
+    if not comp_pts:
+        return 0.0
+    main_root = max(comp_pts.keys(), key=lambda r: len(comp_pts[r]))
+    main_pts = comp_pts[main_root]
+
+    for root, pts in comp_pts.items():
+        if root == main_root:
+            continue
+        for lon, lat in pts:
+            nearest = min(
+                main_pts, key=lambda p: haversine_km(lon, lat, p[0], p[1])
+            )
+            if haversine_km(lon, lat, nearest[0], nearest[1]) <= CONNECTOR_MIN_KM:
+                continue
+            extra_km += _emit_link_outside(
+                lines, lon, lat, nearest[0], nearest[1], terminals
+            )
+            main_pts.append((lon, lat))
+            _union(_pt_key(lon, lat), main_root)
+    return extra_km
+
+
+def _sanitize_exclusion_geometry(
+    lines: list[PlannedLineOut],
+    nodes: list[PlannedNodeOut],
+    terminals: list[PlanTerminalInput],
+) -> None:
+    """Relocate link/junction coordinates that ended up inside exclusion zones."""
+    for _ in range(max(len(terminals) * 2, 4)):
+        dirty = False
+        for ln in lines:
+            if ln.kind != "link":
+                continue
+            for i, c in enumerate(ln.coordinates):
+                if not is_inside_terminal_exclusion(c[0], c[1], terminals):
+                    continue
+                hint_lon = ln.coordinates[-1][0] if i == 0 else ln.coordinates[0][0]
+                hint_lat = ln.coordinates[-1][1] if i == 0 else ln.coordinates[0][1]
+                hl, ha = _exclusion_relocate_hint(
+                    c[0], c[1], terminals, fallback_lon=hint_lon, fallback_lat=hint_lat
+                )
+                nl, na = relocate_if_inside_exclusion(c[0], c[1], terminals, hl, ha)
+                ln.coordinates[i] = [nl, na]
+                dirty = True
+        for nd in nodes:
+            if not is_inside_terminal_exclusion(nd.lon, nd.lat, terminals):
+                continue
+            hl, ha = _exclusion_relocate_hint(
+                nd.lon, nd.lat, terminals, fallback_lon=nd.lon + 1e-4, fallback_lat=nd.lat
+            )
+            nd.lon, nd.lat = relocate_if_inside_exclusion(nd.lon, nd.lat, terminals, hl, ha)
+            dirty = True
+        if not dirty:
+            break
+
+
 def _finalize_response(
     req: NetworkPlanRequest,
     terminal_results: list[PlanTerminalResult],
@@ -1182,13 +1741,43 @@ def _finalize_response(
     total_km: float,
     warnings: list[str],
 ) -> NetworkPlanResponse:
+    _sanitize_exclusion_geometry(new_lines, new_nodes, req.terminals)
+    total_km += _ensure_connector_backbone_spurs(new_lines, req.terminals)
+    new_lines[:] = [
+        ln
+        for ln in new_lines
+        if ln.kind != "link"
+        or len(ln.coordinates) < 2
+        or haversine_km(
+            ln.coordinates[0][0],
+            ln.coordinates[0][1],
+            ln.coordinates[-1][0],
+            ln.coordinates[-1][1],
+        )
+        >= CONNECTOR_MIN_KM
+    ]
+    for w in validate_planned_exclusion(new_lines, new_nodes, req.terminals):
+        if w not in warnings:
+            warnings.append(w)
+    warnings[:] = [w for w in warnings if w != "terminals_not_connected"]
+    terminal_ids = [t.id for t in req.terminals]
+    lonlat_by_id = {t.id: (t.lon, t.lat) for t in req.terminals}
+    _validate_terminal_connectivity(
+        terminal_ids, lonlat_by_id, new_lines, warnings
+    )
+    terminal_by_id = {t.id: t for t in req.terminals}
     preview_features: list[dict] = []
     for ln in new_lines:
+        props: dict = {"kind": ln.kind}
+        if ln.snap_start_object_id and ln.snap_start_object_id in terminal_by_id:
+            props["snap_start_name"] = terminal_by_id[ln.snap_start_object_id].name
+        if ln.snap_finish_object_id and ln.snap_finish_object_id in terminal_by_id:
+            props["snap_finish_name"] = terminal_by_id[ln.snap_finish_object_id].name
         preview_features.append(
             {
                 "type": "Feature",
                 "geometry": {"type": "LineString", "coordinates": ln.coordinates},
-                "properties": {"kind": ln.kind},
+                "properties": props,
             }
         )
     bend_by_ck = _annotate_bend_angles(new_lines, warnings)
@@ -1216,6 +1805,11 @@ def _finalize_response(
         total_new_km=round(total_km, 3),
         warnings=warnings,
         preview={"type": "FeatureCollection", "features": preview_features},
+        request_meta={
+            "project_id": str(req.project_id),
+            "terminal_count": len(req.terminals),
+            "existing_road_count": len(req.existing_autoroads),
+        },
         new_line_count=len(new_lines),
         new_node_count=len(new_nodes),
         split_count=len(splits),

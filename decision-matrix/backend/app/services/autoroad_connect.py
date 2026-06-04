@@ -16,6 +16,8 @@ from app.services.line_split import build_line_split_plan
 
 MAX_CONNECT_OBJECTS = 50
 NODE_DEDUP_KM = 0.05
+AUTOROAD_NETWORK_SOURCE = "autoroad_network"
+NETWORK_REBUILD_SUBTYPES = frozenset({"autoroad", "node"})
 
 
 @dataclass
@@ -36,6 +38,7 @@ class PlannedLine:
     start_lat: float
     end_lon: float
     end_lat: float
+    coordinates: list[list[float]] | None = None
     snap_start_object_id: UUID | None = None
     snap_finish_object_id: UUID | None = None
     kind: str = "connector"  # connector | link | bridge (legacy)
@@ -114,10 +117,41 @@ def _coord_key(lon: float, lat: float) -> tuple[int, int]:
     return (round(lon * 1e5), round(lat * 1e5))
 
 
+async def clear_network_for_rebuild(
+    db: AsyncSession,
+    project_id: UUID,
+    preserve_terminal_ids: set[UUID],
+) -> int:
+    """Remove autoroad/node objects before a full autoroad-network rebuild."""
+    from app.services.infra_delete import delete_infra_objects_batch
+
+    rows = (
+        await db.execute(
+            select(InfrastructureObject.id, InfrastructureObject.subtype)
+            .join(InfrastructureLayer)
+            .where(
+                InfrastructureLayer.project_id == project_id,
+                InfrastructureObject.subtype.in_(NETWORK_REBUILD_SUBTYPES),
+            )
+        )
+    ).all()
+    delete_ids = {
+        oid
+        for oid, subtype in rows
+        if oid not in preserve_terminal_ids and subtype in NETWORK_REBUILD_SUBTYPES
+    }
+    if not delete_ids:
+        return 0
+    deleted, _ = await delete_infra_objects_batch(db, project_id, delete_ids)
+    return deleted
+
+
 async def build_autoroad_connect_plan(
     db: AsyncSession,
     project_id: UUID,
     object_ids: list[UUID],
+    *,
+    full_network_rebuild: bool = False,
 ) -> AutoroadConnectPlan:
     from app.geo.constants import NODE_CLUSTER_SUBTYPES
     from app.services.autoroad_network.bridge import plan_response_to_connect_plan
@@ -146,7 +180,12 @@ async def build_autoroad_connect_plan(
             plan.warnings.append(f"excluded_terminal_subtype:{obj.subtype}")
             return plan
 
-    req = await build_plan_request(db, project_id, object_ids)
+    req = await build_plan_request(
+        db,
+        project_id,
+        object_ids,
+        use_existing_autoroads=not full_network_rebuild,
+    )
     if len(req.terminals) < 2:
         plan.warnings.append("need_at_least_two_objects")
         missing = [str(i) for i in object_ids if i not in {t.id for t in req.terminals}]
@@ -207,6 +246,21 @@ async def apply_autoroad_connect_plan(
         ).all()
     )
 
+    existing_nodes = (
+        await db.execute(
+            select(InfrastructureObject)
+            .join(InfrastructureLayer)
+            .where(
+                InfrastructureLayer.project_id == project_id,
+                InfrastructureObject.subtype == "node",
+            )
+        )
+    ).scalars().all()
+    for node_obj in existing_nodes:
+        node_by_key[_coord_key(float(node_obj.longitude), float(node_obj.latitude))] = node_obj
+
+    network_props = {"source": AUTOROAD_NETWORK_SOURCE}
+
     for pn in plan.new_nodes:
         key = _coord_key(pn.lon, pn.lat)
         if key in node_by_key:
@@ -221,6 +275,7 @@ async def apply_autoroad_connect_plan(
                 lon=pn.lon,
                 lat=pn.lat,
                 layer_id=layer.id,
+                properties=dict(network_props),
             ),
         )
         node_by_key[key] = obj
@@ -246,6 +301,7 @@ async def apply_autoroad_connect_plan(
                     lon=sp.split_lon,
                     lat=sp.split_lat,
                     layer_id=layer.id,
+                    properties=dict(network_props),
                 ),
             )
             node_by_key[key] = node_obj
@@ -306,14 +362,21 @@ async def apply_autoroad_connect_plan(
             if sk in node_by_key:
                 finish_id = node_by_key[sk].id
 
+        line_coords = (
+            pl.coordinates
+            if pl.coordinates and len(pl.coordinates) >= 2
+            else [[pl.start_lon, pl.start_lat], [pl.end_lon, pl.end_lat]]
+        )
         data = InfraObjectCreate(
             name=f"Автодорога_{n_road}",
             subtype="autoroad",
-            lon=pl.start_lon,
-            lat=pl.start_lat,
-            end_lon=pl.end_lon,
-            end_lat=pl.end_lat,
+            lon=line_coords[0][0],
+            lat=line_coords[0][1],
+            end_lon=line_coords[-1][0],
+            end_lat=line_coords[-1][1],
+            coordinates=line_coords,
             layer_id=layer.id,
+            properties=dict(network_props),
             line_snap_start_object_id=start_id,
             line_snap_finish_object_id=finish_id,
             line_preserve_geometry=True,
@@ -337,12 +400,30 @@ async def run_autoroad_connect(
     object_ids: list[UUID],
     *,
     dry_run: bool = False,
+    full_network_rebuild: bool = False,
 ) -> dict[str, Any]:
-    plan = await build_autoroad_connect_plan(db, project_id, object_ids)
-    out = plan.to_response_dict()
+    from app.services.autoroad_network.pipeline import preview_legacy_dict
+
     if dry_run:
+        out = await preview_legacy_dict(
+            db,
+            project_id,
+            object_ids,
+            full_network_rebuild=full_network_rebuild,
+        )
         out["dry_run"] = True
         return out
+
+    preserve = set(object_ids)
+    if full_network_rebuild:
+        await clear_network_for_rebuild(db, project_id, preserve)
+    plan = await build_autoroad_connect_plan(
+        db,
+        project_id,
+        object_ids,
+        full_network_rebuild=full_network_rebuild,
+    )
+    out = plan.to_response_dict()
     if (
         not plan.new_lines
         and not plan.used_existing_edge_ids

@@ -10,6 +10,7 @@ import type { AnalysisRow, InfraLayer, InfraObject, POI } from '../lib/api';
 import { buildMap3dGeoJson } from '../lib/map3d/geoJson';
 import { applyMap3dAtmosphere } from '../lib/map3d/map3dAtmosphere';
 import { createMap3dBaseStyle } from '../lib/map3d/map3dBasemap';
+import { MAP3D_LAYER_IDS } from '../lib/map3d/map3dConfig';
 import {
   collectSubtypesFromGeoJson,
   registerMap3dSubtypeIcons,
@@ -258,7 +259,15 @@ const MapView3D = forwardRef<MapView3DHandle, MapView3DProps>(function MapView3D
     map.on('click', (e) => {
       const layerIds = getMap3dInteractiveLayerIds().filter((id) => map.getLayer(id));
       const hits = map.queryRenderedFeatures(e.point, { layers: [...layerIds] });
-      const top = hits.find((f) => selectionFromFeature(f));
+      const selectable = hits.filter((f) => selectionFromFeature(f));
+      const pointLayerIds = new Set([
+        MAP3D_LAYER_IDS.infraPointSymbols,
+        MAP3D_LAYER_IDS.poiSymbols,
+        MAP3D_LAYER_IDS.infraPoints,
+        MAP3D_LAYER_IDS.pois,
+      ]);
+      const pointHit = selectable.find((f) => pointLayerIds.has(f.layer.id));
+      const top = pointHit ?? selectable[0];
       onSelectRef.current?.(top ? selectionFromFeature(top) : null);
     });
 

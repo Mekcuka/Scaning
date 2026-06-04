@@ -1,4 +1,5 @@
 import { api, type ProjectJobResponse } from './api';
+import { taskLog } from './taskLog/store';
 
 function sleep(ms: number): Promise<void> {
   return new Promise((resolve) => setTimeout(resolve, ms));
@@ -25,6 +26,7 @@ export async function pollProjectJobUntilDone(
   const deadline = Date.now() + timeoutMs;
   while (Date.now() < deadline) {
     const job = await api.getProjectJob(projectId, jobId);
+    taskLog.updateJob(job);
     if (job.status === 'completed') return job;
     if (job.status === 'failed') {
       throw new Error(job.error_message ?? 'Фоновая задача завершилась с ошибкой');

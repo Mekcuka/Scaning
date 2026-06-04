@@ -14,7 +14,7 @@ from app.services.sand_logistics import (
     _nearest_node,
     _snap_site_to_autoroad_network,
 )
-from app.services.line_endpoint_rules import ENDPOINT_SNAP_TOLERANCE_KM
+from app.services.road_graph import ENDPOINT_SNAP_TOLERANCE_KM
 
 
 def _chain_graph() -> tuple[_RoadGraph, list[UUID]]:

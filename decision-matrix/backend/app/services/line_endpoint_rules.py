@@ -9,11 +9,8 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.geo.constants import LINE_SUBTYPES, SUBTYPE_LABELS
+from app.geo.coord_equal import coords_equal
 from app.models import InfrastructureLayer, InfrastructureObject
-from app.services.spatial import haversine_km
-
-# Endpoint must be close to an infrastructure point object to be considered connected.
-ENDPOINT_SNAP_TOLERANCE_KM = 0.3
 
 
 class LineEndpointRuleError(ValueError):
@@ -48,30 +45,14 @@ def _label(subtype: str) -> str:
     return SUBTYPE_LABELS.get(subtype, subtype)
 
 
-def _nearest_object_for_point(
+def _point_at_coord(
     point: tuple[float, float], candidates: list[InfrastructureObject]
-) -> tuple[InfrastructureObject, float] | None:
+) -> InfrastructureObject | None:
     lon, lat = point
-    best: InfrastructureObject | None = None
-    best_dist = float("inf")
     for obj in candidates:
-        d = haversine_km(lon, lat, obj.longitude, obj.latitude)
-        if d < best_dist:
-            best_dist = d
-            best = obj
-    if best is None:
-        return None
-    return best, best_dist
-
-
-def _nearest_for_point(
-    point: tuple[float, float], candidates: list[InfrastructureObject]
-) -> _NearestPointObject | None:
-    found = _nearest_object_for_point(point, candidates)
-    if not found:
-        return None
-    obj, dist = found
-    return _NearestPointObject(subtype=obj.subtype, name=obj.name, distance_km=dist)
+        if coords_equal(lon, lat, obj.longitude, obj.latitude):
+            return obj
+    return None
 
 
 async def _point_candidates(
@@ -101,19 +82,12 @@ def _resolve_endpoint_object(
     end_label: str,
 ) -> InfrastructureObject:
     if forced is not None:
-        dist = haversine_km(point[0], point[1], forced.longitude, forced.latitude)
-        if dist > ENDPOINT_SNAP_TOLERANCE_KM:
-            raise LineEndpointRuleError(
-                f"{end_label} линии вне допуска привязки к выбранному объекту "
-                f"({round(dist, 2)} км, допуск {ENDPOINT_SNAP_TOLERANCE_KM} км)."
-            )
         return forced
-    match = _nearest_object_for_point(point, candidates)
-    if not match:
-        raise LineEndpointRuleError("Не удалось определить ближайшие объекты для концов линии.")
-    obj, dist = match
-    if dist > ENDPOINT_SNAP_TOLERANCE_KM:
-        raise LineEndpointRuleError("Концы линии вне допуска привязки.")
+    obj = _point_at_coord(point, candidates)
+    if obj is None:
+        raise LineEndpointRuleError(
+            f"{end_label} линии не совпадает с координатами точечного объекта."
+        )
     return obj
 
 
@@ -128,7 +102,7 @@ def snap_line_endpoint_coords(
     forced_start: InfrastructureObject | None = None,
     forced_finish: InfrastructureObject | None = None,
 ) -> tuple[float, float, float | None, float | None, list[list[float]] | None]:
-    """Rewrite start/finish to exact longitude/latitude of point objects within tolerance."""
+    """Rewrite start/finish to exact longitude/latitude of matching point objects."""
     start_pt, finish_pt = _line_endpoints(
         lon=lon, lat=lat, end_lon=end_lon, end_lat=end_lat, coordinates=coordinates
     )
@@ -174,28 +148,12 @@ def snap_line_endpoint_coords_preserve(
         out_coords = [[float(c[0]), float(c[1])] for c in coordinates]
 
     if forced_start is not None:
-        dist = haversine_km(
-            start_pt[0], start_pt[1], forced_start.longitude, forced_start.latitude
-        )
-        if dist > ENDPOINT_SNAP_TOLERANCE_KM:
-            raise LineEndpointRuleError(
-                "Начальная точка линии вне допуска привязки к выбранному объекту "
-                f"({round(dist, 2)} км, допуск {ENDPOINT_SNAP_TOLERANCE_KM} км)."
-            )
         out_lon = float(forced_start.longitude)
         out_lat = float(forced_start.latitude)
         if out_coords:
             out_coords[0] = [out_lon, out_lat]
 
     if forced_finish is not None:
-        dist = haversine_km(
-            finish_pt[0], finish_pt[1], forced_finish.longitude, forced_finish.latitude
-        )
-        if dist > ENDPOINT_SNAP_TOLERANCE_KM:
-            raise LineEndpointRuleError(
-                "Конечная точка линии вне допуска привязки к выбранному объекту "
-                f"({round(dist, 2)} км, допуск {ENDPOINT_SNAP_TOLERANCE_KM} км)."
-            )
         out_end_lon = float(forced_finish.longitude)
         out_end_lat = float(forced_finish.latitude)
         if out_coords:
@@ -219,7 +177,7 @@ async def snap_line_endpoints_to_point_objects(
     line_snap_finish_object_id: UUID | None = None,
     line_preserve_geometry: bool = False,
 ) -> tuple[float, float, float | None, float | None, list[list[float]] | None]:
-    """Validate tolerance then return coordinates equal to attached point objects."""
+    """Validate exact coords then return coordinates equal to attached point objects."""
     candidates = await _point_candidates(db, project_id=project_id, exclude_object_id=exclude_object_id)
     by_id = {o.id: o for o in candidates}
     forced_start = (
@@ -281,7 +239,7 @@ async def validate_line_endpoint_matrix(
     coordinates: list[list[float]] | None,
     exclude_object_id: UUID | None = None,
 ) -> None:
-    """Ensure both line ends are within snap tolerance of any point infrastructure object (no subtype filter)."""
+    """Ensure both line ends match a point infrastructure object's coordinates exactly."""
     subtype = line_subtype.lower().strip()
     if subtype not in LINE_SUBTYPES:
         return
@@ -296,20 +254,14 @@ async def validate_line_endpoint_matrix(
             f"Для {_label(subtype)} нужны точечные опорные объекты. Добавьте минимум один объект."
         )
 
-    start_obj = _nearest_for_point(start, candidates)
-    finish_obj = _nearest_for_point(finish, candidates)
-    if not start_obj or not finish_obj:
-        raise LineEndpointRuleError("Не удалось определить ближайшие объекты для концов линии.")
+    start_obj = _point_at_coord(start, candidates)
+    finish_obj = _point_at_coord(finish, candidates)
 
-    if start_obj.distance_km > ENDPOINT_SNAP_TOLERANCE_KM:
+    if start_obj is None:
         raise LineEndpointRuleError(
-            "Начальная точка линии не привязана к объекту. "
-            f"Ближайший объект: {start_obj.name} ({_label(start_obj.subtype)}), "
-            f"{round(start_obj.distance_km, 2)} км. Допуск: {ENDPOINT_SNAP_TOLERANCE_KM} км."
+            "Начальная точка линии не совпадает с координатами точечного объекта."
         )
-    if finish_obj.distance_km > ENDPOINT_SNAP_TOLERANCE_KM:
+    if finish_obj is None:
         raise LineEndpointRuleError(
-            "Конечная точка линии не привязана к объекту. "
-            f"Ближайший объект: {finish_obj.name} ({_label(finish_obj.subtype)}), "
-            f"{round(finish_obj.distance_km, 2)} км. Допуск: {ENDPOINT_SNAP_TOLERANCE_KM} км."
+            "Конечная точка линии не совпадает с координатами точечного объекта."
         )

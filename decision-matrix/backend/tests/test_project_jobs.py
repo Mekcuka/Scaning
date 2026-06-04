@@ -16,11 +16,14 @@ from app.services.project_jobs import (
     JOB_TYPE_POI_ANALYZE_ALL,
     JOB_STATUS_FAILED,
     JOB_STATUS_PENDING,
+    JOB_STATUS_COMPLETED,
     ActiveProjectJobError,
     create_project_job,
     expire_stale_job_if_needed,
     get_active_job_for_project,
     is_job_stale,
+    list_recent_jobs,
+    mark_job_completed,
 )
 
 
@@ -159,6 +162,51 @@ def test_is_job_stale_pending():
 
 def test_expire_stale_job_if_needed():
     asyncio.run(_test_expire_stale_job_if_needed())
+
+
+def test_list_recent_jobs():
+    asyncio.run(_test_list_recent_jobs())
+
+
+async def _test_list_recent_jobs():
+    async with async_session() as db:
+        user = User(
+            email=f"jobs-list-{uuid4().hex[:8]}@test.ru",
+            username="jobs_list",
+            password_hash=get_password_hash("password1"),
+            role=UserRole.analyst.value,
+        )
+        db.add(user)
+        await db.flush()
+        project = Project(user_id=user.id, name="JobsList", status="draft")
+        db.add(project)
+        await db.flush()
+
+        j1 = await create_project_job(
+            db,
+            project_id=project.id,
+            user_id=user.id,
+            job_type=JOB_TYPE_POI_ANALYZE_ALL,
+            payload={"n": 1},
+        )
+        await mark_job_completed(db, j1, {"ok": True})
+        j2 = await create_project_job(
+            db,
+            project_id=project.id,
+            user_id=user.id,
+            job_type=JOB_TYPE_POI_ANALYZE_ALL,
+            payload={"n": 2},
+        )
+        await db.commit()
+
+        async with async_session() as db2:
+            rows, total = await list_recent_jobs(db2, project.id, limit=30)
+            assert total >= 2
+            assert len(rows) >= 2
+            assert rows[0].id == j2.id
+            assert rows[1].id == j1.id
+            assert rows[0].status == JOB_STATUS_PENDING
+            assert rows[1].status == JOB_STATUS_COMPLETED
 
 
 async def _test_expire_stale_job_if_needed():

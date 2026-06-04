@@ -1,0 +1,33 @@
+{
+  "project_id": "00000000-0000-0000-0000-000000000001",
+  "terminals": [
+    {
+      "id": "6e0a2599-f391-4ca2-be46-565b71657222",
+      "subtype": "gas_processing",
+      "subtype_label": "ГКС",
+      "category": "area_facility",
+      "name": "GKS_1",
+      "lon": 37.142939119144025,
+      "lat": 56.04061323280081,
+      "coordinates": [37.142939119144025, 56.04061323280081],
+      "properties": {}
+    },
+    {
+      "id": "53c1e053-c2aa-4265-b972-2550efb98ef6",
+      "subtype": "gas_processing",
+      "subtype_label": "ГКС",
+      "category": "area_facility",
+      "name": "GKS_2",
+      "lon": 37.209717990505276,
+      "lat": 56.04061323280081,
+      "coordinates": [37.209717990505276, 56.04061323280081],
+      "properties": {}
+    }
+  ],
+  "existing_autoroads": [],
+  "options": {
+    "snap_tolerance_km": 0.3,
+    "node_dedup_km": 0.05,
+    "max_terminals": 50
+  }
+}

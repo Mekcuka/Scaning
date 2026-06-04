@@ -1,0 +1,1867 @@
+{
+  "terminals": [
+    {
+      "id": "6e0a2599-f391-4ca2-be46-565b71657222",
+      "name": "GKS_1",
+      "subtype": "gas_processing",
+      "category": "area_facility",
+      "subtype_label": "ГКС",
+      "lon": 37.142939119144025,
+      "lat": 56.04061323280081,
+      "coordinates": [
+        37.142939119144025,
+        56.04061323280081
+      ],
+      "properties": {},
+      "warning": null,
+      "snap_lon": null,
+      "snap_lat": null,
+      "graph_attached": false,
+      "graph_node_id": null
+    },
+    {
+      "id": "53c1e053-c2aa-4265-b972-2550efb98ef6",
+      "name": "GKS_2",
+      "subtype": "gas_processing",
+      "category": "area_facility",
+      "subtype_label": "ГКС",
+      "lon": 37.209717990505276,
+      "lat": 56.04061323280081,
+      "coordinates": [
+        37.209717990505276,
+        56.04061323280081
+      ],
+      "properties": {},
+      "warning": null,
+      "snap_lon": null,
+      "snap_lat": null,
+      "graph_attached": false,
+      "graph_node_id": null
+    },
+    {
+      "id": "3c7b0733-faa8-4f2a-bcda-c1daaf97592a",
+      "name": "GKS_3",
+      "subtype": "gas_processing",
+      "category": "area_facility",
+      "subtype_label": "ГКС",
+      "lon": 37.16123879581562,
+      "lat": 55.94803530058053,
+      "coordinates": [
+        37.16123879581562,
+        55.94803530058053
+      ],
+      "properties": {},
+      "warning": null,
+      "snap_lon": null,
+      "snap_lat": null,
+      "graph_attached": false,
+      "graph_node_id": null
+    },
+    {
+      "id": "e2357a2f-4410-4345-9429-28c76c93815c",
+      "name": "GKS_4",
+      "subtype": "gas_processing",
+      "category": "area_facility",
+      "subtype_label": "ГКС",
+      "lon": 37.22213184325423,
+      "lat": 55.94938438681757,
+      "coordinates": [
+        37.22213184325423,
+        55.94938438681757
+      ],
+      "properties": {},
+      "warning": null,
+      "snap_lon": null,
+      "snap_lat": null,
+      "graph_attached": false,
+      "graph_node_id": null
+    },
+    {
+      "id": "434f9bd5-cfca-4edd-8b5f-d73e46665cc7",
+      "name": "GKS_5",
+      "subtype": "gas_processing",
+      "category": "area_facility",
+      "subtype_label": "ГКС",
+      "lon": 37.28356554653648,
+      "lat": 55.9487153552989,
+      "coordinates": [
+        37.28356554653648,
+        55.9487153552989
+      ],
+      "properties": {},
+      "warning": null,
+      "snap_lon": null,
+      "snap_lat": null,
+      "graph_attached": false,
+      "graph_node_id": null
+    },
+    {
+      "id": "5045d9d3-df96-42bf-ac0d-ad1b3991582e",
+      "name": "GKS_6",
+      "subtype": "gas_processing",
+      "category": "area_facility",
+      "subtype_label": "ГКС",
+      "lon": 37.35034441789771,
+      "lat": 55.9487153552989,
+      "coordinates": [
+        37.35034441789771,
+        55.9487153552989
+      ],
+      "properties": {},
+      "warning": null,
+      "snap_lon": null,
+      "snap_lat": null,
+      "graph_attached": false,
+      "graph_node_id": null
+    },
+    {
+      "id": "a3c3ca43-917b-4992-a71a-4539722936ed",
+      "name": "GKS_7",
+      "subtype": "gas_processing",
+      "category": "area_facility",
+      "subtype_label": "ГКС",
+      "lon": 37.1387474374583,
+      "lat": 56.0873732793855,
+      "coordinates": [
+        37.1387474374583,
+        56.0873732793855
+      ],
+      "properties": {},
+      "warning": null,
+      "snap_lon": null,
+      "snap_lat": null,
+      "graph_attached": false,
+      "graph_node_id": null
+    },
+    {
+      "id": "24485248-e0ac-4267-b4d7-c975237cac4d",
+      "name": "GKS_8",
+      "subtype": "gas_processing",
+      "category": "area_facility",
+      "subtype_label": "ГКС",
+      "lon": 37.199455502332164,
+      "lat": 56.08872847268688,
+      "coordinates": [
+        37.199455502332164,
+        56.08872847268688
+      ],
+      "properties": {},
+      "warning": null,
+      "snap_lon": null,
+      "snap_lat": null,
+      "graph_attached": false,
+      "graph_node_id": null
+    },
+    {
+      "id": "9fd68e18-ff37-4e4b-99da-bb85a17d0718",
+      "name": "GKS_9",
+      "subtype": "gas_processing",
+      "category": "area_facility",
+      "subtype_label": "ГКС",
+      "lon": 37.34092558425556,
+      "lat": 56.05552410800988,
+      "coordinates": [
+        37.34092558425556,
+        56.05552410800988
+      ],
+      "properties": {},
+      "warning": null,
+      "snap_lon": null,
+      "snap_lat": null,
+      "graph_attached": false,
+      "graph_node_id": null
+    },
+    {
+      "id": "d0f04c1e-5cc3-436b-8f03-323a8eddb796",
+      "name": "GKS_10",
+      "subtype": "gas_processing",
+      "category": "area_facility",
+      "subtype_label": "ГКС",
+      "lon": 37.407704455616795,
+      "lat": 56.05552410800988,
+      "coordinates": [
+        37.407704455616795,
+        56.05552410800988
+      ],
+      "properties": {},
+      "warning": null,
+      "snap_lon": null,
+      "snap_lat": null,
+      "graph_attached": false,
+      "graph_node_id": null
+    },
+    {
+      "id": "3e95964b-ad96-451c-9b87-8a9a1afc3830",
+      "name": "GKS_11",
+      "subtype": "gas_processing",
+      "category": "area_facility",
+      "subtype_label": "ГКС",
+      "lon": 37.41338266237315,
+      "lat": 55.99696486312589,
+      "coordinates": [
+        37.41338266237315,
+        55.99696486312589
+      ],
+      "properties": {},
+      "warning": null,
+      "snap_lon": null,
+      "snap_lat": null,
+      "graph_attached": false,
+      "graph_node_id": null
+    },
+    {
+      "id": "5b4ea7ec-fc0b-42ef-aecf-aa4ade221282",
+      "name": "GKS_12",
+      "subtype": "gas_processing",
+      "category": "area_facility",
+      "subtype_label": "ГКС",
+      "lon": 37.47409072724702,
+      "lat": 55.9983232116441,
+      "coordinates": [
+        37.47409072724702,
+        55.9983232116441
+      ],
+      "properties": {},
+      "warning": null,
+      "snap_lon": null,
+      "snap_lat": null,
+      "graph_attached": false,
+      "graph_node_id": null
+    }
+  ],
+  "new_lines": [
+    {
+      "kind": "link",
+      "coordinates": [
+        [
+          37.1419685999798,
+          56.08744593639971
+        ],
+        [
+          37.196234125170726,
+          56.088657312138395
+        ]
+      ],
+      "snap_start_object_id": null,
+      "snap_finish_object_id": null
+    },
+    {
+      "kind": "link",
+      "coordinates": [
+        [
+          37.41659628639104,
+          55.99703751818189
+        ],
+        [
+          37.470876889294644,
+          55.99825205166063
+        ]
+      ],
+      "snap_start_object_id": null,
+      "snap_finish_object_id": null
+    },
+    {
+      "kind": "link",
+      "coordinates": [
+        [
+          37.164448414878194,
+          55.94810716164712
+        ],
+        [
+          37.21892201232056,
+          55.94931402489963
+        ]
+      ],
+      "snap_start_object_id": null,
+      "snap_finish_object_id": null
+    },
+    {
+      "kind": "link",
+      "coordinates": [
+        [
+          37.2253435531733,
+          55.9493501679322
+        ],
+        [
+          37.280353941799966,
+          55.94875108823768
+        ]
+      ],
+      "snap_start_object_id": null,
+      "snap_finish_object_id": null
+    },
+    {
+      "kind": "link",
+      "coordinates": [
+        [
+          37.344146711950664,
+          56.0555249356064
+        ],
+        [
+          37.40448332792169,
+          56.0555249356064
+        ]
+      ],
+      "snap_start_object_id": null,
+      "snap_finish_object_id": null
+    },
+    {
+      "kind": "link",
+      "coordinates": [
+        [
+          37.14615900202858,
+          56.040614060268545
+        ],
+        [
+          37.20649810762072,
+          56.040614060268545
+        ]
+      ],
+      "snap_start_object_id": null,
+      "snap_finish_object_id": null
+    },
+    {
+      "kind": "link",
+      "coordinates": [
+        [
+          37.28677778345495,
+          55.948716181971164
+        ],
+        [
+          37.34713218097924,
+          55.948716181971164
+        ]
+      ],
+      "snap_start_object_id": null,
+      "snap_finish_object_id": null
+    },
+    {
+      "kind": "link",
+      "coordinates": [
+        [
+          37.14277827370199,
+          56.042409630563284
+        ],
+        [
+          37.138908658516016,
+          56.085576886870015
+        ]
+      ],
+      "snap_start_object_id": null,
+      "snap_finish_object_id": null
+    },
+    {
+      "kind": "link",
+      "coordinates": [
+        [
+          37.40787886213126,
+          56.05372810333604
+        ],
+        [
+          37.41320876794211,
+          55.998760875552534
+        ]
+      ],
+      "snap_start_object_id": null,
+      "snap_finish_object_id": null
+    },
+    {
+      "kind": "link",
+      "coordinates": [
+        [
+          37.35223914228598,
+          55.95016780292983
+        ],
+        [
+          37.411483348431204,
+          55.99551335432058
+        ]
+      ],
+      "snap_start_object_id": null,
+      "snap_finish_object_id": null
+    },
+    {
+      "kind": "link",
+      "coordinates": [
+        [
+          37.21287263439191,
+          56.04097350608771
+        ],
+        [
+          37.33776855942016,
+          56.05516710224105
+        ]
+      ],
+      "snap_start_object_id": null,
+      "snap_finish_object_id": null
+    },
+    {
+      "kind": "link",
+      "coordinates": [
+        [
+          37.14615900202858,
+          56.040614060268545
+        ],
+        [
+          37.14277827370199,
+          56.042409630563284
+        ]
+      ],
+      "snap_start_object_id": null,
+      "snap_finish_object_id": null
+    },
+    {
+      "kind": "connector",
+      "coordinates": [
+        [
+          37.142939119144025,
+          56.04061323280081
+        ],
+        [
+          37.14615900202858,
+          56.040614060268545
+        ]
+      ],
+      "snap_start_object_id": "6e0a2599-f391-4ca2-be46-565b71657222",
+      "snap_finish_object_id": null
+    },
+    {
+      "kind": "link",
+      "coordinates": [
+        [
+          37.20649810762072,
+          56.040614060268545
+        ],
+        [
+          37.21287263439191,
+          56.04097350608771
+        ]
+      ],
+      "snap_start_object_id": null,
+      "snap_finish_object_id": null
+    },
+    {
+      "kind": "connector",
+      "coordinates": [
+        [
+          37.209717990505276,
+          56.04061323280081
+        ],
+        [
+          37.20649810762072,
+          56.040614060268545
+        ]
+      ],
+      "snap_start_object_id": "53c1e053-c2aa-4265-b972-2550efb98ef6",
+      "snap_finish_object_id": null
+    },
+    {
+      "kind": "connector",
+      "coordinates": [
+        [
+          37.16123879581562,
+          55.94803530058053
+        ],
+        [
+          37.164448414878194,
+          55.94810716164712
+        ]
+      ],
+      "snap_start_object_id": "3c7b0733-faa8-4f2a-bcda-c1daaf97592a",
+      "snap_finish_object_id": null
+    },
+    {
+      "kind": "link",
+      "coordinates": [
+        [
+          37.21892201232056,
+          55.94931402489963
+        ],
+        [
+          37.2253435531733,
+          55.9493501679322
+        ]
+      ],
+      "snap_start_object_id": null,
+      "snap_finish_object_id": null
+    },
+    {
+      "kind": "connector",
+      "coordinates": [
+        [
+          37.22213184325423,
+          55.94938438681757
+        ],
+        [
+          37.21892201232056,
+          55.94931402489963
+        ]
+      ],
+      "snap_start_object_id": "e2357a2f-4410-4345-9429-28c76c93815c",
+      "snap_finish_object_id": null
+    },
+    {
+      "kind": "link",
+      "coordinates": [
+        [
+          37.280353941799966,
+          55.94875108823768
+        ],
+        [
+          37.28677778345495,
+          55.948716181971164
+        ]
+      ],
+      "snap_start_object_id": null,
+      "snap_finish_object_id": null
+    },
+    {
+      "kind": "connector",
+      "coordinates": [
+        [
+          37.28356554653648,
+          55.9487153552989
+        ],
+        [
+          37.28677778345495,
+          55.948716181971164
+        ]
+      ],
+      "snap_start_object_id": "434f9bd5-cfca-4edd-8b5f-d73e46665cc7",
+      "snap_finish_object_id": null
+    },
+    {
+      "kind": "link",
+      "coordinates": [
+        [
+          37.34713218097924,
+          55.948716181971164
+        ],
+        [
+          37.35223914228598,
+          55.95016780292983
+        ]
+      ],
+      "snap_start_object_id": null,
+      "snap_finish_object_id": null
+    },
+    {
+      "kind": "connector",
+      "coordinates": [
+        [
+          37.35034441789771,
+          55.9487153552989
+        ],
+        [
+          37.34713218097924,
+          55.948716181971164
+        ]
+      ],
+      "snap_start_object_id": "5045d9d3-df96-42bf-ac0d-ad1b3991582e",
+      "snap_finish_object_id": null
+    },
+    {
+      "kind": "link",
+      "coordinates": [
+        [
+          37.1419685999798,
+          56.08744593639971
+        ],
+        [
+          37.138908658516016,
+          56.085576886870015
+        ]
+      ],
+      "snap_start_object_id": null,
+      "snap_finish_object_id": null
+    },
+    {
+      "kind": "connector",
+      "coordinates": [
+        [
+          37.1387474374583,
+          56.0873732793855
+        ],
+        [
+          37.138908658516016,
+          56.085576886870015
+        ]
+      ],
+      "snap_start_object_id": "a3c3ca43-917b-4992-a71a-4539722936ed",
+      "snap_finish_object_id": null
+    },
+    {
+      "kind": "connector",
+      "coordinates": [
+        [
+          37.199455502332164,
+          56.08872847268688
+        ],
+        [
+          37.196234125170726,
+          56.088657312138395
+        ]
+      ],
+      "snap_start_object_id": "24485248-e0ac-4267-b4d7-c975237cac4d",
+      "snap_finish_object_id": null
+    },
+    {
+      "kind": "link",
+      "coordinates": [
+        [
+          37.344146711950664,
+          56.0555249356064
+        ],
+        [
+          37.33776855942016,
+          56.05516710224105
+        ]
+      ],
+      "snap_start_object_id": null,
+      "snap_finish_object_id": null
+    },
+    {
+      "kind": "connector",
+      "coordinates": [
+        [
+          37.34092558425556,
+          56.05552410800988
+        ],
+        [
+          37.33776855942016,
+          56.05516710224105
+        ]
+      ],
+      "snap_start_object_id": "9fd68e18-ff37-4e4b-99da-bb85a17d0718",
+      "snap_finish_object_id": null
+    },
+    {
+      "kind": "link",
+      "coordinates": [
+        [
+          37.40448332792169,
+          56.0555249356064
+        ],
+        [
+          37.40787886213126,
+          56.05372810333604
+        ]
+      ],
+      "snap_start_object_id": null,
+      "snap_finish_object_id": null
+    },
+    {
+      "kind": "connector",
+      "coordinates": [
+        [
+          37.407704455616795,
+          56.05552410800988
+        ],
+        [
+          37.40787886213126,
+          56.05372810333604
+        ]
+      ],
+      "snap_start_object_id": "d0f04c1e-5cc3-436b-8f03-323a8eddb796",
+      "snap_finish_object_id": null
+    },
+    {
+      "kind": "connector",
+      "coordinates": [
+        [
+          37.41338266237315,
+          55.99696486312589
+        ],
+        [
+          37.416559238021556,
+          55.99728315425108
+        ]
+      ],
+      "snap_start_object_id": "3e95964b-ad96-451c-9b87-8a9a1afc3830",
+      "snap_finish_object_id": null
+    },
+    {
+      "kind": "link",
+      "coordinates": [
+        [
+          37.416559238021556,
+          55.99728315425108
+        ],
+        [
+          37.41659628639104,
+          55.99703751818189
+        ]
+      ],
+      "snap_start_object_id": null,
+      "snap_finish_object_id": null
+    },
+    {
+      "kind": "link",
+      "coordinates": [
+        [
+          37.416559238021556,
+          55.99728315425108
+        ],
+        [
+          37.41320876794211,
+          55.998760875552534
+        ]
+      ],
+      "snap_start_object_id": null,
+      "snap_finish_object_id": null
+    },
+    {
+      "kind": "link",
+      "coordinates": [
+        [
+          37.416559238021556,
+          55.99728315425108
+        ],
+        [
+          37.411483348431204,
+          55.99551335432058
+        ]
+      ],
+      "snap_start_object_id": null,
+      "snap_finish_object_id": null
+    },
+    {
+      "kind": "connector",
+      "coordinates": [
+        [
+          37.47409072724702,
+          55.9983232116441
+        ],
+        [
+          37.470876889294644,
+          55.99825205166063
+        ]
+      ],
+      "snap_start_object_id": "5b4ea7ec-fc0b-42ef-aecf-aa4ade221282",
+      "snap_finish_object_id": null
+    }
+  ],
+  "new_nodes": [
+    {
+      "lon": 37.1419685999798,
+      "lat": 56.08744593639971,
+      "reason": "junction"
+    },
+    {
+      "lon": 37.196234125170726,
+      "lat": 56.088657312138395,
+      "reason": "junction"
+    },
+    {
+      "lon": 37.41659628639104,
+      "lat": 55.99703751818189,
+      "reason": "junction"
+    },
+    {
+      "lon": 37.470876889294644,
+      "lat": 55.99825205166063,
+      "reason": "junction"
+    },
+    {
+      "lon": 37.164448414878194,
+      "lat": 55.94810716164712,
+      "reason": "junction"
+    },
+    {
+      "lon": 37.21892201232056,
+      "lat": 55.94931402489963,
+      "reason": "junction"
+    },
+    {
+      "lon": 37.2253435531733,
+      "lat": 55.9493501679322,
+      "reason": "junction"
+    },
+    {
+      "lon": 37.280353941799966,
+      "lat": 55.94875108823768,
+      "reason": "junction"
+    },
+    {
+      "lon": 37.344146711950664,
+      "lat": 56.0555249356064,
+      "reason": "junction"
+    },
+    {
+      "lon": 37.40448332792169,
+      "lat": 56.0555249356064,
+      "reason": "junction"
+    },
+    {
+      "lon": 37.14615900202858,
+      "lat": 56.040614060268545,
+      "reason": "junction"
+    },
+    {
+      "lon": 37.20649810762072,
+      "lat": 56.040614060268545,
+      "reason": "junction"
+    },
+    {
+      "lon": 37.28677778345495,
+      "lat": 55.948716181971164,
+      "reason": "junction"
+    },
+    {
+      "lon": 37.34713218097924,
+      "lat": 55.948716181971164,
+      "reason": "junction"
+    },
+    {
+      "lon": 37.14277827370199,
+      "lat": 56.042409630563284,
+      "reason": "junction"
+    },
+    {
+      "lon": 37.138908658516016,
+      "lat": 56.085576886870015,
+      "reason": "junction"
+    },
+    {
+      "lon": 37.40787886213126,
+      "lat": 56.05372810333604,
+      "reason": "junction"
+    },
+    {
+      "lon": 37.41320876794211,
+      "lat": 55.998760875552534,
+      "reason": "junction"
+    },
+    {
+      "lon": 37.35223914228598,
+      "lat": 55.95016780292983,
+      "reason": "junction"
+    },
+    {
+      "lon": 37.411483348431204,
+      "lat": 55.99551335432058,
+      "reason": "junction"
+    },
+    {
+      "lon": 37.21287263439191,
+      "lat": 56.04097350608771,
+      "reason": "junction"
+    },
+    {
+      "lon": 37.33776855942016,
+      "lat": 56.05516710224105,
+      "reason": "junction"
+    },
+    {
+      "lon": 37.416559238021556,
+      "lat": 55.99728315425108,
+      "reason": "hub_junction"
+    }
+  ],
+  "splits": [],
+  "used_existing_edge_ids": [],
+  "total_new_km": 55.787,
+  "warnings": [
+    "no_autoroad_polylines",
+    "acute_bend_deg:134.7",
+    "acute_bend_deg:92.5",
+    "acute_bend_deg:136.5",
+    "acute_bend_deg:136.4",
+    "acute_bend_deg:136.4",
+    "acute_bend_deg:134.7",
+    "acute_bend_deg:136.6",
+    "acute_bend_deg:131.4",
+    "acute_bend_deg:62.9"
+  ],
+  "preview": {
+    "type": "FeatureCollection",
+    "features": [
+      {
+        "type": "Feature",
+        "geometry": {
+          "type": "LineString",
+          "coordinates": [
+            [
+              37.1419685999798,
+              56.08744593639971
+            ],
+            [
+              37.196234125170726,
+              56.088657312138395
+            ]
+          ]
+        },
+        "properties": {
+          "kind": "link"
+        }
+      },
+      {
+        "type": "Feature",
+        "geometry": {
+          "type": "LineString",
+          "coordinates": [
+            [
+              37.41659628639104,
+              55.99703751818189
+            ],
+            [
+              37.470876889294644,
+              55.99825205166063
+            ]
+          ]
+        },
+        "properties": {
+          "kind": "link"
+        }
+      },
+      {
+        "type": "Feature",
+        "geometry": {
+          "type": "LineString",
+          "coordinates": [
+            [
+              37.164448414878194,
+              55.94810716164712
+            ],
+            [
+              37.21892201232056,
+              55.94931402489963
+            ]
+          ]
+        },
+        "properties": {
+          "kind": "link"
+        }
+      },
+      {
+        "type": "Feature",
+        "geometry": {
+          "type": "LineString",
+          "coordinates": [
+            [
+              37.2253435531733,
+              55.9493501679322
+            ],
+            [
+              37.280353941799966,
+              55.94875108823768
+            ]
+          ]
+        },
+        "properties": {
+          "kind": "link"
+        }
+      },
+      {
+        "type": "Feature",
+        "geometry": {
+          "type": "LineString",
+          "coordinates": [
+            [
+              37.344146711950664,
+              56.0555249356064
+            ],
+            [
+              37.40448332792169,
+              56.0555249356064
+            ]
+          ]
+        },
+        "properties": {
+          "kind": "link"
+        }
+      },
+      {
+        "type": "Feature",
+        "geometry": {
+          "type": "LineString",
+          "coordinates": [
+            [
+              37.14615900202858,
+              56.040614060268545
+            ],
+            [
+              37.20649810762072,
+              56.040614060268545
+            ]
+          ]
+        },
+        "properties": {
+          "kind": "link"
+        }
+      },
+      {
+        "type": "Feature",
+        "geometry": {
+          "type": "LineString",
+          "coordinates": [
+            [
+              37.28677778345495,
+              55.948716181971164
+            ],
+            [
+              37.34713218097924,
+              55.948716181971164
+            ]
+          ]
+        },
+        "properties": {
+          "kind": "link"
+        }
+      },
+      {
+        "type": "Feature",
+        "geometry": {
+          "type": "LineString",
+          "coordinates": [
+            [
+              37.14277827370199,
+              56.042409630563284
+            ],
+            [
+              37.138908658516016,
+              56.085576886870015
+            ]
+          ]
+        },
+        "properties": {
+          "kind": "link"
+        }
+      },
+      {
+        "type": "Feature",
+        "geometry": {
+          "type": "LineString",
+          "coordinates": [
+            [
+              37.40787886213126,
+              56.05372810333604
+            ],
+            [
+              37.41320876794211,
+              55.998760875552534
+            ]
+          ]
+        },
+        "properties": {
+          "kind": "link"
+        }
+      },
+      {
+        "type": "Feature",
+        "geometry": {
+          "type": "LineString",
+          "coordinates": [
+            [
+              37.35223914228598,
+              55.95016780292983
+            ],
+            [
+              37.411483348431204,
+              55.99551335432058
+            ]
+          ]
+        },
+        "properties": {
+          "kind": "link"
+        }
+      },
+      {
+        "type": "Feature",
+        "geometry": {
+          "type": "LineString",
+          "coordinates": [
+            [
+              37.21287263439191,
+              56.04097350608771
+            ],
+            [
+              37.33776855942016,
+              56.05516710224105
+            ]
+          ]
+        },
+        "properties": {
+          "kind": "link"
+        }
+      },
+      {
+        "type": "Feature",
+        "geometry": {
+          "type": "LineString",
+          "coordinates": [
+            [
+              37.14615900202858,
+              56.040614060268545
+            ],
+            [
+              37.14277827370199,
+              56.042409630563284
+            ]
+          ]
+        },
+        "properties": {
+          "kind": "link"
+        }
+      },
+      {
+        "type": "Feature",
+        "geometry": {
+          "type": "LineString",
+          "coordinates": [
+            [
+              37.142939119144025,
+              56.04061323280081
+            ],
+            [
+              37.14615900202858,
+              56.040614060268545
+            ]
+          ]
+        },
+        "properties": {
+          "kind": "connector",
+          "snap_start_name": "GKS_1"
+        }
+      },
+      {
+        "type": "Feature",
+        "geometry": {
+          "type": "LineString",
+          "coordinates": [
+            [
+              37.20649810762072,
+              56.040614060268545
+            ],
+            [
+              37.21287263439191,
+              56.04097350608771
+            ]
+          ]
+        },
+        "properties": {
+          "kind": "link"
+        }
+      },
+      {
+        "type": "Feature",
+        "geometry": {
+          "type": "LineString",
+          "coordinates": [
+            [
+              37.209717990505276,
+              56.04061323280081
+            ],
+            [
+              37.20649810762072,
+              56.040614060268545
+            ]
+          ]
+        },
+        "properties": {
+          "kind": "connector",
+          "snap_start_name": "GKS_2"
+        }
+      },
+      {
+        "type": "Feature",
+        "geometry": {
+          "type": "LineString",
+          "coordinates": [
+            [
+              37.16123879581562,
+              55.94803530058053
+            ],
+            [
+              37.164448414878194,
+              55.94810716164712
+            ]
+          ]
+        },
+        "properties": {
+          "kind": "connector",
+          "snap_start_name": "GKS_3"
+        }
+      },
+      {
+        "type": "Feature",
+        "geometry": {
+          "type": "LineString",
+          "coordinates": [
+            [
+              37.21892201232056,
+              55.94931402489963
+            ],
+            [
+              37.2253435531733,
+              55.9493501679322
+            ]
+          ]
+        },
+        "properties": {
+          "kind": "link"
+        }
+      },
+      {
+        "type": "Feature",
+        "geometry": {
+          "type": "LineString",
+          "coordinates": [
+            [
+              37.22213184325423,
+              55.94938438681757
+            ],
+            [
+              37.21892201232056,
+              55.94931402489963
+            ]
+          ]
+        },
+        "properties": {
+          "kind": "connector",
+          "snap_start_name": "GKS_4"
+        }
+      },
+      {
+        "type": "Feature",
+        "geometry": {
+          "type": "LineString",
+          "coordinates": [
+            [
+              37.280353941799966,
+              55.94875108823768
+            ],
+            [
+              37.28677778345495,
+              55.948716181971164
+            ]
+          ]
+        },
+        "properties": {
+          "kind": "link"
+        }
+      },
+      {
+        "type": "Feature",
+        "geometry": {
+          "type": "LineString",
+          "coordinates": [
+            [
+              37.28356554653648,
+              55.9487153552989
+            ],
+            [
+              37.28677778345495,
+              55.948716181971164
+            ]
+          ]
+        },
+        "properties": {
+          "kind": "connector",
+          "snap_start_name": "GKS_5"
+        }
+      },
+      {
+        "type": "Feature",
+        "geometry": {
+          "type": "LineString",
+          "coordinates": [
+            [
+              37.34713218097924,
+              55.948716181971164
+            ],
+            [
+              37.35223914228598,
+              55.95016780292983
+            ]
+          ]
+        },
+        "properties": {
+          "kind": "link"
+        }
+      },
+      {
+        "type": "Feature",
+        "geometry": {
+          "type": "LineString",
+          "coordinates": [
+            [
+              37.35034441789771,
+              55.9487153552989
+            ],
+            [
+              37.34713218097924,
+              55.948716181971164
+            ]
+          ]
+        },
+        "properties": {
+          "kind": "connector",
+          "snap_start_name": "GKS_6"
+        }
+      },
+      {
+        "type": "Feature",
+        "geometry": {
+          "type": "LineString",
+          "coordinates": [
+            [
+              37.1419685999798,
+              56.08744593639971
+            ],
+            [
+              37.138908658516016,
+              56.085576886870015
+            ]
+          ]
+        },
+        "properties": {
+          "kind": "link"
+        }
+      },
+      {
+        "type": "Feature",
+        "geometry": {
+          "type": "LineString",
+          "coordinates": [
+            [
+              37.1387474374583,
+              56.0873732793855
+            ],
+            [
+              37.138908658516016,
+              56.085576886870015
+            ]
+          ]
+        },
+        "properties": {
+          "kind": "connector",
+          "snap_start_name": "GKS_7"
+        }
+      },
+      {
+        "type": "Feature",
+        "geometry": {
+          "type": "LineString",
+          "coordinates": [
+            [
+              37.199455502332164,
+              56.08872847268688
+            ],
+            [
+              37.196234125170726,
+              56.088657312138395
+            ]
+          ]
+        },
+        "properties": {
+          "kind": "connector",
+          "snap_start_name": "GKS_8"
+        }
+      },
+      {
+        "type": "Feature",
+        "geometry": {
+          "type": "LineString",
+          "coordinates": [
+            [
+              37.344146711950664,
+              56.0555249356064
+            ],
+            [
+              37.33776855942016,
+              56.05516710224105
+            ]
+          ]
+        },
+        "properties": {
+          "kind": "link"
+        }
+      },
+      {
+        "type": "Feature",
+        "geometry": {
+          "type": "LineString",
+          "coordinates": [
+            [
+              37.34092558425556,
+              56.05552410800988
+            ],
+            [
+              37.33776855942016,
+              56.05516710224105
+            ]
+          ]
+        },
+        "properties": {
+          "kind": "connector",
+          "snap_start_name": "GKS_9"
+        }
+      },
+      {
+        "type": "Feature",
+        "geometry": {
+          "type": "LineString",
+          "coordinates": [
+            [
+              37.40448332792169,
+              56.0555249356064
+            ],
+            [
+              37.40787886213126,
+              56.05372810333604
+            ]
+          ]
+        },
+        "properties": {
+          "kind": "link"
+        }
+      },
+      {
+        "type": "Feature",
+        "geometry": {
+          "type": "LineString",
+          "coordinates": [
+            [
+              37.407704455616795,
+              56.05552410800988
+            ],
+            [
+              37.40787886213126,
+              56.05372810333604
+            ]
+          ]
+        },
+        "properties": {
+          "kind": "connector",
+          "snap_start_name": "GKS_10"
+        }
+      },
+      {
+        "type": "Feature",
+        "geometry": {
+          "type": "LineString",
+          "coordinates": [
+            [
+              37.41338266237315,
+              55.99696486312589
+            ],
+            [
+              37.416559238021556,
+              55.99728315425108
+            ]
+          ]
+        },
+        "properties": {
+          "kind": "connector",
+          "snap_start_name": "GKS_11"
+        }
+      },
+      {
+        "type": "Feature",
+        "geometry": {
+          "type": "LineString",
+          "coordinates": [
+            [
+              37.416559238021556,
+              55.99728315425108
+            ],
+            [
+              37.41659628639104,
+              55.99703751818189
+            ]
+          ]
+        },
+        "properties": {
+          "kind": "link"
+        }
+      },
+      {
+        "type": "Feature",
+        "geometry": {
+          "type": "LineString",
+          "coordinates": [
+            [
+              37.416559238021556,
+              55.99728315425108
+            ],
+            [
+              37.41320876794211,
+              55.998760875552534
+            ]
+          ]
+        },
+        "properties": {
+          "kind": "link"
+        }
+      },
+      {
+        "type": "Feature",
+        "geometry": {
+          "type": "LineString",
+          "coordinates": [
+            [
+              37.416559238021556,
+              55.99728315425108
+            ],
+            [
+              37.411483348431204,
+              55.99551335432058
+            ]
+          ]
+        },
+        "properties": {
+          "kind": "link"
+        }
+      },
+      {
+        "type": "Feature",
+        "geometry": {
+          "type": "LineString",
+          "coordinates": [
+            [
+              37.47409072724702,
+              55.9983232116441
+            ],
+            [
+              37.470876889294644,
+              55.99825205166063
+            ]
+          ]
+        },
+        "properties": {
+          "kind": "connector",
+          "snap_start_name": "GKS_12"
+        }
+      },
+      {
+        "type": "Feature",
+        "geometry": {
+          "type": "Point",
+          "coordinates": [
+            37.1419685999798,
+            56.08744593639971
+          ]
+        },
+        "properties": {
+          "reason": "junction",
+          "bend_angle_deg": 134.7
+        }
+      },
+      {
+        "type": "Feature",
+        "geometry": {
+          "type": "Point",
+          "coordinates": [
+            37.196234125170726,
+            56.088657312138395
+          ]
+        },
+        "properties": {
+          "reason": "junction"
+        }
+      },
+      {
+        "type": "Feature",
+        "geometry": {
+          "type": "Point",
+          "coordinates": [
+            37.41659628639104,
+            55.99703751818189
+          ]
+        },
+        "properties": {
+          "reason": "junction",
+          "bend_angle_deg": 92.5
+        }
+      },
+      {
+        "type": "Feature",
+        "geometry": {
+          "type": "Point",
+          "coordinates": [
+            37.470876889294644,
+            55.99825205166063
+          ]
+        },
+        "properties": {
+          "reason": "junction"
+        }
+      },
+      {
+        "type": "Feature",
+        "geometry": {
+          "type": "Point",
+          "coordinates": [
+            37.164448414878194,
+            55.94810716164712
+          ]
+        },
+        "properties": {
+          "reason": "junction"
+        }
+      },
+      {
+        "type": "Feature",
+        "geometry": {
+          "type": "Point",
+          "coordinates": [
+            37.21892201232056,
+            55.94931402489963
+          ]
+        },
+        "properties": {
+          "reason": "junction",
+          "bend_angle_deg": 178.3
+        }
+      },
+      {
+        "type": "Feature",
+        "geometry": {
+          "type": "Point",
+          "coordinates": [
+            37.2253435531733,
+            55.9493501679322
+          ]
+        },
+        "properties": {
+          "reason": "junction",
+          "bend_angle_deg": 178.3
+        }
+      },
+      {
+        "type": "Feature",
+        "geometry": {
+          "type": "Point",
+          "coordinates": [
+            37.280353941799966,
+            55.94875108823768
+          ]
+        },
+        "properties": {
+          "reason": "junction",
+          "bend_angle_deg": 179.4
+        }
+      },
+      {
+        "type": "Feature",
+        "geometry": {
+          "type": "Point",
+          "coordinates": [
+            37.344146711950664,
+            56.0555249356064
+          ]
+        },
+        "properties": {
+          "reason": "junction",
+          "bend_angle_deg": 174.3
+        }
+      },
+      {
+        "type": "Feature",
+        "geometry": {
+          "type": "Point",
+          "coordinates": [
+            37.40448332792169,
+            56.0555249356064
+          ]
+        },
+        "properties": {
+          "reason": "junction",
+          "bend_angle_deg": 136.5
+        }
+      },
+      {
+        "type": "Feature",
+        "geometry": {
+          "type": "Point",
+          "coordinates": [
+            37.14615900202858,
+            56.040614060268545
+          ]
+        },
+        "properties": {
+          "reason": "junction",
+          "bend_angle_deg": 136.4
+        }
+      },
+      {
+        "type": "Feature",
+        "geometry": {
+          "type": "Point",
+          "coordinates": [
+            37.20649810762072,
+            56.040614060268545
+          ]
+        },
+        "properties": {
+          "reason": "junction",
+          "bend_angle_deg": 174.2
+        }
+      },
+      {
+        "type": "Feature",
+        "geometry": {
+          "type": "Point",
+          "coordinates": [
+            37.28677778345495,
+            55.948716181971164
+          ]
+        },
+        "properties": {
+          "reason": "junction",
+          "bend_angle_deg": 179.4
+        }
+      },
+      {
+        "type": "Feature",
+        "geometry": {
+          "type": "Point",
+          "coordinates": [
+            37.34713218097924,
+            55.948716181971164
+          ]
+        },
+        "properties": {
+          "reason": "junction",
+          "bend_angle_deg": 153.1
+        }
+      },
+      {
+        "type": "Feature",
+        "geometry": {
+          "type": "Point",
+          "coordinates": [
+            37.14277827370199,
+            56.042409630563284
+          ]
+        },
+        "properties": {
+          "reason": "junction",
+          "bend_angle_deg": 136.4
+        }
+      },
+      {
+        "type": "Feature",
+        "geometry": {
+          "type": "Point",
+          "coordinates": [
+            37.138908658516016,
+            56.085576886870015
+          ]
+        },
+        "properties": {
+          "reason": "junction",
+          "bend_angle_deg": 134.7
+        }
+      },
+      {
+        "type": "Feature",
+        "geometry": {
+          "type": "Point",
+          "coordinates": [
+            37.40787886213126,
+            56.05372810333604
+          ]
+        },
+        "properties": {
+          "reason": "junction",
+          "bend_angle_deg": 136.6
+        }
+      },
+      {
+        "type": "Feature",
+        "geometry": {
+          "type": "Point",
+          "coordinates": [
+            37.41320876794211,
+            55.998760875552534
+          ]
+        },
+        "properties": {
+          "reason": "junction",
+          "bend_angle_deg": 131.4
+        }
+      },
+      {
+        "type": "Feature",
+        "geometry": {
+          "type": "Point",
+          "coordinates": [
+            37.35223914228598,
+            55.95016780292983
+          ]
+        },
+        "properties": {
+          "reason": "junction",
+          "bend_angle_deg": 153.1
+        }
+      },
+      {
+        "type": "Feature",
+        "geometry": {
+          "type": "Point",
+          "coordinates": [
+            37.411483348431204,
+            55.99551335432058
+          ]
+        },
+        "properties": {
+          "reason": "junction",
+          "bend_angle_deg": 158.1
+        }
+      },
+      {
+        "type": "Feature",
+        "geometry": {
+          "type": "Point",
+          "coordinates": [
+            37.21287263439191,
+            56.04097350608771
+          ]
+        },
+        "properties": {
+          "reason": "junction",
+          "bend_angle_deg": 174.3
+        }
+      },
+      {
+        "type": "Feature",
+        "geometry": {
+          "type": "Point",
+          "coordinates": [
+            37.33776855942016,
+            56.05516710224105
+          ]
+        },
+        "properties": {
+          "reason": "junction",
+          "bend_angle_deg": 174.2
+        }
+      },
+      {
+        "type": "Feature",
+        "geometry": {
+          "type": "Point",
+          "coordinates": [
+            37.416559238021556,
+            55.99728315425108
+          ]
+        },
+        "properties": {
+          "reason": "hub_junction",
+          "hub_junction": true,
+          "bend_angle_deg": 62.9
+        }
+      }
+    ]
+  },
+  "request_meta": {
+    "project_id": "a38a2462-59ce-4128-a893-af03e7a513d0",
+    "terminal_count": 12,
+    "existing_road_count": 0
+  },
+  "new_line_count": 34,
+  "new_node_count": 23,
+  "split_count": 0
+}

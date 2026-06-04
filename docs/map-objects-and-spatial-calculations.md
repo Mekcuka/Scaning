@@ -51,7 +51,7 @@
 
 **Вид на карте** — способ создания и отображения в UI (`MapPage`, панель инструментов и карточка объекта). Подтип (`subtype`) жёстко привязан к геометрии: точечный подтип нельзя сохранить как линию и наоборот.
 
-| `subtype` | Название UI | Вид на карте | Геометрия | `category` | Инструмент | Концы линии (300 м) | Автопоиск FR-6 | Анализ (км) | Порог POI |
+| `subtype` | Название UI | Вид на карте | Геометрия | `category` | Инструмент | Концы линии (точные coords) | Автопоиск FR-6 | Анализ (км) | Порог POI |
 |-----------|-------------|--------------|-----------|------------|------------|---------------------|----------------|-------------|-----------|
 | — | Точка интереса | **POI** | `POINT` | — | «POI» | — | — | все параметры POI | — |
 | `gas_processing` | ГКС | **Точка** | `POINT` | `area_facility` | «Точка» | — | да | external | 80 км |
@@ -91,11 +91,11 @@
 - **Вид «Точка» / «Линия»** — пункты меню на панели карты. В меню «Точка» нет **УКГ**, **ТСГ**, **НПС**, отдельного пункта **узел метанола** (`methanol_joint` — импорт Искра или смена у **Узел**). В меню есть **Узел** (`node`), **объект метанола** (`methanol_facility`), **ГКС**, **НПЗ** (`refinery`). Искра **ПСП** (`DeliveryAcceptancePoint`) импортируется как **НПЗ** (`refinery`).
 - **API площадных объектов НПЗ / НПС:** `POST /projects/{project_id}/infrastructure/facility-objects` — в теле **обязательно** `subtype`: `refinery` | `oil_pumping_station` (схема `FacilityInfraObjectCreate`). Общий `POST .../objects` для НПС вернёт 400 с подсказкой использовать этот endpoint.
 - **Карточка объекта** (`ObjectDetailPanel`, поле «Подтип»): линейные ↔ только линейные; точечные ↔ точечные. **Группа ГКС:** `gas_processing` / `ukg` / `tsg` → только **ГКС, УКГ, ТСГ**. **Группа ГТЭС:** `gtes` / `gpes` / `vies` → только **ГТЭС, ГПЭС, ВИЭС** (анализ POI по-прежнему одна строка «ГТЭС», ближайший — любой из трёх). **Группа узлов:** `node` / `methanol_joint` / `power_line_node` → **Узел**, **Узел метанола**, **Узел ЛЭП** (отдельного пункта «Точка» для узла ЛЭП нет). **Группа кустов:** `oil_pad` / `gas_pad` → только **Нефтяной куст**, **Газовый куст**; в меню «Точка» один пункт **«Куст»** (`oil_pad` по умолчанию), `gas_pad` — импорт Искра или смена подтипа в карточке (legacy `pad` в API → `oil_pad`). **Эксклюзивные** (не в списке у других): карьер песка, объект метанола, **ВО** (`offplot`), **доп. объект** (`additional_facility`). **Фиксированные:** `sand_quarry`, `ground_pumping_station`, НПС, объект метанола, **ВО**, **доп. объект**.
-- **Концы линии (хранение и отображение):** начало и конец в БД/API — **точные** `lon`/`lat` привязанного точечного объекта (любой подтип, допуск **0,3 км** при рисовании/редактировании). Нормализация: `normalizeLinePathEndpoints` ([`lineEndpointRules.ts`](../decision-matrix/frontend/src/lib/lineEndpointRules.ts)), отображение 2D/3D: `linePathForDisplay` ([`infraGeometry.ts`](../decision-matrix/frontend/src/lib/infraGeometry.ts)); пул привязки на карте — **все** объекты проекта (`infraSnapPool`), не только отфильтрованные слоем. Backend при create/update: `snap_line_endpoints_to_point_objects` ([`line_endpoint_rules.py`](../decision-matrix/backend/app/services/line_endpoint_rules.py)). При загрузке карты (если есть право записи) — одноразовое выравнивание устаревших концов (`lineEndpointHealPayload` → PATCH). **Групповое перемещение** точек тянет связанные линии по тем же правилам координат (`linkCoordMatch`, [`mapGroupLinePatches.ts`](../decision-matrix/frontend/src/lib/mapGroupLinePatches.ts)) — см. **§6.1.1**. Автотест паритета lon/lat всех вершин: [`linePath2d3dParity.test.ts`](../decision-matrix/frontend/src/lib/linePath2d3dParity.test.ts).
+- **Концы линии (хранение и отображение):** начало и конец в БД/API — **точные** `lon`/`lat` привязанного точечного объекта (совпадение координат, ε ≈ 1e-8 или legacy округление до 3 знаков). Нормализация: `normalizeLinePathEndpoints` ([`lineEndpointRules.ts`](../decision-matrix/frontend/src/lib/lineEndpointRules.ts)), отображение 2D/3D: `linePathForDisplay` ([`infraGeometry.ts`](../decision-matrix/frontend/src/lib/infraGeometry.ts)); пул привязки на карте — **все** объекты проекта (`infraSnapPool`), не только отфильтрованные слоем. Backend при create/update: `snap_line_endpoints_to_point_objects` ([`line_endpoint_rules.py`](../decision-matrix/backend/app/services/line_endpoint_rules.py)). **Групповое перемещение** точек тянет связанные линии по тем же правилам координат (`linkCoordMatch`, [`mapGroupLinePatches.ts`](../decision-matrix/frontend/src/lib/mapGroupLinePatches.ts)) — см. **§6.1.1**. Автотест паритета lon/lat всех вершин: [`linePath2d3dParity.test.ts`](../decision-matrix/frontend/src/lib/linePath2d3dParity.test.ts).
 - **Рисование линии** (инструмент «Линия», только 2D):
-  - **Начало** — обязательно на точечном объекте (клик по иконке или ≤300 м); иначе ошибка.
+  - **Начало** — обязательно клик по точечному объекту на карте (иконка); координаты начала = `lon`/`lat` объекта; иначе ошибка.
   - **Промежуточные вершины** — свободно (без snap к ближайшему объекту).
-  - **Завершение** — двойной **ЛКМ** / двойной **ПКМ**, **Enter** или кнопка «Готово»; позиция конца из последнего клика/курсора (при Enter/«Готово» — с учётом превью курсора, если есть). Если конец ≤300 м от точечного объекта — привязка к его `lon`/`lat`; иначе создаётся **`node`** в этой точке, затем сохраняется линия. Если при этом узел попадает на геометрию **другой** линии (≤300 м, не у её концов) — эта линия **разделяется** на две части (как при установке точки на линию в режиме «Точка»).
+  - **Завершение** — двойной **ЛКМ** / двойной **ПКМ**, **Enter** или кнопка «Готово»; позиция конца из последнего клика/курсора (при Enter/«Готово» — с учётом превью курсора, если есть). Если конец **совпадает** с координатами точечного объекта (клик по иконке) — привязка к его `lon`/`lat`; иначе создаётся **`node`** в этой точке, затем сохраняется линия. Если при этом узел попадает на геометрию **другой** линии (клик у линии для split, ≈300 м) — эта линия **разделяется** на две части (как при установке точки на линию в режиме «Точка»).
   - Код: [`MapPage.tsx`](../decision-matrix/frontend/src/pages/MapPage.tsx) (`finishLineDraft`, `snapLineDrawPoint`), [`MapView.tsx`](../decision-matrix/frontend/src/components/MapView.tsx) (двойной клик/ПКМ).
 - **Редактирование линии** (режим «Редактирование на карте», инструмент «Выбор»): перетаскивание вершин; **двойной ЛКМ** по **промежуточной** вершине удаляет её (концы линии не удаляются). Конец нельзя оставить «в воздухе» — при попытке оторвать от точечного объекта он возвращается на место (уведомление только при перетаскивании конца, не при правке средних вершин). После правки — `constrainLineCoordinatesOnEdit` + `normalizeLinePathEndpoints`. Код: `MapView.tsx`, `lineEndpointRules.ts`.
 - **Перетаскивание точки** (одиночный «Выбор», в т.ч. **объект метанола** `methanol_facility`): иконка и ручка Modify/Translate двигаются вместе. В режиме редактирования на слоях точек/линий через `layer.set('updateWhileInteracting', true)` (иначе OpenLayers перерисовывает только ручку). При обёртке feature с `features: [inner]` геометрия копируется на inner на `pointerdrag` / `translating` — [`mapFeatureGeometrySync.ts`](../decision-matrix/frontend/src/lib/mapFeatureGeometrySync.ts), тесты [`mapFeatureGeometrySync.test.ts`](../decision-matrix/frontend/src/lib/mapFeatureGeometrySync.test.ts).
@@ -115,7 +115,7 @@ flowchart TB
   LN --> lineSub[6 line subtypes]
   pointSub --> geomP[POINT]
   lineSub --> geomL[LINESTRING]
-  geomL --> snap["Концы: любая точка ≤ 300 м или node"]
+  geomL --> snap["Концы: точные coords точки или node"]
 ```
 
 #### 1.4.1 Инфраструктура на карте (8 подтипов)
@@ -233,11 +233,12 @@ flowchart LR
 1. Пересборка топологии при apply (`build_network_from_lines`), граф по рёбрам `autoroad` (вес = `length_km`).
 2. **Связность:** все выбранные терминалы должны оказаться в **одной** связной сети; иначе предупреждение `terminals_not_connected`.
 3. **Терминал не перекрёсток:** ≤1 автодорога с привязкой к объекту; стыки нескольких дорог — только в `subtype=node` (junction / intersection).
-4. **Нет дорог на карте:** 2 терминала — `link` Т↔Т; **3+** — MST + Steiner: `●` на ребре; степень 2 — магистраль `●—●`; степень ≥3 — hub `J_T` и звезда; после упрощения коллинеарной магистрали — **`_repair_planned_line_topology`** (узел `●` и разрез сегмента при Т-примыкании под 90°); preview на карте до apply; `acute_bend_deg` при острых углах.
-5. **Есть polylines:** на каждый терминал — **≤1** `connector` object→**ближайшая** точка на полилинии (warning `far_from_autoroad` при >0,3 km, подъезд всё равно). **Нет** прямых `link` object↔object.
-6. **Уже подключён** (конец `autoroad` в ≤20 m) — подъезд не создавать (`already_connected`).
-7. **Разрыв сети:** MST **мостов** между компонентами; новые `link` только **между snap** на линиях; в одной компоненте — путь по `used_existing_edge_ids` (Dijkstra).
-8. **Apply:** `line_preserve_geometry`; junction/intersection через `node_by_key`; preview при `dry_run`.
+4. **Нет дорог на карте:** 2 терминала — `connector` до границы **200 m** + `link` между границами; **3+** — MST + Steiner: `●` на ребре; степень 2 — магистраль `●—●`; степень ≥3 — hub `J_T` и звезда; после упрощения коллинеарной магистрали — **`_repair_planned_line_topology`** (узел `●` и разрез сегмента при Т-примыкании под 90°); preview на карте до apply; `acute_bend_deg` при острых углах.
+5. **Зона 200 m:** вокруг каждого терминала — только `connector` `Т→граница`; `link`/`junction` снаружи (см. [autoroad-network-plan.md](./autoroad-network-plan.md) §«Остальные правила»).
+6. **Есть polylines:** на каждый терминал — **≤1** `connector` `Т→граница 200 m`, затем `link` к snap на полилинии (warning `far_from_autoroad` при >0,3 km). **Нет** прямых `link` object↔object.
+7. **Уже подключён** (конец `autoroad` в ≤20 m) — подъезд не создавать (`already_connected`).
+8. **Разрыв сети:** MST **мостов** между компонентами; новые `link` только **между snap** на линиях; в одной компоненте — путь по `used_existing_edge_ids` (Dijkstra).
+9. **Apply:** `line_preserve_geometry`; junction/intersection через `node_by_key`; preview при `dry_run`.
 
 Подробности, схемы и UX — [autoroad-network-plan.md](./autoroad-network-plan.md).
 
@@ -503,7 +504,7 @@ erDiagram
 | **Ctrl+Z** | Отменить последнее действие на карте |
 | **Enter** | Завершить черновик линии (режим «Линия») |
 | **Escape** | Закрыть модал, поиск или выйти из режима рисования |
-| **Двойной ЛКМ** (режим «Линия») | Завершить линию; в пустом месте (>300 м) — создать `node` на конце |
+| **Двойной ЛКМ** (режим «Линия») | Завершить линию; в пустом месте (без точки с теми же coords) — создать `node` на конце |
 | **Двойной ПКМ** (режим «Линия») | То же, что двойной ЛКМ |
 | **Двойной ЛКМ** (выбор + редактирование, линия выбрана) | Удалить **промежуточную** вершину (не концы) |
 
@@ -531,7 +532,7 @@ sequenceDiagram
 
 | Этап | Поведение |
 |------|-----------|
-| **Копирование** | Снимок геометрии (`infraDetailUndo` / `poiDetailUndo`). Для линий: по **всем** точечным объектам проекта определяется привязка концов (≤300 м), в буфер пишутся `endpointAttach.startSourceId` / `finishSourceId` **только если** эта опора тоже в выделении. |
+| **Копирование** | Снимок геометрии (`infraDetailUndo` / `poiDetailUndo`). Для линий: по **всем** точечным объектам проекта определяется привязка концов (точное совпадение координат), в буфер пишутся `endpointAttach.startSourceId` / `finishSourceId` **только если** эта опора тоже в выделении. |
 | **Сдвиг** | `applyOffsetToClipboard` — один `Δlon/Δlat` для всей группы (центроид → точка клика). Все вершины `coordinates` сдвигаются одинаково; длина ломаной сохраняется. |
 | **Вставка (фронт)** | Сначала POI и точечная инфра, затем линии. Точки: **НПЗ/НПС** — `POST …/facility-objects`; производные подтипы (газовый куст, УКГ/ТСГ, узел метанола и т.д.) — базовый подтип + `PATCH`; **объект метанола** — `POST …/objects` (рисование «Точка» и вставка из буфера). `createInfraFromPasteSnapshot` в [`mapClipboard.ts`](../decision-matrix/frontend/src/lib/mapClipboard.ts). `remapLineEndpointsForPaste` **не меняет** `coordinates` — только `line_snap_*` для близнецов (`sourceId` → `newId`). |
 | **Вставка (API)** | Для каждой линии: `line_preserve_geometry: true`. Backend [`snap_line_endpoint_coords_preserve`](../decision-matrix/backend/app/services/line_endpoint_rules.py) подтягивает **только** концы с явным `line_snap_start_object_id` / `line_snap_finish_object_id`; остальные концы остаются на переданных координатах (без поиска ближайшего на карте). |

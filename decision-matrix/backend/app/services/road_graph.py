@@ -11,10 +11,11 @@ from uuid import UUID
 
 from app.geo.entry_date import is_in_service, read_entry_date
 from app.models import InfrastructureEdge, InfrastructureNode, InfrastructureObject
-from app.services.line_endpoint_rules import ENDPOINT_SNAP_TOLERANCE_KM
 from app.services.spatial import closest_point_on_segment, haversine_km, line_coords_from_object
 
 LINE_SPLIT_ENDPOINT_MIN_KM = 0.01
+# Snap objects to autoroad polylines / graph nodes (not line↔point coordinate equality).
+ENDPOINT_SNAP_TOLERANCE_KM = 0.3
 
 
 def haversine_km(lon1: float, lat1: float, lon2: float, lat2: float) -> float:

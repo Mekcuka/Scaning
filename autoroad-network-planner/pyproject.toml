@@ -1,0 +1,16 @@
+[build-system]
+requires = ["setuptools>=61"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "autoroad-planner"
+version = "0.1.0"
+description = "Standalone autoroad network planner (from decision-matrix)"
+requires-python = ">=3.11"
+dependencies = [
+  "pydantic>=2.10.0",
+]
+
+[tool.setuptools.packages.find]
+where = ["."]
+include = ["autoroad_planner*"]

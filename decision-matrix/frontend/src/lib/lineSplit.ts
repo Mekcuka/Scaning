@@ -4,7 +4,7 @@ import { getLineCoordinates, isLineSubtype } from './infraGeometry';
 /** Минимальное расстояние от конца линии, чтобы вставка не дублировала вершину (≈10 м). */
 export const LINE_SPLIT_ENDPOINT_MIN_KM = 0.01;
 
-/** Максимальное расстояние клика от линии для разрезания (≈300 м, как snap линий). */
+/** Максимальное расстояние клика от линии для разрезания (≈300 м). */
 export const LINE_SPLIT_HIT_TOLERANCE_KM = 0.3;
 
 function haversineKm(lon1: number, lat1: number, lon2: number, lat2: number): number {

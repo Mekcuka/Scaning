@@ -82,6 +82,38 @@ describe('resolveHoverFeatureIdAtCoordinate', () => {
     expect(id).toBe('pt');
   });
 
+  it('prefers point over line when both are within tolerance', () => {
+    const points = new VectorSource();
+    const lines = new VectorSource();
+    lines.addFeature(
+      new Feature({
+        geometry: new LineString([
+          fromLonLat([10, 20]),
+          fromLonLat([12, 22]),
+        ]),
+        id: 'ln',
+        subtype: 'autoroad',
+        featureKind: 'infra',
+      }),
+    );
+    points.addFeature(
+      new Feature({
+        geometry: new Point(fromLonLat([11, 21])),
+        id: 'pt',
+        subtype: 'node',
+        featureKind: 'infra',
+      }),
+    );
+    const id = resolveHoverFeatureIdAtCoordinate(
+      mockMap(5),
+      points,
+      lines,
+      fromLonLat([11, 21]),
+      50,
+    );
+    expect(id).toBe('pt');
+  });
+
   it('returns line id when cursor is near the line only', () => {
     const points = new VectorSource();
     const lines = new VectorSource();

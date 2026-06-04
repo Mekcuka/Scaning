@@ -74,6 +74,37 @@ export function resolveInfraPointAtCoordinate(
   return { lon: bestLon, lat: bestLat, id: bestId };
 }
 
+function closestPointDist2(inner: Feature, coordinate: Coordinate): number | null {
+  const id = inner.get('id') as string | undefined;
+  const subtype = inner.get('subtype') as string | undefined;
+  if (!id || subtype === 'draft') return null;
+  const geom = inner.getGeometry();
+  if (!(geom instanceof Point)) return null;
+  const c = geom.getCoordinates();
+  const dx = c[0]! - coordinate[0]!;
+  const dy = c[1]! - coordinate[1]!;
+  return dx * dx + dy * dy;
+}
+
+function closestLineDist2(inner: Feature, coordinate: Coordinate): number | null {
+  const id = inner.get('id') as string | undefined;
+  const subtype = inner.get('subtype') as string | undefined;
+  if (!id || subtype === 'draft') return null;
+  const geom = inner.getGeometry();
+  if (!(geom instanceof LineString)) return null;
+  const [clickLon, clickLat] = transform(coordinate, 'EPSG:3857', 'EPSG:4326');
+  const coords = geom
+    .getCoordinates()
+    .map((c) => transform(c, 'EPSG:3857', 'EPSG:4326') as [number, number]);
+  const closest = closestPointOnPolyline([clickLon, clickLat], coords);
+  if (!closest) return null;
+  const snap = fromLonLat([closest.point[0]!, closest.point[1]!]);
+  const dx = snap[0]! - coordinate[0]!;
+  const dy = snap[1]! - coordinate[1]!;
+  return dx * dx + dy * dy;
+}
+
+/** Point features win over lines when both are within hit tolerance (map click / hover). */
 export function resolveHoverFeatureIdAtCoordinate(
   map: OlMap,
   pointSource: VectorSource,
@@ -82,43 +113,29 @@ export function resolveHoverFeatureIdAtCoordinate(
   hitTolerancePx = 8,
 ): string | null {
   const extent = extentAroundCoordinate(map, coordinate, hitTolerancePx);
-  let bestId: string | null = null;
-  let bestDist2 = Number.POSITIVE_INFINITY;
+  let bestPointId: string | null = null;
+  let bestPointDist2 = Number.POSITIVE_INFINITY;
+  let bestLineId: string | null = null;
+  let bestLineDist2 = Number.POSITIVE_INFINITY;
 
-  const consider = (feat: Feature) => {
-    const inner = innerFeature(feat);
-    const id = inner.get('id') as string | undefined;
-    const subtype = inner.get('subtype') as string | undefined;
-    if (!id || subtype === 'draft') return;
-    const geom = inner.getGeometry();
-    if (!geom) return;
-    let dist2: number;
-    if (geom instanceof Point) {
-      const c = geom.getCoordinates();
-      const dx = c[0]! - coordinate[0]!;
-      const dy = c[1]! - coordinate[1]!;
-      dist2 = dx * dx + dy * dy;
-    } else if (geom instanceof LineString) {
-      const [clickLon, clickLat] = transform(coordinate, 'EPSG:3857', 'EPSG:4326');
-      const coords = geom.getCoordinates().map((c) => transform(c, 'EPSG:3857', 'EPSG:4326') as [number, number]);
-      const closest = closestPointOnPolyline([clickLon, clickLat], coords);
-      if (!closest) return;
-      const snap = fromLonLat([closest.point[0]!, closest.point[1]!]);
-      const dx = snap[0]! - coordinate[0]!;
-      const dy = snap[1]! - coordinate[1]!;
-      dist2 = dx * dx + dy * dy;
-    } else {
-      return;
-    }
-    if (dist2 < bestDist2) {
-      bestDist2 = dist2;
-      bestId = id;
-    }
-  };
+  pointSource.forEachFeatureIntersectingExtent(extent, (feat) => {
+    const inner = innerFeature(feat as Feature);
+    const dist2 = closestPointDist2(inner, coordinate);
+    if (dist2 == null || dist2 >= bestPointDist2) return;
+    bestPointDist2 = dist2;
+    bestPointId = inner.get('id') as string;
+  });
 
-  pointSource.forEachFeatureIntersectingExtent(extent, (f) => consider(f as Feature));
-  lineSource.forEachFeatureIntersectingExtent(extent, (f) => consider(f as Feature));
-  return bestId;
+  lineSource.forEachFeatureIntersectingExtent(extent, (feat) => {
+    const inner = innerFeature(feat as Feature);
+    const dist2 = closestLineDist2(inner, coordinate);
+    if (dist2 == null || dist2 >= bestLineDist2) return;
+    bestLineDist2 = dist2;
+    bestLineId = inner.get('id') as string;
+  });
+
+  if (bestPointId != null) return bestPointId;
+  return bestLineId;
 }
 
 export type LineSplitHit = {

@@ -7,7 +7,12 @@ from uuid import UUID
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.geo.constants import LINE_SUBTYPES, NODE_CLUSTER_SUBTYPES, POINT_SUBTYPES
+from app.geo.constants import (
+    LINE_SUBTYPES,
+    NODE_CLUSTER_SUBTYPES,
+    POINT_SUBTYPES,
+    SUBTYPE_LABELS,
+)
 from app.models import InfrastructureLayer, InfrastructureObject
 from app.services.autoroad_network.schemas import (
     ExistingAutoroadInput,
@@ -22,6 +27,8 @@ async def build_plan_request(
     db: AsyncSession,
     project_id: UUID,
     object_ids: list[UUID],
+    *,
+    use_existing_autoroads: bool = True,
 ) -> NetworkPlanRequest:
     await build_network_from_lines(db, project_id)
 
@@ -34,17 +41,23 @@ async def build_plan_request(
             InfrastructureObject.end_longitude.isnot(None),
         )
     )
-    autoroad_rows = (await db.execute(autoroad_q)).scalars().all()
     existing: list[ExistingAutoroadInput] = []
-    for road in autoroad_rows:
-        coords = line_coords_from_object(road)
-        if len(coords) >= 2:
-            existing.append(
-                ExistingAutoroadInput(
-                    id=road.id,
-                    coordinates=[[c[0], c[1]] for c in coords],
+    if use_existing_autoroads:
+        autoroad_rows = (await db.execute(autoroad_q)).scalars().all()
+        for road in autoroad_rows:
+            props = road.properties or {}
+            if props.get("source") == "autoroad_network":
+                continue
+            coords = line_coords_from_object(road)
+            if len(coords) >= 2:
+                existing.append(
+                    ExistingAutoroadInput(
+                        id=road.id,
+                        coordinates=[[c[0], c[1]] for c in coords],
+                        name=road.name or "",
+                        subtype=road.subtype or "autoroad",
+                    )
                 )
-            )
 
     points_q = (
         select(InfrastructureObject)
@@ -67,13 +80,19 @@ async def build_plan_request(
             continue
         if obj.subtype in NODE_CLUSTER_SUBTYPES:
             continue
+        lon = float(obj.longitude)
+        lat = float(obj.latitude)
         terminals.append(
             PlanTerminalInput(
                 id=obj.id,
                 subtype=obj.subtype,
                 name=obj.name or "",
-                lon=float(obj.longitude),
-                lat=float(obj.latitude),
+                category=obj.category or "",
+                subtype_label=SUBTYPE_LABELS.get(obj.subtype, obj.subtype),
+                lon=lon,
+                lat=lat,
+                coordinates=[lon, lat],
+                properties=dict(obj.properties or {}),
             )
         )
 
