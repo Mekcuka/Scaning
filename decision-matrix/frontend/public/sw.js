@@ -1,19 +1,11 @@
-const CACHE = 'sppr-shell-v4';
+/** SPA shell for GitHub Pages — network-first HTML so deploys never 404 hashed assets. */
+const CACHE = 'sppr-shell-v5';
 
-function indexResponse() {
-  return caches.match('./index.html').then((cached) => {
-    if (cached) return cached;
-    return caches.match('./404.html');
-  });
-}
+const PRECACHE = ['./manifest.webmanifest', './pwa-icon.svg'];
 
 self.addEventListener('install', (event) => {
   event.waitUntil(
-    caches.open(CACHE).then((cache) =>
-      cache
-        .addAll(['./', './index.html', './404.html', './manifest.webmanifest', './pwa-icon.svg'])
-        .catch(() => cache.addAll(['./', './index.html', './manifest.webmanifest', './pwa-icon.svg']))
-    )
+    caches.open(CACHE).then((cache) => cache.addAll(PRECACHE).catch(() => undefined)),
   );
   self.skipWaiting();
 });
@@ -21,8 +13,8 @@ self.addEventListener('install', (event) => {
 self.addEventListener('activate', (event) => {
   event.waitUntil(
     caches.keys().then((keys) =>
-      Promise.all(keys.filter((key) => key !== CACHE).map((key) => caches.delete(key)))
-    )
+      Promise.all(keys.filter((key) => key !== CACHE).map((key) => caches.delete(key))),
+    ),
   );
   self.clients.claim();
 });
@@ -33,33 +25,49 @@ function isNavigationRequest(request) {
   return accept.includes('text/html');
 }
 
+async function networkFirstShell(request) {
+  try {
+    const response = await fetch(request, { cache: 'no-cache' });
+    if (response.ok) {
+      const cache = await caches.open(CACHE);
+      await cache.put('./index.html', response.clone());
+      return response;
+    }
+  } catch {
+    /* offline — fall through */
+  }
+  const cached = await caches.match('./index.html');
+  if (cached) return cached;
+  return caches.match('./404.html');
+}
+
 self.addEventListener('fetch', (event) => {
   const { request } = event;
   if (request.method !== 'GET') return;
   const url = new URL(request.url);
   if (url.pathname.includes('/api/')) return;
 
-  const navigate = isNavigationRequest(request);
+  if (isNavigationRequest(request)) {
+    event.respondWith(networkFirstShell(request));
+    return;
+  }
+
+  const isHashedBundle =
+    url.pathname.includes('/assets/') || url.pathname.includes('/map3d-models/');
+  if (isHashedBundle) {
+    event.respondWith(fetch(request));
+    return;
+  }
 
   event.respondWith(
     fetch(request)
       .then((response) => {
-        if (navigate && !response.ok) {
-          return indexResponse().then((shell) => shell || response);
-        }
-        const isHashedBundle =
-          url.pathname.includes('/assets/') || url.pathname.includes('/map3d-models/');
-        if (response.ok && url.origin === self.location.origin && !isHashedBundle && !navigate) {
+        if (response.ok && url.origin === self.location.origin) {
           const copy = response.clone();
           caches.open(CACHE).then((cache) => cache.put(request, copy));
         }
         return response;
       })
-      .catch(() => {
-        if (navigate) {
-          return indexResponse();
-        }
-        return caches.match(request).then((cached) => cached || indexResponse());
-      })
+      .catch(() => caches.match(request)),
   );
 });
