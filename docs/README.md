@@ -230,7 +230,7 @@ npm run preview
 npm run lint
 npm run typecheck
 npm run test
-npm run test:e2e
+npm run test:e2e   # backend на :8000; после прогона — автоочистка test_* / e2e-* (см. testing-strategy.md)
 ```
 
 ### База данных

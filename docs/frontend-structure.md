@@ -301,6 +301,7 @@ components/flowSchematicEditor/
 | Песок: prefs / warnings | `sandLogisticsResult/storagePrefs.ts`, `warnings.ts` |
 | Схема потоков (PFD) | `flowSchematicEditor/FlowSchematicEditorInner.tsx`, `FlowEdge.tsx`, `FlowNode.tsx` |
 | Тесты карты | `MapPage.*.test.tsx`, `MapView.smoke.test.tsx`, `mapPageHarness.tsx` |
+| E2E клики по карте | `setupViewHandlers.ts` (`__dmOlMap` при `VITE_E2E_MAP_HOOK`), `e2e/helpers.ts` (`clickMapLonLat`) |
 
 ---
 

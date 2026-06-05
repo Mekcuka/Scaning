@@ -13,7 +13,7 @@ class Settings(BaseSettings):
     CORS_ORIGINS: str = "http://localhost:5173,http://localhost:5174,http://127.0.0.1:5173,http://127.0.0.1:5174"
     ALGORITHM: str = "HS256"
     COOKIE_SECURE: bool | None = None
-    AUTH_RATE_LIMIT: str = "10/minute"
+    AUTH_RATE_LIMIT: str = "100/minute"
     ENVIRONMENT: str = "development"
     DEMO_USERS_ENABLED: bool = True
     ALLOW_REGISTRATION: bool = True

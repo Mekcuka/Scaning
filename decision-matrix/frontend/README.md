@@ -22,7 +22,7 @@ npm run dev
 | `npm run build` | Production-сборка |
 | `npm run test` | Vitest (469 тестов) |
 | `npm run test:coverage` | Coverage с порогами в `vitest.config.ts` |
-| `npm run test:e2e` | Playwright |
+| `npm run test:e2e` | Playwright (12 сценариев, см. ниже) |
 | `npm run lint` | ESLint |
 | `npm run typecheck` | `tsc --noEmit` |
 
@@ -46,6 +46,26 @@ npm run test -- --run src/pages/MapPage src/components/MapView
 
 Harness: `src/test/pages/mapPageHarness.tsx`, fixtures: `src/test/fixtures/map.ts`.
 
+## E2E (Playwright)
+
+Перед прогоном — backend на `:8000` (`python run_local.py` в `backend/`). Playwright поднимает Vite на `:5174` с `VITE_E2E_MAP_HOOK=true`.
+
+```powershell
+cd decision-matrix/backend
+python run_local.py
+
+cd decision-matrix/frontend
+npm run test:e2e
+```
+
+После прогона тестовые проекты (`test_*`) и пользователи (`e2e-*`) удаляются автоматически (`e2e/global-teardown.ts` → `backend/scripts/cleanup_e2e_data.py`). Полное описание: [`../../docs/testing-strategy.md`](../../docs/testing-strategy.md).
+
+| Путь | Назначение |
+|------|------------|
+| `e2e/*.spec.ts` | 7 файлов, 12 тестов |
+| `e2e/helpers.ts` | API-сессии, seed карты/логистики, `clickMapLonLat` |
+| `playwright.config.ts` | `workers: 1`, порт 5174, `globalTeardown` |
+
 ## Переменные окружения
 
-См. `.env.example` — `VITE_API_URL`, `VITE_MAP_3D_ENABLED`, `VITE_MAPTILER_KEY`.
+См. `.env.example` — `VITE_API_URL`, `VITE_MAP_3D_ENABLED`, `VITE_MAPTILER_KEY`. Для E2E: `VITE_E2E_MAP_HOOK` (задаётся в `playwright.config.ts`, не в `.env`).

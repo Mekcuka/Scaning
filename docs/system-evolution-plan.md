@@ -234,7 +234,7 @@
 **Качество ([testing-strategy.md](./testing-strategy.md)):**
 
 - Frontend components ~15% покрытия
-- E2E — 6 сценариев; рефакторинг MapPage/MapView завершён (июнь 2026, [frontend-structure.md](./frontend-structure.md)); риск регрессий снижен за счёт hooks + integration-тестов
+- E2E — **12 сценариев** (карта: draw/save/ruler, логистика песка, проекты); `globalTeardown` + `cleanup_e2e_data.py`; рефакторинг MapPage/MapView завершён (июнь 2026, [frontend-structure.md](./frontend-structure.md))
 - Нет регулярных perf/security прогонов в CI
 
 ---
@@ -426,7 +426,7 @@ flowchart TB
 |---------|--------|---------|
 | Backend coverage `app/` | ~72% | ≥ 75% |
 | Frontend `pages/` | ~79% | ≥ 80% |
-| E2E сценариев | 6 | ≥ 12 |
+| E2E сценариев | **12** | ≥ 12 (дальше: matrix, report) |
 | p95 API analyze (20 POI) | — | &lt; 5 с |
 | Critical bugs open | — | 0 перед release |
 

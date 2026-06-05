@@ -10,6 +10,8 @@ BACKEND_DIR = Path(__file__).resolve().parent
 LOCAL_PORT = int(os.environ.get("SPPR_LOCAL_PORT", "8000"))
 
 os.environ["DATABASE_URL"] = "sqlite+aiosqlite:///./data/sppr.db"
+os.environ["ENVIRONMENT"] = "development"
+os.environ["AUTH_RATE_LIMIT"] = "1000/minute"
 
 
 def free_listening_port(port: int) -> None:
@@ -54,6 +56,9 @@ def main():
     subprocess.run([sys.executable, "seed.py"], cwd=BACKEND_DIR, check=True)
     free_listening_port(LOCAL_PORT)
     print(f"Starting backend on http://localhost:{LOCAL_PORT}")
+    env = os.environ.copy()
+    env.setdefault("ENVIRONMENT", "development")
+    env.setdefault("AUTH_RATE_LIMIT", "1000/minute")
     subprocess.run(
         [
             sys.executable,
@@ -67,6 +72,7 @@ def main():
             str(LOCAL_PORT),
         ],
         cwd=BACKEND_DIR,
+        env=env,
     )
 
 

@@ -160,7 +160,8 @@
 
 - Backend: `tests/test_autoroad_network_plan.py` (MST Steiner, `total_new_km` vs legacy chain), `tests/test_autoroad_connect.py`; `test_road_graph.py` (`geodesic_midpoint`).
 - Frontend: `AdminJobsPage.test.tsx` (журнал, кнопка «Отменить» только для активных задач); `mapFeatureGeometrySync.test.ts` (drag точки/линии, methanol_facility).
-- GitHub Actions: [`.github/workflows/ci.yml`](../.github/workflows/ci.yml) — lint, unit, coverage gates, E2E.
+- **E2E (Playwright, 12):** login, projects, parameters, flows, import, map (2D, draw autoroad, detail save, ruler), flows-logistics (analyze, timeline). Инфра: `e2e/helpers.ts`, `VITE_E2E_MAP_HOOK` / `__dmOlMap`, автоочистка [`cleanup_e2e_data.py`](../decision-matrix/backend/scripts/cleanup_e2e_data.py) через `globalTeardown`. Подробнее: [testing-strategy.md](./testing-strategy.md).
+- GitHub Actions: [`.github/workflows/ci.yml`](../.github/workflows/ci.yml) — lint, unit, coverage gates, job `E2E (Playwright)`.
 - Husky / lint-staged в корне — **не** настроены ([development-plan.md](./development-plan.md) этап 1).
 - Деплой: [DEPLOY.md](../DEPLOY.md), GitHub Pages + VM workflow.
 

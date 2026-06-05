@@ -170,6 +170,7 @@ jobs:
           VITE_BASE_PATH: /
           VITE_API_URL: http://127.0.0.1:8000/api/v1
           VITE_MAP_3D_ENABLED: "false"
+          VITE_E2E_MAP_HOOK: "true"
         run: |
           npm run build
           npx vite preview --host 127.0.0.1 --port 5173 &
@@ -185,6 +186,8 @@ jobs:
       - name: E2E tests
         env:
           PLAYWRIGHT_BASE_URL: http://127.0.0.1:5173
+          E2E_DATABASE_URL: sqlite+aiosqlite:///./data/e2e.db
+        working-directory: decision-matrix/frontend
         run: npm run test:e2e
 
   terraform:

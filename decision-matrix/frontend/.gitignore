@@ -11,6 +11,10 @@ node_modules
 dist
 dist-ssr
 *.local
+e2e/.ui-*.json
+e2e/.auth-*.json
+test-results/
+coverage/
 
 # Editor directories and files
 .vscode/*

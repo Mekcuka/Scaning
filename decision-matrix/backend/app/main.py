@@ -112,7 +112,8 @@ app = FastAPI(
     openapi_url="/api/v1/openapi.json",
 )
 app.state.limiter = limiter
-if settings.ENVIRONMENT == "test":
+# Rate limits apply in production only; local dev and CI test runs register many users.
+if settings.ENVIRONMENT != "production":
     app.state.limiter.enabled = False
 app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
 register_exception_handlers(app)

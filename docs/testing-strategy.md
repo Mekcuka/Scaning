@@ -33,7 +33,7 @@
 | Frontend unit | 154 | **~240** |
 | Frontend test-файлов | 42 | **~82** |
 | Backend `def test_` | ~120 | **143** |
-| E2E Playwright | 1 | **6** |
+| E2E Playwright | 1 | **12** |
 
 ### Текущий baseline (для следующих сравнений)
 
@@ -62,12 +62,63 @@ pytest tests/ -q
 pytest tests/ --cov=app --cov-report=term-missing
 ```
 
-E2E (нужен dev-сервер или `PLAYWRIGHT_BASE_URL`; в CI — job `E2E`):
+E2E (backend на `:8000`, Playwright поднимает Vite на `:5174` с `VITE_E2E_MAP_HOOK=true`; в CI — job `E2E`):
 
 ```powershell
+cd decision-matrix/backend
+python run_local.py
+
 cd decision-matrix/frontend
 npm run test:e2e
 ```
+
+Перед прогоном остановите лишние процессы на порту 8000 (иначе rate-limit и CSRF могут флапать). В `development`/`test` лимитер auth отключён (`app/main.py`).
+
+### E2E сценарии (12)
+
+| Файл | Сценарий |
+|------|----------|
+| `login.spec.ts` | страница входа |
+| `projects.spec.ts` | создать проект → карта; удаление с confirm |
+| `parameters.spec.ts` | вкладка пропускной способности |
+| `flows.spec.ts` | раздел «Потоки» |
+| `flows-logistics.spec.ts` | логистика песка: загрузка, analyze, timeline |
+| `import.spec.ts` | страница импорта |
+| `map.spec.ts` | 2D-карта; автодорога (seed точек + «Готово»); detail PATCH; линейка |
+
+### Инфраструктура E2E
+
+| Компонент | Путь | Назначение |
+|-----------|------|------------|
+| Конфиг | [`playwright.config.ts`](../decision-matrix/frontend/playwright.config.ts) | `workers: 1`, dev на `:5174`, `globalTeardown` |
+| Хелперы | [`e2e/helpers.ts`](../decision-matrix/frontend/e2e/helpers.ts) | `setupE2eSession`, `loginViaApi`, `createProject`, `clickMapLonLat`, `seedSandLogisticsNetwork` |
+| Teardown | [`e2e/global-teardown.ts`](../decision-matrix/frontend/e2e/global-teardown.ts) | вызов скрипта очистки после прогона |
+| Очистка БД | [`scripts/cleanup_e2e_data.py`](../decision-matrix/backend/scripts/cleanup_e2e_data.py) | cascade-delete проектов `test_*` и тестовых пользователей |
+| Map hook | [`setupViewHandlers.ts`](../decision-matrix/frontend/src/components/mapView/setupViewHandlers.ts) | `window.__dmOlMap` при `VITE_E2E_MAP_HOOK=true` |
+
+**Локально:** backend через `run_local.py` пишет в SQLite `data/sppr.db`; Playwright поднимает Vite на `:5174` (отдельный порт от dev `:5173`, чтобы не смешивать `localStorage`). Один процесс на `:8000` — иначе возможны 429/CSRF-флапы.
+
+**CI (job `E2E`):** отдельная БД `data/e2e.db`, `vite preview` на `:5173`, `VITE_E2E_MAP_HOOK=true` при сборке, `E2E_DATABASE_URL` при teardown.
+
+**Автоочистка:** после каждого `npm run test:e2e` (включая падения) `globalTeardown` запускает `cleanup_e2e_data.py`. Удаляются проекты `test_*` и пользователи `e2e-*` / `*@test.ru`; демо-аккаунты (`engineer@oilgas.ru` и др.) не трогаются.
+
+| Переменная | Локально | CI |
+|------------|----------|-----|
+| `PLAYWRIGHT_BASE_URL` | `http://127.0.0.1:5174` | `http://127.0.0.1:5173` |
+| `E2E_DATABASE_URL` | `sqlite+aiosqlite:///./data/sppr.db` (default) | `sqlite+aiosqlite:///./data/e2e.db` |
+| `VITE_E2E_MAP_HOOK` | `true` (через `webServer.env`) | `true` (build env) |
+
+Ручная очистка:
+
+```powershell
+cd decision-matrix/backend
+python scripts/cleanup_e2e_data.py
+# другая БД:
+$env:DATABASE_URL = "sqlite+aiosqlite:///./data/e2e.db"
+python scripts/cleanup_e2e_data.py
+```
+
+**Карта в E2E:** клики по lon/lat — `clickMapLonLat` → `__dmOlMap.getPixelFromCoordinate`. Рисование линии: seed двух `gas_processing` через API, `fitMapToAllObjects`, завершение кнопкой **«Готово»** (не dblclick). CSRF — `CsrfHolder` + ротация из заголовков ответа.
 
 ## Карта 2D — ручной perf checklist
 
@@ -96,7 +147,7 @@ npm run test:e2e
 - [`src/test/renderWithProviders.tsx`](../decision-matrix/frontend/src/test/renderWithProviders.tsx) — QueryClient + Router.
 - [`src/test/pages/`](../decision-matrix/frontend/src/test/pages/) — `renderPage`, `createApiMock` / [`apiMockModule.ts`](../decision-matrix/frontend/src/test/pages/apiMockModule.ts), [`mapPageHarness.tsx`](../decision-matrix/frontend/src/test/pages/mapPageHarness.tsx).
 - [`src/test/fixtures/`](../decision-matrix/frontend/src/test/fixtures/) — проекты, пользователи, infra, map (`map.ts`).
-- E2E: [`e2e/`](../decision-matrix/frontend/e2e/) — login, projects, parameters, flows, import, map.
+- E2E: [`e2e/`](../decision-matrix/frontend/e2e/) — 7 spec-файлов, 12 тестов; `helpers.ts`, `global-teardown.ts`; автоочистка `cleanup_e2e_data.py`.
 
 ### Pages 80% (план, май 2026)
 
@@ -152,7 +203,7 @@ vi.mock('../lib/api', async (importOriginal) => {
 | § user-flows | Автотесты |
 |--------------|-----------|
 | §1 Регистрация / вход | E2E login + register flow, backend `test_auth_rbac` |
-| §2 Карта / импорт | map3d unit (`map3dCustomGlbFetch`, `map3dGltfLoader`), map API integration, import preview, E2E map load |
+| §2 Карта / импорт | map3d unit, map API integration, import preview, E2E map (load, draw line, detail save, ruler) |
 | §3 Анализ / проект | environment unit, projects API, E2E create/delete project |
 | §4 Потоки / песок | flow/sand API + services, `sandLogisticsFlow`/`sandLogisticsResult` unit, `SandLogisticsSubnetPanel` (timeline), E2E flows tab |
 | §5 Отчёты | one_pager API, pptx unit |
@@ -162,6 +213,6 @@ vi.mock('../lib/api', async (importOriginal) => {
 
 - **Frontend:** `npm run test` (обязательно); `npm run test:coverage` — пороги v8: `src/lib/**` ≥ 30%, `src/pages/**` ≥ 77%, `MapPage.tsx` ≥ 73%.
 - **Backend:** `pytest tests/ -q`; `pytest --cov=app/services --cov-fail-under=25` — soft gate на сервисы.
-- **E2E:** отдельный job после frontend build (backend + preview).
+- **E2E:** job `E2E (Playwright)` — backend `e2e.db`, `vite preview`, 12 сценариев, `globalTeardown` + `E2E_DATABASE_URL`.
 
 См. [`.github/workflows/ci.yml`](../.github/workflows/ci.yml).

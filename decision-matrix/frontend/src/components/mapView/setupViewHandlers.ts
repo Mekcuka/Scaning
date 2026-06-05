@@ -108,6 +108,9 @@ export function setupViewHandlers(ctx: MapSetupContext): ViewHandlersCleanup {
   }
 
   mapRef.current = map;
+  if (import.meta.env.VITE_E2E_MAP_HOOK === 'true') {
+    (window as Window & { __dmOlMap?: typeof map }).__dmOlMap = map;
+  }
 
   const zoomEl = containerRef.current!.querySelector('.ol-zoom');
   if (zoomEl && !zoomEl.querySelector('.ol-fit-view')) {
