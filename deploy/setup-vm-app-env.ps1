@@ -68,6 +68,9 @@ $databaseUrl = "postgresql+asyncpg://${encodedUser}:${encodedPass}@${PostgresHos
 $appEnv = @"
 DATABASE_URL=$databaseUrl
 SECRET_KEY=$SecretKey
+ENVIRONMENT=production
+DEMO_USERS_ENABLED=false
+ALLOW_REGISTRATION=false
 ACCESS_TOKEN_EXPIRE_MINUTES=$AccessTokenExpireMinutes
 REFRESH_TOKEN_EXPIRE_DAYS=$RefreshTokenExpireDays
 CORS_ORIGINS=$CorsOrigins
@@ -76,6 +79,8 @@ COOKIE_SECURE=true
 REDIS_URL=redis://redis:6379/0
 ARQ_QUEUE_NAME=decision-matrix
 JOBS_SYNC_FALLBACK=false
+AUTOROAD_NETWORK_INPROCESS=true
+AUTOROAD_NETWORK_SOLVER=steinerpy
 "@
 
 $localAppEnv = Join-Path $env:TEMP "decision-matrix-app.env"

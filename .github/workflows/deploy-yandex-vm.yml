@@ -319,6 +319,17 @@ jobs:
           IMAGE_REF=${IMAGE_REF}
           APP_DOMAIN=${APP_DOMAIN}
           EOF
+          APP_ENV=/opt/decision-matrix/shared/app.env
+          if [[ -f "\$APP_ENV" ]]; then
+            for kv in ENVIRONMENT=production AUTOROAD_NETWORK_INPROCESS=true AUTOROAD_NETWORK_SOLVER=steinerpy; do
+              key="\${kv%%=*}"
+              if grep -q "^\${key}=" "\$APP_ENV"; then
+                sed -i "s/^\${key}=.*/\${kv}/" "\$APP_ENV"
+              else
+                echo "\${kv}" >> "\$APP_ENV"
+              fi
+            done
+          fi
           echo "${IMAGE_REF}" > '${RELEASE_DIR}/.image-ref'
           ln -sfn '${RELEASE_DIR}' /opt/decision-matrix/current
           cd /opt/decision-matrix/current
@@ -343,7 +354,8 @@ jobs:
           echo "$body"
           echo "$body" | grep -q '"status":"ok"' || (echo "::error::health status not ok" && exit 1)
           if echo "$body" | grep -q '"environment":"development"'; then
-            echo "::warning::ENVIRONMENT=development in /health — set ENVIRONMENT=production in /opt/decision-matrix/shared/app.env (see DEPLOY.md)"
+            echo "::error::ENVIRONMENT still development after deploy — check /opt/decision-matrix/shared/app.env"
+            exit 1
           fi
 
       - name: Prune old Docker images on VM
