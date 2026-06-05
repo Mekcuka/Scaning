@@ -104,7 +104,11 @@ vi.mock('../components/DevPortBanner', () => ({
 
 vi.mock('../lib/api', async (importOriginal) => {
   const { createApiMock } = await import('../test/pages/apiMockModule');
-  return createApiMock(importOriginal);
+  const mod = await createApiMock(importOriginal);
+  return {
+    ...mod,
+    syncClientAuthSession: vi.fn().mockResolvedValue(true),
+  };
 });
 
 vi.mock('../hooks/usePermissions', () => ({
@@ -517,6 +521,84 @@ describe('MapPage mock MapView integration', () => {
     await waitFor(() => expect(screen.getByTestId('mock-object-detail')).toBeInTheDocument());
     await userEvent.click(screen.getByRole('button', { name: 'Save mock detail' }));
     await waitFor(() => expect(api.updatePoi).toHaveBeenCalled());
+  });
+
+  it('autoroad network: pick terminals, preview and cancel apply', async () => {
+    const gks1 = makeInfraPoint({ id: 'gks-1', name: 'GKS A', subtype: 'gas_processing' });
+    const gks2 = makeInfraPoint({
+      id: 'gks-2',
+      name: 'GKS B',
+      subtype: 'gas_processing',
+      lon: 37.65,
+      lat: 55.76,
+    });
+    vi.mocked(api.getInfraObjects).mockResolvedValue([gks1, gks2]);
+
+    await renderMap();
+    await enableEdit();
+    await userEvent.click(screen.getByRole('button', { name: /построить сеть автодорог/i }));
+
+    await waitFor(() =>
+      expect(screen.getByRole('region', { name: 'Построение сети автодорог' })).toBeInTheDocument(),
+    );
+
+    mapProps().onMapClick?.(37.6, 55.75, {
+      overPoint: { id: gks1.id, lon: 37.6, lat: 55.75 },
+    });
+    mapProps().onMapClick?.(37.65, 55.76, {
+      overPoint: { id: gks2.id, lon: 37.65, lat: 55.76 },
+    });
+    await waitFor(() => expect(screen.getByText(/2 терм\./)).toBeInTheDocument());
+
+    await userEvent.click(screen.getByRole('button', { name: 'Рассчитать' }));
+    await waitFor(() => expect(api.autoroadNetworkBuildRequest).toHaveBeenCalled());
+    await waitFor(() => expect(api.autoroadNetworkCompute).toHaveBeenCalled());
+    await waitFor(() => expect(screen.getByTestId('autoroad-connect-confirm')).toBeInTheDocument());
+
+    await userEvent.click(screen.getByRole('button', { name: 'Отмена' }));
+    expect(api.autoroadNetworkApply).not.toHaveBeenCalled();
+  });
+
+  it('autoroad network: box pick, visible bulk and apply', async () => {
+    const gks1 = makeInfraPoint({ id: 'gks-1', name: 'GKS A', subtype: 'gas_processing' });
+    const gks2 = makeInfraPoint({
+      id: 'gks-2',
+      name: 'GKS B',
+      subtype: 'refinery',
+      lon: 37.62,
+      lat: 55.77,
+    });
+    const gks3 = makeInfraPoint({
+      id: 'gks-3',
+      name: 'GKS C',
+      subtype: 'oil_pad',
+      lon: 37.64,
+      lat: 55.78,
+    });
+    vi.mocked(api.getInfraObjects).mockResolvedValue([gks1, gks2, gks3]);
+
+    await renderMap();
+    await enableEdit();
+    await userEvent.click(screen.getByRole('button', { name: /построить сеть автодорог/i }));
+
+    const panel = await screen.findByRole('region', { name: 'Построение сети автодорог' });
+
+    await userEvent.click(within(panel).getByRole('button', { name: 'Рамкой' }));
+    mapProps().onDragBoxPick?.([
+      { kind: 'infra', id: gks1.id },
+      { kind: 'infra', id: gks2.id },
+    ]);
+    await waitFor(() => expect(within(panel).getByText(/2 терм\./)).toBeInTheDocument());
+
+    await userEvent.click(within(panel).getByRole('button', { name: /видимые/i }));
+    await waitFor(() => expect(within(panel).getByText(/3 терм\./)).toBeInTheDocument());
+
+    await userEvent.click(within(panel).getByRole('button', { name: 'Рассчитать' }));
+    await waitFor(() => expect(screen.getByTestId('autoroad-connect-confirm')).toBeInTheDocument());
+    await userEvent.click(screen.getByTestId('autoroad-connect-confirm'));
+
+    await waitFor(() => expect(api.autoroadNetworkApply).toHaveBeenCalled());
+    await waitFor(() => expect(api.getInfraObjects).toHaveBeenCalled());
   });
 
 });

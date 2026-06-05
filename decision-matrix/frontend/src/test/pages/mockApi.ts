@@ -55,6 +55,70 @@ export function createDefaultApiMocks(): ApiMockOverrides {
       network_rebuilt: false,
     }),
     updateLayer: vi.fn().mockResolvedValue(sampleLayers[0]),
+    autoroadNetworkSolverStatus: vi.fn().mockResolvedValue({
+      steinerpy: true,
+      geosteiner: false,
+      default_solver: 'steinerpy',
+    }),
+    autoroadNetworkBuildRequest: vi.fn().mockImplementation(
+      (_projectId: string, data: { object_ids: string[] }) =>
+        Promise.resolve({
+          project_id: 'p1',
+          terminals: data.object_ids.map((id) => ({
+            id,
+            subtype: 'gas_processing',
+            name: `Terminal ${id}`,
+            lon: 37.6,
+            lat: 55.75,
+            coordinates: [37.6, 55.75],
+          })),
+          existing_autoroads: [],
+          options: {},
+        }),
+    ),
+    autoroadNetworkCompute: vi.fn().mockImplementation(
+      (_projectId: string, planRequest: { terminals: { id: string }[] }) =>
+        Promise.resolve({
+          terminals: planRequest.terminals.map((t) => ({
+            id: t.id,
+            name: `Terminal ${t.id}`,
+            warning: null,
+          })),
+          new_lines: [
+            {
+              kind: 'link',
+              coordinates: [
+                [37.6, 55.75],
+                [37.65, 55.76],
+              ],
+            },
+          ],
+          new_nodes: [{ lon: 37.625, lat: 55.755, reason: 'junction' }],
+          splits: [],
+          used_existing_edge_ids: [],
+          total_new_km: 2.5,
+          warnings: [],
+          new_line_count: 1,
+          new_node_count: 1,
+          split_count: 0,
+        }),
+    ),
+    autoroadNetworkApply: vi.fn().mockResolvedValue({
+      created_line_ids: ['line-new-1'],
+      created_node_ids: ['node-new-1'],
+      created_lines: 1,
+      created_nodes: 1,
+    }),
+    getActiveProjectJob: vi.fn().mockResolvedValue(null),
+    autoroadConnect: vi.fn().mockResolvedValue({
+      dry_run: true,
+      new_line_count: 0,
+      new_node_count: 0,
+      split_count: 0,
+      total_new_km: 0,
+      warnings: [],
+      terminals: [],
+    }),
     buildNetwork: vi.fn().mockResolvedValue({}),
     overrideAnalysis: vi.fn().mockResolvedValue(makeAnalysisResponse()),
     getOnePagers: vi.fn().mockResolvedValue([]),
