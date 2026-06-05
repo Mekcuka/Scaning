@@ -1,8 +1,7 @@
 import { Link } from 'react-router-dom';
-import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { useCallback, useEffect, useMemo, useState, useTransition } from 'react';
 import { Network } from 'lucide-react';
-import { api } from '../../lib/api';
 import { analyzeSandLogisticsAndWait } from '../../lib/runApiJob';
 import {
   SandLogisticsSubnetPanel,
@@ -32,6 +31,7 @@ import {
   useProjectSandLogistics,
   writeSandLogisticsCache,
 } from '../../hooks/useProjectSandLogistics';
+import { useProjectInfraObjects } from '../../hooks/useProjectData';
 import { useFlowSchematicContext } from './flowSchematicContext';
 import { useAppStore } from '../../store';
 
@@ -55,10 +55,7 @@ export function FlowLogisticsPage() {
 
   const { data: result, isLoading: resultLoading } = useProjectSandLogistics(projectId);
 
-  const { data: infraObjects = [] } = useQuery({
-    queryKey: ['infra', projectId],
-    queryFn: () => api.getInfraObjects(projectId!),
-    enabled: !!projectId,
+  const { data: infraObjects = [] } = useProjectInfraObjects(projectId, {
     staleTime: 60_000,
   });
 

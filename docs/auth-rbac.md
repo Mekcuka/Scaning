@@ -46,7 +46,7 @@ GET  /api/v1/auth/me         — текущий пользователь (cookie
 
 Login/register **не требуют** CSRF. Остальные mutating запросы — CSRF обязателен, **кроме** запросов с заголовком `Authorization: Bearer <access_token>` (CSRF не проверяется).
 
-Клиент (`frontend/src/lib/api.ts`):
+Клиент (`frontend/src/lib/api.ts` — barrel; реализация в `lib/api/client.ts`, `apiClient.ts`):
 
 - после login/register — `access_token` / `refresh_token` и `X-CSRF-Token` в `sessionStorage`;
 - при старте приложения после успешного `GET /auth/me` — `syncClientAuthSession()` (refresh, если нет Bearer или CSRF в storage);

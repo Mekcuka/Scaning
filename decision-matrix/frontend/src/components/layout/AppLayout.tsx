@@ -1,11 +1,5 @@
 import { useEffect, useState } from 'react';
-import {
-  NavLink,
-  Outlet,
-  useLocation,
-  useNavigate,
-  type Location,
-} from 'react-router-dom';
+import { NavLink, Outlet, useLocation, useNavigate } from 'react-router-dom';
 import {
   LayoutDashboard,
   Map,
@@ -157,19 +151,14 @@ export function AppLayout() {
               to={target}
               end={end}
               onClick={closeNav}
-              className={({ isActive }) =>
-                `flex items-center gap-3 px-4 py-2.5 text-sm transition-colors ${
-                  isActive ? 'bg-white/10 text-white' : 'hover:bg-white/5'
-                }`
-              }
-              {...(item.section
-                ? {
-                    isActive: (
-                      _api: { isActive: boolean; isPending: boolean },
-                      location: Location,
-                    ) => pathBelongsToSection(location.pathname, item.section!),
-                  }
-                : {})}
+              className={({ isActive }) => {
+                const active = item.section
+                  ? pathBelongsToSection(pathname, item.section)
+                  : isActive;
+                return `flex items-center gap-3 px-4 py-2.5 text-sm transition-colors ${
+                  active ? 'bg-white/10 text-white' : 'hover:bg-white/5'
+                }`;
+              }}
             >
               <Icon size={18} />
               {label}

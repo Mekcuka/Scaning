@@ -408,7 +408,6 @@ LIMIT 1;
 |----------|-------|------------|
 | `ST_DWithin(poi, geom, radius_m)` | да | да (расстояние до линии ≤ radius) |
 | `ST_Intersects(bbox, geom)` | да | да |
-| Кластеризация (FR-2.4.3) | да | не применяется |
 
 ### 3.4 Связь с расчётом стоимости
 
@@ -598,7 +597,6 @@ sequenceDiagram
 | **Snap** | Grid-index [`infraSnapIndex.ts`](../decision-matrix/frontend/src/lib/infraSnapIndex.ts) для `linePathForDisplay` |
 | **LOD линий** | При масштабе карты **1:N** грубее порога (ползунок «Упр. линий» в footer, по умолчанию 1:500 000) — только два конца после snap; иначе полный path; порог в `localStorage` (`lineLodScaleThreshold`) |
 | **Heal концов** | Один раз на проект (`localStorage`); сброс после импорта (`bumpMapRefresh`) |
-| **Кластеризация точек** | Не используется (FR-2.4.3 вне текущей реализации) |
 | **Горячий путь мыши** | `pointermove` в `MapView`: один кадр через `requestAnimationFrame` ([`mapPointerThrottle.ts`](../decision-matrix/frontend/src/lib/mapPointerThrottle.ts)); hit-test по spatial index источника, без `forEachFeatureAtPixel` ([`mapHitTest.ts`](../decision-matrix/frontend/src/lib/mapHitTest.ts)); hover — `feature.changed()` только у старого/нового id |
 | **React state курсора** | `MapPage`: координаты в `ref` при просмотре/select; `setCursor` только для paste, point/poi, линейки (≥1 точка), черновика линии (≥1 вершина) |
 | **Синхронизация слоя** | `syncInfraDataToLayers`: при ≥150 объектах — `requestIdleCallback` (timeout 250 ms); snap-index пересобирается при смене id/координат точек snap-pool ([`infraSnapPoolSignature`](../decision-matrix/frontend/src/components/MapView.tsx)) |
@@ -685,7 +683,6 @@ sequenceDiagram
 | Стоимость fixed за объект | да (внешние) | — | — |
 | Ручное переопределение | да | да | node/edge |
 | ST_DWithin / bbox | да | да | да |
-| Кластеризация | да | нет | — |
 
 ---
 

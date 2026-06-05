@@ -24,7 +24,7 @@
 | **Backend `app/`** | не замерялось | **72%** | — |
 | **Backend `app/services/`** | частично unit | **68%** | — |
 
-Ориентир по **функционалу продукта** (чеклист user-flows, вручную): было ~20–30%, после доработок ~**35–40%**. `MapPage` (~2,7k строк) по-прежнему почти без unit/E2E рисования.
+Ориентир по **функционалу продукта** (чеклист user-flows, вручную): было ~20–30%, после доработок ~**35–40%**. `MapPage` после рефакторинга (~**981** строка оркестратора + модули в `pages/map/`, `hooks/`) — integration/mock-тесты покрывают workflows; unit/E2E рисования на OL — по-прежнему ограничены.
 
 ### Объём автотестов
 
@@ -86,7 +86,7 @@ npm run test:e2e
 ## Принципы «не навредить»
 
 - PR с тестами **без** изменения поведения, кроме точечного `data-testid` и extract pure helpers.
-- Перед рефакторингом MapPage/MapView — characterization-тесты на helpers.
+- Рефакторинг MapPage/MapView (июнь 2026) завершён — см. [frontend-structure.md](./frontend-structure.md); перед изменениями — characterization-тесты на helpers и прогон `MapPage.*` / `MapView`.
 - Моки на границе: `vi.mock('../lib/api')`, TestClient + seed users из `tests/conftest.py`.
 - Geo/map API — поведение как в CI (PostGIS); unit-сервисы — shared SQLite (`tests/conftest.py`).
 

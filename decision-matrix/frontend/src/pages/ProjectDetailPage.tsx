@@ -155,7 +155,11 @@ export function ProjectDetailPage() {
                     <td>{poi.name}</td>
                     <td>{poi.planned_production_volume}</td>
                     <td>{poi.pads_count}</td>
-                    <td>{Math.round(poi.wells_total)}</td>
+                    <td>
+                      {poi.wells_total != null && Number.isFinite(poi.wells_total)
+                        ? Math.round(poi.wells_total)
+                        : '—'}
+                    </td>
                     <td>{poi.fluid_type === 'oil' ? 'Нефть' : 'Газ'}</td>
                   </tr>
                 ))}

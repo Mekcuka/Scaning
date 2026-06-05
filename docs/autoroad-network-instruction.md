@@ -230,7 +230,7 @@ curl -s -X POST "http://127.0.0.1:8001/v1/network/plan" \
 | `decision-matrix/frontend/src/pages/MapPage.tsx` | Режим «Сеть», request → compute → confirm → apply |
 | `decision-matrix/frontend/src/lib/autoroadNetwork.ts` | Какие подтипы можно выбрать как терминал |
 | `decision-matrix/frontend/src/lib/autoroadPlanPreview.ts` | Overlay из `new_lines[]` |
-| `decision-matrix/frontend/src/lib/api.ts` | `autoroadNetworkBuildRequest`, `Compute`, `Apply` |
+| `decision-matrix/frontend/src/lib/api.ts` (barrel) / `lib/api/apiClient.ts` | `autoroadNetworkBuildRequest`, `Compute`, `Apply` |
 | `decision-matrix/frontend/src/components/TaskLogPanel.tsx` | Журнал задач в шапке |
 | `decision-matrix/frontend/src/lib/taskLog/` | Store, автолог HTTP, экспорт JSON |
 

@@ -1,5 +1,5 @@
 import { useMemo, useState } from 'react';
-import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { Link } from 'react-router-dom';
 import { MapPin, Search } from 'lucide-react';
 import { api, SUBTYPE_LABELS, type InfraObject } from '../lib/api';
@@ -13,7 +13,10 @@ import {
 } from '../lib/infraSandVolumes';
 import { findSandLogisticsConsumer } from '../lib/sandLogisticsHaulLegs';
 import { useAppStore } from '../store';
+import { useActiveProject } from '../hooks/useActiveProject';
+import { useProjectInfraObjects } from '../hooks/useProjectData';
 import { usePermissions } from '../hooks/usePermissions';
+import { queryKeys } from '../lib/queryKeys';
 import { useProjectSandLogistics } from '../hooks/useProjectSandLogistics';
 import { DeferredNumberInput } from '../components/DeferredNumberInput';
 import { SandHaulLegDetails } from '../components/logistics/SandHaulLegDetails';
@@ -35,16 +38,13 @@ function sandDemandDisplayValue(obj: InfraObject): number | '' {
 
 export function SandParametersPage() {
   const { canWriteProject } = usePermissions();
-  const projectId = useAppStore((s) => s.currentProjectId);
+  const { projectId } = useActiveProject();
   const pushToast = useAppStore((s) => s.pushToast);
   const queryClient = useQueryClient();
   const [search, setSearch] = useState('');
   const [savingId, setSavingId] = useState<string | null>(null);
 
-  const { data: infraObjects = [], isLoading } = useQuery({
-    queryKey: ['infra', projectId],
-    queryFn: () => api.getInfraObjects(projectId!),
-    enabled: !!projectId,
+  const { data: infraObjects = [], isLoading } = useProjectInfraObjects(projectId, {
     refetchOnMount: 'always',
   });
 
@@ -103,7 +103,7 @@ export function SandParametersPage() {
     },
     onError: (err: Error) => {
       pushToast('error', err.message || 'Не удалось сохранить');
-      queryClient.invalidateQueries({ queryKey: ['infra', projectId] });
+      if (projectId) queryClient.invalidateQueries({ queryKey: queryKeys.infra(projectId) });
     },
     onSettled: () => {
       setSavingId(null);

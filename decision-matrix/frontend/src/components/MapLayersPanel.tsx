@@ -17,7 +17,7 @@ type MapLayersPanelProps = {
   onShowPoisChange: (visible: boolean) => void;
   showRadii: boolean;
   onShowRadiiChange: (visible: boolean) => void;
-  radiusVisible: Record<string, boolean>;
+  radiusVisible: Record<string, boolean | undefined>;
   onRadiusVisibleChange: (subtype: string, visible: boolean) => void;
   thresholdMeta: ThresholdMeta[];
   thresholdKm: (subtype: string, fallback: number) => number;

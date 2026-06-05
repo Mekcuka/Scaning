@@ -21,6 +21,12 @@ import {
 } from '../../lib/api';
 import { captureMapSnapshot, downloadBlob } from '../../lib/mapSnapshot';
 import { engLabel } from '../../lib/poiParams';
+import { useActiveProject } from '../../hooks/useActiveProject';
+import {
+  useProjectInfraObjects,
+  useProjectLayers,
+  useProjectPois,
+} from '../../hooks/useProjectData';
 import { useAppStore } from '../../store';
 import { usePermissions } from '../../hooks/usePermissions';
 import { OnePagerPreview, type OnePagerPreviewData } from './components/OnePagerPreview';
@@ -54,7 +60,7 @@ export function ReportEditorPage({ mode }: { mode: 'new' | 'edit' }) {
   const { id } = useParams();
   const [searchParams, setSearchParams] = useSearchParams();
   const navigate = useNavigate();
-  const projectId = useAppStore((s) => s.currentProjectId);
+  const { projectId } = useActiveProject();
   const { canWriteProject } = usePermissions();
   const readOnly = !canWriteProject;
   const queryClient = useQueryClient();
@@ -83,23 +89,9 @@ export function ReportEditorPage({ mode }: { mode: 'new' | 'edit' }) {
     enabled: !!projectId,
   });
 
-  const { data: pois = EMPTY_POIS } = useQuery({
-    queryKey: ['pois', projectId],
-    queryFn: () => api.getPois(projectId!),
-    enabled: !!projectId,
-  });
-
-  const { data: infraObjects = EMPTY_INFRA } = useQuery({
-    queryKey: ['infra', projectId],
-    queryFn: () => api.getInfraObjects(projectId!),
-    enabled: !!projectId,
-  });
-
-  const { data: layers = EMPTY_LAYERS } = useQuery({
-    queryKey: ['layers', projectId],
-    queryFn: () => api.getLayers(projectId!),
-    enabled: !!projectId,
-  });
+  const { data: pois = EMPTY_POIS } = useProjectPois(projectId);
+  const { data: infraObjects = EMPTY_INFRA } = useProjectInfraObjects(projectId);
+  const { data: layers = EMPTY_LAYERS } = useProjectLayers(projectId);
 
   useEffect(() => {
     if (mode !== 'new' || pois.length === 0) return;

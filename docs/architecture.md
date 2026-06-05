@@ -518,9 +518,12 @@ analytics/  [папка зарезервирована для v1.3+]
 
 ## Frontend архитектура
 
+> **Актуальная структура модулей карты и API-клиента (после рефакторинга июнь 2026):** [frontend-structure.md](./frontend-structure.md).
+
 ### Компоненты карты
 
-Реализация 2D: `frontend/src/components/MapView.tsx`, `frontend/src/pages/MapPage.tsx`.  
+Реализация 2D: `frontend/src/components/MapView.tsx` (обёртка) + `frontend/src/components/mapView/` (OpenLayers).  
+Страница: `frontend/src/pages/MapPage.tsx` (оркестратор) + `frontend/src/pages/map/` (layout-компоненты).  
 Реализация 3D: `frontend/src/components/MapView3D.tsx`, `frontend/src/lib/map3d/` — см. [map-3d-features.md](./map-3d-features.md).
 
 **Слои на карте (OpenLayers, 2D):** подложка, пороговые радиусы, линии подключения POI (анализ), линии/точки инфраструктуры, превью рисования. **Расчётный граф** (`infrastructure_nodes` / `infrastructure_edges`) **на карте не отображается** — только в БД и в API для «Потоков» / логистики. См. [map-objects-and-spatial-calculations.md](./map-objects-and-spatial-calculations.md) §5–§6.
@@ -528,26 +531,32 @@ analytics/  [папка зарезервирована для v1.3+]
 **Режим 3D (MapLibre + Three.js, view-only):** те же объекты из API → `geoJson.ts` + custom layers (glTF точки, трубы линий), MapTiler terrain, без редактирования. Переключатель 2D|3D на MapPage; также Matrix и превью отчёта.
 
 ```
-components/map/   # целевая структура; фактически — MapView.tsx + MapPage
-├── MapView.tsx              # OpenLayers: инфраструктура, POI, линии анализа, редактирование геометрии
-├── MapView3D.tsx            # MapLibre + Three.js custom layers (см. lib/map3d/)
-├── Layers/
-│   ├── LayerControl.tsx     # Переключатель слоёв
-│   ├── BaseLayer.tsx        # Базовый слой (OSM, Satellite)
-│   ├── DataLayer.tsx        # Слой данных
-│   └── HeatmapLayer.tsx     # Тепловая карта
-├── Markers/
-│   ├── GeoMarker.tsx        # Маркер геообъекта
-│   ├── ClusterMarker.tsx    # Кластер маркеров
-│   └── CustomMarker.tsx     # Кастомный маркер
-├── Controls/
-│   ├── ZoomControl.tsx
-│   ├── SearchControl.tsx    # Поиск по карте
-│   ├── DrawControl.tsx      # Рисование на карте
-│   └── MeasureControl.tsx   # Измерение расстояний
-└── Popups/
-    ├── ObjectPopup.tsx      # Поп-ап объекта
-    └── InfoPopup.tsx        # Информационный поп-ап
+pages/
+├── MapPage.tsx                    # ~981 строк — оркестратор хуков + layout
+└── map/
+    ├── MapPageToolbar.tsx         # тулбар (+ mapPageToolbar/*)
+    ├── MapPageCanvas.tsx          # MapView / MapView3D
+    ├── MapPageSidePanels.tsx      # детали, группа, autoroad
+    ├── MapPageLayersSidebar.tsx
+    ├── MapPageFooter.tsx
+    ├── MapPageModals.tsx
+    └── mapConstants.ts
+
+components/
+├── MapView.tsx                    # ~58 строк — memo + re-export типов
+├── mapView/                       # OpenLayers: init, interactions, reactive hooks
+│   ├── setupOpenLayersMap.ts      # оркестратор OL init
+│   ├── createMapLayers.ts, setupModifyHandlers.ts, …
+│   └── useMapView*.ts
+├── ObjectDetailPanel.tsx          # ~168 строк — обёртка
+├── objectDetailPanel/             # вкладки infra/POI, useObjectDetailPanel
+├── MapView3D.tsx
+└── MapLayersPanel.tsx, …
+
+hooks/                             # useMapInfraData, useMapSelection, useMapClipboard, …
+lib/
+├── api.ts                         # barrel → lib/api/*
+└── map3d/                         # 3D custom layers
 ```
 
 ### Компоненты импорта и ставок

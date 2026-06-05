@@ -37,8 +37,6 @@ python -m pip install -e ..\..\..\autoroad-network-planner[steinerpy]
 python run_local.py
 ```
 
-> Если проект лежит в `SPPR/decision-matrix`, замените путь к пакету: `pip install -e ..\..\..\..\autoroad-network-planner[steinerpy]`
-
 Проверка, что активен именно `venv`:
 
 ```powershell

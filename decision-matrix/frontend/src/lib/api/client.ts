@@ -1,0 +1,309 @@
+import {
+  clearAuthTokens,
+  getAccessToken,
+  getRefreshToken,
+  persistAuthTokens,
+} from '../authSession';
+import { taskLog } from '../taskLog/store';
+import {
+  extractProjectIdFromPath,
+  parseRequestBody,
+  shouldLogHttpPath,
+} from '../taskLog/loggablePaths';
+import { CSRF_STORAGE_KEY, appLoginPath, type AuthSession, type AuthUser } from './session';
+
+export const API_BASE = import.meta.env.VITE_API_URL || '/api/v1';
+export const REQUEST_TIMEOUT_MS = 12_000;
+const MUTATING_METHODS = new Set(['POST', 'PUT', 'PATCH', 'DELETE']);
+
+export function storeCsrfFromResponse(res: Response): void {
+  const token = res.headers.get('X-CSRF-Token');
+  if (token) sessionStorage.setItem(CSRF_STORAGE_KEY, token);
+}
+
+export function clearClientAuth(): void {
+  sessionStorage.removeItem(CSRF_STORAGE_KEY);
+  clearAuthTokens();
+}
+
+export function getCsrfToken(): string | null {
+  const stored = sessionStorage.getItem(CSRF_STORAGE_KEY);
+  if (stored) return stored;
+  const match = document.cookie.match(/(?:^|;\s*)csrf_token=([^;]+)/);
+  return match ? decodeURIComponent(match[1]) : null;
+}
+
+export function hasStoredCsrf(): boolean {
+  return Boolean(sessionStorage.getItem(CSRF_STORAGE_KEY));
+}
+
+const AUTH_CSRF_EXEMPT = /^\/auth\/(login|register|refresh)$/;
+
+function isCsrfErrorDetail(detail: unknown): boolean {
+  return typeof detail === 'string' && detail.includes('CSRF');
+}
+
+export async function ensureMutatingSessionHeaders(path: string, method: string): Promise<void> {
+  if (!MUTATING_METHODS.has(method) || AUTH_CSRF_EXEMPT.test(path)) return;
+  if (!getAccessToken() || !hasStoredCsrf()) {
+    await tryRefreshSession();
+  }
+}
+
+let refreshInFlight: Promise<boolean> | null = null;
+
+export async function tryRefreshSession(): Promise<boolean> {
+  if (!refreshInFlight) {
+    refreshInFlight = (async () => {
+      try {
+        const csrf = getCsrfToken();
+        const refreshToken = getRefreshToken();
+        const headers: Record<string, string> = { 'Content-Type': 'application/json' };
+        if (csrf) headers['X-CSRF-Token'] = csrf;
+        const access = getAccessToken();
+        if (access) headers.Authorization = `Bearer ${access}`;
+        const res = await fetch(`${API_BASE}/auth/refresh`, {
+          method: 'POST',
+          credentials: 'include',
+          headers,
+          body: refreshToken ? JSON.stringify({ refresh_token: refreshToken }) : undefined,
+        });
+        if (res.ok) {
+          const data = (await res.json()) as AuthSession;
+          persistAuthTokens(data);
+        }
+        storeCsrfFromResponse(res);
+        return res.ok;
+      } catch {
+        return false;
+      } finally {
+        refreshInFlight = null;
+      }
+    })();
+  }
+  return refreshInFlight;
+}
+
+export type RequestOptions = RequestInit & {
+  redirectOn401?: boolean;
+  timeoutMs?: number;
+  _retry?: boolean;
+  /** Return null instead of throwing on HTTP 404. */
+  allowNotFound?: boolean;
+};
+
+/** Legacy English `detail` from older API builds (e.g. after deploy lag). */
+const API_ERROR_MESSAGES_RU: Record<string, string> = {
+  'Invalid credentials': 'Неверный email или пароль',
+  'Not authenticated': 'Сессия не найдена. Войдите снова',
+  'Invalid refresh token': 'Сессия истекла. Войдите снова',
+  'Invalid token': 'Недействительный токен. Войдите снова',
+  'Invalid token type': 'Недействительный токен. Войдите снова',
+  'User not found': 'Пользователь не найден',
+  'Account deactivated': 'Учётная запись отключена',
+  'Insufficient permissions': 'Недостаточно прав для этого действия',
+  Unauthorized: 'Требуется вход в систему',
+};
+
+export function formatApiError(detail: unknown, fallback: string): string {
+  if (typeof detail === 'string') {
+    if (detail === 'Insufficient permissions') return fallback;
+    return API_ERROR_MESSAGES_RU[detail] ?? detail;
+  }
+  if (Array.isArray(detail)) {
+    const parts = detail.map((item) => {
+      if (item && typeof item === 'object' && 'msg' in item) {
+        const loc = (item as { loc?: unknown[] }).loc;
+        const field =
+          Array.isArray(loc) && loc.length > 0
+            ? String(loc[loc.length - 1])
+            : null;
+        const msg = String((item as { msg: string }).msg);
+        return field ? `${field}: ${msg}` : msg;
+      }
+      return JSON.stringify(item);
+    });
+    return parts.join('; ') || fallback;
+  }
+  if (detail && typeof detail === 'object') {
+    const obj = detail as Record<string, unknown>;
+    if (typeof obj.message === 'string' && obj.message.includes('active job')) {
+      return 'В проекте уже выполняется фоновая задача. Дождитесь завершения или отмените её в «Журнале задач».';
+    }
+    return JSON.stringify(detail);
+  }
+  return fallback;
+}
+
+export async function request<T>(path: string, options: RequestOptions = {}): Promise<T> {
+  const { redirectOn401 = true, timeoutMs, _retry = false, allowNotFound = false, ...fetchOptions } = options;
+  const method = (fetchOptions.method ?? 'GET').toUpperCase();
+  await ensureMutatingSessionHeaders(path, method);
+  const headers: Record<string, string> = {
+    ...(fetchOptions.headers as Record<string, string>),
+  };
+  const isForm = fetchOptions.body instanceof FormData;
+  if (!isForm) {
+    headers['Content-Type'] = 'application/json';
+  }
+  if (MUTATING_METHODS.has(method)) {
+    const csrf = getCsrfToken();
+    if (csrf) headers['X-CSRF-Token'] = csrf;
+  }
+  const accessToken = getAccessToken();
+  if (accessToken) headers.Authorization = `Bearer ${accessToken}`;
+
+  const controller = new AbortController();
+  const timeoutId = setTimeout(() => controller.abort(), timeoutMs ?? REQUEST_TIMEOUT_MS);
+  let res: Response;
+  try {
+    res = await fetch(`${API_BASE}${path}`, {
+      ...fetchOptions,
+      headers,
+      credentials: 'include',
+      signal: controller.signal,
+    });
+  } catch (err) {
+    if (err instanceof DOMException && err.name === 'AbortError') {
+      throw new Error('Сервер не отвечает. Запустите API (backend) и базу данных.');
+    }
+    throw err;
+  } finally {
+    clearTimeout(timeoutId);
+  }
+
+  if (res.status === 401) {
+    if (!_retry && redirectOn401 && !path.startsWith('/auth/')) {
+      const refreshed = await tryRefreshSession();
+      if (refreshed) {
+        return request<T>(path, { ...options, _retry: true });
+      }
+    }
+    if (redirectOn401) {
+      clearClientAuth();
+      window.dispatchEvent(new CustomEvent('sppr:auth-lost'));
+      const pathName = window.location.pathname;
+      const onAuthPage = /\/(login|register)\/?$/.test(pathName);
+      if (!onAuthPage) {
+        window.location.href = appLoginPath();
+      }
+    }
+    const err = await res.json().catch(() => ({ detail: null }));
+    throw new Error(formatApiError(err.detail, 'Требуется вход в систему'));
+  }
+  if (res.status === 403) {
+    const err = await res.json().catch(() => ({ detail: null }));
+    if (!_retry && isCsrfErrorDetail(err.detail) && (await tryRefreshSession())) {
+      return request<T>(path, { ...options, _retry: true });
+    }
+    throw new Error(formatApiError(err.detail, 'Недостаточно прав для этого действия'));
+  }
+  if (res.status === 404 && allowNotFound) {
+    return null as T;
+  }
+  const projectId = extractProjectIdFromPath(path);
+  const logHttp = Boolean(projectId && shouldLogHttpPath(path, method));
+  const requestBody = logHttp ? parseRequestBody(fetchOptions.body ?? null) : null;
+
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({ detail: res.statusText }));
+    if (logHttp && projectId) {
+      taskLog.recordHttpStep({
+        projectId,
+        method,
+        path,
+        status: res.status,
+        requestBody,
+        responseBody: err,
+      });
+    }
+    throw new Error(formatApiError(err.detail, res.statusText || 'Request failed'));
+  }
+  storeCsrfFromResponse(res);
+  if (res.status === 204) return undefined as T;
+  const data = (await res.json()) as T;
+  if (logHttp && projectId) {
+    taskLog.recordHttpStep({
+      projectId,
+      method,
+      path,
+      status: res.status,
+      requestBody,
+      responseBody: data,
+    });
+    if (
+      res.status === 202 &&
+      data &&
+      typeof data === 'object' &&
+      'job_id' in data &&
+      typeof (data as { job_id: unknown }).job_id === 'string'
+    ) {
+      const envelope = data as { job_id: string; job_type?: string; status?: string };
+      taskLog.registerJob({
+        projectId,
+        jobId: envelope.job_id,
+        jobType: envelope.job_type ?? 'unknown',
+        status: envelope.status,
+        payload: requestBody as Record<string, unknown> | undefined,
+      });
+    }
+  }
+  return data;
+}
+
+export async function requestBlob(path: string, options: RequestOptions = {}): Promise<Blob> {
+  const { redirectOn401 = true, timeoutMs, _retry = false, ...fetchOptions } = options;
+  const method = (fetchOptions.method ?? 'GET').toUpperCase();
+  await ensureMutatingSessionHeaders(path, method);
+  const headers: Record<string, string> = {
+    ...(fetchOptions.headers as Record<string, string>),
+  };
+  if (MUTATING_METHODS.has(method)) {
+    const csrf = getCsrfToken();
+    if (csrf) headers['X-CSRF-Token'] = csrf;
+  }
+  const accessToken = getAccessToken();
+  if (accessToken) headers.Authorization = `Bearer ${accessToken}`;
+  if (!(fetchOptions.body instanceof FormData)) {
+    headers['Content-Type'] = 'application/json';
+  }
+  const controller = new AbortController();
+  const timeoutId = setTimeout(() => controller.abort(), timeoutMs ?? REQUEST_TIMEOUT_MS);
+  let res: Response;
+  try {
+    res = await fetch(`${API_BASE}${path}`, {
+      ...fetchOptions,
+      headers,
+      credentials: 'include',
+      signal: controller.signal,
+    });
+  } finally {
+    clearTimeout(timeoutId);
+  }
+  if (res.status === 401 && !_retry && redirectOn401) {
+    const refreshed = await tryRefreshSession();
+    if (refreshed) return requestBlob(path, { ...options, _retry: true });
+  }
+  if (res.status === 403) {
+    const err = await res.json().catch(() => ({ detail: null }));
+    if (!_retry && isCsrfErrorDetail(err.detail) && (await tryRefreshSession())) {
+      return requestBlob(path, { ...options, _retry: true });
+    }
+    throw new Error(formatApiError(err.detail, 'Недостаточно прав для этого действия'));
+  }
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({ detail: res.statusText }));
+    throw new Error(formatApiError(err.detail, res.statusText || 'Request failed'));
+  }
+  return res.blob();
+}
+
+export function applyAuthSession(session: AuthSession): AuthUser {
+  persistAuthTokens(session);
+  const { access_token: _a, refresh_token: _r, token_type: _t, ...user } = session;
+  return user;
+}
+
+export function isNotFoundApiError(err: unknown): boolean {
+  return err instanceof Error && /\bnot found\b/i.test(err.message);
+}

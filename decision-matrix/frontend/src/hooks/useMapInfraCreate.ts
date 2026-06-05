@@ -1,0 +1,297 @@
+import {
+  useCallback,
+  useEffect,
+  useRef,
+  type Dispatch,
+  type MutableRefObject,
+  type SetStateAction,
+} from 'react';
+import { useMutation, useQueryClient } from '@tanstack/react-query';
+import type { DrawMode, MapFeatureSelection } from '../components/MapView';
+import { api, type InfraLayer, type InfraObject } from '../lib/api';
+import {
+  clearLineHealDoneForProject,
+  isLineHealDoneForProject,
+  markLineHealDoneForProject,
+} from '../lib/mapBboxUtils';
+import { refreshMapQueries } from '../lib/mapQueries';
+import { applyInfraLineSplit, resolveLineSplitCandidate } from '../lib/applyInfraLineSplit';
+import { isLineSubtype, lineEndpointHealPayload } from '../lib/infraGeometry';
+import { infraGeometryUndo, type MapUndoEntry } from '../lib/mapUndo';
+import { mergeInfraPropertiesForSave } from '../lib/mergeInfraPropertiesForSave';
+import type { MapLayerPreferences } from '../lib/mapLayerPreferences';
+
+export type UseMapInfraCreateParams = {
+  projectId: string | undefined;
+  mapRefreshNonce: number;
+  canWriteInfra: boolean;
+  infraObjects: InfraObject[];
+  layers: InfraLayer[];
+  layerVisibilityMut: {
+    mutateAsync: (vars: { layerId: string; is_visible: boolean }) => Promise<unknown>;
+  };
+  setLayerPrefs: React.Dispatch<React.SetStateAction<MapLayerPreferences>>;
+  setFeatureSel: Dispatch<SetStateAction<MapFeatureSelection | null>>;
+  setModal: (modal: null) => void;
+  setDrawMode: (mode: DrawMode) => void;
+  clearLineDraftRef: MutableRefObject<() => void>;
+  upsertInfraInCache: (obj: InfraObject) => void;
+  nextAutoName: (subtype: string) => string;
+  pushUndo: (entry: MapUndoEntry) => void;
+  pushToast: (kind: 'success' | 'error' | 'info', message: string) => void;
+  invalidateMap: () => void;
+  lineHealSkipIdsRef: MutableRefObject<Set<string>>;
+};
+
+export function useMapInfraCreate({
+  projectId,
+  mapRefreshNonce,
+  canWriteInfra,
+  infraObjects,
+  layers,
+  layerVisibilityMut,
+  setLayerPrefs,
+  setFeatureSel,
+  setModal,
+  setDrawMode,
+  clearLineDraftRef,
+  upsertInfraInCache,
+  nextAutoName,
+  pushUndo,
+  pushToast,
+  invalidateMap,
+  lineHealSkipIdsRef,
+}: UseMapInfraCreateParams) {
+  const queryClient = useQueryClient();
+  const lineHealAttemptedRef = useRef<Set<string>>(new Set());
+
+  const createPoiMut = useMutation({
+    mutationFn: (data: Parameters<typeof api.createPoi>[1]) => api.createPoi(projectId!, data),
+    onSuccess: (created) => {
+      pushUndo({
+        kind: 'create_poi',
+        poiId: created.id,
+        label: `создание «${created.name}»`,
+      });
+      pushToast('success', `Точка «${created.name}» создана`);
+      invalidateMap();
+      setModal(null);
+      setDrawMode('select');
+    },
+    onError: (err) => {
+      pushToast(
+        'error',
+        err instanceof Error ? err.message : 'Не удалось сохранить точку интереса',
+      );
+    },
+  });
+
+  useEffect(() => {
+    lineHealAttemptedRef.current.clear();
+  }, [projectId]);
+
+  useEffect(() => {
+    if (!projectId) return;
+    clearLineHealDoneForProject(projectId);
+    lineHealAttemptedRef.current.clear();
+  }, [projectId, mapRefreshNonce]);
+
+  useEffect(() => {
+    if (!projectId || !canWriteInfra || infraObjects.length === 0) return;
+    if (isLineHealDoneForProject(projectId)) return;
+    let cancelled = false;
+    let healed = 0;
+    void (async () => {
+      for (const line of infraObjects) {
+        if (!isLineSubtype(line.subtype)) continue;
+        if (lineHealAttemptedRef.current.has(line.id)) continue;
+        if (lineHealSkipIdsRef.current.has(line.id)) continue;
+        lineHealAttemptedRef.current.add(line.id);
+        const payload = lineEndpointHealPayload(line, infraObjects);
+        if (!payload || cancelled) continue;
+        try {
+          const updated = await api.updateInfraObject(projectId, line.id, payload);
+          if (!cancelled) {
+            upsertInfraInCache(updated);
+            healed += 1;
+          }
+        } catch {
+          /* display snap still applies */
+        }
+      }
+      if (!cancelled) {
+        markLineHealDoneForProject(projectId);
+        if (healed > 0) {
+          pushToast('info', `Выровнены концы ${healed} линейных объектов по привязке`);
+        }
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [infraObjects, projectId, canWriteInfra, upsertInfraInCache, pushToast, lineHealSkipIdsRef]);
+
+  const afterInfraPointCreated = useCallback(
+    async (created: InfraObject) => {
+      if (!projectId) return;
+      await queryClient.cancelQueries({ queryKey: ['infra', projectId] });
+      upsertInfraInCache(created);
+
+      const layerList =
+        queryClient.getQueryData<InfraLayer[]>(['layers', projectId]) ?? layers;
+      const layer = layerList.find((l) => l.id === created.layer_id);
+      if (layer && !layer.is_visible) {
+        queryClient.setQueryData<InfraLayer[]>(['layers', projectId], (old) =>
+          old?.map((l) => (l.id === created.layer_id ? { ...l, is_visible: true } : l)) ?? old,
+        );
+        try {
+          await layerVisibilityMut.mutateAsync({ layerId: created.layer_id, is_visible: true });
+        } catch {
+          /* cache already updated */
+        }
+      } else if (!layer) {
+        void queryClient.invalidateQueries({ queryKey: ['layers', projectId] });
+      }
+
+      setLayerPrefs((prev) => ({
+        ...prev,
+        subtypeFilter: { ...prev.subtypeFilter, [created.subtype]: true },
+      }));
+      setFeatureSel(null);
+      setModal(null);
+      clearLineDraftRef.current();
+    },
+    [
+      projectId,
+      queryClient,
+      layers,
+      layerVisibilityMut,
+      upsertInfraInCache,
+      setLayerPrefs,
+      setFeatureSel,
+      setModal,
+      clearLineDraftRef,
+    ],
+  );
+
+  const createInfraMut = useMutation({
+    mutationFn: (data: Parameters<typeof api.createInfraObject>[1]) =>
+      api.createInfraObject(projectId!, {
+        ...data,
+        properties: mergeInfraPropertiesForSave(data.subtype, data.properties),
+      }),
+    onMutate: async () => {
+      if (!projectId) return;
+      await queryClient.cancelQueries({ queryKey: ['infra', projectId] });
+    },
+    onSuccess: async (created) => {
+      if (!projectId) return;
+      await afterInfraPointCreated(created);
+      pushUndo({
+        kind: 'create_infra',
+        objectId: created.id,
+        label: `создание «${created.name}»`,
+      });
+      pushToast('success', `Объект «${created.name}» создан`);
+    },
+    onError: (err) => {
+      pushToast(
+        'error',
+        err instanceof Error ? err.message : 'Не удалось сохранить объект инфраструктуры',
+      );
+    },
+  });
+
+  const placeInfraPointAt = useCallback(
+    async (
+      subtype: string,
+      lon: number,
+      lat: number,
+      splitHint?: { lineId: string; segmentIndex: number; snapLon?: number; snapLat?: number },
+    ) => {
+      if (!projectId || !canWriteInfra) return;
+      const pool = queryClient.getQueryData<InfraObject[]>(['infra', projectId]) ?? infraObjects;
+
+      const splitFound = resolveLineSplitCandidate(lon, lat, pool, splitHint);
+      const rLon = splitFound?.snapLon ?? lon;
+      const rLat = splitFound?.snapLat ?? lat;
+
+      try {
+        await queryClient.cancelQueries({ queryKey: ['infra', projectId] });
+        const created = await api.createInfraObject(projectId, {
+          name: nextAutoName(subtype),
+          subtype,
+          lon: rLon,
+          lat: rLat,
+          properties: mergeInfraPropertiesForSave(subtype, undefined),
+        });
+
+        if (splitFound) {
+          try {
+            const splitResult = await applyInfraLineSplit({
+              projectId,
+              split: splitFound,
+              splitLon: rLon,
+              splitLat: rLat,
+            });
+            if (splitResult) {
+              const { updated, second } = splitResult;
+              upsertInfraInCache(created);
+              upsertInfraInCache(updated);
+              upsertInfraInCache(second);
+              pushUndo({
+                kind: 'split_line_create_point',
+                pointId: created.id,
+                secondLineId: second.id,
+                lineId: splitFound.line.id,
+                lineBefore: infraGeometryUndo(splitFound.line),
+                label: `вставка «${created.name}» в «${splitFound.line.name}»`,
+              });
+              pushToast(
+                'success',
+                `Объект «${created.name}» создан; линия «${splitFound.line.name}» разделена на две`,
+              );
+              await afterInfraPointCreated(created);
+              return;
+            }
+          } catch (splitErr) {
+            try {
+              await api.deleteInfraObject(projectId, created.id);
+            } catch {
+              /* ignore rollback failure */
+            }
+            throw splitErr;
+          }
+        }
+
+        await afterInfraPointCreated(created);
+        pushUndo({
+          kind: 'create_infra',
+          objectId: created.id,
+          label: `создание «${created.name}»`,
+        });
+        pushToast('success', `Объект «${created.name}» создан`);
+      } catch (err) {
+        pushToast('error', err instanceof Error ? err.message : 'Не удалось сохранить объект');
+        void refreshMapQueries(queryClient, projectId);
+      }
+    },
+    [
+      projectId,
+      canWriteInfra,
+      queryClient,
+      infraObjects,
+      nextAutoName,
+      upsertInfraInCache,
+      afterInfraPointCreated,
+      pushUndo,
+      pushToast,
+    ],
+  );
+
+  return {
+    createPoiMut,
+    createInfraMut,
+    placeInfraPointAt,
+  };
+}

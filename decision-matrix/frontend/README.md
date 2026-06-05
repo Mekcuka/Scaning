@@ -1,73 +1,51 @@
-# React + TypeScript + Vite
+# Frontend — СППР Нефтегаз
 
-This template provides a minimal setup to get React working in Vite with HMR and some ESLint rules.
+React 19 + TypeScript + Vite. Документация проекта: [`../../docs/README.md`](../../docs/README.md).
 
-Currently, two official plugins are available:
+**Структура модулей карты и API после рефакторинга:** [`../../docs/frontend-structure.md`](../../docs/frontend-structure.md).
 
-- [@vitejs/plugin-react](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react) uses [Oxc](https://oxc.rs)
-- [@vitejs/plugin-react-swc](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react-swc) uses [SWC](https://swc.rs/)
+## Быстрый старт
 
-## React Compiler
-
-The React Compiler is not enabled on this template because of its impact on dev & build performances. To add it, see [this documentation](https://react.dev/learn/react-compiler/installation).
-
-## Expanding the ESLint configuration
-
-If you are developing a production application, we recommend updating the configuration to enable type-aware lint rules:
-
-```js
-export default defineConfig([
-  globalIgnores(['dist']),
-  {
-    files: ['**/*.{ts,tsx}'],
-    extends: [
-      // Other configs...
-
-      // Remove tseslint.configs.recommended and replace with this
-      tseslint.configs.recommendedTypeChecked,
-      // Alternatively, use this for stricter rules
-      tseslint.configs.strictTypeChecked,
-      // Optionally, add this for stylistic rules
-      tseslint.configs.stylisticTypeChecked,
-
-      // Other configs...
-    ],
-    languageOptions: {
-      parserOptions: {
-        project: ['./tsconfig.node.json', './tsconfig.app.json'],
-        tsconfigRootDir: import.meta.dirname,
-      },
-      // other options...
-    },
-  },
-])
+```powershell
+cd decision-matrix/frontend
+npm install
+npm run dev
 ```
 
-You can also install [eslint-plugin-react-x](https://github.com/Rel1cx/eslint-react/tree/main/packages/plugins/eslint-plugin-react-x) and [eslint-plugin-react-dom](https://github.com/Rel1cx/eslint-react/tree/main/packages/plugins/eslint-plugin-react-dom) for React-specific lint rules:
+Приложение: http://127.0.0.1:5173 (нужен backend на :8000 — см. [`../README.md`](../README.md)).
 
-```js
-// eslint.config.js
-import reactX from 'eslint-plugin-react-x'
-import reactDom from 'eslint-plugin-react-dom'
+## Команды
 
-export default defineConfig([
-  globalIgnores(['dist']),
-  {
-    files: ['**/*.{ts,tsx}'],
-    extends: [
-      // Other configs...
-      // Enable lint rules for React
-      reactX.configs['recommended-typescript'],
-      // Enable lint rules for React DOM
-      reactDom.configs.recommended,
-    ],
-    languageOptions: {
-      parserOptions: {
-        project: ['./tsconfig.node.json', './tsconfig.app.json'],
-        tsconfigRootDir: import.meta.dirname,
-      },
-      // other options...
-    },
-  },
-])
+| Команда | Назначение |
+|---------|------------|
+| `npm run dev` | Dev-сервер + HMR |
+| `npm run build` | Production-сборка |
+| `npm run test` | Vitest (469 тестов) |
+| `npm run test:coverage` | Coverage с порогами в `vitest.config.ts` |
+| `npm run test:e2e` | Playwright |
+| `npm run lint` | ESLint |
+| `npm run typecheck` | `tsc --noEmit` |
+
+## Ключевые точки входа
+
+| Путь | Описание |
+|------|----------|
+| `src/pages/MapPage.tsx` | Страница `/map` — оркестратор |
+| `src/pages/map/` | Layout-компоненты карты (toolbar, canvas, panels) |
+| `src/components/MapView.tsx` | 2D-карта (OpenLayers), public API |
+| `src/components/mapView/` | Init OL, interactions, reactive hooks |
+| `src/components/ObjectDetailPanel.tsx` | Панель деталей объекта |
+| `src/hooks/useMap*.ts` | Бизнес-логика карты |
+| `src/lib/api.ts` | HTTP-клиент (barrel → `lib/api/`) |
+
+## Тесты карты
+
+```powershell
+npm run test -- --run src/pages/MapPage src/components/MapView
 ```
+
+Harness: `src/test/pages/mapPageHarness.tsx`, fixtures: `src/test/fixtures/map.ts`.
+
+## Переменные окружения
+
+См. `.env.example` — `VITE_API_URL`, `VITE_MAP_3D_ENABLED`, `VITE_MAPTILER_KEY`.

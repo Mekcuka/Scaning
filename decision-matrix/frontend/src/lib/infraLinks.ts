@@ -1,9 +1,8 @@
 import { LINE_SUBTYPES, type InfraObject } from './api';
 import { roundCoord } from './coords';
+import { MOVE_MATCH_EPS } from '../pages/map/mapConstants';
 
-const MOVE_MATCH_EPS = 1e-6;
-
-function sameCoord(a: number, b: number): boolean {
+export function sameCoord(a: number, b: number): boolean {
   return Math.abs(a - b) <= MOVE_MATCH_EPS;
 }
 

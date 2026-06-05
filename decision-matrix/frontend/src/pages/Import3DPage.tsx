@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import { useProjectInfraObjects } from '../hooks/useProjectData';
 import { Navigate, Link } from 'react-router-dom';
 import { Box, FileBox, Info, Map as MapIcon, Trash2, Upload } from 'lucide-react';
 import { Import3dPreview } from '../components/map3d/Import3dPreview';
@@ -271,10 +272,8 @@ export function Import3DPage() {
     clearGltfPrototypeCache();
   }, [projectId, models]);
 
-  const { data: infraObjects = [] } = useQuery({
-    queryKey: ['infra', projectId],
-    queryFn: () => api.getInfraObjects(projectId!),
-    enabled: !!projectId && canAssign,
+  const { data: infraObjects = [] } = useProjectInfraObjects(projectId, {
+    enabled: canAssign,
   });
 
   const assignableSubtypes = useMemo(() => map3dAssignableSubtypes(), []);

@@ -430,7 +430,6 @@ flowchart TD
 | Адаптер BFF | `.../autoroad_network/planner_adapter.py` | `NetworkPlanRequest` ↔ `PlanRequest`, fallback солверов |
 | UI параметров | `frontend/src/components/AutoroadNetworkParamsSection.tsx` | Поля как в `planner_prototype.html` |
 | Preview на карте | `frontend/src/lib/autoroadPlanPreview.ts`, `MapPage.tsx` | GeoJSON overlay до apply |
-| Демо-сценарии | `.../autoroad_network/demo_projects.py` | Тестовые проекты на карте |
 | Схемы | `.../autoroad_network/schemas.py` | Вход/выход plan + `PlanOptionsInput` |
 | Статус солверов | `GET /api/v1/autoroad-network/solver-status` | Доступность GeoSteiner / SteinerPy |
 | Клиент | `.../autoroad_network/client.py` | In-process или HTTP `:8080/v1/plan/{solver}` |

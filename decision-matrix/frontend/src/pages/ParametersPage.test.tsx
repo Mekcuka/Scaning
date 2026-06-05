@@ -22,7 +22,7 @@ describe('ParametersPage', () => {
     const { api } = await import('../lib/api');
     vi.mocked(api.getInfraObjects).mockResolvedValue([makeInfraPoint()] as never);
     renderPage(<ParametersPage />);
-    expect(screen.getByText('Открыть карту')).toBeInTheDocument();
+    await waitFor(() => expect(screen.getByText('Открыть карту')).toBeInTheDocument());
     await waitFor(() =>
       expect(screen.getByText('Пропускная способность')).toBeInTheDocument(),
     );

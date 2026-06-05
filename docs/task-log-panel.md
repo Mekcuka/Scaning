@@ -131,7 +131,7 @@ apply    → тот же plan (без повторного compute)
 | `frontend/src/components/layout/AppLayout.tsx` | Кнопка в шапке |
 | `frontend/src/lib/taskLog/store.ts` | Zustand + sessionStorage |
 | `frontend/src/lib/taskLog/loggablePaths.ts` | Фильтр URL для лога |
-| `frontend/src/lib/api.ts` | Автолог в `request()` |
+| `frontend/src/lib/api/client.ts` | Автолог в `request()` (импорт через barrel `lib/api.ts`) |
 | `frontend/src/lib/pollProjectJob.ts` | Обновление job при опросе |
 | `frontend/src/hooks/useActiveProjectJob.ts` | Активная задача проекта |
 | `frontend/src/pages/MapPage.tsx` | `startHttpFlow` для «Сеть» и «Соединить» |

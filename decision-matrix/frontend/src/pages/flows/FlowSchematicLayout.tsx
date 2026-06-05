@@ -1,6 +1,9 @@
 import { useState } from 'react';
 import { Link, NavLink, Outlet, useLocation } from 'react-router-dom';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import { useActiveProject } from '../../hooks/useActiveProject';
+import { useProjectPois } from '../../hooks/useProjectData';
+import { queryKeys } from '../../lib/queryKeys';
 import { GitBranch, Coins, Truck, Workflow } from 'lucide-react';
 import { AppSelect } from '../../components/AppSelect';
 import { api, type POI } from '../../lib/api';
@@ -16,7 +19,7 @@ const TABS = [
 ] as const;
 
 export function FlowSchematicLayout() {
-  const projectId = useAppStore((s) => s.currentProjectId);
+  const { projectId } = useActiveProject();
   const pushToast = useAppStore((s) => s.pushToast);
   const queryClient = useQueryClient();
   const [selectedPoiId, setSelectedPoiId] = useState('');
@@ -25,11 +28,7 @@ export function FlowSchematicLayout() {
     location.pathname === '/flows/logistics' ||
     location.pathname.startsWith('/flows/logistics/');
 
-  const { data: pois = [], isLoading: poisLoading } = useQuery({
-    queryKey: ['pois', projectId],
-    queryFn: () => api.getPois(projectId!),
-    enabled: !!projectId,
-  });
+  const { data: pois = [], isLoading: poisLoading } = useProjectPois(projectId);
 
   const activePoiId = selectedPoiId || pois[0]?.id || '';
 
@@ -84,7 +83,7 @@ export function FlowSchematicLayout() {
     mutationFn: (volume: number) =>
       api.updatePoi(projectId!, activePoiId, { planned_production_volume: volume }),
     onSuccess: (updated) => {
-      queryClient.setQueryData<POI[]>(['pois', projectId], (old) =>
+      queryClient.setQueryData<POI[]>(queryKeys.pois(projectId!), (old) =>
         old?.map((p) => (p.id === updated.id ? { ...p, ...updated } : p)) ?? []
       );
     },
@@ -101,7 +100,7 @@ export function FlowSchematicLayout() {
       void queryClient.invalidateQueries({
         queryKey: ['economic-flow-schematic', projectId, activePoiId],
       });
-      void queryClient.invalidateQueries({ queryKey: ['pois', projectId] });
+      void queryClient.invalidateQueries({ queryKey: queryKeys.pois(projectId!) });
       pushToast('success', data.source === 'custom' ? 'Схема обновлена' : 'Восстановлена расчётная схема');
     },
     onError: (err) => {
@@ -118,7 +117,7 @@ export function FlowSchematicLayout() {
   const showPoiFlows = !!projectId && !!activePoiId;
 
   const contextValue = {
-    projectId,
+    projectId: projectId ?? null,
     pois,
     poisLoading,
     activePoiId,

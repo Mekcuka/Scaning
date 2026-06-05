@@ -27,7 +27,7 @@ describe('SandParametersPage', () => {
       makeInfraPoint({ subtype: 'well', properties: { sand_demand_m3: 100 } }),
     ] as never);
     renderPage(<SandParametersPage />);
-    expect(screen.getByText('Открыть карту')).toBeInTheDocument();
+    await waitFor(() => expect(screen.getByText('Открыть карту')).toBeInTheDocument());
     await waitFor(() =>
       expect(screen.getByText(/спрос потребителей/i)).toBeInTheDocument(),
     );

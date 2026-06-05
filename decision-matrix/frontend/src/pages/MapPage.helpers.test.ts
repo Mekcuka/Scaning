@@ -1,10 +1,6 @@
 import { describe, expect, it } from 'vitest';
-import {
-  mergeInfraPropertiesForSave,
-  lineCoordsOrEndpoints,
-  sameCoord,
-  linkCoordMatch,
-} from './MapPage';
+import { mergeInfraPropertiesForSave } from '../lib/mergeInfraPropertiesForSave';
+import { lineCoordsOrEndpoints, sameCoord, linkCoordMatch } from '../lib/infraLinks';
 import { makeInfraLine, makeInfraPoint } from '../test/fixtures/infra';
 
 describe('MapPage helpers', () => {

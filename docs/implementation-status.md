@@ -95,7 +95,9 @@
 
 **Панель «Слои» на `/map`:** переключатели подложки, групп подтипов, POI, радиусов — в `localStorage` на проект (`mapLayerPreferences.ts`, ключ `dm-map-layer-prefs:{projectId}`). Видимость импортированных слоёв (`infrastructure_layers.is_visible`) — в БД.
 
-**Загрузка объектов на `/map`:** гибрид полного кэша + bbox при просмотре (порог 80 объектов, буфер 12%, без лишних `GET` при мелком пане); синхронизация full+bbox кэшей при CRUD/геометрии (`mapQueries.ts`); API [`bbox_filter.py`](../decision-matrix/backend/app/geo/bbox_filter.py). **Плавность 2D:** rAF на `pointermove`, spatial hit-test (`mapHitTest.ts`), точечный hover, `React.memo(MapView)`, idle-sync слоя при ≥150 объектах, LOD линий по умолчанию 1:500 000 — §6.1.2 [map-objects-and-spatial-calculations.md](./map-objects-and-spatial-calculations.md). **Drag точек в editMode:** `updateWhileInteracting` + [`mapFeatureGeometrySync.ts`](../decision-matrix/frontend/src/lib/mapFeatureGeometrySync.ts). Кластеризация точек (FR-2.4.3) — не реализована.
+**Загрузка объектов на `/map`:** гибрид полного кэша + bbox при просмотре (порог 80 объектов, буфер 12%, без лишних `GET` при мелком пане); синхронизация full+bbox кэшей при CRUD/геометрии (`mapQueries.ts`); API [`bbox_filter.py`](../decision-matrix/backend/app/geo/bbox_filter.py). **Плавность 2D:** rAF на `pointermove`, spatial hit-test (`mapHitTest.ts`), точечный hover, `React.memo(MapView)`, idle-sync слоя при ≥150 объектах, LOD линий по умолчанию 1:500 000 — §6.1.2 [map-objects-and-spatial-calculations.md](./map-objects-and-spatial-calculations.md). **Drag точек в editMode:** `updateWhileInteracting` + [`mapFeatureGeometrySync.ts`](../decision-matrix/frontend/src/lib/mapFeatureGeometrySync.ts).
+
+**Рефакторинг frontend (июнь 2026):** монолиты разбиты без смены публичных импортов — `MapPage` ~3836→**~35** (`sections` из `useMapPageOrchestrator`), `MapView` ~2227→~58, `ObjectDetailPanel` ~1163→~168, `FlowSchematicEditor` / `SandLogisticsSubnetPanel` / `SandLogisticsTables` → barrels, `useMapPageOrchestrator` → `mapPageOrchestrator/*`, `useObjectDetailPanel` → sub-hooks, `setupModifyHandlers` / `setupTranslateHandlers` → submodules. Детали: [frontend-structure.md](./frontend-structure.md). Тесты: **469/469** Vitest.
 
 ---
 
@@ -126,7 +128,6 @@
 | FR | Примечание |
 |----|------------|
 | FR-1.3.1–1.3.3 | Профиль, история, `audit_log` |
-| FR-2.4.3 | Кластеризация точек на карте |
 | FR-2.4.5 | Якорь `network_node` в `poi_infrastructure_analysis` |
 | FR-14.1.1 | Подтверждение email |
 | user-flows §1 | Landing, onboarding-тур |

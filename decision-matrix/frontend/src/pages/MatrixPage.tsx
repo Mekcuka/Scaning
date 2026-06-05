@@ -1,12 +1,15 @@
 import { Fragment, useEffect, useMemo, useState } from 'react';
-import { useMutation, useQueries, useQuery, useQueryClient } from '@tanstack/react-query';
+import { useMutation, useQueries, useQueryClient } from '@tanstack/react-query';
 import { LayoutGrid, Table, Zap } from 'lucide-react';
 import { api, normalizePoiAnalysisResponse, type POI } from '../lib/api';
 import { analyzeAllPoisAndWait } from '../lib/runApiJob';
 import { buildMatrixRowsByPois, resolvePoiColumnAnalysis } from '../lib/matrixData';
 import { engineeringOptionsForKey, type EngineeringParamKey } from '../lib/poiParams';
+import { useActiveProject } from '../hooks/useActiveProject';
+import { useProjectPois } from '../hooks/useProjectData';
 import { useAppStore } from '../store';
 import { usePermissions } from '../hooks/usePermissions';
+import { queryKeys } from '../lib/queryKeys';
 import { AppSelect } from '../components/AppSelect';
 import { MatrixCardsPanel } from '../components/matrix/MatrixCardsPanel';
 import { useIsMobile } from '../hooks/useMediaQuery';
@@ -22,7 +25,7 @@ export function MatrixPage() {
   const [viewModeTouched, setViewModeTouched] = useState(false);
   const [selectedCol, setSelectedCol] = useState(0);
   const [showOnlyExceeded, setShowOnlyExceeded] = useState(false);
-  const projectId = useAppStore((s) => s.currentProjectId);
+  const { projectId } = useActiveProject();
   const queryClient = useQueryClient();
   const pushToast = useAppStore((s) => s.pushToast);
 
@@ -32,15 +35,11 @@ export function MatrixPage() {
     }
   }, [isMobile, viewModeTouched]);
 
-  const { data: pois = [] } = useQuery({
-    queryKey: ['pois', projectId],
-    queryFn: () => api.getPois(projectId!),
-    enabled: !!projectId,
-  });
+  const { data: pois = [] } = useProjectPois(projectId);
 
   const analysisQueries = useQueries({
     queries: pois.map((poi) => ({
-      queryKey: ['analysis', projectId, poi.id],
+      queryKey: projectId ? queryKeys.analysis(projectId, poi.id) : ['analysis', null, poi.id],
       queryFn: async () => {
         const raw = await api.getPoiAnalysis(projectId!, poi.id);
         return normalizePoiAnalysisResponse(raw);

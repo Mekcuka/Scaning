@@ -58,7 +58,6 @@
 
 - Нет **личного кабинета** (сменить имя, аватар).
 - Нет **журнала «кто что менял»** для аудита.
-- На карте при большом числе точек нет **группировки** (кластеров) — всё в кучу.
 - Расстояния пока в основном «по прямой на карте», а не **по реальной сети** (труба/дорога как граф) — это запланировано позже.
 - PDF формируется **в браузере пользователя**, а не одним файлом с сервера; **полная выгрузка в Excel** всего отчёта — не везде.
 - Только **русский** интерфейс; нет тура для новичка после регистрации.
@@ -104,7 +103,6 @@
 
 | Что делаем | Зачем вам это |
 |------------|----------------|
-| Группировка точек на карте при отдалении | Карта читается на больших масштабах |
 | Приглашение коллег в проект | Не только «один владелец» |
 | Личный профиль | Пользователь сам меняет имя и контакты |
 | 3D в отчётах | Нагляднее для совещаний |
@@ -228,7 +226,7 @@
 
 **Функционал (post-MVP FR):**
 
-- Профиль, `audit_log`, кластеризация карты
+- Профиль, `audit_log`
 - Якорь `network_node` в анализе POI
 - Server-side PDF (WeasyPrint), полный Excel-экспорт
 - i18n, email-подтверждение, onboarding
@@ -236,7 +234,7 @@
 **Качество ([testing-strategy.md](./testing-strategy.md)):**
 
 - Frontend components ~15% покрытия
-- E2E — 6 сценариев; MapPage — высокий риск регрессий при рефакторинге
+- E2E — 6 сценариев; рефакторинг MapPage/MapView завершён (июнь 2026, [frontend-structure.md](./frontend-structure.md)); риск регрессий снижен за счёт hooks + integration-тестов
 - Нет регулярных perf/security прогонов в CI
 
 ---
@@ -321,16 +319,15 @@ gantt
 
 | # | Инициатива | Описание |
 |---|------------|----------|
-| H2.1 | Кластеризация точек | FR-2.4.3, OpenLayers cluster / MapLibre |
-| H2.2 | Редактирование геометрии линий | улучшение Modify; согласование 2D↔3D |
-| H2.3 | Polygon / MultiPolygon (ограниченно) | FR-2.3.9 post-MVP; влияние на импорт |
-| H2.4 | Sharing проектов | роли на уровне проекта, invite (v1.1 из development-plan) |
-| H2.5 | Профиль пользователя | FR-1.3.1 |
-| H2.6 | 3D в матрице/отчёте | фаза 3 из [map-3d-plan.md](./map-3d-plan.md) |
-| H2.7 | Object storage для GLB | S3-совместимое хранилище YC; CDN для `/file` |
-| H2.8 | Landing + onboarding | user-flows §1 |
+| H2.1 | Редактирование геометрии линий | улучшение Modify; согласование 2D↔3D |
+| H2.2 | Polygon / MultiPolygon (ограниченно) | FR-2.3.9 post-MVP; влияние на импорт |
+| H2.3 | Sharing проектов | роли на уровне проекта, invite (v1.1 из development-plan) |
+| H2.4 | Профиль пользователя | FR-1.3.1 |
+| H2.5 | 3D в матрице/отчёте | фаза 3 из [map-3d-plan.md](./map-3d-plan.md) |
+| H2.6 | Object storage для GLB | S3-совместимое хранилище YC; CDN для `/file` |
+| H2.7 | Landing + onboarding | user-flows §1 |
 
-**Критерий выхода:** аналитик проходит сценарий «импорт → карта (кластеры) → матрица → отчёт» без обращения к admin за GLB recovery.
+**Критерий выхода:** аналитик проходит сценарий «импорт → карта → матрица → отчёт» без обращения к admin за GLB recovery.
 
 ---
 
@@ -403,7 +400,7 @@ flowchart TB
 |-------|-----------------|-------------|
 | **Platform** | DevOps / backend | volumes, CI smoke prod, логи, бэкапы |
 | **Quality** | QA + dev | E2E, perf, security scan, coverage |
-| **GIS** | frontend + geo | 1000 obj, кластеры, 3D persistence |
+| **GIS** | frontend + geo | 1000 obj, 3D persistence |
 | **Calculations** | backend | matrix perf, network_node (H3) |
 | **Flows** | full-stack | PFD regression, economic merge |
 | **Reports** | full-stack | server PDF, Excel |
@@ -464,19 +461,18 @@ flowchart TB
 
 ### P2 — v1.1
 
-11. Кластеризация  
-12. Sharing проектов  
-13. Профиль пользователя  
-14. OSM 2D, drag слоёв  
-15. Server PDF / полный Excel  
+11. Sharing проектов  
+12. Профиль пользователя  
+13. OSM 2D, drag слоёв  
+14. Server PDF / полный Excel  
 
 ### P3 — v1.2+
 
-16. `network_node` + маршруты по графу  
-17. Celery + Redis  
-18. WebSocket  
-19. SSO / audit  
-20. ML / шаблоны (по запросу бизнеса)  
+15. `network_node` + маршруты по графу  
+16. Celery + Redis  
+17. WebSocket  
+18. SSO / audit  
+19. ML / шаблоны (по запросу бизнеса)  
 
 ---
 
@@ -485,7 +481,7 @@ flowchart TB
 | Риск | Влияние | Митигация |
 |------|---------|-----------|
 | Потеря GLB при деплое | Высокое | H0.1 volume; H2.7 object storage |
-| MapPage — монолит, регрессии | Высокое | characterization tests; вынос helpers (уже начато) |
+| MapPage — монолит, регрессии | Снижено (2026-06) | Рефакторинг завершён; остаётся ~981 строк оркестратора — см. [frontend-structure.md](./frontend-structure.md) |
 | SQLite vs PostGIS расхождение | Среднее | CI только PostGIS; локальный README режим B |
 | Один сервер VM — SPOF | Среднее | бэкапы; H3.7 managed DB; H5 HA |
 | Scope creep (TOPSIS, ML) | Среднее | legacy FR-14 вне UI; отдельные POC |

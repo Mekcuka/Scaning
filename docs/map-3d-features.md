@@ -149,7 +149,7 @@ flowchart TB
 
 **Загрузка файла на клиенте (прод):**
 
-- JSON-запросы (`api.ts`) идут на `VITE_API_URL` с cookie + Bearer + CSRF (см. [auth-rbac.md](./auth-rbac.md)).
+- JSON-запросы (`lib/api.ts` → `apiClient.ts`) идут на `VITE_API_URL` с cookie + Bearer + CSRF (см. [auth-rbac.md](./auth-rbac.md)).
 - **Custom GLB** не грузятся напрямую через `GLTFLoader` по URL API: на cross-origin (GitHub Pages) cookie API недоступны для чтения, а `GLTFLoader` не добавляет `Authorization`.
 - Реализация: [`map3dCustomGlbFetch.ts`](../decision-matrix/frontend/src/lib/map3d/map3dCustomGlbFetch.ts) → `fetch(..., { credentials: 'include', Authorization: Bearer, cache: 'no-store' })` → blob → `GLTFLoader` ([`map3dGltfLoader.ts`](../decision-matrix/frontend/src/lib/map3d/map3dGltfLoader.ts)).
 - Bundled Kenney (`/Scaning/map3d-models/*.glb`) — по-прежнему с того же origin, что и frontend.
