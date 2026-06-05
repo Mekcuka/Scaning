@@ -1,0 +1,20 @@
+services:
+  network-planner:
+    build: .
+    ports:
+      - "${APP_PORT:-8080}:8080"
+    env_file:
+      - .env
+    environment:
+      APP_HOST: 0.0.0.0
+      APP_PORT: 8080
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8080/ready"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+      start_period: 15s
+    volumes:
+      # Optional: mount locally built GeoSteiner binaries (efst, bb)
+      - ./vendor/geosteiner/bin:/app/vendor/geosteiner/bin:ro
+    restart: unless-stopped

@@ -83,8 +83,14 @@ jobs:
             decision-matrix/backend/requirements-dev.txt
 
       - name: Install dependencies
+        env:
+          AUTOROAD_NETWORK_SOLVER: steinerpy
         run: |
           python -m pip install --upgrade pip
+          PLANNER=""
+          if [ -d ../../autoroad-network-planner ]; then PLANNER=../../autoroad-network-planner; fi
+          if [ -d ../../../autoroad-network-planner ]; then PLANNER=../../../autoroad-network-planner; fi
+          if [ -n "$PLANNER" ]; then pip install -e "${PLANNER}[steinerpy]"; fi
           pip install -r requirements.txt -r requirements-dev.txt
 
       - name: Bootstrap PostgreSQL schema
@@ -129,8 +135,14 @@ jobs:
 
       - name: Install backend
         working-directory: decision-matrix/backend
+        env:
+          AUTOROAD_NETWORK_SOLVER: steinerpy
         run: |
           python -m pip install --upgrade pip
+          PLANNER=""
+          if [ -d ../../autoroad-network-planner ]; then PLANNER=../../autoroad-network-planner; fi
+          if [ -d ../../../autoroad-network-planner ]; then PLANNER=../../../autoroad-network-planner; fi
+          if [ -n "$PLANNER" ]; then pip install -e "${PLANNER}[steinerpy]"; fi
           pip install -r requirements.txt -r requirements-dev.txt
 
       - name: Start API

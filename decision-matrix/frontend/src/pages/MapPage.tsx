@@ -37,7 +37,20 @@ import {
   MapGroupSelectionPanel,
   type MapGroupSelectionItem,
 } from '../components/MapGroupSelectionPanel';
-import { isAutoroadNetworkTerminal } from '../lib/autoroadNetwork';
+import {
+  type AutoroadNetworkPickMode,
+  infraObjectInBbox,
+  isAutoroadNetworkTerminal,
+  isEligibleAutoroadTerminalObject,
+  mergeTerminalIds,
+} from '../lib/autoroadNetwork';
+import {
+  DEFAULT_AUTOROAD_PLANNER_OPTIONS,
+  loadAutoroadPlannerOptions,
+  plannerOptionsToRequestOptions,
+  saveAutoroadPlannerOptions,
+  type AutoroadPlannerOptions,
+} from '../lib/autoroadNetworkPlannerOptions';
 import {
   linesFromNetworkPlanResponse,
   networkPlanToConnectPreview,
@@ -85,6 +98,7 @@ import {
   MAP_DRAWABLE_POINT_SUBTYPES,
   SUBTYPE_LABELS,
   api,
+  syncClientAuthSession,
   normalizePoiAnalysisResponse,
   type AnalysisResult,
   type AnalysisRow,
@@ -251,10 +265,67 @@ export function MapPage() {
   const [drawMode, setDrawMode] = useState<DrawMode>('select');
   const [selectMode, setSelectMode] = useState<SelectMode>('single');
   const [autoroadNetworkTerminalIds, setAutoroadNetworkTerminalIds] = useState<string[]>([]);
+  const [autoroadNetworkPickMode, setAutoroadNetworkPickMode] =
+    useState<AutoroadNetworkPickMode>('click');
+  const [autoroadPlannerOptions, setAutoroadPlannerOptions] = useState<AutoroadPlannerOptions>(
+    () => DEFAULT_AUTOROAD_PLANNER_OPTIONS,
+  );
+  const [solverStatusLoading, setSolverStatusLoading] = useState(false);
+  const [solverStatus, setSolverStatus] = useState<{
+    steinerpy: boolean;
+    geosteiner: boolean;
+    default_solver: string;
+  } | null>(null);
   const [autoroadPlanPreviewLines, setAutoroadPlanPreviewLines] = useState<AutoroadPlanPreviewLine[]>(
     [],
   );
-  const [selectMenuOpen, setSelectMenuOpen] = useState(false);
+
+  useEffect(() => {
+    if (!projectId) return;
+    setAutoroadPlannerOptions(loadAutoroadPlannerOptions(projectId));
+  }, [projectId]);
+
+  useEffect(() => {
+    if (drawMode !== 'autoroad_network' || !projectId) return;
+    let cancelled = false;
+    setSolverStatusLoading(true);
+    void api
+      .autoroadNetworkSolverStatus()
+      .then((status) => {
+        if (cancelled) return;
+        setSolverStatus(status);
+        setAutoroadPlannerOptions((prev) => {
+          let solver = prev.solver;
+          if (solver === 'geosteiner' && !status.geosteiner && status.steinerpy) {
+            solver = 'steinerpy';
+          } else if (solver === 'steinerpy' && !status.steinerpy && status.geosteiner) {
+            solver = 'geosteiner';
+          }
+          if (solver === prev.solver) return prev;
+          const next = { ...prev, solver };
+          saveAutoroadPlannerOptions(projectId, next);
+          return next;
+        });
+      })
+      .catch(() => {
+        if (!cancelled) setSolverStatus(null);
+      })
+      .finally(() => {
+        if (!cancelled) setSolverStatusLoading(false);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [drawMode, projectId]);
+
+  const handleAutoroadPlannerOptionsChange = useCallback(
+    (next: AutoroadPlannerOptions) => {
+      setAutoroadPlannerOptions(next);
+      if (projectId) saveAutoroadPlannerOptions(projectId, next);
+    },
+    [projectId],
+  );
+
   const [selectedPoiId, setSelectedPoiId] = useState<string | null>(null);
   const [lineDraft, setLineDraft] = useState<number[][]>([]);
   const [lineDraftPreview, setLineDraftPreview] = useState<[number, number] | null>(null);
@@ -275,7 +346,6 @@ export function MapPage() {
   const [searchQ, setSearchQ] = useState('');
   const [searchOpen, setSearchOpen] = useState(false);
   const searchBlurRef = useRef<number | null>(null);
-  const selectMenuAnchorRef = useRef<HTMLDivElement>(null);
   const pointMenuAnchorRef = useRef<HTMLDivElement>(null);
   const lineMenuAnchorRef = useRef<HTMLDivElement>(null);
   const searchAnchorRef = useRef<HTMLDivElement>(null);
@@ -341,6 +411,7 @@ export function MapPage() {
     if (drawMode !== 'autoroad_network') {
       setAutoroadNetworkTerminalIds([]);
       setAutoroadPlanPreviewLines([]);
+      setAutoroadNetworkPickMode('click');
     }
   }, [drawMode]);
 
@@ -351,7 +422,6 @@ export function MapPage() {
 
   useEffect(() => {
     if (mapEditEnabled) {
-      setSelectMenuOpen(false);
       return;
     }
     setFeatureSel(null);
@@ -359,7 +429,6 @@ export function MapPage() {
     setPasteMode(false);
     setDrawMode((m) => (m === 'ruler' ? m : 'select'));
     setLineDraft([]);
-    setSelectMenuOpen(false);
     setPointMenuOpen(false);
     setLineMenuOpen(false);
   }, [mapEditEnabled]);
@@ -384,7 +453,6 @@ export function MapPage() {
     setDrawMode('select');
     setLineDraft([]);
     setLineDraftPreview(null);
-    setSelectMenuOpen(false);
     setPointMenuOpen(false);
     setLineMenuOpen(false);
   }, []);
@@ -573,7 +641,6 @@ export function MapPage() {
       setSearchQ(hit.name);
       setSearchOpen(false);
                 setDrawMode('select');
-                setSelectMenuOpen(false);
                 setPointMenuOpen(false);
       setLineMenuOpen(false);
       if (hit.kind === 'poi') {
@@ -633,7 +700,6 @@ export function MapPage() {
         setRulerPreview(null);
         setPointMenuOpen(false);
         setLineMenuOpen(false);
-        setSelectMenuOpen(false);
         pushToast('info', 'Рисование доступно только в режиме 2D');
       }
       if (mode === '3d') {
@@ -1351,6 +1417,102 @@ export function MapPage() {
     return out;
   }, [autoroadNetworkTerminalIds, infraObjects]);
 
+  const eligibleAutoroadTerminals = useMemo(
+    () => infraObjects.filter(isEligibleAutoroadTerminalObject),
+    [infraObjects],
+  );
+
+  const visibleEligibleAutoroadTerminals = useMemo(() => {
+    if (!mapBbox) return eligibleAutoroadTerminals;
+    return eligibleAutoroadTerminals.filter((o) => infraObjectInBbox(o, mapBbox));
+  }, [eligibleAutoroadTerminals, mapBbox]);
+
+  const autoroadSubtypeBulkOptions = useMemo(() => {
+    const bySubtype = new Map<string, { projectCount: number; visibleCount: number }>();
+    for (const obj of eligibleAutoroadTerminals) {
+      const row = bySubtype.get(obj.subtype) ?? { projectCount: 0, visibleCount: 0 };
+      row.projectCount += 1;
+      if (!mapBbox || infraObjectInBbox(obj, mapBbox)) row.visibleCount += 1;
+      bySubtype.set(obj.subtype, row);
+    }
+    return [...bySubtype.entries()]
+      .sort(([a], [b]) =>
+        (SUBTYPE_LABELS[a] || a).localeCompare(SUBTYPE_LABELS[b] || b, 'ru'),
+      )
+      .map(([subtype, counts]) => ({
+        subtype,
+        label: SUBTYPE_LABELS[subtype] || subtype,
+        projectCount: counts.projectCount,
+        visibleCount: counts.visibleCount,
+      }));
+  }, [eligibleAutoroadTerminals, mapBbox]);
+
+  const appendAutoroadNetworkTerminals = useCallback((ids: Iterable<string>) => {
+    setAutoroadNetworkTerminalIds((prev) => mergeTerminalIds(prev, ids));
+  }, []);
+
+  const handleAutoroadNetworkDragBoxPick = useCallback(
+    (selections: MapFeatureSelection[]) => {
+      const added = selections
+        .filter((sel) => sel.kind === 'infra')
+        .map((sel) => sel.id)
+        .filter((id) => {
+          const obj = infraObjects.find((o) => o.id === id);
+          return obj != null && isEligibleAutoroadTerminalObject(obj);
+        });
+      if (added.length === 0) {
+        pushToast('info', 'В рамке нет подходящих точечных объектов');
+        return;
+      }
+      appendAutoroadNetworkTerminals(added);
+      pushToast('success', `Добавлено терминалов: ${added.length}`);
+    },
+    [appendAutoroadNetworkTerminals, infraObjects, pushToast],
+  );
+
+  const handleAddVisibleAutoroadTerminals = useCallback(() => {
+    const ids = visibleEligibleAutoroadTerminals.map((o) => o.id);
+    if (ids.length === 0) {
+      pushToast('info', 'В видимой области нет подходящих объектов');
+      return;
+    }
+    setAutoroadNetworkTerminalIds((prev) => {
+      const next = mergeTerminalIds(prev, ids);
+      const added = next.length - prev.length;
+      if (added > 0) {
+        pushToast('success', `Добавлено терминалов: ${added}`);
+      } else {
+        pushToast('info', `Все ${ids.length} уже в списке`);
+      }
+      return next;
+    });
+  }, [pushToast, visibleEligibleAutoroadTerminals]);
+
+  const handleAddAutoroadTerminalsBySubtype = useCallback(
+    (subtype: string) => {
+      const pool = mapBbox
+        ? visibleEligibleAutoroadTerminals
+        : eligibleAutoroadTerminals;
+      const ids = pool.filter((o) => o.subtype === subtype).map((o) => o.id);
+      if (ids.length === 0) {
+        pushToast('info', 'Нет объектов выбранного типа в текущей области');
+        return;
+      }
+      const label = SUBTYPE_LABELS[subtype] || subtype;
+      setAutoroadNetworkTerminalIds((prev) => {
+        const next = mergeTerminalIds(prev, ids);
+        const added = next.length - prev.length;
+        if (added > 0) {
+          pushToast('success', `Добавлено «${label}»: ${added}`);
+        } else {
+          pushToast('info', `Все объекты «${label}» уже в списке`);
+        }
+        return next;
+      });
+    },
+    [eligibleAutoroadTerminals, mapBbox, pushToast, visibleEligibleAutoroadTerminals],
+  );
+
   const canAutoroadConnect =
     canWriteInfra &&
     !projectJobBusy &&
@@ -1426,6 +1588,9 @@ export function MapPage() {
 
   const runAutoroadNetworkFlow = useMutation({
     mutationFn: async (objectIds: string[]) => {
+      if (!(await syncClientAuthSession())) {
+        throw new Error('Сессия истекла. Войдите снова и повторите расчёт.');
+      }
       const flowId = taskLog.startHttpFlow(
         projectId!,
         'autoroad_network',
@@ -1436,6 +1601,10 @@ export function MapPage() {
           object_ids: objectIds,
           full_network_rebuild: true,
         });
+        planRequest.options = {
+          ...planRequest.options,
+          ...plannerOptionsToRequestOptions(autoroadPlannerOptions),
+        };
         const plan = await api.autoroadNetworkCompute(projectId!, planRequest);
         setAutoroadPlanPreviewLines(linesFromNetworkPlanResponse(plan));
         const previewForModal = networkPlanToConnectPreview(plan);
@@ -1494,6 +1663,18 @@ export function MapPage() {
 
   const canAutoroadNetworkPreview =
     canWriteInfra && !projectJobBusy && autoroadNetworkTerminalIds.length >= 2;
+
+  const autoroadNetworkDisabledHint = useMemo((): string | null => {
+    if (canAutoroadNetworkPreview) return null;
+    if (!canWriteInfra) return 'Нет прав на изменение инфраструктуры в этом проекте.';
+    if (projectJobBusy) {
+      return 'Дождитесь завершения фоновой задачи (кнопка «Журнал задач» в шапке).';
+    }
+    if (autoroadNetworkTerminalIds.length < 2) {
+      return 'Выберите минимум 2 точечных объекта на карте (клик по объекту).';
+    }
+    return null;
+  }, [canAutoroadNetworkPreview, canWriteInfra, projectJobBusy, autoroadNetworkTerminalIds.length]);
 
   const executeDeleteSingleSelection = () => {
     if (!projectId || !featureSel) return;
@@ -1559,8 +1740,7 @@ export function MapPage() {
       setSearchOpen(false);
       return;
     }
-    const drawingActive =
-      drawMode !== 'select' || pointMenuOpen || lineMenuOpen || selectMenuOpen;
+    const drawingActive = drawMode !== 'select' || pointMenuOpen || lineMenuOpen;
     if (drawingActive) {
       cancelDrawingSelection();
     }
@@ -1572,7 +1752,6 @@ export function MapPage() {
     drawMode,
     pointMenuOpen,
     lineMenuOpen,
-    selectMenuOpen,
     cancelDrawingSelection,
     pasteMode,
   ]);
@@ -1946,7 +2125,6 @@ export function MapPage() {
     }
     setPasteMode(true);
     setDrawMode('select');
-    setSelectMenuOpen(false);
     pushToast('info', 'Кликните на карте — место вставки');
   }, [mapClipboard, geometrySavePending, pushToast]);
 
@@ -2908,74 +3086,49 @@ export function MapPage() {
             </button>
             </div>
             <div className="map-tools-group map-tools-group--draw">
-            <div ref={selectMenuAnchorRef} className="inline-block">
+            <div
+              className="map-display-mode-toggle inline-flex rounded overflow-hidden"
+              role="group"
+              aria-label="Режим выбора"
+            >
               <button
                 type="button"
-                className={`btn btn-sm map-tool-btn map-tool-btn--with-label ${drawMode === 'select' || selectMenuOpen ? 'btn-primary active' : 'btn-secondary'}`}
-                title="Режим выбора объектов"
-                aria-label="Выбор"
+                className={`btn btn-sm map-tool-btn map-tool-btn--with-label rounded-none border-0 ${
+                  drawMode === 'select' && selectMode === 'single' ? 'btn-primary active' : 'btn-secondary'
+                }`}
+                title="Выбор одного объекта"
+                aria-label="Один объект"
+                aria-pressed={drawMode === 'select' && selectMode === 'single'}
                 onClick={() => {
-                  if (drawMode === 'select') {
-                    setSelectMenuOpen((open) => !open);
-                    return;
-                  }
+                  setSelectMode('single');
+                  setDrawMode('select');
                   setLineDraft([]);
                   setPointMenuOpen(false);
                   setLineMenuOpen(false);
-                  setDrawMode('select');
-                  setSelectMenuOpen(true);
                 }}
               >
-                {selectMode === 'box' ? (
-                  <BoxSelect size={14} className="shrink-0" aria-hidden />
-                ) : (
-                  <MousePointer2 size={14} className="shrink-0" aria-hidden />
-                )}
-                <span className="map-tool-label">Выбор</span>
+                <MousePointer2 size={14} className="shrink-0" aria-hidden />
+                <span className="map-tool-label">Объект</span>
               </button>
-              <AnchoredMenu
-                anchorRef={selectMenuAnchorRef}
-                open={selectMenuOpen}
-                onClose={() => setSelectMenuOpen(false)}
-                width={224}
-                className="app-anchored-menu--flat"
-                ariaLabel="Режим выбора"
+              <button
+                type="button"
+                className={`btn btn-sm map-tool-btn map-tool-btn--with-label rounded-none border-0 ${
+                  drawMode === 'select' && selectMode === 'box' ? 'btn-primary active' : 'btn-secondary'
+                }`}
+                title="Выбор группы объектов рамкой"
+                aria-label="Группа объектов"
+                aria-pressed={drawMode === 'select' && selectMode === 'box'}
+                onClick={() => {
+                  setSelectMode('box');
+                  setDrawMode('select');
+                  setLineDraft([]);
+                  setPointMenuOpen(false);
+                  setLineMenuOpen(false);
+                }}
               >
-                <button
-                  type="button"
-                  className={`w-full text-left px-3 py-2 hover:bg-[var(--bg)] flex items-center gap-2 ${
-                    drawMode === 'select' && selectMode === 'single' ? 'font-medium' : ''
-                  }`}
-                  onClick={() => {
-                    setSelectMode('single');
-                    setDrawMode('select');
-                    setSelectMenuOpen(false);
-                    setLineDraft([]);
-                    setPointMenuOpen(false);
-                    setLineMenuOpen(false);
-                  }}
-                >
-                  <MousePointer2 size={14} className="shrink-0 opacity-70" />
-                  <span>Один объект</span>
-                </button>
-                <button
-                  type="button"
-                  className={`w-full text-left px-3 py-2 hover:bg-[var(--bg)] flex items-center gap-2 ${
-                    drawMode === 'select' && selectMode === 'box' ? 'font-medium' : ''
-                  }`}
-                  onClick={() => {
-                    setSelectMode('box');
-                    setDrawMode('select');
-                    setSelectMenuOpen(false);
-                    setLineDraft([]);
-                    setPointMenuOpen(false);
-                    setLineMenuOpen(false);
-                  }}
-                >
-                  <BoxSelect size={14} className="shrink-0 opacity-70" />
-                  <span>Группа объектов</span>
-                </button>
-              </AnchoredMenu>
+                <BoxSelect size={14} className="shrink-0" aria-hidden />
+                <span className="map-tool-label">Группа</span>
+              </button>
             </div>
             <button
               type="button"
@@ -2995,7 +3148,6 @@ export function MapPage() {
                 setLineDraft([]);
                 setPointMenuOpen(false);
                 setLineMenuOpen(false);
-                setSelectMenuOpen(false);
                 setDrawMode('autoroad_network');
               }}
             >
@@ -3021,7 +3173,6 @@ export function MapPage() {
                 }
                 setDrawMode('poi');
                 setLineDraft([]);
-                setSelectMenuOpen(false);
                 setPointMenuOpen(false);
                 setLineMenuOpen(false);
               }}
@@ -3045,7 +3196,6 @@ export function MapPage() {
                 onClick={() => {
                   if (drawMode === 'point') {
                 setDrawMode('select');
-                setSelectMenuOpen(false);
                 setPointMenuOpen(false);
                     return;
                   }
@@ -3054,7 +3204,6 @@ export function MapPage() {
                     return;
                   }
                   setLineDraft([]);
-                  setSelectMenuOpen(false);
                   setLineMenuOpen(false);
                   setPointMenuOpen(true);
                 }}
@@ -3078,7 +3227,6 @@ export function MapPage() {
                     onPick={(subtype) => {
                       setInfraForm((f) => ({ ...f, subtype }));
                       setPointMenuOpen(false);
-                      setSelectMenuOpen(false);
                       setDrawMode('point');
                     }}
                   />
@@ -3113,7 +3261,6 @@ export function MapPage() {
                   return;
                 }
                 setLineDraft([]);
-                setSelectMenuOpen(false);
                 setPointMenuOpen(false);
                 setLineMenuOpen(true);
               }}
@@ -3139,7 +3286,6 @@ export function MapPage() {
                   onClick={() => {
                     setInfraForm((f) => ({ ...f, subtype: st }));
                     setLineMenuOpen(false);
-                    setSelectMenuOpen(false);
                     setDrawMode('line');
                   }}
                 >
@@ -3168,7 +3314,6 @@ export function MapPage() {
                 setRulerPoints([]);
                 setRulerPreview(null);
                 setRulerCompleted([]);
-                setSelectMenuOpen(false);
                 setPointMenuOpen(false);
                 setLineMenuOpen(false);
                 setDrawMode('ruler');
@@ -3429,6 +3574,10 @@ export function MapPage() {
             onFeatureGroupSelect={
               drawMode === 'select' && selectMode === 'box' ? setFeatureGroupSel : undefined
             }
+            dragBoxPick={drawMode === 'autoroad_network' && autoroadNetworkPickMode === 'box'}
+            onDragBoxPick={
+              drawMode === 'autoroad_network' ? handleAutoroadNetworkDragBoxPick : undefined
+            }
             selectedFeatureIds={
               drawMode === 'autoroad_network'
                 ? autoroadNetworkTerminalIds
@@ -3484,14 +3633,28 @@ export function MapPage() {
           {drawMode === 'autoroad_network' && (
             <AutoroadNetworkPanel
               items={autoroadNetworkDetails}
+              pickMode={autoroadNetworkPickMode}
+              onPickModeChange={setAutoroadNetworkPickMode}
               onClose={cancelDrawingSelection}
               onClear={() => setAutoroadNetworkTerminalIds([])}
+              onRemoveItem={(id) =>
+                setAutoroadNetworkTerminalIds((ids) => ids.filter((x) => x !== id))
+              }
+              onAddVisible={handleAddVisibleAutoroadTerminals}
+              onAddBySubtype={handleAddAutoroadTerminalsBySubtype}
+              visibleEligibleCount={visibleEligibleAutoroadTerminals.length}
+              subtypeBulkOptions={autoroadSubtypeBulkOptions}
               onPreview={() => {
                 if (!canAutoroadNetworkPreview || runAutoroadNetworkFlow.isPending) return;
                 runAutoroadNetworkFlow.mutate(autoroadNetworkTerminalIds);
               }}
               canPreview={canAutoroadNetworkPreview}
+              disabledHint={autoroadNetworkDisabledHint}
               pending={runAutoroadNetworkFlow.isPending}
+              plannerOptions={autoroadPlannerOptions}
+              onPlannerOptionsChange={handleAutoroadPlannerOptionsChange}
+              solverStatus={solverStatus}
+              solverStatusLoading={solverStatusLoading}
             />
           )}
 
@@ -3528,6 +3691,15 @@ export function MapPage() {
                     {rulerPoints.length === 0
                       ? 'Линейка: клик — вершина'
                       : 'Двойной клик или «Готово» — завершить'}
+                  </span>
+                )}
+                {geometrySavePending === 0 && drawMode === 'autoroad_network' && (
+                  <span>
+                    {runAutoroadNetworkFlow.isPending
+                      ? 'Расчёт сети на сервере…'
+                      : autoroadNetworkPickMode === 'box'
+                        ? 'Сеть: рамка на карте или «Видимые» — добавить терминалы; нужно ≥2'
+                        : 'Сеть: клик по объекту — добавить/убрать; нужно ≥2 терминалов'}
                   </span>
                 )}
                 {geometrySavePending === 0 && drawMode === 'line' && (

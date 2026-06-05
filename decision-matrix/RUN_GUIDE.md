@@ -20,20 +20,24 @@ npm --version
 
 ### Шаг 1. Запуск backend
 
-Команды с полными путями:
+Из корня репозитория (рядом с `autoroad-network-planner/`):
 
 ```powershell
 # 1)
-cd C:\Users\user\Documents\Cursore\decision-matrix\backend
+cd decision-matrix\backend
 # 2)
-python -m venv C:\Users\user\Documents\Cursore\decision-matrix\backend\venv
+python -m venv venv
 # 3)
-.\\venv\\Scripts\\Activate.ps1
+.\venv\Scripts\Activate.ps1
 # 4)
-python -m pip install -r C:\Users\user\Documents\Cursore\decision-matrix\backend\requirements.txt
-# 5)
-python C:\Users\user\Documents\Cursore\decision-matrix\backend\run_local.py
+python -m pip install -r requirements.txt
+# 5) планировщик автосети (обязательно для «Сеть» на карте)
+python -m pip install -e ..\..\..\autoroad-network-planner[steinerpy]
+# 6)
+python run_local.py
 ```
+
+> Если проект лежит в `SPPR/decision-matrix`, замените путь к пакету: `pip install -e ..\..\..\..\autoroad-network-planner[steinerpy]`
 
 Проверка, что активен именно `venv`:
 
@@ -51,7 +55,7 @@ python -m pip -V
 
 ```powershell
 # 1)
-cd C:\Users\user\Documents\Cursore\decision-matrix\frontend
+cd decision-matrix\frontend
 # 2)
 npm install
 # 3)
@@ -75,11 +79,11 @@ Backend:
 
 ```powershell
 # 1)
-cd C:\Users\user\Documents\Cursore\decision-matrix\backend
+cd decision-matrix\backend
 # 2)
 .\\venv\\Scripts\\Activate.ps1
 # 3)
-python C:\Users\user\Documents\Cursore\decision-matrix\backend\run_local.py
+python run_local.py
 ```
 
 Frontend (в отдельном терминале):
@@ -117,7 +121,7 @@ npm run dev
 ### Пересоздание demo-пользователей
 
 ```powershell
-cd C:\Users\user\Documents\Cursore\decision-matrix\backend
+cd decision-matrix\backend
 .\venv\Scripts\python.exe seed.py
 ```
 
@@ -129,7 +133,7 @@ cd C:\Users\user\Documents\Cursore\decision-matrix\backend
 
 1. Установите PostgreSQL с расширением PostGIS.
 2. Создайте БД и пользователя.
-3. В `C:\Users\user\Documents\Cursore\decision-matrix\backend` создайте `.env` на основе `.env.example`.
+3. В `decision-matrix/backend` создайте `.env` на основе `.env.example`.
 4. Укажите `DATABASE_URL`, например:
 
 ```env
@@ -144,15 +148,15 @@ CORS_ORIGINS=http://localhost:5173,http://localhost:5174,http://127.0.0.1:5173
 
 ```powershell
 # 1)
-cd C:\Users\user\Documents\Cursore\decision-matrix\backend
+cd decision-matrix\backend
 # 2)
 .\\venv\\Scripts\\Activate.ps1
 # 3)
-python -m pip install -r C:\Users\user\Documents\Cursore\decision-matrix\backend\requirements.txt
+python -m pip install -r requirements.txt
 # 4)
 uvicorn app.main:app --reload --host 127.0.0.1 --port 8000
 # 5)
-python C:\Users\user\Documents\Cursore\decision-matrix\backend\seed.py
+python seed.py
 ```
 
 6. Frontend запускается как обычно:
@@ -199,8 +203,11 @@ npm run dev
 - Порт `5173` или `8000` занят  
   Освободите порт или запустите сервис на другом порту. Добавьте новый порт frontend в `CORS_ORIGINS`. Не открывайте одновременно `localhost:5173` и `localhost:5174` — см. §7 «Карта».
 
+- **«Сеть» / ModuleNotFoundError: network_planner**  
+  Установите пакет планировщика: `pip install -e ../../../autoroad-network-planner[steinerpy]` (из `decision-matrix/backend`, путь зависит от расположения monorepo). Перезапустите `run_local.py`.
+
 - **«Построить сеть» / Not Found** при вызове API  
-  Часто на порту `8000` висит **старый** uvicorn без маршрутов `autoroad-network`. Закройте лишние терминалы с backend или выполните `Get-Process python* | Stop-Process -Force`, затем **один** раз `python run_local.py` (скрипт освобождает порт 8000 на Windows). Проверка: в Swagger (`http://127.0.0.1:8000/api/v1/docs`) должны быть `POST .../autoroad-network/plan` и `.../apply`. UI открывайте на **5173** (`npm run dev`), не на `:8000`.
+  Часто на порту `8000` висит **старый** uvicorn без маршрутов `autoroad-network`. Закройте лишние терминалы с backend или выполните `Get-Process python* | Stop-Process -Force`, затем **один** раз `python run_local.py` (скрипт освобождает порт 8000 на Windows). Проверка: в Swagger (`http://127.0.0.1:8000/api/v1/docs`) должны быть `POST .../autoroad-network/request`, `.../compute` и `.../apply`. UI открывайте на **5173** (`npm run dev`), не на `:8000`.
 
 - `pip install` падает на зависимостях  
   Обновите pip: `python -m pip install --upgrade pip`.

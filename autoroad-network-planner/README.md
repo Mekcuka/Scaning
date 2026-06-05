@@ -1,245 +1,183 @@
-# Autoroad network planner (standalone)
+# Steiner Network Planner
 
-Копия модуля **автопостроения сети автодорог** из `decision-matrix`, без FastAPI и базы данных.  
-Подходит для экспериментов в Jupyter, внешних интеграций и отдельного HTTP-сервиса.
+Python microservice that builds a **Euclidean Steiner tree** over map **terminals**. **Start** and **end** of the network are terminals with roles `start` and `end`; other objects use `intermediate`.
 
-| Документ | Содержание |
-|----------|------------|
-| [docs/autoroad-network-instruction.md](../docs/autoroad-network-instruction.md) | Пошаговая инструкция, UI, **внешний API**, `curl` |
-| [docs/autoroad-network-plan.md](../docs/autoroad-network-plan.md) | Алгоритмы, предупреждения, таблицы случаев |
+Calculation is done by external solvers only: **SteinerPy** (pip) or **GeoSteiner** (native binaries).
 
-Исходники в приложении:
+**Documentation**
 
-- `decision-matrix/backend/app/services/autoroad_network/` — планировщик + JSON-конвейер BFF
-- `decision-matrix/services/autoroad-network/` — FastAPI `POST /v1/network/plan` (тот же контракт)
+| Document | Contents |
+|----------|----------|
+| [docs/MICROSERVICE.md](docs/MICROSERVICE.md) | Deploy (Docker Compose), env, probes, logging |
+| [docs/IMPLEMENTATION.md](docs/IMPLEMENTATION.md) | Architecture, post-processing pipeline, node IDs, warnings, source layout |
+| [docs/PARAMETERS.ru.md](docs/PARAMETERS.ru.md) | Parameter reference (RU): solver-specific behaviour, recommended settings |
 
----
+## Model
 
-## JSON-контракт
+| Layer | Points | Connection |
+|-------|--------|------------|
+| `steiner_tree` | all `terminals` + optional `steiner:*` | SMT; each terminal is a leaf (one incident edge) |
+| `terminals` | result rows | `role`, `via: tree`, `attached_to` = neighbor on the tree |
 
-Планировщик **stateless**: на входе — полное описание объектов в JSON, на выходе — план линий и узлов. Запись в БД (`apply`) есть только в decision-matrix.
+Terminal IDs appear in `steiner_tree.edges` as `terminal:{uuid}`.
 
-| Шаг в UI / BFF | В этом пакете |
-|----------------|---------------|
-| `NetworkPlanRequest` | `NetworkPlanRequest` — см. таблицы ниже |
-| `compute` | `plan_from_request(req)` или `compute_network_plan_sync(req)` |
-| `NetworkPlanResponse` | тот же тип; `terminals[]` эхом повторяют вход + snap |
-| `apply` | **нет** |
+### Node types in `steiner_tree`
 
-Схемы BFF (`AutoroadNetworkBuildRequestBody`, `AutoroadNetworkApplyBody`) продублированы в `autoroad_planner/schemas.py` для справки.
+| ID pattern | Role |
+|------------|------|
+| `terminal:{uuid}` | Input terminal |
+| `steiner:0`, … | Steiner point from solver |
+| `steiner:hub:*` | Hub inserted so terminal has degree 1 |
+| `steiner:attach:*` | Attachment point within connector limit |
+| `steiner:waypoint:*` | Subdivision vertex on a long edge |
 
-### `NetworkPlanRequest` (вход)
+## Quick start
 
-| Поле верхнего уровня | Тип | Описание |
-|----------------------|-----|----------|
-| `project_id` | UUID | Корреляция логов; планировщик **не читает** БД |
-| `terminals` | массив | Точечные объекты для соединения (2–50) |
-| `existing_autoroads` | массив | Уже нарисованные `autoroad` (полилинии) |
-| `options` | объект | `snap_tolerance_km`, `node_dedup_km`, `max_terminals` |
+```bash
+python -m venv .venv
+.venv\Scripts\activate   # Windows
+pip install -e ".[dev,steinerpy]"
+uvicorn network_planner.api:app --reload --port 8080
+```
 
-**Терминал (`PlanTerminalInput`):**
+Health: `GET http://localhost:8080/health`  
+Readiness: `GET http://localhost:8080/ready`  
+SteinerPy plan: `POST http://localhost:8080/v1/plan/steinerpy`  
+GeoSteiner plan: `POST http://localhost:8080/v1/plan/geosteiner`
 
-| Поле | Обязательно | Описание |
-|------|-------------|----------|
-| `id` | да | UUID объекта |
-| `subtype` | да | Подтип DM (`gas_processing`, `refinery`, …) |
-| `name` | нет | Отображаемое имя |
-| `lon`, `lat` | да | WGS84 |
-| `coordinates` | нет | `[lon, lat]` — должны совпадать с `lon`/`lat` |
-| `category` | нет | Категория слоя (`area_facility`, …) |
-| `subtype_label` | нет | Подпись («ГКС», «НПЗ», …) |
-| `properties` | нет | Произвольный JSON метаданных |
+Check availability: `GET /v1/steinerpy/status`, `GET /v1/geosteiner/status`
 
-**Существующая дорога (`ExistingAutoroadInput`):**
+## Request example
 
-| Поле | Описание |
-|------|----------|
-| `id` | UUID линии |
-| `coordinates` | `[[lon, lat], ...]`, минимум 2 точки |
-| `name`, `subtype` | Метаданные (обычно `subtype`: `autoroad`) |
+```json
+{
+  "project_id": "550e8400-e29b-41d4-a716-446655440000",
+  "terminals": [
+    { "id": "11111111-1111-1111-1111-111111111101", "type": "oil_pad", "role": "start", "lon": 37.60, "lat": 55.75 },
+    { "id": "22222222-2222-2222-2222-222222222201", "type": "oil_pad", "role": "intermediate", "lon": 37.62, "lat": 55.76 },
+    { "id": "11111111-1111-1111-1111-111111111102", "type": "gas_processing", "role": "end", "lon": 37.64, "lat": 55.74 }
+  ],
+  "options": {
+    "connector_max_km": 0.2,
+    "max_points": 50
+  }
+}
+```
 
-Пример файла: [`data/example_request.json`](data/example_request.json).
+Exactly one terminal with `role: "start"` and one with `role: "end"` is required.
 
-### `NetworkPlanResponse` (выход)
+### Options (summary)
 
-| Поле | Описание |
-|------|----------|
-| `terminals[]` | Эхо входа: `name`, `subtype`, `coordinates`, `properties`, плюс `snap_lon`/`snap_lat`, `warning`, `graph_attached` |
-| `new_lines[]` | `kind`: `connector` \| `link`, `coordinates`, опционально `snap_*_object_id` |
-| `new_nodes[]` | `lon`, `lat`, `reason` |
-| `preview` | GeoJSON FeatureCollection; в свойствах линий — `snap_start_name` / `snap_finish_name` |
-| `request_meta` | `project_id`, `terminal_count`, `existing_road_count` |
-| `warnings`, `total_new_km`, счётчики | Как в BFF |
+| Field | SteinerPy | GeoSteiner | Description |
+|-------|-----------|------------|-------------|
+| `connector_max_km` | graph + post | post | Max terminal leaf-edge length (km) |
+| `enforce_attachment_radius` | yes | yes | `false` = pure SMT |
+| `normalize_terminal_leaves` | yes | yes | Insert hub nodes (degree 1) |
+| `steiner_hub_prefix` | yes | yes | Hub id prefix |
+| `steiner_hub_offset_km` | yes | yes | Terminal→hub edge length (km) |
+| `edge_vertex_spacing_km` | post | post | Subdivide edges with waypoints |
+| `attachment_angle_deg` | yes | — | Target attachment angle (°) |
+| `attachment_angle_penalty` | yes | — | Angle deviation weight; `0` = off |
+| `steiner_radius_km` | filter + repel | repel | Exclusion zone around terminals |
+| `terminals[].attachment_max_km` | yes | yes | Per-terminal connector override |
 
----
+Full details: [docs/PARAMETERS.ru.md](docs/PARAMETERS.ru.md).
 
-## Способы вызова
+`connector_max_km` limits the **full leaf path** from terminal to backbone (including terminal→hub). When limits are violated, the tree is adjusted in post-processing (attach nodes); warnings are returned instead of silent replanning.
 
-| Способ | Как |
-|--------|-----|
-| **Python (этот пакет)** | `plan_from_request(req)` |
-| **HTTP микросервис** | `POST http://<host>:8001/v1/network/plan` — см. `decision-matrix/services/autoroad-network/` |
-| **BFF приложения** | `POST .../autoroad-network/compute` — тот же JSON + авторизация |
+## Post-processing pipeline
 
-`project_id` может быть любым UUID для внешних систем.
+Both solvers share the same post-processing after the initial tree is built (`src/network_planner/plan/pipeline.py`):
 
----
+```
+GeoSteiner:  solve → ensure_connected → steiner_radius → attachment_limits → normalize_leaves → subdivide → response
+SteinerPy:   solve → steiner_radius → attachment_limits → normalize_leaves → subdivide → response
+```
 
-## Установка
+GeoSteiner-only: if the certificate has multiple disconnected components (observed for n ≥ ~13), `_ensure_tree_connected` rebuilds topology via SteinerPy using the same Steiner points.
 
-Отдельное venv в каталоге пакета:
+## Response (outline)
+
+- `steiner_tree` — tree over terminals (`steiner_points`, `edges`)
+- `terminals` — every object with `role`, `via`, `attached_to`, `length_m`
+- `warnings` — see [docs/IMPLEMENTATION.md#warnings](docs/IMPLEMENTATION.md#warnings)
+- `total_length_m` — tree length
+- `solver` — `"steinerpy"` or `"geosteiner"`
+
+## Solvers
+
+### SteinerPy (pip)
+
+[SteinerPy](https://github.com/berendmarkhorst/SteinerPy) solves a Steiner tree MIP on a candidate graph (terminals + centroid + optional GeoSteiner Steiner points) using HiGHS.
+
+```bash
+pip install steinerpy
+# or: pip install -e ".[steinerpy]"
+```
+
+`POST /v1/plan/steinerpy` — response includes `"solver": "steinerpy"`.
+
+Optimal on the candidate graph; always connected. Supports attachment limits, angle penalty, and steiner-radius filtering in the graph.
+
+When GeoSteiner is installed, SteinerPy uses its Steiner points as extra MIP candidates.
+
+### GeoSteiner (exact, optional)
+
+[GeoSteiner](https://geosteiner.net/) computes **optimal** Euclidean Steiner trees via native binaries `efst` and `bb`.
+
+Build (Linux/macOS):
+
+```bash
+bash scripts/build_geosteiner.sh
+```
+
+Windows (MSYS2 + MinGW):
 
 ```powershell
-cd C:\Users\user\Documents\Cursore\autoroad-network-planner
-python -m venv C:\Users\user\Documents\Cursore\autoroad-network-planner\venv
-C:\Users\user\Documents\Cursore\autoroad-network-planner\venv\Scripts\Activate.ps1
-python -m pip install -r C:\Users\user\Documents\Cursore\autoroad-network-planner\requirements.txt
-python -m pip install -e C:\Users\user\Documents\Cursore\autoroad-network-planner
+winget install MSYS2.MSYS2
+powershell -ExecutionPolicy Bypass -File scripts/build_geosteiner.ps1
 ```
 
-Или venv из decision-matrix:
+Binaries land in `vendor/geosteiner/bin` (auto-detected). On Windows, MSYS2 `C:\msys64\mingw64\bin` must be present for runtime DLLs.
 
-```powershell
-cd C:\Users\user\Documents\Cursore\decision-matrix\backend
-C:\Users\user\Documents\Cursore\decision-matrix\backend\venv\Scripts\Activate.ps1
-python -m pip install -e C:\Users\user\Documents\Cursore\autoroad-network-planner
+`POST /v1/plan/geosteiner` — response includes `"solver": "geosteiner"`.
+
+GeoSteiner is licensed under [CC BY-NC 4.0](https://geosteiner.net/) (non-commercial). Built artifacts live under `vendor/geosteiner/` (not committed by default).
+
+For large terminal counts, install SteinerPy as well — it is used to repair disconnected GeoSteiner certificates while keeping the same Steiner point coordinates.
+
+## Demo by terminal count
+
+```bash
+python scripts/demo_terminal_counts.py
 ```
 
----
+Writes `examples/by_terminal_count/summary.json` (zigzag: first=start, last=end). Requires SteinerPy or GeoSteiner.
 
-## Быстрый запуск (Python)
+## Tests
 
-Интерактивно или в скрипте (после активации venv и `pip install -e`):
-
-```python
-from uuid import UUID, uuid4
-from autoroad_planner import plan_from_request, NetworkPlanRequest, PlanTerminalInput
-
-terminals = [
-    PlanTerminalInput(
-        id=UUID("6e0a2599-f391-4ca2-be46-565b71657222"),
-        subtype="gas_processing",
-        subtype_label="ГКС",
-        category="area_facility",
-        name="GKS_1",
-        lon=37.142939,
-        lat=56.040613,
-        coordinates=[37.142939, 56.040613],
-        properties={},
-    ),
-    PlanTerminalInput(
-        id=UUID("53c1e053-c2aa-4265-b972-2550efb98ef6"),
-        subtype="gas_processing",
-        subtype_label="ГКС",
-        name="GKS_2",
-        lon=37.209718,
-        lat=56.040613,
-    ),
-]
-
-req = NetworkPlanRequest(project_id=uuid4(), terminals=terminals, existing_autoroads=[])
-out = plan_from_request(req)
-
-print(out.request_meta)
-print(out.total_new_km, out.warnings)
-for tr in out.terminals:
-    print(tr.name, tr.coordinates, tr.snap_lon, tr.warning)
+```bash
+pytest
 ```
 
-План из `example_request.json` одной командой:
+## Deploy as microservice
 
-```powershell
-cd C:\Users\user\Documents\Cursore\autoroad-network-planner
-C:\Users\user\Documents\Cursore\autoroad-network-planner\venv\Scripts\Activate.ps1
-python -c "import json; from pathlib import Path; from uuid import uuid4; from autoroad_planner import plan_from_request, NetworkPlanRequest; p=Path(r'C:\Users\user\Documents\Cursore\autoroad-network-planner\data\example_request.json'); raw=json.loads(p.read_text(encoding='utf-8')); req=NetworkPlanRequest.model_validate(raw); out=plan_from_request(req); Path(r'C:\Users\user\Documents\Cursore\autoroad-network-planner\data\out_plan.json').write_text(out.model_dump_json(indent=2), encoding='utf-8'); print(out.total_new_km, out.warnings)"
+```bash
+cp .env.example .env
+docker compose up --build
 ```
 
-Сохранение request/response в `data/`:
+SteinerPy is included in the image. GeoSteiner is optional via volume mount — see [docs/MICROSERVICE.md](docs/MICROSERVICE.md).
 
-```python
-from pathlib import Path
+## Docker (single container)
 
-ROOT = Path(r"C:\Users\user\Documents\Cursore\autoroad-network-planner")
-
-(ROOT / "data" / "out_plan.json").write_text(
-    out.model_dump_json(indent=2),
-    encoding="utf-8",
-)
-(ROOT / "data" / "in_request.json").write_text(
-    req.model_dump_json(indent=2),
-    encoding="utf-8",
-)
+```bash
+docker build -t network-planner .
+docker run -p 8080:8080 --env-file .env network-planner
 ```
 
-Проверка регрессии 12 ГКС (тесты decision-matrix):
+## API docs
 
-```powershell
-cd C:\Users\user\Documents\Cursore\decision-matrix\backend
-C:\Users\user\Documents\Cursore\decision-matrix\backend\venv\Scripts\Activate.ps1
-python -m pytest C:\Users\user\Documents\Cursore\decision-matrix\backend\tests\test_autoroad_network_plan.py::test_gks_twelve_layout_connected -q
-```
+OpenAPI UI: `http://localhost:8080/docs`
 
-Полный набор тестов планировщика:
-
-```powershell
-cd C:\Users\user\Documents\Cursore\decision-matrix\backend
-C:\Users\user\Documents\Cursore\decision-matrix\backend\venv\Scripts\Activate.ps1
-python -m pytest C:\Users\user\Documents\Cursore\decision-matrix\backend\tests\test_autoroad_network_plan.py -q --noconftest -k "not integration and not full_rebuild"
-```
-
----
-
-## Jupyter Lab
-
-```powershell
-cd C:\Users\user\Documents\Cursore\autoroad-network-planner
-C:\Users\user\Documents\Cursore\autoroad-network-planner\venv\Scripts\Activate.ps1
-python -m pip install jupyterlab ipykernel matplotlib
-python -m ipykernel install --user --name autoroad-planner --display-name "autoroad-planner"
-jupyter lab --notebook-dir=C:\Users\user\Documents\Cursore\autoroad-network-planner
-```
-
-Откройте `C:\Users\user\Documents\Cursore\autoroad-network-planner\notebooks\autoroad_network_preview.ipynb`.  
-В ноутбуке выберите ядро **autoroad-planner**.
-
----
-
-## Структура
-
-```text
-C:\Users\user\Documents\Cursore\autoroad-network-planner\
-  autoroad_planner\
-    plan_core.py
-    schemas.py
-    client.py
-    terminal_exclusion.py
-    road_graph.py
-    graph_from_polylines.py
-    ...
-  data\
-    example_request.json
-    gks12_request.json
-  notebooks\
-    autoroad_network_preview.ipynb
-```
-
----
-
-## HTTP (микросервис)
-
-Запуск сервиса (отдельный терминал, если нужен порт 8001):
-
-```powershell
-cd C:\Users\user\Documents\Cursore\decision-matrix\services\autoroad-network
-# см. README сервиса: uvicorn / docker
-```
-
-Запрос плана (PowerShell, `curl.exe`):
-
-```powershell
-curl.exe -s -X POST "http://127.0.0.1:8001/v1/network/plan" `
-  -H "Content-Type: application/json" `
-  -d "@C:\Users\user\Documents\Cursore\autoroad-network-planner\data\example_request.json"
-```
-
-Сервис без API key по умолчанию — не публикуйте в интернет без прокси.
+Interactive prototype: `http://localhost:8080/examples/planner_prototype.html` — solver-specific parameter panels, coloured node types (Steiner / hub / attach / waypoint).

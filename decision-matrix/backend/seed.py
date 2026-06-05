@@ -59,7 +59,6 @@ async def seed():
             print("Demo accounts:")
             for email, _, role, password in DEMO_USERS:
                 print(f"  {email} / {password} ({role.value})")
-            print("Run seed_autoroad_network_demos.py to list demo project URLs.")
             return
 
         if created_users:

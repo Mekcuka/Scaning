@@ -2,9 +2,12 @@
 
 from __future__ import annotations
 
+from typing import Literal
 from uuid import UUID
 
 from pydantic import BaseModel, Field, model_validator
+
+from app.geo.constants import TERMINAL_EXCLUSION_RADIUS_KM
 
 
 class PlanTerminalInput(BaseModel):
@@ -40,9 +43,25 @@ class ExistingAutoroadInput(BaseModel):
 
 
 class PlanOptionsInput(BaseModel):
+    solver: Literal["geosteiner", "steinerpy"] = "geosteiner"
+    connector_max_km: float = Field(default=0.2, gt=0)
+    enforce_attachment_radius: bool = True
+    normalize_terminal_leaves: bool = True
+    steiner_hub_prefix: str = Field(default="steiner:hub", min_length=1, max_length=48)
+    steiner_hub_offset_km: float = Field(default=0.0, ge=0)
+    edge_vertex_spacing_km: float = Field(default=0.0, ge=0)
+    steiner_radius_km: float = Field(default=TERMINAL_EXCLUSION_RADIUS_KM, ge=0)
+    attachment_angle_deg: float = Field(default=90.0, ge=0, le=180)
+    attachment_angle_penalty: float = Field(default=0.0, ge=0, le=10)
+    max_terminals: int = Field(default=50, ge=2, le=200)
     snap_tolerance_km: float = 0.3
     node_dedup_km: float = 0.05
-    max_terminals: int = 50
+
+
+class SolverStatusResponse(BaseModel):
+    steinerpy: bool
+    geosteiner: bool
+    default_solver: str
 
 
 class NetworkPlanRequest(BaseModel):

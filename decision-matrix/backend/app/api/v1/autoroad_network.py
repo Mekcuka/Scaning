@@ -19,6 +19,7 @@ from app.services.autoroad_network.pipeline import (
     compute_plan,
     preview_legacy_dict,
 )
+from app.services.autoroad_network.planner_adapter import get_solver_status, get_solver_status_http
 from app.services.autoroad_network.schemas import (
     AutoroadNetworkApplyBody,
     AutoroadNetworkApplyResult,
@@ -26,11 +27,27 @@ from app.services.autoroad_network.schemas import (
     AutoroadNetworkPlanBody,
     NetworkPlanRequest,
     NetworkPlanResponse,
+    SolverStatusResponse,
 )
 from app.services.job_enqueue import commit_and_schedule, create_and_schedule_job, jobs_async_enabled
 from app.services.project_jobs import JOB_TYPE_AUTOROAD_CONNECT, ActiveProjectJobError
 
 autoroad_network_router = APIRouter(tags=["autoroad-network"])
+
+
+@autoroad_network_router.get(
+    "/autoroad-network/solver-status",
+    response_model=SolverStatusResponse,
+)
+async def autoroad_network_solver_status(
+    user: User = Depends(get_current_user),
+):
+    """Report SteinerPy / GeoSteiner availability for the planner UI."""
+    from app.core.config import settings
+
+    if settings.AUTOROAD_NETWORK_INPROCESS:
+        return get_solver_status()
+    return await get_solver_status_http()
 
 
 @autoroad_network_router.post(

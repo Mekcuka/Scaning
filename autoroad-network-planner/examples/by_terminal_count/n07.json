@@ -1,0 +1,15 @@
+{
+  "n_terminals": 7,
+  "layout": "zigzag",
+  "segment_spacing_m": 5000.0,
+  "half_span_m": 15000.0,
+  "zigzag_amplitude_m": 1000.0,
+  "backbone_length_m": 50287.348,
+  "total_length_m": 50287.348,
+  "warnings": [
+    "smt_heuristic_mst",
+    "start_end_not_connected"
+  ],
+  "steiner_points": 3,
+  "backbone_edges": 9
+}

@@ -30,7 +30,7 @@
 
 > Демо-проект «Участок Западный» опубликован (`visibility=published`) — доступен viewer.
 
-**Демо автосети** (после `seed_autoroad_network_demos.py` или повторного `seed.py`):
+**Демо автосети** (создаются при `seed.py`, если в БД уже есть демо-проект):
 
 | Проект | Что показано |
 |--------|----------------|
@@ -41,12 +41,7 @@
 | Демо автосеть: Далеко от дороги | Длинный подъезд (>300 m) к ближайшей точке |
 | Демо автосеть: Уже на дороге | Объект на конце дороги + подъезд второго |
 
-```powershell
-cd decision-matrix\backend
-python seed_autoroad_network_demos.py
-```
-
-Откройте карту проекта по ссылке из вывода скрипта (`/map?project=<uuid>`).
+Откройте карту: `/map?project=<uuid>` (UUID проекта из списка в админке или БД).
 
 Аутентификация: JWT в **httpOnly cookies** + CSRF double-submit. Refresh rotation через `POST /auth/refresh`, выход — `POST /auth/logout`.  
 Роли и права: [docs/auth-rbac.md](../docs/auth-rbac.md).
@@ -59,15 +54,17 @@ python seed_autoroad_network_demos.py
 
 ```powershell
 # 1)
-cd C:\Users\user\Documents\Cursore\decision-matrix\backend
+cd decision-matrix\backend
 # 2)
-python -m venv C:\Users\user\Documents\Cursore\decision-matrix\backend\venv
+python -m venv venv
 # 3)
 .\venv\Scripts\Activate.ps1
 # 4)
-python -m pip install -r C:\Users\user\Documents\Cursore\decision-matrix\backend\requirements.txt
-# 5)
-python C:\Users\user\Documents\Cursore\decision-matrix\backend\run_local.py
+python -m pip install -r requirements.txt
+# 5) планировщик автосети
+python -m pip install -e ..\..\..\autoroad-network-planner[steinerpy]
+# 6)
+python run_local.py
 ```
 
 Проверить, что активен именно `venv`:
@@ -81,7 +78,7 @@ python -m pip -V
 
 ```powershell
 # 1)
-cd C:\Users\user\Documents\Cursore\decision-matrix\frontend
+cd decision-matrix\frontend
 # 2)
 npm install
 # 3)

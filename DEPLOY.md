@@ -234,10 +234,22 @@ ssh -i "C:\Users\user\Documents\mykey\ssh-key\ssh-key-1779903372392" vovavolgin9
 | Custom GLB **404 (from disk cache)** на карте | Ctrl+F5; проверить наличие файла на VM; убедиться, что задеплоен frontend с `map3dCustomGlbFetch` |
 | Bundled Kenney не грузятся | Проверить `VITE_BASE_PATH` / `/Scaning/map3d-models/` в сборке Pages |
 
+### Autoroad network planner
+
+Локально (monorepo с `autoroad-network-planner/`):
+
+```powershell
+pip install -e ../../autoroad-network-planner[steinerpy]
+```
+
+Backend: `AUTOROAD_NETWORK_INPROCESS=true`, `AUTOROAD_NETWORK_SOLVER=geosteiner` (fallback на SteinerPy без GeoSteiner). HTTP: `deploy/docker-compose.yml` → сервис `network-planner`, `AUTOROAD_NETWORK_SERVICE_URL=http://network-planner:8080`.
+
 ### Локальная проверка перед `git push`
 
 ```powershell
-cd decision-matrix/frontend
+cd decision-matrix/backend
+.\venv\Scripts\pip install -e ..\..\autoroad-network-planner[steinerpy]
+cd ..\frontend
 npm run test
 npm run test:coverage   # опционально; см. docs/testing-strategy.md
 npm run build
@@ -245,5 +257,7 @@ cd ..\backend
 .\venv\Scripts\python.exe -m pytest tests/ -q
 .\venv\Scripts\python.exe -m pytest tests/ --cov=app --cov-report=term -q
 ```
+
+Образ backend в CI включает `network-planner` (SteinerPy); GeoSteiner на VM — опционально через `GEOSTEINER_BIN_DIR` в `app.env`.
 
 Покрытие и чеклист тестов: [docs/testing-strategy.md](docs/testing-strategy.md).

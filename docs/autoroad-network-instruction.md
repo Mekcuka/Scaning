@@ -67,11 +67,16 @@
 ## 3. Как пользоваться на карте
 
 1. Откройте проект: `/map?project=...`
-2. Включите инструмент **«Сеть»** (режим `autoroad_network` на `MapPage`).
-3. Кликом выберите **от 2 до 50** точечных объектов (ГКС, УКГ и т.д.).  
-   Нельзя выбрать: POI, узлы `node`, `methanol_joint`, `power_line_node`.
-4. Запустите расчёт — появится **preview** (фиолетовые/оранжевые линии) и окно с цифрами (км, число линий, предупреждения).
-5. Нажмите **«Применить»** — объекты сохранятся в слой; при необходимости откатите **Ctrl+Z**.
+2. Включите **«Редактирование на карте»** → инструмент **«Сеть»** (режим `autoroad_network` на `MapPage`).
+3. В панели **«Сеть автодорог»** выберите способ добавления терминалов:
+   - **Клик** — щелчок по объекту на карте;
+   - **Рамка** — протяните прямоугольник по видимой области;
+   - **«Видимые (N)»** — все подходящие точки в текущем bbox карты;
+   - **«Тип…»** — массовое добавление по подтипу (ГКС, куст и т.д.).
+4. Нужно **от 2 до 50** терминалов. Нельзя выбрать: POI, узлы `node`, `methanol_joint`, `power_line_node`. Список в панели можно свернуть, искать (при >6 объектах) и убирать точки по одной.
+5. В блоке **параметров расчёта** задайте солвер (GeoSteiner / SteinerPy), лимит подъезда, роли start/end и др. — значения сохраняются в `localStorage` браузера. Индикатор солвера показывает, доступен ли GeoSteiner на сервере.
+6. Нажмите **«Рассчитать»** — `request` → `compute`; на карте появится **preview** (новые линии) и модалка с цифрами (км, число линий, предупреждения).
+7. Нажмите **«Применить»** в модалке — `apply` с тем же планом (без пересчёта); при необходимости откатите **Ctrl+Z**.
 
 **Журнал задач** в шапке (иконка слева от «Тема»): статусы расчётов, тела JSON запросов/ответов, экспорт. Для режима «Сеть» в журнале видны шаги `request` → `compute` → `apply`; для «Соединить автодорогами» — два POST с `dry_run: true/false` (см. [task-log-panel.md](./task-log-panel.md)).
 
@@ -473,48 +478,45 @@ python -m pytest tests/test_autoroad_network_plan.py::test_gks_twelve_layout_con
 
 ## 15. Отдельная папка и Jupyter
 
-Код планировщика продублирован в **`autoroad-network-planner/`** (корень репозитория, рядом с `decision-matrix`):
+Ядро планировщика — пакет **`network_planner`** в **`autoroad-network-planner/`** (корень репозитория, рядом с `decision-matrix`):
 
 | Артефакт | Назначение |
 |----------|------------|
-| `autoroad_planner/` | Пакет Python: `plan_from_request`, схемы `NetworkPlanRequest` / `NetworkPlanResponse` |
+| `src/network_planner/` | Steiner tree, post-processing, HTTP API `:8080` |
 | `data/example_request.json` | Минимальный входной JSON для `curl` или скриптов |
-| `notebooks/autoroad_network_preview.ipynb` | 12 ГКС, экспорт GeoJSON/PNG, полный контракт терминалов |
-| [README](../autoroad-network-planner/README.md) | Установка, таблицы полей, HTTP, синхронизация |
+| [README](../autoroad-network-planner/README.md) | Установка, параметры, Docker, HTTP |
 
-В `decision-matrix` модуль по-прежнему в `backend/app/services/autoroad_network/` (BFF `request` → `compute` → `apply` и карта). Шаг **`request`** в приложении собирает из БД те же поля, что вы можете передать вручную во внешнем JSON (`name`, `coordinates`, `category`, `subtype_label`, `properties`).
+В `decision-matrix` BFF: `backend/app/services/autoroad_network/` (`planner_adapter.py` мостит `NetworkPlanRequest` ↔ `PlanRequest`). Шаг **`request`** собирает из БД те же поля, что во внешнем JSON (`name`, `coordinates`, `category`, `subtype_label`, `properties`).
 
-После правок в backend:
+Локально установите пакет в venv backend:
 
 ```powershell
-python autoroad-network-planner/scripts/sync_from_decision_matrix.py
+cd decision-matrix\backend
+.\venv\Scripts\pip install -e ..\..\..\autoroad-network-planner[steinerpy]
 ```
-
-Скрипт обновляет `plan_core.py`, `schemas.py`, `graph_from_polylines.py`, `terminal_exclusion.py` и переписывает импорты `app.*` → `autoroad_planner.*`.
 
 Пример из пакета (без БД):
 
 ```python
 from uuid import UUID, uuid4
-from autoroad_planner import plan_from_request, NetworkPlanRequest, PlanTerminalInput
+from network_planner.plan.pipeline import plan_from_request_steinerpy
+from network_planner.schemas.io import PlanRequest, TerminalInput
 
-req = NetworkPlanRequest(
+req = PlanRequest(
     project_id=uuid4(),
     terminals=[
-        PlanTerminalInput(
+        TerminalInput(
             id=UUID("6e0a2599-f391-4ca2-be46-565b71657222"),
             subtype="gas_processing",
-            subtype_label="ГКС",
             name="GKS_1",
             lon=37.142939,
             lat=56.040613,
-            coordinates=[37.142939, 56.040613],
         ),
         # ... второй терминал
     ],
 )
-out = plan_from_request(req)
-print(out.request_meta, out.terminals[0].coordinates)
+out = plan_from_request_steinerpy(req)
+print(out.steiner_tree.edges, out.warnings)
 ```
 
 ---

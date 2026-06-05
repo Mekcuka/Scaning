@@ -1,0 +1,713 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+  <meta charset="utf-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1"/>
+  <title>Steiner planner — прототип</title>
+  <style>
+    * { box-sizing: border-box; }
+    body {
+      font-family: system-ui, sans-serif;
+      margin: 0;
+      padding: 16px;
+      background: #f1f5f9;
+      color: #0f172a;
+    }
+    h1 { font-size: 1.25rem; margin: 0 0 8px; }
+    .wrap { max-width: 920px; margin: 0 auto; }
+    .hint { color: #64748b; font-size: 14px; margin-bottom: 12px; }
+    .row { display: flex; flex-wrap: wrap; gap: 16px; align-items: flex-start; }
+    .panel {
+      background: #fff;
+      border: 1px solid #e2e8f0;
+      border-radius: 10px;
+      padding: 12px;
+    }
+    canvas {
+      display: block;
+      cursor: crosshair;
+      border-radius: 6px;
+      background: #fafafa;
+      touch-action: none;
+    }
+    label { font-size: 13px; display: block; margin-bottom: 4px; color: #475569; }
+    input[type="text"], input[type="number"] {
+      width: 100%;
+      padding: 6px 8px;
+      border: 1px solid #cbd5e1;
+      border-radius: 6px;
+      font-size: 14px;
+    }
+    .field { margin-bottom: 10px; min-width: 200px; }
+    .toggle-row {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      margin-bottom: 0;
+      cursor: pointer;
+      user-select: none;
+    }
+    .toggle-row input { width: auto; margin: 0; cursor: pointer; }
+    input:disabled { opacity: 0.55; background: #f8fafc; }
+    button {
+      padding: 8px 14px;
+      border-radius: 6px;
+      border: 1px solid #cbd5e1;
+      background: #fff;
+      font-size: 14px;
+      cursor: pointer;
+    }
+    button.primary {
+      background: #2563eb;
+      color: #fff;
+      border-color: #2563eb;
+    }
+    button.geosteiner {
+      background: #059669;
+      color: #fff;
+      border-color: #059669;
+    }
+    button.steinerpy {
+      background: #7c3aed;
+      color: #fff;
+      border-color: #7c3aed;
+    }
+    button.primary:disabled,
+    button.geosteiner:disabled,
+    button.steinerpy:disabled { opacity: 0.5; cursor: not-allowed; }
+    #solverStatus { font-size: 12px; color: #64748b; margin-top: 6px; }
+    #solverStatus.ok { color: #059669; }
+    #solverStatus.warn { color: #b45309; }
+    button.danger { color: #dc2626; }
+    .toolbar { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 10px; }
+    #status {
+      margin-top: 10px;
+      font-size: 13px;
+      min-height: 2.5em;
+      color: #334155;
+      white-space: pre-line;
+      line-height: 1.45;
+    }
+    #status.warn { color: #b45309; }
+    #status.error { color: #dc2626; }
+    ul.points { list-style: none; padding: 0; margin: 8px 0 0; max-height: 220px; overflow: auto; font-size: 13px; }
+    ul.points li {
+      padding: 4px 0;
+      border-bottom: 1px solid #f1f5f9;
+      display: flex;
+      justify-content: space-between;
+      gap: 8px;
+    }
+    .role { font-weight: 600; font-size: 11px; text-transform: uppercase; }
+    .role.start { color: #dc2626; }
+    .role.end { color: #b91c1c; }
+    .role.intermediate { color: #2563eb; }
+    .legend { font-size: 12px; color: #64748b; margin-top: 8px; }
+    .legend span { margin-right: 12px; }
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <h1>Планировщик Steiner — прототип</h1>
+    <p class="hint">
+      Клик по полю — добавить терминал. Колёсико — масштаб. Первый = <strong>start</strong>, последний = <strong>end</strong>.
+      Перед расчётом запустите API: <code>uvicorn network_planner.api:app --port 8080</code>.
+      Кнопки <strong>SteinerPy</strong> и <strong>GeoSteiner</strong> — расчёт через внешние солверы.
+    </p>
+
+    <div class="row">
+      <div class="panel">
+        <canvas id="map" width="560" height="380"></canvas>
+        <div class="legend">
+          <span>● start</span><span>● end</span><span>● intermediate</span>
+          <span style="color:#22c55e">● steiner</span>
+          <span style="color:#f59e0b">● hub</span>
+          <span style="color:#f97316">● attach</span>
+          <span style="color:#94a3b8">● waypoint</span>
+          <span style="color:#a855f7">◎ радиус</span>
+          <span>— дерево</span>
+          <span>⊕ колёсико — zoom</span>
+        </div>
+        <div class="toolbar">
+          <button type="button" id="btnUndo">Отменить точку</button>
+          <button type="button" class="danger" id="btnClear">Очистить</button>
+          <button type="button" class="steinerpy primary" id="btnSteinerPy" title="pip install steinerpy">SteinerPy</button>
+          <button type="button" class="geosteiner" id="btnGeoSteiner" title="Требует GeoSteiner (efst, bb)">GeoSteiner</button>
+        </div>
+        <div id="solverStatus"></div>
+        <div id="status"></div>
+      </div>
+
+      <div class="panel" style="flex:1; min-width:240px;">
+        <div class="field">
+          <label for="apiUrl">Базовый URL API</label>
+          <input id="apiUrl" type="text" value="http://127.0.0.1:8080"/>
+        </div>
+        <div class="field">
+          <label for="scale">Масштаб (м / пиксель)</label>
+          <input id="scale" type="number" value="80" min="10" max="500" step="10"/>
+        </div>
+
+        <div class="field" style="background:#f8fafc;border:1px solid #e2e8f0;border-radius:6px;padding:8px;">
+          <div style="font-size:12px;color:#475569;margin-bottom:6px;font-weight:600;">Параметры для расчёта:</div>
+          <div style="display:flex;gap:10px;flex-wrap:wrap;font-size:13px;">
+            <label class="toggle-row"><input type="radio" name="paramScope" value="both" checked/><span>Общие</span></label>
+            <label class="toggle-row"><input type="radio" name="paramScope" value="steinerpy"/><span style="color:#7c3aed;font-weight:600;">SteinerPy</span></label>
+            <label class="toggle-row"><input type="radio" name="paramScope" value="geosteiner"/><span style="color:#059669;font-weight:600;">GeoSteiner</span></label>
+          </div>
+        </div>
+
+        <div class="field" data-scope="both">
+          <label for="connectorMaxKm">Длина ребра у листа, km</label>
+          <input id="connectorMaxKm" type="number" value="0.2" min="0.001" max="50" step="0.05"/>
+        </div>
+        <div class="field" data-scope="both">
+          <label class="toggle-row" for="enforceAttachmentRadius">
+            <input id="enforceAttachmentRadius" type="checkbox" checked/>
+            <span>Учитывать лимит в расчёте</span>
+          </label>
+        </div>
+        <div class="field" data-scope="both">
+          <label class="toggle-row" for="normalizeTerminalLeaves">
+            <input id="normalizeTerminalLeaves" type="checkbox" checked/>
+            <span>Нормализация листьев (hub-узлы)</span>
+          </label>
+        </div>
+        <div class="field" data-scope="both">
+          <label for="steinerHubPrefix">Префикс hub-id</label>
+          <input id="steinerHubPrefix" type="text" value="steiner:hub"/>
+          <p style="font-size:12px;color:#64748b;margin:6px 0 0">
+            Идентификаторы вида <code>{prefix}:0</code>, <code>{prefix}:1</code> …
+          </p>
+        </div>
+        <div class="field" data-scope="both">
+          <label for="steinerHubOffsetKm">Смещение hub от терминала, km</label>
+          <input id="steinerHubOffsetKm" type="number" value="0" min="0" max="50" step="0.01"/>
+          <p style="font-size:12px;color:#64748b;margin:6px 0 0">
+            Длина ребра терминал→<code>{prefix}:0</code>; 0 — hub в точке терминала.
+          </p>
+        </div>
+        <div class="field" data-scope="both">
+          <label for="edgeVertexSpacingKm">Шаг вершин на ребре, km</label>
+          <input id="edgeVertexSpacingKm" type="number" value="0" min="0" max="50" step="0.01"/>
+          <p style="font-size:12px;color:#64748b;margin:6px 0 0">
+            0 — одно ребро между узлами; иначе промежуточные <code>steiner:waypoint:*</code>.
+          </p>
+        </div>
+        <div class="field" data-scope="both">
+          <label for="steinerRadiusKm">Радиус от терминалов, km</label>
+          <input id="steinerRadiusKm" type="number" value="0" min="0" max="50" step="0.1"/>
+          <p style="font-size:12px;color:#64748b;margin:6px 0 0">
+            0 — без ограничений. Steiner-точки ближе R к терминалу отталкиваются на границу зоны (в обоих солверах). Hub/attach-точки всегда остаются у терминала.
+          </p>
+        </div>
+
+        <div class="field" data-scope="steinerpy" style="border-left:3px solid #7c3aed;padding-left:8px;background:rgba(124,58,237,0.04);">
+          <label for="attachmentAngleDeg">Целевой угол примыкания, ° <span style="color:#7c3aed;font-size:11px;">▲ только SteinerPy</span></label>
+          <input id="attachmentAngleDeg" type="number" value="90" min="0" max="180" step="5"/>
+          <p style="font-size:12px;color:#64748b;margin:6px 0 0">
+            Угол между ребром терминала и направлением на магистраль. 90° — перпендикуляр.
+          </p>
+        </div>
+        <div class="field" data-scope="steinerpy" style="border-left:3px solid #7c3aed;padding-left:8px;background:rgba(124,58,237,0.04);">
+          <label for="attachmentAnglePenalty">Штраф за отклонение угла <span style="color:#7c3aed;font-size:11px;">▲ только SteinerPy</span></label>
+          <input id="attachmentAnglePenalty" type="number" value="0" min="0" max="10" step="0.1"/>
+          <p style="font-size:12px;color:#64748b;margin:6px 0 0">
+            0 — выключено; 0.5–2 — мягкое предпочтение; 2–5 — жёсткое.
+          </p>
+        </div>
+
+        <div class="field" data-scope="geosteiner" style="border-left:3px solid #059669;padding-left:8px;background:rgba(5,150,105,0.04);">
+          <p style="font-size:12px;color:#475569;margin:0;">
+            <strong style="color:#059669;">GeoSteiner</strong> — точный алгоритм (efst + bb). Дополнительных параметров нет: угол примыкания и его штраф не поддерживаются библиотекой. Используется общая часть настроек выше + пост-процессинг (радиус, лимиты, hub-узлы).
+          </p>
+        </div>
+
+        <p style="font-size:13px;color:#64748b;margin:8px 0 4px">Терминалы (<span id="count">0</span>):</p>
+        <ul class="points" id="pointList"></ul>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    const ORIGIN_LON = 37.62;
+    const ORIGIN_LAT = 55.75;
+    const R = 6371000;
+    const cosLat = Math.cos((ORIGIN_LAT * Math.PI) / 180);
+
+    const canvas = document.getElementById("map");
+    const ctx = canvas.getContext("2d");
+    const statusEl = document.getElementById("status");
+    const pointList = document.getElementById("pointList");
+    const countEl = document.getElementById("count");
+
+    /** @type {{id:string, px:number, py:number, lon:number, lat:number, role:string}[]} */
+    let terminals = [];
+    /** @type {object|null} */
+    let lastPlan = null;
+    let viewPanX = 0;
+    let viewPanY = 0;
+
+    function metersPerPx() {
+      return Number(document.getElementById("scale").value) || 80;
+    }
+
+    function connectorMaxKm() {
+      const v = Number(document.getElementById("connectorMaxKm").value);
+      return Number.isFinite(v) && v > 0 ? v : 0.2;
+    }
+
+    function enforceAttachmentRadius() {
+      return document.getElementById("enforceAttachmentRadius").checked;
+    }
+
+    function normalizeTerminalLeaves() {
+      return document.getElementById("normalizeTerminalLeaves").checked;
+    }
+
+    function steinerHubPrefix() {
+      const v = document.getElementById("steinerHubPrefix").value.trim();
+      return v || "steiner:hub";
+    }
+
+    function steinerHubOffsetKm() {
+      const v = Number(document.getElementById("steinerHubOffsetKm").value);
+      return Number.isFinite(v) && v >= 0 ? v : 0;
+    }
+
+    function edgeVertexSpacingKm() {
+      const v = Number(document.getElementById("edgeVertexSpacingKm").value);
+      return Number.isFinite(v) && v >= 0 ? v : 0;
+    }
+
+    function attachmentAngleDeg() {
+      const v = Number(document.getElementById("attachmentAngleDeg").value);
+      return Number.isFinite(v) ? v : 90;
+    }
+
+    function attachmentAnglePenalty() {
+      const v = Number(document.getElementById("attachmentAnglePenalty").value);
+      return Number.isFinite(v) && v >= 0 ? v : 0;
+    }
+
+    function steinerRadiusKm() {
+      const v = Number(document.getElementById("steinerRadiusKm").value);
+      return Number.isFinite(v) && v >= 0 ? v : 0;
+    }
+
+    function toLocal(px, py) {
+      const m = metersPerPx();
+      const x = (px - canvas.width / 2 - viewPanX) * m;
+      const y = (canvas.height / 2 + viewPanY - py) * m;
+      return { x, y };
+    }
+
+    function toScreen(x, y) {
+      const m = metersPerPx();
+      return {
+        px: canvas.width / 2 + viewPanX + x / m,
+        py: canvas.height / 2 + viewPanY - y / m,
+      };
+    }
+
+    function relayoutTerminals() {
+      for (const t of terminals) {
+        const x = Math.radians(t.lon - ORIGIN_LON) * R * cosLat;
+        const y = Math.radians(t.lat - ORIGIN_LAT) * R;
+        const s = toScreen(x, y);
+        t.px = s.px;
+        t.py = s.py;
+      }
+    }
+
+    function zoomAtCanvasPoint(cx, cy, zoomIn) {
+      const world = toLocal(cx, cy);
+      const scaleEl = document.getElementById("scale");
+      const oldM = metersPerPx();
+      const factor = zoomIn ? 0.9 : 1.1;
+      const newM = Math.min(500, Math.max(10, oldM * factor));
+      scaleEl.value = String(Math.round(newM));
+      viewPanX = cx - canvas.width / 2 - world.x / newM;
+      viewPanY = cy - canvas.height / 2 + world.y / newM;
+      relayoutTerminals();
+      draw();
+    }
+
+    function toWgs84(x, y) {
+      const lat = ORIGIN_LAT + (y / R) * (180 / Math.PI);
+      const lon = ORIGIN_LON + (x / (R * cosLat)) * (180 / Math.PI);
+      return { lon, lat };
+    }
+
+    function assignRoles() {
+      terminals.forEach((t, i) => {
+        if (terminals.length === 1) t.role = "start";
+        else if (i === 0) t.role = "start";
+        else if (i === terminals.length - 1) t.role = "end";
+        else t.role = "intermediate";
+      });
+    }
+
+    function setStatus(msg, isError = false, isWarn = false) {
+      statusEl.textContent = msg;
+      statusEl.className = isError ? "error" : isWarn ? "warn" : "";
+    }
+
+    function summarizeWarnings(warnings) {
+      if (!warnings?.length) return "";
+      const msgs = [];
+      const skip = new Set(["solver:steinerpy", "solver:geosteiner"]);
+      for (const w of warnings) {
+        if (skip.has(w)) continue;
+        if (w === "solver_fallback:constrained_star") {
+          msgs.push("учтён лимит коннектора (звезда)");
+        } else if (w.startsWith("attachment_radius_violations:")) {
+          msgs.push(`${w.split(":")[1]} терм. вне радиуса`);
+        } else if (w.endsWith("_attachment_radius_violation")) {
+          continue;
+        } else if (w.endsWith("_steiner_radius_repel")) {
+          msgs.push("Steiner-точки отодвинуты от терминалов");
+        } else if (w.endsWith("_steiner_radius_vs_attachment_conflict")) {
+          msgs.push("радиус > лимита коннектора (hub/attach остаются у терминала)");
+        } else if (w === "start_end_not_connected") {
+          msgs.push("start/end не связаны");
+        } else {
+          msgs.push(w);
+        }
+      }
+      return msgs.length ? msgs.join("; ") : "";
+    }
+
+    function formatPlanStatus(label, data) {
+      const len = data.total_length_m ?? 0;
+      const st = data.steiner_tree?.steiner_points?.length ?? 0;
+      const edges = data.steiner_tree?.edges?.length ?? 0;
+      const warn = summarizeWarnings(data.warnings || []);
+      const head = `${label}: ${(len / 1000).toFixed(2)} km · Steiner ${st} · рёбер ${edges}`;
+      return warn ? `${head}\n⚠ ${warn}` : head;
+    }
+
+    function updateList() {
+      countEl.textContent = String(terminals.length);
+      pointList.innerHTML = terminals
+        .map(
+          (t, i) =>
+            `<li><span><span class="role ${t.role}">${t.role}</span> #${i + 1}</span>` +
+            `<span>${t.lon.toFixed(5)}, ${t.lat.toFixed(5)}</span></li>`
+        )
+        .join("");
+    }
+
+    function draw() {
+      ctx.clearRect(0, 0, canvas.width, canvas.height);
+      const origin = toScreen(0, 0);
+      ctx.strokeStyle = "#e2e8f0";
+      ctx.lineWidth = 1;
+      ctx.beginPath();
+      ctx.moveTo(origin.px, 0);
+      ctx.lineTo(origin.px, canvas.height);
+      ctx.moveTo(0, origin.py);
+      ctx.lineTo(canvas.width, origin.py);
+      ctx.stroke();
+
+      const radiusKm = steinerRadiusKm();
+      if (radiusKm > 0) {
+        ctx.strokeStyle = "rgba(168, 85, 247, 0.35)";
+        ctx.fillStyle = "rgba(168, 85, 247, 0.06)";
+        ctx.lineWidth = 1;
+        const m = metersPerPx();
+        const rPx = (radiusKm * 1000) / m;
+        for (const t of terminals) {
+          ctx.beginPath();
+          ctx.arc(t.px, t.py, rPx, 0, Math.PI * 2);
+          ctx.fill();
+          ctx.stroke();
+        }
+      }
+
+      if (lastPlan && lastPlan.steiner_tree) {
+        const tree = lastPlan.steiner_tree;
+        ctx.strokeStyle = "#1e293b";
+        ctx.lineWidth = 2;
+        for (const edge of tree.edges || []) {
+          const coords = edge.coordinates || [];
+          if (coords.length < 2) continue;
+          const p0 = lonLatToScreen(coords[0][0], coords[0][1]);
+          ctx.beginPath();
+          ctx.moveTo(p0.px, p0.py);
+          for (let i = 1; i < coords.length; i++) {
+            const p = lonLatToScreen(coords[i][0], coords[i][1]);
+            ctx.lineTo(p.px, p.py);
+          }
+          ctx.stroke();
+        }
+        for (const sp of tree.steiner_points || []) {
+          const p = lonLatToScreen(sp.lon, sp.lat);
+          const isHub = (sp.id || "").includes("hub");
+          const isAttach = (sp.id || "").includes("attach");
+          const isWaypoint = (sp.id || "").includes("waypoint");
+          if (isHub) {
+            ctx.fillStyle = "#f59e0b";
+            ctx.beginPath();
+            ctx.arc(p.px, p.py, 4, 0, Math.PI * 2);
+            ctx.fill();
+            ctx.strokeStyle = "#b45309";
+            ctx.lineWidth = 1;
+            ctx.stroke();
+          } else if (isAttach) {
+            ctx.fillStyle = "#f97316";
+            ctx.beginPath();
+            ctx.arc(p.px, p.py, 4, 0, Math.PI * 2);
+            ctx.fill();
+            ctx.strokeStyle = "#9a3412";
+            ctx.lineWidth = 1;
+            ctx.stroke();
+          } else if (isWaypoint) {
+            ctx.fillStyle = "#94a3b8";
+            ctx.beginPath();
+            ctx.arc(p.px, p.py, 3, 0, Math.PI * 2);
+            ctx.fill();
+          } else {
+            ctx.fillStyle = "#22c55e";
+            ctx.beginPath();
+            ctx.arc(p.px, p.py, 6, 0, Math.PI * 2);
+            ctx.fill();
+          }
+        }
+      }
+
+      for (const t of terminals) {
+        const r = t.role === "start" || t.role === "end" ? 7 : 5;
+        ctx.fillStyle =
+          t.role === "start"
+            ? "#dc2626"
+            : t.role === "end"
+              ? "#b91c1c"
+              : "#2563eb";
+        ctx.beginPath();
+        ctx.arc(t.px, t.py, r, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.fillStyle = "#334155";
+        ctx.font = "11px system-ui";
+        ctx.fillText(t.role === "start" ? "S" : t.role === "end" ? "E" : String(terminals.indexOf(t) + 1), t.px + 9, t.py - 9);
+      }
+    }
+
+    function lonLatToScreen(lon, lat) {
+      const x = Math.radians(lon - ORIGIN_LON) * R * cosLat;
+      const y = Math.radians(lat - ORIGIN_LAT) * R;
+      return toScreen(x, y);
+    }
+
+    Math.radians = (deg) => (deg * Math.PI) / 180;
+
+    canvas.addEventListener(
+      "wheel",
+      (e) => {
+        e.preventDefault();
+        const rect = canvas.getBoundingClientRect();
+        const cx = ((e.clientX - rect.left) / rect.width) * canvas.width;
+        const cy = ((e.clientY - rect.top) / rect.height) * canvas.height;
+        zoomAtCanvasPoint(cx, cy, e.deltaY < 0);
+      },
+      { passive: false }
+    );
+
+    canvas.addEventListener("click", (e) => {
+      const rect = canvas.getBoundingClientRect();
+      const px = ((e.clientX - rect.left) / rect.width) * canvas.width;
+      const py = ((e.clientY - rect.top) / rect.height) * canvas.height;
+      const { x, y } = toLocal(px, py);
+      const { lon, lat } = toWgs84(x, y);
+      terminals.push({
+        id: crypto.randomUUID(),
+        px,
+        py,
+        lon,
+        lat,
+        role: "intermediate",
+      });
+      assignRoles();
+      lastPlan = null;
+      updateList();
+      draw();
+      setStatus(`Добавлена точка ${terminals.length}. Нужно минимум 2 для расчёта.`);
+    });
+
+    document.getElementById("btnUndo").addEventListener("click", () => {
+      terminals.pop();
+      assignRoles();
+      lastPlan = null;
+      updateList();
+      draw();
+      setStatus(terminals.length ? "Последняя точка удалена." : "Все точки удалены.");
+    });
+
+    document.getElementById("btnClear").addEventListener("click", () => {
+      terminals = [];
+      lastPlan = null;
+      viewPanX = 0;
+      viewPanY = 0;
+      updateList();
+      draw();
+      setStatus("Очищено.");
+    });
+
+    document.getElementById("scale").addEventListener("change", () => {
+      relayoutTerminals();
+      draw();
+    });
+
+    function apiBaseUrl() {
+      return document.getElementById("apiUrl").value.trim().replace(/\/+$/, "");
+    }
+
+    function buildPlanBody() {
+      const maxPoints = Math.max(50, terminals.length + 5);
+      return {
+        terminals: terminals.map((t) => ({
+          id: t.id,
+          type: "oil_pad",
+          role: t.role,
+          lon: t.lon,
+          lat: t.lat,
+        })),
+        options: {
+          max_points: maxPoints,
+          connector_max_km: connectorMaxKm(),
+          enforce_attachment_radius: enforceAttachmentRadius(),
+          normalize_terminal_leaves: normalizeTerminalLeaves(),
+          steiner_hub_prefix: steinerHubPrefix(),
+          steiner_hub_offset_km: steinerHubOffsetKm(),
+          edge_vertex_spacing_km: edgeVertexSpacingKm(),
+          attachment_angle_deg: attachmentAngleDeg(),
+          attachment_angle_penalty: attachmentAnglePenalty(),
+          steiner_radius_km: steinerRadiusKm(),
+        },
+      };
+    }
+
+    async function runPlan(endpoint, label, buttons) {
+      if (terminals.length < 2) {
+        setStatus("Нужно минимум 2 терминала (start и end).", true);
+        return;
+      }
+      assignRoles();
+      const url = `${apiBaseUrl()}${endpoint}`;
+      setStatus(`${label}: запрос к API…`);
+      for (const btn of buttons) btn.disabled = true;
+      try {
+        const res = await fetch(url, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(buildPlanBody()),
+        });
+        let data;
+        try {
+          data = await res.json();
+        } catch {
+          throw new Error(res.statusText || "Некорректный ответ API");
+        }
+        if (!res.ok) {
+          const detail =
+            typeof data.detail === "string"
+              ? data.detail
+              : data.detail
+                ? JSON.stringify(data.detail)
+                : res.statusText;
+          throw new Error(detail);
+        }
+        lastPlan = data;
+        const warn = summarizeWarnings(data.warnings || []);
+        setStatus(formatPlanStatus(label, data), false, Boolean(warn));
+        draw();
+      } catch (err) {
+        lastPlan = null;
+        draw();
+        setStatus(
+          `${label} — ошибка: ${err.message}. API запущен? SteinerPy: GET /v1/steinerpy/status`,
+          true
+        );
+      } finally {
+        for (const btn of buttons) btn.disabled = false;
+      }
+    }
+
+    const planButtons = () => [
+      document.getElementById("btnSteinerPy"),
+      document.getElementById("btnGeoSteiner"),
+    ];
+
+    document.getElementById("btnSteinerPy").addEventListener("click", () =>
+      runPlan("/v1/plan/steinerpy", "SteinerPy", planButtons())
+    );
+
+    document.getElementById("btnGeoSteiner").addEventListener("click", () =>
+      runPlan("/v1/plan/geosteiner", "GeoSteiner", planButtons())
+    );
+
+    async function refreshSolverStatus() {
+      const geoBtn = document.getElementById("btnGeoSteiner");
+      const pyBtn = document.getElementById("btnSteinerPy");
+      const statusEl = document.getElementById("solverStatus");
+      const lines = [];
+      try {
+        const pyRes = await fetch(`${apiBaseUrl()}/v1/steinerpy/status`);
+        const py = await pyRes.json();
+        if (py.available) {
+          pyBtn.disabled = false;
+          lines.push("SteinerPy: готов (HiGHS).");
+        } else {
+          pyBtn.disabled = true;
+          lines.push("SteinerPy: pip install steinerpy");
+        }
+      } catch {
+        pyBtn.disabled = false;
+        lines.push("SteinerPy: статус неизвестен");
+      }
+      try {
+        const res = await fetch(`${apiBaseUrl()}/v1/geosteiner/status`);
+        const data = await res.json();
+        if (data.available) {
+          geoBtn.disabled = false;
+          lines.push("GeoSteiner: готов (efst + bb).");
+        } else if (data.efst || data.bin_dir) {
+          geoBtn.disabled = true;
+          lines.push("GeoSteiner: нужен MSYS2 runtime.");
+        } else {
+          geoBtn.disabled = true;
+          lines.push("GeoSteiner: не установлен.");
+        }
+      } catch {
+        geoBtn.disabled = false;
+        lines.push("GeoSteiner: статус неизвестен");
+      }
+      statusEl.className = lines.every((l) => l.includes("готов")) ? "ok" : "warn";
+      statusEl.textContent = lines.join(" ");
+    }
+
+    function applyParamScope(scope) {
+      const fields = document.querySelectorAll("[data-scope]");
+      for (const el of fields) {
+        const scopes = (el.dataset.scope || "").split(",");
+        const visible = scopes.includes(scope) || scopes.includes("both");
+        el.style.display = visible ? "" : "none";
+        const inputs = el.querySelectorAll("input, select, textarea");
+        for (const inp of inputs) {
+          if (inp.name === "paramScope") continue;
+          inp.disabled = !visible;
+        }
+      }
+    }
+
+    document.querySelectorAll('input[name="paramScope"]').forEach((radio) => {
+      radio.addEventListener("change", () => applyParamScope(radio.value));
+    });
+    applyParamScope("both");
+
+    draw();
+    setStatus("Кликните по полю, чтобы поставить терминалы.");
+    refreshSolverStatus();
+  </script>
+</body>
+</html>

@@ -12,8 +12,8 @@ from uuid import UUID
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
-from app.db.session import async_session_maker
-from app.services.autoroad_network.plan_core import plan_from_request
+from app.core.database import async_session
+from app.services.autoroad_network.planner_adapter import compute_via_network_planner
 from app.services.autoroad_network.schemas import (
     ExistingAutoroadInput,
     NetworkPlanRequest,
@@ -77,7 +77,7 @@ async def _load_autoroads(db, project_id: UUID) -> list[ExistingAutoroadInput]:
 
 
 async def run(project_id: UUID, object_ids: list[UUID]) -> dict:
-    async with async_session_maker() as db:
+    async with async_session() as db:
         terminals = await _load_terminals(db, project_id, object_ids)
         roads = await _load_autoroads(db, project_id)
     req = NetworkPlanRequest(
@@ -85,7 +85,7 @@ async def run(project_id: UUID, object_ids: list[UUID]) -> dict:
         terminals=terminals,
         existing_autoroads=roads,
     )
-    out = plan_from_request(req)
+    out = await compute_via_network_planner(req)
     return {
         "total_new_km": out.total_new_km,
         "new_line_count": out.new_line_count,

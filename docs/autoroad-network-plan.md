@@ -1,7 +1,7 @@
 # Автопостроение сети автодорог
 
 **Дата:** июнь 2026  
-**Статус:** функция **работает** и **согласована с `plan_core.py`**: режим «Сеть» на карте, plan/apply, MST + Steiner без дорог, проверка связности. Отдельный процесс на порту 8001 — только при `AUTOROAD_NETWORK_INPROCESS=false` + `AUTOROAD_NETWORK_SERVICE_URL`.
+**Статус:** функция **работает** через библиотеку [`autoroad-network-planner`](../../autoroad-network-planner/) (Euclidean Steiner tree, GeoSteiner / SteinerPy). Режим «Сеть» на карте: request → compute → apply; параметры расчёта в UI панели. In-process по умолчанию; HTTP-микросервис `:8080` — при `AUTOROAD_NETWORK_INPROCESS=false` + `AUTOROAD_NETWORK_SERVICE_URL`.
 
 > **Пошаговая инструкция и разбор алгоритмов простым языком:** [autoroad-network-instruction.md](./autoroad-network-instruction.md)  
 > **Журнал задач в шапке (JSON расчётов, экспорт):** [task-log-panel.md](./task-log-panel.md)
@@ -103,9 +103,9 @@
 1. **Есть старые дороги** — новые участки цепляются к ним; связь между объектами идёт **по сети дорог** и подъездам, а не напрямую объект↔объект.
 2. **К каждому терминалу** — не больше **одной** автодороги, приходящей в объект.
 3. **Сеть разорвана** на куски — недостающие связи между кусками — **между узлами/snap на линиях**, не между координатами терминалов.
-4. **Дорог нет, 2 объекта** — по одному `connector` от каждого `Т` до границы зоны 200 m и один `link` между границами (не прямая линия `Т↔Т`).
-5. **Дорог нет, 3+ объекта** — **MST:** `n−1` узлов `●` на рёбрах MST (вне зон 200 m), `link` между узлами, по одному `connector` `Т→граница`; несколько дорог в одной точке `Т` **запрещено**.
-6. **Зона 200 m** — вокруг каждого выбранного терминала запретная область радиусом **200 m** (`TERMINAL_EXCLUSION_RADIUS_KM = 0,2`): внутри допускается только `connector` от `Т` до точки на границе; все `link` и `junction` — снаружи. Если терминалы ближе **400 m**, зоны пересекаются → предупреждение `exclusion_zones_overlap`, связь строится между точками на границах.
+4. **Дорог нет, 2 объекта** — по одному `connector` от каждого `Т` до границы зоны **400 m** и один `link` между границами (не прямая линия `Т↔Т`).
+5. **Дорог нет, 3+ объекта** — **MST:** `n−1` узлов `●` на рёбрах MST (вне зон **400 m**), `link` между узлами, по одному `connector` `Т→граница`; несколько дорог в одной точке `Т` **запрещено**.
+6. **Зона 400 m** — вокруг каждого выбранного терминала запретная область радиусом **400 m** (`TERMINAL_EXCLUSION_RADIUS_KM = 0,4`): внутри допускается только `connector` от `Т` до точки на границе; все `link` и `junction` — снаружи. Если терминалы ближе **800 m**, зоны пересекаются → предупреждение `exclusion_zones_overlap`, связь строится между точками на границах.
 7. **Уже подключён** — конец существующей дороги в **≤20 m** от объекта → второй подъезд не строят (`already_connected`).
 8. **Далеко от дороги** — snap **>0,3 km** → предупреждение `far_from_autoroad`, подъезд всё равно строят.
 9. За раз **от 2 до 50** терминалов; POI и подтипы `node` / `methanol_joint` / `power_line_node` не участвуют.
@@ -168,9 +168,11 @@
            Т₂
 ```
 
-**MST без дорог:** топология по **длине маршрута вне зон 200 m** между точками на границах `B_a↔B_b` (`route_backbone_outside_exclusions`), не по прямой между `Т`. Каждое ребро MST — **полилиния** `link` по этому маршруту (обход чужих дисков), не хорда через середины.
+**MST без дорог:** топология по **длине маршрута вне зон 400 m** между точками на границах `B_a↔B_b` (`route_backbone_outside_exclusions`), не по прямой между `Т`. Каждое ребро MST — **полилиния** `link` по этому маршруту (обход чужих дисков), не хорда через середины.
 
 Степень 2: `link` вдоль маршрута между `●`, `connector` на магистраль. Степень ≥3: `Т→J_T`, лучи `J_T→` концы маршрутов к границам (без хорды `●₁—●₂` через угол). Два `Т`: `link` `B₁—B₂` с тем же обходом.
+
+Магистраль **кратчайшая** вне дисков 400 m: для площадок в два ряда (например GKS_3–6) хорды на границах могут идти вдоль южного ряда между объектами — следствие геометрии MST, не отдельный режим маршрутизации.
 
 ---
 
@@ -424,15 +426,14 @@ flowchart TD
 
 | Модуль | Путь | Назначение |
 |--------|------|------------|
-| Планировщик | `decision-matrix/backend/app/services/autoroad_network/plan_core.py` | `plan_from_request`, `_plan_off_network`, `_plan_with_network` |
-| MST без дорог | `plan_core._plan_off_network_steiner_mst` | Рёбра MST, Steiner-узлы, connectors |
-| Т-развилки | `plan_core._repair_planned_line_topology` | Узел на примыкании коннектора/ребра к **середине** `link`; разбиение сегмента |
-| Связность | `plan_core._validate_terminal_connectivity` | Предупреждение `terminals_not_connected` |
+| Планировщик (ядро) | `autoroad-network-planner/src/network_planner/` | SteinerPy / GeoSteiner, post-processing |
+| Адаптер BFF | `.../autoroad_network/planner_adapter.py` | `NetworkPlanRequest` ↔ `PlanRequest`, fallback солверов |
+| UI параметров | `frontend/src/components/AutoroadNetworkParamsSection.tsx` | Поля как в `planner_prototype.html` |
 | Preview на карте | `frontend/src/lib/autoroadPlanPreview.ts`, `MapPage.tsx` | GeoJSON overlay до apply |
 | Демо-сценарии | `.../autoroad_network/demo_projects.py` | Тестовые проекты на карте |
-| Схемы | `.../autoroad_network/schemas.py` | Вход/выход plan |
-| Граф из линий | `.../autoroad_network/graph_from_polylines.py` | Граф для компонент |
-| Клиент внешнего сервиса | `.../autoroad_network/client.py` | HTTP, если не in-process |
+| Схемы | `.../autoroad_network/schemas.py` | Вход/выход plan + `PlanOptionsInput` |
+| Статус солверов | `GET /api/v1/autoroad-network/solver-status` | Доступность GeoSteiner / SteinerPy |
+| Клиент | `.../autoroad_network/client.py` | In-process или HTTP `:8080/v1/plan/{solver}` |
 | Apply | `decision-matrix/backend/app/services/autoroad_connect.py` | Запись в БД |
 | Граф дорог (общий) | `decision-matrix/backend/app/services/road_graph.py` | Пути по сети |
 

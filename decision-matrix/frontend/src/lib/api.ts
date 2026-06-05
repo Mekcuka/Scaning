@@ -160,7 +160,13 @@ function formatApiError(detail: unknown, fallback: string): string {
     });
     return parts.join('; ') || fallback;
   }
-  if (detail && typeof detail === 'object') return JSON.stringify(detail);
+  if (detail && typeof detail === 'object') {
+    const obj = detail as Record<string, unknown>;
+    if (typeof obj.message === 'string' && obj.message.includes('active job')) {
+      return 'В проекте уже выполняется фоновая задача. Дождитесь завершения или отмените её в «Журнале задач».';
+    }
+    return JSON.stringify(detail);
+  }
   return fallback;
 }
 
@@ -575,6 +581,13 @@ export const api = {
         timeoutMs: opts?.timeoutMs ?? 120_000,
       },
     ),
+  autoroadNetworkSolverStatus: () =>
+    request<{
+      steinerpy: boolean;
+      geosteiner: boolean;
+      default_solver: string;
+    }>('/autoroad-network/solver-status'),
+
   autoroadNetworkBuildRequest: (
     projectId: string,
     data: { object_ids: string[]; full_network_rebuild?: boolean },
@@ -1039,6 +1052,16 @@ export interface NetworkPlanRequest {
   terminals: PlanTerminalInput[];
   existing_autoroads: ExistingAutoroadInput[];
   options?: {
+    solver?: 'geosteiner' | 'steinerpy';
+    connector_max_km?: number;
+    enforce_attachment_radius?: boolean;
+    normalize_terminal_leaves?: boolean;
+    steiner_hub_prefix?: string;
+    steiner_hub_offset_km?: number;
+    edge_vertex_spacing_km?: number;
+    steiner_radius_km?: number;
+    attachment_angle_deg?: number;
+    attachment_angle_penalty?: number;
     snap_tolerance_km?: number;
     node_dedup_km?: number;
     max_terminals?: number;

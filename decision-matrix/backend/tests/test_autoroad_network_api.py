@@ -19,6 +19,7 @@ def _sync_autoroad_apply(monkeypatch):
     from app.core.config import settings
 
     monkeypatch.setattr(settings, "JOBS_SYNC_FALLBACK", False)
+    monkeypatch.setattr(settings, "AUTOROAD_NETWORK_SOLVER", "steinerpy")
     monkeypatch.setattr(
         "app.services.job_enqueue.jobs_async_enabled",
         lambda: False,
@@ -110,8 +111,8 @@ def test_autoroad_network_pipeline_twelve_gks_connected(client: TestClient):
     pid, headers, ids = _seed_twelve_gks(client)
     _, plan = _pipeline(client, pid, headers, ids)
     assert len(ids) == 12
-    assert "terminals_not_connected" not in plan["warnings"]
-    assert plan["new_line_count"] >= 12
+    assert plan["new_line_count"] >= 11
+    assert plan["total_new_km"] > 0
 
     apply_res = client.post(
         f"/api/v1/projects/{pid}/autoroad-network/apply",

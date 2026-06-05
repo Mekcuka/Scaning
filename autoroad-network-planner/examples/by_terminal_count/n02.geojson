@@ -1,0 +1,68 @@
+{
+  "type": "FeatureCollection",
+  "properties": {
+    "layout": "zigzag",
+    "n_terminals": 2,
+    "segment_spacing_m": 5000.0,
+    "half_span_m": 2500.0,
+    "zigzag_amplitude_m": 1000.0,
+    "backbone_length_m": 5385.165,
+    "total_length_m": 5385.165,
+    "warnings": []
+  },
+  "features": [
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          37.58005180651128,
+          55.75899321605919
+        ]
+      },
+      "properties": {
+        "id": "54f6480e-6373-4fe6-a94e-b5957746dee3",
+        "type": "oil_pad",
+        "role": "start",
+        "kind": "terminal"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          37.65994819348872,
+          55.74100678394081
+        ]
+      },
+      "properties": {
+        "id": "5cd7577a-0a00-4f6a-a17a-161067fd0cc8",
+        "type": "oil_pad",
+        "role": "end",
+        "kind": "terminal"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "LineString",
+        "coordinates": [
+          [
+            37.58005180651128,
+            55.75899321605919
+          ],
+          [
+            37.65994819348872,
+            55.74100678394081
+          ]
+        ]
+      },
+      "properties": {
+        "from": "terminal:54f6480e-6373-4fe6-a94e-b5957746dee3",
+        "to": "terminal:5cd7577a-0a00-4f6a-a17a-161067fd0cc8",
+        "kind": "backbone"
+      }
+    }
+  ]
+}

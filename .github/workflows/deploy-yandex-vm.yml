@@ -184,7 +184,9 @@ jobs:
           echo "Pushing to ${IMAGE_REF}"
 
       - name: Stage shared assets for backend image
-        run: cp -r decision-matrix/shared decision-matrix/backend/shared
+        run: |
+          cp -r decision-matrix/shared decision-matrix/backend/shared
+          cp -r autoroad-network-planner decision-matrix/backend/network-planner-vendor
 
       - name: Build and push backend image
         uses: docker/build-push-action@v6
@@ -330,7 +332,6 @@ jobs:
           docker compose pull
           docker compose up -d --remove-orphans
           docker compose exec -T api python seed.py || true
-          docker compose exec -T api python seed_autoroad_network_demos.py || true
           REMOTE
 
       - name: Smoke health check

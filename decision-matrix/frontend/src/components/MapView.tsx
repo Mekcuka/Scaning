@@ -214,6 +214,9 @@ export interface MapViewProps {
   onPointerLeave?: () => void;
   onFeatureSelect?: (sel: MapFeatureSelection | null) => void;
   onFeatureGroupSelect?: (sels: MapFeatureSelection[]) => void;
+  /** Drag-box pick (e.g. autoroad network terminal bulk select). */
+  dragBoxPick?: boolean;
+  onDragBoxPick?: (sels: MapFeatureSelection[]) => void;
   onGeometryChange?: (sel: MapFeatureSelection, lon: number, lat: number, coords?: number[][]) => void;
   /** Group move in box-select mode (Translate interaction). */
   onBatchGeometryChange?: (
@@ -499,6 +502,8 @@ function MapViewInner({
   onPointerLeave,
   onFeatureSelect,
   onFeatureGroupSelect,
+  dragBoxPick = false,
+  onDragBoxPick,
   onGeometryChange,
   onBatchGeometryChange,
   onBboxChange,
@@ -563,6 +568,8 @@ function MapViewInner({
   const onPointerLeaveRef = useRef(onPointerLeave);
   const onFeatureSelectRef = useRef(onFeatureSelect);
   const onFeatureGroupSelectRef = useRef(onFeatureGroupSelect);
+  const dragBoxPickRef = useRef(dragBoxPick);
+  const onDragBoxPickRef = useRef(onDragBoxPick);
   const onGeometryChangeRef = useRef(onGeometryChange);
   const onBatchGeometryChangeRef = useRef(onBatchGeometryChange);
   const onBboxChangeRef = useRef(onBboxChange);
@@ -614,6 +621,8 @@ function MapViewInner({
   onPointerLeaveRef.current = onPointerLeave;
   onFeatureSelectRef.current = onFeatureSelect;
   onFeatureGroupSelectRef.current = onFeatureGroupSelect;
+  dragBoxPickRef.current = dragBoxPick;
+  onDragBoxPickRef.current = onDragBoxPick;
   onGeometryChangeRef.current = onGeometryChange;
   onBatchGeometryChangeRef.current = onBatchGeometryChange;
   onBboxChangeRef.current = onBboxChange;
@@ -813,6 +822,10 @@ function MapViewInner({
       className: 'ol-dragbox-select',
       condition: (evt) => {
         if (!mouseActionButton(evt)) return false;
+        if (dragBoxPickRef.current) {
+          if (pasteModeRef.current) return false;
+          return true;
+        }
         if (drawModeRef.current !== 'select' || selectModeRef.current !== 'box') return false;
         if (pasteModeRef.current) return false;
         // While group is selected, drag moves features (Translate), not a new box.
@@ -875,7 +888,10 @@ function MapViewInner({
     });
 
     dragBox.on('boxend', () => {
-      if (drawModeRef.current !== 'select' || selectModeRef.current !== 'box') return;
+      const isAutoroadBoxPick = dragBoxPickRef.current;
+      const isGroupBoxSelect =
+        drawModeRef.current === 'select' && selectModeRef.current === 'box';
+      if (!isAutoroadBoxPick && !isGroupBoxSelect) return;
 
       const extent = dragBox.getGeometry().getExtent();
       const collection = select.getFeatures();
@@ -891,21 +907,27 @@ function MapViewInner({
           if (!sel || seen.has(sel.id)) continue;
           seen.add(sel.id);
           selections.push(sel);
-          if (!addedVisual) {
+          if (!isAutoroadBoxPick && !addedVisual) {
             collection.push(layerFeature);
             addedVisual = true;
           }
         }
       };
 
-      lineSourceRef.current.forEachFeatureIntersectingExtent(extent, (feature) => {
-        addFeature(feature);
-      });
+      if (!isAutoroadBoxPick) {
+        lineSourceRef.current.forEachFeatureIntersectingExtent(extent, (feature) => {
+          addFeature(feature);
+        });
+      }
       pointSourceRef.current.forEachFeatureIntersectingExtent(extent, (feature) => {
         addFeature(feature);
       });
 
-      onFeatureGroupSelectRef.current?.(selections);
+      if (isAutoroadBoxPick) {
+        onDragBoxPickRef.current?.(selections);
+      } else {
+        onFeatureGroupSelectRef.current?.(selections);
+      }
     });
 
     const resolveInfraPointAtPixel = (pixel: number[]) => {
@@ -1726,35 +1748,43 @@ function MapViewInner({
     const isRuler = drawMode === 'ruler';
     const isSingle = isSelect && selectMode === 'single';
     const isBox = isSelect && selectMode === 'box';
+    const isDragBoxPick = dragBoxPick;
     const canModify = editMode && isSingle;
     const hasGroupSelection = selectedFeatureIds.length > 0;
     const canTranslate =
       editMode && isBox && hasGroupSelection && !!onBatchGeometryChangeRef.current;
     const pasteActive = pasteMode;
+    const boxDrawing = (isBox && !hasGroupSelection) || isDragBoxPick;
     selectRef.current?.setActive(isSingle && !pasteActive);
     modifyRef.current?.setActive(canModify && !pasteActive);
     translateRef.current?.setActive(canTranslate && !pasteActive);
-    dragBoxRef.current?.setActive(isBox && !pasteActive && !hasGroupSelection);
-    dragPanRef.current?.setActive(pasteActive || !isBox || hasGroupSelection);
+    dragBoxRef.current?.setActive(boxDrawing && !pasteActive);
+    dragPanRef.current?.setActive(pasteActive || !boxDrawing || (isBox && hasGroupSelection));
     if (containerRef.current) {
       const isPointPlace = drawMode === 'point' || drawMode === 'poi';
-      const cursor = pasteActive || isRuler || isPointPlace
+      const cursor = pasteActive || isRuler || isPointPlace || boxDrawing
         ? 'crosshair'
         : canTranslate
           ? 'grab'
           : !editMode
             ? 'default'
-            : isBox
-              ? 'crosshair'
-              : isSelect
-                ? 'default'
-                : 'crosshair';
+            : isSelect
+              ? 'default'
+              : 'crosshair';
       containerRef.current.style.cursor = cursor;
     }
     if (!isSelect) {
       selectRef.current?.getFeatures().clear();
     }
-  }, [drawMode, selectMode, editMode, pasteMode, selectedFeatureIds.length, onBatchGeometryChange]);
+  }, [
+    drawMode,
+    selectMode,
+    editMode,
+    pasteMode,
+    dragBoxPick,
+    selectedFeatureIds.length,
+    onBatchGeometryChange,
+  ]);
 
   useEffect(() => {
     if (!editMode) {
