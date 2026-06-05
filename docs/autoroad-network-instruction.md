@@ -212,17 +212,16 @@ curl -s -X POST "http://127.0.0.1:8001/v1/network/plan" \
 |------|------|
 | `decision-matrix/backend/app/api/v1/autoroad_network.py` | HTTP: `request`, `compute`, `apply` (+ legacy `plan`, `apply-legacy`) |
 | `decision-matrix/backend/app/services/autoroad_network/pipeline.py` | Конвейер: snapshot → compute → apply без пересчёта |
-| `decision-matrix/backend/app/services/autoroad_network/plan_core.py` | **Главный мозг:** все алгоритмы плана |
-| `decision-matrix/backend/app/services/terminal_exclusion.py` | Зона 200 м: граница, проверки, сдвиг точек |
-| `decision-matrix/backend/app/services/autoroad_network/snapshot.py` | Сбор полного `NetworkPlanRequest` из БД (name, coordinates, category, properties) |
-| `autoroad-network-planner/` | Standalone-пакет и `data/example_request.json` — тот же JSON без БД |
+| `decision-matrix/backend/app/services/autoroad_network/planner_adapter.py` | Мост `NetworkPlanRequest` ↔ `PlanRequest` / `PlanResponse` |
+| `autoroad-network-planner/src/network_planner/` | Ядро: Steiner tree, post-processing, HTTP `:8080` |
+| `decision-matrix/backend/app/services/autoroad_network/snapshot.py` | Сбор полного `NetworkPlanRequest` из БД |
 | `decision-matrix/backend/app/services/autoroad_network/schemas.py` | Типы входа/выхода (Pydantic) |
 | `decision-matrix/backend/app/services/autoroad_network/bridge.py` | Перевод ответа планировщика в формат apply |
 | `decision-matrix/backend/app/services/autoroad_network/client.py` | In-process или HTTP на микросервис |
-| `decision-matrix/backend/app/services/autoroad_network/graph_from_polylines.py` | Граф из линий `autoroad` |
-| `decision-matrix/backend/app/services/autoroad_connect.py` | Plan/apply, очистка перед перестройкой, INSERT |
-| `decision-matrix/backend/app/services/road_graph.py` | Расстояния haversine, MST, Дейкстра, snap на сегмент |
+| `decision-matrix/backend/app/services/autoroad_connect.py` | Apply в БД, очистка перед перестройкой |
 | `decision-matrix/backend/app/services/graph_builder.py` | Пересборка `InfrastructureNetwork` после apply |
+| `decision-matrix/frontend/src/components/AutoroadNetworkPanel.tsx` | UI: массовый выбор, параметры, «Рассчитать» |
+| `decision-matrix/frontend/src/components/AutoroadNetworkParamsSection.tsx` | Поля расчёта (солвер, лимиты) |
 
 ### Frontend
 
@@ -247,17 +246,17 @@ curl -s -X POST "http://127.0.0.1:8001/v1/network/plan" \
 
 ## 6. Два главных режима расчёта
 
-Точка входа — функция `plan_from_request()` в `plan_core.py`.
+Точка входа — `network_planner.plan.pipeline` (`plan_from_request_steinerpy` / `plan_from_request_geosteiner`), вызываемый через `planner_adapter.compute_network_plan()`.
 
 ```text
-                    plan_from_request(запрос)
+                    PlanRequest (из snapshot БД)
                               │
               ┌───────────────┴───────────────┐
               │                               │
     existing_autoroads пустой?                │
               │                               │
          ДА   ▼                          НЕТ  ▼
-    _plan_off_network()              _plan_with_network()
+    Steiner tree (MST)               подъезды + мосты snap↔snap
     «строим с нуля»                  «цепляемся к дорогам»
 ```
 
@@ -458,20 +457,8 @@ Legacy **«Соединить автодорогами»** (`infrastructure/auto
 Пересчёт в консоли (из каталога `backend`, venv активирован):
 
 ```powershell
-python -c "
-from uuid import UUID
-from app.services.autoroad_network.plan_core import plan_from_request
-from app.services.autoroad_network.schemas import NetworkPlanRequest, PlanTerminalInput
-# ... список 12 id и координат ...
-out = plan_from_request(NetworkPlanRequest(project_id=UUID(int=0), terminals=..., existing_autoroads=[]))
-print(out.total_new_km, out.warnings[:5], out.new_line_count)
-"
-```
-
-Или pytest:
-
-```powershell
-python -m pytest tests/test_autoroad_network_plan.py::test_gks_twelve_layout_connected -q
+python -m pytest tests/test_autoroad_network_plan.py -q
+python -m pytest tests/test_planner_adapter.py -q
 ```
 
 ---

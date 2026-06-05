@@ -234,6 +234,20 @@ ssh -i "C:\Users\user\Documents\mykey\ssh-key\ssh-key-1779903372392" vovavolgin9
 | Custom GLB **404 (from disk cache)** на карте | Ctrl+F5; проверить наличие файла на VM; убедиться, что задеплоен frontend с `map3dCustomGlbFetch` |
 | Bundled Kenney не грузятся | Проверить `VITE_BASE_PATH` / `/Scaning/map3d-models/` в сборке Pages |
 
+### `/health` показывает `"environment":"development"` на prod
+
+CI деплой **не перезаписывает** `/opt/decision-matrix/shared/app.env` — только `deploy.env` (IMAGE_REF, APP_DOMAIN). Если в health видно `development`, на VM вручную:
+
+```powershell
+# Проверка
+curl.exe -s https://erascaning.duckdns.org/health
+
+# Исправление (SSH на VM): в app.env должно быть ENVIRONMENT=production
+# См. deploy/app.env.example и deploy/setup-vm-app-env.ps1
+```
+
+После правки: `docker compose -f /opt/decision-matrix/current/docker-compose.yml restart api worker`.
+
 ### Autoroad network planner
 
 Локально (monorepo с `autoroad-network-planner/`):
@@ -242,7 +256,7 @@ ssh -i "C:\Users\user\Documents\mykey\ssh-key\ssh-key-1779903372392" vovavolgin9
 pip install -e ../../autoroad-network-planner[steinerpy]
 ```
 
-Backend: `AUTOROAD_NETWORK_INPROCESS=true`, `AUTOROAD_NETWORK_SOLVER=geosteiner` (fallback на SteinerPy без GeoSteiner). На prod VM планировщик встроен в образ API (SteinerPy); отдельный контейнер `network-planner` не нужен. HTTP-микросервис — только для локальной отладки (`autoroad-network-planner/docker-compose.yml`).
+Backend: `AUTOROAD_NETWORK_INPROCESS=true`. **На prod VM** рекомендуется `AUTOROAD_NETWORK_SOLVER=steinerpy` (образ API включает SteinerPy). GeoSteiner — только при `GEOSTEINER_BIN_DIR` на VM. Отдельный контейнер `network-planner` не нужен. HTTP-микросервис — локальная отладка (`autoroad-network-planner/docker-compose.yml`).
 
 ### Локальная проверка перед `git push`
 

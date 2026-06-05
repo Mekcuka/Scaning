@@ -337,8 +337,14 @@ jobs:
       - name: Smoke health check
         id: healthcheck
         run: |
-          curl --fail --silent --show-error --retry 5 --retry-delay 10 \
-            "https://${{ secrets.APP_DOMAIN }}/health" > /dev/null
+          set -euo pipefail
+          body="$(curl --fail --silent --show-error --retry 5 --retry-delay 10 \
+            "https://${{ secrets.APP_DOMAIN }}/health")"
+          echo "$body"
+          echo "$body" | grep -q '"status":"ok"' || (echo "::error::health status not ok" && exit 1)
+          if echo "$body" | grep -q '"environment":"development"'; then
+            echo "::warning::ENVIRONMENT=development in /health — set ENVIRONMENT=production in /opt/decision-matrix/shared/app.env (see DEPLOY.md)"
+          fi
 
       - name: Prune old Docker images on VM
         if: success()

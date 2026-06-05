@@ -226,9 +226,9 @@ flowchart LR
 
 > **Полный план (целевая архитектура):** отдельный сервис с API plan in/out, BFF и UI «Построить сеть» — [autoroad-network-plan.md](./autoroad-network-plan.md). Терминалы: любые точечные подтипы **кроме** группы узлов (`node`, `methanol_joint`, `power_line_node`); перекрёстки — только `subtype=node`.
 
-**Режимы UI:** (1) **«Построить сеть»** — пошаговый выбор терминалов, `POST .../autoroad-network/plan|apply`; (2) **групповое выделение** — **«Соединить автодорогами»**, `POST .../infrastructure/autoroad-connect` (deprecated, тот же planner). Код: `app/services/autoroad_network/plan_core.py`, apply — `autoroad_connect.py`, граф — `road_graph.py`.
+**Режимы UI:** (1) **«Сеть»** — массовый выбор терминалов, `request` → `compute` → `apply`; (2) **групповое выделение** — **«Соединить автодорогами»**, `POST .../infrastructure/autoroad-connect` (legacy). Код: `network-planner` + `planner_adapter.py`, apply — `autoroad_connect.py`.
 
-**Алгоритм (оба режима, `plan_core.py`):**
+**Алгоритм (оба режима, через `network_planner`):**
 
 1. Пересборка топологии при apply (`build_network_from_lines`), граф по рёбрам `autoroad` (вес = `length_km`).
 2. **Связность:** все выбранные терминалы должны оказаться в **одной** связной сети; иначе предупреждение `terminals_not_connected`.

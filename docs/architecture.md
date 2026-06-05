@@ -21,18 +21,18 @@
 | Flows PFD | `api/v1/flow.py`, `fluid_flow_schematic.py` | `pages/flows/*`, `FlowSchematicEditor` |
 | Graph | `api/v1/graph.py`, `graph_builder.py` | PFD + карта |
 | Sand | `api/v1/sand_logistics.py` | `SandParametersPage`, logistics schematic |
-| Autoroad network | BFF `autoroad-network/plan|apply`, `plan_core` (in-process по умолчанию); legacy `map.py` → `autoroad-connect` | «Сеть» на карте; группа «Соединить автодорогами» |
+| Autoroad network | BFF `request` → `compute` → `apply`, `planner_adapter` + `network-planner` (in-process); legacy `autoroad-connect` | «Сеть» на карте; группа «Соединить автодорогами» |
 
 **Префикс API:** `/api/v1/projects/{project_id}/...` для проектных ресурсов; Swagger — `/api/v1/docs`.
 
 ### Autoroad Network (планировщик)
 
-**Stateless** plan (`plan_core`): терминалы + полилинии `autoroad` → **связная** сеть. Без дорог: 2 `Т` — `link`; 3+ — **MST + Steiner** (`_plan_off_network_steiner_mst`). С дорогами: подъезды к snap, Dijkstra, MST-мосты snap↔snap. Терминал не перекрёсток; `terminals_not_connected`; ≤1 autoroad на объект. BFF → `plan` / `apply` + job `autoroad_connect`. См. [autoroad-network-plan.md](./autoroad-network-plan.md).
+**Stateless** JSON-конвейер: `network_planner` (SteinerPy / GeoSteiner) строит **связную** сеть по терминалам и существующим `autoroad`. BFF: `request` (снимок БД) → `compute` (план без записи) → `apply` (тот же plan). In-process по умолчанию; HTTP-микросервис — опционально. См. [autoroad-network-plan.md](./autoroad-network-plan.md).
 
 ```
-MapPage ──► BFF /autoroad-network/plan|apply ──► Autoroad Network Service
-                    │                                    │
-                    └──────── PostgreSQL ◄───────────────┘ (только BFF пишет)
+MapPage ──► BFF request/compute/apply ──► planner_adapter ──► network_planner
+                    │
+                    └──────── PostgreSQL (только apply пишет в БД)
 ```
 
 ---
