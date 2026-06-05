@@ -242,7 +242,7 @@ ssh -i "C:\Users\user\Documents\mykey\ssh-key\ssh-key-1779903372392" vovavolgin9
 pip install -e ../../autoroad-network-planner[steinerpy]
 ```
 
-Backend: `AUTOROAD_NETWORK_INPROCESS=true`, `AUTOROAD_NETWORK_SOLVER=geosteiner` (fallback на SteinerPy без GeoSteiner). HTTP: `deploy/docker-compose.yml` → сервис `network-planner`, `AUTOROAD_NETWORK_SERVICE_URL=http://network-planner:8080`.
+Backend: `AUTOROAD_NETWORK_INPROCESS=true`, `AUTOROAD_NETWORK_SOLVER=geosteiner` (fallback на SteinerPy без GeoSteiner). На prod VM планировщик встроен в образ API (SteinerPy); отдельный контейнер `network-planner` не нужен. HTTP-микросервис — только для локальной отладки (`autoroad-network-planner/docker-compose.yml`).
 
 ### Локальная проверка перед `git push`
 

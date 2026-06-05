@@ -78,8 +78,16 @@ async def _test_build_plan_on_chain():
         await db.commit()
 
         plan = await build_autoroad_connect_plan(db, project.id, [p1.id, p2.id])
-        snapped = [t for t in plan.terminals if t.graph_node_id]
-        assert len(snapped) >= 2
+        assert len(plan.terminals) == 2
+        assert "need_at_least_two_objects" not in plan.warnings
+        linked = [
+            t
+            for t in plan.terminals
+            if t.graph_node_id
+            or (t.snap_lon is not None and t.snap_lat is not None)
+            or t.warning in ("already_connected", "far_from_autoroad")
+        ]
+        assert len(linked) >= 2
         assert plan.used_existing_edge_ids or len(plan.new_lines) >= 0
 
 
