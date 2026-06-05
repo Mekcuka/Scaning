@@ -117,8 +117,7 @@ describe('MapPage integration', () => {
   it('select and draw tools', async () => {
     await renderMap();
     await enableEdit();
-    await userEvent.click(screen.getByRole('button', { name: /выбор/i }));
-    await userEvent.click(screen.getByText('Один объект'));
+    await userEvent.click(screen.getByRole('button', { name: /один объект/i }));
     await userEvent.click(screen.getByRole('button', { name: 'Точка' }));
     await userEvent.click(screen.getByText('ГКС'));
     await userEvent.click(screen.getByRole('button', { name: 'Линия' }));

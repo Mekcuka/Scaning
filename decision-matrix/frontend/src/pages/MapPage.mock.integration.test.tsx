@@ -199,8 +199,7 @@ describe('MapPage mock MapView integration', () => {
   it('selects feature, saves and deletes with confirmation', async () => {
     await renderMap();
     await enableEdit();
-    await userEvent.click(screen.getByRole('button', { name: /выбор/i }));
-    await userEvent.click(screen.getByText('Один объект'));
+    await userEvent.click(screen.getByRole('button', { name: /один объект/i }));
     mapProps().onFeatureSelect?.({ kind: 'infra', id: sampleInfra[0]!.id });
     await waitFor(() => expect(screen.getByTestId('mock-object-detail')).toBeInTheDocument());
     await userEvent.click(screen.getByRole('button', { name: 'Save mock detail' }));
@@ -275,8 +274,7 @@ describe('MapPage mock MapView integration', () => {
   it('box selection and group delete flow', async () => {
     await renderMap();
     await enableEdit();
-    await userEvent.click(screen.getByRole('button', { name: /выбор/i }));
-    await userEvent.click(screen.getByText('Группа объектов'));
+    await userEvent.click(screen.getByRole('button', { name: /группа объектов/i }));
     mapProps().onFeatureGroupSelect?.([
       { kind: 'poi', id: 'poi-1' },
       { kind: 'infra', id: sampleInfra[0]!.id },
@@ -287,8 +285,7 @@ describe('MapPage mock MapView integration', () => {
   it('copy group and paste via map click', async () => {
     await renderMap();
     await enableEdit();
-    await userEvent.click(screen.getByRole('button', { name: /выбор/i }));
-    await userEvent.click(screen.getByText('Группа объектов'));
+    await userEvent.click(screen.getByRole('button', { name: /группа объектов/i }));
     mapProps().onFeatureGroupSelect?.([
       { kind: 'poi', id: 'poi-1' },
       { kind: 'infra', id: sampleInfra[0]!.id },
@@ -316,8 +313,7 @@ describe('MapPage mock MapView integration', () => {
     vi.mocked(api.getInfraObjects).mockResolvedValue([methanol]);
     await renderMap();
     await enableEdit();
-    await userEvent.click(screen.getByRole('button', { name: /выбор/i }));
-    await userEvent.click(screen.getByText('Группа объектов'));
+    await userEvent.click(screen.getByRole('button', { name: /группа объектов/i }));
     mapProps().onFeatureGroupSelect?.([{ kind: 'infra', id: methanol.id }]);
     await waitFor(() => expect(screen.getByText(/Выбрано: 1/)).toBeInTheDocument());
     const panel = screen.getByText(/Выбрано: 1/).closest('.map-group-panel')!;
@@ -340,8 +336,7 @@ describe('MapPage mock MapView integration', () => {
     vi.mocked(api.getInfraObjects).mockResolvedValue([nps]);
     await renderMap();
     await enableEdit();
-    await userEvent.click(screen.getByRole('button', { name: /выбор/i }));
-    await userEvent.click(screen.getByText('Группа объектов'));
+    await userEvent.click(screen.getByRole('button', { name: /группа объектов/i }));
     mapProps().onFeatureGroupSelect?.([{ kind: 'infra', id: nps.id }]);
     await waitFor(() => expect(screen.getByText(/Выбрано: 1/)).toBeInTheDocument());
     const panel = screen.getByText(/Выбрано: 1/).closest('.map-group-panel')!;
@@ -363,8 +358,7 @@ describe('MapPage mock MapView integration', () => {
     vi.mocked(api.getInfraObjects).mockResolvedValue([gasPad]);
     await renderMap();
     await enableEdit();
-    await userEvent.click(screen.getByRole('button', { name: /выбор/i }));
-    await userEvent.click(screen.getByText('Группа объектов'));
+    await userEvent.click(screen.getByRole('button', { name: /группа объектов/i }));
     mapProps().onFeatureGroupSelect?.([{ kind: 'infra', id: gasPad.id }]);
     await waitFor(() => expect(screen.getByText(/Выбрано: 1/)).toBeInTheDocument());
     const panel = screen.getByText(/Выбрано: 1/).closest('.map-group-panel')!;
@@ -386,8 +380,7 @@ describe('MapPage mock MapView integration', () => {
   it('batch geometry change updates multiple objects', async () => {
     await renderMap();
     await enableEdit();
-    await userEvent.click(screen.getByRole('button', { name: /выбор/i }));
-    await userEvent.click(screen.getByText('Группа объектов'));
+    await userEvent.click(screen.getByRole('button', { name: /группа объектов/i }));
     mapProps().onFeatureGroupSelect?.([{ kind: 'poi', id: 'poi-1' }]);
     await waitFor(() => expect(mapProps().onBatchGeometryChange).toBeTruthy());
     await mapProps().onBatchGeometryChange?.([
@@ -426,8 +419,7 @@ describe('MapPage mock MapView integration', () => {
     vi.mocked(api.getInfraObjects).mockResolvedValue([pointA, pointB, line]);
     await renderMap();
     await enableEdit();
-    await userEvent.click(screen.getByRole('button', { name: /выбор/i }));
-    await userEvent.click(screen.getByText('Группа объектов'));
+    await userEvent.click(screen.getByRole('button', { name: /группа объектов/i }));
     await waitFor(() => expect(mapProps().onBatchGeometryChange).toBeTruthy());
     vi.mocked(api.updateInfraObject).mockClear();
     await mapProps().onBatchGeometryChange?.([

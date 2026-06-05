@@ -151,8 +151,7 @@ describe('MapPage workflow coverage', () => {
       overPoint: { id: point.id, lon: 37.6, lat: 55.75 },
     });
 
-    await userEvent.click(screen.getByRole('button', { name: /выбор/i }));
-    await userEvent.click(screen.getByText('Один объект'));
+    await userEvent.click(screen.getByRole('button', { name: /один объект/i }));
     props().onFeatureSelect?.({ kind: 'infra', id: sampleInfra[0]!.id });
     await waitFor(() => expect(screen.getByTestId('mock-object-detail')).toBeInTheDocument());
     await userEvent.click(screen.getByRole('button', { name: 'Save mock detail' }));
@@ -176,8 +175,7 @@ describe('MapPage workflow coverage', () => {
       { lon: 37.6, lat: 55.75 },
     );
 
-    await userEvent.click(screen.getByRole('button', { name: /выбор/i }));
-    await userEvent.click(screen.getByText('Группа объектов'));
+    await userEvent.click(screen.getByRole('button', { name: /группа объектов/i }));
     props().onFeatureGroupSelect?.([
       { kind: 'poi', id: 'poi-1' },
       { kind: 'infra', id: sampleInfra[0]!.id },
