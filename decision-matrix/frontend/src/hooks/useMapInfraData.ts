@@ -12,6 +12,7 @@ import {
   expandMapBbox,
   mergeInfraForMapDisplay,
   shouldUpdateMapBbox,
+  shouldUseViewportInfraLoad,
 } from '../lib/mapBboxUtils';
 import {
   removeInfraObjectsFromQueries,
@@ -44,6 +45,8 @@ export function useMapInfraData({
     data: infraObjects = [],
     isError: infraLoadError,
     error: infraLoadErr,
+    isPending: infraFullPending,
+    isFetching: infraFullFetching,
   } = useQuery({
     queryKey: ['infra', projectId],
     queryFn: () => mapApi.getInfraObjects(projectId!),
@@ -52,10 +55,12 @@ export function useMapInfraData({
     placeholderData: keepPreviousData,
   });
 
-  const useViewportInfraLoad =
-    !mapEditEnabled &&
-    infraObjects.length >= MAP_VIEWPORT_MIN_OBJECTS &&
-    mapBbox != null;
+  const useViewportInfraLoad = shouldUseViewportInfraLoad({
+    mapEditEnabled,
+    mapBbox,
+    infraCount: infraObjects.length,
+    fullListLoading: infraFullPending || infraFullFetching,
+  });
 
   const displayKeepIds = useMemo(() => {
     const ids = new Set<string>();

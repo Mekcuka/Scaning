@@ -1,4 +1,6 @@
+import type OlMap from 'ol/Map';
 import Feature from 'ol/Feature';
+import VectorLayer from 'ol/layer/Vector';
 import VectorSource from 'ol/source/Vector';
 import { transform } from 'ol/proj';
 import { linkCoordMatch } from '../../lib/infraLinks';
@@ -30,12 +32,39 @@ export function expandLayerFeatures(f: Feature): Feature[] {
   return [f];
 }
 
+/** Выбор по пикселю — учитывает отрисованную область иконки (OL hit-test). */
+export function resolveSelectableFeatureAtPixel(
+  map: OlMap,
+  pixel: number[],
+  layers: VectorLayer[],
+  hitTolerancePx: number,
+): Feature | undefined {
+  const layerSet = new Set(layers);
+  let found: Feature | undefined;
+  map.forEachFeatureAtPixel(
+    pixel,
+    (feature, layer) => {
+      if (!layerSet.has(layer as VectorLayer)) return false;
+      if (!resolveFeatureSelection(feature as Feature)) return false;
+      found = feature as Feature;
+      return true;
+    },
+    {
+      hitTolerance: hitTolerancePx,
+      layerFilter: (layer) => layerSet.has(layer as VectorLayer),
+    },
+  );
+  return found;
+}
+
 export function findSelectableLayerFeature(
   pointSource: VectorSource<Feature>,
   lineSource: VectorSource<Feature>,
-  id: string
+  id: string,
+  nodePointSource?: VectorSource<Feature>,
 ): Feature | undefined {
-  for (const source of [pointSource, lineSource]) {
+  for (const source of [pointSource, nodePointSource, lineSource]) {
+    if (!source) continue;
     const found = source.getFeatures().find((f) => {
       if (f.get('subtype') === 'draft' || f.get('subtype') === 'measure') return false;
       if (f.get('id') === id) return true;

@@ -57,6 +57,28 @@ export function patchInfraObjectsInQueries(
   });
 }
 
+export function upsertInfraObjectsInQueries(
+  queryClient: QueryClient,
+  projectId: string,
+  objects: InfraObject[],
+): void {
+  if (objects.length === 0) return;
+  const byId = new Map(objects.map((o) => [o.id, o]));
+  patchAllInfraQueries(queryClient, projectId, (list) => {
+    const next = [...list];
+    const indexById = new Map(next.map((o, i) => [o.id, i]));
+    for (const obj of objects) {
+      const idx = indexById.get(obj.id);
+      if (idx != null) next[idx] = obj;
+      else {
+        indexById.set(obj.id, next.length);
+        next.push(obj);
+      }
+    }
+    return next;
+  });
+}
+
 /** Refetch layers/infra/network after import or edits; clears map bbox filter via store nonce. */
 export async function refreshMapQueries(queryClient: QueryClient, projectId: string) {
   useAppStore.getState().bumpMapRefresh();

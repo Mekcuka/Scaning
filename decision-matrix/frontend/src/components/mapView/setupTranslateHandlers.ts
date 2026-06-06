@@ -16,6 +16,7 @@ export function setupTranslateHandlers(ctx: MapSetupContext): {
     lineSourceRef,
     lineLayerRef,
     pointLayerRef,
+    nodePointLayerRef,
     translateRef,
     editModeRef,
     linkedLineDragRef,
@@ -39,6 +40,7 @@ export function setupTranslateHandlers(ctx: MapSetupContext): {
     select.getFeatures().forEach((f) => selected.push(f));
     syncOuterGeometryToInnerFeatures(selected);
     pointLayerRef.current?.changed();
+    nodePointLayerRef.current?.changed();
     lineLayerRef.current?.changed();
     applyLinkedLineDrag();
   });

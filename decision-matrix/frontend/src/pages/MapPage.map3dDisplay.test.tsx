@@ -146,7 +146,7 @@ describe('MapPage 3D display optimization', () => {
     const hostWhile2d = map3dHost();
     expect(hostWhile2d).toBeTruthy();
     expect(hostWhile2d).toBe(hostAfterFirst3d);
-    expect(hostWhile2d).toHaveStyle({ display: 'none' });
+    expect(hostWhile2d).toHaveStyle({ visibility: 'hidden' });
 
     await userEvent.click(screen.getByRole('button', { name: 'Карта 3D' }));
     await waitFor(() => expect(screen.getByTestId('mock-map-3d')).toBeVisible());

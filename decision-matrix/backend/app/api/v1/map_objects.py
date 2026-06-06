@@ -6,6 +6,7 @@ from fastapi import APIRouter, Depends, HTTPException, Query
 from fastapi.responses import JSONResponse
 from sqlalchemy import cast, or_, select, String
 from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy.exc import SQLAlchemyError
 
 from app.api.deps import get_current_user
 from app.api.v1.map_deps import (
@@ -27,6 +28,8 @@ from app.schemas import (
     InfraObjectUpdate,
     MapBatchDeleteRequest,
     MapBatchDeleteResponse,
+    MapBatchPasteRequest,
+    MapBatchPasteResponse,
     ProjectJobCreateResponse,
 )
 from app.services.infra_create import create_infra_object_record
@@ -37,6 +40,7 @@ from app.services.infra_delete import (
 )
 from app.services.infra_update import update_infra_object_record
 from app.services.line_endpoint_rules import LineEndpointRuleError
+from app.services.map_batch_paste import apply_map_batch_paste
 from app.services.serializers import infra_to_response
 
 objects_router = APIRouter(tags=["map-objects"])
@@ -268,6 +272,53 @@ async def batch_delete_map_objects(
         deleted_pois=deleted_pois,
         network_rebuilt=network_rebuilt,
     )
+
+
+@objects_router.post(
+    "/projects/{project_id}/map/batch-paste",
+    response_model=MapBatchPasteResponse,
+)
+async def batch_paste_map_objects(
+    project_id: UUID,
+    data: MapBatchPasteRequest,
+    user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    """Create many POIs and infra objects from map clipboard in one transaction."""
+    if not data.pois and not data.infra_points and not data.infra_lines:
+        return MapBatchPasteResponse()
+
+    project = await get_user_project(project_id, user, db)
+    if data.pois:
+        await require_project_write(project_id, user, db)
+    if data.infra_points or data.infra_lines:
+        project = await require_infra_write(project_id, user, db)
+
+    try:
+        result = await apply_map_batch_paste(
+            db,
+            project=project,
+            project_id=project_id,
+            user=user,
+            data=data,
+        )
+    except ValueError as e:
+        await db.rollback()
+        raise HTTPException(status_code=400, detail=str(e)) from e
+    except LineEndpointRuleError as e:
+        await db.rollback()
+        raise HTTPException(status_code=400, detail=str(e)) from e
+    except HTTPException:
+        await db.rollback()
+        raise
+
+    try:
+        await db.commit()
+    except SQLAlchemyError as e:
+        await db.rollback()
+        raise HTTPException(status_code=400, detail="Database error during batch paste") from e
+
+    return result
 
 
 @objects_router.delete("/projects/{project_id}/infrastructure/objects/{object_id}", status_code=204)

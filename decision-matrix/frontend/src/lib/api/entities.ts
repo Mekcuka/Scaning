@@ -146,3 +146,37 @@ export interface FacilityInfraObjectCreate {
   description?: string;
   properties?: Record<string, unknown>;
 }
+
+export type MapBatchPastePoiItem = {
+  client_ref: string;
+  create: Omit<POI, 'id' | 'project_id' | 'pads_count' | 'wells_total'> & {
+    name: string;
+    lon: number;
+    lat: number;
+  };
+};
+
+export type MapBatchPasteInfraPointItem = {
+  client_ref: string;
+  create: InfraObjectCreate;
+  target_subtype?: string | null;
+};
+
+export type MapBatchPasteInfraLineItem = {
+  client_ref: string;
+  create: InfraObjectCreate;
+  snap_start_ref?: string | null;
+  snap_finish_ref?: string | null;
+};
+
+export type MapBatchPasteRequest = {
+  pois: MapBatchPastePoiItem[];
+  infra_points: MapBatchPasteInfraPointItem[];
+  infra_lines: MapBatchPasteInfraLineItem[];
+};
+
+export type MapBatchPasteResponse = {
+  created_pois: POI[];
+  created_infra: InfraObject[];
+  network_rebuilt: boolean;
+};

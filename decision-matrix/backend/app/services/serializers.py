@@ -42,18 +42,21 @@ async def load_project_owners(db: AsyncSession, projects: list[Project]) -> dict
 
 
 def poi_to_response(poi: PointOfInterest) -> POIResponse:
-    pads = calc_pads_count(poi.planned_production_volume, poi.production_per_well, poi.wells_per_pad)
-    wells = calc_wells_total(poi.planned_production_volume, poi.production_per_well)
+    volume = float(poi.planned_production_volume or 0)
+    per_well = float(poi.production_per_well or 10)
+    wells_per_pad = int(poi.wells_per_pad or 4)
+    pads = calc_pads_count(volume, per_well, wells_per_pad)
+    wells = calc_wells_total(volume, per_well)
     return POIResponse(
         id=poi.id,
         project_id=poi.project_id,
         name=poi.name,
         description=poi.description,
-        lon=poi.longitude,
-        lat=poi.latitude,
-        planned_production_volume=poi.planned_production_volume,
-        production_per_well=poi.production_per_well,
-        wells_per_pad=poi.wells_per_pad,
+        lon=float(poi.longitude),
+        lat=float(poi.latitude),
+        planned_production_volume=volume,
+        production_per_well=per_well,
+        wells_per_pad=wells_per_pad,
         fluid_type=poi.fluid_type,
         water_injection_volume=poi.water_injection_volume,
         gas_factor=poi.gas_factor if poi.gas_factor is not None else 120.0,

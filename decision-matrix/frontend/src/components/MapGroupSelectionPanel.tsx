@@ -6,7 +6,6 @@ import {
   ClipboardPaste,
   Copy,
   Minus,
-  Route,
   Scissors,
   Search,
   Trash2,
@@ -35,9 +34,6 @@ type Props = {
   canPaste: boolean;
   canDelete: boolean;
   deletePending?: boolean;
-  canAutoroadConnect?: boolean;
-  autoroadConnectPending?: boolean;
-  onAutoroadConnect?: () => void;
 };
 
 function isLineSubtype(subtype?: string): boolean {
@@ -73,9 +69,6 @@ export function MapGroupSelectionPanel({
   canPaste,
   canDelete,
   deletePending = false,
-  canAutoroadConnect = false,
-  autoroadConnectPending = false,
-  onAutoroadConnect,
 }: Props) {
   const [query, setQuery] = useState('');
   const [listCollapsed, setListCollapsed] = useState(true);
@@ -294,22 +287,6 @@ export function MapGroupSelectionPanel({
       )}
 
       <div className="map-group-panel__actions">
-        {onAutoroadConnect && (
-          <button
-            type="button"
-            className="btn btn-primary map-group-panel__action"
-            disabled={!canAutoroadConnect || autoroadConnectPending}
-            title={
-              canAutoroadConnect
-                ? 'Построить подъезды и связать по существующим автодорогам (≤300 м)'
-                : 'Нужно ≥2 точечных объектов инфраструктуры без линий и POI'
-            }
-            onClick={onAutoroadConnect}
-          >
-            <Route size={14} aria-hidden />
-            <span>{autoroadConnectPending ? 'Соединение…' : 'Соединить автодорогами'}</span>
-          </button>
-        )}
         <button
           type="button"
           className="btn btn-secondary map-group-panel__action"

@@ -239,7 +239,7 @@ export function TaskLogPanel({ projectId }: { projectId: string | null }) {
     if (!projectId) return [];
     const byId = new Map<string, TaskLogEntry>();
     for (const e of storeEntries) byId.set(e.id, e);
-    if (activeProjectJob) {
+    if (activeProjectJob && ACTIVE_JOB_STATUSES.has(activeProjectJob.status)) {
       const existing = byId.get(activeProjectJob.id);
       byId.set(activeProjectJob.id, {
         kind: 'project_job',

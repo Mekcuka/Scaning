@@ -31,6 +31,7 @@ export type MapViewRefs = {
   containerRef: RefObject<HTMLDivElement | null>;
   mapRef: MutableRefObject<OlMap | null>;
   pointSourceRef: MutableRefObject<VectorSource>;
+  nodePointSourceRef: MutableRefObject<VectorSource>;
   lineSourceRef: MutableRefObject<VectorSource>;
   radiusSourceRef: MutableRefObject<VectorSource>;
   placementPreviewSourceRef: MutableRefObject<VectorSource>;
@@ -41,6 +42,7 @@ export type MapViewRefs = {
   dragBoxRef: MutableRefObject<DragBox | null>;
   dragPanRef: MutableRefObject<DragPan | null>;
   pointLayerRef: MutableRefObject<VectorLayer<VectorSource> | null>;
+  nodePointLayerRef: MutableRefObject<VectorLayer<VectorSource> | null>;
   lineLayerRef: MutableRefObject<VectorLayer<VectorSource> | null>;
   basemapLayerRef: MutableRefObject<TileLayer | null>;
   hoveredIdRef: MutableRefObject<string | null>;

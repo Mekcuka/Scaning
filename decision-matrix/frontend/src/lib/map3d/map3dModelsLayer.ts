@@ -13,6 +13,11 @@ import {
 import { clonePowerLineTowerToHeight } from './map3dPowerLineStyle';
 import { effectiveRender3dHeightM } from './render3d';
 import { createProceduralModelMesh } from './map3dModelMeshes';
+import {
+  acquireMap3dThreeRenderer,
+  finishMap3dThreeFrame,
+  releaseMap3dThreeRenderer,
+} from './map3dSharedRenderer';
 import type { Map3dModelInstance } from './map3dModelInstances';
 
 export const MAP3D_MODELS_LAYER_ID = 'dm-3d-models';
@@ -223,12 +228,7 @@ export class Map3dModelsCustomLayer implements CustomLayerInterface {
 
     this.ensureLights();
 
-    this.renderer = new THREE.WebGLRenderer({
-      canvas: map.getCanvas(),
-      context: gl,
-      antialias: true,
-    });
-    this.renderer.autoClear = false;
+    this.renderer = acquireMap3dThreeRenderer(map, gl);
 
     this.rebuildTransformCache();
     this.rebuildSceneMeshes();
@@ -251,7 +251,7 @@ export class Map3dModelsCustomLayer implements CustomLayerInterface {
     this.transformCache.clear();
     this.scene.clear();
     this.lightsAdded = false;
-    this.renderer?.dispose();
+    if (this.map) releaseMap3dThreeRenderer(this.map);
     this.renderer = null;
     this.map = null;
   }
@@ -284,6 +284,7 @@ export class Map3dModelsCustomLayer implements CustomLayerInterface {
     }
 
     for (const g of this.objectGroups.values()) g.visible = true;
+    finishMap3dThreeFrame(this.renderer);
   }
 }
 

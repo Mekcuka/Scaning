@@ -24,7 +24,17 @@ export function useActiveProjectJob(projectId: string | null | undefined) {
   const job = query.data ?? null;
 
   useEffect(() => {
-    if (job) updateJob(job);
+    if (!job) return;
+    const list = useTaskLogStore.getState().byProject[job.project_id] ?? [];
+    const existing = list.find((e) => e.kind === 'project_job' && e.id === job.id);
+    if (
+      existing?.kind === 'project_job' &&
+      !ACTIVE_JOB_STATUSES.has(existing.job.status) &&
+      ACTIVE_JOB_STATUSES.has(job.status)
+    ) {
+      return;
+    }
+    updateJob(job);
   }, [job, updateJob]);
 
   return {

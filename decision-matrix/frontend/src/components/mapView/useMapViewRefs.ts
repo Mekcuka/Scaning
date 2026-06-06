@@ -63,6 +63,7 @@ export function useMapViewRefs(props: MapViewProps): MapViewRefs {
   const containerRef = useRef<HTMLDivElement>(null);
   const mapRef = useRef<OlMap | null>(null);
   const pointSourceRef = useRef(new VectorSource());
+  const nodePointSourceRef = useRef(new VectorSource());
   const lineSourceRef = useRef(new VectorSource());
   const radiusSourceRef = useRef(new VectorSource());
   const placementPreviewSourceRef = useRef(new VectorSource());
@@ -73,6 +74,7 @@ export function useMapViewRefs(props: MapViewProps): MapViewRefs {
   const dragBoxRef = useRef<DragBox | null>(null);
   const dragPanRef = useRef<DragPan | null>(null);
   const pointLayerRef = useRef<VectorLayer<VectorSource> | null>(null);
+  const nodePointLayerRef = useRef<VectorLayer<VectorSource> | null>(null);
   const lineLayerRef = useRef<VectorLayer<VectorSource> | null>(null);
   const basemapLayerRef = useRef<TileLayer | null>(null);
   const hoveredIdRef = useRef<string | null>(null);
@@ -159,6 +161,7 @@ export function useMapViewRefs(props: MapViewProps): MapViewRefs {
     containerRef,
     mapRef,
     pointSourceRef,
+    nodePointSourceRef,
     lineSourceRef,
     radiusSourceRef,
     placementPreviewSourceRef,
@@ -169,6 +172,7 @@ export function useMapViewRefs(props: MapViewProps): MapViewRefs {
     dragBoxRef,
     dragPanRef,
     pointLayerRef,
+    nodePointLayerRef,
     lineLayerRef,
     basemapLayerRef,
     hoveredIdRef,

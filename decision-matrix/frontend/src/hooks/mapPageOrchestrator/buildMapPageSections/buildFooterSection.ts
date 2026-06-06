@@ -12,6 +12,7 @@ export function buildFooterSection(
   return {
     mapScaleLabel: shell.mapScaleLabel,
     geometrySavePending: actions.geometrySavePending,
+    bulkProgress: actions.pasteProgress ?? actions.deleteProgress ?? null,
     drawMode: edit.drawMode,
     mapIn3d,
     mapFooterHint: actions.mapFooterHint,

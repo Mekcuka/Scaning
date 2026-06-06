@@ -9,6 +9,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.geo.constants import (
     LINE_SUBTYPES,
+    MAX_AUTOROAD_NETWORK_OBJECTS,
     NODE_CLUSTER_SUBTYPES,
     POINT_SUBTYPES,
     SUBTYPE_LABELS,
@@ -17,6 +18,7 @@ from app.models import InfrastructureLayer, InfrastructureObject
 from app.services.autoroad_network.schemas import (
     ExistingAutoroadInput,
     NetworkPlanRequest,
+    PlanOptionsInput,
     PlanTerminalInput,
 )
 from app.services.graph_builder import build_network_from_lines
@@ -96,8 +98,14 @@ async def build_plan_request(
             )
         )
 
+    terminal_count = len(terminals)
+    options = PlanOptionsInput(
+        max_terminals=min(MAX_AUTOROAD_NETWORK_OBJECTS, max(2, terminal_count)),
+    )
+
     return NetworkPlanRequest(
         project_id=project_id,
         terminals=terminals,
         existing_autoroads=existing,
+        options=options,
     )

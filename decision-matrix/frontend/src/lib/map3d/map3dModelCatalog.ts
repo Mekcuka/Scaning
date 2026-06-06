@@ -1,6 +1,5 @@
 /** L3 catalog: subtype → glTF asset and/or procedural fallback (Three.js). */
 
-import { getCustomGltfAssetDef } from './map3dCustomAssets';
 import { gltfAssetDef } from './map3dGltfAssets';
 
 export type Map3dMeshTemplate =
@@ -92,7 +91,7 @@ export function catalogEntryForSubtype(subtype: string): Map3dModelCatalogEntry 
 
 export function catalogEntryForModelId(modelId: string): Map3dModelCatalogEntry | null {
   const key = modelId.trim().toLowerCase();
-  if (key.startsWith('custom:') && getCustomGltfAssetDef(key)) {
+  if (key.startsWith('custom:')) {
     return { gltfAssetId: key, template: 'facility', footprintScale: 1 };
   }
   const byId = MAP3D_MODEL_BY_ID[key];

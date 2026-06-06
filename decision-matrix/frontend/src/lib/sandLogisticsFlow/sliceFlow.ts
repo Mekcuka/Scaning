@@ -9,10 +9,15 @@ import {
   simplifyRoadNetworkPolylines,
 } from './roadPolylines';
 import { ensureSchematicEndpointNodes } from './schematicNodes';
+import { addSiteSnapConnectors } from './schematicLinks';
+import {
+  collectAllocatedConsumerSnaps,
+  createFlowLabelSlotTracker,
+  shouldShowRoadPolylineFlowLabel,
+  sortPolylinesForKeyFlowLabels,
+} from './flowLabelPlacement';
 import { shouldShowConsumerOnSchematic, shouldShowQuarryOnSchematic } from './sliceKeys';
-import { flowLabelOffset } from './siteLayout';
 import type {
-  LayoutRect,
   SandFlowNodeData,
   SandLegLabelNodeData,
   SandLogisticsFlowOptions,
@@ -31,8 +36,7 @@ export function buildSandLogisticsSliceFlow(
   const nodeFilter = options?.nodeFilter ?? 'all_planned';
   const showPlannedRoutes = options?.showPlannedRoutes ?? true;
   const asOf = options?.as_of;
-  const { positions, roadGraph, keyNetworkNodes, layoutSiteRects, siteSpecs } = layout;
-  const layoutRectsAsInternal = layoutSiteRects as LayoutRect[];
+  const { positions, roadGraph, keyNetworkNodes, siteSpecs } = layout;
 
   const visibleQuarries = result.quarries.filter((q) => shouldShowQuarryOnSchematic(q, nodeFilter));
   const visibleConsumers = result.consumers.filter((c) =>
@@ -65,7 +69,6 @@ export function buildSandLogisticsSliceFlow(
   const plannedSegmentKeys = new Set<string>();
   const siteLinks = new Set<string>();
   const plannedSiteLinks = new Set<string>();
-  const legLabelSpecs: { id: string; flowM3: number; x: number; y: number }[] = [];
   const plannedLegLabelSpecs: { id: string; label: string; x: number; y: number }[] = [];
 
   let totalDemand = 0;
@@ -132,24 +135,6 @@ export function buildSandLogisticsSliceFlow(
       if (qSnap && cSnap) {
         const path = shortestPath(roadGraph, qSnap, cSnap);
         if (path && path.length >= 1) {
-          if (edgeLabelMode === 'key' && c.greedy_allocated_m3 > 0) {
-            const polyline = haulLegPolylinePoints(
-              path,
-              quarryId(c.greedy_quarry_id),
-              id,
-              positions,
-            );
-            if (polyline.length >= 2) {
-              const mid = polylineMidpoint(polyline);
-              legLabelSpecs.push({
-                id: `leg-label:${c.greedy_quarry_id}:${c.object_id}`,
-                flowM3: c.greedy_allocated_m3,
-                x: mid.x,
-                y: mid.y,
-              });
-            }
-          }
-
           siteLinks.add(`${quarryId(c.greedy_quarry_id)}->${networkNodeId(qSnap)}`);
           siteLinks.add(`${networkNodeId(cSnap)}->${id}`);
 
@@ -217,11 +202,38 @@ export function buildSandLogisticsSliceFlow(
     }
   }
 
+  addSiteSnapConnectors(siteLinks, plannedSiteLinks, visibleQuarries, visibleConsumers);
+
+  const allocatedConsumerSnaps = collectAllocatedConsumerSnaps(visibleConsumers);
+  const flowLabelSlots = createFlowLabelSlotTracker(edgeLabelMode);
+
   const simplifiedRoadPolylines = simplifyRoadNetworkPolylines(
     roadGraph,
     keyNetworkNodes,
     positions,
   );
+
+  const roadPolylinesForLabels =
+    edgeLabelMode === 'key'
+      ? sortPolylinesForKeyFlowLabels(simplifiedRoadPolylines, allocatedConsumerSnaps)
+      : simplifiedRoadPolylines;
+
+  const showFlowLabelByPolyId = new Map<string, boolean>();
+  for (const poly of roadPolylinesForLabels) {
+    if (poly.points.length < 2) continue;
+    let flowM3 = 0;
+    for (const sk of poly.segmentKeys) {
+      flowM3 = Math.max(flowM3, segmentFlowM3.get(sk) ?? 0);
+    }
+    showFlowLabelByPolyId.set(
+      poly.id,
+      shouldShowRoadPolylineFlowLabel(
+        edgeLabelMode,
+        flowM3,
+        flowLabelSlots.shouldShow(poly.points, flowM3),
+      ),
+    );
+  }
 
   for (const poly of simplifiedRoadPolylines) {
     if (poly.points.length < 2) continue;
@@ -234,12 +246,7 @@ export function buildSandLogisticsSliceFlow(
     const startId = networkNodeId(poly.nodeIds[0]!);
     const endId = networkNodeId(poly.nodeIds[poly.nodeIds.length - 1]!);
     if (startId === endId) continue;
-    const first = poly.points[0]!;
-    const last = poly.points[poly.points.length - 1]!;
-    const labelOffset =
-      hasFlow
-        ? flowLabelOffset(first.x, first.y, last.x, last.y, flowM3, layoutRectsAsInternal)
-        : { labelOffsetX: 0, labelOffsetY: 0 };
+    const showFlowLabel = showFlowLabelByPolyId.get(poly.id) ?? false;
 
     edges.push({
       id: `road-poly-${poly.id}`,
@@ -251,7 +258,7 @@ export function buildSandLogisticsSliceFlow(
       data: {
         points: poly.points,
         flowM3,
-        ...labelOffset,
+        showFlowLabel,
       } satisfies SandRoadPolylineEdgeData,
       style: hasFlow
         ? { stroke: '#b45309', strokeWidth: 4 }
@@ -306,18 +313,7 @@ export function buildSandLogisticsSliceFlow(
     });
   }
 
-  if (edgeLabelMode === 'key') {
-    for (const leg of legLabelSpecs) {
-      nodes.push({
-        id: leg.id,
-        type: 'sandLegLabel',
-        position: { x: leg.x, y: leg.y },
-        zIndex: 30,
-        selectable: false,
-        draggable: false,
-        data: { kind: 'legLabel', flowM3: leg.flowM3 },
-      });
-    }
+  if (edgeLabelMode !== 'hidden') {
     for (const leg of plannedLegLabelSpecs) {
       nodes.push({
         id: leg.id,

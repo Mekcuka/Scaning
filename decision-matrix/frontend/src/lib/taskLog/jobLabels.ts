@@ -1,8 +1,18 @@
 export const JOB_TYPE_LABELS: Record<string, string> = {
   sand_logistics_analyze: 'Логистика песка',
-  poi_analyze_all: 'Анализ POI',
+  poi_analyze_all: 'Анализ окружения',
   autoroad_connect: 'Автодороги / сеть',
   import_file: 'Импорт файла',
+};
+
+/** Подписи для автоматически созданных HTTP-flow (последние сегменты path). */
+export const HTTP_FLOW_PATH_LABELS: Record<string, string> = {
+  'pois/analyze-all': 'Анализ окружения',
+  'sand-logistics/analyze': 'Логистика песка',
+  'infrastructure/autoroad-connect': 'Соединение автодорогами',
+  'autoroad-network/request': 'Сеть автодорог: подготовка',
+  'autoroad-network/compute': 'Сеть автодорог: расчёт',
+  'autoroad-network/apply': 'Сеть автодорог: применение',
 };
 
 export const JOB_STATUS_LABELS: Record<string, string> = {

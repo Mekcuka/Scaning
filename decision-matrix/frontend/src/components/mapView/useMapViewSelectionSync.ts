@@ -45,6 +45,7 @@ export function useMapViewSelectionSync(
       refs.pointSourceRef.current,
       refs.lineSourceRef.current,
       selectedFeatureId,
+      refs.nodePointSourceRef.current,
     );
     if (feature) collection.push(feature);
   }, [selectedFeatureId, selectMode, drawMode, editMode, pois, infraObjects]);
@@ -73,6 +74,10 @@ export function useMapViewSelectionSync(
       }
     }
     collection.clear();
+    refs.nodePointSourceRef.current.getFeatures().forEach((f) => {
+      const id = f.get('id') as string;
+      if (targetIds.has(id) && f.get('subtype') !== 'draft') collection.push(f);
+    });
     refs.pointSourceRef.current.getFeatures().forEach((f) => {
       const id = f.get('id') as string;
       if (targetIds.has(id) && f.get('subtype') !== 'draft') collection.push(f);

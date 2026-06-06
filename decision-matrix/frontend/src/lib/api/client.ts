@@ -4,7 +4,7 @@ import {
   getRefreshToken,
   persistAuthTokens,
 } from '../authSession';
-import { taskLog } from '../taskLog/store';
+import { taskLog, isMultiStepHttpFlowActive } from '../taskLog/store';
 import {
   extractProjectIdFromPath,
   parseRequestBody,
@@ -108,6 +108,13 @@ const API_ERROR_MESSAGES_RU: Record<string, string> = {
 export function formatApiError(detail: unknown, fallback: string): string {
   if (typeof detail === 'string') {
     if (detail === 'Insufficient permissions') return fallback;
+    if (/Batch paste limit is/i.test(detail)) {
+      const m = /got (\d+)/i.exec(detail);
+      const count = m?.[1];
+      return count
+        ? `Слишком много объектов для одной вставки (${count}). Разбейте выделение на части.`
+        : 'Слишком много объектов для одной вставки. Разбейте выделение на части.';
+    }
     return API_ERROR_MESSAGES_RU[detail] ?? detail;
   }
   if (Array.isArray(detail)) {
@@ -118,7 +125,10 @@ export function formatApiError(detail: unknown, fallback: string): string {
           Array.isArray(loc) && loc.length > 0
             ? String(loc[loc.length - 1])
             : null;
-        const msg = String((item as { msg: string }).msg);
+        let msg = String((item as { msg: string }).msg);
+        if (/Batch paste limit is/i.test(msg)) {
+          msg = formatApiError(msg.replace(/^Value error,\s*/i, ''), fallback);
+        }
         return field ? `${field}: ${msg}` : msg;
       }
       return JSON.stringify(item);
@@ -165,7 +175,12 @@ export async function request<T>(path: string, options: RequestOptions = {}): Pr
     });
   } catch (err) {
     if (err instanceof DOMException && err.name === 'AbortError') {
-      throw new Error('Сервер не отвечает. Запустите API (backend) и базу данных.');
+      const ms = timeoutMs ?? REQUEST_TIMEOUT_MS;
+      throw new Error(
+        ms > REQUEST_TIMEOUT_MS
+          ? `Операция заняла больше ${Math.round(ms / 1000)} с. Попробуйте ещё раз или уменьшите группу.`
+          : 'Сервер не отвечает. Запустите API (backend) и базу данных.',
+      );
     }
     throw err;
   } finally {
@@ -246,6 +261,8 @@ export async function request<T>(path: string, options: RequestOptions = {}): Pr
         status: envelope.status,
         payload: requestBody as Record<string, unknown> | undefined,
       });
+    } else if (res.status >= 200 && res.status < 300 && !isMultiStepHttpFlowActive()) {
+      taskLog.finalizeHttpFlowForPath(projectId, path, 'completed');
     }
   }
   return data;

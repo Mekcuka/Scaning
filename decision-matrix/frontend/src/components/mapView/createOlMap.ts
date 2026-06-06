@@ -13,6 +13,7 @@ export function createOlMap(refs: MapViewRefs, layers: MapLayers): OlMap {
     radiusLayer,
     connectionLayer,
     lineLayer,
+    nodePointLayer,
     pointLayer,
     placementPreviewLayer,
   } = layers;
@@ -24,6 +25,7 @@ export function createOlMap(refs: MapViewRefs, layers: MapLayers): OlMap {
       radiusLayer,
       connectionLayer,
       lineLayer,
+      nodePointLayer,
       pointLayer,
       placementPreviewLayer,
     ],

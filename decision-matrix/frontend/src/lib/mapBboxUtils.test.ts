@@ -2,7 +2,9 @@ import { describe, expect, it } from 'vitest';
 import {
   expandMapBbox,
   mergeInfraForMapDisplay,
+  MAP_VIEWPORT_MIN_OBJECTS,
   shouldUpdateMapBbox,
+  shouldUseViewportInfraLoad,
   viewportInsideFetchedBuffer,
 } from './mapBboxUtils';
 
@@ -16,7 +18,7 @@ describe('expandMapBbox', () => {
 describe('viewportInsideFetchedBuffer', () => {
   const base = '0,0,10,10';
 
-  it('accepts a small pan inside the 12% buffer', () => {
+  it('accepts a small pan inside the buffer', () => {
     expect(viewportInsideFetchedBuffer(base, '0.5,0.5,9.5,9.5')).toBe(true);
     expect(shouldUpdateMapBbox(base, '0.5,0.5,9.5,9.5')).toBe(false);
   });
@@ -24,6 +26,54 @@ describe('viewportInsideFetchedBuffer', () => {
   it('requires a new fetch when the viewport leaves the buffered envelope', () => {
     expect(viewportInsideFetchedBuffer(base, '8,8,18,18')).toBe(false);
     expect(shouldUpdateMapBbox(base, '8,8,18,18')).toBe(true);
+  });
+});
+
+describe('shouldUseViewportInfraLoad', () => {
+  const bbox = '0,0,1,1';
+
+  it('uses viewport while full list is still loading', () => {
+    expect(
+      shouldUseViewportInfraLoad({
+        mapEditEnabled: false,
+        mapBbox: bbox,
+        infraCount: 0,
+        fullListLoading: true,
+      }),
+    ).toBe(true);
+  });
+
+  it('uses viewport for large projects after full list loaded', () => {
+    expect(
+      shouldUseViewportInfraLoad({
+        mapEditEnabled: false,
+        mapBbox: bbox,
+        infraCount: MAP_VIEWPORT_MIN_OBJECTS,
+        fullListLoading: false,
+      }),
+    ).toBe(true);
+  });
+
+  it('falls back to full list for small projects when load finished', () => {
+    expect(
+      shouldUseViewportInfraLoad({
+        mapEditEnabled: false,
+        mapBbox: bbox,
+        infraCount: MAP_VIEWPORT_MIN_OBJECTS - 1,
+        fullListLoading: false,
+      }),
+    ).toBe(false);
+  });
+
+  it('disabled in edit mode', () => {
+    expect(
+      shouldUseViewportInfraLoad({
+        mapEditEnabled: true,
+        mapBbox: bbox,
+        infraCount: 200,
+        fullListLoading: false,
+      }),
+    ).toBe(false);
   });
 });
 

@@ -1,6 +1,8 @@
 import { describe, expect, it } from 'vitest';
 import type { InfraObject } from '../api';
+import { setProjectCustomGltfAssets } from './map3dCustomAssets';
 import { buildMap3dModelInstances } from './map3dModelInstances';
+import { RENDER_3D_MODEL_ID_KEY } from './render3d';
 
 const pointObj: InfraObject = {
   id: 'pt-1',
@@ -34,5 +36,30 @@ describe('buildMap3dModelInstances', () => {
     };
     const list = buildMap3dModelInstances({ infraObjects: [line], pois: [] });
     expect(list).toHaveLength(0);
+  });
+
+  it('uses assigned custom GLB id instead of subtype default', () => {
+    setProjectCustomGltfAssets('proj-1', [
+      {
+        id: 'aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee',
+        project_id: 'proj-1',
+        filename: 'tower.glb',
+        target_height_m: 12,
+        created_at: '2026-01-01T00:00:00Z',
+        assigned_subtypes: ['node'],
+      },
+    ]);
+    const node: InfraObject = {
+      ...pointObj,
+      id: 'node-1',
+      subtype: 'node',
+      properties: {
+        [RENDER_3D_MODEL_ID_KEY]: 'custom:aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee',
+        render_3d_style: 'model',
+      },
+    };
+    const list = buildMap3dModelInstances({ infraObjects: [node], pois: [] });
+    expect(list).toHaveLength(1);
+    expect(list[0]!.catalog.gltfAssetId).toBe('custom:aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee');
   });
 });

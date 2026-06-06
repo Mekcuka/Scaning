@@ -1,37 +1,31 @@
-export function SandFlowEdgeSegmentLabel({
+import { ViewportPortal } from '@xyflow/react';
+import { formatSandEdgeFlow, formatSandEdgeM3Full } from '../../../lib/sandLogisticsFlow';
+
+export function SandFlowEdgeVolumeLabel({
   lx,
   ly,
-  label,
+  flowM3,
   stroke,
 }: {
   lx: number;
   ly: number;
-  label: string;
+  flowM3: number;
   stroke: string;
 }) {
   return (
-    <g pointerEvents="none" className="sand-flow-edge-label">
-      <rect
-        x={lx - label.length * 3.2 - 8}
-        y={ly - 10}
-        width={label.length * 6.4 + 16}
-        height={20}
-        rx={10}
-        fill="var(--surface, #fff)"
-        stroke={stroke}
-        strokeWidth={1.5}
-      />
-      <text
-        x={lx}
-        y={ly}
-        textAnchor="middle"
-        dominantBaseline="central"
-        fill={stroke}
-        fontSize={11}
-        fontWeight={600}
+    <ViewportPortal>
+      <div
+        className="flow-edge-label sand-flow-road-volume-label nodrag nopan"
+        style={{
+          position: 'absolute',
+          transform: `translate(-50%, -50%) translate(${lx}px, ${ly}px)`,
+          borderColor: stroke,
+          color: stroke,
+        }}
+        title={formatSandEdgeM3Full(flowM3)}
       >
-        {label}
-      </text>
-    </g>
+        {formatSandEdgeFlow(flowM3)}
+      </div>
+    </ViewportPortal>
   );
 }

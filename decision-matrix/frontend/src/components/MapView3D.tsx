@@ -3,6 +3,7 @@ import {
   useEffect,
   useImperativeHandle,
   useRef,
+  useSyncExternalStore,
 } from 'react';
 import maplibregl, { type Map as MapLibreMap, type MapGeoJSONFeature } from 'maplibre-gl';
 import 'maplibre-gl/dist/maplibre-gl.css';
@@ -33,6 +34,10 @@ import {
   MAP3D_SOURCE_IDS,
 } from '../lib/map3d/map3dConfig';
 import { applyMap3dTerrain } from '../lib/map3d/map3dTerrain';
+import {
+  getCustomGltfAssetsRevision,
+  subscribeCustomGltfAssets,
+} from '../lib/map3d/map3dCustomAssets';
 import { buildMap3dModelInstances } from '../lib/map3d/map3dModelInstances';
 import {
   ensureMap3dModelsLayer,
@@ -53,6 +58,8 @@ export type { MapFeatureSelection, MapFocusTarget, ThresholdCircle };
 export type MapView3DHandle = {
   getViewSnapshot: () => SavedMapViewState & { pitch: number; bearing: number } | null;
   jumpToView: (state: SavedMapViewState & { pitch?: number; bearing?: number }) => void;
+  /** После показа контейнера (2D→3D) — MapLibre и custom-слои пересчитывают canvas. */
+  resize: () => void;
 };
 
 export interface MapView3DProps {
@@ -165,6 +172,11 @@ const MapView3D = forwardRef<MapView3DHandle, MapView3DProps>(function MapView3D
   const persistRef = useRef(persistViewState);
   const onSelectRef = useRef(onFeatureSelect);
   const snapPool = infraSnapPool ?? infraObjects;
+  const customGltfAssetsRevision = useSyncExternalStore(
+    subscribeCustomGltfAssets,
+    getCustomGltfAssetsRevision,
+    getCustomGltfAssetsRevision,
+  );
 
   viewStateIdRef.current = viewStateId;
   projectIdRef.current = projectId;
@@ -194,6 +206,13 @@ const MapView3D = forwardRef<MapView3DHandle, MapView3DProps>(function MapView3D
         bearing: state.bearing ?? map.getBearing(),
       });
     },
+    resize: () => {
+      const map = mapRef.current;
+      const el = containerRef.current;
+      if (!map || !el || el.offsetWidth === 0 || el.offsetHeight === 0) return;
+      map.resize();
+      map.triggerRepaint();
+    },
   }));
 
   useEffect(() => {
@@ -214,7 +233,7 @@ const MapView3D = forwardRef<MapView3DHandle, MapView3DProps>(function MapView3D
       bearing: initial.bearing,
       maxPitch: 85,
       attributionControl: {},
-      canvasContextAttributes: { antialias: true },
+      canvasContextAttributes: { antialias: false, preserveDrawingBuffer: true },
     });
 
     map.addControl(new maplibregl.NavigationControl({ visualizePitch: true }), 'top-right');
@@ -292,6 +311,22 @@ const MapView3D = forwardRef<MapView3DHandle, MapView3DProps>(function MapView3D
   }, [viewStateScope]);
 
   useEffect(() => {
+    const el = containerRef.current;
+    if (!el) return;
+
+    const resizeMap = () => {
+      const map = mapRef.current;
+      if (!map || el.offsetWidth === 0 || el.offsetHeight === 0) return;
+      map.resize();
+      map.triggerRepaint();
+    };
+
+    const ro = new ResizeObserver(() => resizeMap());
+    ro.observe(el);
+    return () => ro.disconnect();
+  }, [viewStateScope]);
+
+  useEffect(() => {
     const map = mapRef.current;
     if (!map) return;
     const apply = () => {
@@ -365,7 +400,7 @@ const MapView3D = forwardRef<MapView3DHandle, MapView3DProps>(function MapView3D
 
     if (map.isStyleLoaded()) applyModels();
     else map.once('load', applyModels);
-  }, [showModels, infraObjects, infraSnapPool, pois, layers, selectedFeatureId]);
+  }, [showModels, infraObjects, infraSnapPool, pois, layers, selectedFeatureId, customGltfAssetsRevision]);
 
   useEffect(() => {
     const map = mapRef.current;

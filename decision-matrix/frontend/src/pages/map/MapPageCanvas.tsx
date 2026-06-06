@@ -146,9 +146,8 @@ export function MapPageCanvas({
         <div
           className="map-3d-host"
           style={{
-            display: mapIn3d ? 'block' : 'none',
-            height: '100%',
-            width: '100%',
+            visibility: mapIn3d ? 'visible' : 'hidden',
+            pointerEvents: mapIn3d ? 'auto' : 'none',
           }}
           aria-hidden={!mapIn3d}
         >
@@ -171,7 +170,6 @@ export function MapPageCanvas({
               showBasemap={showBasemap}
               showTerrain={showTerrain}
               showModels={showModels}
-              connectionLines={connectionLines}
               selectedPoi={selectedPoi}
               selectedFeatureId={featureSel?.id ?? null}
               onFeatureSelect={

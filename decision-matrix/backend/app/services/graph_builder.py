@@ -101,9 +101,14 @@ async def build_network_from_lines(
 
     for obj in lines:
         coords: list[tuple[float, float]] = [(obj.longitude, obj.latitude)]
-        if obj.properties and obj.properties.get("coordinates"):
-            for c in obj.properties["coordinates"]:
-                coords.append((float(c[0]), float(c[1])))
+        raw_coords = (obj.properties or {}).get("coordinates")
+        if isinstance(raw_coords, list) and raw_coords:
+            for c in raw_coords:
+                try:
+                    if isinstance(c, (list, tuple)) and len(c) >= 2:
+                        coords.append((float(c[0]), float(c[1])))
+                except (TypeError, ValueError):
+                    continue
         elif obj.end_longitude is not None:
             coords.append((obj.end_longitude, obj.end_latitude))
         else:

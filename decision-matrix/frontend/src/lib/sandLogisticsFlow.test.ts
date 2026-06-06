@@ -1,17 +1,21 @@
+import { Position } from '@xyflow/react';
 import { describe, expect, it } from 'vitest';
 import type { SandLogisticsSubnet } from './api';
 import {
+  borderAnchorToward,
   buildSandLogisticsLayout,
   buildSandLogisticsSliceFlow,
   collectKeyNetworkNodes,
   collectSiteInfluenceNodeIds,
   computeSandFlowDefaultViewport,
   computeSiteDensitySpread,
+  floatingSandSiteLinkEndpoints,
   haulLegPolylinePoints,
   measureSandFlowGeoDrifts,
   minSandFlowSitePairwiseGap,
   polylineMidpoint,
   polylineToSvgPath,
+  formatSandEdgeFlow,
   sandLogisticsToFlow,
   SAND_FLOW_MAX_GEO_DRIFT,
   SAND_FLOW_SITE_H,
@@ -178,15 +182,19 @@ describe('sandLogisticsFlow edge labels', () => {
     ])).toEqual({ x: 50, y: 0 });
   });
 
-  it('key mode adds one leg label node, not segment labels on edges', () => {
+  it('key mode labels road polylines once, not per consumer leg nodes', () => {
     const flow = sandLogisticsToFlow(minimalSubnet(), { edgeLabelMode: 'key' });
-    const legLabels = flow.nodes.filter((n) => n.type === 'sandLegLabel');
-    expect(legLabels).toHaveLength(1);
-    expect(legLabels[0]?.data).toMatchObject({ kind: 'legLabel', flowM3: 1000 });
-    const flowingRoads = flow.edges.filter(
-      (e) => e.type === 'sandRoadPolylineEdge' && (e.data as { flowM3?: number })?.flowM3,
+    expect(flow.nodes.filter((n) => n.type === 'sandLegLabel')).toHaveLength(0);
+    const labeledRoads = flow.edges.filter(
+      (e) =>
+        e.type === 'sandRoadPolylineEdge' &&
+        (e.data as { flowM3?: number; showFlowLabel?: boolean }).flowM3! > 0 &&
+        (e.data as { showFlowLabel?: boolean }).showFlowLabel !== false,
     );
-    expect(flowingRoads.length).toBeGreaterThan(0);
+    expect(labeledRoads.length).toBeGreaterThan(0);
+    expect(labeledRoads.length).toBeLessThanOrEqual(
+      flow.edges.filter((e) => e.type === 'sandRoadPolylineEdge').length,
+    );
   });
 
   it('hidden mode adds no leg label nodes', () => {
@@ -197,6 +205,28 @@ describe('sandLogisticsFlow edge labels', () => {
   it('all mode does not add leg label nodes', () => {
     const flow = sandLogisticsToFlow(minimalSubnet(), { edgeLabelMode: 'all' });
     expect(flow.nodes.filter((n) => n.type === 'sandLegLabel')).toHaveLength(0);
+  });
+
+  it('key mode dedupes volume labels when many consumers share road trunk', () => {
+    const flow = sandLogisticsToFlow(denseSandSubnet(), { edgeLabelMode: 'key' });
+    expect(flow.nodes.filter((n) => n.type === 'sandLegLabel')).toHaveLength(0);
+    const roadWithFlow = flow.edges.filter(
+      (e) =>
+        e.type === 'sandRoadPolylineEdge' &&
+        (e.data as { flowM3?: number }).flowM3! > 0,
+    );
+    const visibleLabels = roadWithFlow.filter(
+      (e) => (e.data as { showFlowLabel?: boolean }).showFlowLabel !== false,
+    );
+    expect(visibleLabels.length).toBeGreaterThan(0);
+    expect(visibleLabels.length).toBeLessThanOrEqual(roadWithFlow.length);
+    const firstLabel = visibleLabels[0]?.data as { flowM3?: number; showFlowLabel?: boolean };
+    expect(firstLabel.showFlowLabel).not.toBe(false);
+  });
+
+  it('formats edge flow like technological schematic', () => {
+    expect(formatSandEdgeFlow(5100)).toMatch(/5[,.]?1\s*тыс\. м³\/г/);
+    expect(formatSandEdgeFlow(1000)).toMatch(/1\s*тыс\. м³\/г/);
   });
 
   it('minimal subnet uses one simplified road polyline instead of per-segment edges', () => {
@@ -509,7 +539,77 @@ function subnetWithSideBranch(extraBranchNodes: number): SandLogisticsSubnet {
   };
 }
 
+describe('sandLogisticsFlow floating site connectors', () => {
+  function box(
+    x: number,
+    y: number,
+    w = SAND_FLOW_SITE_W,
+    h = SAND_FLOW_SITE_H,
+    type = 'sandFlowNode',
+  ) {
+    return {
+      type,
+      measured: { width: w, height: h },
+      internals: { positionAbsolute: { x, y } },
+    };
+  }
+
+  it('picks right border when snap is to the east', () => {
+    const node = box(100, 100);
+    const anchor = borderAnchorToward(node, { x: 300, y: 134 });
+    expect(anchor.position).toBe(Position.Right);
+    expect(anchor.x).toBeCloseTo(260, 0);
+    expect(anchor.y).toBeCloseTo(134, 0);
+  });
+
+  it('picks top border when snap is above the block', () => {
+    const node = box(200, 200);
+    const anchor = borderAnchorToward(node, { x: 260, y: 50 });
+    expect(anchor.position).toBe(Position.Top);
+    expect(anchor.y).toBeCloseTo(200, 0);
+  });
+
+  it('connects both ends on nearest borders', () => {
+    const quarry = box(0, 100);
+    const snap = box(250, 80, 10, 10, 'sandNetworkNode');
+    const endpoints = floatingSandSiteLinkEndpoints(quarry, snap);
+    expect(endpoints.sourcePosition).toBe(Position.Right);
+    expect(endpoints.targetPosition).toBe(Position.Left);
+    expect(endpoints.sourceX).toBeGreaterThan(endpoints.targetX - 200);
+  });
+});
+
 describe('sandLogisticsFlow geo layout', () => {
+  it('every visible site with snap has a connector to the road network', () => {
+    const flow = sandLogisticsToFlow(mainQuarrySubnet(), { showPlannedRoutes: true });
+    const siteNodes = flow.nodes.filter((n) => n.type === 'sandFlowNode');
+    expect(siteNodes.length).toBeGreaterThan(0);
+
+    for (const site of siteNodes) {
+      const connected = flow.edges.some(
+        (e) =>
+          (e.type === 'sandSiteLinkEdge' || e.type === 'sandPlannedSiteLinkEdge') &&
+          (e.source === site.id || e.target === site.id),
+      );
+      expect(connected, `site ${site.id} missing snap connector`).toBe(true);
+    }
+  });
+
+  it('unallocated in-service consumers still have snap connectors', () => {
+    const subnet = mainQuarrySubnet();
+    const unallocated = subnet.consumers.find((c) => c.greedy_allocated_m3 === 0 && c.in_service);
+    expect(unallocated).toBeTruthy();
+
+    const flow = sandLogisticsToFlow(subnet, { showPlannedRoutes: true });
+    const siteId = `c:${unallocated!.object_id}`;
+    const connected = flow.edges.some(
+      (e) =>
+        (e.type === 'sandSiteLinkEdge' || e.type === 'sandPlannedSiteLinkEdge') &&
+        (e.source === siteId || e.target === siteId),
+    );
+    expect(connected).toBe(true);
+  });
+
   it('returns siteNodeIds for visible objects', () => {
     const flow = sandLogisticsToFlow(mainQuarrySubnet(), { showPlannedRoutes: true });
     expect(flow.siteNodeIds.length).toBeGreaterThan(0);
@@ -584,31 +684,38 @@ describe('sandLogisticsFlow geo layout', () => {
     expect(gap).toBeGreaterThanOrEqual(24);
   });
 
+  it('groupByEntryYear keeps site blocks separated', () => {
+    const subnet = denseSandSubnet();
+    for (const [i, c] of subnet.consumers.entries()) {
+      c.entry_date = i % 2 === 0 ? '2020-01-01' : '2022-01-01';
+    }
+    const flow = sandLogisticsToFlow(subnet, {
+      showPlannedRoutes: true,
+      groupByEntryYear: true,
+    });
+    const { layoutGap } = computeSiteDensitySpread(flow.siteNodeIds.length);
+    const gap = minSandFlowSitePairwiseGap(flow.nodes, flow.siteNodeIds);
+    expect(gap).toBeGreaterThanOrEqual(layoutGap);
+  });
+
   it('computeSiteDensitySpread scales with site count', () => {
-    expect(computeSiteDensitySpread(3)).toMatchInlineSnapshot(`
-      {
-        "geoMargin": 0.14,
-        "geoScaleBoost": 1,
-        "layoutGap": 10,
-        "maxDrift": ${SAND_FLOW_MAX_GEO_DRIFT},
-      }
-    `);
-    expect(computeSiteDensitySpread(6)).toMatchInlineSnapshot(`
-      {
-        "geoMargin": 0.2,
-        "geoScaleBoost": 1.24,
-        "layoutGap": 19,
-        "maxDrift": ${SAND_FLOW_MAX_GEO_DRIFT + 36},
-      }
-    `);
-    expect(computeSiteDensitySpread(9)).toMatchInlineSnapshot(`
-      {
-        "geoMargin": 0.26,
-        "geoScaleBoost": 1.48,
-        "layoutGap": 28,
-        "maxDrift": ${SAND_FLOW_MAX_GEO_DRIFT + 72},
-      }
-    `);
+    const sparse = computeSiteDensitySpread(3);
+    expect(sparse.layoutGap).toBe(10);
+    expect(sparse.geoScaleBoost).toBe(1);
+    expect(sparse.geoMargin).toBe(0.14);
+    expect(sparse.maxDrift).toBe(SAND_FLOW_MAX_GEO_DRIFT);
+
+    const medium = computeSiteDensitySpread(6);
+    expect(medium.layoutGap).toBe(19);
+    expect(medium.geoScaleBoost).toBe(1.24);
+    expect(medium.geoMargin).toBeCloseTo(0.2, 5);
+    expect(medium.maxDrift).toBe(SAND_FLOW_MAX_GEO_DRIFT + 36);
+
+    const dense = computeSiteDensitySpread(9);
+    expect(dense.layoutGap).toBe(28);
+    expect(dense.geoScaleBoost).toBe(1.48);
+    expect(dense.geoMargin).toBeCloseTo(0.26, 5);
+    expect(dense.maxDrift).toBe(SAND_FLOW_MAX_GEO_DRIFT + 72);
   });
 
   it('excludes side-branch nodes from influence set', () => {

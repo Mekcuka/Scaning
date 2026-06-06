@@ -67,6 +67,47 @@ export function createDefaultApiMocks(): ApiMockOverrides {
       deleted_pois: 0,
       network_rebuilt: false,
     }),
+    batchPasteMapObjects: vi.fn().mockImplementation(
+      (
+        _pid: string,
+        data: {
+          pois: { create: { name: string; lon: number; lat: number } }[];
+          infra_points: {
+            create: { name: string; subtype: string; lon: number; lat: number };
+            target_subtype?: string | null;
+          }[];
+          infra_lines: { create: { name: string; subtype: string; lon: number; lat: number } }[];
+        },
+      ) =>
+        Promise.resolve({
+          created_pois: data.pois.map((item, i) => ({
+            ...samplePois[0],
+            id: `poi-paste-${i}`,
+            name: item.create.name,
+            lon: item.create.lon,
+            lat: item.create.lat,
+          })),
+          created_infra: [
+            ...data.infra_points.map((item, i) => ({
+              ...sampleInfra[0],
+              id: `infra-point-${i}`,
+              name: item.create.name,
+              subtype: item.target_subtype ?? item.create.subtype,
+              lon: item.create.lon,
+              lat: item.create.lat,
+            })),
+            ...data.infra_lines.map((item, i) => ({
+              ...sampleInfra[0],
+              id: `infra-line-${i}`,
+              name: item.create.name,
+              subtype: item.create.subtype,
+              lon: item.create.lon,
+              lat: item.create.lat,
+            })),
+          ],
+          network_rebuilt: data.infra_lines.length > 0,
+        }),
+    ),
     updateLayer: vi.fn().mockResolvedValue(sampleLayers[0]),
     autoroadNetworkSolverStatus: vi.fn().mockResolvedValue({
       steinerpy: true,

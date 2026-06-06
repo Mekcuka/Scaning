@@ -1,5 +1,7 @@
 """Create infrastructure object records (shared by map API and autoroad connect)."""
 
+from __future__ import annotations
+
 from uuid import UUID
 
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -24,6 +26,8 @@ async def create_infra_object_record(
     project_id: UUID,
     data: InfraObjectCreate,
     layer_source_type: str = "manual",
+    rebuild_network: bool = True,
+    snap_object_cache: dict[UUID, InfrastructureObject] | None = None,
 ) -> InfrastructureObject:
     subtype = normalize_infra_subtype(data.subtype)
     has_line = data.end_lon is not None or (data.coordinates and len(data.coordinates) >= 2)
@@ -80,6 +84,7 @@ async def create_infra_object_record(
                 line_snap_start_object_id=data.line_snap_start_object_id,
                 line_snap_finish_object_id=data.line_snap_finish_object_id,
                 line_preserve_geometry=data.line_preserve_geometry,
+                snap_object_cache=snap_object_cache,
             )
         except LineEndpointRuleError as e:
             raise ValueError(str(e)) from e
@@ -108,6 +113,6 @@ async def create_infra_object_record(
     )
     db.add(obj)
     await db.flush()
-    if obj.end_longitude is not None:
+    if rebuild_network and obj.end_longitude is not None:
         await build_network_from_lines(db, project_id)
     return obj

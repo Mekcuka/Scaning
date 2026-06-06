@@ -11,6 +11,25 @@ const API_BASE = import.meta.env.VITE_API_URL || '/api/v1';
 
 const customById = new Map<string, Map3dGltfAssetDef>();
 
+type CustomAssetsListener = () => void;
+const customAssetsListeners = new Set<CustomAssetsListener>();
+let customAssetsRevision = 0;
+
+export function getCustomGltfAssetsRevision(): number {
+  return customAssetsRevision;
+}
+
+/** MapView3D rebuilds model instances when project GLB registry changes. */
+export function subscribeCustomGltfAssets(listener: CustomAssetsListener): () => void {
+  customAssetsListeners.add(listener);
+  return () => customAssetsListeners.delete(listener);
+}
+
+function notifyCustomGltfAssetsChanged(): void {
+  customAssetsRevision += 1;
+  for (const listener of customAssetsListeners) listener();
+}
+
 export function customModelPropertyId(modelId: string): string {
   const id = modelId.trim();
   return id.toLowerCase().startsWith('custom:') ? id.toLowerCase() : `custom:${id}`;
@@ -35,6 +54,7 @@ export function setProjectCustomGltfAssets(projectId: string, models: Map3dCusto
       targetHeightM: m.target_height_m,
     });
   }
+  notifyCustomGltfAssetsChanged();
 }
 
 export function getCustomGltfAssetDef(assetId: string): Map3dGltfAssetDef | null {

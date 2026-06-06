@@ -24,7 +24,7 @@ describe('autoroadNetworkPlannerOptions', () => {
     const req = plannerOptionsToRequestOptions(DEFAULT_AUTOROAD_PLANNER_OPTIONS);
     expect(req.solver).toBe('geosteiner');
     expect(req.steiner_radius_km).toBe(1);
-    expect(req.max_terminals).toBe(50);
+    expect(req.max_terminals).toBe(200);
   });
 
   it('assigns terminal roles by index', () => {

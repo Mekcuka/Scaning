@@ -9,12 +9,13 @@ from uuid import UUID
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.geo.constants import MAX_AUTOROAD_NETWORK_OBJECTS
 from app.models import InfrastructureLayer, InfrastructureObject
 from app.schemas import InfraObjectCreate
 from app.services.graph_builder import build_network_from_lines
 from app.services.line_split import build_line_split_plan
 
-MAX_CONNECT_OBJECTS = 50
+MAX_CONNECT_OBJECTS = MAX_AUTOROAD_NETWORK_OBJECTS
 NODE_DEDUP_KM = 0.05
 AUTOROAD_NETWORK_SOURCE = "autoroad_network"
 NETWORK_REBUILD_SUBTYPES = frozenset({"autoroad", "node"})

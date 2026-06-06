@@ -12,12 +12,18 @@ export type MapHitHelpers = {
 };
 
 export function createMapHitHelpers(map: OlMap, refs: MapViewRefs): MapHitHelpers {
-  const { pointSourceRef, lineSourceRef } = refs;
+  const { pointSourceRef, nodePointSourceRef, lineSourceRef } = refs;
 
   const resolveInfraPointAtPixel = (pixel: number[]) => {
     const coordinate = map.getCoordinateFromPixel(pixel);
     if (!coordinate) return null;
-    return resolveInfraPointAtCoordinate(map, pointSourceRef.current, coordinate, 20);
+    return resolveInfraPointAtCoordinate(
+      map,
+      pointSourceRef.current,
+      coordinate,
+      20,
+      nodePointSourceRef.current,
+    );
   };
 
   const resolveInfraLineSplitAtPixel = (pixel: number[]): MapClickHit['overLine'] | null => {

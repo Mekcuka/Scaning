@@ -7,6 +7,11 @@ import * as THREE from 'three';
 import { createLineTubeGroup } from './map3dLineMeshes';
 import { buildTransmissionTowerMesh, createPowerLineGroup } from './map3dPowerLineMeshes';
 import { clonePowerLineTowerToHeight } from './map3dPowerLineStyle';
+import {
+  acquireMap3dThreeRenderer,
+  finishMap3dThreeFrame,
+  releaseMap3dThreeRenderer,
+} from './map3dSharedRenderer';
 import type { Map3dLineInstance } from './map3dLineInstances';
 import type { Map3dPowerLineInstance } from './map3dPowerLineInstances';
 import type { Map3dLineLayerData } from './map3dLineLayerData';
@@ -243,12 +248,7 @@ export class Map3dLinesCustomLayer implements CustomLayerInterface {
   onAdd(map: MapLibreMap, gl: WebGLRenderingContext | WebGL2RenderingContext): void {
     this.map = map;
     this.camera = new THREE.Camera();
-    this.renderer = new THREE.WebGLRenderer({
-      canvas: map.getCanvas(),
-      context: gl,
-      antialias: true,
-    });
-    this.renderer.autoClear = false;
+    this.renderer = acquireMap3dThreeRenderer(map, gl);
     this.ensureLights();
     this.rebuildRenderables();
 
@@ -266,7 +266,7 @@ export class Map3dLinesCustomLayer implements CustomLayerInterface {
     for (const r of this.renderables) disposeGroup(r.group);
     this.renderables = [];
     this.scene.clear();
-    this.renderer?.dispose();
+    if (this.map) releaseMap3dThreeRenderer(this.map);
     this.renderer = null;
     this.map = null;
   }
@@ -290,6 +290,7 @@ export class Map3dLinesCustomLayer implements CustomLayerInterface {
     }
 
     for (const r of this.renderables) r.group.visible = true;
+    finishMap3dThreeFrame(this.renderer);
   }
 }
 

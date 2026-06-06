@@ -56,8 +56,5 @@ export function buildSidePanelsSection(
     canPasteMapClipboard: actions.canPasteMapClipboard,
     canDeleteCurrentSelection: actions.canDeleteCurrentSelection,
     deleteGroupPending: actions.deleteGroupMut.isPending,
-    canAutoroadConnect: actions.canAutoroadConnect,
-    autoroadConnectPending: actions.autoroadConnectMut.isPending || data.projectJobBusy,
-    onAutoroadConnect: canWriteInfra ? actions.handleAutoroadConnect : undefined,
   };
 }

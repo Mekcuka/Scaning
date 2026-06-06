@@ -1,4 +1,5 @@
 import type { DrawMode } from '../../components/MapView';
+import type { MapBulkProgressUpdate } from '../../lib/mapBulkProgress';
 import {
   clampLineLodScaleThreshold,
   formatScaleDenominator,
@@ -11,6 +12,7 @@ import {
 export type MapPageFooterProps = {
   mapScaleLabel: string;
   geometrySavePending: number;
+  bulkProgress: MapBulkProgressUpdate | null;
   drawMode: DrawMode;
   mapIn3d: boolean;
   mapFooterHint: string | null;
@@ -26,6 +28,7 @@ export type MapPageFooterProps = {
 export function MapPageFooter({
   mapScaleLabel,
   geometrySavePending,
+  bulkProgress,
   drawMode,
   mapIn3d,
   mapFooterHint,
@@ -37,20 +40,49 @@ export function MapPageFooter({
   mapScaleDenominator,
   onLineLodChange,
 }: MapPageFooterProps) {
+  const bulkPercent =
+    bulkProgress && bulkProgress.total > 0 && !bulkProgress.indeterminate
+      ? Math.min(100, Math.round((bulkProgress.done / bulkProgress.total) * 100))
+      : 0;
+
   return (
     <div className="map-footer">
       <span>
         Масштаб: <strong>{mapScaleLabel}</strong>
       </span>
-      {geometrySavePending > 0 && <span>Сохранение геометрии…</span>}
-      {geometrySavePending === 0 && drawMode === 'ruler' && (
+      {bulkProgress && (
+        <div className="map-paste-progress" role="status" aria-live="polite">
+          <span className="map-paste-progress-label">
+            {bulkProgress.label}: {bulkProgress.done} / {bulkProgress.total}
+            {bulkProgress.chunkTotal > 1
+              ? ` · часть ${Math.min(bulkProgress.chunkIndex, bulkProgress.chunkTotal)} / ${bulkProgress.chunkTotal}`
+              : ''}
+          </span>
+          <div
+            className="map-paste-progress-track"
+            aria-hidden
+            {...(!bulkProgress.indeterminate
+              ? { 'aria-valuenow': bulkPercent, 'aria-valuemin': 0, 'aria-valuemax': 100 }
+              : {})}
+          >
+            <div
+              className={`map-paste-progress-bar${
+                bulkProgress.indeterminate ? ' map-paste-progress-bar--indeterminate' : ''
+              }`}
+              style={bulkProgress.indeterminate ? undefined : { width: `${bulkPercent}%` }}
+            />
+          </div>
+        </div>
+      )}
+      {!bulkProgress && geometrySavePending > 0 && <span>Сохранение геометрии…</span>}
+      {!bulkProgress && geometrySavePending === 0 && drawMode === 'ruler' && (
         <span>
           {rulerPointsLength === 0
             ? 'Линейка: клик — вершина'
             : 'Двойной клик или «Готово» — завершить'}
         </span>
       )}
-      {geometrySavePending === 0 && drawMode === 'autoroad_network' && (
+      {!bulkProgress && geometrySavePending === 0 && drawMode === 'autoroad_network' && (
         <span>
           {autoroadNetworkPending
             ? 'Расчёт сети на сервере…'
@@ -59,7 +91,7 @@ export function MapPageFooter({
               : 'Сеть: клик по объекту — добавить/убрать; нужно ≥2 терминалов'}
         </span>
       )}
-      {geometrySavePending === 0 && drawMode === 'line' && (
+      {!bulkProgress && geometrySavePending === 0 && drawMode === 'line' && (
         <span>
           {lineDraftLength === 0
             ? 'Линия: первая точка — клик по точечному объекту на карте'
@@ -69,7 +101,7 @@ export function MapPageFooter({
       {mapIn3d && (
         <span>ПКМ + перетаскивание — поворот камеры; колёсико — масштаб</span>
       )}
-      {!mapIn3d && geometrySavePending === 0 && drawMode === 'select' && mapFooterHint && (
+      {!mapIn3d && !bulkProgress && geometrySavePending === 0 && drawMode === 'select' && mapFooterHint && (
         <span>{mapFooterHint}</span>
       )}
       {!mapIn3d && (

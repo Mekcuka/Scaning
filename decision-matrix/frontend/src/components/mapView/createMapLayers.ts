@@ -1,9 +1,10 @@
 import VectorLayer from 'ol/layer/Vector';
+import type { FeatureLike } from 'ol/Feature';
 import Point from 'ol/geom/Point';
 import LineString from 'ol/geom/LineString';
 import { Circle as CircleStyle, Fill, Stroke, Style, Text } from 'ol/style';
 import { MAP_SUBTYPE_COLORS } from '../../lib/mapIcons';
-import { MAP_VECTOR_RENDER_BUFFER, LINE_SUBTYPE_SET } from './constants';
+import { LINE_SUBTYPE_SET, MAP_LAYER_Z, MAP_VECTOR_RENDER_BUFFER } from './constants';
 import { createBasemapLayer } from './basemap';
 import type { MapLayers } from './mapSetupContext';
 import type { MapViewRefs } from './mapViewRefs';
@@ -16,24 +17,43 @@ import {
   pointFeatureStyles,
 } from './styles';
 
+function createInfraPointLayerStyle(refs: MapViewRefs) {
+  const { layersRef, hoveredIdRef, useIconsRef } = refs;
+  return (feature: FeatureLike) => {
+    const subtype = feature.get('subtype') as string;
+    const id = feature.get('id') as string;
+    const layerId = feature.get('layer_id') as string | undefined;
+    const opacityByLayer = layerOpacityMap(layersRef.current);
+    const op = layerId ? opacityByLayer[layerId] ?? 1 : 1;
+    const scale = op < 0.5 ? 0.85 : 1;
+    if (op <= 0) return new Style({});
+    const hovered = !!id && hoveredIdRef.current === id;
+    return pointFeatureStyles(subtype, scale, hovered, useIconsRef.current);
+  };
+}
+
 export function createMapLayers(refs: MapViewRefs, showBasemap: boolean): MapLayers {
   const {
     layersRef,
     pointSourceRef,
+    nodePointSourceRef,
     lineSourceRef,
     radiusSourceRef,
     placementPreviewSourceRef,
     connectionSourceRef,
     pointLayerRef,
+    nodePointLayerRef,
     lineLayerRef,
     basemapLayerRef,
     hoveredIdRef,
     useIconsRef,
   } = refs;
 
+  const pointStyle = createInfraPointLayerStyle(refs);
+
   const lineLayer = new VectorLayer({
     source: lineSourceRef.current,
-    zIndex: 3,
+    zIndex: MAP_LAYER_Z.line,
     renderBuffer: MAP_VECTOR_RENDER_BUFFER,
     updateWhileAnimating: false,
     updateWhileInteracting: false,
@@ -80,7 +100,6 @@ export function createMapLayers(refs: MapViewRefs, showBasemap: boolean): MapLay
       const colorByLayer = layerColorMap(layersRef.current);
       const op = layerId ? opacityByLayer[layerId] ?? 1 : 1;
       const custom = layerId ? colorByLayer[layerId] : undefined;
-      // For linear objects keep canonical subtype colors; layer color remains for non-line objects.
       const color = LINE_SUBTYPE_SET.has(subtype)
         ? (MAP_SUBTYPE_COLORS[subtype] || '#666')
         : (custom || MAP_SUBTYPE_COLORS[subtype] || '#666');
@@ -94,30 +113,30 @@ export function createMapLayers(refs: MapViewRefs, showBasemap: boolean): MapLay
     },
   });
 
-  const pointLayer = new VectorLayer({
-    source: pointSourceRef.current,
-    zIndex: 4,
+  const nodePointLayer = new VectorLayer({
+    source: nodePointSourceRef.current,
+    zIndex: MAP_LAYER_Z.nodePoint,
     renderBuffer: MAP_VECTOR_RENDER_BUFFER,
     updateWhileAnimating: false,
     updateWhileInteracting: false,
-    style: (feature) => {
-      const subtype = feature.get('subtype') as string;
-      const id = feature.get('id') as string;
-      const layerId = feature.get('layer_id') as string | undefined;
-      const opacityByLayer = layerOpacityMap(layersRef.current);
-      const op = layerId ? opacityByLayer[layerId] ?? 1 : 1;
-      const scale = (op < 0.5 ? 0.85 : 1);
-      if (op <= 0) return new Style({});
-      const hovered = !!id && hoveredIdRef.current === id;
-      return pointFeatureStyles(subtype, scale, hovered, useIconsRef.current);
-    },
+    style: pointStyle,
+  });
+
+  const pointLayer = new VectorLayer({
+    source: pointSourceRef.current,
+    zIndex: MAP_LAYER_Z.point,
+    renderBuffer: MAP_VECTOR_RENDER_BUFFER,
+    updateWhileAnimating: false,
+    updateWhileInteracting: false,
+    style: pointStyle,
   });
   pointLayerRef.current = pointLayer;
+  nodePointLayerRef.current = nodePointLayer;
   lineLayerRef.current = lineLayer;
 
   const radiusLayer = new VectorLayer({
     source: radiusSourceRef.current,
-    zIndex: 1,
+    zIndex: MAP_LAYER_Z.radius,
     style: (feature) => {
       const color = (feature.get('color') as string) || '#999';
       return new Style({
@@ -129,14 +148,14 @@ export function createMapLayers(refs: MapViewRefs, showBasemap: boolean): MapLay
 
   const placementPreviewLayer = new VectorLayer({
     source: placementPreviewSourceRef.current,
-    zIndex: 6,
+    zIndex: MAP_LAYER_Z.placementPreview,
     style: (feature) =>
       placementPreviewStyles(feature.get('subtype') as string, useIconsRef.current),
   });
 
   const connectionLayer = new VectorLayer({
     source: connectionSourceRef.current,
-    zIndex: 5,
+    zIndex: MAP_LAYER_Z.connection,
     style: (feature) => {
       const base = lineStyleForStatus(feature.get('status') as string);
       const dist = feature.get('distance_km') as number | null | undefined;
@@ -166,6 +185,7 @@ export function createMapLayers(refs: MapViewRefs, showBasemap: boolean): MapLay
 
   return {
     lineLayer,
+    nodePointLayer,
     pointLayer,
     radiusLayer,
     placementPreviewLayer,

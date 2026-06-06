@@ -26,7 +26,7 @@ export const SAND_LOGISTICS_EDGE_LABEL_MODE_OPTIONS: {
   value: SandLogisticsEdgeLabelMode;
   label: string;
 }[] = [
-  { value: 'key', label: 'Ключевые (плечо)' },
+  { value: 'key', label: 'Ключевые (участок сети)' },
   { value: 'all', label: 'Все сегменты' },
   { value: 'hidden', label: 'Скрыть' },
 ];
@@ -34,6 +34,8 @@ export const SAND_LOGISTICS_EDGE_LABEL_MODE_OPTIONS: {
 export const SITE_W = 160;
 export const SITE_H = 68;
 export const SITE_GAP = 10;
+/** Невидимый запас вокруг блока при проверке перекрытий (подписи, не меняя размер UI). */
+export const SITE_LAYOUT_PAD = 10;
 export const SAND_FLOW_SITE_W = SITE_W;
 export const SAND_FLOW_SITE_H = SITE_H;
 export const SAND_FLOW_SITE_GAP = SITE_GAP;

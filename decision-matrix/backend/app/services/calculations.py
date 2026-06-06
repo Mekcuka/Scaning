@@ -3,13 +3,24 @@ from dataclasses import dataclass
 
 
 def calc_wells_total(planned_production: float, production_per_well: float) -> float:
-    if production_per_well <= 0:
+    if (
+        planned_production is None
+        or production_per_well is None
+        or production_per_well <= 0
+    ):
         return 0
     return planned_production / production_per_well
 
 
 def calc_pads_count(planned_production: float, production_per_well: float, wells_per_pad: int) -> int:
-    if planned_production <= 0 or production_per_well <= 0 or wells_per_pad <= 0:
+    if (
+        planned_production is None
+        or production_per_well is None
+        or wells_per_pad is None
+        or planned_production <= 0
+        or production_per_well <= 0
+        or wells_per_pad <= 0
+    ):
         return 0
     wells = calc_wells_total(planned_production, production_per_well)
     return math.ceil(wells / wells_per_pad)

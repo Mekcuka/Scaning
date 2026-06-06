@@ -6,6 +6,8 @@ from typing import Literal
 
 from pydantic import BaseModel, EmailStr, Field, field_validator, model_validator
 
+from app.geo.constants import MAX_AUTOROAD_NETWORK_OBJECTS
+
 
 class TokenResponse(BaseModel):
     access_token: str
@@ -441,8 +443,51 @@ class MapBatchDeleteResponse(BaseModel):
     network_rebuilt: bool = False
 
 
+class MapBatchPastePoiItem(BaseModel):
+    client_ref: str = Field(..., min_length=1)
+    create: POICreate
+
+
+class MapBatchPasteInfraPointItem(BaseModel):
+    client_ref: str = Field(..., min_length=1)
+    create: InfraObjectCreate
+    target_subtype: str | None = Field(
+        default=None,
+        description="После create — PATCH subtype (gas_pad, gpes, …) в той же транзакции",
+    )
+
+
+class MapBatchPasteInfraLineItem(BaseModel):
+    client_ref: str = Field(..., min_length=1)
+    create: InfraObjectCreate
+    snap_start_ref: str | None = None
+    snap_finish_ref: str | None = None
+
+
+class MapBatchPasteRequest(BaseModel):
+    pois: list[MapBatchPastePoiItem] = Field(default_factory=list)
+    infra_points: list[MapBatchPasteInfraPointItem] = Field(default_factory=list)
+    infra_lines: list[MapBatchPasteInfraLineItem] = Field(default_factory=list)
+
+    @model_validator(mode="after")
+    def validate_batch_size(self) -> "MapBatchPasteRequest":
+        max_objects = 10_000
+        total = len(self.pois) + len(self.infra_points) + len(self.infra_lines)
+        if total > max_objects:
+            raise ValueError(
+                f"Batch paste limit is {max_objects} objects (got {total})"
+            )
+        return self
+
+
+class MapBatchPasteResponse(BaseModel):
+    created_pois: list[POIResponse] = Field(default_factory=list)
+    created_infra: list[InfraObjectResponse] = Field(default_factory=list)
+    network_rebuilt: bool = False
+
+
 class AutoroadConnectRequest(BaseModel):
-    object_ids: list[UUID] = Field(..., min_length=2, max_length=50)
+    object_ids: list[UUID] = Field(..., min_length=2, max_length=MAX_AUTOROAD_NETWORK_OBJECTS)
     dry_run: bool = False
 
 

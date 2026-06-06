@@ -1,6 +1,7 @@
 import { create } from 'zustand';
 
 import type { ProjectJobResponse } from '../api';
+import { HTTP_FLOW_PATH_LABELS } from './jobLabels';
 import type { HttpStep, TaskLogEntry, TaskLogStatus } from './types';
 
 const MAX_ENTRIES_PER_PROJECT = 30;
@@ -31,6 +32,46 @@ function saveProjectEntries(projectId: string, entries: TaskLogEntry[]): void {
 
 function newId(): string {
   return crypto.randomUUID?.() ?? `${Date.now()}-${Math.random().toString(36).slice(2)}`;
+}
+
+const TERMINAL_JOB_STATUSES = new Set(['completed', 'failed', 'cancelled']);
+
+function httpFlowLabelForPath(path: string): string {
+  const tail = path.split('/').slice(-2).join('/');
+  return HTTP_FLOW_PATH_LABELS[tail] ?? (tail || 'API');
+}
+
+function jobStatusToFlowStatus(status: string): TaskLogStatus {
+  if (status === 'completed') return 'completed';
+  if (status === 'failed') return 'failed';
+  if (status === 'cancelled') return 'cancelled';
+  return 'running';
+}
+
+function findHttpFlowForPath(
+  list: TaskLogEntry[],
+  path: string,
+  runningOnly = true,
+): Extract<TaskLogEntry, { kind: 'http_flow' }> | undefined {
+  return list.find(
+    (e): e is Extract<TaskLogEntry, { kind: 'http_flow' }> =>
+      e.kind === 'http_flow' &&
+      (!runningOnly || e.status === 'running') &&
+      e.steps.some((s) => s.path === path),
+  );
+}
+
+function finalizeLinkedHttpFlows(
+  list: TaskLogEntry[],
+  jobId: string,
+  flowStatus: TaskLogStatus,
+): TaskLogEntry[] {
+  const now = Date.now();
+  return list.map((e) => {
+    if (e.kind !== 'http_flow' || e.status !== 'running') return e;
+    if (e.linkedJobId !== jobId) return e;
+    return { ...e, status: flowStatus, finishedAt: now };
+  });
 }
 
 function upsertProjectEntry(
@@ -75,6 +116,7 @@ type TaskLogState = {
   }) => void;
   updateJob: (job: ProjectJobResponse, httpSteps?: HttpStep[]) => void;
   mergeJobsFromApi: (projectId: string, jobs: ProjectJobResponse[]) => void;
+  finalizeHttpFlowForPath: (projectId: string, path: string, status: TaskLogStatus) => void;
   clearProject: (projectId: string) => void;
 };
 
@@ -161,7 +203,7 @@ export const useTaskLogStore = create<TaskLogState>((set, get) => ({
           id,
           projectId,
           flowKey: 'api',
-          label: path.split('/').slice(-2).join('/') || 'API',
+          label: httpFlowLabelForPath(path),
           status: status >= 400 ? 'failed' : 'running',
           startedAt: Date.now(),
           steps: [],
@@ -195,28 +237,31 @@ export const useTaskLogStore = create<TaskLogState>((set, get) => ({
     };
     set((s) => {
       let list = s.byProject[projectId] ?? loadProjectEntries(projectId);
-      if (httpFlowId) {
-        list = list.map((e) => {
-          if (e.kind === 'http_flow' && e.id === httpFlowId) {
-            return { ...e, linkedJobId: jobId };
-          }
-          return e;
-        });
+      let linkedFlowId = httpFlowId;
+      if (!linkedFlowId) {
+        const recentFlow = list.find(
+          (e): e is Extract<TaskLogEntry, { kind: 'http_flow' }> =>
+            e.kind === 'http_flow' && e.status === 'running' && !e.linkedJobId,
+        );
+        linkedFlowId = recentFlow?.id;
       }
+      if (linkedFlowId) {
+        list = list.map((e) =>
+          e.kind === 'http_flow' && e.id === linkedFlowId ? { ...e, linkedJobId: jobId } : e,
+        );
+      }
+      const flow = list.find(
+        (e): e is Extract<TaskLogEntry, { kind: 'http_flow' }> =>
+          e.kind === 'http_flow' && e.linkedJobId === jobId,
+      );
       const entry: TaskLogEntry = {
         kind: 'project_job',
         id: jobId,
         projectId,
         job,
-        httpSteps: [],
+        httpSteps: flow ? [...flow.steps] : [],
         updatedAt: Date.now(),
       };
-      const flow = httpFlowId
-        ? list.find((e) => e.kind === 'http_flow' && e.id === httpFlowId)
-        : null;
-      if (flow?.kind === 'http_flow') {
-        entry.httpSteps = [...flow.steps];
-      }
       return { byProject: upsertProjectEntry({ ...s.byProject, [projectId]: list }, projectId, entry) };
     });
   },
@@ -224,7 +269,7 @@ export const useTaskLogStore = create<TaskLogState>((set, get) => ({
   updateJob: (job, httpSteps) => {
     const projectId = job.project_id;
     set((s) => {
-      const list = s.byProject[projectId] ?? loadProjectEntries(projectId);
+      let list = s.byProject[projectId] ?? loadProjectEntries(projectId);
       const existing = list.find((e) => e.kind === 'project_job' && e.id === job.id);
       const entry: TaskLogEntry = {
         kind: 'project_job',
@@ -234,7 +279,24 @@ export const useTaskLogStore = create<TaskLogState>((set, get) => ({
         httpSteps: httpSteps ?? (existing?.kind === 'project_job' ? existing.httpSteps : []),
         updatedAt: Date.now(),
       };
-      return { byProject: upsertProjectEntry(s.byProject, projectId, entry) };
+      if (TERMINAL_JOB_STATUSES.has(job.status)) {
+        list = finalizeLinkedHttpFlows(list, job.id, jobStatusToFlowStatus(job.status));
+      }
+      return { byProject: upsertProjectEntry({ ...s.byProject, [projectId]: list }, projectId, entry) };
+    });
+  },
+
+  finalizeHttpFlowForPath: (projectId, path, status) => {
+    set((s) => {
+      const list = s.byProject[projectId] ?? loadProjectEntries(projectId);
+      const flow = findHttpFlowForPath(list, path);
+      if (!flow) return s;
+      const updated: TaskLogEntry = {
+        ...flow,
+        status,
+        finishedAt: Date.now(),
+      };
+      return { byProject: upsertProjectEntry(s.byProject, projectId, updated) };
     });
   },
 
@@ -242,8 +304,11 @@ export const useTaskLogStore = create<TaskLogState>((set, get) => ({
     set((s) => {
       let byProject = { ...s.byProject };
       for (const job of jobs) {
-        const list = byProject[projectId] ?? loadProjectEntries(projectId);
+        let list = byProject[projectId] ?? loadProjectEntries(projectId);
         const existing = list.find((e) => e.kind === 'project_job' && e.id === job.id);
+        if (TERMINAL_JOB_STATUSES.has(job.status)) {
+          list = finalizeLinkedHttpFlows(list, job.id, jobStatusToFlowStatus(job.status));
+        }
         const entry: TaskLogEntry = {
           kind: 'project_job',
           id: job.id,
@@ -252,7 +317,7 @@ export const useTaskLogStore = create<TaskLogState>((set, get) => ({
           httpSteps: existing?.kind === 'project_job' ? existing.httpSteps : [],
           updatedAt: Date.now(),
         };
-        byProject = upsertProjectEntry(byProject, projectId, entry);
+        byProject = upsertProjectEntry({ ...byProject, [projectId]: list }, projectId, entry);
       }
       return { byProject };
     });
@@ -269,6 +334,10 @@ export const useTaskLogStore = create<TaskLogState>((set, get) => ({
 }));
 
 /** Imperative access for api.ts (outside React). */
+export function isMultiStepHttpFlowActive(): boolean {
+  return Boolean(useTaskLogStore.getState().activeFlowId);
+}
+
 export const taskLog = {
   startHttpFlow: (...a: Parameters<TaskLogState['startHttpFlow']>) => useTaskLogStore.getState().startHttpFlow(...a),
   endHttpFlow: (...a: Parameters<TaskLogState['endHttpFlow']>) => useTaskLogStore.getState().endHttpFlow(...a),
@@ -276,4 +345,6 @@ export const taskLog = {
     useTaskLogStore.getState().recordHttpStep(...a),
   registerJob: (...a: Parameters<TaskLogState['registerJob']>) => useTaskLogStore.getState().registerJob(...a),
   updateJob: (...a: Parameters<TaskLogState['updateJob']>) => useTaskLogStore.getState().updateJob(...a),
+  finalizeHttpFlowForPath: (...a: Parameters<TaskLogState['finalizeHttpFlowForPath']>) =>
+    useTaskLogStore.getState().finalizeHttpFlowForPath(...a),
 };

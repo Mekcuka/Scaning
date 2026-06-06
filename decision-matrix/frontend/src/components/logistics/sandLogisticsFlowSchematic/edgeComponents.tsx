@@ -2,13 +2,13 @@ import { memo } from 'react';
 import { BaseEdge, MarkerType, type Edge, type EdgeProps } from '@xyflow/react';
 import {
   computeSandEdgePath,
-  formatSandEdgeM3,
   polylineToSvgPath,
   type SandRoadEdgeData,
   type SandRoadPolylineEdgeData,
 } from '../../../lib/sandLogisticsFlow';
 import { useSandEdgeLabelMode, useSandLineStyle } from './context';
-import { SandFlowEdgeSegmentLabel } from './edgeLabelSvg';
+import { FloatingSandPlannedSiteLinkEdge, FloatingSandSiteLinkEdge } from './floatingSiteLinkEdge';
+import { SandFlowEdgeVolumeLabel } from './edgeLabelSvg';
 
 const SandRoadEdge = memo(function SandRoadEdge({
   id,
@@ -26,7 +26,8 @@ const SandRoadEdge = memo(function SandRoadEdge({
   const edgeLabelMode = useSandEdgeLabelMode();
   const flowM3 = data?.flowM3 ?? 0;
   const hasFlow = flowM3 > 0;
-  const showSegmentLabel = edgeLabelMode === 'all' && hasFlow;
+  const showSegmentLabel =
+    edgeLabelMode !== 'hidden' && hasFlow && data?.showFlowLabel !== false;
   const [edgePath, labelX, labelY] = computeSandEdgePath(lineStyle, {
     sourceX,
     sourceY,
@@ -36,14 +37,7 @@ const SandRoadEdge = memo(function SandRoadEdge({
     targetPosition,
   });
 
-  const offsetX = data?.labelOffsetX ?? 0;
-  const offsetY = data?.labelOffsetY ?? 0;
-  const lx = labelX + offsetX;
-  const ly = labelY + offsetY;
-
   const stroke = (style?.stroke as string) ?? (hasFlow ? '#b45309' : '#cbd5e1');
-  const label = showSegmentLabel ? formatSandEdgeM3(flowM3) : '';
-
   return (
     <>
       <BaseEdge
@@ -60,7 +54,7 @@ const SandRoadEdge = memo(function SandRoadEdge({
         }
       />
       {showSegmentLabel && (
-        <SandFlowEdgeSegmentLabel lx={lx} ly={ly} label={label} stroke={stroke} />
+        <SandFlowEdgeVolumeLabel lx={labelX} ly={labelY} flowM3={flowM3} stroke={stroke} />
       )}
     </>
   );
@@ -77,16 +71,11 @@ const SandRoadPolylineEdge = memo(function SandRoadPolylineEdge({
   const points = data?.points ?? [];
   const flowM3 = data?.flowM3 ?? 0;
   const hasFlow = flowM3 > 0;
-  const showSegmentLabel = edgeLabelMode === 'all' && hasFlow;
+  const showSegmentLabel =
+    edgeLabelMode !== 'hidden' && hasFlow && data?.showFlowLabel !== false;
   const [edgePath, labelX, labelY] = polylineToSvgPath(lineStyle, points);
   if (!edgePath) return null;
-  const offsetX = data?.labelOffsetX ?? 0;
-  const offsetY = data?.labelOffsetY ?? 0;
-  const lx = labelX + offsetX;
-  const ly = labelY + offsetY;
   const stroke = (style?.stroke as string) ?? (hasFlow ? '#b45309' : '#cbd5e1');
-  const label = showSegmentLabel ? formatSandEdgeM3(flowM3) : '';
-
   return (
     <>
       <BaseEdge
@@ -103,7 +92,7 @@ const SandRoadPolylineEdge = memo(function SandRoadPolylineEdge({
         }
       />
       {showSegmentLabel && (
-        <SandFlowEdgeSegmentLabel lx={lx} ly={ly} label={label} stroke={stroke} />
+        <SandFlowEdgeVolumeLabel lx={labelX} ly={labelY} flowM3={flowM3} stroke={stroke} />
       )}
     </>
   );
@@ -131,12 +120,6 @@ const SandPlannedRoadPolylineEdge = memo(function SandPlannedRoadPolylineEdge({
   );
 });
 
-const SandSiteLinkEdge = memo(function SandSiteLinkEdge(props: EdgeProps) {
-  const lineStyle = useSandLineStyle();
-  const [edgePath] = computeSandEdgePath(lineStyle, props);
-  return <BaseEdge id={props.id} path={edgePath} style={props.style} />;
-});
-
 const SandPlannedRoadEdge = memo(function SandPlannedRoadEdge(props: EdgeProps) {
   const lineStyle = useSandLineStyle();
   const [edgePath] = computeSandEdgePath(lineStyle, props);
@@ -154,11 +137,8 @@ const SandPlannedRoadEdge = memo(function SandPlannedRoadEdge(props: EdgeProps) 
   );
 });
 
-const SandPlannedSiteLinkEdge = memo(function SandPlannedSiteLinkEdge(props: EdgeProps) {
-  const lineStyle = useSandLineStyle();
-  const [edgePath] = computeSandEdgePath(lineStyle, props);
-  return <BaseEdge id={props.id} path={edgePath} style={props.style} />;
-});
+const SandSiteLinkEdge = FloatingSandSiteLinkEdge;
+const SandPlannedSiteLinkEdge = FloatingSandPlannedSiteLinkEdge;
 
 export const edgeTypes = {
   sandRoadEdge: SandRoadEdge,

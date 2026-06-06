@@ -7,9 +7,10 @@ import {
   SAND_FLOW_MAX_GEO_DRIFT,
   SAND_FLOW_SITE_GAP,
   SITE_H,
+  SITE_LAYOUT_PAD,
   SITE_W,
 } from './constants';
-import { adaptiveNodeClearance } from './densityViewport';
+import { adaptiveNodeClearance, computeSiteDensitySpread } from './densityViewport';
 import { geoCenter } from './geoFrame';
 import {
   pushRectsApart,
@@ -19,7 +20,6 @@ import {
   separateRects,
 } from './geometry';
 import { filterNodeCentersForSite } from './roadGraph';
-import { formatSandEdgeM3 } from './roadPolylines';
 import type {
   GeoFrame,
   LayoutRect,
@@ -28,61 +28,6 @@ import type {
   SandSiteDensitySpread,
   SiteSpec,
 } from './types';
-
-function estimateLabelSize(flowM3: number): { w: number; h: number } {
-  const text = formatSandEdgeM3(flowM3);
-  return { w: text.length * 6.4 + 16, h: 20 };
-}
-
-function labelBoxOverlapsSites(
-  lx: number,
-  ly: number,
-  lw: number,
-  lh: number,
-  sites: LayoutRect[],
-): boolean {
-  const box: LayoutRect = { id: '', x: lx - lw / 2, y: ly - lh / 2, w: lw, h: lh, ax: 0, ay: 0 };
-  return sites.some((s) => rectsOverlap(box, s, 10));
-}
-
-export function flowLabelOffset(
-  sx: number,
-  sy: number,
-  tx: number,
-  ty: number,
-  flowM3: number,
-  sites: LayoutRect[],
-): { labelOffsetX: number; labelOffsetY: number } {
-  const baseX = (sx + tx) / 2;
-  const baseY = (sy + ty) / 2;
-  const { w, h } = estimateLabelSize(flowM3);
-  const segDx = tx - sx;
-  const segDy = ty - sy;
-  const len = Math.hypot(segDx, segDy) || 1;
-  const nx = -segDy / len;
-  const ny = segDx / len;
-  const alongX = segDx / len;
-  const alongY = segDy / len;
-
-  const candidates: [number, number][] = [
-    [0, 0],
-    [nx * 34, ny * 34],
-    [nx * -34, ny * -34],
-    [nx * 52, ny * 52],
-    [nx * -52, ny * -52],
-    [alongX * 40, alongY * 40],
-    [alongX * -40, alongY * -40],
-    [nx * 34 + alongX * 20, ny * 34 + alongY * 20],
-    [nx * -34 + alongX * -20, ny * -34 + alongY * -20],
-  ];
-
-  for (const [ox, oy] of candidates) {
-    if (!labelBoxOverlapsSites(baseX + ox, baseY + oy, w, h, sites)) {
-      return { labelOffsetX: ox, labelOffsetY: oy };
-    }
-  }
-  return { labelOffsetX: nx * 44, labelOffsetY: ny * 44 };
-}
 
 /** Несколько объектов в одной точке карты — веер вокруг гео-центра. */
 function spreadCoincidentGeoSites(
@@ -205,6 +150,95 @@ export function enforceSandFlowSitesNoOverlap(
     }
     if (!moved) break;
   }
+}
+
+function siteNodeToLayoutRect(pos: { x: number; y: number }, id: string): SandFlowLayoutRect {
+  const pad = SITE_LAYOUT_PAD;
+  return {
+    id,
+    x: pos.x - pad,
+    y: pos.y - pad,
+    w: SITE_W + pad * 2,
+    h: SITE_H + pad * 2,
+  };
+}
+
+export function layoutRectToNodePosition(rect: SandFlowLayoutRect): { x: number; y: number } {
+  return { x: rect.x + SITE_LAYOUT_PAD, y: rect.y + SITE_LAYOUT_PAD };
+}
+
+export function sandFlowSiteRectsFromPositions(
+  siteIds: string[],
+  positions: Map<string, { x: number; y: number }>,
+): SandFlowLayoutRect[] {
+  return siteIds.map((id) => {
+    const pos = positions.get(id) ?? { x: 0, y: 0 };
+    return siteNodeToLayoutRect(pos, id);
+  });
+}
+
+/** Финальное разведение после сдвига по году ввода или ручного drag. */
+export function finalizeSandFlowSitePositions(
+  rects: SandFlowLayoutRect[],
+  siteCount: number,
+): void {
+  const { layoutGap } = computeSiteDensitySpread(siteCount);
+  enforceSandFlowSitesNoOverlap(rects, layoutGap, 240);
+}
+
+export function applySandFlowSitePositions<
+  T extends { id: string; type?: string; position: { x: number; y: number } },
+>(nodes: T[], options?: { movedNodeId?: string; siteCount?: number }): T[] {
+  const siteNodes = nodes.filter((n) => n.type === 'sandFlowNode');
+  if (siteNodes.length < 2) return nodes;
+
+  const layoutGap =
+    computeSiteDensitySpread(options?.siteCount ?? siteNodes.length).layoutGap;
+
+  const layoutRects = siteNodes.map((n) => siteNodeToLayoutRect(n.position, n.id));
+
+  if (options?.movedNodeId) {
+    const moved = layoutRects.find((r) => r.id === options.movedNodeId);
+    const others = layoutRects.filter((r) => r.id !== options.movedNodeId);
+    if (moved) {
+      for (let pass = 0; pass < 80; pass++) {
+        let shifted = false;
+        for (const other of others) {
+          if (
+            moved.x < other.x + other.w + layoutGap &&
+            moved.x + moved.w + layoutGap > other.x &&
+            moved.y < other.y + other.h + layoutGap &&
+            moved.y + moved.h + layoutGap > other.y
+          ) {
+            const mcx = moved.x + moved.w / 2;
+            const mcy = moved.y + moved.h / 2;
+            const ocx = other.x + other.w / 2;
+            const ocy = other.y + other.h / 2;
+            const overlapX =
+              (moved.w + other.w) / 2 + layoutGap - Math.abs(mcx - ocx);
+            const overlapY =
+              (moved.h + other.h) / 2 + layoutGap - Math.abs(mcy - ocy);
+            if (overlapX <= 0 || overlapY <= 0) continue;
+            if (overlapX < overlapY) {
+              moved.x += (overlapX + 1) * (mcx >= ocx ? 1 : -1);
+            } else {
+              moved.y += (overlapY + 1) * (mcy >= ocy ? 1 : -1);
+            }
+            shifted = true;
+          }
+        }
+        if (!shifted) break;
+      }
+    }
+  } else {
+    enforceSandFlowSitesNoOverlap(layoutRects, layoutGap, 240);
+  }
+
+  const byId = new Map(layoutRects.map((r) => [r.id, r]));
+  return nodes.map((n) => {
+    const next = byId.get(n.id);
+    return next ? { ...n, position: layoutRectToNodePosition(next) } : n;
+  });
 }
 
 function enforceNonOverlappingSites(sites: LayoutRect[], gap: number): void {

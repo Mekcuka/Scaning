@@ -3,6 +3,7 @@ import { catalogEntryForSubtype } from './map3dModelCatalog';
 import {
   effectiveRender3dHeightM,
   RENDER_3D_HEIGHT_KEY,
+  RENDER_3D_MODEL_ID_KEY,
   RENDER_3D_SCALE_KEY,
   RENDER_3D_STYLE_KEY,
   resolveRender3D,
@@ -67,5 +68,14 @@ describe('render3d', () => {
 
   it('model style forces model when catalog exists', () => {
     expect(shouldUse3dModel('substation', { [RENDER_3D_STYLE_KEY]: 'model' })).toBe(true);
+  });
+
+  it('custom model id enables model path even before registry load', () => {
+    expect(
+      shouldUse3dModel('node', {
+        [RENDER_3D_MODEL_ID_KEY]: 'custom:aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee',
+        [RENDER_3D_STYLE_KEY]: 'model',
+      }),
+    ).toBe(true);
   });
 });

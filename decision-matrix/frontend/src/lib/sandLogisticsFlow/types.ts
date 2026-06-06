@@ -31,9 +31,9 @@ export type SandFlowNodeData = {
 
 export type SandRoadEdgeData = {
   flowM3?: number;
-  labelOffsetX?: number;
-  labelOffsetY?: number;
   planned?: boolean;
+  /** false — подпись скрыта (dedupe в режиме «ключевые»). */
+  showFlowLabel?: boolean;
 };
 
 /** Упрощённая полилиния сети (цепочка без промежуточных вершин). */

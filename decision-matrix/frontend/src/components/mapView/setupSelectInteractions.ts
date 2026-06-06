@@ -3,12 +3,12 @@ import Modify from 'ol/interaction/Modify';
 import DragBox from 'ol/interaction/DragBox';
 import Feature from 'ol/Feature';
 import { click, mouseActionButton } from 'ol/events/condition';
-import { resolveHoverFeatureIdAtCoordinate } from '../../lib/mapHitTest';
 import {
   expandLayerFeatures,
-  findSelectableLayerFeature,
   resolveFeatureSelection,
+  resolveSelectableFeatureAtPixel,
 } from './featureSelection';
+import { MAP_POINT_HIT_TOLERANCE_PX } from './constants';
 import type { MapSetupContext } from './mapSetupContext';
 import type { MapFeatureSelection } from './types';
 
@@ -19,9 +19,10 @@ export function setupSelectInteractions(ctx: MapSetupContext): {
 } {
   const { refs, layers, interactions } = ctx;
   const { map } = interactions;
-  const { pointLayer, lineLayer } = layers;
+  const { pointLayer, nodePointLayer, lineLayer } = layers;
   const {
     pointSourceRef,
+    nodePointSourceRef,
     lineSourceRef,
     selectRef,
     modifyRef,
@@ -37,8 +38,8 @@ export function setupSelectInteractions(ctx: MapSetupContext): {
 
   const select = new Select({
     condition: click,
-    layers: [pointLayer, lineLayer],
-    hitTolerance: 6,
+    layers: [pointLayer, nodePointLayer, lineLayer],
+    hitTolerance: MAP_POINT_HIT_TOLERANCE_PX,
   });
   const modify = new Modify({ features: select.getFeatures() });
   const dragBox = new DragBox({
@@ -65,21 +66,11 @@ export function setupSelectInteractions(ctx: MapSetupContext): {
     const evt = e.mapBrowserEvent;
     const collection = select.getFeatures();
     if (evt) {
-      const id = resolveHoverFeatureIdAtCoordinate(
+      const f = resolveSelectableFeatureAtPixel(
         map,
-        pointSourceRef.current,
-        lineSourceRef.current,
-        evt.coordinate,
-        6,
-      );
-      if (!id) {
-        onFeatureSelectRef.current?.(null);
-        return;
-      }
-      const f = findSelectableLayerFeature(
-        pointSourceRef.current,
-        lineSourceRef.current,
-        id,
+        evt.pixel,
+        [pointLayer, nodePointLayer, lineLayer],
+        MAP_POINT_HIT_TOLERANCE_PX,
       );
       if (!f) {
         onFeatureSelectRef.current?.(null);
@@ -142,6 +133,9 @@ export function setupSelectInteractions(ctx: MapSetupContext): {
         addFeature(feature);
       });
     }
+    nodePointSourceRef.current.forEachFeatureIntersectingExtent(extent, (feature) => {
+      addFeature(feature);
+    });
     pointSourceRef.current.forEachFeatureIntersectingExtent(extent, (feature) => {
       addFeature(feature);
     });

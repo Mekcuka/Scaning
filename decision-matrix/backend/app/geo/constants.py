@@ -46,3 +46,6 @@ LINEAR_SUBTYPES = LINE_SUBTYPES
 
 # Autoroad network planner: no link/junction geometry inside this radius (km) around terminals.
 TERMINAL_EXCLUSION_RADIUS_KM = 0.2
+
+# Max point objects per autoroad connect / network build request.
+MAX_AUTOROAD_NETWORK_OBJECTS = 200

@@ -13,15 +13,17 @@ export function createRefreshDraggedFeatureVisual(params: {
   select: Select;
   editModeRef: { current: boolean };
   pointLayerRef: { current: VectorLayer | null };
+  nodePointLayerRef: { current: VectorLayer | null };
   lineLayerRef: { current: VectorLayer | null };
 }) {
-  const { select, editModeRef, pointLayerRef, lineLayerRef } = params;
+  const { select, editModeRef, pointLayerRef, nodePointLayerRef, lineLayerRef } = params;
   return () => {
     if (!editModeRef.current) return;
     const f = select.getFeatures().item(0);
     if (!f) return;
     syncOuterGeometryToInnerFeature(f);
     pointLayerRef.current?.changed();
+    nodePointLayerRef.current?.changed();
     lineLayerRef.current?.changed();
   };
 }

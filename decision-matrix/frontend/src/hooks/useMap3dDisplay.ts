@@ -80,6 +80,9 @@ export function useMap3dDisplay({
             pitch: saved3d.pitch,
             bearing: saved3d.bearing,
           });
+          requestAnimationFrame(() => {
+            map3dRef.current?.resize();
+          });
         });
         return;
       }

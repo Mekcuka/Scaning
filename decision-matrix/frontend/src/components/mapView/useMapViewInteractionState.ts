@@ -36,8 +36,8 @@ export function useMapViewInteractionState(
     onBatchGeometryChangeRef,
     suppressDataSyncRef,
     pointLayerRef,
+    nodePointLayerRef,
     lineLayerRef,
-    mapRef,
   } = refs;
 
   useEffect(() => {
@@ -94,16 +94,12 @@ export function useMapViewInteractionState(
       pointLayerRef.current,
       lineLayerRef.current,
       editMode,
+      nodePointLayerRef.current,
     );
   }, [editMode]);
 
   useEffect(() => {
+    nodePointLayerRef.current?.changed();
     pointLayerRef.current?.changed();
-  }, [layers]);
-
-  useEffect(() => {
-    if (!mapRef.current) return;
-    mapRef.current.getLayers().item(4)?.changed();
-    mapRef.current.getLayers().item(5)?.changed();
   }, [layers]);
 }

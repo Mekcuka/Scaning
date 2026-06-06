@@ -1,19 +1,20 @@
-import { useCallback, useMemo, type Dispatch, type MutableRefObject, type SetStateAction } from 'react';
+import { useCallback, useMemo, useRef, useState, type Dispatch, type MutableRefObject, type SetStateAction } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
 import type { DrawMode, MapFeatureSelection, SelectMode } from '../components/MapView';
 import { api, type InfraObject, type POI } from '../lib/api';
+import { isLineSubtype } from '../lib/infraGeometry';
 import {
   applyOffsetToClipboard,
   buildClipboardFromSelection,
+  buildMapBatchPasteRequest,
+  batchPasteTimeoutMs,
   clipboardPreviewAt,
-  createInfraFromPasteSnapshot,
-  infraClipboardToCreatePayload,
-  partitionClipboardForPaste,
-  poiClipboardToCreatePayload,
-  remapLineEndpointsForPaste,
+  executeMapBatchPaste,
   type MapClipboardItem,
+  type MapPasteProgressUpdate,
 } from '../lib/mapClipboard';
 import { mergeInfraPropertiesForSave } from '../lib/mergeInfraPropertiesForSave';
+import { upsertInfraObjectsInQueries } from '../lib/mapQueries';
 import type { MapUndoEntry } from '../lib/mapUndo';
 
 export type UseMapClipboardParams = {
@@ -41,7 +42,6 @@ export type UseMapClipboardParams = {
   nextAutoName: (subtype: string) => string;
   upsertInfraInCache: (created: InfraObject) => void;
   pushUndo: (entry: MapUndoEntry) => void;
-  invalidateMap: () => void;
   pushToast: (kind: 'success' | 'error' | 'info', message: string) => void;
   requestDeleteSelection: () => void;
   lineHealSkipIdsRef: MutableRefObject<Set<string>>;
@@ -71,15 +71,15 @@ export function useMapClipboard({
   cursor,
   nextPoiAutoName,
   nextAutoName,
-  upsertInfraInCache,
   pushUndo,
-  invalidateMap,
   pushToast,
   requestDeleteSelection,
   lineHealSkipIdsRef,
   canDeleteCurrentSelection,
 }: UseMapClipboardParams) {
   const queryClient = useQueryClient();
+  const pasteInFlightRef = useRef(false);
+  const [pasteProgress, setPasteProgress] = useState<MapPasteProgressUpdate | null>(null);
 
   const getActiveMapSelections = useCallback((): MapFeatureSelection[] => {
     if (selectMode === 'box' && featureGroupSel.length > 0) return featureGroupSel;
@@ -140,6 +140,10 @@ export function useMapClipboard({
 
   const executePaste = useCallback(
     async (anchorLon: number, anchorLat: number) => {
+      if (pasteInFlightRef.current) {
+        pushToast('info', 'Вставка уже выполняется…');
+        return;
+      }
       if (!projectId || !mapClipboard?.length) return;
       if (geometrySavePending > 0) {
         pushToast('info', 'Дождитесь сохранения геометрии');
@@ -147,92 +151,96 @@ export function useMapClipboard({
       }
       setPasteMode(false);
       const offsetItems = applyOffsetToClipboard(mapClipboard, anchorLon, anchorLat);
-      const { pois: poiItems, pointInfra, lineInfra } = partitionClipboardForPaste(offsetItems);
-      const createdPoiIds: string[] = [];
-      const createdInfraIds: string[] = [];
-      const sourceIdToCreated = new Map<string, InfraObject>();
+      const batchPayload = buildMapBatchPasteRequest(offsetItems, {
+        existingPois: queryClient.getQueryData<POI[]>(['pois', projectId]) ?? pois,
+        nextPoiAutoName,
+        nextAutoName,
+        mergeProperties: mergeInfraPropertiesForSave,
+      });
 
+      if (!canWriteProject) batchPayload.pois = [];
+      if (!canWriteInfra) {
+        batchPayload.infra_points = [];
+        batchPayload.infra_lines = [];
+      }
+
+      const pendingCount =
+        batchPayload.pois.length +
+        batchPayload.infra_points.length +
+        batchPayload.infra_lines.length;
+      if (pendingCount === 0) {
+        pushToast('error', 'Не удалось вставить объекты — проверьте права или состав буфера');
+        return;
+      }
+
+      pasteInFlightRef.current = true;
       setGeometrySavePending((p) => p + 1);
+      setPasteProgress({
+        label: 'Вставка',
+        done: 0,
+        total: pendingCount,
+        chunkIndex: 0,
+        chunkTotal: 1,
+        indeterminate: true,
+      });
       try {
-        let poiList = queryClient.getQueryData<POI[]>(['pois', projectId]) ?? pois;
-        for (const item of poiItems) {
-          if (!canWriteProject) continue;
-          const payload = poiClipboardToCreatePayload(item.snapshot);
-          payload.name = nextPoiAutoName(poiList);
-          const created = await api.createPoi(projectId, payload);
-          createdPoiIds.push(created.id);
-          poiList = [...poiList, created];
-          queryClient.setQueriesData<POI[]>({ queryKey: ['pois', projectId] }, (old) => [
-            ...(old ?? []),
-            created,
-          ]);
-        }
-
-        for (const item of pointInfra) {
-          if (!canWriteInfra || item.kind !== 'infra') continue;
-          const name = nextAutoName(item.snapshot.subtype);
-          const created = await createInfraFromPasteSnapshot(projectId, item.snapshot, name, {
-            createInfraObject: api.createInfraObject,
-            createFacilityInfraObject: api.createFacilityInfraObject,
-            updateInfraObject: api.updateInfraObject,
-            mergeProperties: mergeInfraPropertiesForSave,
-          });
-          createdInfraIds.push(created.id);
-          sourceIdToCreated.set(item.sourceId, created);
-          upsertInfraInCache(created);
-        }
-
-        for (const item of lineInfra) {
-          if (!canWriteInfra || item.kind !== 'infra') continue;
-          const { snap, line_snap_start_object_id, line_snap_finish_object_id } =
-            remapLineEndpointsForPaste(item.snapshot, item.endpointAttach, sourceIdToCreated);
-          const name = nextAutoName(snap.subtype);
-          const payload = infraClipboardToCreatePayload(snap, name, {
-            line_snap_start_object_id,
-            line_snap_finish_object_id,
-            line_preserve_geometry: true,
-          });
-          const created = await api.createInfraObject(projectId, {
-            ...payload,
-            properties: mergeInfraPropertiesForSave(payload.subtype, payload.properties),
-          });
-          createdInfraIds.push(created.id);
-          lineHealSkipIdsRef.current.add(created.id);
-          upsertInfraInCache(created);
-        }
-
+        const result = await executeMapBatchPaste(
+          projectId,
+          batchPayload,
+          (pid, data) =>
+            api.batchPasteMapObjects(pid, data, { timeoutMs: batchPasteTimeoutMs(data) }),
+          setPasteProgress,
+        );
+        const createdPoiIds = result.created_pois.map((p) => p.id);
+        const createdInfraIds = result.created_infra.map((o) => o.id);
         const total = createdPoiIds.length + createdInfraIds.length;
+
         if (total === 0) {
           pushToast('error', 'Не удалось вставить объекты — проверьте права или состав буфера');
           return;
         }
+
+        if (result.created_pois.length > 0) {
+          queryClient.setQueriesData<POI[]>({ queryKey: ['pois', projectId] }, (old) => [
+            ...(old ?? []),
+            ...result.created_pois,
+          ]);
+        }
+        if (result.created_infra.length > 0) {
+          upsertInfraObjectsInQueries(queryClient, projectId, result.created_infra);
+          for (const obj of result.created_infra) {
+            if (isLineSubtype(obj.subtype)) {
+              lineHealSkipIdsRef.current.add(obj.id);
+            }
+          }
+        }
+
         pushUndo({
           kind: 'create_clipboard_group',
           poiIds: createdPoiIds,
           infraIds: createdInfraIds,
           label: `вставка ${total} объектов`,
         });
-        if (lineInfra.length > 0) {
-          try {
-            await api.buildNetwork(projectId);
-          } catch {
-            /* best-effort */
-          }
-        }
-        invalidateMap();
         pushToast('success', `Вставлено объектов: ${total}`);
-        if (createdPoiIds[0]) {
-          setFeatureSel({ kind: 'poi', id: createdPoiIds[0] });
-          setSelectMode('single');
-          setFeatureGroupSel([]);
-        } else if (createdInfraIds[0]) {
-          setFeatureSel({ kind: 'infra', id: createdInfraIds[0] });
-          setSelectMode('single');
+        if (total === 1) {
+          if (createdPoiIds[0]) {
+            setFeatureSel({ kind: 'poi', id: createdPoiIds[0] });
+            setSelectMode('single');
+            setFeatureGroupSel([]);
+          } else if (createdInfraIds[0]) {
+            setFeatureSel({ kind: 'infra', id: createdInfraIds[0] });
+            setSelectMode('single');
+            setFeatureGroupSel([]);
+          }
+        } else {
+          setFeatureSel(null);
           setFeatureGroupSel([]);
         }
       } catch (e) {
         pushToast('error', e instanceof Error ? e.message : 'Не удалось вставить объекты');
       } finally {
+        pasteInFlightRef.current = false;
+        setPasteProgress(null);
         setGeometrySavePending((p) => Math.max(0, p - 1));
       }
     },
@@ -246,9 +254,7 @@ export function useMapClipboard({
       canWriteInfra,
       nextPoiAutoName,
       nextAutoName,
-      upsertInfraInCache,
       pushUndo,
-      invalidateMap,
       pushToast,
       setPasteMode,
       setGeometrySavePending,
@@ -284,5 +290,6 @@ export function useMapClipboard({
     canCopyMapSelection,
     canPasteMapClipboard,
     canCutMapSelection,
+    pasteProgress,
   };
 }

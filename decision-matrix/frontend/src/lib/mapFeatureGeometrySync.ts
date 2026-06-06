@@ -44,8 +44,10 @@ export function applyVectorLayerUpdateWhileInteracting(
   pointLayer: OlLayerWithUpdateFlag | null | undefined,
   lineLayer: OlLayerWithUpdateFlag | null | undefined,
   editMode: boolean,
+  nodePointLayer?: OlLayerWithUpdateFlag | null | undefined,
 ): void {
   const live = shouldUpdateVectorLayerWhileInteracting(editMode);
   pointLayer?.set('updateWhileInteracting', live);
+  nodePointLayer?.set('updateWhileInteracting', live);
   lineLayer?.set('updateWhileInteracting', live);
 }

@@ -1,9 +1,8 @@
 import { transform } from 'ol/proj';
-import {
-  resolveHoverFeatureIdAtCoordinate,
-  resolveInfraPointAtCoordinate,
-} from '../../lib/mapHitTest';
+import Point from 'ol/geom/Point';
+import { resolveHoverFeatureIdAtCoordinate, resolveInfraPointAtCoordinate } from '../../lib/mapHitTest';
 import { createPointerFrameScheduler, pointerCoordsChanged } from '../../lib/mapPointerThrottle';
+import { MAP_POINT_HIT_TOLERANCE_PX } from './constants';
 import { findSelectableLayerFeature } from './featureSelection';
 import type { MapDrawHandlers } from './mapDrawHandlers';
 import type { MapSetupContext } from './mapSetupContext';
@@ -22,11 +21,13 @@ export function setupPointerHandlers(
     onLinePointerDown: MapDrawHandlers['onLinePointerDown'];
   },
 ): PointerHandlersCleanup {
-  const { refs, interactions } = ctx;
+  const { refs, layers, interactions } = ctx;
   const { map } = interactions;
+  const { pointLayer, nodePointLayer, lineLayer } = layers;
   const {
     containerRef,
     pointSourceRef,
+    nodePointSourceRef,
     lineSourceRef,
     placementPreviewSourceRef,
     hoveredIdRef,
@@ -44,16 +45,26 @@ export function setupPointerHandlers(
     const prev = hoveredIdRef.current;
     if (hit === prev) return;
     const pointSource = pointSourceRef.current;
+    const nodePointSource = nodePointSourceRef.current;
     const lineSource = lineSourceRef.current;
-    if (prev) {
-      const f = findSelectableLayerFeature(pointSource, lineSource, prev);
-      if (f) f.changed();
-    }
+
+    const invalidateHover = (id: string | null) => {
+      if (!id) return;
+      const f = findSelectableLayerFeature(pointSource, lineSource, id, nodePointSource);
+      if (!f) return;
+      f.changed();
+      const geom = f.getGeometry();
+      if (geom instanceof Point) {
+        const onNodeLayer = nodePointSource.getFeatures().includes(f);
+        (onNodeLayer ? nodePointLayer : pointLayer).changed();
+      } else {
+        lineLayer.changed();
+      }
+    };
+
+    if (prev) invalidateHover(prev);
     hoveredIdRef.current = hit;
-    if (hit) {
-      const f = findSelectableLayerFeature(pointSource, lineSource, hit);
-      if (f) f.changed();
-    }
+    if (hit) invalidateHover(hit);
     if (containerRef.current) {
       const mode = drawModeRef.current;
       const inSelect = mode === 'select';
@@ -77,8 +88,15 @@ export function setupPointerHandlers(
     const p = pendingPointer;
     if (!p) return;
     const pointSource = pointSourceRef.current;
+    const nodePointSource = nodePointSourceRef.current;
     const lineSource = lineSourceRef.current;
-    const overPoint = resolveInfraPointAtCoordinate(map, pointSource, p.coordinate, 20);
+    const overPoint = resolveInfraPointAtCoordinate(
+      map,
+      pointSource,
+      p.coordinate,
+      20,
+      nodePointSource,
+    );
     if (pointerCoordsChanged(lastPointerLonLatRef.current, p.lon, p.lat)) {
       lastPointerLonLatRef.current = { lon: p.lon, lat: p.lat };
       onPointerMoveRef.current?.(
@@ -92,7 +110,8 @@ export function setupPointerHandlers(
       pointSource,
       lineSource,
       p.coordinate,
-      8,
+      MAP_POINT_HIT_TOLERANCE_PX,
+      nodePointSource,
     );
     refreshHover(hit);
   });

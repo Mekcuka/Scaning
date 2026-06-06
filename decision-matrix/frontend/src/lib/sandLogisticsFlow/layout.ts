@@ -18,10 +18,16 @@ import {
 } from './roadGraph';
 import { collectKeyNetworkNodes } from './roadPolylines';
 import { applyEntryYearLaneOffset } from './schematicNodes';
-import { resolveSiteLayout } from './siteLayout';
+import {
+  finalizeSandFlowSitePositions,
+  layoutRectToNodePosition,
+  resolveSiteLayout,
+  sandFlowSiteRectsFromPositions,
+} from './siteLayout';
 import { computeSandLogisticsTopologyKey, shouldShowConsumerOnSchematic, shouldShowQuarryOnSchematic } from './sliceKeys';
 import type {
   LayoutRect,
+  SandFlowLayoutRect,
   SandLogisticsLayoutOptions,
   SandLogisticsLayoutResult,
   SiteSpec,
@@ -79,7 +85,7 @@ export function buildSandLogisticsLayout(
   }
 
   const snapCenters = new Map<string, { cx: number; cy: number }>();
-  let layoutSiteRects: LayoutRect[] = [];
+  let layoutSiteRects: SandFlowLayoutRect[] = [];
 
   if (frame) {
     for (const nn of result.network_nodes ?? []) {
@@ -126,7 +132,7 @@ export function buildSandLogisticsLayout(
         influenceNodeIds,
         density,
       );
-      layoutSiteRects = siteRects;
+      layoutSiteRects = siteRects.map(({ id, x, y, w, h }) => ({ id, x, y, w, h }));
       for (const s of siteRects) {
         positions.set(s.id, { x: s.x, y: s.y });
       }
@@ -134,6 +140,19 @@ export function buildSandLogisticsLayout(
   }
 
   const entryYears = applyEntryYearLaneOffset(positions, siteSpecs, groupByEntryYear);
+
+  if (groupByEntryYear && siteSpecs.some((spec) => positions.has(spec.id))) {
+    const finalizedRects = sandFlowSiteRectsFromPositions(
+      siteSpecs.map((s) => s.id),
+      positions,
+    );
+    finalizeSandFlowSitePositions(finalizedRects, siteSpecs.length);
+    for (const rect of finalizedRects) {
+      const pos = layoutRectToNodePosition(rect);
+      positions.set(rect.id, pos);
+    }
+    layoutSiteRects = finalizedRects.map(({ id, x, y, w, h }) => ({ id, x, y, w, h }));
+  }
 
   const snapNodeIds = new Set<string>();
   for (const q of visibleQuarries) {

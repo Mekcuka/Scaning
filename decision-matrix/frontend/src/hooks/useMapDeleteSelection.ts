@@ -3,6 +3,7 @@ import { useMutation, useQueryClient } from '@tanstack/react-query';
 import type { MapFeatureSelection } from '../components/MapView';
 import { api, type InfraObject, type POI } from '../lib/api';
 import { expandInfraDeleteIds, infraDeleteApiIds } from '../lib/infraLinks';
+import { bulkOperationTimeoutMs, type MapBulkProgressUpdate } from '../lib/mapBulkProgress';
 import type { MapUndoEntry } from '../lib/mapUndo';
 
 export type DeleteConfirmState = {
@@ -44,6 +45,19 @@ export function useMapDeleteSelection({
 }: UseMapDeleteSelectionParams) {
   const queryClient = useQueryClient();
   const [deleteConfirm, setDeleteConfirm] = useState<DeleteConfirmState>(null);
+  const [deleteProgress, setDeleteProgress] = useState<MapBulkProgressUpdate | null>(null);
+
+  const computeGroupDeleteTotal = useCallback(
+    (items: MapFeatureSelection[]) => {
+      const currentInfra =
+        queryClient.getQueryData<InfraObject[]>(['infra', projectId]) ?? infraObjects;
+      const selectedInfraIds = items.filter((sel) => sel.kind === 'infra').map((sel) => sel.id);
+      const allInfraIds = expandInfraDeleteIds(selectedInfraIds, currentInfra);
+      const poiCount = items.filter((sel) => sel.kind === 'poi').length;
+      return poiCount + allInfraIds.size;
+    },
+    [queryClient, projectId, infraObjects],
+  );
 
   const deleteInfraMut = useMutation({
     mutationFn: async (id: string) => {
@@ -112,13 +126,27 @@ export function useMapDeleteSelection({
       const allInfraIds = expandInfraDeleteIds(selectedInfraIds, currentInfra);
       const infraApiIds = infraDeleteApiIds(allInfraIds, currentInfra);
       const poiIds = items.filter((sel) => sel.kind === 'poi').map((sel) => sel.id);
+      const total = poiIds.length + allInfraIds.size;
 
-      await api.batchDeleteMapObjects(projectId!, {
-        object_ids: infraApiIds,
-        poi_ids: poiIds,
-      });
+      await api.batchDeleteMapObjects(
+        projectId!,
+        {
+          object_ids: infraApiIds,
+          poi_ids: poiIds,
+        },
+        { timeoutMs: bulkOperationTimeoutMs(total) },
+      );
     },
     onMutate: async (items) => {
+      const total = computeGroupDeleteTotal(items);
+      setDeleteProgress({
+        label: 'Удаление',
+        done: 0,
+        total,
+        chunkIndex: 0,
+        chunkTotal: 1,
+        indeterminate: true,
+      });
       await queryClient.cancelQueries({ queryKey: ['infra', projectId] });
       await queryClient.cancelQueries({ queryKey: ['pois', projectId] });
       const currentInfra =
@@ -200,6 +228,7 @@ export function useMapDeleteSelection({
       pushToast('error', err instanceof Error ? err.message : 'Не удалось удалить объекты');
     },
     onSettled: async () => {
+      setDeleteProgress(null);
       if (!projectId) return;
       await queryClient.cancelQueries({ queryKey: ['infra', projectId] });
       await queryClient.cancelQueries({ queryKey: ['pois', projectId] });
@@ -303,6 +332,7 @@ export function useMapDeleteSelection({
     setDeleteConfirm,
     deleteInfraMut,
     deleteGroupMut,
+    deleteProgress,
     requestDeleteSelection,
     requestDeleteGroupSelection,
     canDeleteCurrentSelection,

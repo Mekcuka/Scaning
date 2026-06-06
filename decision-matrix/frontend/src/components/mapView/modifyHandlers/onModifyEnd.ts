@@ -20,6 +20,7 @@ export function bindModifyEndHandler(
   const {
     infraObjectsRef,
     pointLayerRef,
+    nodePointLayerRef,
     lineLayerRef,
     editModeRef,
     modifySessionRef,
@@ -61,6 +62,7 @@ export function bindModifyEndHandler(
     if (members?.length === 1 && inner !== f && geom instanceof Point) {
       inner.setGeometry(geom.clone());
       pointLayerRef.current?.changed();
+      nodePointLayerRef.current?.changed();
     }
     let save: void | Promise<void>;
     if (geom instanceof Point) {

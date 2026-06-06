@@ -16,7 +16,6 @@ export function useMapSelectionActions(params: MapPageActionsParams) {
     invalidateMap,
     removeInfraFromCaches,
     touchInfraOverlay,
-    upsertInfraInCache,
     nextAutoName,
   } = data;
 
@@ -69,9 +68,7 @@ export function useMapSelectionActions(params: MapPageActionsParams) {
     cursor: edit.cursor,
     nextPoiAutoName,
     nextAutoName,
-    upsertInfraInCache,
     pushUndo,
-    invalidateMap,
     pushToast,
     requestDeleteSelection: deleteSelection.requestDeleteSelection,
     lineHealSkipIdsRef: edit.lineHealSkipIdsRef,

@@ -42,11 +42,11 @@ function infraPointFromFeature(inner: Feature): { lon: number; lat: number; id: 
   return { lon, lat, id };
 }
 
-export function resolveInfraPointAtCoordinate(
+function resolveInfraPointInSource(
   map: OlMap,
   pointSource: VectorSource,
   coordinate: Coordinate,
-  hitTolerancePx = 20,
+  hitTolerancePx: number,
 ): { lon: number; lat: number; id: string } | null {
   const extent = extentAroundCoordinate(map, coordinate, hitTolerancePx);
   let bestLon = 0;
@@ -72,6 +72,19 @@ export function resolveInfraPointAtCoordinate(
   });
   if (!Number.isFinite(bestDist2) || bestDist2 === Number.POSITIVE_INFINITY) return null;
   return { lon: bestLon, lat: bestLat, id: bestId };
+}
+
+export function resolveInfraPointAtCoordinate(
+  map: OlMap,
+  pointSource: VectorSource,
+  coordinate: Coordinate,
+  hitTolerancePx = 20,
+  nodePointSource?: VectorSource,
+): { lon: number; lat: number; id: string } | null {
+  const primary = resolveInfraPointInSource(map, pointSource, coordinate, hitTolerancePx);
+  if (primary) return primary;
+  if (!nodePointSource) return null;
+  return resolveInfraPointInSource(map, nodePointSource, coordinate, hitTolerancePx);
 }
 
 function closestPointDist2(inner: Feature, coordinate: Coordinate): number | null {
@@ -104,17 +117,20 @@ function closestLineDist2(inner: Feature, coordinate: Coordinate): number | null
   return dx * dx + dy * dy;
 }
 
-/** Point features win over lines when both are within hit tolerance (map click / hover). */
+/** Точки (кроме узлов) → узлы → линии. */
 export function resolveHoverFeatureIdAtCoordinate(
   map: OlMap,
   pointSource: VectorSource,
   lineSource: VectorSource,
   coordinate: Coordinate,
   hitTolerancePx = 8,
+  nodePointSource?: VectorSource,
 ): string | null {
   const extent = extentAroundCoordinate(map, coordinate, hitTolerancePx);
   let bestPointId: string | null = null;
   let bestPointDist2 = Number.POSITIVE_INFINITY;
+  let bestNodeId: string | null = null;
+  let bestNodeDist2 = Number.POSITIVE_INFINITY;
   let bestLineId: string | null = null;
   let bestLineDist2 = Number.POSITIVE_INFINITY;
 
@@ -126,6 +142,14 @@ export function resolveHoverFeatureIdAtCoordinate(
     bestPointId = inner.get('id') as string;
   });
 
+  nodePointSource?.forEachFeatureIntersectingExtent(extent, (feat) => {
+    const inner = innerFeature(feat as Feature);
+    const dist2 = closestPointDist2(inner, coordinate);
+    if (dist2 == null || dist2 >= bestNodeDist2) return;
+    bestNodeDist2 = dist2;
+    bestNodeId = inner.get('id') as string;
+  });
+
   lineSource.forEachFeatureIntersectingExtent(extent, (feat) => {
     const inner = innerFeature(feat as Feature);
     const dist2 = closestLineDist2(inner, coordinate);
@@ -135,6 +159,7 @@ export function resolveHoverFeatureIdAtCoordinate(
   });
 
   if (bestPointId != null) return bestPointId;
+  if (bestNodeId != null) return bestNodeId;
   return bestLineId;
 }
 

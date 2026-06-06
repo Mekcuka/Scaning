@@ -176,10 +176,13 @@ async def snap_line_endpoints_to_point_objects(
     line_snap_start_object_id: UUID | None = None,
     line_snap_finish_object_id: UUID | None = None,
     line_preserve_geometry: bool = False,
+    snap_object_cache: dict[UUID, InfrastructureObject] | None = None,
 ) -> tuple[float, float, float | None, float | None, list[list[float]] | None]:
     """Validate exact coords then return coordinates equal to attached point objects."""
     candidates = await _point_candidates(db, project_id=project_id, exclude_object_id=exclude_object_id)
     by_id = {o.id: o for o in candidates}
+    if snap_object_cache:
+        by_id.update(snap_object_cache)
     forced_start = (
         by_id.get(line_snap_start_object_id) if line_snap_start_object_id else None
     )

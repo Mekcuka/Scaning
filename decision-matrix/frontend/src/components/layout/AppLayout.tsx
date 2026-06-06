@@ -163,22 +163,23 @@ export function AppLayout() {
             );
           })}
         </nav>
-        <div className="p-4 border-t border-white/10 flex items-center gap-2 shrink-0">
-          <div className="w-8 h-8 rounded-full bg-blue-600 flex items-center justify-center text-xs text-white font-medium shrink-0">
-            {user?.username?.slice(0, 2).toUpperCase() || '??'}
-          </div>
-          <div className="flex-1 min-w-0">
-            <div className="text-sm text-white truncate">{user?.username}</div>
-            <div className="text-xs opacity-60 truncate">{ROLE_LABELS[role] ?? user?.role}</div>
+        <div className="app-sidebar-footer shrink-0 border-t border-white/10">
+          <div className="app-sidebar-user flex items-center gap-3 px-4 py-3">
+            <div className="app-sidebar-user__avatar w-8 h-8 rounded-full bg-blue-600 flex items-center justify-center text-xs text-white font-medium shrink-0">
+              {user?.username?.slice(0, 2).toUpperCase() || '??'}
+            </div>
+            <div className="app-sidebar-user__meta flex-1 min-w-0">
+              <div className="text-sm text-white truncate">{user?.username}</div>
+              <div className="text-xs opacity-60 truncate">{ROLE_LABELS[role] ?? user?.role}</div>
+            </div>
           </div>
           <button
             type="button"
-            className="btn btn-secondary btn-sm shrink-0 p-2"
+            className="app-sidebar-logout w-full flex items-center gap-3 px-4 py-2.5 text-sm transition-colors"
             onClick={handleLogout}
-            title="Выход"
-            aria-label="Выход"
           >
-            <LogOut size={16} aria-hidden />
+            <LogOut size={18} aria-hidden />
+            Выход
           </button>
         </div>
       </aside>

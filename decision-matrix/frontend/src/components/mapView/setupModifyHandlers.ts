@@ -10,7 +10,7 @@ export function setupModifyHandlers(
 ): { refreshDraggedFeatureVisual: () => void } {
   const { refs, interactions } = ctx;
   const { select, modify } = interactions;
-  const { editModeRef, pointLayerRef, lineLayerRef } = refs;
+  const { editModeRef, pointLayerRef, nodePointLayerRef, lineLayerRef } = refs;
 
   bindModifyStartHandler(ctx, modify);
   bindModifyEndHandler(ctx, modify, hitHelpers);
@@ -19,6 +19,7 @@ export function setupModifyHandlers(
     select,
     editModeRef,
     pointLayerRef,
+    nodePointLayerRef,
     lineLayerRef,
   });
 

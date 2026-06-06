@@ -8,7 +8,7 @@ export function parseMapBbox(bbox: string): [number, number, number, number] | n
 export function viewportInsideFetchedBuffer(
   fetchedViewport: string,
   viewport: string,
-  bufferRatio = 0.12,
+  bufferRatio = MAP_BBOX_BUFFER_RATIO,
 ): boolean {
   const outer = parseMapBbox(expandMapBbox(fetchedViewport, bufferRatio));
   const inner = parseMapBbox(viewport);
@@ -21,13 +21,17 @@ export function viewportInsideFetchedBuffer(
 }
 
 /** Skip bbox state/query updates while the user pans/zooms inside the last fetch buffer. */
-export function shouldUpdateMapBbox(prev: string | null, next: string, bufferRatio = 0.12): boolean {
+export function shouldUpdateMapBbox(
+  prev: string | null,
+  next: string,
+  bufferRatio = MAP_BBOX_BUFFER_RATIO,
+): boolean {
   if (!prev || prev === next) return !prev;
   return !viewportInsideFetchedBuffer(prev, next, bufferRatio);
 }
 
 /** Parse `minLon,minLat,maxLon,maxLat` and expand by ratio (viewport buffer). */
-export function expandMapBbox(bbox: string, bufferRatio = 0.12): string {
+export function expandMapBbox(bbox: string, bufferRatio = MAP_BBOX_BUFFER_RATIO): string {
   const parts = bbox.split(',').map((x) => Number(x.trim()));
   if (parts.length !== 4 || parts.some((n) => !Number.isFinite(n))) return bbox;
   const [minLon, minLat, maxLon, maxLat] = parts as [number, number, number, number];
@@ -69,7 +73,23 @@ export function mergeInfraForMapDisplay<T extends { id: string }>(
 
 export const MAP_INFRA_STALE_MS = 5 * 60 * 1000;
 export const MAP_VIEWPORT_MIN_OBJECTS = 80;
+/** Debounce before refetching infra by viewport after pan/zoom. */
+export const MAP_BBOX_DEBOUNCE_MS = 180;
+/** Expand fetched bbox so small pans do not trigger a new API call. */
+export const MAP_BBOX_BUFFER_RATIO = 0.18;
 export const LINE_HEAL_STORAGE_KEY = 'map-line-endpoint-heal-v1';
+
+/** Viewport slice for map display (readonly, large projects, or while full list is loading). */
+export function shouldUseViewportInfraLoad(params: {
+  mapEditEnabled: boolean;
+  mapBbox: string | null;
+  infraCount: number;
+  fullListLoading: boolean;
+}): boolean {
+  if (params.mapEditEnabled || !params.mapBbox) return false;
+  if (params.infraCount >= MAP_VIEWPORT_MIN_OBJECTS) return true;
+  return params.fullListLoading;
+}
 
 export function lineHealDoneKey(projectId: string): string {
   return `${LINE_HEAL_STORAGE_KEY}:${projectId}`;

@@ -10,6 +10,7 @@ import type { MapViewRefs } from './mapViewRefs';
 
 export type MapLayers = {
   lineLayer: VectorLayer;
+  nodePointLayer: VectorLayer;
   pointLayer: VectorLayer;
   radiusLayer: VectorLayer;
   placementPreviewLayer: VectorLayer;

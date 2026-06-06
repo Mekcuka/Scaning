@@ -7,7 +7,7 @@ from uuid import UUID
 
 from pydantic import BaseModel, Field, model_validator
 
-from app.geo.constants import TERMINAL_EXCLUSION_RADIUS_KM
+from app.geo.constants import MAX_AUTOROAD_NETWORK_OBJECTS, TERMINAL_EXCLUSION_RADIUS_KM
 
 
 class PlanTerminalInput(BaseModel):
@@ -53,7 +53,7 @@ class PlanOptionsInput(BaseModel):
     steiner_radius_km: float = Field(default=TERMINAL_EXCLUSION_RADIUS_KM, ge=0)
     attachment_angle_deg: float = Field(default=90.0, ge=0, le=180)
     attachment_angle_penalty: float = Field(default=0.0, ge=0, le=10)
-    max_terminals: int = Field(default=50, ge=2, le=200)
+    max_terminals: int = Field(default=200, ge=2, le=200)
     snap_tolerance_km: float = 0.3
     node_dedup_km: float = 0.05
 
@@ -154,7 +154,7 @@ class NetworkPlanResponse(BaseModel):
 class AutoroadNetworkPlanBody(BaseModel):
     """Legacy: object_ids only (plan/apply wrappers)."""
 
-    object_ids: list[UUID] = Field(..., min_length=2, max_length=50)
+    object_ids: list[UUID] = Field(..., min_length=2, max_length=MAX_AUTOROAD_NETWORK_OBJECTS)
     dry_run: bool = False
     full_network_rebuild: bool = True
 
@@ -162,14 +162,14 @@ class AutoroadNetworkPlanBody(BaseModel):
 class AutoroadNetworkBuildRequestBody(BaseModel):
     """Step 1: build input JSON from project DB."""
 
-    object_ids: list[UUID] = Field(..., min_length=2, max_length=50)
+    object_ids: list[UUID] = Field(..., min_length=2, max_length=MAX_AUTOROAD_NETWORK_OBJECTS)
     full_network_rebuild: bool = True
 
 
 class AutoroadNetworkApplyBody(BaseModel):
     """Step 3: apply a precomputed plan (same JSON as returned by compute)."""
 
-    object_ids: list[UUID] = Field(..., min_length=2, max_length=50)
+    object_ids: list[UUID] = Field(..., min_length=2, max_length=MAX_AUTOROAD_NETWORK_OBJECTS)
     plan: NetworkPlanResponse
     full_network_rebuild: bool = True
 

@@ -18,6 +18,21 @@ import { IeMapIcon } from './ieSubtypeIcons';
 
 type MapIconComponent = ComponentType<{ size?: number; color?: string; strokeWidth?: number }>;
 
+/** Узел: чёрная точка (r=4.9 в viewBox 24), canvas 15×15 px. */
+function NodeMapIcon({ size = 15 }: { size?: number; color?: string; strokeWidth?: number }) {
+  return createElement(
+    'svg',
+    {
+      xmlns: 'http://www.w3.org/2000/svg',
+      width: size,
+      height: size,
+      viewBox: '0 0 24 24',
+      fill: 'none',
+    },
+    createElement('circle', { cx: 12, cy: 12, r: 4.9, fill: '#000' }),
+  );
+}
+
 const ICON_MAP: Record<string, MapIconComponent> = {
   poi: MapPin,
   gas_processing: Factory,
@@ -29,7 +44,7 @@ const ICON_MAP: Record<string, MapIconComponent> = {
   ie: IeMapIcon,
   substation: Zap,
   refinery: Factory,
-  node: CircleDot,
+  node: NodeMapIcon,
   oil_pad: LandPlot,
   gas_pad: LandPlot,
   preliminary_water_discharge_station: Factory,
@@ -92,12 +107,13 @@ const cache = new Map<string, string>();
 function renderIconDataUrl(subtype: string): string {
   const iconKey = ICON_MAP[subtype] ? subtype : 'gas_processing';
   const color = MAP_SUBTYPE_COLORS[iconKey] || '#666';
-  const cacheKey = `${iconKey}:${color}`;
+  const cacheKey = iconKey === 'node' ? 'node:black-dot:15' : `${iconKey}:${color}`;
   if (cache.has(cacheKey)) return cache.get(cacheKey)!;
   const Icon = ICON_MAP[iconKey] || Factory;
+  const iconSize = iconKey === 'poi' ? 28 : iconKey === 'node' ? 15 : 22;
   const svg = renderToStaticMarkup(
     createElement(Icon, {
-      size: iconKey === 'poi' ? 28 : 22,
+      size: iconSize,
       color,
       strokeWidth: 2,
       ...(iconKey === 'poi' ? { fill: color } : {}),

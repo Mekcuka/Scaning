@@ -31,11 +31,26 @@ import {
   type InfraObject,
 } from '../lib/api';
 import { isLineSubtype } from '../lib/infraGeometry';
+import { refreshMapQueries } from '../lib/mapQueries';
 import { isProjectJobCreateResponse, pollProjectJobUntilDone } from '../lib/pollProjectJob';
 import { taskLog } from '../lib/taskLog/store';
 import type { MapUndoEntry } from '../lib/mapUndo';
 
 type DrawMode = 'select' | 'point' | 'line' | 'poi' | 'ruler' | 'autoroad_network';
+
+function applyResultCounts(result: AutoroadNetworkApplyResult | AutoroadConnectResult | null | undefined): {
+  createdLines: number;
+  createdNodes: number;
+} {
+  return {
+    createdLines: result?.created_lines ?? 0,
+    createdNodes: result?.created_nodes ?? 0,
+  };
+}
+
+function plannedSegmentCount(plan: { new_line_count?: number; new_node_count?: number }): number {
+  return (plan.new_line_count ?? 0) + (plan.new_node_count ?? 0);
+}
 
 export type UseMapAutoroadNetworkParams = {
   projectId: string | undefined;
@@ -377,6 +392,7 @@ export function useMapAutoroadNetwork({
           ...plannerOptionsToRequestOptions(plannerOptions),
         };
         const plan = await api.autoroadNetworkCompute(projectId!, planRequest);
+        const plannedTotal = plannedSegmentCount(plan);
         setPlanPreviewLines(linesFromNetworkPlanResponse(plan));
         const previewForModal = networkPlanToConnectPreview(plan);
         if (!(await requestAutoroadConfirm(previewForModal, 'network'))) {
@@ -389,24 +405,36 @@ export function useMapAutoroadNetwork({
           plan,
           full_network_rebuild: true,
         });
+        let result: AutoroadNetworkApplyResult | null = null;
         if (isProjectJobCreateResponse(applyRes)) {
           const job = await pollProjectJobUntilDone(projectId!, applyRes.job_id, {
             timeoutMs: 600_000,
           });
-          taskLog.endHttpFlow(flowId, 'completed');
-          return job.result as unknown as AutoroadNetworkApplyResult;
+          if (job.status === 'failed') {
+            throw new Error(job.error_message ?? 'Не удалось применить сеть на карте');
+          }
+          result = (job.result ?? null) as AutoroadNetworkApplyResult | null;
+        } else {
+          result = applyRes;
+        }
+        const { createdLines, createdNodes } = applyResultCounts(result);
+        if (plannedTotal > 0 && createdLines + createdNodes === 0) {
+          throw new Error(
+            'Расчёт выполнен, но новые объекты не сохранены на карте. Подтвердите применение в диалоге и дождитесь завершения фоновой задачи.',
+          );
         }
         taskLog.endHttpFlow(flowId, 'completed');
-        return applyRes;
+        return result;
       } catch (e) {
         taskLog.endHttpFlow(flowId, 'failed');
         throw e;
       }
     },
-    onSuccess: (result) => {
+    onSuccess: async (result) => {
       setPlanPreviewLines([]);
       if (!result) return;
       void queryClient.invalidateQueries({ queryKey: ['activeJob', projectId] });
+      const { createdLines, createdNodes } = applyResultCounts(result);
       const createdIds = [...(result.created_line_ids ?? []), ...(result.created_node_ids ?? [])];
       if (createdIds.length > 0) {
         pushUndo({
@@ -416,15 +444,20 @@ export function useMapAutoroadNetwork({
           label: 'построение сети автодорог',
         });
       }
-      pushToast(
-        'success',
-        result.created_lines || result.created_nodes
-          ? `Сеть построена: ${result.created_lines ?? 0} линий, ${result.created_nodes ?? 0} узлов`
-          : 'Объекты уже связаны по существующей сети',
-      );
+      if (createdLines > 0 || createdNodes > 0) {
+        pushToast(
+          'success',
+          `Сеть построена: ${createdLines} линий, ${createdNodes} узлов`,
+        );
+      } else {
+        pushToast('info', 'Объекты уже связаны по существующей сети — новых линий не добавлено');
+      }
       setTerminalIds([]);
       setDrawMode('select');
       invalidateMap();
+      if (projectId) {
+        await refreshMapQueries(queryClient, projectId);
+      }
     },
     onError: (err) => {
       setPlanPreviewLines([]);

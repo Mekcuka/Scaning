@@ -5,7 +5,7 @@ import { fromLonLat } from 'ol/proj';
 import { normalizeInfraSubtype } from '../../lib/api';
 import type { LinePathDisplayOptions } from '../../lib/infraGeometry';
 import { lineLodForScale } from '../../lib/mapLineLod';
-import { SYNC_IDLE_INFRA_THRESHOLD } from './constants';
+import { isMapNodePointSubtype, SYNC_IDLE_INFRA_THRESHOLD, SYNC_IDLE_TIMEOUT_MS } from './constants';
 import { infraLineGeometry, syncFeaturesById } from './geometry';
 import type { MapViewRefs } from './mapViewRefs';
 import type { MapViewProps } from './types';
@@ -22,6 +22,7 @@ export function useMapViewDataSync(
   const {
     syncInfraDataToLayersRef,
     pointSourceRef,
+    nodePointSourceRef,
     lineSourceRef,
     infraSnapPoolRef,
     infraObjectsRef,
@@ -31,6 +32,7 @@ export function useMapViewDataSync(
     lineLodRef,
     snapIndexRef,
     lineLayerRef,
+    nodePointLayerRef,
     pointLayerRef,
     infraIdsRef,
     editModeRef,
@@ -40,6 +42,7 @@ export function useMapViewDataSync(
   useEffect(() => {
     syncInfraDataToLayersRef.current = () => {
       const points = pointSourceRef.current;
+      const nodePoints = nodePointSourceRef.current;
       const lines = lineSourceRef.current;
       const snapPool = infraSnapPoolRef.current ?? infraObjectsRef.current;
       const infra = infraObjectsRef.current;
@@ -84,9 +87,21 @@ export function useMapViewDataSync(
         });
       });
 
+      const nodePointItems: typeof pointItems = [];
+      const regularPointItems: typeof pointItems = [];
+      for (const item of pointItems) {
+        if (isMapNodePointSubtype(String(item.attrs.subtype))) {
+          nodePointItems.push(item);
+        } else {
+          regularPointItems.push(item);
+        }
+      }
+
       syncFeaturesById(lines, lineItems, 'draft');
-      syncFeaturesById(points, pointItems);
+      syncFeaturesById(nodePoints, nodePointItems);
+      syncFeaturesById(points, regularPointItems);
       lineLayerRef.current?.changed();
+      nodePointLayerRef.current?.changed();
       pointLayerRef.current?.changed();
     };
 
@@ -104,7 +119,7 @@ export function useMapViewDataSync(
     };
     if (infraObjects.length >= SYNC_IDLE_INFRA_THRESHOLD) {
       if (typeof requestIdleCallback !== 'undefined') {
-        const idleId = requestIdleCallback(runSync, { timeout: 250 });
+        const idleId = requestIdleCallback(runSync, { timeout: SYNC_IDLE_TIMEOUT_MS });
         return () => cancelIdleCallback(idleId);
       }
       const t = setTimeout(runSync, 0);

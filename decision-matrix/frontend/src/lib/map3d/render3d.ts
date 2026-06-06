@@ -1,4 +1,5 @@
-import { catalogEntryForSubtype } from './map3dModelCatalog';
+import { isCustomGltfAssetId } from './map3dCustomAssets';
+import { catalogEntryForModelId, catalogEntryForSubtype } from './map3dModelCatalog';
 import { defaultHeightForSubtype } from './extrusionHeights';
 
 export const RENDER_3D_HEIGHT_KEY = 'render_3d_height_m';
@@ -87,7 +88,13 @@ export function shouldUse3dModel(
 ): boolean {
   const style = properties?.[RENDER_3D_STYLE_KEY];
   if (style === 'extrusion' || style === 'line') return false;
-  if (style === 'model') return catalogEntryForSubtype(subtype) != null;
+
+  const modelId = properties?.[RENDER_3D_MODEL_ID_KEY];
+  if (typeof modelId === 'string' && modelId.trim()) {
+    if (catalogEntryForModelId(modelId)) return true;
+    if (isCustomGltfAssetId(modelId)) return true;
+  }
+
   return catalogEntryForSubtype(subtype) != null;
 }
 

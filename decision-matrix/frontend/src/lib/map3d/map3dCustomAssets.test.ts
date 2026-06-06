@@ -1,8 +1,10 @@
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 import {
   customModelPropertyId,
+  getCustomGltfAssetsRevision,
   resolveGltfAssetDef,
   setProjectCustomGltfAssets,
+  subscribeCustomGltfAssets,
 } from './map3dCustomAssets';
 
 describe('map3dCustomAssets', () => {
@@ -28,5 +30,15 @@ describe('map3dCustomAssets', () => {
   it('falls back to bundled assets', () => {
     setProjectCustomGltfAssets('proj-1', []);
     expect(resolveGltfAssetDef('tank')?.url).toContain('tank.glb');
+  });
+
+  it('notifies subscribers when registry changes', () => {
+    const listener = vi.fn();
+    const before = getCustomGltfAssetsRevision();
+    const unsub = subscribeCustomGltfAssets(listener);
+    setProjectCustomGltfAssets('proj-1', []);
+    expect(listener).toHaveBeenCalledTimes(1);
+    expect(getCustomGltfAssetsRevision()).toBe(before + 1);
+    unsub();
   });
 });

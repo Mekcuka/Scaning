@@ -77,7 +77,7 @@ export function plannerOptionsToRequestOptions(opts: AutoroadPlannerOptions) {
     steiner_radius_km: opts.steiner_radius_km,
     attachment_angle_deg: opts.attachment_angle_deg,
     attachment_angle_penalty: opts.attachment_angle_penalty,
-    max_terminals: 50,
+    max_terminals: 200,
   };
 }
 

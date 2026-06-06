@@ -26,6 +26,7 @@ import { useIsMobile } from '../../../hooks/useMediaQuery';
 import { useFlowSchematicContext } from '../../../pages/flows/flowSchematicContext';
 import { SandLogisticsSchematicTimeline } from '../SandLogisticsSchematicTimeline';
 import { SandLogisticsFlowCanvas } from './SandLogisticsFlowCanvas';
+import { SandLogisticsSchematicSummary } from './SandLogisticsSchematicSummary';
 import { EntryYearLegend, SandSchematicLegend } from './SandSchematicLegend';
 
 export function SandLogisticsFlowSchematicInner({
@@ -187,23 +188,15 @@ export function SandLogisticsFlowSchematicInner({
   }
 
   return (
-    <div className="flex flex-col gap-3">
-      <div className="flex flex-wrap gap-4 text-sm">
-        <span>
-          Спрос: <strong>{summary.total_demand_m3.toLocaleString('ru-RU')} м³</strong>
-        </span>
-        <span>
-          Отгружено: <strong>{summary.total_allocated_m3.toLocaleString('ru-RU')} м³</strong>
-        </span>
-        {summary.unmet_m3 > 0 && (
-          <span className="text-amber-700">
-            Не покрыто: <strong>{summary.unmet_m3.toLocaleString('ru-RU')} м³</strong>
-          </span>
-        )}
-      </div>
+    <div className="sand-logistics-schematic flex flex-col gap-3">
+      <SandLogisticsSchematicSummary
+        totalDemandM3={summary.total_demand_m3}
+        totalAllocatedM3={summary.total_allocated_m3}
+        unmetM3={summary.unmet_m3}
+      />
       {asOf && !(horizonFrom && horizonTo && viewAsOf && onViewAsOfChange) && (
-        <p className="text-sm font-medium">
-          Срез на {formatEntryDateRu(asOf)} · жадное распределение (накопительно)
+        <p className="sand-schematic-slice-badge">
+          Срез на {formatEntryDateRu(asOf)} · жадное распределение
         </p>
       )}
       {horizonFrom && horizonTo && viewAsOf && onViewAsOfChange && (

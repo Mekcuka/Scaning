@@ -14,6 +14,8 @@ async def create_poi_for_project(
     db: AsyncSession,
     project_id: UUID,
     data: POICreate,
+    *,
+    commit: bool = True,
 ) -> PointOfInterest:
     defaults = await db.scalar(
         select(ProjectDistanceDefaults).where(ProjectDistanceDefaults.project_id == project_id)
@@ -54,6 +56,8 @@ async def create_poi_for_project(
         poi.km_per_pad_water_pipeline = defaults.km_per_pad_water_pipeline
         poi.km_per_pad_power_line = defaults.km_per_pad_power_line
     db.add(poi)
-    await db.commit()
-    await db.refresh(poi)
+    await db.flush()
+    if commit:
+        await db.commit()
+        await db.refresh(poi)
     return poi

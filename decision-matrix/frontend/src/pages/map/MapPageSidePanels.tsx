@@ -53,9 +53,6 @@ export type MapPageSidePanelsProps = {
   canPasteMapClipboard: boolean;
   canDeleteCurrentSelection: boolean;
   deleteGroupPending: boolean;
-  canAutoroadConnect: boolean;
-  autoroadConnectPending: boolean;
-  onAutoroadConnect?: () => void;
 };
 
 export function MapPageSidePanels({
@@ -101,9 +98,6 @@ export function MapPageSidePanels({
   canPasteMapClipboard,
   canDeleteCurrentSelection,
   deleteGroupPending,
-  canAutoroadConnect,
-  autoroadConnectPending,
-  onAutoroadConnect,
 }: MapPageSidePanelsProps) {
   return (
     <>
@@ -158,9 +152,6 @@ export function MapPageSidePanels({
           canPaste={canPasteMapClipboard}
           canDelete={canDeleteCurrentSelection}
           deletePending={deleteGroupPending}
-          canAutoroadConnect={canAutoroadConnect}
-          autoroadConnectPending={autoroadConnectPending}
-          onAutoroadConnect={onAutoroadConnect}
         />
       )}
     </>

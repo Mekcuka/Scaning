@@ -1,5 +1,6 @@
 import { getPointResolution, transform } from 'ol/proj';
 import { lineLodForScale } from '../../lib/mapLineLod';
+import { MAP_BBOX_DEBOUNCE_MS } from '../../lib/mapBboxUtils';
 import {
   saveMapViewState,
 } from '../../lib/mapViewState';
@@ -70,23 +71,29 @@ export function setupViewHandlers(ctx: MapSetupContext): ViewHandlersCleanup {
   };
 
   let bboxTimer: ReturnType<typeof setTimeout> | undefined;
+  const emitBbox = () => {
+    if (!onBboxChangeRef.current) return;
+    const size = map.getSize();
+    if (!size || size[0] === 0 || size[1] === 0) return;
+    const extent = map.getView().calculateExtent(size);
+    const [minX, minY, maxX, maxY] = extent;
+    const [minLon, minLat] = transform([minX, minY], 'EPSG:3857', 'EPSG:4326');
+    const [maxLon, maxLat] = transform([maxX, maxY], 'EPSG:3857', 'EPSG:4326');
+    const round = (n: number) => Math.round(n * 1e6) / 1e6;
+    onBboxChangeRef.current(
+      `${round(minLon)},${round(minLat)},${round(maxLon)},${round(maxLat)}`,
+    );
+  };
+
   map.on('moveend', () => {
     reportView();
     persistView();
     if (!onBboxChangeRef.current) return;
     clearTimeout(bboxTimer);
-    bboxTimer = setTimeout(() => {
-      const extent = map.getView().calculateExtent(map.getSize());
-      const [minX, minY, maxX, maxY] = extent;
-      const [minLon, minLat] = transform([minX, minY], 'EPSG:3857', 'EPSG:4326');
-      const [maxLon, maxLat] = transform([maxX, maxY], 'EPSG:3857', 'EPSG:4326');
-      const round = (n: number) => Math.round(n * 1e6) / 1e6;
-      onBboxChangeRef.current?.(
-        `${round(minLon)},${round(minLat)},${round(maxLon)},${round(maxLat)}`,
-      );
-    }, 400);
+    bboxTimer = setTimeout(emitBbox, MAP_BBOX_DEBOUNCE_MS);
   });
   reportView();
+  emitBbox();
 
   const preserveViewOnResize = () => {
     const view = map.getView();

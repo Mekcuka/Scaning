@@ -304,11 +304,10 @@ describe('MapPage mock MapView integration', () => {
     await waitFor(() => expect(mapProps().pasteMode).toBe(true));
     await waitFor(() => expect(mapProps().onMapClick).toBeTypeOf('function'));
     mapProps().onMapClick?.(38, 56);
-    await waitFor(() => expect(api.createPoi).toHaveBeenCalled());
-    await waitFor(() => expect(api.createInfraObject).toHaveBeenCalled());
+    await waitFor(() => expect(api.batchPasteMapObjects).toHaveBeenCalled());
   });
 
-  it('paste methanol_facility via createInfraObject', async () => {
+  it('paste methanol_facility via batch paste', async () => {
     const methanol = makeInfraPoint({
       id: 'mf-1',
       subtype: 'methanol_facility',
@@ -324,14 +323,15 @@ describe('MapPage mock MapView integration', () => {
     await userEvent.click(within(panel as HTMLElement).getByRole('button', { name: /^Копировать$/ }));
     await userEvent.click(within(panel as HTMLElement).getByRole('button', { name: /^Вставить$/ }));
     mapProps().onMapClick?.(38, 56);
-    await waitFor(() => expect(api.createInfraObject).toHaveBeenCalled());
-    const createCall = vi.mocked(api.createInfraObject).mock.calls.at(-1)?.[1];
-    expect(createCall?.subtype).toBe('methanol_facility');
+    await waitFor(() => expect(api.batchPasteMapObjects).toHaveBeenCalled());
+    const batchCall = vi.mocked(api.batchPasteMapObjects).mock.calls.at(-1)?.[1];
+    expect(batchCall?.infra_points[0]?.create.subtype).toBe('methanol_facility');
+    expect(api.createInfraObject).not.toHaveBeenCalled();
     expect(api.createFacilityInfraObject).not.toHaveBeenCalled();
     expect(api.updateInfraObject).not.toHaveBeenCalled();
   });
 
-  it('paste oil_pumping_station uses facility-objects endpoint', async () => {
+  it('paste oil_pumping_station via batch paste', async () => {
     const nps = makeInfraPoint({
       id: 'nps-1',
       subtype: 'oil_pumping_station',
@@ -347,13 +347,14 @@ describe('MapPage mock MapView integration', () => {
     await userEvent.click(within(panel as HTMLElement).getByRole('button', { name: /^Копировать$/ }));
     await userEvent.click(within(panel as HTMLElement).getByRole('button', { name: /^Вставить$/ }));
     mapProps().onMapClick?.(38, 56);
-    await waitFor(() => expect(api.createFacilityInfraObject).toHaveBeenCalled());
+    await waitFor(() => expect(api.batchPasteMapObjects).toHaveBeenCalled());
+    const batchCall = vi.mocked(api.batchPasteMapObjects).mock.calls.at(-1)?.[1];
+    expect(batchCall?.infra_points[0]?.create.subtype).toBe('oil_pumping_station');
     expect(api.createInfraObject).not.toHaveBeenCalled();
-    const facilityCall = vi.mocked(api.createFacilityInfraObject).mock.calls.at(-1)?.[1];
-    expect(facilityCall?.subtype).toBe('oil_pumping_station');
+    expect(api.createFacilityInfraObject).not.toHaveBeenCalled();
   });
 
-  it('paste gas_pad creates oil_pad then updates subtype', async () => {
+  it('paste gas_pad uses oil_pad create and gas_pad target in batch', async () => {
     const gasPad = makeInfraPoint({
       id: 'pad-gas',
       subtype: 'gas_pad',
@@ -369,16 +370,12 @@ describe('MapPage mock MapView integration', () => {
     await userEvent.click(within(panel as HTMLElement).getByRole('button', { name: /^Копировать$/ }));
     await userEvent.click(within(panel as HTMLElement).getByRole('button', { name: /^Вставить$/ }));
     mapProps().onMapClick?.(38, 56);
-    await waitFor(() => expect(api.createInfraObject).toHaveBeenCalled());
-    const createCall = vi.mocked(api.createInfraObject).mock.calls.at(-1)?.[1];
-    expect(createCall?.subtype).toBe('oil_pad');
-    await waitFor(() =>
-      expect(api.updateInfraObject).toHaveBeenCalledWith(
-        'p1',
-        'infra-new',
-        expect.objectContaining({ subtype: 'gas_pad' }),
-      ),
-    );
+    await waitFor(() => expect(api.batchPasteMapObjects).toHaveBeenCalled());
+    const batchCall = vi.mocked(api.batchPasteMapObjects).mock.calls.at(-1)?.[1];
+    expect(batchCall?.infra_points[0]?.create.subtype).toBe('oil_pad');
+    expect(batchCall?.infra_points[0]?.target_subtype).toBe('gas_pad');
+    expect(api.createInfraObject).not.toHaveBeenCalled();
+    expect(api.updateInfraObject).not.toHaveBeenCalled();
   });
 
   it('batch geometry change updates multiple objects', async () => {

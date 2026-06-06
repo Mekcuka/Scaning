@@ -1,7 +1,7 @@
 import Feature from 'ol/Feature';
 import LineString from 'ol/geom/LineString';
 import { fromLonLat, transform } from 'ol/proj';
-import { LINE_SUBTYPE_SET } from './constants';
+import { LINE_SUBTYPE_SET, MAP_POINT_HIT_TOLERANCE_PX } from './constants';
 import { resolveFeatureSelection } from './featureSelection';
 import {
   findLineVertexIndexAtPixel,
@@ -18,7 +18,7 @@ export function setupMapClickHandlers(
 ): void {
   const { refs, layers, interactions } = ctx;
   const { map, select } = interactions;
-  const { pointLayer, lineLayer } = layers;
+  const { pointLayer, nodePointLayer, lineLayer } = layers;
   const {
     drawModeRef,
     pasteModeRef,
@@ -66,10 +66,13 @@ export function setupMapClickHandlers(
       const hit = map.forEachFeatureAtPixel(
         evt.pixel,
         (feat, layer) => {
-          if (layer !== pointLayer && layer !== lineLayer) return undefined;
+          if (layer !== pointLayer && layer !== nodePointLayer && layer !== lineLayer) return undefined;
           return resolveFeatureSelection(feat as Feature) ? feat : undefined;
         },
-        { hitTolerance: 6, layerFilter: (l) => l === pointLayer || l === lineLayer }
+        {
+          hitTolerance: MAP_POINT_HIT_TOLERANCE_PX,
+          layerFilter: (l) => l === pointLayer || l === nodePointLayer || l === lineLayer,
+        },
       );
       if (!hit) {
         select.getFeatures().clear();

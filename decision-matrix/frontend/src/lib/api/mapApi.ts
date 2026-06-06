@@ -5,6 +5,8 @@ import type {
   InfraObject,
   InfraObjectCreate,
   Map3dCustomModel,
+  MapBatchPasteRequest,
+  MapBatchPasteResponse,
 } from './entities';
 
 export const mapApi = {
@@ -81,9 +83,20 @@ export const mapApi = {
   batchDeleteMapObjects: (
     projectId: string,
     data: { object_ids: string[]; poi_ids?: string[] },
+    opts?: { timeoutMs?: number },
   ) =>
     request<{ deleted_objects: number; deleted_pois: number; network_rebuilt: boolean }>(
       `/projects/${projectId}/map/batch-delete`,
-      { method: 'POST', body: JSON.stringify(data) },
+      { method: 'POST', body: JSON.stringify(data), timeoutMs: opts?.timeoutMs },
     ),
+  batchPasteMapObjects: (
+    projectId: string,
+    data: MapBatchPasteRequest,
+    opts?: { timeoutMs?: number },
+  ) =>
+    request<MapBatchPasteResponse>(`/projects/${projectId}/map/batch-paste`, {
+      method: 'POST',
+      body: JSON.stringify(data),
+      timeoutMs: opts?.timeoutMs,
+    }),
 };

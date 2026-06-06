@@ -1,8 +1,25 @@
+import { formatCapacity, formatEdgeFlow } from '../flowSchematic';
 import { SITE_H, SITE_W } from './constants';
 import { siteCenter } from './geometry';
 import { networkCenter } from './roadGraph';
 import { networkNodeId, segmentKey } from './ids';
 import type { RoadGraph, SimplifiedRoadPolyline } from './types';
+
+const SAND_FLOW_UNIT = 'thousand_m3_per_year';
+
+export function sandM3ToThousands(valueM3: number): number {
+  return valueM3 / 1000;
+}
+
+/** Компактная подпись на линии схемы (как formatEdgeFlow в технологическом потоке). */
+export function formatSandEdgeFlow(valueM3: number): string {
+  return formatEdgeFlow(sandM3ToThousands(valueM3), SAND_FLOW_UNIT);
+}
+
+/** Полная подпись для tooltip и узлов. */
+export function formatSandEdgeM3Full(valueM3: number): string {
+  return formatCapacity(sandM3ToThousands(valueM3), SAND_FLOW_UNIT);
+}
 
 export function formatSandEdgeM3(value: number): string {
   return `${value.toLocaleString('ru-RU', { maximumFractionDigits: 0 })} м³`;
