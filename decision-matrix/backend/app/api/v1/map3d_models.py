@@ -8,6 +8,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.api.deps import get_current_user
 from app.api.rbac import require_admin
+from app.api.v1.map_deps import get_user_project
 from app.core.database import get_db
 from app.models import ProjectMap3dModel, User
 from app.schemas import Map3dCustomModelAssign, Map3dCustomModelResponse
@@ -22,18 +23,13 @@ from app.services.map3d_custom_models import (
     resolve_assign_subtypes_payload,
     validate_glb_upload,
 )
-from app.models.enums import AccessLevel, WriteScope
-from app.services.project_access import can_assign_map3d_custom_model, resolve_project
+from app.services.project_access import can_assign_map3d_custom_model
 
 map3d_custom_models_router = APIRouter()
 
 
-async def _get_user_project(project_id: UUID, user: User, db: AsyncSession):
-    return await resolve_project(project_id, user, db, min_access=AccessLevel.read, write_scope=WriteScope.infra)
-
-
 async def _require_map3d_assign(project_id: UUID, user: User, db: AsyncSession):
-    project = await _get_user_project(project_id, user, db)
+    project = await get_user_project(project_id, user, db)
     if not can_assign_map3d_custom_model(user, project):
         raise HTTPException(
             status_code=403,
@@ -62,7 +58,7 @@ async def list_map3d_custom_models(
     user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
 ):
-    await _get_user_project(project_id, user, db)
+    await get_user_project(project_id, user, db)
     rows = await list_custom_models(db, project_id)
     return [_to_response(m) for m in rows]
 
@@ -79,7 +75,7 @@ async def upload_map3d_custom_model(
     user: User = Depends(require_admin),
     db: AsyncSession = Depends(get_db),
 ):
-    await _get_user_project(project_id, user, db)
+    await get_user_project(project_id, user, db)
     raw = await validate_glb_upload(file)
     height = float(target_height_m) if target_height_m is not None else DEFAULT_TARGET_HEIGHT_M
     if height <= 0 or height > 500:
@@ -110,7 +106,7 @@ async def get_map3d_custom_model_file(
     user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
 ):
-    await _get_user_project(project_id, user, db)
+    await get_user_project(project_id, user, db)
     row = await get_custom_model(db, project_id, model_id)
     path = model_file_path(project_id, row.id)
     if not path.is_file():
@@ -128,7 +124,7 @@ async def delete_map3d_custom_model(
     user: User = Depends(require_admin),
     db: AsyncSession = Depends(get_db),
 ):
-    await _get_user_project(project_id, user, db)
+    await get_user_project(project_id, user, db)
     row = await get_custom_model(db, project_id, model_id)
     await clear_object_overrides_for_custom_model(db, project_id, model_id)
     path = model_file_path(project_id, row.id)
