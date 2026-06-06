@@ -63,7 +63,6 @@ export function upsertInfraObjectsInQueries(
   objects: InfraObject[],
 ): void {
   if (objects.length === 0) return;
-  const byId = new Map(objects.map((o) => [o.id, o]));
   patchAllInfraQueries(queryClient, projectId, (list) => {
     const next = [...list];
     const indexById = new Map(next.map((o, i) => [o.id, i]));

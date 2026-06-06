@@ -2,6 +2,7 @@ import { memo, useMemo } from 'react';
 import { BaseEdge, useInternalNode, type EdgeProps } from '@xyflow/react';
 import {
   computeSandEdgePath,
+  edgePathInputFromEdgeProps,
   floatingSandSiteLinkEndpoints,
   type SandFlowNodeBox,
 } from '../../../lib/sandLogisticsFlow';
@@ -20,7 +21,7 @@ function useFloatingSiteLinkPath(props: EdgeProps): string {
       );
       return computeSandEdgePath(lineStyle, endpoints)[0];
     }
-    return computeSandEdgePath(lineStyle, props)[0];
+    return computeSandEdgePath(lineStyle, edgePathInputFromEdgeProps(props))[0];
   }, [lineStyle, props, sourceNode, targetNode]);
 }
 

@@ -3,24 +3,53 @@ import {
   getSmoothStepPath,
   getStraightPath,
   Position,
+  type EdgeProps,
 } from '@xyflow/react';
 import type { SandLogisticsLineStyle, EdgePathInput } from './types';
 import { polylineMidpoint } from './roadPolylines';
+
+export function edgePathInputFromEdgeProps(props: EdgeProps): EdgePathInput {
+  return {
+    sourceX: props.sourceX,
+    sourceY: props.sourceY,
+    targetX: props.targetX,
+    targetY: props.targetY,
+    sourcePosition: props.sourcePosition,
+    targetPosition: props.targetPosition,
+  };
+}
 
 /** Общий расчёт SVG-пути для всех типов линий на схеме логистики. */
 export function computeSandEdgePath(
   style: SandLogisticsLineStyle,
   input: EdgePathInput,
 ): [path: string, labelX: number, labelY: number] {
+  const { sourceX, sourceY, targetX, targetY, sourcePosition, targetPosition } = input;
+
   if (style === 'straight') {
-    const [path, labelX, labelY] = getStraightPath(input);
+    const [path, labelX, labelY] = getStraightPath({ sourceX, sourceY, targetX, targetY });
     return [path, labelX, labelY];
   }
   if (style === 'smoothstep') {
-    const [path, labelX, labelY] = getSmoothStepPath({ ...input, borderRadius: 8 });
+    const [path, labelX, labelY] = getSmoothStepPath({
+      sourceX,
+      sourceY,
+      targetX,
+      targetY,
+      sourcePosition,
+      targetPosition,
+      borderRadius: 8,
+    });
     return [path, labelX, labelY];
   }
-  const [path, labelX, labelY] = getBezierPath(input);
+  const [path, labelX, labelY] = getBezierPath({
+    sourceX,
+    sourceY,
+    targetX,
+    targetY,
+    sourcePosition,
+    targetPosition,
+  });
   return [path, labelX, labelY];
 }
 

@@ -2,6 +2,7 @@ import { memo } from 'react';
 import { BaseEdge, MarkerType, type Edge, type EdgeProps } from '@xyflow/react';
 import {
   computeSandEdgePath,
+  edgePathInputFromEdgeProps,
   polylineToSvgPath,
   type SandRoadEdgeData,
   type SandRoadPolylineEdgeData,
@@ -122,7 +123,7 @@ const SandPlannedRoadPolylineEdge = memo(function SandPlannedRoadPolylineEdge({
 
 const SandPlannedRoadEdge = memo(function SandPlannedRoadEdge(props: EdgeProps) {
   const lineStyle = useSandLineStyle();
-  const [edgePath] = computeSandEdgePath(lineStyle, props);
+  const [edgePath] = computeSandEdgePath(lineStyle, edgePathInputFromEdgeProps(props));
   return (
     <BaseEdge
       id={props.id}
