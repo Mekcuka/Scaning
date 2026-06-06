@@ -434,6 +434,11 @@ export async function openMapPage(page: Page, projectId?: string): Promise<Locat
 
   await infraPromise;
 
+  await page.waitForFunction(
+    () => Boolean((window as Window & { __dmOlMap?: unknown }).__dmOlMap),
+    { timeout: 20_000 },
+  );
+
   return viewport;
 
 }
@@ -464,55 +469,82 @@ export async function fitMapToAllObjects(page: Page): Promise<void> {
 
 
 
-export async function clickMapLonLat(
-
+async function mapPixelFromLonLat(
   page: Page,
-
-  viewport: Locator,
-
   lon: number,
-
   lat: number,
-
-): Promise<void> {
-
+): Promise<{ x: number; y: number }> {
   await page.waitForFunction(
     () => Boolean((window as Window & { __dmOlMap?: unknown }).__dmOlMap),
     { timeout: 15_000 },
   );
 
   const pos = await page.evaluate(([targetLon, targetLat]) => {
-
     const map = (window as Window & { __dmOlMap?: { getPixelFromCoordinate: (c: number[]) => number[] } })
-
       .__dmOlMap;
-
     if (!map) return null;
 
     const r = 6378137;
-
     const x = (targetLon * Math.PI * r) / 180;
-
     const y = Math.log(Math.tan(((90 + targetLat) * Math.PI) / 360)) * r;
-
     const pixel = map.getPixelFromCoordinate([x, y]);
-
     if (!pixel || !Number.isFinite(pixel[0]) || !Number.isFinite(pixel[1])) return null;
-
     return { x: pixel[0], y: pixel[1] };
-
   }, [lon, lat]);
 
   expect(pos, 'map pixel from __dmOlMap hook (set VITE_E2E_MAP_HOOK=true)').toBeTruthy();
+  return pos!;
+}
 
-  await viewport.click({
+export async function clickMapLonLat(
+  page: Page,
+  viewport: Locator,
+  lon: number,
+  lat: number,
+): Promise<void> {
+  const pos = await mapPixelFromLonLat(page, lon, lat);
+  await viewport.click({ position: pos, force: true });
+}
 
-    position: pos!,
+export async function dblclickMapLonLat(
+  page: Page,
+  viewport: Locator,
+  lon: number,
+  lat: number,
+): Promise<void> {
+  const pos = await mapPixelFromLonLat(page, lon, lat);
+  await viewport.dblclick({ position: pos, force: true });
+}
 
-    force: true,
+export async function hoverMapLonLat(
+  page: Page,
+  viewport: Locator,
+  lon: number,
+  lat: number,
+): Promise<void> {
+  const pos = await mapPixelFromLonLat(page, lon, lat);
+  await viewport.hover({ position: pos, force: true });
+}
 
-  });
-
+export function waitForInfraObjectCreate(page: Page, subtype: string) {
+  return page.waitForResponse(
+    async (r) => {
+      if (
+        r.request().method() !== 'POST' ||
+        !r.url().includes('/infrastructure/objects') ||
+        r.status() !== 201
+      ) {
+        return false;
+      }
+      try {
+        const body = (await r.json()) as { subtype?: string };
+        return body.subtype === subtype;
+      } catch {
+        return false;
+      }
+    },
+    { timeout: 45_000 },
+  );
 }
 
 
