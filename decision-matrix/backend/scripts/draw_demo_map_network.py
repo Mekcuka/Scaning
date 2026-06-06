@@ -24,7 +24,7 @@ os.environ["DATABASE_URL"] = f"sqlite+aiosqlite:///{_db_file.as_posix()}"
 
 from sqlalchemy import delete, select, update
 
-from app.api.v1.map import _create_infra_object_record
+from app.services.infra_create import create_infra_object_record as _create_infra_object_record
 from app.core.database import async_session
 from app.models import (
     InfrastructureEdge,

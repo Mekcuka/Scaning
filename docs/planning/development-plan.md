@@ -2,6 +2,7 @@
 
 > **Статус (июнь 2026):** ядро MVP в `decision-matrix/` **реализовано (~85% Must Have FR)**. Актуальная сводка «док ↔ код» — [implementation-status.md](implementation-status.md).  
 > **Дорожная карта после MVP:** [system-evolution-plan.md](system-evolution-plan.md) (горизонты H0–H5, метрики, приоритеты).  
+> **SOLID-рефакторинг:** [solid-refactoring-plan.md](solid-refactoring-plan.md), границы модулей — [module-boundaries.md](../architecture/module-boundaries.md).  
 > Чеклисты ниже — **исторический план**; `[x]` — выполнено по факту, `[ ]` — не сделано или post-MVP.
 
 ## Сводка выполнения
@@ -263,3 +264,19 @@
 - [ ] SSO / LDAP интеграция
 - [ ] Аудит действий
 - [ ] SLA и приоритетная поддержка
+
+---
+
+## Трек SOLID-рефакторинга (после MVP, июнь 2026)
+
+План: [solid-refactoring-plan.md](solid-refactoring-plan.md). Границы: [module-boundaries.md](../architecture/module-boundaries.md).
+
+| Фаза | Задача | Статус |
+|------|--------|--------|
+| 0 | Границы модулей, чеклист PR | **✅ документация** |
+| 1 | Разбить `apiClient.ts` на `*Api.ts` | **✅** |
+| 2 | Декомпозиция `infrastructure_analysis.py` | **✅** |
+| 3 | `useMapPageMapActions`, Import-страницы | **✅** |
+| 4 | DIP: planner, spatial, api slices | **✅** |
+| 5 | OCP: реестры subtypes / matrix rows | [ ] |
+| 6 | Вынести projects из `router.py` | [x] |

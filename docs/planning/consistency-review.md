@@ -7,6 +7,7 @@
 | Категория | Статус |
 |-----------|--------|
 | Док ↔ код (сводка) | [implementation-status.md](implementation-status.md) |
+| SOLID / границы модулей | [solid-refactoring-plan.md](solid-refactoring-plan.md), [module-boundaries.md](../architecture/module-boundaries.md) (фаза 0, июнь 2026) |
 | Навигация (Параметры, Потоки, ставки внутри Параметров) | Согласовано (май 2026) |
 | OpenLayers / Lucide | Согласовано |
 | Импорт отдельно от карты | Согласовано |

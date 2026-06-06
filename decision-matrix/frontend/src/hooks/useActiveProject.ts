@@ -1,18 +1,27 @@
 import { useEffect, useMemo } from 'react';
 import { useQuery } from '@tanstack/react-query';
-import { api, type Project } from '../lib/api';
+import {
+  defaultProjectsListApi,
+  type Project,
+  type ProjectsListApiPort,
+} from '../lib/api';
 import { normalizeProjectsList } from '../lib/normalizeProjectsList';
 import { queryKeys } from '../lib/queryKeys';
 import { useAppStore } from '../store';
 
+export type UseActiveProjectOptions = {
+  projectsApi?: ProjectsListApiPort;
+};
+
 /** Ensures currentProjectId points to an existing project for the logged-in user. */
-export function useActiveProject() {
+export function useActiveProject(options: UseActiveProjectOptions = {}) {
+  const projectsApi = options.projectsApi ?? defaultProjectsListApi;
   const projectId = useAppStore((s) => s.currentProjectId);
   const setCurrentProjectId = useAppStore((s) => s.setCurrentProjectId);
 
   const { data, isLoading, isFetched, isError } = useQuery({
     queryKey: queryKeys.projects,
-    queryFn: api.projects,
+    queryFn: projectsApi.projects,
   });
 
   const projects = normalizeProjectsList(data);

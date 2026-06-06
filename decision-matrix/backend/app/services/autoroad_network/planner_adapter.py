@@ -384,7 +384,7 @@ async def run_planner_http(
         return run_planner_inprocess(planner_req, solver)
 
 
-async def compute_via_network_planner(req: NetworkPlanRequest) -> NetworkPlanResponse:
+async def _compute_network_plan(req: NetworkPlanRequest) -> NetworkPlanResponse:
     np = _network_planner()
     planner_req, pre_warnings = to_planner_request(req)
     solver = _resolve_solver(req)
@@ -412,3 +412,8 @@ async def compute_via_network_planner(req: NetworkPlanRequest) -> NetworkPlanRes
 
     all_warnings = pre_warnings + fb
     return from_planner_response(resp, req, extra_warnings=all_warnings)
+
+
+async def compute_via_network_planner(req: NetworkPlanRequest) -> NetworkPlanResponse:
+    """Backward-compatible entry; prefer get_network_planner().compute()."""
+    return await _compute_network_plan(req)

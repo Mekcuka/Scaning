@@ -49,3 +49,20 @@ pre-commit install
 - Backend: `ruff check` / `ruff format` on `decision-matrix/backend`
 - Frontend: ESLint with TypeScript type-checked rules
 - Keep changes focused; match existing patterns in neighboring files
+
+## Module boundaries (SOLID)
+
+See [docs/architecture/module-boundaries.md](docs/architecture/module-boundaries.md) and [docs/planning/solid-refactoring-plan.md](docs/planning/solid-refactoring-plan.md).
+
+- New or substantially extended files should stay **≤ 300–400 lines**; split into a separate module otherwise.
+- One PR = one structural goal; do not mix refactoring with feature work.
+- Preserve public barrel imports (`lib/api`, `useMapPageOrchestrator`, etc.) when splitting files.
+
+### Refactoring PR checklist
+
+- [ ] Behavior unchanged (unit tests; E2E if map/import/auth touched)
+- [ ] Public imports still work (barrels)
+- [ ] New/changed module ≤ 400 lines (or justified in PR description)
+- [ ] No empty abstractions without a second implementation
+- [ ] Docs updated if folder structure changed
+- [ ] CI green (lint, typecheck, vitest, pytest)

@@ -203,7 +203,7 @@ async def apply_autoroad_connect_plan(
     project_id: UUID,
     plan: AutoroadConnectPlan,
 ) -> dict[str, Any]:
-    from app.api.v1.map import _create_infra_object_record
+    from app.services.infra_create import create_infra_object_record
 
     created_nodes: list[InfraObject] = []
     created_lines: list[InfraObject] = []
@@ -266,7 +266,7 @@ async def apply_autoroad_connect_plan(
         if key in node_by_key:
             continue
         n_node += 1
-        obj = await _create_infra_object_record(
+        obj = await create_infra_object_record(
             db,
             project_id=project_id,
             data=InfraObjectCreate(
@@ -292,7 +292,7 @@ async def apply_autoroad_connect_plan(
         node_obj = node_by_key.get(key)
         if node_obj is None:
             n_node += 1
-            node_obj = await _create_infra_object_record(
+            node_obj = await create_infra_object_record(
                 db,
                 project_id=project_id,
                 data=InfraObjectCreate(
@@ -345,7 +345,7 @@ async def apply_autoroad_connect_plan(
             layer_id=line.layer_id,
             properties={k: v for k, v in props.items() if k != "coordinates"},
         )
-        second = await _create_infra_object_record(db, project_id=project_id, data=second_data)
+        second = await create_infra_object_record(db, project_id=project_id, data=second_data)
         created_lines.append(second)
         split_done.add(sp.line_id)
 
@@ -381,7 +381,7 @@ async def apply_autoroad_connect_plan(
             line_snap_finish_object_id=finish_id,
             line_preserve_geometry=True,
         )
-        obj = await _create_infra_object_record(db, project_id=project_id, data=data)
+        obj = await create_infra_object_record(db, project_id=project_id, data=data)
         created_lines.append(obj)
 
     await build_network_from_lines(db, project_id)

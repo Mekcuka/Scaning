@@ -23,6 +23,7 @@ const STATUS_LABELS: Record<string, string> = {
 };
 
 const CARD_SECTION_ORDER = [
+  'Точка интереса',
   'Внутренние решения',
   'Внешние линейные объекты',
   'Инженерные решения',
@@ -126,7 +127,9 @@ export function buildMatrixCardModel(
   const item = findAnalysisItem(column, row);
   const alternatives = row.engineering
     ? buildEngineeringAlternatives(row, poi)
-    : buildAnalysisAlternatives(item);
+    : row.section === 'Точка интереса'
+      ? [{ label: cell.text, active: true }]
+      : buildAnalysisAlternatives(item);
 
   return {
     title: row.label,

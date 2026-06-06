@@ -7,13 +7,21 @@ import { useAppStore } from '../store';
 import { queryKeys } from '../lib/queryKeys';
 import { sampleProjects } from '../test/fixtures/projects';
 
-vi.mock('../lib/api', () => ({
-  api: {
-    projects: vi.fn(),
-  },
-}));
+vi.mock('../lib/api', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('../lib/api')>();
+  return {
+    ...actual,
+    api: {
+      ...actual.api,
+      projects: vi.fn(),
+    },
+    defaultProjectsListApi: {
+      projects: vi.fn(),
+    },
+  };
+});
 
-import { api } from '../lib/api';
+import { api, defaultProjectsListApi } from '../lib/api';
 
 function createWrapper(qc: QueryClient) {
   return function Wrapper({ children }: { children: ReactNode }) {
@@ -26,6 +34,7 @@ describe('useActiveProject', () => {
     localStorage.removeItem('currentProjectId');
     useAppStore.getState().setCurrentProjectId(null);
     vi.mocked(api.projects).mockResolvedValue(sampleProjects);
+    vi.mocked(defaultProjectsListApi.projects).mockResolvedValue(sampleProjects);
   });
 
   it('reconciles stale project id to first available project', async () => {
@@ -49,7 +58,7 @@ describe('useActiveProject', () => {
   });
 
   it('does not throw when API returns null (regression: data = [] only applies to undefined)', async () => {
-    vi.mocked(api.projects).mockResolvedValue(null as never);
+    vi.mocked(defaultProjectsListApi.projects).mockResolvedValue(null as never);
     const qc = new QueryClient({ defaultOptions: { queries: { retry: false } } });
 
     const { result } = renderHook(() => useActiveProject(), {
@@ -64,7 +73,7 @@ describe('useActiveProject', () => {
   });
 
   it('treats null in query cache as empty list (no .length throw)', async () => {
-    vi.mocked(api.projects).mockResolvedValue(null as never);
+    vi.mocked(defaultProjectsListApi.projects).mockResolvedValue(null as never);
     const qc = new QueryClient({
       defaultOptions: { queries: { retry: false, staleTime: Infinity } },
     });
@@ -83,11 +92,23 @@ describe('useActiveProject', () => {
 
   it('clears currentProjectId when project list is empty', async () => {
     useAppStore.getState().setCurrentProjectId('gone-id');
-    vi.mocked(api.projects).mockResolvedValue([]);
+    vi.mocked(defaultProjectsListApi.projects).mockResolvedValue([]);
     const qc = new QueryClient({ defaultOptions: { queries: { retry: false } } });
 
     renderHook(() => useActiveProject(), { wrapper: createWrapper(qc) });
 
     await waitFor(() => expect(useAppStore.getState().currentProjectId).toBeNull());
+  });
+
+  it('accepts injected projectsApi port', async () => {
+    const projects = vi.fn().mockResolvedValue(sampleProjects);
+    const qc = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+    const { result } = renderHook(() => useActiveProject({ projectsApi: { projects } }), {
+      wrapper: createWrapper(qc),
+    });
+
+    await waitFor(() => expect(result.current.isLoading).toBe(false));
+    expect(projects).toHaveBeenCalled();
+    expect(result.current.projectId).toBe('p1');
   });
 });

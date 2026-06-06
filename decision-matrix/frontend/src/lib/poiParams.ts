@@ -315,3 +315,15 @@ export function defaultHint(
   const v = defaults[key];
   return v != null ? `по умолчанию: ${v}` : '';
 }
+
+export function fluidTypeLabel(fluidType: string | null | undefined): 'Нефть' | 'Газ' {
+  return fluidType === 'gas' ? 'Газ' : 'Нефть';
+}
+
+export function plannedProductionLabel(
+  poi: Pick<POI, 'planned_production_volume' | 'fluid_type'>,
+): string | undefined {
+  const volume = poi.planned_production_volume;
+  if (volume == null || Number(volume) <= 0) return undefined;
+  return `${volume} тыс. т/год`;
+}

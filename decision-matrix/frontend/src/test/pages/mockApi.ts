@@ -204,12 +204,20 @@ export function createDefaultApiMocks(): ApiMockOverrides {
 export async function buildApiMock(overrides: ApiMockOverrides = {}) {
   const actual = await vi.importActual<typeof import('../../lib/api')>('../../lib/api');
   const defaults = createDefaultApiMocks();
+  const mockedApi = {
+    ...actual.api,
+    ...defaults,
+    ...overrides,
+  };
   return {
     ...actual,
-    api: {
-      ...actual.api,
-      ...defaults,
-      ...overrides,
+    api: mockedApi,
+    defaultProjectsListApi: { projects: mockedApi.projects },
+    defaultProjectsDataApi: { getPois: mockedApi.getPois },
+    defaultMapDataApi: {
+      getInfraObjects: mockedApi.getInfraObjects,
+      getLayers: mockedApi.getLayers,
     },
+    defaultMapInfraApi: { getInfraObjects: mockedApi.getInfraObjects },
   };
 }

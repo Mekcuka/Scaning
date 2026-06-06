@@ -1,7 +1,11 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { keepPreviousData, useQuery, useQueryClient } from '@tanstack/react-query';
 import type { MapFeatureSelection } from '../components/MapView';
-import { api, type InfraObject } from '../lib/api';
+import {
+  defaultMapDataApi,
+  type InfraObject,
+  type MapDataApiPort,
+} from '../lib/api';
 import {
   MAP_INFRA_STALE_MS,
   MAP_VIEWPORT_MIN_OBJECTS,
@@ -21,6 +25,7 @@ export type UseMapInfraDataParams = {
   featureSel: MapFeatureSelection | null;
   featureGroupSel: MapFeatureSelection[];
   pushToast: (kind: 'success' | 'error' | 'info', message: string) => void;
+  mapApi?: MapDataApiPort;
 };
 
 export function useMapInfraData({
@@ -29,6 +34,7 @@ export function useMapInfraData({
   featureSel,
   featureGroupSel,
   pushToast,
+  mapApi = defaultMapDataApi,
 }: UseMapInfraDataParams) {
   const queryClient = useQueryClient();
   const [mapBbox, setMapBbox] = useState<string | null>(null);
@@ -40,7 +46,7 @@ export function useMapInfraData({
     error: infraLoadErr,
   } = useQuery({
     queryKey: ['infra', projectId],
-    queryFn: () => api.getInfraObjects(projectId!),
+    queryFn: () => mapApi.getInfraObjects(projectId!),
     enabled: !!projectId,
     staleTime: MAP_INFRA_STALE_MS,
     placeholderData: keepPreviousData,
@@ -63,7 +69,7 @@ export function useMapInfraData({
   const { data: infraViewport = [] } = useQuery({
     queryKey: ['infra', projectId, 'bbox', mapBbox],
     queryFn: () =>
-      api.getInfraObjects(projectId!, {
+      mapApi.getInfraObjects(projectId!, {
         bbox: expandMapBbox(mapBbox!),
         visibleLayersOnly: true,
       }),

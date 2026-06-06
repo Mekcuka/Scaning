@@ -5,6 +5,7 @@
 > **Расчётные функции:** [calculation-functions.md](../calculations/calculation-functions.md).  
 > **Схема потоков (PFD):** [fluid-flow-schematic.md](../features/fluid-flow-schematic.md) — отдельный визуальный поток от анализа окружения; использует граф сети и POI, не таблицу `poi_infrastructure_analysis`.  
 > **Статус реализации:** [implementation-status.md](../planning/implementation-status.md).  
+> **Границы модулей (SOLID):** [module-boundaries.md](module-boundaries.md), [solid-refactoring-plan.md](../planning/solid-refactoring-plan.md).  
 > **Автопостроение сети автодорог (сервис):** [autoroad-network-plan.md](../autoroad/autoroad-network-plan.md).
 
 ## Актуальная реализация (FastAPI + React, май 2026)
@@ -14,9 +15,9 @@
 | Модуль | Backend | Frontend |
 |--------|---------|----------|
 | Auth | `api/v1/auth.py`, `admin.py` | `LoginPage`, `RegisterPage`, `AdminUsersPage` |
-| Projects / POI | `api/v1/router.py` | `ProjectsPage`, `ProjectDetailPage` |
-| Map + import | `api/v1/map.py`, `import_connections.py` | `MapPage`, `ImportPage` |
-| Analysis | `services/infrastructure_analysis.py` | `MatrixPage`, карта |
+| Projects / POI | `api/v1/projects.py`, `api/v1/analysis.py` | `ProjectsPage`, `ProjectDetailPage` |
+| Map + import | `api/v1/map.py`, `map_import.py`, `import_connections.py` | `MapPage`, `ImportPage` |
+| Analysis | `services/analysis/*` (barrel: `infrastructure_analysis.py`) | `MatrixPage`, карта |
 | Reports | `api/v1/one_pagers.py` | `pages/report/*` |
 | Flows PFD | `api/v1/flow.py`, `fluid_flow_schematic.py` | `pages/flows/*`, `FlowSchematicEditor` |
 | Graph | `api/v1/graph.py`, `graph_builder.py` | PFD + карта |

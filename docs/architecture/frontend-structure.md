@@ -1,6 +1,6 @@
 # Структура frontend после рефакторинга карты (июнь 2026)
 
-> См. также: [architecture.md](architecture.md) § Frontend, [testing-strategy.md](../testing/testing-strategy.md), [implementation-status.md](../planning/implementation-status.md).
+> См. также: [architecture.md](architecture.md) § Frontend, [module-boundaries.md](module-boundaries.md), [solid-refactoring-plan.md](../planning/solid-refactoring-plan.md), [testing-strategy.md](../testing/testing-strategy.md), [implementation-status.md](../planning/implementation-status.md).
 
 Рефакторинг **не менял публичные импорты** — пути `../components/MapView`, `../lib/api`, `./map/MapPageToolbar` остались прежними. Логика вынесена в подмодули; страницы и хуки импортируют те же entry points.
 
@@ -14,7 +14,7 @@
 | `components/MapView.tsx` | ~2227 | **~58** | Обёртка над `mapView/*` |
 | `components/ObjectDetailPanel.tsx` | ~1163 | **~168** | Обёртка над `objectDetailPanel/*` |
 | `pages/map/MapPageToolbar.tsx` | 616 | **~147** | + 6 групп в `mapPageToolbar/` |
-| `lib/api.ts` | ~1607 | **10** | Barrel; код в `lib/api/*` |
+| `lib/api.ts` | ~1607 | **~20** | Barrel; доменные `*Api.ts` + compose `apiClient.ts` |
 | `lib/sandLogisticsFlow.ts` | ~1735 | **1** | Barrel; код в `lib/sandLogisticsFlow/*` |
 | `logistics/SandLogisticsFlowSchematic.tsx` | ~987 | **1** | Barrel; UI в `sandLogisticsFlowSchematic/*` |
 | `logistics/SandLogisticsSubnetPanel.tsx` | ~179 | **2** | Barrel; UI в `sandLogisticsSubnetPanel/*` |
@@ -68,7 +68,8 @@ hooks/mapPageOrchestrator/
 ├── useMapPageEditState.ts              # draw/selection/forms/modal state
 ├── useMapPageShellState.ts             # fullscreen, scale, refs
 ├── useMapPageMapData.ts                # queries, infra, search, undo
-├── useMapPageMapActions.ts             # feature hooks + handlers
+├── actions/                            # autoroad, draw, selection, analysis, display, interaction
+├── useMapPageMapActions.ts             # compose (~35 строк)
 ├── buildMapPageSections.ts             # MapPageSections → props дочерних компонентов
 └── submitPoi.ts                        # submit POI modal
 ```
@@ -294,7 +295,7 @@ components/flowSchematicEditor/
 | Синхронизация props → слои | `mapView/useMapViewDataSync.ts`, `useMapViewOverlays.ts` |
 | Сохранение геометрии | `hooks/useMapGeometrySave.ts` |
 | Карточка объекта | `objectDetailPanel/useObjectDetailPanel.ts` |
-| Новый API endpoint | `lib/api/apiClient.ts` + тип в `entities.ts` / др. |
+| Новый API endpoint | `lib/api/<domain>Api.ts` + тип в `entities.ts` / др.; compose в `apiClient.ts` (см. [module-boundaries.md](module-boundaries.md)) |
 | Схема песка (логика) | `sandLogisticsFlow/layout.ts`, `sliceFlow.ts`, `siteLayout.ts` |
 | Схема песка (UI) | `sandLogisticsFlowSchematic/SandLogisticsFlowCanvas.tsx`, `edgeComponents.tsx` |
 | Песок: нормализация API | `sandLogisticsResult/normalize.ts`, `schematicSlice.ts` |
@@ -307,5 +308,5 @@ components/flowSchematicEditor/
 
 ## Оставшиеся кандидаты на дробление
 
-Основной план рефакторинга (июнь 2026) выполнен. Дальнейшее дробление — по мере необходимости при доработках (например `buildMapPageSections.ts`, `useMapPageMapActions.ts`).
+Основной план рефакторинга карты (июнь 2026) выполнен. `useMapPageMapActions.ts` разбит на `mapPageOrchestrator/actions/*` (фаза 3 ✅). Import — `pages/import/*`, `pages/import3d/*`. Опционально: `buildMapPageSections.ts`. План — [solid-refactoring-plan.md](../planning/solid-refactoring-plan.md). Границы — [module-boundaries.md](module-boundaries.md).
 
