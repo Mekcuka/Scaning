@@ -152,3 +152,57 @@ async def delete_pois_batch(db: AsyncSession, project_id: UUID, poi_ids: set[UUI
     for poi in pois:
         await db.delete(poi)
     return len(pois)
+
+
+async def clear_project_infrastructure(db: AsyncSession, project_id: UUID) -> dict[str, int]:
+    """Remove all infrastructure objects and graph data for the project (POIs are kept)."""
+    layer_ids_sq = select(InfrastructureLayer.id).where(InfrastructureLayer.project_id == project_id)
+    poi_ids_sq = select(PointOfInterest.id).where(PointOfInterest.project_id == project_id)
+    network_ids_sq = select(InfrastructureNetwork.id).where(InfrastructureNetwork.project_id == project_id)
+
+    n_objects = len(
+        (
+            await db.execute(
+                select(InfrastructureObject.id).where(InfrastructureObject.layer_id.in_(layer_ids_sq))
+            )
+        ).all()
+    )
+
+    await db.execute(
+        update(PoiInfrastructureAnalysis)
+        .where(PoiInfrastructureAnalysis.poi_id.in_(poi_ids_sq))
+        .values(
+            nearest_object_id=None,
+            overridden_object_id=None,
+            nearest_node_id=None,
+        )
+    )
+    await db.execute(
+        update(PoiInfrastructureAnalysis)
+        .where(
+            PoiInfrastructureAnalysis.poi_id.in_(poi_ids_sq),
+            PoiInfrastructureAnalysis.param_type.in_(("external", "external_linear")),
+            PoiInfrastructureAnalysis.distance_status != "not_required",
+        )
+        .values(
+            distance_km=None,
+            anchor_type=None,
+            anchor_geometry=None,
+            distance_status="construction_required",
+            is_manually_overridden=False,
+        )
+    )
+
+    edge_result = await db.execute(
+        delete(InfrastructureEdge).where(InfrastructureEdge.network_id.in_(network_ids_sq))
+    )
+    node_result = await db.execute(
+        delete(InfrastructureNode).where(InfrastructureNode.network_id.in_(network_ids_sq))
+    )
+    await db.execute(delete(InfrastructureObject).where(InfrastructureObject.layer_id.in_(layer_ids_sq)))
+
+    return {
+        "deleted_objects": n_objects,
+        "deleted_edges": edge_result.rowcount or 0,
+        "deleted_nodes": node_result.rowcount or 0,
+    }

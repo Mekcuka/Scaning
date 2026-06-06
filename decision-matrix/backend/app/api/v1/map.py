@@ -29,6 +29,10 @@ from app.services.infra_create import (  # noqa: F401
     create_infra_object_record,
     create_infra_object_record as _create_infra_object_record,
 )
+from app.services.infra_update import (  # noqa: F401
+    update_infra_object_record,
+    update_infra_object_record as _update_infra_object_record,
+)
 
 map_router = APIRouter()
 map_router.include_router(layers_router)

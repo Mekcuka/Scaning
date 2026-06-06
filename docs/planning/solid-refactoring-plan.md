@@ -241,7 +241,9 @@ pages/import/
 |--------|------:|-----------------|
 | `map.py` | ~38 | compose |
 | `map_layers.py` | ~126 | слои |
-| `map_objects.py` | ~408 | объекты, batch-delete, autoroad-connect |
+| `map_objects.py` | ~280 | объекты, batch-delete, autoroad-connect (HTTP only) |
+| `services/infra_update.py` | ~110 | PATCH infra object |
+| `services/infra_delete.py` | +clear | batch delete + clear project infra |
 | `map_poi.py` | ~157 | POI CRUD на карте, analysis override |
 | `map_import.py` | ~391 | импорт файлов |
 | `map_deps.py` | ~78 | access helpers |
