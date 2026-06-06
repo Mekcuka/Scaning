@@ -5,6 +5,8 @@ import type { MapPageActionsParams } from '../mapPageActionsTypes';
 
 export function useMapDrawAndCreateActions(params: MapPageActionsParams) {
   const { projectId, mapRefreshNonce, canWriteInfra, edit, data, setLayerPrefs } = params;
+  const clearLineDraftRef = edit.clearLineDraftRef;
+  const clearDrawingForModeSwitchRef = edit.clearDrawingForModeSwitchRef;
   const pushToast = useAppStore((s) => s.pushToast);
   const effectiveProjectId = projectId ?? undefined;
   const {
@@ -28,7 +30,7 @@ export function useMapDrawAndCreateActions(params: MapPageActionsParams) {
     setFeatureSel: edit.setFeatureSel,
     setModal: edit.setModal,
     setDrawMode: edit.setDrawMode,
-    clearLineDraftRef: edit.clearLineDraftRef,
+    clearLineDraftRef,
     upsertInfraInCache,
     nextAutoName,
     pushUndo,
@@ -51,8 +53,8 @@ export function useMapDrawAndCreateActions(params: MapPageActionsParams) {
     setFeatureSel: edit.setFeatureSel,
   });
 
-  edit.clearLineDraftRef.current = draw.clearLineDraft;
-  edit.clearDrawingForModeSwitchRef.current = draw.clearDrawingForModeSwitch;
+  clearLineDraftRef.current = draw.clearLineDraft;
+  clearDrawingForModeSwitchRef.current = draw.clearDrawingForModeSwitch;
 
   return {
     createPoiMut,

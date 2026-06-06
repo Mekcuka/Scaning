@@ -278,5 +278,5 @@
 | 2 | Декомпозиция `infrastructure_analysis.py` | **✅** |
 | 3 | `useMapPageMapActions`, Import-страницы | **✅** |
 | 4 | DIP: planner, spatial, api slices | **✅** |
-| 5 | OCP: реестры subtypes / matrix rows | [ ] |
+| 5 | OCP: реестры subtypes / matrix rows | **✅** |
 | 6 | Вынести projects из `router.py` | [x] |
