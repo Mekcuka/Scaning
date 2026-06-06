@@ -1,7 +1,7 @@
 import { useMemo, useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { Link } from 'react-router-dom';
-import { MapPin, Plus, Trash2 } from 'lucide-react';
+import { Plus, Trash2 } from 'lucide-react';
 import { api, type Project } from '../lib/api';
 import { queryKeys } from '../lib/queryKeys';
 import { normalizeProjectsList } from '../lib/normalizeProjectsList';
@@ -11,8 +11,6 @@ import {
   formatProjectDate,
   PROJECT_TABLE_DESC_MAX,
   PROJECT_TABLE_NAME_MAX,
-  projectStatus,
-  sparklineBars,
 } from '../lib/projectDisplay';
 import { InlineTableEdit } from '../components/InlineTableEdit';
 import { ProjectStatusSelect } from '../components/ProjectStatusSelect';
@@ -20,11 +18,13 @@ import { usePermissions } from '../hooks/usePermissions';
 import { useDeleteProjectDialog } from '../hooks/useDeleteProjectDialog';
 import { canDeleteProject } from '../lib/permissions';
 import { useAppStore, useAuthStore } from '../store';
+import { AppModal } from '../components/AppModal';
 import { ProjectsTableCardHeader } from '../components/ProjectsTableCardHeader';
 
 export function ProjectsPage() {
   const { can, isReadOnly } = usePermissions();
   const currentUser = useAuthStore((s) => s.user);
+  const canCreateProject = can('create_project');
   const canWriteProject = can('write_project');
   const [showForm, setShowForm] = useState(false);
   const [name, setName] = useState('');
@@ -81,6 +81,13 @@ export function ProjectsPage() {
     setCurrentProjectId(project.id);
   };
 
+  const closeCreateModal = () => {
+    if (createMut.isPending) return;
+    setShowForm(false);
+    setName('');
+    setDescription('');
+  };
+
   const saving = updateMut.isPending;
 
   return (
@@ -92,82 +99,22 @@ export function ProjectsPage() {
         </p>
       </header>
 
-      {showForm && canWriteProject && (
-        <div className="card mb-4">
-          <h2 className="text-base font-semibold mb-3">Новый проект</h2>
-          <div className="form-group">
-            <label>Название</label>
-            <input value={name} onChange={(e) => setName(e.target.value)} />
-          </div>
-          <div className="form-group">
-            <label>Описание</label>
-            <textarea value={description} onChange={(e) => setDescription(e.target.value)} rows={2} />
-          </div>
-          <div className="flex gap-2">
-            <button
-              type="button"
-              className="btn btn-primary"
-              onClick={() => createMut.mutate()}
-              disabled={!name.trim() || createMut.isPending}
-            >
-              {createMut.isPending ? 'Создание…' : 'Создать'}
-            </button>
-            <button type="button" className="btn btn-secondary" onClick={() => setShowForm(false)}>
-              Отмена
-            </button>
-          </div>
-        </div>
-      )}
-
       {isLoading ? (
         <p style={{ color: 'var(--text-muted)' }}>Загрузка…</p>
       ) : (
         <>
-          {filtered.length > 0 && (
-            <div className="projects-grid mb-6">
-              {filtered.map((p) => {
-                const st = projectStatus(p.status);
-                return (
-                  <Link
-                    key={p.id}
-                    to={`/projects/${p.id}`}
-                    className="project-card"
-                    onClick={() => openProject(p)}
-                  >
-                    <h3>{p.name}</h3>
-                    <p>{p.description || 'Без описания'}</p>
-                    <div className="project-card-meta">
-                      <span className="flex items-center gap-1">
-                        <MapPin size={14} />
-                        {p.poi_count} POI
-                      </span>
-                      <span className={`status ${st.className}`}>{st.label}</span>
-                    </div>
-                    <div className="sparkline">{sparklineBars(p.id)}</div>
-                    <div
-                      className="tabular text-sm font-semibold mt-2"
-                      style={{ color: 'var(--text-muted)' }}
-                    >
-                      —
-                    </div>
-                  </Link>
-                );
-              })}
-            </div>
-          )}
-
           <div className="card card--flush projects-table-card">
             <ProjectsTableCardHeader
               title="Таблица проектов"
               search={projectSearch}
               onSearchChange={setProjectSearch}
               actions={
-                can('create_project') ? (
+                canCreateProject ? (
                   <button
                     type="button"
                     className="btn btn-primary btn-sm"
                     aria-label="Новый проект"
-                    onClick={() => setShowForm((v) => !v)}
+                    onClick={() => setShowForm(true)}
                   >
                     <Plus size={14} className="inline projects-table-card__btn-icon" />
                     <span className="projects-table-card__btn-label">Новый</span>
@@ -192,7 +139,6 @@ export function ProjectsPage() {
                       <th className="col-center col-status">Статус</th>
                       <th className="col-owner">Создал</th>
                       <th className="col-center col-date">Дата</th>
-                      <th className="col-center col-cost">Стоимость</th>
                       <th className="col-actions" aria-label="Действия" />
                     </tr>
                   </thead>
@@ -263,12 +209,6 @@ export function ProjectsPage() {
                         >
                           {formatProjectDate(p.created_at)}
                         </td>
-                        <td
-                          className="tabular col-center col-cost"
-                          style={{ color: 'var(--text-muted)' }}
-                        >
-                          —
-                        </td>
                         <td className="col-actions">
                           <div className="projects-table-actions">
                             <Link
@@ -301,6 +241,61 @@ export function ProjectsPage() {
           </div>
         </>
       )}
+      {showForm && canCreateProject ? (
+        <AppModal
+          title="Новый проект"
+          onClose={closeCreateModal}
+          size="sm"
+          footer={
+            <>
+              <button
+                type="button"
+                className="btn btn-secondary"
+                onClick={closeCreateModal}
+                disabled={createMut.isPending}
+              >
+                Отмена
+              </button>
+              <button
+                type="submit"
+                form="new-project-form"
+                className="btn btn-primary"
+                disabled={!name.trim() || createMut.isPending}
+              >
+                {createMut.isPending ? 'Создание…' : 'Создать'}
+              </button>
+            </>
+          }
+        >
+          <form
+            id="new-project-form"
+            onSubmit={(e) => {
+              e.preventDefault();
+              if (!name.trim() || createMut.isPending) return;
+              createMut.mutate();
+            }}
+          >
+            <div className="form-group">
+              <label htmlFor="new-project-name">Название</label>
+              <input
+                id="new-project-name"
+                value={name}
+                required
+                onChange={(e) => setName(e.target.value)}
+              />
+            </div>
+            <div className="form-group mb-0">
+              <label htmlFor="new-project-description">Описание</label>
+              <textarea
+                id="new-project-description"
+                value={description}
+                onChange={(e) => setDescription(e.target.value)}
+                rows={3}
+              />
+            </div>
+          </form>
+        </AppModal>
+      ) : null}
       {deleteConfirmModal}
     </div>
   );

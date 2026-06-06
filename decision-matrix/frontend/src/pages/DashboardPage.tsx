@@ -1,15 +1,18 @@
 import { useMemo, useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { Link } from 'react-router-dom';
-import { FileOutput, Grid3X3, MapPin, Map, Plus, Trash2 } from 'lucide-react';
+import { FileOutput, Grid3X3, Map, Plus, Trash2 } from 'lucide-react';
 import { api, type Project } from '../lib/api';
 import { queryKeys } from '../lib/queryKeys';
 import { normalizeProjectsList } from '../lib/normalizeProjectsList';
 import {
+  ellipsisText,
   filterProjectsByQuery,
+  filterProjectsOwnedByUser,
   formatProjectDate,
+  PROJECT_TABLE_DESC_MAX,
+  PROJECT_TABLE_NAME_MAX,
   projectStatus,
-  sparklineBars,
 } from '../lib/projectDisplay';
 import { useAuthStore, useAppStore } from '../store';
 import { ProjectsTableCardHeader } from '../components/ProjectsTableCardHeader';
@@ -40,13 +43,17 @@ export function DashboardPage() {
     refetch,
   } = useQuery({ queryKey: queryKeys.projects, queryFn: api.projects });
   const projects = normalizeProjectsList(projectsData);
-
-  const filtered = useMemo(
-    () => filterProjectsByQuery(projects, projectSearch),
-    [projects, projectSearch],
+  const myProjects = useMemo(
+    () => filterProjectsOwnedByUser(projects, user?.id),
+    [projects, user?.id],
   );
 
-  const totalPoi = projects.reduce((s, p) => s + p.poi_count, 0);
+  const filtered = useMemo(
+    () => filterProjectsByQuery(myProjects, projectSearch),
+    [myProjects, projectSearch],
+  );
+
+  const totalPoi = myProjects.reduce((s, p) => s + p.poi_count, 0);
   const exceedCount = 0;
 
   if (isLoading) return <PageSkeleton lines={6} />;
@@ -65,7 +72,7 @@ export function DashboardPage() {
 
       <div className="stats-row">
         <div className="stat-box">
-          <div className="value tabular">{projects.length}</div>
+          <div className="value tabular">{myProjects.length}</div>
           <div className="label">Проектов</div>
         </div>
         <div className="stat-box">
@@ -105,34 +112,9 @@ export function DashboardPage() {
         </Link>
       </div>
 
-      {filtered.length > 0 && (
-        <>
-          <h2 className="text-base font-semibold mb-3">Проекты</h2>
-          <div className="projects-grid">
-            {filtered.map((p) => {
-              const st = projectStatus(p.status);
-              return (
-                <Link key={p.id} to={`/projects/${p.id}`} className="project-card">
-                  <h3>{p.name}</h3>
-                  <p>{p.description || 'Без описания'}</p>
-                  <div className="project-card-meta">
-                    <span className="flex items-center gap-1">
-                      <MapPin size={14} />
-                      {p.poi_count} POI
-                    </span>
-                    <span className={`status ${st.className}`}>{st.label}</span>
-                  </div>
-                  <div className="sparkline">{sparklineBars(p.id)}</div>
-                </Link>
-              );
-            })}
-          </div>
-        </>
-      )}
-
       <div className="card card--flush projects-table-card">
         <ProjectsTableCardHeader
-          title="Все проекты"
+          title="Мои проекты"
           search={projectSearch}
           onSearchChange={setProjectSearch}
           actions={
@@ -144,20 +126,21 @@ export function DashboardPage() {
         <div className="table-wrap">
           {filtered.length === 0 ? (
             <p className="p-6 text-sm" style={{ color: 'var(--text-muted)' }}>
-              {projects.length === 0
-                ? 'Проектов пока нет. Создайте первый через «Новый проект».'
+              {myProjects.length === 0
+                ? 'У вас пока нет проектов. Создайте первый через «Новый проект».'
                 : 'Ничего не найдено по запросу поиска.'}
             </p>
           ) : (
             <table className="data-table data-table--projects">
               <thead>
                 <tr>
-                  <th>Название</th>
-                  <th>POI</th>
-                  <th>Статус</th>
-                  <th>Дата</th>
-                  <th>Стоимость</th>
-                  <th className="col-actions" />
+                  <th className="col-name">Название</th>
+                  <th className="col-desc">Описание</th>
+                  <th className="col-center col-poi">POI</th>
+                  <th className="col-center col-status">Статус</th>
+                  <th className="col-owner">Создал</th>
+                  <th className="col-center col-date">Дата</th>
+                  <th className="col-actions" aria-label="Действия" />
                 </tr>
               </thead>
               <tbody>
@@ -165,22 +148,40 @@ export function DashboardPage() {
                   const st = projectStatus(p.status);
                   return (
                     <tr key={p.id}>
-                      <td>
+                      <td className="cell-ellipsis">
                         <Link
                           to={`/projects/${p.id}`}
-                          className="hover:underline"
-                          style={{ color: 'var(--primary)', fontWeight: 500 }}
+                          className="cell-ellipsis__inner font-medium hover:underline min-w-0"
+                          style={{ color: 'var(--primary)' }}
+                          title={p.name}
+                          onClick={() => openProject(p)}
                         >
-                          {p.name}
+                          {ellipsisText(p.name, PROJECT_TABLE_NAME_MAX)}
                         </Link>
                       </td>
-                      <td className="tabular">{p.poi_count}</td>
-                      <td>
+                      <td
+                        className="cell-ellipsis"
+                        title={p.description?.trim() || undefined}
+                        style={{ color: 'var(--text-muted)' }}
+                      >
+                        {ellipsisText(p.description, PROJECT_TABLE_DESC_MAX)}
+                      </td>
+                      <td className="tabular col-center col-poi">{p.poi_count}</td>
+                      <td className="col-center col-status">
                         <span className={`status ${st.className}`}>{st.label}</span>
                       </td>
-                      <td>{formatProjectDate(p.created_at)}</td>
-                      <td className="tabular" style={{ color: 'var(--text-muted)' }}>
-                        —
+                      <td
+                        className="col-owner cell-ellipsis"
+                        title={p.owner_name || undefined}
+                        style={{ color: 'var(--text-muted)' }}
+                      >
+                        {p.owner_name?.trim() || '—'}
+                      </td>
+                      <td
+                        className="tabular col-center col-date"
+                        style={{ color: 'var(--text-muted)' }}
+                      >
+                        {formatProjectDate(p.created_at)}
                       </td>
                       <td className="col-actions">
                         <div className="projects-table-actions">

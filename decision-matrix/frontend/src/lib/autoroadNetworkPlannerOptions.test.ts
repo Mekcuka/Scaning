@@ -17,13 +17,13 @@ describe('autoroadNetworkPlannerOptions', () => {
     saveAutoroadPlannerOptions('proj-1', custom);
     expect(loadAutoroadPlannerOptions('proj-1').connector_max_km).toBe(0.35);
     expect(loadAutoroadPlannerOptions('proj-1').solver).toBe('steinerpy');
-    expect(loadAutoroadPlannerOptions('proj-2').connector_max_km).toBe(0.2);
+    expect(loadAutoroadPlannerOptions('proj-2').connector_max_km).toBe(1);
   });
 
   it('maps to request options', () => {
     const req = plannerOptionsToRequestOptions(DEFAULT_AUTOROAD_PLANNER_OPTIONS);
     expect(req.solver).toBe('geosteiner');
-    expect(req.steiner_radius_km).toBe(0.2);
+    expect(req.steiner_radius_km).toBe(1);
     expect(req.max_terminals).toBe(50);
   });
 

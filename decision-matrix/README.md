@@ -2,7 +2,7 @@
 
 Система поддержки принятия решений для нефтегазовой отрасли.
 
-Документация проекта: [`../docs/`](../docs/) — структура frontend: [`../docs/frontend-structure.md`](../docs/frontend-structure.md)
+Документация проекта: [`../docs/`](../docs/) — структура frontend: [`../docs/architecture/frontend-structure.md`](../docs/architecture/frontend-structure.md)
 
 Гайд по локальному запуску: [`RUN_GUIDE.md`](./RUN_GUIDE.md)
 
@@ -15,7 +15,7 @@
 
 Фронтенд публикуется через GitHub Actions (см. [`../DEPLOY.md`](../DEPLOY.md)).
 
-После push в `main` сайт доступен по адресу `https://<user>.github.io/<repo>/`. Для работы API задайте переменную репозитория `VITE_API_URL` (полный URL, например `https://erascaning.duckdns.org/api/v1`). На cross-origin клиент шлёт `Authorization: Bearer` и синхронизирует CSRF; custom GLB для 3D грузятся через `map3dCustomGlbFetch.ts` — см. [docs/auth-rbac.md](../docs/auth-rbac.md), [docs/map-3d-features.md](../docs/map-3d-features.md).
+После push в `main` сайт доступен по адресу `https://<user>.github.io/<repo>/`. Для работы API задайте переменную репозитория `VITE_API_URL` (полный URL, например `https://erascaning.duckdns.org/api/v1`). На cross-origin клиент шлёт `Authorization: Bearer` и синхронизирует CSRF; custom GLB для 3D грузятся через `map3dCustomGlbFetch.ts` — см. [docs/architecture/auth-rbac.md](../docs/architecture/auth-rbac.md), [docs/features/map-3d-features.md](../docs/features/map-3d-features.md).
 
 ## Быстрый старт
 
@@ -33,7 +33,7 @@
 Откройте карту: `/map?project=<uuid>` (UUID проекта из списка в админке или БД).
 
 Аутентификация: JWT в **httpOnly cookies** + CSRF double-submit. Refresh rotation через `POST /auth/refresh`, выход — `POST /auth/logout`.  
-Роли и права: [docs/auth-rbac.md](../docs/auth-rbac.md).
+Роли и права: [docs/architecture/auth-rbac.md](../docs/architecture/auth-rbac.md).
 
 - Frontend: `http://127.0.0.1:5173`
 - Backend API: `http://localhost:8000/api/v1` (или через Vite proxy `/api/v1`)
@@ -135,7 +135,7 @@ decision-matrix/
 
 ## Реализованные модули
 
-> Детали и пробелы относительно FR: [docs/implementation-status.md](../docs/implementation-status.md).
+> Детали и пробелы относительно FR: [docs/planning/implementation-status.md](../docs/planning/implementation-status.md).
 
 | Модуль | Статус |
 |--------|--------|
@@ -204,4 +204,4 @@ POST     .../one-pagers/:opId/export/pptx
 
 PDF генерируется на клиенте (`window.print()` + print CSS). PPTX — backend (`python-pptx`), снимок карты передаётся как `map_snapshot_base64`.
 
-Полное описание auth/RBAC: [docs/auth-rbac.md](../docs/auth-rbac.md).
+Полное описание auth/RBAC: [docs/architecture/auth-rbac.md](../docs/architecture/auth-rbac.md).

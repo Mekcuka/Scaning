@@ -2,7 +2,7 @@
 
 Вкладка **«Потоки»** (`/flows`) показывает схематическую диаграмму движения фаз от выбранной **точки интереса (POI)** по правилам нефтегазовой отрасли и по **графу инфраструктуры** проекта.
 
-**Связанные документы:** [calculation-logic-flow.md](./calculation-logic-flow.md), [map-objects-and-spatial-calculations.md](./map-objects-and-spatial-calculations.md), [input-parameters.md](./input-parameters.md).
+**Связанные документы:** [calculation-logic-flow.md](../calculations/calculation-logic-flow.md), [map-objects-and-spatial-calculations.md](map-objects-and-spatial-calculations.md), [input-parameters.md](../product/input-parameters.md).
 
 **Дата актуализации:** май 2026.
 
@@ -171,7 +171,7 @@
 
 При авто-построении PFD терминал **БКНС** подтягивает лимит из `properties` связанного объекта карты.
 
-Подробнее: [map-objects-and-spatial-calculations.md](./map-objects-and-spatial-calculations.md) §1.6.
+Подробнее: [map-objects-and-spatial-calculations.md](map-objects-and-spatial-calculations.md) §1.6.
 
 ---
 
@@ -179,7 +179,7 @@
 
 На той же странице `/flows` ниже технологической PFD отображается **экономическая схема**: те же узлы и рёбра с CAPEX, OPEX и выручкой.
 
-Подробное описание формул, API и ставок: **[economic-flow-schematic.md](./economic-flow-schematic.md)**.
+Подробное описание формул, API и ставок: **[economic-flow-schematic.md](economic-flow-schematic.md)**.
 
 ---
 

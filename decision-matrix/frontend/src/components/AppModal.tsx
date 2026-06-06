@@ -26,10 +26,12 @@ export function AppModal({
   const autoTitleId = useId();
   const titleId = titleIdProp ?? (title ? autoTitleId : undefined);
   const panelRef = useRef<HTMLDivElement>(null);
+  const onCloseRef = useRef(onClose);
+  onCloseRef.current = onClose;
 
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') onClose();
+      if (e.key === 'Escape') onCloseRef.current();
       if (e.key === 'Tab' && panelRef.current) {
         const nodes = panelRef.current.querySelectorAll<HTMLElement>(FOCUSABLE);
         if (nodes.length === 0) return;
@@ -47,13 +49,16 @@ export function AppModal({
     const prevOverflow = document.body.style.overflow;
     document.body.style.overflow = 'hidden';
     window.addEventListener('keydown', onKey);
-    const focusTarget = panelRef.current?.querySelector<HTMLElement>(FOCUSABLE);
+    const body = panelRef.current?.querySelector('.app-modal-body');
+    const focusTarget =
+      body?.querySelector<HTMLElement>(FOCUSABLE) ??
+      panelRef.current?.querySelector<HTMLElement>(FOCUSABLE);
     focusTarget?.focus();
     return () => {
       document.body.style.overflow = prevOverflow;
       window.removeEventListener('keydown', onKey);
     };
-  }, [onClose]);
+  }, []);
 
   return (
     <div

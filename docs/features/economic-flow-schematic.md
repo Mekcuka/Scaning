@@ -2,7 +2,7 @@
 
 Нижнее окно **«Экономический поток»** на странице `/flows` показывает ту же топологию, что технологическая PFD, с расчётом **CAPEX**, **OPEX** и **выручки** по ставкам проекта.
 
-**Связанные документы:** [fluid-flow-schematic.md](./fluid-flow-schematic.md), [calculation-logic-flow.md](./calculation-logic-flow.md).
+**Связанные документы:** [fluid-flow-schematic.md](fluid-flow-schematic.md), [calculation-logic-flow.md](../calculations/calculation-logic-flow.md).
 
 **Дата актуализации:** май 2026.
 

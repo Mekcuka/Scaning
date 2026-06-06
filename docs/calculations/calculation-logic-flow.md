@@ -1,12 +1,12 @@
 # Схема логики расчёта
 
-> **Параметры ввода:** [input-parameters.md](./input-parameters.md).  
-> **Объекты карты и якоря расчёта:** [map-objects-and-spatial-calculations.md](./map-objects-and-spatial-calculations.md).  
-> **Каталог расчётных функций:** [calculation-functions.md](./calculation-functions.md).
+> **Параметры ввода:** [input-parameters.md](../product/input-parameters.md).  
+> **Объекты карты и якоря расчёта:** [map-objects-and-spatial-calculations.md](../features/map-objects-and-spatial-calculations.md).  
+> **Каталог расчётных функций:** [calculation-functions.md](calculation-functions.md).
 
 ## Общий поток расчёта
 
-> **Схема потоков (PFD)** на вкладке «Потоки» — отдельная ветка: маршруты фаз по графу сети, пропускная способность, перегрузка. Спецификация: [fluid-flow-schematic.md](./fluid-flow-schematic.md). Ниже — поток **анализа окружения и стоимости** (матрица решений).
+> **Схема потоков (PFD)** на вкладке «Потоки» — отдельная ветка: маршруты фаз по графу сети, пропускная способность, перегрузка. Спецификация: [fluid-flow-schematic.md](../features/fluid-flow-schematic.md). Ниже — поток **анализа окружения и стоимости** (матрица решений).
 
 ```mermaid
 graph TD

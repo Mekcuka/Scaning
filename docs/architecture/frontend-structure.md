@@ -1,6 +1,6 @@
 # Структура frontend после рефакторинга карты (июнь 2026)
 
-> См. также: [architecture.md](./architecture.md) § Frontend, [testing-strategy.md](./testing-strategy.md), [implementation-status.md](./implementation-status.md).
+> См. также: [architecture.md](architecture.md) § Frontend, [testing-strategy.md](../testing/testing-strategy.md), [implementation-status.md](../planning/implementation-status.md).
 
 Рефакторинг **не менял публичные импорты** — пути `../components/MapView`, `../lib/api`, `./map/MapPageToolbar` остались прежними. Логика вынесена в подмодули; страницы и хуки импортируют те же entry points.
 

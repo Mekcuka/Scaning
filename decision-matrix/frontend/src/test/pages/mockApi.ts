@@ -9,6 +9,19 @@ export type ApiMockOverrides = Record<string, unknown>;
 export function createDefaultApiMocks(): ApiMockOverrides {
   return {
     projects: vi.fn().mockResolvedValue(sampleProjects),
+    createProject: vi.fn().mockImplementation((name: string, description?: string) =>
+      Promise.resolve(
+        makeProject({
+          id: 'p-new',
+          name,
+          description: description ?? null,
+        }),
+      ),
+    ),
+    updateProject: vi.fn().mockImplementation((id: string, data: Partial<{ name: string; description: string; status: string }>) =>
+      Promise.resolve(makeProject({ id, ...data })),
+    ),
+    deleteProject: vi.fn().mockResolvedValue(undefined),
     getProject: vi.fn().mockImplementation((id: string) =>
       Promise.resolve(makeProject({ id, name: 'Test project' })),
     ),

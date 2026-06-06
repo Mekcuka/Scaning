@@ -13,7 +13,6 @@ import {
   LogOut,
   Moon,
   Sun,
-  Layers,
   Menu,
   SlidersHorizontal,
 } from 'lucide-react';
@@ -21,6 +20,7 @@ import { useAuthStore, useAppStore } from '../../store';
 import { usePermissions } from '../../hooks/usePermissions';
 import { canSeeNav, ROLE_LABELS } from '../../lib/permissions';
 import { useActiveProject } from '../../hooks/useActiveProject';
+import { APP_LOGO_MARK, APP_NAME } from '../../lib/branding';
 import {
   navLinkTargetForSection,
   pathBelongsToSection,
@@ -133,13 +133,10 @@ export function AppLayout() {
         style={{ background: 'var(--sidebar-bg)', color: 'var(--sidebar-text)' }}
       >
         <div className="flex items-center gap-3 p-4 border-b border-white/10 shrink-0">
-          <div className="w-9 h-9 rounded-lg bg-blue-600 flex items-center justify-center">
-            <Layers size={18} className="text-white" />
+          <div className="w-9 h-9 rounded-lg bg-blue-600 flex items-center justify-center text-white font-bold text-sm">
+            {APP_LOGO_MARK}
           </div>
-          <div>
-            <div className="font-semibold text-white text-sm">СППР</div>
-            <div className="text-xs opacity-70">Нефтегаз · MVP</div>
-          </div>
+          <div className="font-semibold text-white text-sm">{APP_NAME}</div>
         </div>
         <nav className="flex-1 min-h-0 overflow-y-auto py-3">
           {visibleNav.map((item) => {

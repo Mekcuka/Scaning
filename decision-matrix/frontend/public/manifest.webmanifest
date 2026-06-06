@@ -1,6 +1,6 @@
 {
-  "name": "СППР Нефтегаз",
-  "short_name": "СППР",
+  "name": "Atlas Grid",
+  "short_name": "Atlas",
   "description": "Система поддержки принятия решений для нефтегазовой отрасли",
   "start_url": "./",
   "scope": "./",

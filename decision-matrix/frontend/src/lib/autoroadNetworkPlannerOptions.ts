@@ -20,13 +20,13 @@ export type AutoroadPlannerOptions = {
 
 export const DEFAULT_AUTOROAD_PLANNER_OPTIONS: AutoroadPlannerOptions = {
   solver: 'geosteiner',
-  connector_max_km: 0.2,
+  connector_max_km: 1,
   enforce_attachment_radius: true,
   normalize_terminal_leaves: true,
   steiner_hub_prefix: 'steiner:hub',
-  steiner_hub_offset_km: 0,
+  steiner_hub_offset_km: 1,
   edge_vertex_spacing_km: 0,
-  steiner_radius_km: 0.2,
+  steiner_radius_km: 1,
   attachment_angle_deg: 90,
   attachment_angle_penalty: 0,
   param_scope: 'both',

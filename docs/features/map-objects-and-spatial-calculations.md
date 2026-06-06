@@ -2,7 +2,7 @@
 
 Единая спецификация геометрии объектов на карте, якорей расчёта расстояний и операций PostGIS. Используется при реализации Map Module, анализа окружения и визуализации линий подключения.
 
-**Связанные документы:** [requirements.md](./requirements.md) (FR-2.3, FR-2.4, FR-6, FR-10), [database-schema.md](./database-schema.md), [input-parameters.md](./input-parameters.md), [calculation-logic-flow.md](./calculation-logic-flow.md), [fluid-flow-schematic.md](./fluid-flow-schematic.md), [architecture.md](./architecture.md).
+**Связанные документы:** [requirements.md](../product/requirements.md) (FR-2.3, FR-2.4, FR-6, FR-10), [database-schema.md](../architecture/database-schema.md), [input-parameters.md](../product/input-parameters.md), [calculation-logic-flow.md](../calculations/calculation-logic-flow.md), [fluid-flow-schematic.md](fluid-flow-schematic.md), [architecture.md](../architecture/architecture.md).
 
 **Дата актуализации:** май 2026.
 
@@ -45,7 +45,7 @@
 
 ### 1.4 Справочник: точечные и линейные подтипы
 
-**Правило:** один `subtype` = один тип геометрии. Смешанные типы для одного подтипа запрещены (`chk_io_geometry_by_subtype` в [database-schema.md](./database-schema.md)). **Polygon / MultiPolygon** для площадных объектов в MVP **не допускаются** — только маркер `POINT` (при импорте Искра полигон сводится к центроиду).
+**Правило:** один `subtype` = один тип геометрии. Смешанные типы для одного подтипа запрещены (`chk_io_geometry_by_subtype` в [database-schema.md](../architecture/database-schema.md)). **Polygon / MultiPolygon** для площадных объектов в MVP **не допускаются** — только маркер `POINT` (при импорте Искра полигон сводится к центроиду).
 
 #### 1.5 Зависимость подтипа от вида объекта на карте
 
@@ -84,24 +84,24 @@
 | `additional_line` | Доп. линия | **Линия** | `LINESTRING` | `other` | «Линия» / импорт Искра | любая **Точка** | нет | external_linear | — |
 | `pads` | Кустовые площадки | **не на карте** | — | `pad` | расчёт POI | — | нет | internal | — |
 
-**Иконки и цвета (2D, Lucide):** подтипы `oil_pad` и `gas_pad` используют одну иконку **`LandPlot`** (как у исходного «Куст»); различие — цвет маркера: **нефтяной** `#5d4037`, **газовый** `#fbc02d` ([`mapIcons.ts`](../decision-matrix/frontend/src/lib/mapIcons.ts)). В 3D оба подтипа — glTF `oil-pump-jack`, L1 высота 8 м ([`map3dModelCatalog.ts`](../decision-matrix/frontend/src/lib/map3d/map3dModelCatalog.ts)).
+**Иконки и цвета (2D, Lucide):** подтипы `oil_pad` и `gas_pad` используют одну иконку **`LandPlot`** (как у исходного «Куст»); различие — цвет маркера: **нефтяной** `#5d4037`, **газовый** `#fbc02d` ([`mapIcons.ts`](../../decision-matrix/frontend/src/lib/mapIcons.ts)). В 3D оба подтипа — glTF `oil-pump-jack`, L1 высота 8 м ([`map3dModelCatalog.ts`](../../decision-matrix/frontend/src/lib/map3d/map3dModelCatalog.ts)).
 
 **Пояснения:**
 
 - **Вид «Точка» / «Линия»** — пункты меню на панели карты. В меню «Точка» нет **УКГ**, **ТСГ**, **НПС**, отдельного пункта **узел метанола** (`methanol_joint` — импорт Искра или смена у **Узел**). В меню есть **Узел** (`node`), **объект метанола** (`methanol_facility`), **ГКС**, **НПЗ** (`refinery`). Искра **ПСП** (`DeliveryAcceptancePoint`) импортируется как **НПЗ** (`refinery`).
 - **API площадных объектов НПЗ / НПС:** `POST /projects/{project_id}/infrastructure/facility-objects` — в теле **обязательно** `subtype`: `refinery` | `oil_pumping_station` (схема `FacilityInfraObjectCreate`). Общий `POST .../objects` для НПС вернёт 400 с подсказкой использовать этот endpoint.
 - **Карточка объекта** (`ObjectDetailPanel`, поле «Подтип»): линейные ↔ только линейные; точечные ↔ точечные. **Группа ГКС:** `gas_processing` / `ukg` / `tsg` → только **ГКС, УКГ, ТСГ**. **Группа ГТЭС:** `gtes` / `gpes` / `vies` → только **ГТЭС, ГПЭС, ВИЭС** (анализ POI по-прежнему одна строка «ГТЭС», ближайший — любой из трёх). **Группа узлов:** `node` / `methanol_joint` / `power_line_node` → **Узел**, **Узел метанола**, **Узел ЛЭП** (отдельного пункта «Точка» для узла ЛЭП нет). **Группа кустов:** `oil_pad` / `gas_pad` → только **Нефтяной куст**, **Газовый куст**; в меню «Точка» один пункт **«Куст»** (`oil_pad` по умолчанию), `gas_pad` — импорт Искра или смена подтипа в карточке (legacy `pad` в API → `oil_pad`). **Эксклюзивные** (не в списке у других): карьер песка, объект метанола, **ВО** (`offplot`), **доп. объект** (`additional_facility`). **Фиксированные:** `sand_quarry`, `ground_pumping_station`, НПС, объект метанола, **ВО**, **доп. объект**.
-- **Концы линии (хранение и отображение):** начало и конец в БД/API — **точные** `lon`/`lat` привязанного точечного объекта (совпадение координат, ε ≈ 1e-8 или legacy округление до 3 знаков). Нормализация: `normalizeLinePathEndpoints` ([`lineEndpointRules.ts`](../decision-matrix/frontend/src/lib/lineEndpointRules.ts)), отображение 2D/3D: `linePathForDisplay` ([`infraGeometry.ts`](../decision-matrix/frontend/src/lib/infraGeometry.ts)); пул привязки на карте — **все** объекты проекта (`infraSnapPool`), не только отфильтрованные слоем. Backend при create/update: `snap_line_endpoints_to_point_objects` ([`line_endpoint_rules.py`](../decision-matrix/backend/app/services/line_endpoint_rules.py)). **Групповое перемещение** точек тянет связанные линии по тем же правилам координат (`linkCoordMatch`, [`mapGroupLinePatches.ts`](../decision-matrix/frontend/src/lib/mapGroupLinePatches.ts)) — см. **§6.1.1**. Автотест паритета lon/lat всех вершин: [`linePath2d3dParity.test.ts`](../decision-matrix/frontend/src/lib/linePath2d3dParity.test.ts).
+- **Концы линии (хранение и отображение):** начало и конец в БД/API — **точные** `lon`/`lat` привязанного точечного объекта (совпадение координат, ε ≈ 1e-8 или legacy округление до 3 знаков). Нормализация: `normalizeLinePathEndpoints` ([`lineEndpointRules.ts`](../../decision-matrix/frontend/src/lib/lineEndpointRules.ts)), отображение 2D/3D: `linePathForDisplay` ([`infraGeometry.ts`](../../decision-matrix/frontend/src/lib/infraGeometry.ts)); пул привязки на карте — **все** объекты проекта (`infraSnapPool`), не только отфильтрованные слоем. Backend при create/update: `snap_line_endpoints_to_point_objects` ([`line_endpoint_rules.py`](../../decision-matrix/backend/app/services/line_endpoint_rules.py)). **Групповое перемещение** точек тянет связанные линии по тем же правилам координат (`linkCoordMatch`, [`mapGroupLinePatches.ts`](../../decision-matrix/frontend/src/lib/mapGroupLinePatches.ts)) — см. **§6.1.1**. Автотест паритета lon/lat всех вершин: [`linePath2d3dParity.test.ts`](../../decision-matrix/frontend/src/lib/linePath2d3dParity.test.ts).
 - **Рисование линии** (инструмент «Линия», только 2D):
   - **Начало** — обязательно клик по точечному объекту на карте (иконка); координаты начала = `lon`/`lat` объекта; иначе ошибка.
   - **Промежуточные вершины** — свободно (без snap к ближайшему объекту).
   - **Завершение** — двойной **ЛКМ** / двойной **ПКМ**, **Enter** или кнопка «Готово»; позиция конца из последнего клика/курсора (при Enter/«Готово» — с учётом превью курсора, если есть). Если конец **совпадает** с координатами точечного объекта (клик по иконке) — привязка к его `lon`/`lat`; иначе создаётся **`node`** в этой точке, затем сохраняется линия. Если при этом узел попадает на геометрию **другой** линии (клик у линии для split, ≈300 м) — эта линия **разделяется** на две части (как при установке точки на линию в режиме «Точка»).
-  - Код: [`MapPage.tsx`](../decision-matrix/frontend/src/pages/MapPage.tsx) (`finishLineDraft`, `snapLineDrawPoint`), [`MapView.tsx`](../decision-matrix/frontend/src/components/MapView.tsx) (двойной клик/ПКМ).
+  - Код: [`MapPage.tsx`](../../decision-matrix/frontend/src/pages/MapPage.tsx) (`finishLineDraft`, `snapLineDrawPoint`), [`MapView.tsx`](../../decision-matrix/frontend/src/components/MapView.tsx) (двойной клик/ПКМ).
 - **Редактирование линии** (режим «Редактирование на карте», инструмент «Выбор»): перетаскивание вершин; **двойной ЛКМ** по **промежуточной** вершине удаляет её (концы линии не удаляются). Конец нельзя оставить «в воздухе» — при попытке оторвать от точечного объекта он возвращается на место (уведомление только при перетаскивании конца, не при правке средних вершин). После правки — `constrainLineCoordinatesOnEdit` + `normalizeLinePathEndpoints`. Код: `MapView.tsx`, `lineEndpointRules.ts`.
-- **Перетаскивание точки** (одиночный «Выбор», в т.ч. **объект метанола** `methanol_facility`): иконка и ручка Modify/Translate двигаются вместе. В режиме редактирования на слоях точек/линий через `layer.set('updateWhileInteracting', true)` (иначе OpenLayers перерисовывает только ручку). При обёртке feature с `features: [inner]` геометрия копируется на inner на `pointerdrag` / `translating` — [`mapFeatureGeometrySync.ts`](../decision-matrix/frontend/src/lib/mapFeatureGeometrySync.ts), тесты [`mapFeatureGeometrySync.test.ts`](../decision-matrix/frontend/src/lib/mapFeatureGeometrySync.test.ts).
-- **Координаты:** в **БД и API** — полная точность (`float`). В **UI** (строка координат, поля в карточке) — **3 знака** после запятой (`formatCoord`, `COORD_DECIMALS` в [`coords.ts`](../decision-matrix/frontend/src/lib/coords.ts)). Клики и перетаскивание на карте сохраняют полные координаты; `coordForSave` в формах не перезаписывает точное значение, если пользователь не менял округлённое отображение.
+- **Перетаскивание точки** (одиночный «Выбор», в т.ч. **объект метанола** `methanol_facility`): иконка и ручка Modify/Translate двигаются вместе. В режиме редактирования на слоях точек/линий через `layer.set('updateWhileInteracting', true)` (иначе OpenLayers перерисовывает только ручку). При обёртке feature с `features: [inner]` геометрия копируется на inner на `pointerdrag` / `translating` — [`mapFeatureGeometrySync.ts`](../../decision-matrix/frontend/src/lib/mapFeatureGeometrySync.ts), тесты [`mapFeatureGeometrySync.test.ts`](../../decision-matrix/frontend/src/lib/mapFeatureGeometrySync.test.ts).
+- **Координаты:** в **БД и API** — полная точность (`float`). В **UI** (строка координат, поля в карточке) — **3 знака** после запятой (`formatCoord`, `COORD_DECIMALS` в [`coords.ts`](../../decision-matrix/frontend/src/lib/coords.ts)). Клики и перетаскивание на карте сохраняют полные координаты; `coordForSave` в формах не перезаписывает точное значение, если пользователь не менял округлённое отображение.
 - **Анализ (км):** `autoroad`, `oil_pipeline`, `water_pipeline`, `power_line` — нормы км/КП; внешние Point — поиск в окружении; `gas_pipeline` / метанол / насосные станции / доп. линии в матрице анализа MVP не задействованы как internal.
-- **Импорт Искра:** полигоны площадных типов → `POINT` (центроид); см. [spark-import-mapping.md](./spark-import-mapping.md).
+- **Импорт Искра:** полигоны площадных типов → `POINT` (центроид); см. [spark-import-mapping.md](spark-import-mapping.md).
 
 ```mermaid
 flowchart TB
@@ -189,7 +189,7 @@ flowchart LR
 
 **Поле показывается** для всех точечных подтипов, **кроме:** `node`, `oil_pad`, `gas_pad`, `sand_quarry`, `substation`, `vies`, `gtes`, `gpes`.
 
-**Роль на схеме потоков ([fluid-flow-schematic.md](./fluid-flow-schematic.md)):**
+**Роль на схеме потоков ([fluid-flow-schematic.md](fluid-flow-schematic.md)):**
 
 - **`ground_pumping_station` (БКНС)** — единственный терминал водной ветки при централизованной закачке; далее узел **«В пласт»**.
 - Лимит терминала на авто-схеме подтягивается из `properties` связанного объекта карты.
@@ -224,7 +224,7 @@ flowchart LR
 
 ### 1.8 Соединение точечных объектов автодорогами (сервер)
 
-> **Полный план (целевая архитектура):** отдельный сервис с API plan in/out, BFF и UI «Построить сеть» — [autoroad-network-plan.md](./autoroad-network-plan.md). Терминалы: любые точечные подтипы **кроме** группы узлов (`node`, `methanol_joint`, `power_line_node`); перекрёстки — только `subtype=node`.
+> **Полный план (целевая архитектура):** отдельный сервис с API plan in/out, BFF и UI «Построить сеть» — [autoroad-network-plan.md](../autoroad/autoroad-network-plan.md). Терминалы: любые точечные подтипы **кроме** группы узлов (`node`, `methanol_joint`, `power_line_node`); перекрёстки — только `subtype=node`.
 
 **Режимы UI:** (1) **«Сеть»** — массовый выбор терминалов, `request` → `compute` → `apply`; (2) **групповое выделение** — **«Соединить автодорогами»**, `POST .../infrastructure/autoroad-connect` (legacy). Код: `network-planner` + `planner_adapter.py`, apply — `autoroad_connect.py`.
 
@@ -234,13 +234,13 @@ flowchart LR
 2. **Связность:** все выбранные терминалы должны оказаться в **одной** связной сети; иначе предупреждение `terminals_not_connected`.
 3. **Терминал не перекрёсток:** ≤1 автодорога с привязкой к объекту; стыки нескольких дорог — только в `subtype=node` (junction / intersection).
 4. **Нет дорог на карте:** 2 терминала — `connector` до границы **200 m** + `link` между границами; **3+** — MST + Steiner: `●` на ребре; степень 2 — магистраль `●—●`; степень ≥3 — hub `J_T` и звезда; после упрощения коллинеарной магистрали — **`_repair_planned_line_topology`** (узел `●` и разрез сегмента при Т-примыкании под 90°); preview на карте до apply; `acute_bend_deg` при острых углах.
-5. **Зона 200 m:** вокруг каждого терминала — только `connector` `Т→граница`; `link`/`junction` снаружи (см. [autoroad-network-plan.md](./autoroad-network-plan.md) §«Остальные правила»).
+5. **Зона 200 m:** вокруг каждого терминала — только `connector` `Т→граница`; `link`/`junction` снаружи (см. [autoroad-network-plan.md](../autoroad/autoroad-network-plan.md) §«Остальные правила»).
 6. **Есть polylines:** на каждый терминал — **≤1** `connector` `Т→граница 200 m`, затем `link` к snap на полилинии (warning `far_from_autoroad` при >0,3 km). **Нет** прямых `link` object↔object.
 7. **Уже подключён** (конец `autoroad` в ≤20 m) — подъезд не создавать (`already_connected`).
 8. **Разрыв сети:** MST **мостов** между компонентами; новые `link` только **между snap** на линиях; в одной компоненте — путь по `used_existing_edge_ids` (Dijkstra).
 9. **Apply:** `line_preserve_geometry`; junction/intersection через `node_by_key`; preview при `dry_run`.
 
-Подробности, схемы и UX — [autoroad-network-plan.md](./autoroad-network-plan.md).
+Подробности, схемы и UX — [autoroad-network-plan.md](../autoroad/autoroad-network-plan.md).
 
 Лимит: до **50** `object_ids` в запросе. Отмена на карте (Ctrl+Z) — удаление созданных линий и узлов (`create_clipboard_group` → batch delete). Расчётные `InfrastructureNode` в БД по-прежнему **не отображаются** на карте; для перекрёстков нужны объекты **`node`**.
 
@@ -263,9 +263,9 @@ flowchart LR
 
 **Постановка в очередь:** `services/job_queue.py` — `create_pool(..., default_queue_name=ARQ_QUEUE_NAME)` и `enqueue_job(..., _queue_name=ARQ_QUEUE_NAME)`; worker слушает ту же очередь (`WorkerSettings.queue_name`). Имя по умолчанию: `decision-matrix` (не `arq:queue`).
 
-**Preview** autoroad (`dry_run: true`) остаётся **синхронным** в HTTP. Локально без Redis: `JOBS_SYNC_FALLBACK=true` — задачи в `asyncio.create_task` в процессе API. Deploy: [DEPLOY.md](../DEPLOY.md) — сервисы `redis` и `worker`.
+**Preview** autoroad (`dry_run: true`) остаётся **синхронным** в HTTP. Локально без Redis: `JOBS_SYNC_FALLBACK=true` — задачи в `asyncio.create_task` в процессе API. Deploy: [DEPLOY.md](../../DEPLOY.md) — сервисы `redis` и `worker`.
 
-**Админ-журнал (UI):** `/admin/jobs` — health Redis, таблица задач, отмена; автообновление 3 с при активных статусах ([user-flows.md](./user-flows.md) §5.3).
+**Админ-журнал (UI):** `/admin/jobs` — health Redis, таблица задач, отмена; автообновление 3 с при активных статусах ([user-flows.md](../product/user-flows.md) §5.3).
 
 #### 1.7.1 Схема движения песка (React Flow)
 
@@ -400,7 +400,7 @@ LIMIT 1;
 | Внешние Point | `max_distance_*_km` | geodesic `distance_km` |
 | Internal linear | `max_total_line_*_km` | `pads_count × km_per_pad` |
 
-`max_allowed_distance_km` в `poi_infrastructure_analysis` — snapshot соответствующего порога на момент расчёта. Функция: `calc_distance_status` — [calculation-functions.md](./calculation-functions.md) §2, §4.2.
+`max_allowed_distance_km` в `poi_infrastructure_analysis` — snapshot соответствующего порога на момент расчёта. Функция: `calc_distance_status` — [calculation-functions.md](../calculations/calculation-functions.md) §2, §4.2.
 
 ### 3.3 Объекты в радиусе / bbox (Map Module)
 
@@ -417,7 +417,7 @@ LIMIT 1;
 | Внутренние линейные | `pads_count × km_per_pad` (FR-5.3.4), `distance_source = pads_per_pad_formula` | distance × ставка ₽/км (FR-7.3.1) |
 | `pads` | формула по объёму добычи | количество × ставка за шт. |
 
-См. [calculation-functions.md](./calculation-functions.md) §3.
+См. [calculation-functions.md](../calculations/calculation-functions.md) §3.
 
 ---
 
@@ -533,8 +533,8 @@ sequenceDiagram
 |------|-----------|
 | **Копирование** | Снимок геометрии (`infraDetailUndo` / `poiDetailUndo`). Для линий: по **всем** точечным объектам проекта определяется привязка концов (точное совпадение координат), в буфер пишутся `endpointAttach.startSourceId` / `finishSourceId` **только если** эта опора тоже в выделении. |
 | **Сдвиг** | `applyOffsetToClipboard` — один `Δlon/Δlat` для всей группы (центроид → точка клика). Все вершины `coordinates` сдвигаются одинаково; длина ломаной сохраняется. |
-| **Вставка (фронт)** | Сначала POI и точечная инфра, затем линии. Точки: **НПЗ/НПС** — `POST …/facility-objects`; производные подтипы (газовый куст, УКГ/ТСГ, узел метанола и т.д.) — базовый подтип + `PATCH`; **объект метанола** — `POST …/objects` (рисование «Точка» и вставка из буфера). `createInfraFromPasteSnapshot` в [`mapClipboard.ts`](../decision-matrix/frontend/src/lib/mapClipboard.ts). `remapLineEndpointsForPaste` **не меняет** `coordinates` — только `line_snap_*` для близнецов (`sourceId` → `newId`). |
-| **Вставка (API)** | Для каждой линии: `line_preserve_geometry: true`. Backend [`snap_line_endpoint_coords_preserve`](../decision-matrix/backend/app/services/line_endpoint_rules.py) подтягивает **только** концы с явным `line_snap_start_object_id` / `line_snap_finish_object_id`; остальные концы остаются на переданных координатах (без поиска ближайшего на карте). |
+| **Вставка (фронт)** | Сначала POI и точечная инфра, затем линии. Точки: **НПЗ/НПС** — `POST …/facility-objects`; производные подтипы (газовый куст, УКГ/ТСГ, узел метанола и т.д.) — базовый подтип + `PATCH`; **объект метанола** — `POST …/objects` (рисование «Точка» и вставка из буфера). `createInfraFromPasteSnapshot` в [`mapClipboard.ts`](../../decision-matrix/frontend/src/lib/mapClipboard.ts). `remapLineEndpointsForPaste` **не меняет** `coordinates` — только `line_snap_*` для близнецов (`sourceId` → `newId`). |
+| **Вставка (API)** | Для каждой линии: `line_preserve_geometry: true`. Backend [`snap_line_endpoint_coords_preserve`](../../decision-matrix/backend/app/services/line_endpoint_rules.py) подтягивает **только** концы с явным `line_snap_start_object_id` / `line_snap_finish_object_id`; остальные концы остаются на переданных координатах (без поиска ближайшего на карте). |
 | **Heal** | `lineEndpointHealPayload` **не** вызывается для id линий сразу после вставки (`lineHealSkipIdsRef` в `MapPage`). |
 
 **Рекомендуемый состав выделения**
@@ -560,7 +560,7 @@ sequenceDiagram
 - Перезапись первой/последней вершины на фронте по `lon/lat` узла вместо сдвинутого `coordinates[i]`.
 - Повторный heal после вставки.
 
-**Код и тесты:** [`mapClipboard.ts`](../decision-matrix/frontend/src/lib/mapClipboard.ts), [`MapPage.tsx`](../decision-matrix/frontend/src/pages/MapPage.tsx) (`executePaste`), [`mapClipboard.test.ts`](../decision-matrix/frontend/src/lib/mapClipboard.test.ts), [`test_line_endpoint_rules.py`](../decision-matrix/backend/tests/test_line_endpoint_rules.py) (`snap_line_endpoint_coords_preserve`).
+**Код и тесты:** [`mapClipboard.ts`](../../decision-matrix/frontend/src/lib/mapClipboard.ts), [`MapPage.tsx`](../../decision-matrix/frontend/src/pages/MapPage.tsx) (`executePaste`), [`mapClipboard.test.ts`](../../decision-matrix/frontend/src/lib/mapClipboard.test.ts), [`test_line_endpoint_rules.py`](../../decision-matrix/backend/tests/test_line_endpoint_rules.py) (`snap_line_endpoint_coords_preserve`).
 
 #### 6.1.1 Групповое перемещение (режим «Группа объектов»)
 
@@ -575,38 +575,38 @@ sequenceDiagram
 
 **Визуализация во время drag (2D):** при `editMode` слои точек/линий с `updateWhileInteracting=true`; для точек в выделении `MapView` на `translating` / `modifying` подтягивает связанные линии, не попавшие в рамку (как при одиночном modify), и синхронизирует inner-feature при cluster-обёртке. После сохранения слой принудительно синхронизируется из `infraObjects` + `linePathForDisplay` (иначе возможны разрывы на экране при уже обновлённой длине в карточке объекта).
 
-**Сохранение (frontend):** `handleBatchGeometryChange` (`MapPage`) — фаза планирования → PATCH точек/POI → PATCH линий; undo: `patch_geometry_group`. Расчёт патчей линий: [`mapGroupLinePatches.ts`](../decision-matrix/frontend/src/lib/mapGroupLinePatches.ts) (`accumulateLineEndpointPatches`, `constrainGroupMovedLine`). Связь концов с точками по координатам: [`infraLinks.ts`](../decision-matrix/frontend/src/lib/infraLinks.ts) (`linkCoordMatch`, `lineCoordsOrEndpoints`).
+**Сохранение (frontend):** `handleBatchGeometryChange` (`MapPage`) — фаза планирования → PATCH точек/POI → PATCH линий; undo: `patch_geometry_group`. Расчёт патчей линий: [`mapGroupLinePatches.ts`](../../decision-matrix/frontend/src/lib/mapGroupLinePatches.ts) (`accumulateLineEndpointPatches`, `constrainGroupMovedLine`). Связь концов с точками по координатам: [`infraLinks.ts`](../../decision-matrix/frontend/src/lib/infraLinks.ts) (`linkCoordMatch`, `lineCoordsOrEndpoints`).
 
 **Валидация (backend):** после PATCH линии — `validate_line_endpoint_matrix` (допуск **0,3 км**). Ошибка «Начальная/конечная точка линии не привязана…» означает, что сохранённые концы линии не совпали с точечными опорами (типично при частичном перемещении без merge концов — исправлено в batch-логике выше).
 
 **Ограничения:** только 2D (`MapView`); copy/paste/cut группы — §6.1.0 и Ctrl+C/V/X; 3D-режим карты групповое перемещение и буфер обмена не дублирует.
 
-**Тесты:** [`mapGroupLinePatches.test.ts`](../decision-matrix/frontend/src/lib/mapGroupLinePatches.test.ts), интеграция — `batch move updates linked line when both endpoints move` в [`MapPage.mock.integration.test.tsx`](../decision-matrix/frontend/src/pages/MapPage.mock.integration.test.tsx).
+**Тесты:** [`mapGroupLinePatches.test.ts`](../../decision-matrix/frontend/src/lib/mapGroupLinePatches.test.ts), интеграция — `batch move updates linked line when both endpoints move` в [`MapPage.mock.integration.test.tsx`](../../decision-matrix/frontend/src/pages/MapPage.mock.integration.test.tsx).
 
 #### 6.1.2 Загрузка и производительность карты
 
 | Механизм | Поведение |
 |----------|-----------|
 | **Полный список** | `GET …/infrastructure/objects` без `bbox` — кэш React Query (`staleTime` ~5 мин, `MAP_INFRA_STALE_MS`), `infraSnapPool` для snap/heal/поиска |
-| **Viewport** | При просмотре (**«Редактирование на карте» выкл.**) и **≥80** объектов (`MAP_VIEWPORT_MIN_OBJECTS`): `GET` с `bbox` + `visible_layers_only=true`, буфер ~12% (`expandMapBbox`); backend — `ST_Intersects` (PostGIS) / envelope (SQLite) — [`bbox_filter.py`](../decision-matrix/backend/app/geo/bbox_filter.py) |
+| **Viewport** | При просмотре (**«Редактирование на карте» выкл.**) и **≥80** объектов (`MAP_VIEWPORT_MIN_OBJECTS`): `GET` с `bbox` + `visible_layers_only=true`, буфер ~12% (`expandMapBbox`); backend — `ST_Intersects` (PostGIS) / envelope (SQLite) — [`bbox_filter.py`](../../decision-matrix/backend/app/geo/bbox_filter.py) |
 | **Режим редактирования** | При **вкл.** «Редактирование на карте» viewport-запросы **отключены** — на слой идёт полный кэш (актуальные create/update/delete без рассинхрона с bbox-срезом) |
-| **Throttling bbox** | После `moveend` (debounce ~400 ms) новый `bbox` в React Query **только если** видимая область вышла за буфер предыдущей загрузки (`shouldUpdateMapBbox` / `viewportInsideFetchedBuffer` в [`mapBboxUtils.ts`](../decision-matrix/frontend/src/lib/mapBboxUtils.ts)) — мелкий пан не дергает API |
+| **Throttling bbox** | После `moveend` (debounce ~400 ms) новый `bbox` в React Query **только если** видимая область вышла за буфер предыдущей загрузки (`shouldUpdateMapBbox` / `viewportInsideFetchedBuffer` в [`mapBboxUtils.ts`](../../decision-matrix/frontend/src/lib/mapBboxUtils.ts)) — мелкий пан не дергает API |
 | **Слияние на карту** | `mergeInfraForMapDisplay`: bbox-срез + полный кэш; **выделение** (`displayKeepIds`); **overlay** (`infraOverlayIds`) — локально созданные/изменённые id до следующего bbox-refetch |
-| **Синхронизация кэшей** | Любое изменение инфраструктуры на карте патчит **все** запросы с ключом `['infra', projectId, …]` — [`mapQueries.ts`](../decision-matrix/frontend/src/lib/mapQueries.ts): `upsertInfraObjectInQueries`, `removeInfraObjectsFromQueries`, `patchInfraObjectsInQueries` (create, delete, paste, drag геометрии) |
+| **Синхронизация кэшей** | Любое изменение инфраструктуры на карте патчит **все** запросы с ключом `['infra', projectId, …]` — [`mapQueries.ts`](../../decision-matrix/frontend/src/lib/mapQueries.ts): `upsertInfraObjectInQueries`, `removeInfraObjectsFromQueries`, `patchInfraObjectsInQueries` (create, delete, paste, drag геометрии) |
 | **Сброс viewport** | `invalidateMap` / импорт / смена проекта: `setMapBbox(null)`, сброс overlay, `refreshMapQueries`; при **выкл.** редактирования на крупном проекте — один refetch bbox-среза |
-| **Snap** | Grid-index [`infraSnapIndex.ts`](../decision-matrix/frontend/src/lib/infraSnapIndex.ts) для `linePathForDisplay` |
+| **Snap** | Grid-index [`infraSnapIndex.ts`](../../decision-matrix/frontend/src/lib/infraSnapIndex.ts) для `linePathForDisplay` |
 | **LOD линий** | При масштабе карты **1:N** грубее порога (ползунок «Упр. линий» в footer, по умолчанию 1:500 000) — только два конца после snap; иначе полный path; порог в `localStorage` (`lineLodScaleThreshold`) |
 | **Heal концов** | Один раз на проект (`localStorage`); сброс после импорта (`bumpMapRefresh`) |
-| **Горячий путь мыши** | `pointermove` в `MapView`: один кадр через `requestAnimationFrame` ([`mapPointerThrottle.ts`](../decision-matrix/frontend/src/lib/mapPointerThrottle.ts)); hit-test по spatial index источника, без `forEachFeatureAtPixel` ([`mapHitTest.ts`](../decision-matrix/frontend/src/lib/mapHitTest.ts)); hover — `feature.changed()` только у старого/нового id |
+| **Горячий путь мыши** | `pointermove` в `MapView`: один кадр через `requestAnimationFrame` ([`mapPointerThrottle.ts`](../../decision-matrix/frontend/src/lib/mapPointerThrottle.ts)); hit-test по spatial index источника, без `forEachFeatureAtPixel` ([`mapHitTest.ts`](../../decision-matrix/frontend/src/lib/mapHitTest.ts)); hover — `feature.changed()` только у старого/нового id |
 | **React state курсора** | `MapPage`: координаты в `ref` при просмотре/select; `setCursor` только для paste, point/poi, линейки (≥1 точка), черновика линии (≥1 вершина) |
-| **Синхронизация слоя** | `syncInfraDataToLayers`: при ≥150 объектах — `requestIdleCallback` (timeout 250 ms); snap-index пересобирается при смене id/координат точек snap-pool ([`infraSnapPoolSignature`](../decision-matrix/frontend/src/components/MapView.tsx)) |
+| **Синхронизация слоя** | `syncInfraDataToLayers`: при ≥150 объектах — `requestIdleCallback` (timeout 250 ms); snap-index пересобирается при смене id/координат точек snap-pool ([`infraSnapPoolSignature`](../../decision-matrix/frontend/src/components/MapView.tsx)) |
 | **MapView memo** | `React.memo(MapView)` + стабильные `useCallback` колбэки с `MapPage` |
 
 **Подвал карты (footer):** масштаб 1:N, подсказки инструментов (линейка, линия), статус «Сохранение геометрии…»; строка координат курсора **не выводится** (координаты по-прежнему используются для paste/preview).
 
-**Тесты:** [`mapBboxUtils.test.ts`](../decision-matrix/frontend/src/lib/mapBboxUtils.test.ts), [`mapQueries.test.ts`](../decision-matrix/frontend/src/lib/mapQueries.test.ts), [`mapHitTest.test.ts`](../decision-matrix/frontend/src/lib/mapHitTest.test.ts), [`mapPointerThrottle.test.ts`](../decision-matrix/frontend/src/lib/mapPointerThrottle.test.ts).
+**Тесты:** [`mapBboxUtils.test.ts`](../../decision-matrix/frontend/src/lib/mapBboxUtils.test.ts), [`mapQueries.test.ts`](../../decision-matrix/frontend/src/lib/mapQueries.test.ts), [`mapHitTest.test.ts`](../../decision-matrix/frontend/src/lib/mapHitTest.test.ts), [`mapPointerThrottle.test.ts`](../../decision-matrix/frontend/src/lib/mapPointerThrottle.test.ts).
 
-**Ручной perf baseline (тяжёлый проект, ≥200 объектов в viewport):** см. [testing-strategy.md](./testing-strategy.md) § «Карта 2D — ручной perf checklist».
+**Ручной perf baseline (тяжёлый проект, ≥200 объектов в viewport):** см. [testing-strategy.md](../testing/testing-strategy.md) § «Карта 2D — ручной perf checklist».
 
 ### 6.2 Поиск и dev-порт
 
@@ -619,7 +619,7 @@ sequenceDiagram
 
 ### 6.4 Режим 2.5D / 3D (MapLibre + Three.js, просмотр)
 
-> Полное описание реализации: **[map-3d-features.md](./map-3d-features.md)**.
+> Полное описание реализации: **[map-3d-features.md](map-3d-features.md)**.
 
 | Аспект | Правило |
 |--------|---------|
@@ -644,16 +644,16 @@ sequenceDiagram
 | `render_3d_model_id` | string | переопределение точки: пусто — Kenney по подтипу; `custom:{uuid}` — GLB, назначенный на подтип |
 | `render_3d_scale` | number | множитель 0.1–10 (по умолчанию 1) |
 
-**Custom GLB:** `project_map3d_models.assigned_subtypes` (массив подтипов); страница `/import-3d`; PATCH `custom:*` только если подтип объекта в списке. Подробно: [map-3d-features.md](./map-3d-features.md).
+**Custom GLB:** `project_map3d_models.assigned_subtypes` (массив подтипов); страница `/import-3d`; PATCH `custom:*` только если подтип объекта в списке. Подробно: [map-3d-features.md](map-3d-features.md).
 
 **L3 (клиент, реализовано):**
 
-- glTF bundled: `frontend/public/map3d-models/*.glb` — [`map3dGltfAssets.ts`](../decision-matrix/frontend/src/lib/map3d/map3dGltfAssets.ts), [`map3dModelCatalog.ts`](../decision-matrix/frontend/src/lib/map3d/map3dModelCatalog.ts)
-- Custom GLB: [`map3dCustomAssets.ts`](../decision-matrix/frontend/src/lib/map3d/map3dCustomAssets.ts), [`map3dCustomGlbFetch.ts`](../decision-matrix/frontend/src/lib/map3d/map3dCustomGlbFetch.ts) (Bearer на cross-origin), API `map3d-custom-models`
-- Окраска bundled: [`map3dObjectPalette.ts`](../decision-matrix/frontend/src/lib/map3d/map3dObjectPalette.ts); custom — оригинальные PBR-текстуры
-- Якорь модели: [`anchorGltfGroupAtFootprint`](../decision-matrix/frontend/src/lib/map3d/map3dGltfLoader.ts)
-- Процедурный fallback: [`map3dModelMeshes.ts`](../decision-matrix/frontend/src/lib/map3d/map3dModelMeshes.ts)
-- Линии: [`map3dLinesLayer.ts`](../decision-matrix/frontend/src/lib/map3d/map3dLinesLayer.ts)
+- glTF bundled: `frontend/public/map3d-models/*.glb` — [`map3dGltfAssets.ts`](../../decision-matrix/frontend/src/lib/map3d/map3dGltfAssets.ts), [`map3dModelCatalog.ts`](../../decision-matrix/frontend/src/lib/map3d/map3dModelCatalog.ts)
+- Custom GLB: [`map3dCustomAssets.ts`](../../decision-matrix/frontend/src/lib/map3d/map3dCustomAssets.ts), [`map3dCustomGlbFetch.ts`](../../decision-matrix/frontend/src/lib/map3d/map3dCustomGlbFetch.ts) (Bearer на cross-origin), API `map3d-custom-models`
+- Окраска bundled: [`map3dObjectPalette.ts`](../../decision-matrix/frontend/src/lib/map3d/map3dObjectPalette.ts); custom — оригинальные PBR-текстуры
+- Якорь модели: [`anchorGltfGroupAtFootprint`](../../decision-matrix/frontend/src/lib/map3d/map3dGltfLoader.ts)
+- Процедурный fallback: [`map3dModelMeshes.ts`](../../decision-matrix/frontend/src/lib/map3d/map3dModelMeshes.ts)
+- Линии: [`map3dLinesLayer.ts`](../../decision-matrix/frontend/src/lib/map3d/map3dLinesLayer.ts)
 - UI: панель «Слои» (`mapLayerPreferences.ts` — localStorage на проект); toggle «3D-модели объектов»
 
 **Импорт:** `height_m` в CSV/GeoJSON → `render_3d_height_m`; Z в `[lon, lat, z]` → `render_3d_base_m` (`merge_geojson_render_3d`).
@@ -666,9 +666,9 @@ sequenceDiagram
 
 ## 7. API (целевой контракт)
 
-См. [architecture.md](./architecture.md).
+См. [architecture.md](../architecture/architecture.md).
 
-См. [calculation-functions.md](./calculation-functions.md) §7 (API-контракт `NearestInfrastructureResult`).
+См. [calculation-functions.md](../calculations/calculation-functions.md) §7 (API-контракт `NearestInfrastructureResult`).
 
 ---
 
@@ -694,7 +694,7 @@ sequenceDiagram
 | 2026-06 | 2D drag точек: `updateWhileInteracting` в editMode, `mapFeatureGeometrySync` (иконка + ручка вместе, в т.ч. `methanol_facility`) |
 | 2026-06 | Admin `/admin/jobs`: журнал, health, отмена; кнопка «Отменить» только для `pending`/`running`; автообновление 3 с |
 | 2026-06 | §1.9: фоновые задачи проекта (`project_jobs`, Redis + ARQ, worker); сериализация по `project_id` |
-| 2026-06 | [autoroad-network-plan.md](./autoroad-network-plan.md): план выделенного сервиса plan API, BFF, UI «Построить сеть» |
+| 2026-06 | [autoroad-network-plan.md](../autoroad/autoroad-network-plan.md): план выделенного сервиса plan API, BFF, UI «Построить сеть» |
 | 2026-06 | §1.8: серверное соединение точек автодорогами (`autoroad-connect`, `road_graph`, `line_split`); UI в панели группового выделения |
 | 2026-06 | §1.8: качество Steiner (MST по ●, geodesic midpoint, collinear simplify) |
 | 2026-06 | §1.8: MST + Steiner без дорог, обязательная связность, `terminals_not_connected` |
@@ -706,7 +706,7 @@ sequenceDiagram
 | 2026-05 | 3D-линии: отражение корневой матрицы по **Z** (`dm-3d-lines` only); точечные glTF без отражения |
 | 2026-05 | Паритет вершин 2D/3D: единый `linePathForDisplay` + `infraSnapPool` (2D, GeoJSON pick, `buildNormalizedLinePath3d`, тест `linePath2d3dParity.test.ts`); коридор высот `planCorridorAlts`; snap при refresh рельефа |
 | 2026-05 | §1.5: правила рисования линии (начало/середина/конец, `node`), точная привязка концов (`linePathForDisplay`, `infraSnapPool`, heal); координаты — полные в БД, 3 знака в UI; §6.1 hotkeys; 3D-трубы = прямые сегменты |
-| 2026-05 | §6.4: glTF Kenney, Three.js линии, палитра, `MAP3D_OBJECT_SCALE`; см. [map-3d-features.md](./map-3d-features.md) |
+| 2026-05 | §6.4: glTF Kenney, Three.js линии, палитра, `MAP3D_OBJECT_SCALE`; см. [map-3d-features.md](map-3d-features.md) |
 | 2026-05 | §6.4: 2.5D/3D MapLibre, L2 `render_3d_*`, terrain MapTiler |
 | 2026-05 | §6: hotkeys, поиск по свойствам, dev-port banner, пересборка сети после delete |
 | 2026-05 | §5–§6: расчётный граф в БД, без слоя на карте; §1.7 пересборка сети на backend; редактирование линий (двойной ЛКМ — удаление промежуточной вершины) |

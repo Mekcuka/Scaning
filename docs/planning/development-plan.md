@@ -1,8 +1,22 @@
 # План разработки
 
-> **Статус (май 2026):** ядро MVP в `decision-matrix/` реализовано. Актуальная сводка «док ↔ код» — [implementation-status.md](./implementation-status.md).  
-> **Дорожная карта после MVP:** [system-evolution-plan.md](./system-evolution-plan.md) (горизонты H0–H5, метрики, приоритеты).  
-> Чеклисты ниже — **исторический план**; отмечены выполненные пункты по факту.
+> **Статус (июнь 2026):** ядро MVP в `decision-matrix/` **реализовано (~85% Must Have FR)**. Актуальная сводка «док ↔ код» — [implementation-status.md](implementation-status.md).  
+> **Дорожная карта после MVP:** [system-evolution-plan.md](system-evolution-plan.md) (горизонты H0–H5, метрики, приоритеты).  
+> Чеклисты ниже — **исторический план**; `[x]` — выполнено по факту, `[ ]` — не сделано или post-MVP.
+
+## Сводка выполнения
+
+| Этап | Статус | Примечание |
+|------|--------|------------|
+| 1. Подготовка | **5/6** | Husky/lint-staged в корне — нет |
+| 2. Backend — ядро | **✅ готово** | auth, карта, импорт, async jobs |
+| 3. Frontend — ядро | **11/12** | i18n — только русский UI |
+| 4. Матрица + инфраструктура | **✅ готово** | 9 строк, one-pager PDF/PPTX |
+| 5. Визуализация и отчёты | **3/4** | Excel параметров есть; полный экспорт матрицы/GeoJSON — нет |
+| 6. Интеграция и тестирование | **частично** | unit + E2E + rate limit; perf/security — не формализованы |
+| 7. Деплой | **5/7** | Pages + VM + PG (Docker) + SSL + smoke; Winston/ELK — нет |
+| Метрики успеха MVP | **3/8** | см. § внизу |
+| Сверх плана (post-plan) | **✅** | PFD, песок, autoroad, Искра, 3D, admin jobs |
 
 ## Общая оценка: 14-18 недель (MVP)
 
@@ -17,9 +31,10 @@
 - [x] Локальная настройка БД (SQLite / PostgreSQL + PostGIS)
 
 ### Результат
-- Рабочее окружение для разработки
-- Автоматические проверки кода при коммите
-- Локальный запуск backend + frontend (см. `decision-matrix/README.md`)
+- [x] Рабочее окружение для разработки
+- [x] Автоматические проверки в CI (GitHub Actions)
+- [ ] Git hooks при коммите (Husky) — не настроены
+- [x] Локальный запуск backend + frontend (см. `decision-matrix/README.md`)
 
 ### Артефакты
 ```
@@ -34,7 +49,7 @@
 
 ## Этап 2: Backend — ядро (Недели 2-4)
 
-> **Стек:** FastAPI + SQLAlchemy + Alembic (см. [README.md](./README.md)). Спецификация расчётов: [calculation-functions.md](./calculation-functions.md).
+> **Стек:** FastAPI + SQLAlchemy + Alembic (см. [README.md](../README.md)). Спецификация расчётов: [calculation-functions.md](../calculations/calculation-functions.md).
 
 ### Неделя 2: Настройка FastAPI и Auth
 - [x] Инициализация FastAPI (`app/main.py`)
@@ -45,7 +60,7 @@
 - [x] Guards и Decorators (`require_roles`, `project_access`)
 - [x] Unit-тесты auth сервиса (`tests/test_auth_rbac.py`)
 
-> Детали реализации: [auth-rbac.md](./auth-rbac.md)
+> Детали реализации: [auth-rbac.md](../architecture/auth-rbac.md)
 
 ### Неделя 3: Map Module (часть 1)
 - [x] Модели: infrastructure_layers, infrastructure_objects
@@ -63,10 +78,10 @@
 - [x] Логи импорта
 
 ### Результат
-- Работающий API для аутентификации
-- API для работы с картой и геоданными
-- Импорт данных
-- Покрытие тестами > 70%
+- [x] Работающий API для аутентификации
+- [x] API для работы с картой и геоданными
+- [x] Импорт данных (CSV, GeoJSON, KML, Shapefile, Spark, API connections)
+- [x] Покрытие тестами > 70% (`app/` ~72%)
 
 ---
 
@@ -103,12 +118,13 @@
 - [x] Пороговые круги вокруг POI
 - [x] **Страница «Импорт»** (отдельный маршрут): API + файлы + история
 - [x] Координаты курсора, линии по выбранной POI
-- [x] **3D-режим** (post-plan, [map-3d-features.md](./map-3d-features.md))
+- [x] **3D-режим** (post-plan, [map-3d-features.md](../features/map-3d-features.md))
 
 ### Результат
-- Работающий UI для аутентификации
-- Интерактивная карта с импортом данных
-- Dashboard
+- [x] Работающий UI для аутентификации
+- [x] Интерактивная карта с импортом данных (2D + 3D)
+- [x] Dashboard
+- [ ] Список матриц и быстрые действия на дашборде — не реализованы
 
 ---
 
@@ -138,9 +154,9 @@
 - [x] **Дорожная карта** в шаблоне отчёта
 
 ### Результат
-- **Инфраструктура проекта**: 9 подтипов, анализ окружения, базовый расчёт по POI
-- **Инфраструктурная матрица**: вертикальная таблица + карточный вид
-- **Одностраничник**: PDF + PPTX для руководства
+- [x] **Инфраструктура проекта**: 9 строк анализа, расширенные подтипы на карте, анализ окружения, расчёт по POI
+- [x] **Инфраструктурная матрица**: вертикальная таблица + карточный вид
+- [x] **Одностраничник**: PDF (`window.print`) + PPTX (`python-pptx`)
 
 ---
 
@@ -153,9 +169,10 @@
 - [ ] Полный экспорт матрицы/отчёта в Excel, экспорт GeoJSON проекта
 
 ### Результат
-- Визуализация результатов матрицы по POI
-- Одностраничники (PDF/PPTX) по выбранной точке интереса
-- Экспорт отчётов
+- [x] Визуализация результатов матрицы по POI (линии/статусы на карте)
+- [x] Одностраничники (PDF/PPTX) по выбранной точке интереса
+- [x] Экспорт Excel таблиц экрана «Параметры»
+- [ ] Полный экспорт матрицы/отчёта в Excel, экспорт GeoJSON проекта
 
 ---
 
@@ -174,39 +191,56 @@
 - [ ] Исправление багов
 
 ### Результат
-- Стабильное MVP
-- Покрытие тестами > 80% backend, > 60% frontend
-- Документация API (Swagger)
+- [x] Стабильное MVP (prod: GitHub Pages + VM)
+- [x] Покрытие frontend `pages/` ~79% (> 60%)
+- [ ] Покрытие backend > 80% (факт ~72%)
+- [x] Документация API (Swagger `/api/v1/docs`)
 
 ---
 
 ## Этап 7: Деплой и запуск (Неделя 14)
 
 ### Задачи
-- [x] Документация деплоя ([DEPLOY.md](../DEPLOY.md))
+- [x] Документация деплоя ([DEPLOY.md](../../DEPLOY.md))
 - [x] Деплой frontend (GitHub Pages + workflow)
-- [x] Деплой backend (Yandex VM workflow — опционально)
-- [ ] Настройка PostgreSQL (Neon / Supabase)
-- [ ] Настройка домена и SSL
-- [ ] Настройка логирования (Winston)
-- [ ] Smoke тесты на production
+- [x] Деплой backend (Yandex VM workflow)
+- [x] PostgreSQL + PostGIS (Docker на VM; managed Neon/Supabase — не используется)
+- [x] Домен и SSL (`erascaning.duckdns.org`, Caddy)
+- [ ] Централизованное логирование (Winston / ELK) — только stdout на VM
+- [x] Smoke-тесты на production (`/health` в deploy workflow)
 
 ### Результат
-- Работающее приложение в production
-- Базовый мониторинг (health checks, логи)
+- [x] Работающее приложение в production (Pages + API на VM)
+- [x] Базовый мониторинг (health checks, Redis/worker при `REDIS_URL`)
 
 ---
 
 ## Метрики успеха MVP
 
 - [x] Регистрация и вход работают
-- [ ] Карта отображается с 1000+ объектов
-- [ ] Создание матрицы от начала до результатов < 10 минут
-- [ ] Расчёт матрицы 20×50 < 5 секунд
-- [ ] Экспорт PDF отчёта < 10 секунд
-- [x] Основные API покрыты integration/unit (см. [testing-strategy.md](./testing-strategy.md))
+- [ ] Карта с 1000+ объектов без деградации (есть bbox/LOD оптимизации, формальный бенчмарк — нет)
+- [ ] Создание матрицы от начала до результатов < 10 минут (не замерялось)
+- [ ] Расчёт матрицы 20×50 < 5 секунд (не замерялось)
+- [x] Экспорт PDF отчёта < 10 секунд (клиентский `window.print`)
+- [x] Основные API покрыты integration/unit (см. [testing-strategy.md](../testing/testing-strategy.md))
 - [ ] Lighthouse score > 80 (Performance, Accessibility)
-- [ ] 0 критических багов
+- [ ] 0 критических багов (ongoing)
+
+---
+
+## Дополнительно реализовано (сверх исходного плана)
+
+> Не входило в этапы 1–7, но **готово** в коде (июнь 2026).
+
+- [x] **Схема потоков (PFD)** — `/flows/*`, React Flow, маршруты по сети ([fluid-flow-schematic.md](../features/fluid-flow-schematic.md))
+- [x] **Экономическая схема потоков** — вкладка «Потоки → Экономика»
+- [x] **Логистика песка** — `/flows/logistics`, timeline, analyze API
+- [x] **Автосеть автодорог** — Steiner tree, UI «Сеть», BFF plan/apply ([autoroad-network-plan.md](../autoroad/autoroad-network-plan.md))
+- [x] **Импорт Искра** — `spark_import.py` ([spark-import-mapping.md](../features/spark-import-mapping.md))
+- [x] **Импорт 3D** — custom GLB, `/import-3d` ([map-3d-features.md](../features/map-3d-features.md))
+- [x] **Журнал задач** — панель в шапке + `/admin/jobs` ([task-log-panel.md](../features/task-log-panel.md))
+- [x] **Админка пользователей** — `/admin/users`, RBAC, stats
+- [x] **Граф сети** — build/list nodes/edges (для расчётов, не на карте)
 
 ---
 

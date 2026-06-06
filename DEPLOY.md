@@ -130,7 +130,7 @@ Get-Content -Raw "C:\Users\user\Documents\mykey\ssh-key\ssh-key-1779903372392" |
 
 **Важно:** API и worker должны использовать **одну** очередь Redis — `ARQ_QUEUE_NAME` (по умолчанию `decision-matrix`). В `services/job_queue.py` при постановке задачи в ARQ явно передаётся это имя (не дефолтный `arq:queue` библиотеки). Если задачи «висят» в `pending`, проверьте `docker compose ps` (сервисы `redis`, `worker` up) и отмените зависшие записи в **Администрирование → Журнал задач**, затем перезапустите расчёт.
 
-**Журнал задач (admin):** при `REDIS_URL` на VM администратор видит очередь в UI (**Администрирование → Журнал задач**, `/admin/jobs`): `GET /admin/jobs`, `GET /admin/jobs/health`, `POST /admin/jobs/{id}/cancel` (идемпотентная отмена с актуальным статусом). Список и счётчики автообновляются каждые 3 с, пока есть `pending`/`running`. См. [docs/user-flows.md](docs/user-flows.md) §5.3.
+**Журнал задач (admin):** при `REDIS_URL` на VM администратор видит очередь в UI (**Администрирование → Журнал задач**, `/admin/jobs`): `GET /admin/jobs`, `GET /admin/jobs/health`, `POST /admin/jobs/{id}/cancel` (идемпотентная отмена с актуальным статусом). Список и счётчики автообновляются каждые 3 с, пока есть `pending`/`running`. См. [docs/product/user-flows.md](docs/product/user-flows.md) §5.3.
 
 ### Runtime env на VM (один раз)
 
@@ -213,11 +213,11 @@ ssh -i "C:\Users\user\Documents\mykey\ssh-key\ssh-key-1779903372392" vovavolgin9
 - Swagger: `https://erascaning.duckdns.org/api/v1/docs`
 - Frontend: https://mekcuka.github.io/Scaning/ — карта `/map`, переключатель **2D | 3D**
 - Frontend использует актуальный `VITE_API_URL` (`https://erascaning.duckdns.org/api/v1`).
-- **Импорт 3D:** upload GLB → назначение подтипов → 3D на карте / превью; custom GLB грузятся с API с Bearer (см. [docs/auth-rbac.md](docs/auth-rbac.md), [docs/map-3d-features.md](docs/map-3d-features.md)).
-- **Логистика песка:** `/flows/logistics` — схема с timeline (полная топология на любом годе, будущие объекты серые); быстрая смена года без remount React Flow (см. [map-objects-and-spatial-calculations.md](docs/map-objects-and-spatial-calculations.md) §1.7.1).
+- **Импорт 3D:** upload GLB → назначение подтипов → 3D на карте / превью; custom GLB грузятся с API с Bearer (см. [docs/architecture/auth-rbac.md](docs/architecture/auth-rbac.md), [docs/features/map-3d-features.md](docs/features/map-3d-features.md)).
+- **Логистика песка:** `/flows/logistics` — схема с timeline (полная топология на любом годе, будущие объекты серые); быстрая смена года без remount React Flow (см. [map-objects-and-spatial-calculations.md](docs/features/map-objects-and-spatial-calculations.md) §1.7.1).
 - **Админ, журнал задач:** https://mekcuka.github.io/Scaning/admin/jobs — Redis OK, автообновление статусов, отмена `pending`/`running`; нужны backend с `admin/jobs` и актуальный frontend.
-- Карта (регрессия линий): pitch **0°** — изгиб 3D = 2D; концы ЛЭП на узлах после pan; см. [map-3d-features.md](docs/map-3d-features.md) §6.1
-- Карта 2D (производительность): на тяжёлом проекте — плавный pan/hover без лишних React commits; опционально — [testing-strategy.md](docs/testing-strategy.md) § «Карта 2D — ручной perf checklist»
+- Карта (регрессия линий): pitch **0°** — изгиб 3D = 2D; концы ЛЭП на узлах после pan; см. [map-3d-features.md](docs/features/map-3d-features.md) §6.1
+- Карта 2D (производительность): на тяжёлом проекте — плавный pan/hover без лишних React commits; опционально — [testing-strategy.md](docs/testing/testing-strategy.md) § «Карта 2D — ручной perf checklist»
 
 ### Custom GLB на VM (хранение)
 
@@ -265,7 +265,7 @@ cd decision-matrix/backend
 .\venv\Scripts\pip install -e ..\..\autoroad-network-planner[steinerpy]
 cd ..\frontend
 npm run test
-npm run test:coverage   # опционально; см. docs/testing-strategy.md
+npm run test:coverage   # опционально; см. docs/testing/testing-strategy.md
 npm run build
 cd ..\backend
 .\venv\Scripts\python.exe -m pytest tests/ -q
@@ -274,4 +274,4 @@ cd ..\backend
 
 Образ backend в CI включает `network-planner` (SteinerPy); GeoSteiner на VM — опционально через `GEOSTEINER_BIN_DIR` в `app.env`.
 
-Покрытие и чеклист тестов: [docs/testing-strategy.md](docs/testing-strategy.md).
+Покрытие и чеклист тестов: [docs/testing/testing-strategy.md](docs/testing/testing-strategy.md).

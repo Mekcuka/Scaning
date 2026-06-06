@@ -35,7 +35,7 @@ cd decision-matrix/backend && pytest tests/ -q
 cd decision-matrix/backend && pytest tests/ --cov=app --cov-report=term-missing
 ```
 
-CI runs the same checks on pull requests (`.github/workflows/ci.yml`). See [docs/testing-strategy.md](docs/testing-strategy.md) for coverage baseline and conventions.
+CI runs the same checks on pull requests (`.github/workflows/ci.yml`). See [docs/testing/testing-strategy.md](docs/testing/testing-strategy.md) for coverage baseline and conventions.
 
 ## Pre-commit (optional)
 

@@ -109,21 +109,28 @@ export function pointMenuLabel(subtype: string): string {
 /** ГТЭС + ГПЭС + ВИЭС — смена подтипа только внутри группы. */
 export const GTES_CLUSTER_SUBTYPES = ['gtes', 'gpes', 'vies'] as const;
 
-/** Sidebar «Слои данных» — each map subtype belongs to exactly one group. */
-export const LAYER_VISIBILITY_GROUPS: { id: string; label: string; subtypes: readonly string[] }[] = [
-  { id: 'roads', label: 'Дороги', subtypes: ['autoroad'] },
-  {
-    id: 'pipelines',
-    label: 'Трубопроводы',
-    subtypes: LINE_SUBTYPES.filter((s) => s !== 'autoroad' && s !== 'additional_line'),
-  },
+export type LayerVisibilityGroup = {
+  id: string;
+  label: string;
+  subtypes: readonly string[];
+};
+
+/** Трубопроводы — отдельный переключатель на каждый подтип (панель «Слои»). */
+export const PIPELINE_LAYER_VISIBILITY_GROUPS: LayerVisibilityGroup[] = [
+  { id: 'oil_pipeline', label: SUBTYPE_LABELS.oil_pipeline, subtypes: ['oil_pipeline'] },
+  { id: 'water_pipeline', label: SUBTYPE_LABELS.water_pipeline, subtypes: ['water_pipeline'] },
+  { id: 'gas_pipeline', label: SUBTYPE_LABELS.gas_pipeline, subtypes: ['gas_pipeline'] },
+  { id: 'methanol_pipeline', label: SUBTYPE_LABELS.methanol_pipeline, subtypes: ['methanol_pipeline'] },
+];
+
+export const PIPELINE_LAYER_SUBTYPES = PIPELINE_LAYER_VISIBILITY_GROUPS.flatMap((g) => g.subtypes);
+
+/** Sidebar «Слои» → «Объекты»: each map subtype belongs to exactly one group. */
+export const LAYER_VISIBILITY_GROUPS: LayerVisibilityGroup[] = [
+  // Точечные объекты
   { id: 'gks', label: 'ГКС / УКГ / ТСГ', subtypes: GKS_CLUSTER_SUBTYPES },
   { id: 'gtes', label: 'ИЭ', subtypes: GTES_CLUSTER_SUBTYPES },
-  {
-    id: 'energy',
-    label: 'Подстанции',
-    subtypes: ['substation'],
-  },
+  { id: 'energy', label: 'Подстанции', subtypes: ['substation'] },
   {
     id: 'industrial',
     label: 'НПЗ / насосные',
@@ -138,10 +145,60 @@ export const LAYER_VISIBILITY_GROUPS: { id: string; label: string; subtypes: rea
   { id: 'pads_quarry', label: 'Куст и карьер', subtypes: ['oil_pad', 'gas_pad', 'sand_quarry'] },
   { id: 'offplot', label: 'ВО', subtypes: ['offplot'] },
   { id: 'additional_facility', label: 'Доп. объекты', subtypes: ['additional_facility'] },
-  { id: 'additional_linear', label: 'Доп. линии', subtypes: ['additional_line'] },
   { id: 'methanol_facility', label: 'Объект метанола', subtypes: ['methanol_facility'] },
   { id: 'nodes', label: 'Узлы', subtypes: NODE_CLUSTER_SUBTYPES },
+  // Линейные объекты
+  { id: 'roads', label: 'Дороги', subtypes: ['autoroad'] },
+  ...PIPELINE_LAYER_VISIBILITY_GROUPS,
+  { id: 'power_line', label: SUBTYPE_LABELS.power_line, subtypes: ['power_line'] },
+  { id: 'additional_linear', label: 'Доп. линии', subtypes: ['additional_line'] },
 ];
+
+const LINE_SUBTYPE_SET = new Set<string>(LINE_SUBTYPES);
+
+export function layerGroupKind(group: LayerVisibilityGroup): 'point' | 'line' {
+  return group.subtypes.every((s) => LINE_SUBTYPE_SET.has(s)) ? 'line' : 'point';
+}
+
+export const POINT_LAYER_VISIBILITY_GROUPS = LAYER_VISIBILITY_GROUPS.filter(
+  (g) => layerGroupKind(g) === 'point',
+);
+
+export const LINE_LAYER_VISIBILITY_GROUPS = LAYER_VISIBILITY_GROUPS.filter(
+  (g) => layerGroupKind(g) === 'line',
+);
+
+export type LayerVisibilityUiEntry =
+  | { kind: 'group'; group: LayerVisibilityGroup }
+  | {
+      kind: 'subcategory';
+      title: string;
+      groups: readonly LayerVisibilityGroup[];
+      subtypes: readonly string[];
+    };
+
+function lineVisibilityGroup(id: string): LayerVisibilityGroup {
+  const group = LINE_LAYER_VISIBILITY_GROUPS.find((g) => g.id === id);
+  if (!group) throw new Error(`Unknown line layer group: ${id}`);
+  return group;
+}
+
+/** Порядок и вложенность линейных групп в панели «Слои». */
+export const LINE_LAYER_UI_ENTRIES: LayerVisibilityUiEntry[] = [
+  { kind: 'group', group: lineVisibilityGroup('roads') },
+  {
+    kind: 'subcategory',
+    title: 'Трубопроводы',
+    groups: PIPELINE_LAYER_VISIBILITY_GROUPS,
+    subtypes: PIPELINE_LAYER_SUBTYPES,
+  },
+  { kind: 'group', group: lineVisibilityGroup('power_line') },
+  { kind: 'group', group: lineVisibilityGroup('additional_linear') },
+];
+
+export const POINT_LAYER_UI_ENTRIES: LayerVisibilityUiEntry[] = POINT_LAYER_VISIBILITY_GROUPS.map(
+  (group) => ({ kind: 'group', group }),
+);
 
 const GKS_CLUSTER_SET = new Set<string>(GKS_CLUSTER_SUBTYPES);
 const NODE_CLUSTER_SET = new Set<string>(NODE_CLUSTER_SUBTYPES);

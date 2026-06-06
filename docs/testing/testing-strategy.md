@@ -1,7 +1,7 @@
 # Стратегия тестирования
 
-> Пользовательские потоки: [user-flows.md](./user-flows.md)  
-> Статус функционала и маршруты UI: [implementation-status.md](./implementation-status.md)
+> Пользовательские потоки: [user-flows.md](../product/user-flows.md)  
+> Статус функционала и маршруты UI: [implementation-status.md](../planning/implementation-status.md)
 
 ## Пирамида
 
@@ -90,11 +90,11 @@ npm run test:e2e
 
 | Компонент | Путь | Назначение |
 |-----------|------|------------|
-| Конфиг | [`playwright.config.ts`](../decision-matrix/frontend/playwright.config.ts) | `workers: 1`, dev на `:5174`, `globalTeardown` |
-| Хелперы | [`e2e/helpers.ts`](../decision-matrix/frontend/e2e/helpers.ts) | `setupE2eSession`, `loginViaApi`, `createProject`, `clickMapLonLat`, `seedSandLogisticsNetwork` |
-| Teardown | [`e2e/global-teardown.ts`](../decision-matrix/frontend/e2e/global-teardown.ts) | вызов скрипта очистки после прогона |
-| Очистка БД | [`scripts/cleanup_e2e_data.py`](../decision-matrix/backend/scripts/cleanup_e2e_data.py) | cascade-delete проектов `test_*` и тестовых пользователей |
-| Map hook | [`setupViewHandlers.ts`](../decision-matrix/frontend/src/components/mapView/setupViewHandlers.ts) | `window.__dmOlMap` при `VITE_E2E_MAP_HOOK=true` |
+| Конфиг | [`playwright.config.ts`](../../decision-matrix/frontend/playwright.config.ts) | `workers: 1`, dev на `:5174`, `globalTeardown` |
+| Хелперы | [`e2e/helpers.ts`](../../decision-matrix/frontend/e2e/helpers.ts) | `setupE2eSession`, `loginViaApi`, `createProject`, `clickMapLonLat`, `seedSandLogisticsNetwork` |
+| Teardown | [`e2e/global-teardown.ts`](../../decision-matrix/frontend/e2e/global-teardown.ts) | вызов скрипта очистки после прогона |
+| Очистка БД | [`scripts/cleanup_e2e_data.py`](../../decision-matrix/backend/scripts/cleanup_e2e_data.py) | cascade-delete проектов `test_*` и тестовых пользователей |
+| Map hook | [`setupViewHandlers.ts`](../../decision-matrix/frontend/src/components/mapView/setupViewHandlers.ts) | `window.__dmOlMap` при `VITE_E2E_MAP_HOOK=true` |
 
 **Локально:** backend через `run_local.py` пишет в SQLite `data/sppr.db`; Playwright поднимает Vite на `:5174` (отдельный порт от dev `:5173`, чтобы не смешивать `localStorage`). Один процесс на `:8000` — иначе возможны 429/CSRF-флапы.
 
@@ -137,17 +137,17 @@ python scripts/cleanup_e2e_data.py
 ## Принципы «не навредить»
 
 - PR с тестами **без** изменения поведения, кроме точечного `data-testid` и extract pure helpers.
-- Рефакторинг MapPage/MapView (июнь 2026) завершён — см. [frontend-structure.md](./frontend-structure.md); перед изменениями — characterization-тесты на helpers и прогон `MapPage.*` / `MapView`.
+- Рефакторинг MapPage/MapView (июнь 2026) завершён — см. [frontend-structure.md](../architecture/frontend-structure.md); перед изменениями — characterization-тесты на helpers и прогон `MapPage.*` / `MapView`.
 - Моки на границе: `vi.mock('../lib/api')`, TestClient + seed users из `tests/conftest.py`.
 - Geo/map API — поведение как в CI (PostGIS); unit-сервисы — shared SQLite (`tests/conftest.py`).
 
 ## Инфраструктура frontend
 
-- [`vitest.config.ts`](../decision-matrix/frontend/vitest.config.ts) — jsdom, coverage v8, порог `src/lib/**` ≥ 30%, `src/pages/**` ≥ 77%, `MapPage.tsx` ≥ 73% (факт ~78%, цель 80%).
-- [`src/test/renderWithProviders.tsx`](../decision-matrix/frontend/src/test/renderWithProviders.tsx) — QueryClient + Router.
-- [`src/test/pages/`](../decision-matrix/frontend/src/test/pages/) — `renderPage`, `createApiMock` / [`apiMockModule.ts`](../decision-matrix/frontend/src/test/pages/apiMockModule.ts), [`mapPageHarness.tsx`](../decision-matrix/frontend/src/test/pages/mapPageHarness.tsx).
-- [`src/test/fixtures/`](../decision-matrix/frontend/src/test/fixtures/) — проекты, пользователи, infra, map (`map.ts`).
-- E2E: [`e2e/`](../decision-matrix/frontend/e2e/) — 7 spec-файлов, 12 тестов; `helpers.ts`, `global-teardown.ts`; автоочистка `cleanup_e2e_data.py`.
+- [`vitest.config.ts`](../../decision-matrix/frontend/vitest.config.ts) — jsdom, coverage v8, порог `src/lib/**` ≥ 30%, `src/pages/**` ≥ 77%, `MapPage.tsx` ≥ 73% (факт ~78%, цель 80%).
+- [`src/test/renderWithProviders.tsx`](../../decision-matrix/frontend/src/test/renderWithProviders.tsx) — QueryClient + Router.
+- [`src/test/pages/`](../../decision-matrix/frontend/src/test/pages/) — `renderPage`, `createApiMock` / [`apiMockModule.ts`](../../decision-matrix/frontend/src/test/pages/apiMockModule.ts), [`mapPageHarness.tsx`](../../decision-matrix/frontend/src/test/pages/mapPageHarness.tsx).
+- [`src/test/fixtures/`](../../decision-matrix/frontend/src/test/fixtures/) — проекты, пользователи, infra, map (`map.ts`).
+- E2E: [`e2e/`](../../decision-matrix/frontend/e2e/) — 7 spec-файлов, 12 тестов; `helpers.ts`, `global-teardown.ts`; автоочистка `cleanup_e2e_data.py`.
 
 ### Pages 80% (план, май 2026)
 
@@ -162,7 +162,7 @@ python scripts/cleanup_e2e_data.py
 
 **MapPage:** `MapPage.integration.test.tsx`, …
 
-**Карта (unit, bbox/кэш):** [`mapBboxUtils.test.ts`](../decision-matrix/frontend/src/lib/mapBboxUtils.test.ts) (буфер bbox, merge viewport+overlay), [`mapQueries.test.ts`](../decision-matrix/frontend/src/lib/mapQueries.test.ts) (upsert/remove во full и bbox-кэше), [`mapFeatureGeometrySync.test.ts`](../decision-matrix/frontend/src/lib/mapFeatureGeometrySync.test.ts) (синхронизация inner-feature при drag, `updateWhileInteracting` policy).
+**Карта (unit, bbox/кэш):** [`mapBboxUtils.test.ts`](../../decision-matrix/frontend/src/lib/mapBboxUtils.test.ts) (буфер bbox, merge viewport+overlay), [`mapQueries.test.ts`](../../decision-matrix/frontend/src/lib/mapQueries.test.ts) (upsert/remove во full и bbox-кэше), [`mapFeatureGeometrySync.test.ts`](../../decision-matrix/frontend/src/lib/mapFeatureGeometrySync.test.ts) (синхронизация inner-feature при drag, `updateWhileInteracting` policy).
 
 **Логистика песка (frontend unit):** `sandLogisticsFlow.test.ts` (layout/slice, geo-ordering, adaptive spacing), `sandLogisticsResult.test.ts` (`resolveSubnetForSchematicAtView`, slice cache), `sandLogisticsSchematicTimeline.test.ts`, `SandLogisticsSubnetPanel.test.tsx` (смена года без remount схемы), `FlowLogisticsPage.test.tsx`.
 
@@ -177,9 +177,9 @@ vi.mock('../lib/api', async (importOriginal) => {
 
 ## Инфраструктура backend
 
-- [`tests/conftest.py`](../decision-matrix/backend/tests/conftest.py) — client, login, CSRF, shared DB, rate limit off.
-- [`tests/factories.py`](../decision-matrix/backend/tests/factories.py) — `create_test_project`, layer, POI.
-- [`pytest.ini`](../decision-matrix/backend/pytest.ini) — `test_demo_users` исключён из default run.
+- [`tests/conftest.py`](../../decision-matrix/backend/tests/conftest.py) — client, login, CSRF, shared DB, rate limit off.
+- [`tests/factories.py`](../../decision-matrix/backend/tests/factories.py) — `create_test_project`, layer, POI.
+- [`pytest.ini`](../../decision-matrix/backend/pytest.ini) — `test_demo_users` исключён из default run.
 
 ### Новые integration-тесты (API smoke)
 
@@ -215,4 +215,4 @@ vi.mock('../lib/api', async (importOriginal) => {
 - **Backend:** `pytest tests/ -q`; `pytest --cov=app/services --cov-fail-under=25` — soft gate на сервисы.
 - **E2E:** job `E2E (Playwright)` — backend `e2e.db`, `vite preview`, 12 сценариев, `globalTeardown` + `E2E_DATABASE_URL`.
 
-См. [`.github/workflows/ci.yml`](../.github/workflows/ci.yml).
+См. [`.github/workflows/ci.yml`](../../.github/workflows/ci.yml).

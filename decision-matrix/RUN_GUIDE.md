@@ -62,7 +62,7 @@ npm run dev
 
 Frontend будет доступен на `http://127.0.0.1:5173`.
 
-**Журнал задач:** в шапке приложения (иконка слева от «Тема») — статусы расчётов и экспорт JSON запросов/ответов по текущему проекту. См. [docs/task-log-panel.md](../docs/task-log-panel.md).
+**Журнал задач:** в шапке приложения (иконка слева от «Тема») — статусы расчётов и экспорт JSON запросов/ответов по текущему проекту. См. [docs/features/task-log-panel.md](../docs/features/task-log-panel.md).
 
 ## 3) Повторный запуск (со второго раза)
 
@@ -114,7 +114,7 @@ npm run dev
 - Swagger: `http://127.0.0.1:8000/api/v1/docs`
 - Страницы: `/login`, `/register`, `/admin` (только admin)
 
-Аутентификация через **httpOnly cookies** (не localStorage). Подробнее: [docs/auth-rbac.md](../docs/auth-rbac.md).
+Аутентификация через **httpOnly cookies** (не localStorage). Подробнее: [docs/architecture/auth-rbac.md](../docs/architecture/auth-rbac.md).
 
 ### Пересоздание demo-пользователей
 
@@ -177,18 +177,18 @@ npm run dev
 
 ## 7) Карта (поведение UI)
 
-- **Расчётный граф** (узлы/рёбра `infrastructure_*`) **не рисуется на карте** — только объекты инфраструктуры, POI, линии анализа. Топология хранится в БД и используется в расчётах («Потоки», логистика песка). Подробнее: [map-objects-and-spatial-calculations.md](../docs/map-objects-and-spatial-calculations.md) §5–§6.
+- **Расчётный граф** (узлы/рёбра `infrastructure_*`) **не рисуется на карте** — только объекты инфраструктуры, POI, линии анализа. Топология хранится в БД и используется в расчётах («Потоки», логистика песка). Подробнее: [map-objects-and-spatial-calculations.md](../docs/features/map-objects-and-spatial-calculations.md) §5–§6.
 - **Горячие клавиши** (на странице карты, не в полях ввода): **E** — вкл/выкл «Редактирование на карте»; **Del** / **Backspace** — удалить выбранное; **Ctrl+Z** — отмена; **Enter** — завершить черновик линии; **Escape** — закрыть модал/поиск или выйти из рисования; в режиме **«Линия»** — **двойной ЛКМ** или **двойной ПКМ** завершить линию (в пустом месте создаётся узел `node`); в режиме **«Выбор»** + редактирование — **двойной ЛКМ** по **промежуточной** вершине удаляет её.
 - **Рисование линии:** начало — клик по точечному объекту на карте (координаты совпадают); середина — свободно; конец — на объекте (точное совпадение) или авто-`node`. Координаты в БД — полные; в строке внизу карты — 3 знака.
 - **Редактирование линий:** «Редактирование на карте» → «Выбор» → линия. Концы нельзя оставить без привязки к точечному объекту. Подсказки — в footer карты.
 - **Поиск на карте:** по названию, подтипу, имени слоя и строковым свойствам объектов.
 - **Удаление линий:** после удаления линейного объекта backend пересобирает топологию сети из оставшихся линий; при групповом удалении frontend вызывает `buildNetwork` один раз.
 - **Два порта frontend** (`5173` и `5174`): это **разные** dev-серверы и разные origin в браузере (`localStorage` / `sessionStorage` не общие). Держите **один** `npm run dev`; если 5173 занят — остановите старый процесс. На странице карты в dev показывается предупреждение, если frontend открыт не на порту **5173**.
-- **2.5D / 3D карта:** в `frontend/.env`: `VITE_MAP_3D_ENABLED=true` и `VITE_MAPTILER_KEY=<ключ MapTiler>`. Перезапустите `npm run dev`. На `/map` — **2D | 3D**; в слоях — спутник, **Рельеф (3D)**, **3D-модели** (glTF), фильтры подтипов. Рисование только в 2D. Точки: glTF + палитра слоя; линии: 3D-трубы **по прямым сегментам между вершинами** (как 2D), ЛЭП — пролёты проводов в плане как 2D. Документация: [docs/map-3d-features.md](../docs/map-3d-features.md), правила объектов: [map-objects-and-spatial-calculations.md](../docs/map-objects-and-spatial-calculations.md) §1.5.
+- **2.5D / 3D карта:** в `frontend/.env`: `VITE_MAP_3D_ENABLED=true` и `VITE_MAPTILER_KEY=<ключ MapTiler>`. Перезапустите `npm run dev`. На `/map` — **2D | 3D**; в слоях — спутник, **Рельеф (3D)**, **3D-модели** (glTF), фильтры подтипов. Рисование только в 2D. Точки: glTF + палитра слоя; линии: 3D-трубы **по прямым сегментам между вершинами** (как 2D), ЛЭП — пролёты проводов в плане как 2D. Документация: [docs/features/map-3d-features.md](../docs/features/map-3d-features.md), правила объектов: [map-objects-and-spatial-calculations.md](../docs/features/map-objects-and-spatial-calculations.md) §1.5.
 - **Локальный dev и `VITE_BASE_PATH`:** для `npm run dev` задайте `VITE_BASE_PATH=/` (или не задавайте переменную), иначе Vite может собрать base `/Scaning/` и страница login не откроется на `http://localhost:5173/`.
 - **Проверка перед релизом:** `cd decision-matrix/frontend && npm run test && npm run build`; `cd decision-matrix/backend && pytest tests/ -q` (кроме `test_demo_users` — нужна SQLite `data/sppr.db` с таблицами).
 - **E2E (Playwright):** в одном терминале `python run_local.py` (backend `:8000`), в другом `cd decision-matrix/frontend && npm run test:e2e` (Vite на `:5174`). После прогона тестовые данные чистятся автоматически (`scripts/cleanup_e2e_data.py`). Ручная очистка: `python scripts/cleanup_e2e_data.py` из `backend/`.
-- **Покрытие (опционально):** `npm run test:coverage` (frontend), `pytest tests/ --cov=app --cov-report=term-missing` (backend). См. [docs/testing-strategy.md](../docs/testing-strategy.md).
+- **Покрытие (опционально):** `npm run test:coverage` (frontend), `pytest tests/ --cov=app --cov-report=term-missing` (backend). См. [docs/testing/testing-strategy.md](../docs/testing/testing-strategy.md).
 - **Демо-сеть для проверки 3D:** из `backend` с активированным venv: `python scripts/draw_demo_map_network.py --project-name "третий проект"` (или имя вашего проекта).
 
 ## 8) Частые проблемы
@@ -218,7 +218,7 @@ npm run dev
   Проверьте `CORS_ORIGINS` в `backend/.env` — должен совпадать с URL frontend (включая порт).
 
 - CSRF validation failed / «Обновите страницу» (в т.ч. upload GLB на проде)  
-  Перелогиньтесь или обновите frontend: клиент синхронизирует Bearer/CSRF через `POST /auth/refresh`; при `Authorization: Bearer` CSRF не проверяется. См. [docs/auth-rbac.md](../docs/auth-rbac.md).
+  Перелогиньтесь или обновите frontend: клиент синхронизирует Bearer/CSRF через `POST /auth/refresh`; при `Authorization: Bearer` CSRF не проверяется. См. [docs/architecture/auth-rbac.md](../docs/architecture/auth-rbac.md).
 
 - Custom GLB не отображаются в 3D после загрузки (прод, 404 в Network)  
-  На GitHub Pages файлы моделей запрашиваются с API с Bearer (`map3dCustomGlbFetch.ts`), не через cookie-only GLTFLoader. Ctrl+F5 (сброс кэша 404). См. [docs/map-3d-features.md](../docs/map-3d-features.md) § custom GLB.
+  На GitHub Pages файлы моделей запрашиваются с API с Bearer (`map3dCustomGlbFetch.ts`), не через cookie-only GLTFLoader. Ctrl+F5 (сброс кэша 404). См. [docs/features/map-3d-features.md](../docs/features/map-3d-features.md) § custom GLB.

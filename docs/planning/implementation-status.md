@@ -1,7 +1,7 @@
 # Статус реализации приложения
 
 > **Назначение:** единая точка согласования документации `docs/` с кодом `decision-matrix/`.  
-> **Дата:** май 2026. При изменении продукта обновляйте этот файл и [consistency-review.md](./consistency-review.md).
+> **Дата:** май 2026. При изменении продукта обновляйте этот файл и [consistency-review.md](consistency-review.md).
 
 ## Область
 
@@ -14,10 +14,10 @@
 
 | Категория | Оценка |
 |-----------|--------|
-| Must Have MVP (FR из [requirements.md](./requirements.md)) | **~85%** |
+| Must Have MVP (FR из [requirements.md](../product/requirements.md)) | **~85%** |
 | Should Have | **~65%** |
 | Функции сверх базового ТЗ (3D, PFD, песок, Искра, расширенная карта) | реализованы, описаны в отдельных doc |
-| Автотесты | backend `app/` ~72%, frontend `pages/` ~79% ([testing-strategy.md](./testing-strategy.md)) |
+| Автотесты | backend `app/` ~72%, frontend `pages/` ~79% ([testing-strategy.md](../testing/testing-strategy.md)) |
 
 ---
 
@@ -91,13 +91,13 @@
 
 **Оболочка (`AppLayout`):** выход (иконка `LogOut`) в нижней панели сайдбара; в шапке — тема и выбор проекта. PWA: `public/sw.js` — fallback на `index.html` для deep link (например `/Scaning/admin/jobs` на Pages).
 
-**3D-карта:** `VITE_MAP_3D_ENABLED`, `VITE_MAPTILER_KEY`, `VITE_API_URL` (обязателен на GitHub Pages) — см. [map-3d-features.md](./map-3d-features.md), cross-origin auth — [auth-rbac.md](./auth-rbac.md).
+**3D-карта:** `VITE_MAP_3D_ENABLED`, `VITE_MAPTILER_KEY`, `VITE_API_URL` (обязателен на GitHub Pages) — см. [map-3d-features.md](../features/map-3d-features.md), cross-origin auth — [auth-rbac.md](../architecture/auth-rbac.md).
 
 **Панель «Слои» на `/map`:** переключатели подложки, групп подтипов, POI, радиусов — в `localStorage` на проект (`mapLayerPreferences.ts`, ключ `dm-map-layer-prefs:{projectId}`). Видимость импортированных слоёв (`infrastructure_layers.is_visible`) — в БД.
 
-**Загрузка объектов на `/map`:** гибрид полного кэша + bbox при просмотре (порог 80 объектов, буфер 12%, без лишних `GET` при мелком пане); синхронизация full+bbox кэшей при CRUD/геометрии (`mapQueries.ts`); API [`bbox_filter.py`](../decision-matrix/backend/app/geo/bbox_filter.py). **Плавность 2D:** rAF на `pointermove`, spatial hit-test (`mapHitTest.ts`), точечный hover, `React.memo(MapView)`, idle-sync слоя при ≥150 объектах, LOD линий по умолчанию 1:500 000 — §6.1.2 [map-objects-and-spatial-calculations.md](./map-objects-and-spatial-calculations.md). **Drag точек в editMode:** `updateWhileInteracting` + [`mapFeatureGeometrySync.ts`](../decision-matrix/frontend/src/lib/mapFeatureGeometrySync.ts).
+**Загрузка объектов на `/map`:** гибрид полного кэша + bbox при просмотре (порог 80 объектов, буфер 12%, без лишних `GET` при мелком пане); синхронизация full+bbox кэшей при CRUD/геометрии (`mapQueries.ts`); API [`bbox_filter.py`](../../decision-matrix/backend/app/geo/bbox_filter.py). **Плавность 2D:** rAF на `pointermove`, spatial hit-test (`mapHitTest.ts`), точечный hover, `React.memo(MapView)`, idle-sync слоя при ≥150 объектах, LOD линий по умолчанию 1:500 000 — §6.1.2 [map-objects-and-spatial-calculations.md](../features/map-objects-and-spatial-calculations.md). **Drag точек в editMode:** `updateWhileInteracting` + [`mapFeatureGeometrySync.ts`](../../decision-matrix/frontend/src/lib/mapFeatureGeometrySync.ts).
 
-**Рефакторинг frontend (июнь 2026):** монолиты разбиты без смены публичных импортов — `MapPage` ~3836→**~35** (`sections` из `useMapPageOrchestrator`), `MapView` ~2227→~58, `ObjectDetailPanel` ~1163→~168, `FlowSchematicEditor` / `SandLogisticsSubnetPanel` / `SandLogisticsTables` → barrels, `useMapPageOrchestrator` → `mapPageOrchestrator/*`, `useObjectDetailPanel` → sub-hooks, `setupModifyHandlers` / `setupTranslateHandlers` → submodules. Детали: [frontend-structure.md](./frontend-structure.md). Тесты: **469/469** Vitest.
+**Рефакторинг frontend (июнь 2026):** монолиты разбиты без смены публичных импортов — `MapPage` ~3836→**~35** (`sections` из `useMapPageOrchestrator`), `MapView` ~2227→~58, `ObjectDetailPanel` ~1163→~168, `FlowSchematicEditor` / `SandLogisticsSubnetPanel` / `SandLogisticsTables` → barrels, `useMapPageOrchestrator` → `mapPageOrchestrator/*`, `useObjectDetailPanel` → sub-hooks, `setupModifyHandlers` / `setupTranslateHandlers` → submodules. Детали: [frontend-structure.md](../architecture/frontend-structure.md). Тесты: **469/469** Vitest.
 
 ---
 
@@ -106,7 +106,7 @@
 ### Реализовано
 
 - **FR-1:** регистрация, вход, JWT cookies, refresh rotation, logout, 4 роли, admin users/stats, журнал фоновых задач (`/admin/jobs`), `published` для viewer.
-- **FR-2:** слои, объекты, рисование 2D, импорт (CSV, GeoJSON, KML, Shapefile, Spark, API connections), `import_logs`, поиск на карте, пространственный анализ, радиусы, линии POI→external. **Copy/paste группы (2D):** точное сохранение ломаной (`line_preserve_geometry`, привязка концов только к близнецам из выделения) — [map-objects-and-spatial-calculations.md](./map-objects-and-spatial-calculations.md) §6.1.0. **Производительность карты:** viewport `bbox` + буфер, throttling панорамирования, merge overlay, единый патч full+bbox кэшей, rAF/spatial hit-test/memo MapView, snap-index при рисовании линии, idle-sync слоя, LOD 1:500 000 — §6.1.2; ручной perf checklist — [testing-strategy.md](./testing-strategy.md).
+- **FR-2:** слои, объекты, рисование 2D, импорт (CSV, GeoJSON, KML, Shapefile, Spark, API connections), `import_logs`, поиск на карте, пространственный анализ, радиусы, линии POI→external. **Copy/paste группы (2D):** точное сохранение ломаной (`line_preserve_geometry`, привязка концов только к близнецам из выделения) — [map-objects-and-spatial-calculations.md](../features/map-objects-and-spatial-calculations.md) §6.1.0. **Производительность карты:** viewport `bbox` + буфер, throttling панорамирования, merge overlay, единый патч full+bbox кэшей, rAF/spatial hit-test/memo MapView, snap-index при рисовании линии, idle-sync слоя, LOD 1:500 000 — §6.1.2; ручной perf checklist — [testing-strategy.md](../testing/testing-strategy.md).
 - **FR-4–7:** проекты, POI, 16 ставок, пороги, инженерные параметры, 9 строк анализа матрицы, стоимость, candidates, override.
 - **FR-8:** матрица (таблица + карточки), смена eng-параметров, фильтр превышений, мини-карта.
 - **FR-10:** иконки, радиусы, линии статусов.
@@ -140,9 +140,9 @@
 
 ## Анализ POI vs объекты карты
 
-**Матрица и стоимость (9 строк):** 4 internal linear + 4 external Point + кустовые площадки — см. [calculation-functions.md](./calculation-functions.md).
+**Матрица и стоимость (9 строк):** 4 internal linear + 4 external Point + кустовые площадки — см. [calculation-functions.md](../calculations/calculation-functions.md).
 
-**Карта и импорт:** расширенный справочник подтипов (УКГ/ТСГ, метанол, БКНС, карьер, `gas_pipeline`, …) — [map-objects-and-spatial-calculations.md](./map-objects-and-spatial-calculations.md) §1.4, код `backend/app/geo/constants.py`.
+**Карта и импорт:** расширенный справочник подтипов (УКГ/ТСГ, метанол, БКНС, карьер, `gas_pipeline`, …) — [map-objects-and-spatial-calculations.md](../features/map-objects-and-spatial-calculations.md) §1.4, код `backend/app/geo/constants.py`.
 
 **Автопоиск ближайшего** (`EXTERNAL_POINT_SUBTYPES`): `gas_processing`, `gtes` (кластер gtes/gpes/vies), `substation`, `refinery`, `ground_pumping_station`, `sand_quarry`.
 
@@ -150,7 +150,7 @@
 
 ## API (актуальные префиксы)
 
-Базовый URL: `/api/v1`. Полный список — Swagger `/api/v1/docs` и [decision-matrix/README.md](../decision-matrix/README.md).
+Базовый URL: `/api/v1`. Полный список — Swagger `/api/v1/docs` и [decision-matrix/README.md](../../decision-matrix/README.md).
 
 Группы: `auth`, `admin`, `admin/jobs` (list, health, cancel), `projects`, `projects/{id}/pois`, `projects/{id}/infrastructure/*`, `projects/{id}/map3d-custom-models` (upload / list / assign-by-subtype / file), `projects/{id}/pois/{id}/analysis`, `projects/{id}/import/*`, `import/logs`, `projects/{id}/one-pagers`, `projects/{id}/flow-schematic`, `projects/{id}/infrastructure/networks`, `projects/{id}/import_connections`, `projects/{id}/sand-logistics` (GET result, POST analyze).
 
@@ -160,10 +160,10 @@
 
 - Backend: `tests/test_autoroad_network_plan.py` (MST Steiner, `total_new_km` vs legacy chain), `tests/test_autoroad_connect.py`; `test_road_graph.py` (`geodesic_midpoint`).
 - Frontend: `AdminJobsPage.test.tsx` (журнал, кнопка «Отменить» только для активных задач); `mapFeatureGeometrySync.test.ts` (drag точки/линии, methanol_facility).
-- **E2E (Playwright, 12):** login, projects, parameters, flows, import, map (2D, draw autoroad, detail save, ruler), flows-logistics (analyze, timeline). Инфра: `e2e/helpers.ts`, `VITE_E2E_MAP_HOOK` / `__dmOlMap`, автоочистка [`cleanup_e2e_data.py`](../decision-matrix/backend/scripts/cleanup_e2e_data.py) через `globalTeardown`. Подробнее: [testing-strategy.md](./testing-strategy.md).
-- GitHub Actions: [`.github/workflows/ci.yml`](../.github/workflows/ci.yml) — lint, unit, coverage gates, job `E2E (Playwright)`.
-- Husky / lint-staged в корне — **не** настроены ([development-plan.md](./development-plan.md) этап 1).
-- Деплой: [DEPLOY.md](../DEPLOY.md), GitHub Pages + VM workflow.
+- **E2E (Playwright, 12):** login, projects, parameters, flows, import, map (2D, draw autoroad, detail save, ruler), flows-logistics (analyze, timeline). Инфра: `e2e/helpers.ts`, `VITE_E2E_MAP_HOOK` / `__dmOlMap`, автоочистка [`cleanup_e2e_data.py`](../../decision-matrix/backend/scripts/cleanup_e2e_data.py) через `globalTeardown`. Подробнее: [testing-strategy.md](../testing/testing-strategy.md).
+- GitHub Actions: [`.github/workflows/ci.yml`](../../.github/workflows/ci.yml) — lint, unit, coverage gates, job `E2E (Playwright)`.
+- Husky / lint-staged в корне — **не** настроены ([development-plan.md](development-plan.md) этап 1).
+- Деплой: [DEPLOY.md](../../DEPLOY.md), GitHub Pages + VM workflow.
 
 ---
 
@@ -171,10 +171,10 @@
 
 | Тема | Файл |
 |------|------|
-| Требования | [requirements.md](./requirements.md) |
-| Потоки PFD | [fluid-flow-schematic.md](./fluid-flow-schematic.md) |
-| 3D-карта | [map-3d-features.md](./map-3d-features.md) |
-| Объекты карты | [map-objects-and-spatial-calculations.md](./map-objects-and-spatial-calculations.md) |
-| Импорт Искра | [spark-import-mapping.md](./spark-import-mapping.md) |
-| План (исторический) | [development-plan.md](./development-plan.md) |
-| План развития | [system-evolution-plan.md](./system-evolution-plan.md) |
+| Требования | [requirements.md](../product/requirements.md) |
+| Потоки PFD | [fluid-flow-schematic.md](../features/fluid-flow-schematic.md) |
+| 3D-карта | [map-3d-features.md](../features/map-3d-features.md) |
+| Объекты карты | [map-objects-and-spatial-calculations.md](../features/map-objects-and-spatial-calculations.md) |
+| Импорт Искра | [spark-import-mapping.md](../features/spark-import-mapping.md) |
+| План (исторический) | [development-plan.md](development-plan.md) |
+| План развития | [system-evolution-plan.md](system-evolution-plan.md) |

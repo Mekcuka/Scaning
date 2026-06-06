@@ -1,11 +1,11 @@
 # Архитектура приложения
 
-> **Параметры ввода:** [input-parameters.md](./input-parameters.md). Актуальная SQL-схема — [database-schema.md](./database-schema.md).  
-> **Геометрия и пространственные расчёты:** [map-objects-and-spatial-calculations.md](./map-objects-and-spatial-calculations.md).  
-> **Расчётные функции:** [calculation-functions.md](./calculation-functions.md).  
-> **Схема потоков (PFD):** [fluid-flow-schematic.md](./fluid-flow-schematic.md) — отдельный визуальный поток от анализа окружения; использует граф сети и POI, не таблицу `poi_infrastructure_analysis`.  
-> **Статус реализации:** [implementation-status.md](./implementation-status.md).  
-> **Автопостроение сети автодорог (сервис):** [autoroad-network-plan.md](./autoroad-network-plan.md).
+> **Параметры ввода:** [input-parameters.md](../product/input-parameters.md). Актуальная SQL-схема — [database-schema.md](database-schema.md).  
+> **Геометрия и пространственные расчёты:** [map-objects-and-spatial-calculations.md](../features/map-objects-and-spatial-calculations.md).  
+> **Расчётные функции:** [calculation-functions.md](../calculations/calculation-functions.md).  
+> **Схема потоков (PFD):** [fluid-flow-schematic.md](../features/fluid-flow-schematic.md) — отдельный визуальный поток от анализа окружения; использует граф сети и POI, не таблицу `poi_infrastructure_analysis`.  
+> **Статус реализации:** [implementation-status.md](../planning/implementation-status.md).  
+> **Автопостроение сети автодорог (сервис):** [autoroad-network-plan.md](../autoroad/autoroad-network-plan.md).
 
 ## Актуальная реализация (FastAPI + React, май 2026)
 
@@ -27,7 +27,7 @@
 
 ### Autoroad Network (планировщик)
 
-**Stateless** JSON-конвейер: `network_planner` (SteinerPy / GeoSteiner) строит **связную** сеть по терминалам и существующим `autoroad`. BFF: `request` (снимок БД) → `compute` (план без записи) → `apply` (тот же plan). In-process по умолчанию; HTTP-микросервис — опционально. См. [autoroad-network-plan.md](./autoroad-network-plan.md).
+**Stateless** JSON-конвейер: `network_planner` (SteinerPy / GeoSteiner) строит **связную** сеть по терминалам и существующим `autoroad`. BFF: `request` (снимок БД) → `compute` (план без записи) → `apply` (тот же plan). In-process по умолчанию; HTTP-микросервис — опционально. См. [autoroad-network-plan.md](../autoroad/autoroad-network-plan.md).
 
 ```
 MapPage ──► BFF request/compute/apply ──► planner_adapter ──► network_planner
@@ -118,7 +118,7 @@ GET    /admin/jobs/health      - Redis + счётчики (admin)
 POST   /admin/jobs/:id/cancel  - Отмена задачи (admin, идемпотентно)
 ```
 
-Подробнее: [auth-rbac.md](./auth-rbac.md)
+Подробнее: [auth-rbac.md](auth-rbac.md)
 
 ---
 
@@ -167,9 +167,9 @@ map/
     └── nearest-object-finder.ts   -- geodesic, anchor_type
 ```
 
-**Пространственный анализ (MVP):** см. [calculation-functions.md](./calculation-functions.md) §1 (`find_nearest_object_by_subtype`, `calc_geodesic_distance_km`, `calc_anchor_geometry`).
+**Пространственный анализ (MVP):** см. [calculation-functions.md](../calculations/calculation-functions.md) §1 (`find_nearest_object_by_subtype`, `calc_geodesic_distance_km`, `calc_anchor_geometry`).
 
-**3D-атрибуты объектов (L2):** `render_3d_*` в `properties`, defaults L1 — [`render_3d_properties.py`](../decision-matrix/backend/app/geo/render_3d_properties.py), [`shared/l1_extrusion_heights.json`](../decision-matrix/shared/l1_extrusion_heights.json). См. [map-3d-features.md](./map-3d-features.md).
+**3D-атрибуты объектов (L2):** `render_3d_*` в `properties`, defaults L1 — [`render_3d_properties.py`](../../decision-matrix/backend/app/geo/render_3d_properties.py), [`shared/l1_extrusion_heights.json`](../../decision-matrix/shared/l1_extrusion_heights.json). См. [map-3d-features.md](../features/map-3d-features.md).
 
 **API Endpoints**:
 ```
@@ -518,15 +518,15 @@ analytics/  [папка зарезервирована для v1.3+]
 
 ## Frontend архитектура
 
-> **Актуальная структура модулей карты и API-клиента (после рефакторинга июнь 2026):** [frontend-structure.md](./frontend-structure.md).
+> **Актуальная структура модулей карты и API-клиента (после рефакторинга июнь 2026):** [frontend-structure.md](frontend-structure.md).
 
 ### Компоненты карты
 
 Реализация 2D: `frontend/src/components/MapView.tsx` (обёртка) + `frontend/src/components/mapView/` (OpenLayers).  
 Страница: `frontend/src/pages/MapPage.tsx` (оркестратор) + `frontend/src/pages/map/` (layout-компоненты).  
-Реализация 3D: `frontend/src/components/MapView3D.tsx`, `frontend/src/lib/map3d/` — см. [map-3d-features.md](./map-3d-features.md).
+Реализация 3D: `frontend/src/components/MapView3D.tsx`, `frontend/src/lib/map3d/` — см. [map-3d-features.md](../features/map-3d-features.md).
 
-**Слои на карте (OpenLayers, 2D):** подложка, пороговые радиусы, линии подключения POI (анализ), линии/точки инфраструктуры, превью рисования. **Расчётный граф** (`infrastructure_nodes` / `infrastructure_edges`) **на карте не отображается** — только в БД и в API для «Потоков» / логистики. См. [map-objects-and-spatial-calculations.md](./map-objects-and-spatial-calculations.md) §5–§6.
+**Слои на карте (OpenLayers, 2D):** подложка, пороговые радиусы, линии подключения POI (анализ), линии/точки инфраструктуры, превью рисования. **Расчётный граф** (`infrastructure_nodes` / `infrastructure_edges`) **на карте не отображается** — только в БД и в API для «Потоков» / логистики. См. [map-objects-and-spatial-calculations.md](../features/map-objects-and-spatial-calculations.md) §5–§6.
 
 **Режим 3D (MapLibre + Three.js, view-only):** те же объекты из API → `geoJson.ts` + custom layers (glTF точки, трубы линий), MapTiler terrain, без редактирования. Переключатель 2D|3D на MapPage; также Matrix и превью отчёта.
 
@@ -701,7 +701,7 @@ CREATE TABLE decision_matrices (
 
 ### Таблицы проекта и POI
 
-Полные определения: [database-schema.md](./database-schema.md) — `projects`, `project_distance_defaults`, `project_cost_rates` (`rate_thousand_rub`), `points_of_interest` (`production_per_well`, `wells_per_pad`, `extended_params`, 5 инженерных полей, 9 порогов), `poi_infrastructure_analysis`, `one_pagers` (`poi_id`).
+Полные определения: [database-schema.md](database-schema.md) — `projects`, `project_distance_defaults`, `project_cost_rates` (`rate_thousand_rub`), `points_of_interest` (`production_per_well`, `wells_per_pad`, `extended_params`, 5 инженерных полей, 9 порогов), `poi_infrastructure_analysis`, `one_pagers` (`poi_id`).
 
 ### Таблица infrastructure_layers
 ```sql
@@ -740,7 +740,7 @@ CREATE INDEX idx_infrastructure_objects_geometry ON infrastructure_objects USING
 
 ### Таблица poi_infrastructure_analysis
 
-Полное определение с `anchor_type`, `anchor_geometry`, `distance_method` — [database-schema.md](./database-schema.md).
+Полное определение с `anchor_type`, `anchor_geometry`, `distance_method` — [database-schema.md](database-schema.md).
 
 ### Таблица implementation_variants
 ```sql

@@ -1,4 +1,4 @@
-# СППР Нефтегаз — decision-matrix
+# Atlas Grid — decision-matrix
 
 **Актуальный репозиторий (код + CI/CD):** [github.com/Mekcuka/Scaning](https://github.com/Mekcuka/Scaning)  
 Локальная папка `decision-matrix/` синхронизирована с веткой `main` этого репозитория (`git remote scaning`).
@@ -35,8 +35,8 @@ npm run dev
 | `data@oilgas.ru` | `data12345` | data_manager |
 | `viewer@oilgas.ru` | `viewer123` | viewer |
 
-Аутентификация: JWT в httpOnly cookies + CSRF. Подробнее: [docs/auth-rbac.md](docs/auth-rbac.md).
+Аутентификация: JWT в httpOnly cookies + CSRF. Подробнее: [docs/architecture/auth-rbac.md](docs/architecture/auth-rbac.md).
 
 ## Документация
 
-[docs/](docs/) — требования, архитектура, [auth-rbac.md](docs/auth-rbac.md), **[статус реализации](docs/implementation-status.md)**, план разработки.
+[docs/](docs/) — требования, архитектура, [auth-rbac.md](docs/architecture/auth-rbac.md), **[статус реализации](docs/planning/implementation-status.md)**, план разработки.

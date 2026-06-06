@@ -14,7 +14,7 @@
 | Rate limit | Login и register: `AUTH_RATE_LIMIT` (по умолчанию 10/мин на IP, slowapi) |
 | Production | `DEMO_USERS_ENABLED=false`, `ALLOW_REGISTRATION=false`, уникальный `SECRET_KEY` |
 
-> **MVP:** нормализованные таблицы `roles` / `user_roles` из [database-schema.md](./database-schema.md) **не используются** — запланированы на v2 при multi-role.
+> **MVP:** нормализованные таблицы `roles` / `user_roles` из [database-schema.md](database-schema.md) **не используются** — запланированы на v2 при multi-role.
 
 ## Роли (FR-1.2.1)
 
@@ -127,7 +127,7 @@ cd decision-matrix\backend
 
 Cookies могут **не отправляться** (инкогнито, блокировка third-party cookies). В этом случае работают Bearer + refresh по `sessionStorage`; при полной блокировке — повторный вход.
 
-**Не через `api.ts`:** Three.js `GLTFLoader` для bundled моделей (`/Scaning/map3d-models/…`) — same-origin Pages; для `GET .../map3d-custom-models/{id}/file` — только [`map3dCustomGlbFetch.ts`](../decision-matrix/frontend/src/lib/map3d/map3dCustomGlbFetch.ts).
+**Не через `api.ts`:** Three.js `GLTFLoader` для bundled моделей (`/Scaning/map3d-models/…`) — same-origin Pages; для `GET .../map3d-custom-models/{id}/file` — только [`map3dCustomGlbFetch.ts`](../../decision-matrix/frontend/src/lib/map3d/map3dCustomGlbFetch.ts).
 
 ## Устранение неполадок
 
@@ -138,7 +138,7 @@ Cookies могут **не отправляться** (инкогнито, бло
 | `Request failed` / 401 после входа (localhost) | Очистите cookies; откройте `http://localhost:5173` (proxy), не задавайте `VITE_API_URL` на прямой backend |
 | CORS | В `.env` API: `CORS_ORIGINS` должен включать `https://mekcuka.github.io` (без path) |
 | CSRF validation failed / «Обновите страницу» при upload GLB | Обновите frontend (sync + retry); перелогин; при Bearer mutating CSRF не нужен |
-| Custom GLB 404 на карте после upload | Ctrl+F5 (сброс disk cache); проверьте файл на VM в `data/map3d_models/`; см. [map-3d-features.md](./map-3d-features.md) §12 |
+| Custom GLB 404 на карте после upload | Ctrl+F5 (сброс disk cache); проверьте файл на VM в `data/map3d_models/`; см. [map-3d-features.md](../features/map-3d-features.md) §12 |
 
 ## Тесты
 

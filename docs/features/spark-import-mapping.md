@@ -94,5 +94,5 @@
 
 ## Связанные документы
 
-- [map-objects-and-spatial-calculations.md](./map-objects-and-spatial-calculations.md) — подтипы на карте
-- [input-parameters.md](./input-parameters.md) — FR-2.5.3 импорт файлов
+- [map-objects-and-spatial-calculations.md](map-objects-and-spatial-calculations.md) — подтипы на карте
+- [input-parameters.md](../product/input-parameters.md) — FR-2.5.3 импорт файлов

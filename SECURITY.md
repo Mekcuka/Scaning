@@ -28,4 +28,4 @@ Contact the maintainers privately with:
 - Dependency audits in CI (`npm audit`, `pip-audit`)
 - Container image scanning with Trivy on backend deploy
 
-See [docs/auth-rbac.md](docs/auth-rbac.md) for authentication details.
+See [docs/architecture/auth-rbac.md](docs/architecture/auth-rbac.md) for authentication details.

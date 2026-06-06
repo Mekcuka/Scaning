@@ -7,6 +7,7 @@ import { OnePagerRecommendation } from './OnePagerRecommendation';
 import { OnePagerRoadmap } from './OnePagerRoadmap';
 import { OnePagerSubtypeTable } from './OnePagerSubtypeTable';
 import type { OnePagerRoadmapStage } from '../../../lib/api';
+import { APP_NAME } from '../../../lib/branding';
 
 const MapView3D = lazy(() => import('../../../components/MapView3D'));
 
@@ -63,7 +64,7 @@ export const OnePagerPreview = forwardRef<HTMLDivElement, Props>(function OnePag
   return (
     <div className="one-pager-wrap" ref={ref}>
       <div className="one-pager" id="report-content">
-        <div className="one-pager-watermark">СППР</div>
+        <div className="one-pager-watermark">{APP_NAME}</div>
         <header className="one-pager-header">
           <div>
             <h2 className="one-pager-header__title">{data.title}</h2>

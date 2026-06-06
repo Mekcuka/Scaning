@@ -67,6 +67,14 @@ export function sparklineBars(seed: string) {
   });
 }
 
+export function filterProjectsOwnedByUser(
+  projects: Project[],
+  userId: string | null | undefined,
+) {
+  if (!userId) return [];
+  return projects.filter((p) => p.owner_user_id === userId);
+}
+
 export function filterProjectsByQuery(projects: Project[], query: string) {
   const q = query.trim().toLowerCase();
   if (!q) return projects;

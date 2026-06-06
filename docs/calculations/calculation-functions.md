@@ -1,8 +1,8 @@
 # Каталог расчётных функций
 
-> **Параметры ввода:** [input-parameters.md](./input-parameters.md).  
-> **Потоки и диаграммы:** [calculation-logic-flow.md](./calculation-logic-flow.md).  
-> **Геометрия и якоря (внешние):** [map-objects-and-spatial-calculations.md](./map-objects-and-spatial-calculations.md).
+> **Параметры ввода:** [input-parameters.md](../product/input-parameters.md).  
+> **Потоки и диаграммы:** [calculation-logic-flow.md](calculation-logic-flow.md).  
+> **Геометрия и якоря (внешние):** [map-objects-and-spatial-calculations.md](../features/map-objects-and-spatial-calculations.md).
 
 **Дата актуализации:** май 2026.
 
@@ -129,7 +129,7 @@ distance_km(subtype) = pads_count × km_per_pad(subtype)
 | Параметр | Источник |
 |----------|----------|
 | `pads_count` | `calc_pads_count` (§2) |
-| `km_per_pad` | POI (наследовано из `project_distance_defaults`) — см. [database-schema.md](./database-schema.md) |
+| `km_per_pad` | POI (наследовано из `project_distance_defaults`) — см. [database-schema.md](../architecture/database-schema.md) |
 
 **Дефолт `km_per_pad`:** 3.0 км для каждого из 4 подтипов (настраивается на проекте и POI).
 

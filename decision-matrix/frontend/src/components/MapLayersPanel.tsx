@@ -1,6 +1,12 @@
 import { useMemo, useState, type ReactNode } from 'react';
 import { ChevronDown, ChevronRight, X } from 'lucide-react';
-import { LAYER_VISIBILITY_GROUPS } from '../lib/api';
+import {
+  LAYER_VISIBILITY_GROUPS,
+  LINE_LAYER_UI_ENTRIES,
+  POINT_LAYER_UI_ENTRIES,
+  type LayerVisibilityGroup,
+  type LayerVisibilityUiEntry,
+} from '../lib/api';
 import type { MapLayerOpenSections } from '../lib/mapLayerPreferences';
 
 type LayerRow = { id: string; name: string; is_visible: boolean };
@@ -40,6 +46,126 @@ type MapLayersPanelProps = {
   onClose?: () => void;
 };
 
+function LayerBulkActions({
+  subtypes,
+  onGroupVisibility,
+}: {
+  subtypes: readonly string[];
+  onGroupVisibility: (subtypes: readonly string[], visible: boolean) => void;
+}) {
+  return (
+    <div className="map-layers-pill-group" role="group">
+      <button type="button" className="map-layers-pill" onClick={() => onGroupVisibility(subtypes, true)}>
+        Все
+      </button>
+      <button type="button" className="map-layers-pill" onClick={() => onGroupVisibility(subtypes, false)}>
+        Скрыть
+      </button>
+    </div>
+  );
+}
+
+function LayerToggle({
+  checked,
+  onChange,
+  disabled = false,
+}: {
+  checked: boolean;
+  onChange: (checked: boolean) => void;
+  disabled?: boolean;
+}) {
+  return (
+    <span className={`map-layers-switch${disabled ? ' map-layers-switch--disabled' : ''}`}>
+      <input
+        type="checkbox"
+        className="map-layers-switch-input"
+        checked={checked}
+        disabled={disabled}
+        onChange={(e) => onChange(e.target.checked)}
+      />
+      <span className="map-layers-switch-track" aria-hidden />
+    </span>
+  );
+}
+
+function LayerGroupRow({
+  group,
+  indent = 'indent',
+  isGroupVisible,
+  onGroupVisibility,
+}: {
+  group: LayerVisibilityGroup;
+  indent?: 'indent' | 'nested';
+  isGroupVisible: (subtypes: readonly string[]) => boolean;
+  onGroupVisibility: (subtypes: readonly string[], visible: boolean) => void;
+}) {
+  const indentClass = indent === 'nested' ? 'map-layers-item--nested' : 'map-layers-item--indent';
+  const visible = isGroupVisible(group.subtypes);
+  return (
+    <label key={group.id} className={`map-layers-item ${indentClass}${visible ? '' : ' map-layers-item--off'}`}>
+      <span className="map-layers-item-label truncate" title={group.label}>
+        {group.label}
+      </span>
+      <LayerToggle
+        checked={visible}
+        onChange={(next) => onGroupVisibility(group.subtypes, next)}
+      />
+    </label>
+  );
+}
+
+function ObjectCategorySection({
+  title,
+  entries,
+  subtypes,
+  isGroupVisible,
+  onGroupVisibility,
+}: {
+  title: string;
+  entries: readonly LayerVisibilityUiEntry[];
+  subtypes: readonly string[];
+  isGroupVisible: (subtypes: readonly string[]) => boolean;
+  onGroupVisibility: (subtypes: readonly string[], visible: boolean) => void;
+}) {
+  return (
+    <div className="map-layers-category">
+      <div className="map-layers-category-head">
+        <span className="map-layers-category-title">{title}</span>
+        <LayerBulkActions subtypes={subtypes} onGroupVisibility={onGroupVisibility} />
+      </div>
+      {entries.map((entry) => {
+        if (entry.kind === 'group') {
+          return (
+            <LayerGroupRow
+              key={entry.group.id}
+              group={entry.group}
+              isGroupVisible={isGroupVisible}
+              onGroupVisibility={onGroupVisibility}
+            />
+          );
+        }
+        return (
+          <div key={entry.title} className="map-layers-subcategory">
+            <div className="map-layers-subcategory-head">
+              <span className="map-layers-subcategory-title">{entry.title}</span>
+              <LayerBulkActions subtypes={entry.subtypes} onGroupVisibility={onGroupVisibility} />
+            </div>
+            {entry.groups.map((group) => (
+              <LayerGroupRow
+                key={group.id}
+                group={group}
+                indent="nested"
+                isGroupVisible={isGroupVisible}
+                onGroupVisibility={onGroupVisibility}
+              />
+            ))}
+          </div>
+        );
+      })}
+    </div>
+  );
+}
+
 function Section({
   id,
   title,
@@ -54,7 +180,7 @@ function Section({
   children: ReactNode;
 }) {
   return (
-    <section className="map-layers-section">
+    <section className={`map-layers-section${open ? ' map-layers-section--open' : ''}`}>
       <button
         type="button"
         className="map-layers-section-head"
@@ -68,6 +194,46 @@ function Section({
       </button>
       {open ? <div className="map-layers-section-body">{children}</div> : null}
     </section>
+  );
+}
+
+function LayerRow({
+  label,
+  checked,
+  onChange,
+  disabled = false,
+  indent,
+  offWhenUnchecked = true,
+  title,
+  children,
+}: {
+  label: string;
+  checked: boolean;
+  onChange: (checked: boolean) => void;
+  disabled?: boolean;
+  indent?: 'indent' | 'nested' | 'none';
+  offWhenUnchecked?: boolean;
+  title?: string;
+  children?: ReactNode;
+}) {
+  const indentClass =
+    indent === 'nested'
+      ? 'map-layers-item--nested'
+      : indent === 'indent'
+        ? 'map-layers-item--indent'
+        : '';
+  const offClass = offWhenUnchecked && !checked ? ' map-layers-item--off' : '';
+  const disabledClass = disabled ? ' map-layers-item--disabled' : '';
+  return (
+    <label
+      className={`map-layers-item ${indentClass}${offClass}${disabledClass}`.trim()}
+      title={title}
+    >
+      <span className="map-layers-item-label truncate">
+        {children ?? label}
+      </span>
+      <LayerToggle checked={checked} onChange={onChange} disabled={disabled} />
+    </label>
   );
 }
 
@@ -116,7 +282,17 @@ export function MapLayersPanel({
 
   const allGroupSubtypes = useMemo(
     () => LAYER_VISIBILITY_GROUPS.flatMap((g) => g.subtypes),
-    []
+    [],
+  );
+
+  const pointGroupSubtypes = useMemo(
+    () => POINT_LAYER_UI_ENTRIES.flatMap((e) => (e.kind === 'group' ? e.group.subtypes : e.subtypes)),
+    [],
+  );
+
+  const lineGroupSubtypes = useMemo(
+    () => LINE_LAYER_UI_ENTRIES.flatMap((e) => (e.kind === 'group' ? e.group.subtypes : e.subtypes)),
+    [],
   );
 
   return (
@@ -135,42 +311,32 @@ export function MapLayersPanel({
         ) : null}
       </div>
 
+      <div className="map-layers-panel-body">
       <Section
         id="basemap"
         title="Подложка"
         open={openSections.basemap ?? true}
         onToggle={toggleSection}
       >
-        <label className="map-layers-item">
-          <span className="map-layers-item-label">Спутник</span>
-          <input type="checkbox" checked={showBasemap} onChange={(e) => onShowBasemapChange(e.target.checked)} />
-        </label>
+        <LayerRow label="Спутник" checked={showBasemap} onChange={onShowBasemapChange} />
         {onShowTerrainChange ? (
-          <label
-            className={`map-layers-item map-layers-item--indent${!terrainToggleEnabled ? ' map-layers-item--disabled' : ''}`}
+          <LayerRow
+            label="Рельеф (3D)"
+            checked={showTerrain}
+            onChange={onShowTerrainChange}
+            disabled={!terrainToggleEnabled}
+            indent="indent"
             title={terrainToggleHint}
-          >
-            <span className="map-layers-item-label">Рельеф (3D)</span>
-            <input
-              type="checkbox"
-              checked={showTerrain}
-              disabled={!terrainToggleEnabled}
-              onChange={(e) => onShowTerrainChange(e.target.checked)}
-            />
-          </label>
+          />
         ) : null}
         {onShowModelsChange ? (
-          <label
-            className={`map-layers-item map-layers-item--indent${!modelsToggleEnabled ? ' map-layers-item--disabled' : ''}`}
-          >
-            <span className="map-layers-item-label">3D-модели объектов</span>
-            <input
-              type="checkbox"
-              checked={showModels}
-              disabled={!modelsToggleEnabled}
-              onChange={(e) => onShowModelsChange(e.target.checked)}
-            />
-          </label>
+          <LayerRow
+            label="3D-модели объектов"
+            checked={showModels}
+            onChange={onShowModelsChange}
+            disabled={!modelsToggleEnabled}
+            indent="indent"
+          />
         ) : null}
       </Section>
 
@@ -180,35 +346,35 @@ export function MapLayersPanel({
         open={openSections.objects ?? false}
         onToggle={toggleSection}
       >
-        <div className="map-layers-bulk">
-          <button type="button" className="map-layers-link" onClick={() => onGroupVisibility(allGroupSubtypes, true)}>
-            Все
-          </button>
-          <span className="map-layers-bulk-sep" aria-hidden>
-            ·
-          </span>
-          <button type="button" className="map-layers-link" onClick={() => onGroupVisibility(allGroupSubtypes, false)}>
-            Скрыть
-          </button>
+        <div className="map-layers-toolbar">
+          <span className="map-layers-toolbar-label">Все объекты</span>
+          <LayerBulkActions subtypes={allGroupSubtypes} onGroupVisibility={onGroupVisibility} />
         </div>
 
-        {LAYER_VISIBILITY_GROUPS.map((group) => (
-          <label key={group.id} className="map-layers-item">
-            <span className="map-layers-item-label truncate" title={group.label}>
-              {group.label}
-            </span>
-            <input
-              type="checkbox"
-              checked={isGroupVisible(group.subtypes)}
-              onChange={(e) => onGroupVisibility(group.subtypes, e.target.checked)}
-            />
-          </label>
-        ))}
+        <ObjectCategorySection
+          title="Точечные объекты"
+          entries={POINT_LAYER_UI_ENTRIES}
+          subtypes={pointGroupSubtypes}
+          isGroupVisible={isGroupVisible}
+          onGroupVisibility={onGroupVisibility}
+        />
 
-        <label className="map-layers-item map-layers-item--sep">
-          <span className="map-layers-item-label">Точки интереса</span>
-          <input type="checkbox" checked={showPoisOnMap} onChange={(e) => onShowPoisChange(e.target.checked)} />
-        </label>
+        <ObjectCategorySection
+          title="Линейные объекты"
+          entries={LINE_LAYER_UI_ENTRIES}
+          subtypes={lineGroupSubtypes}
+          isGroupVisible={isGroupVisible}
+          onGroupVisibility={onGroupVisibility}
+        />
+
+        <div className="map-layers-poi-block">
+          <LayerRow
+            label="Точки интереса"
+            checked={showPoisOnMap}
+            onChange={onShowPoisChange}
+            offWhenUnchecked={false}
+          />
+        </div>
       </Section>
 
       <Section
@@ -221,17 +387,14 @@ export function MapLayersPanel({
           <p className="map-layers-empty">Нет импортированных слоёв</p>
         ) : (
           layers.map((layer) => (
-            <label key={layer.id} className="map-layers-item">
-              <span className="map-layers-item-label truncate" title={layer.name}>
-                {layer.name}
-              </span>
-              <input
-                type="checkbox"
-                checked={layer.is_visible}
-                disabled={layerVisibilityPending || layerVisibilityReadOnly}
-                onChange={(e) => onLayerVisibility(layer.id, e.target.checked)}
-              />
-            </label>
+            <LayerRow
+              key={layer.id}
+              label={layer.name}
+              checked={layer.is_visible}
+              onChange={(visible) => onLayerVisibility(layer.id, visible)}
+              disabled={layerVisibilityPending || layerVisibilityReadOnly}
+              title={layer.name}
+            />
           ))
         )}
       </Section>
@@ -242,29 +405,23 @@ export function MapLayersPanel({
         open={openSections.radii ?? false}
         onToggle={toggleSection}
       >
-        <label className="map-layers-item">
-          <span className="map-layers-item-label">Все радиусы</span>
-          <input type="checkbox" checked={showRadii} onChange={(e) => onShowRadiiChange(e.target.checked)} />
-        </label>
+        <LayerRow label="Все радиусы" checked={showRadii} onChange={onShowRadiiChange} />
         {thresholdMeta.map((m) => (
-          <label
+          <LayerRow
             key={m.subtype}
-            className={`map-layers-item map-layers-item--indent${!showRadii ? ' map-layers-item--disabled' : ''}`}
+            label={m.label}
+            checked={radiusVisible[m.subtype] ?? true}
+            onChange={(visible) => onRadiusVisibleChange(m.subtype, visible)}
+            disabled={!showRadii}
+            indent="indent"
           >
-            <span className="map-layers-item-label truncate">
-              <span className="layer-swatch" style={{ background: m.color }} aria-hidden />
-              {m.label}
-              <span className="map-layers-km">{thresholdKm(m.subtype, m.defaultKm)} км</span>
-            </span>
-            <input
-              type="checkbox"
-              checked={radiusVisible[m.subtype] ?? true}
-              disabled={!showRadii}
-              onChange={(e) => onRadiusVisibleChange(m.subtype, e.target.checked)}
-            />
-          </label>
+            <span className="layer-swatch" style={{ background: m.color }} aria-hidden />
+            {m.label}
+            <span className="map-layers-km">{thresholdKm(m.subtype, m.defaultKm)} км</span>
+          </LayerRow>
         ))}
       </Section>
+      </div>
     </div>
   );
 }

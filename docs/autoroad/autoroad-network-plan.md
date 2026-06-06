@@ -3,8 +3,8 @@
 **Дата:** июнь 2026  
 **Статус:** функция **работает** через библиотеку [`autoroad-network-planner`](../../autoroad-network-planner/) (Euclidean Steiner tree, GeoSteiner / SteinerPy). Режим «Сеть» на карте: request → compute → apply; параметры расчёта в UI панели. In-process по умолчанию; HTTP-микросервис `:8080` — при `AUTOROAD_NETWORK_INPROCESS=false` + `AUTOROAD_NETWORK_SERVICE_URL`.
 
-> **Пошаговая инструкция и разбор алгоритмов простым языком:** [autoroad-network-instruction.md](./autoroad-network-instruction.md)  
-> **Журнал задач в шапке (JSON расчётов, экспорт):** [task-log-panel.md](./task-log-panel.md)
+> **Пошаговая инструкция и разбор алгоритмов простым языком:** [autoroad-network-instruction.md](autoroad-network-instruction.md)  
+> **Журнал задач в шапке (JSON расчётов, экспорт):** [task-log-panel.md](../features/task-log-panel.md)
 
 ---
 
@@ -452,7 +452,7 @@ flowchart TD
 
 **POST** `/v1/network/plan` — тот же контракт, что `POST .../autoroad-network/compute` в BFF.
 
-Подробнее (внешние клиенты, `curl`, таблицы полей): [autoroad-network-instruction.md](./autoroad-network-instruction.md) §4 «Внешний API»; пример JSON — [autoroad-network-planner/data/example_request.json](../autoroad-network-planner/data/example_request.json).
+Подробнее (внешние клиенты, `curl`, таблицы полей): [autoroad-network-instruction.md](autoroad-network-instruction.md) §4 «Внешний API»; пример JSON — [autoroad-network-planner/data/example_request.json](../../autoroad-network-planner/data/example_request.json).
 
 **Вход `NetworkPlanRequest`:**
 

@@ -4,6 +4,7 @@ import { useEffect, useState } from 'react';
 import { useForm } from 'react-hook-form';
 import { Link, useNavigate } from 'react-router-dom';
 import { z } from 'zod';
+import { APP_LOGO_MARK, APP_NAME, APP_TAGLINE } from '../lib/branding';
 import { useAuthStore } from '../store';
 
 const schema = z.object({
@@ -55,12 +56,12 @@ export function LoginPage() {
       <div className="card w-full max-w-md mx-4">
         <div className="flex items-center gap-3 mb-6">
           <div className="w-10 h-10 rounded-lg bg-blue-600 flex items-center justify-center text-white font-bold">
-            С
+            {APP_LOGO_MARK}
           </div>
           <div>
-            <h1 className="text-xl font-bold">СППР Нефтегаз</h1>
+            <h1 className="text-xl font-bold">{APP_NAME}</h1>
             <p className="text-sm" style={{ color: 'var(--text-muted)' }}>
-              Система поддержки принятия решений
+              {APP_TAGLINE}
             </p>
           </div>
         </div>

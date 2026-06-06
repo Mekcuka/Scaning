@@ -2,8 +2,8 @@
 
 > **Назначение:** стратегическая дорожная карта развития `decision-matrix/` после завершения ядра MVP.  
 > **Дата:** июнь 2026.  
-> **Базовая линия:** [implementation-status.md](./implementation-status.md) (~85% Must Have, prod-деплой описан в [DEPLOY.md](../DEPLOY.md)).  
-> **Исторический чеклист MVP:** [development-plan.md](./development-plan.md).  
+> **Базовая линия:** [implementation-status.md](implementation-status.md) (~85% Must Have, prod-деплой описан в [DEPLOY.md](../../DEPLOY.md)).  
+> **Исторический чеклист MVP:** [development-plan.md](development-plan.md).  
 > **Простым языком:** [раздел ниже](#версия-для-руководителя-и-пользователей-без-it-терминов) · технические детали — с [§1](#1-текущее-состояние).
 
 ---
@@ -210,14 +210,14 @@
 
 ### 1.2 Ключевые пробелы (вход в план)
 
-**Продукт и SLO (из [development-plan.md](./development-plan.md)):**
+**Продукт и SLO (из [development-plan.md](development-plan.md)):**
 
 - Карта 1000+ объектов — не подтверждена нагрузочными тестами
 - Расчёт матрицы 20×50 &lt; 5 с — не замерен системно
 - Lighthouse &gt; 80 — не достигнут
 - Критические баги — нет формального triage-процесса
 
-**Эксплуатация ([DEPLOY.md](../DEPLOY.md)):**
+**Эксплуатация ([DEPLOY.md](../../DEPLOY.md)):**
 
 - Персистентность custom GLB на VM (volume / object storage)
 - Централизованное логирование и алерты
@@ -231,10 +231,10 @@
 - Server-side PDF (WeasyPrint), полный Excel-экспорт
 - i18n, email-подтверждение, onboarding
 
-**Качество ([testing-strategy.md](./testing-strategy.md)):**
+**Качество ([testing-strategy.md](../testing/testing-strategy.md)):**
 
 - Frontend components ~15% покрытия
-- E2E — **12 сценариев** (карта: draw/save/ruler, логистика песка, проекты); `globalTeardown` + `cleanup_e2e_data.py`; рефакторинг MapPage/MapView завершён (июнь 2026, [frontend-structure.md](./frontend-structure.md))
+- E2E — **12 сценариев** (карта: draw/save/ruler, логистика песка, проекты); `globalTeardown` + `cleanup_e2e_data.py`; рефакторинг MapPage/MapView завершён (июнь 2026, [frontend-structure.md](../architecture/frontend-structure.md))
 - Нет регулярных perf/security прогонов в CI
 
 ---
@@ -251,7 +251,7 @@
 2. **Закрытие измеримых SLO MVP** — до масштабного расширения функционала.
 3. **Один источник геоданных** — 2D/3D/PFD/матрица из одной БД; не дублировать модели.
 4. **Вертикальные срезы** — фича считается готовой с API + UI + тестом + обновлением `implementation-status.md`.
-5. **Док ↔ код** — каждый этап завершается правкой [consistency-review.md](./consistency-review.md) при изменении FR.
+5. **Док ↔ код** — каждый этап завершается правкой [consistency-review.md](consistency-review.md) при изменении FR.
 
 ---
 
@@ -309,7 +309,7 @@ gantt
 | H1.9 | Полный Excel / GeoJSON export | FR-12.3, development-plan этап 5 | P2 |
 | H1.10 | Server PDF | FR-11.2.1, WeasyPrint | P2 |
 
-**Критерий выхода:** все пункты «Метрики успеха MVP» в [development-plan.md](./development-plan.md) отмечены или явно отложены с обоснованием.
+**Критерий выхода:** все пункты «Метрики успеха MVP» в [development-plan.md](development-plan.md) отмечены или явно отложены с обоснованием.
 
 ---
 
@@ -323,7 +323,7 @@ gantt
 | H2.2 | Polygon / MultiPolygon (ограниченно) | FR-2.3.9 post-MVP; влияние на импорт |
 | H2.3 | Sharing проектов | роли на уровне проекта, invite (v1.1 из development-plan) |
 | H2.4 | Профиль пользователя | FR-1.3.1 |
-| H2.5 | 3D в матрице/отчёте | фаза 3 из [map-3d-plan.md](./map-3d-plan.md) |
+| H2.5 | 3D в матрице/отчёте | фаза 3 из [map-3d-plan.md](../features/map-3d-plan.md) |
 | H2.6 | Object storage для GLB | S3-совместимое хранилище YC; CDN для `/file` |
 | H2.7 | Landing + onboarding | user-flows §1 |
 
@@ -337,7 +337,7 @@ gantt
 
 | # | Инициатива | Описание |
 |---|------------|----------|
-| H3.1 | `network_node` в анализе POI | FR-2.4.5, [map-objects §5](./map-objects-and-spatial-calculations.md) |
+| H3.1 | `network_node` в анализе POI | FR-2.4.5, [map-objects §5](../features/map-objects-and-spatial-calculations.md) |
 | H3.2 | `along_network` / route cost | calculation-functions planned |
 | H3.3 | Автопривязка internal LineString | post-MVP geodesic к линиям |
 | H3.4 | Планировщик sync import | Celery + Redis (architecture post-MVP) |
@@ -435,8 +435,8 @@ flowchart TB
 | Частота | Действие |
 |---------|----------|
 | Спринт (2 нед.) | Приоритизация из backlog по горизонту |
-| Месяц | Обновление [implementation-status.md](./implementation-status.md) |
-| Квартал | Ревизия этого плана; чеклист user-flows из [testing-strategy.md](./testing-strategy.md) |
+| Месяц | Обновление [implementation-status.md](implementation-status.md) |
+| Квартал | Ревизия этого плана; чеклист user-flows из [testing-strategy.md](../testing/testing-strategy.md) |
 | Релиз | Smoke + запись в CHANGELOG / release notes |
 
 ---
@@ -481,11 +481,11 @@ flowchart TB
 | Риск | Влияние | Митигация |
 |------|---------|-----------|
 | Потеря GLB при деплое | Высокое | H0.1 volume; H2.7 object storage |
-| MapPage — монолит, регрессии | Снижено (2026-06) | Рефакторинг завершён; остаётся ~981 строк оркестратора — см. [frontend-structure.md](./frontend-structure.md) |
+| MapPage — монолит, регрессии | Снижено (2026-06) | Рефакторинг завершён; остаётся ~981 строк оркестратора — см. [frontend-structure.md](../architecture/frontend-structure.md) |
 | SQLite vs PostGIS расхождение | Среднее | CI только PostGIS; локальный README режим B |
 | Один сервер VM — SPOF | Среднее | бэкапы; H3.7 managed DB; H5 HA |
 | Scope creep (TOPSIS, ML) | Среднее | legacy FR-14 вне UI; отдельные POC |
-| CORS / cross-origin auth | Среднее | [auth-rbac.md](./auth-rbac.md); E2E на Pages URL |
+| CORS / cross-origin auth | Среднее | [auth-rbac.md](../architecture/auth-rbac.md); E2E на Pages URL |
 
 ---
 
@@ -493,14 +493,14 @@ flowchart TB
 
 | Документ | Роль в плане |
 |----------|--------------|
-| [implementation-status.md](./implementation-status.md) | Текущая базовая линия; обновлять по спринтам |
-| [development-plan.md](./development-plan.md) | Исторический MVP; метрики успеха |
-| [requirements.md](./requirements.md) | Источник FR для backlog |
-| [DEPLOY.md](../DEPLOY.md) | H0 Platform |
-| [testing-strategy.md](./testing-strategy.md) | H1 Quality |
-| [map-3d-plan.md](./map-3d-plan.md) | H2 3D в отчётах, L3 storage |
-| [map-objects-and-spatial-calculations.md](./map-objects-and-spatial-calculations.md) | H3 network_node |
-| [architecture.md](./architecture.md) | Celery, analytics, enterprise |
+| [implementation-status.md](implementation-status.md) | Текущая базовая линия; обновлять по спринтам |
+| [development-plan.md](development-plan.md) | Исторический MVP; метрики успеха |
+| [requirements.md](../product/requirements.md) | Источник FR для backlog |
+| [DEPLOY.md](../../DEPLOY.md) | H0 Platform |
+| [testing-strategy.md](../testing/testing-strategy.md) | H1 Quality |
+| [map-3d-plan.md](../features/map-3d-plan.md) | H2 3D в отчётах, L3 storage |
+| [map-objects-and-spatial-calculations.md](../features/map-objects-and-spatial-calculations.md) | H3 network_node |
+| [architecture.md](../architecture/architecture.md) | Celery, analytics, enterprise |
 
 ---
 
@@ -514,4 +514,4 @@ flowchart TB
 
 ---
 
-*При изменении приоритетов бизнеса обновляйте §3 и §6; технический статус — в [implementation-status.md](./implementation-status.md).*
+*При изменении приоритетов бизнеса обновляйте §3 и §6; технический статус — в [implementation-status.md](implementation-status.md).*

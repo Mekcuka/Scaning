@@ -2,7 +2,7 @@
 
 React 19 + TypeScript + Vite. Документация проекта: [`../../docs/README.md`](../../docs/README.md).
 
-**Структура модулей карты и API после рефакторинга:** [`../../docs/frontend-structure.md`](../../docs/frontend-structure.md).
+**Структура модулей карты и API после рефакторинга:** [`../../docs/architecture/frontend-structure.md`](../../docs/architecture/frontend-structure.md).
 
 ## Быстрый старт
 
@@ -58,7 +58,7 @@ cd decision-matrix/frontend
 npm run test:e2e
 ```
 
-После прогона тестовые проекты (`test_*`) и пользователи (`e2e-*`) удаляются автоматически (`e2e/global-teardown.ts` → `backend/scripts/cleanup_e2e_data.py`). Полное описание: [`../../docs/testing-strategy.md`](../../docs/testing-strategy.md).
+После прогона тестовые проекты (`test_*`) и пользователи (`e2e-*`) удаляются автоматически (`e2e/global-teardown.ts` → `backend/scripts/cleanup_e2e_data.py`). Полное описание: [`../../docs/testing/testing-strategy.md`](../../docs/testing/testing-strategy.md).
 
 | Путь | Назначение |
 |------|------------|

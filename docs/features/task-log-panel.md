@@ -2,7 +2,7 @@
 
 **Дата:** июнь 2026  
 **Для кого:** аналитики, инженеры карты, разработчики  
-**Связанные документы:** [user-flows.md](./user-flows.md) §2.0.3, [autoroad-network-instruction.md](./autoroad-network-instruction.md), [map-objects-and-spatial-calculations.md](./map-objects-and-spatial-calculations.md) §1.9
+**Связанные документы:** [user-flows.md](../product/user-flows.md) §2.0.3, [autoroad-network-instruction.md](../autoroad/autoroad-network-instruction.md), [map-objects-and-spatial-calculations.md](map-objects-and-spatial-calculations.md) §1.9
 
 ---
 
@@ -95,7 +95,7 @@ compute  → NetworkPlanResponse
 apply    → тот же plan (без повторного compute)
 ```
 
-Подробнее: [autoroad-network-instruction.md](./autoroad-network-instruction.md) §4.
+Подробнее: [autoroad-network-instruction.md](../autoroad/autoroad-network-instruction.md) §4.
 
 ---
 

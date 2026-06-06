@@ -31,7 +31,7 @@ describe('LoginPage', () => {
 
   it('renders login form', () => {
     renderPage(<LoginPage />, { route: '/login' });
-    expect(screen.getByText('СППР Нефтегаз')).toBeInTheDocument();
+    expect(screen.getByText('Atlas Grid')).toBeInTheDocument();
     expect(screen.getByRole('button', { name: 'Войти' })).toBeInTheDocument();
   });
 

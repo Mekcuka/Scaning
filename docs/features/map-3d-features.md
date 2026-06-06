@@ -1,8 +1,8 @@
 # 3D-карта — реализованный функционал
 
-> **План и чеклисты разработки:** [map-3d-plan.md](./map-3d-plan.md)  
-> **Объекты, L2-ключи, импорт:** [map-objects-and-spatial-calculations.md](./map-objects-and-spatial-calculations.md) §6.4  
-> **Потоки UI:** [user-flows.md](./user-flows.md) §2.0
+> **План и чеклисты разработки:** [map-3d-plan.md](map-3d-plan.md)  
+> **Объекты, L2-ключи, импорт:** [map-objects-and-spatial-calculations.md](map-objects-and-spatial-calculations.md) §6.4  
+> **Потоки UI:** [user-flows.md](../product/user-flows.md) §2.0
 
 **Статус:** реализовано (май 2026). Режим **только просмотр**; редактирование геометрии — в 2D (OpenLayers).
 
@@ -19,7 +19,7 @@
 
 Переключатель **2D | 3D** в toolbar карты. При открытии вкладки «Карта» по умолчанию активен режим **2D**; режим **3D** включается вручную.
 При выключенной подложке («Спутник» в панели слоёв) тайлы Esri **не запрашиваются** в 3D (источник raster не создаётся). После первого входа в 3D экземпляр карты остаётся в DOM при возврате в 2D, чтобы не перезагружать слои при каждом переключении.
-Включение сборки: `VITE_MAP_3D_ENABLED=true` ([`map3dConfig.ts`](../decision-matrix/frontend/src/lib/map3d/map3dConfig.ts)).
+Включение сборки: `VITE_MAP_3D_ENABLED=true` ([`map3dConfig.ts`](../../decision-matrix/frontend/src/lib/map3d/map3dConfig.ts)).
 
 ---
 
@@ -30,7 +30,7 @@
 | `VITE_MAP_3D_ENABLED` | `true` — показать переключатель 2D/3D |
 | `VITE_MAPTILER_KEY` | DEM MapTiler Terrain RGB + hillshade; без ключа рельеф отключён (toast) |
 
-Примеры: [`decision-matrix/frontend/.env.example`](../decision-matrix/frontend/.env.example), GitHub Actions Variables ([`deploy/app.env.example`](../deploy/app.env.example)).
+Примеры: [`decision-matrix/frontend/.env.example`](../../decision-matrix/frontend/.env.example), GitHub Actions Variables ([`deploy/app.env.example`](../deploy/app.env.example)).
 
 Локально:
 
@@ -89,7 +89,7 @@ flowchart TB
 | `render3d.ts` | L2: `render_3d_*` + L1 fallback; `effectiveRender3dHeightM` = height × scale |
 | `extrusionHeights.ts` | L1 высоты (синхрон с backend JSON) |
 
-Компонент: [`MapView3D.tsx`](../decision-matrix/frontend/src/components/MapView3D.tsx).
+Компонент: [`MapView3D.tsx`](../../decision-matrix/frontend/src/components/MapView3D.tsx).
 
 ---
 
@@ -97,8 +97,8 @@ flowchart TB
 
 ### L1 — по подтипу
 
-- Frontend: [`extrusionHeights.ts`](../decision-matrix/frontend/src/lib/map3d/extrusionHeights.ts)
-- Backend: [`shared/l1_extrusion_heights.json`](../decision-matrix/shared/l1_extrusion_heights.json), [`render_3d_properties.py`](../decision-matrix/backend/app/geo/render_3d_properties.py)
+- Frontend: [`extrusionHeights.ts`](../../decision-matrix/frontend/src/lib/map3d/extrusionHeights.ts)
+- Backend: [`shared/l1_extrusion_heights.json`](../../decision-matrix/shared/l1_extrusion_heights.json), [`render_3d_properties.py`](../../decision-matrix/backend/app/geo/render_3d_properties.py)
 
 ### L2 — в `infrastructure_objects.properties`
 
@@ -121,7 +121,7 @@ flowchart TB
 | **Стиль 3D** | `render_3d_style` | `model` (glTF) или `extrusion` (столбик MapLibre) |
 | **Модель 3D** | `render_3d_model_id` | пусто = стандартная Kenney; `custom:{uuid}` = переопределение на точке |
 
-Выпадающий список **«Модель 3D»** (`buildRender3dModelOptions`) — **Стандартная** (пустое значение, каталог [`map3dModelCatalog.ts`](../decision-matrix/frontend/src/lib/map3d/map3dModelCatalog.ts)) + все custom GLB, у которых подтип объекта входит в `assigned_subtypes`. Несколько GLB могут быть назначены на один подтип (в списке будут все). Поле **не дублирует** «Стиль 3D»: стиль задаёт тип отображения; модель — конкретный ассет.
+Выпадающий список **«Модель 3D»** (`buildRender3dModelOptions`) — **Стандартная** (пустое значение, каталог [`map3dModelCatalog.ts`](../../decision-matrix/frontend/src/lib/map3d/map3dModelCatalog.ts)) + все custom GLB, у которых подтип объекта входит в `assigned_subtypes`. Несколько GLB могут быть назначены на один подтип (в списке будут все). Поле **не дублирует** «Стиль 3D»: стиль задаёт тип отображения; модель — конкретный ассет.
 
 ### Custom GLB (проектные модели)
 
@@ -149,19 +149,19 @@ flowchart TB
 
 **Загрузка файла на клиенте (прод):**
 
-- JSON-запросы (`lib/api.ts` → `apiClient.ts`) идут на `VITE_API_URL` с cookie + Bearer + CSRF (см. [auth-rbac.md](./auth-rbac.md)).
+- JSON-запросы (`lib/api.ts` → `apiClient.ts`) идут на `VITE_API_URL` с cookie + Bearer + CSRF (см. [auth-rbac.md](../architecture/auth-rbac.md)).
 - **Custom GLB** не грузятся напрямую через `GLTFLoader` по URL API: на cross-origin (GitHub Pages) cookie API недоступны для чтения, а `GLTFLoader` не добавляет `Authorization`.
-- Реализация: [`map3dCustomGlbFetch.ts`](../decision-matrix/frontend/src/lib/map3d/map3dCustomGlbFetch.ts) → `fetch(..., { credentials: 'include', Authorization: Bearer, cache: 'no-store' })` → blob → `GLTFLoader` ([`map3dGltfLoader.ts`](../decision-matrix/frontend/src/lib/map3d/map3dGltfLoader.ts)).
+- Реализация: [`map3dCustomGlbFetch.ts`](../../decision-matrix/frontend/src/lib/map3d/map3dCustomGlbFetch.ts) → `fetch(..., { credentials: 'include', Authorization: Bearer, cache: 'no-store' })` → blob → `GLTFLoader` ([`map3dGltfLoader.ts`](../../decision-matrix/frontend/src/lib/map3d/map3dGltfLoader.ts)).
 - Bundled Kenney (`/Scaning/map3d-models/*.glb`) — по-прежнему с того же origin, что и frontend.
-- После `upload` / смены списка моделей: `setProjectCustomGltfAssets` + `clearGltfPrototypeCache()` ([`Import3DPage`](../decision-matrix/frontend/src/pages/Import3DPage.tsx), [`MapPage`](../decision-matrix/frontend/src/pages/MapPage.tsx)).
+- После `upload` / смены списка моделей: `setProjectCustomGltfAssets` + `clearGltfPrototypeCache()` ([`Import3DPage`](../../decision-matrix/frontend/src/pages/Import3DPage.tsx), [`MapPage`](../../decision-matrix/frontend/src/pages/MapPage.tsx)).
 
 ### L3 — glTF на клиенте (реализовано)
 
-- Ассеты: [`frontend/public/map3d-models/`](../decision-matrix/frontend/public/map3d-models/) (Kenney City Kit Industrial, **CC0**)
-- Каталог: [`map3dModelCatalog.ts`](../decision-matrix/frontend/src/lib/map3d/map3dModelCatalog.ts)
+- Ассеты: [`frontend/public/map3d-models/`](../../decision-matrix/frontend/public/map3d-models/) (Kenney City Kit Industrial, **CC0**)
+- Каталог: [`map3dModelCatalog.ts`](../../decision-matrix/frontend/src/lib/map3d/map3dModelCatalog.ts)
 - Процедурный fallback, если glTF не загрузился
 
-Подробнее по файлам моделей: [`public/map3d-models/README.md`](../decision-matrix/frontend/public/map3d-models/README.md).
+Подробнее по файлам моделей: [`public/map3d-models/README.md`](../../decision-matrix/frontend/public/map3d-models/README.md).
 
 ---
 
@@ -184,9 +184,9 @@ flowchart TB
 
 ### 5.2 Окраска
 
-- Базовый цвет: цвет **слоя** или [`MAP_SUBTYPE_COLORS`](../decision-matrix/frontend/src/lib/mapIcons.ts)
-- **Встроенные** glTF (Kenney): **палитра из 5 оттенков** по высоте вершин ([`map3dObjectPalette.ts`](../decision-matrix/frontend/src/lib/map3d/map3dObjectPalette.ts)); атлас отключается для читаемости цвета слоя
-- **Custom GLB** (`custom:{uuid}`): **оригинальные PBR-текстуры и материалы** из файла; при выделении — только лёгкое emissive ([`map3dGltfLoader.ts`](../decision-matrix/frontend/src/lib/map3d/map3dGltfLoader.ts))
+- Базовый цвет: цвет **слоя** или [`MAP_SUBTYPE_COLORS`](../../decision-matrix/frontend/src/lib/mapIcons.ts)
+- **Встроенные** glTF (Kenney): **палитра из 5 оттенков** по высоте вершин ([`map3dObjectPalette.ts`](../../decision-matrix/frontend/src/lib/map3d/map3dObjectPalette.ts)); атлас отключается для читаемости цвета слоя
+- **Custom GLB** (`custom:{uuid}`): **оригинальные PBR-текстуры и материалы** из файла; при выделении — только лёгкое emissive ([`map3dGltfLoader.ts`](../../decision-matrix/frontend/src/lib/map3d/map3dGltfLoader.ts))
 - Выделение: лёгкое emissive-свечение
 
 ### 5.3 Extrusion (столбики)
@@ -197,7 +197,7 @@ flowchart TB
 
 - При загрузке glTF: `anchorGltfGroupAtFootprint` — центр основания в точке `lon`/`lat` (XZ), низ на «земле» (Y).
 - После подстройки высоты (`cloneGltfModelToHeight` с `height_m × scale`) якорь **пересчитывается**, чтобы custom GLB не смещались от маркера.
-- Модуль: [`map3dGltfLoader.ts`](../decision-matrix/frontend/src/lib/map3d/map3dGltfLoader.ts), слой [`map3dModelsLayer.ts`](../decision-matrix/frontend/src/lib/map3d/map3dModelsLayer.ts).
+- Модуль: [`map3dGltfLoader.ts`](../../decision-matrix/frontend/src/lib/map3d/map3dGltfLoader.ts), слой [`map3dModelsLayer.ts`](../../decision-matrix/frontend/src/lib/map3d/map3dModelsLayer.ts).
 
 ### 5.5 UI
 
@@ -209,26 +209,26 @@ flowchart TB
 
 ## 6. Линейные объекты
 
-- Источник геометрии: `coordinates` или `end_lon` / `end_lat` (как в 2D); перед построением 3D — `buildNormalizedLinePath3d` ([`map3dLinePathBuild.ts`](../decision-matrix/frontend/src/lib/map3d/map3dLinePathBuild.ts)): горизонтальный путь через `linePathForDisplay` + пул `infraSnapPool` (все объекты проекта).
+- Источник геометрии: `coordinates` или `end_lon` / `end_lat` (как в 2D); перед построением 3D — `buildNormalizedLinePath3d` ([`map3dLinePathBuild.ts`](../../decision-matrix/frontend/src/lib/map3d/map3dLinePathBuild.ts)): горизонтальный путь через `linePathForDisplay` + пул `infraSnapPool` (все объекты проекта).
 - Отрисовка: **Three.js custom layer** `dm-3d-lines`
-  - Обычные линии — **трубы** по рельефу ([`map3dLineMeshes.ts`](../decision-matrix/frontend/src/lib/map3d/map3dLineMeshes.ts)): **`CurvePath` из прямых `LineCurve3` между вершинами** — план **совпадает** с 2D OpenLayers / GeoJSON `LineString`. Сглаживание Catmull-Rom **не используется** (на острых углах давало «зеркальный» изгиб относительно 2D).
+  - Обычные линии — **трубы** по рельефу ([`map3dLineMeshes.ts`](../../decision-matrix/frontend/src/lib/map3d/map3dLineMeshes.ts)): **`CurvePath` из прямых `LineCurve3` между вершинами** — план **совпадает** с 2D OpenLayers / GeoJSON `LineString`. Сглаживание Catmull-Rom **не используется** (на острых углах давало «зеркальный» изгиб относительно 2D).
   - **`power_line` (ЛЭП)** — опоры только на **промежуточных** вершинах (glTF **transmission-tower**, iPoly3D CC0); на **начале и конце** опор нет — **3 провода** на каждый пролёт идут по **прямой в плане** к точке привязки на высоте коридора ЛЭП (`wirePointAlongCorridor`, ~88% номинальной высоты линии), не к вершине высокой опоры. Трасса в плане = 2D; опоры — отдельный визуальный элемент выше проводов. При ошибке загрузки glTF — процедурная заглушка.
-  - Корневая матрица **только линейного** custom layer (`dm-3d-lines`): дополнительное отражение по локальной **Z** (`makeScale(1, 1, -1)` в [`map3dLinesLayer.ts`](../decision-matrix/frontend/src/lib/map3d/map3dLinesLayer.ts)). **3D-модели точек** (`dm-3d-models`) — без этого отражения.
-- MapLibre `line` layer: **opacity 0** — только для клика (pick); геометрия pick-слоя тоже через `linePathForDisplay` ([`geoJson.ts`](../decision-matrix/frontend/src/lib/map3d/geoJson.ts)).
+  - Корневая матрица **только линейного** custom layer (`dm-3d-lines`): дополнительное отражение по локальной **Z** (`makeScale(1, 1, -1)` в [`map3dLinesLayer.ts`](../../decision-matrix/frontend/src/lib/map3d/map3dLinesLayer.ts)). **3D-модели точек** (`dm-3d-models`) — без этого отражения.
+- MapLibre `line` layer: **opacity 0** — только для клика (pick); геометрия pick-слоя тоже через `linePathForDisplay` ([`geoJson.ts`](../../decision-matrix/frontend/src/lib/map3d/geoJson.ts)).
 - Радиус трубы: по подтипу + `MAP3D_OBJECT_SCALE`; цвет — как у 2D-линии
 - Высота опоры ЛЭП: `render_3d_height_m` (L1 для `power_line` — 10 м) × `MAP3D_OBJECT_SCALE` × `MAP3D_POWER_LINE_TOWER_SCALE` (5)
 - Высота: `queryTerrainElevation` + `render_3d_base_m` (один проход, без двойного учёта рельефа)
-- **Коридор высот (`planCorridorAlts`)**: внутренние вершины слегка следуют рельефу (`PLAN_CORRIDOR_TERRAIN_BLEND ≈ 0.15`), концы — через `lineEndpointAttachAltitudeM`; снижает ложную «инверсию» изгиба в перспективе при включённом рельефе ([`map3dLinePathBuild.ts`](../decision-matrix/frontend/src/lib/map3d/map3dLinePathBuild.ts)).
-- glTF точечных объектов: якорь по XZ и Y — [`anchorGltfGroupAtFootprint`](../decision-matrix/frontend/src/lib/map3d/map3dGltfLoader.ts) в [`map3dModelsLayer.ts`](../decision-matrix/frontend/src/lib/map3d/map3dModelsLayer.ts).
+- **Коридор высот (`planCorridorAlts`)**: внутренние вершины слегка следуют рельефу (`PLAN_CORRIDOR_TERRAIN_BLEND ≈ 0.15`), концы — через `lineEndpointAttachAltitudeM`; снижает ложную «инверсию» изгиба в перспективе при включённом рельефе ([`map3dLinePathBuild.ts`](../../decision-matrix/frontend/src/lib/map3d/map3dLinePathBuild.ts)).
+- glTF точечных объектов: якорь по XZ и Y — [`anchorGltfGroupAtFootprint`](../../decision-matrix/frontend/src/lib/map3d/map3dGltfLoader.ts) в [`map3dModelsLayer.ts`](../../decision-matrix/frontend/src/lib/map3d/map3dModelsLayer.ts).
 - При `moveend` / смене рельефа ЛЭП пересчитывает провода с полным **`snapPool`** (все объекты проекта), а не только отфильтрованным `infraObjects` слоя.
 
 Подтипы линий: `autoroad`, `oil_pipeline`, `gas_pipeline`, `water_pipeline`, `power_line`, `methanol_pipeline`, `additional_line`.
 
-См. также §1.5 [map-objects-and-spatial-calculations.md](./map-objects-and-spatial-calculations.md) — рисование, привязка концов, координаты.
+См. также §1.5 [map-objects-and-spatial-calculations.md](map-objects-and-spatial-calculations.md) — рисование, привязка концов, координаты.
 
 ### 6.1 QA: паритет 2D/3D линий
 
-Автотесты: [`map3dLinePlanParity.test.ts`](../decision-matrix/frontend/src/lib/map3d/map3dLinePlanParity.test.ts), [`map3dLinePathBuild.test.ts`](../decision-matrix/frontend/src/lib/map3d/map3dLinePathBuild.test.ts), `npm run test -- src/lib/map3d`.
+Автотесты: [`map3dLinePlanParity.test.ts`](../../decision-matrix/frontend/src/lib/map3d/map3dLinePlanParity.test.ts), [`map3dLinePathBuild.test.ts`](../../decision-matrix/frontend/src/lib/map3d/map3dLinePathBuild.test.ts), `npm run test -- src/lib/map3d`.
 
 | Шаг | Действие | Ожидание |
 |-----|----------|----------|
@@ -258,7 +258,7 @@ flowchart TB
 
 | Ключ хранилища | `dm-map-layer-prefs:{projectId}` |
 |----------------|----------------------------------|
-| Модуль | [`mapLayerPreferences.ts`](../decision-matrix/frontend/src/lib/mapLayerPreferences.ts), хук [`useMapLayerPreferences.ts`](../decision-matrix/frontend/src/hooks/useMapLayerPreferences.ts) |
+| Модуль | [`mapLayerPreferences.ts`](../../decision-matrix/frontend/src/lib/mapLayerPreferences.ts), хук [`useMapLayerPreferences.ts`](../../decision-matrix/frontend/src/hooks/useMapLayerPreferences.ts) |
 
 **Что запоминается:** спутник, рельеф (3D), 3D-модели, видимость групп подтипов, POI на карте, радиусы (общий и по типам), раскрытие секций панели.
 
@@ -270,7 +270,7 @@ flowchart TB
 
 ## 8. Масштаб сцены
 
-Глобальный множитель **`MAP3D_OBJECT_SCALE = 5`** ([`map3dConfig.ts`](../decision-matrix/frontend/src/lib/map3d/map3dConfig.ts)):
+Глобальный множитель **`MAP3D_OBJECT_SCALE = 5`** ([`map3dConfig.ts`](../../decision-matrix/frontend/src/lib/map3d/map3dConfig.ts)):
 
 - glTF-модели (mercator scale)
 - радиус линейных труб
@@ -318,8 +318,8 @@ python scripts/draw_demo_map_network.py --project-name "<имя проекта>"
 ## 11. Добавление новой glTF-модели
 
 1. Положить `.glb` в `decision-matrix/frontend/public/map3d-models/`
-2. Зарегистрировать в [`map3dGltfAssets.ts`](../decision-matrix/frontend/src/lib/map3d/map3dGltfAssets.ts) (`url`, `targetHeightM`)
-3. Привязать подтип в [`map3dModelCatalog.ts`](../decision-matrix/frontend/src/lib/map3d/map3dModelCatalog.ts) или задать `render_3d_model_id` на объекте
+2. Зарегистрировать в [`map3dGltfAssets.ts`](../../decision-matrix/frontend/src/lib/map3d/map3dGltfAssets.ts) (`url`, `targetHeightM`)
+3. Привязать подтип в [`map3dModelCatalog.ts`](../../decision-matrix/frontend/src/lib/map3d/map3dModelCatalog.ts) или задать `render_3d_model_id` на объекте
 4. Убедиться в лицензии (рекомендуется CC0 / CC-BY с указанием автора)
 
 ---
@@ -337,13 +337,13 @@ python scripts/draw_demo_map_network.py --project-name "<имя проекта>"
 | Несколько custom на один подтип | разрешено; на карте у каждой точки свой выбор в «Модель 3D» |
 | Custom GLB на проде (Pages) | обязателен `VITE_API_URL` с полным URL API; загрузка файла — Bearer (не только cookie) |
 | 404 custom GLB «from disk cache» | браузер закэшировал неудачный ответ; **Ctrl+F5** или очистка данных сайта; после фикса frontend — повторная загрузка с `cache: no-store` |
-| Файлы на VM | `backend/data/map3d_models/{project_id}/{id}.glb` — при пересоздании контейнера без volume файлы теряются (см. [DEPLOY.md](../DEPLOY.md)) |
+| Файлы на VM | `backend/data/map3d_models/{project_id}/{id}.glb` — при пересоздании контейнера без volume файлы теряются (см. [DEPLOY.md](../../DEPLOY.md)) |
 | Cesium / 3D-редактирование | вне scope |
 
 ---
 
 ## 13. Связанные документы
 
-- [RUN_GUIDE.md](../decision-matrix/RUN_GUIDE.md) §7 — быстрый старт 3D
-- [map-3d-plan.md](./map-3d-plan.md) — исходный план фаз
-- [architecture.md](./architecture.md) — место 3D в frontend-стеке
+- [RUN_GUIDE.md](../../decision-matrix/RUN_GUIDE.md) §7 — быстрый старт 3D
+- [map-3d-plan.md](map-3d-plan.md) — исходный план фаз
+- [architecture.md](../architecture/architecture.md) — место 3D в frontend-стеке
