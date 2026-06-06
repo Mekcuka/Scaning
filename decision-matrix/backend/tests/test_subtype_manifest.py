@@ -33,7 +33,14 @@ from app.subtype_manifest import (
 _MANIFEST_PATH = Path(__file__).resolve().parents[2] / "shared" / "infrastructure_subtypes.json"
 
 
-def test_manifest_file_exists_and_parses():
+def test_manifest_path_resolves_in_monorepo_and_backend_shared():
+    from app.subtype_manifest import _MANIFEST_PATH, _BACKEND_ROOT
+
+    assert _MANIFEST_PATH.is_file()
+    assert _MANIFEST_PATH.name == "infrastructure_subtypes.json"
+    docker_layout = _BACKEND_ROOT / "shared" / "infrastructure_subtypes.json"
+    monorepo_layout = _BACKEND_ROOT.parent / "shared" / "infrastructure_subtypes.json"
+    assert _MANIFEST_PATH in {docker_layout, monorepo_layout}
     assert _MANIFEST_PATH.is_file()
     data = load_infrastructure_subtypes_manifest()
     assert data["version"] == 4

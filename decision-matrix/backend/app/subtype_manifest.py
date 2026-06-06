@@ -7,8 +7,23 @@ from functools import lru_cache
 from pathlib import Path
 from typing import Any
 
-_REPO_ROOT = Path(__file__).resolve().parents[2]
-_MANIFEST_PATH = _REPO_ROOT / "shared" / "infrastructure_subtypes.json"
+_BACKEND_ROOT = Path(__file__).resolve().parents[1]
+
+
+def _resolve_manifest_path() -> Path:
+    """Docker (/app/shared) and monorepo (decision-matrix/shared) layouts."""
+    for candidate in (
+        _BACKEND_ROOT / "shared" / "infrastructure_subtypes.json",
+        _BACKEND_ROOT.parent / "shared" / "infrastructure_subtypes.json",
+    ):
+        if candidate.is_file():
+            return candidate
+    raise FileNotFoundError(
+        "infrastructure_subtypes.json not found; expected backend/shared or decision-matrix/shared"
+    )
+
+
+_MANIFEST_PATH = _resolve_manifest_path()
 
 
 @lru_cache(maxsize=1)
