@@ -1,5 +1,7 @@
 """Update infrastructure object records (shared by map API)."""
 
+from uuid import UUID
+
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.api.v1.map_deps import get_layer
