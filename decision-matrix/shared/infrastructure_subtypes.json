@@ -1,5 +1,5 @@
 {
-  "version": 3,
+  "version": 4,
   "linear": {
     "all": [
       "autoroad",
@@ -101,5 +101,69 @@
   "matrix": {
     "point_exclude": ["node"],
     "internal_extra_rows": ["pads"]
+  },
+  "labels": {
+    "autoroad": "Автодорога",
+    "oil_pipeline": "Нефтепровод",
+    "gas_pipeline": "Газопровод",
+    "water_pipeline": "Водопровод",
+    "power_line": "ЛЭП",
+    "methanol_pipeline": "Метанолопровод",
+    "additional_line": "Доп. линия",
+    "gas_processing": "ГКС",
+    "ukg": "УКГ",
+    "tsg": "ТСГ",
+    "gtes": "ГТЭС",
+    "gpes": "ГПЭС",
+    "vies": "ВИЭС",
+    "substation": "ПС/ТП",
+    "refinery": "НПЗ",
+    "node": "Узел",
+    "oil_pad": "Нефтяной куст",
+    "gas_pad": "Газовый куст",
+    "preliminary_water_discharge_station": "УПСВ",
+    "booster_pumping_station": "ДНС",
+    "oil_pumping_station": "НПС",
+    "ground_pumping_station": "БКНС",
+    "sand_quarry": "Карьер песка",
+    "methanol_facility": "Объект метанола",
+    "methanol_joint": "Узел метанола",
+    "power_line_node": "Узел ЛЭП",
+    "additional_facility": "Доп. объект",
+    "offplot": "ВО"
+  },
+  "categories": {
+    "autoroad": "road",
+    "oil_pipeline": "pipeline",
+    "gas_pipeline": "pipeline",
+    "water_pipeline": "pipeline",
+    "power_line": "electricity",
+    "methanol_pipeline": "pipeline",
+    "additional_line": "other",
+    "gas_processing": "area_facility",
+    "ukg": "area_facility",
+    "tsg": "area_facility",
+    "gtes": "area_facility",
+    "gpes": "area_facility",
+    "vies": "area_facility",
+    "substation": "electricity",
+    "refinery": "area_facility",
+    "node": "network",
+    "oil_pad": "pad",
+    "gas_pad": "pad",
+    "preliminary_water_discharge_station": "area_facility",
+    "booster_pumping_station": "area_facility",
+    "oil_pumping_station": "area_facility",
+    "ground_pumping_station": "area_facility",
+    "sand_quarry": "area_facility",
+    "methanol_facility": "area_facility",
+    "methanol_joint": "network",
+    "power_line_node": "electricity",
+    "offplot": "area_facility",
+    "additional_facility": "area_facility"
+  },
+  "point_menu_labels": {
+    "gtes": "ИЭ",
+    "oil_pad": "Куст"
   }
 }

@@ -18,7 +18,9 @@ import {
   MANIFEST_NODE_DERIVED_POINT,
   MANIFEST_PAD_DERIVED_POINT,
   MANIFEST_POINT_MENU_HIDDEN,
+  MANIFEST_POINT_MENU_LABELS,
   MANIFEST_SPARK_EXCLUSIVE_POINT,
+  MANIFEST_SUBTYPE_LABELS,
   NODE_CLUSTER_SUBTYPES,
   PAD_CLUSTER_SUBTYPES,
   POINT_SUBTYPES,
@@ -26,8 +28,8 @@ import {
 import { normalizeInfraSubtype } from './subtypes';
 
 describe('infrastructureSubtypesManifest', () => {
-  it('loads v3 map and analysis lists from shared JSON', () => {
-    expect(manifest.version).toBe(3);
+  it('loads v4 map and analysis lists from shared JSON', () => {
+    expect(manifest.version).toBe(4);
     expect([...POINT_SUBTYPES]).toEqual(manifest.point.map);
     expect([...ANALYSIS_LINE_SUBTYPES]).toEqual(manifest.linear.analysis_internal);
     expect([...ANALYSIS_EXTERNAL_LINEAR_SUBTYPES]).toEqual(manifest.linear.analysis_external);
@@ -62,6 +64,17 @@ describe('infrastructureSubtypesManifest', () => {
       ...manifest.point_policies.import_only,
       ...manifest.point_policies.ie_derived,
     ]);
+  });
+
+  it('labels and point menu labels match manifest', () => {
+    expect(MANIFEST_SUBTYPE_LABELS).toEqual(manifest.labels);
+    expect(MANIFEST_POINT_MENU_LABELS).toEqual(manifest.point_menu_labels);
+    for (const subtype of POINT_SUBTYPES) {
+      expect(MANIFEST_SUBTYPE_LABELS[subtype]).toBeTruthy();
+    }
+    for (const subtype of LINE_SUBTYPES) {
+      expect(MANIFEST_SUBTYPE_LABELS[subtype]).toBeTruthy();
+    }
   });
 
   it('internal linear subtypes are subset of external linear', () => {

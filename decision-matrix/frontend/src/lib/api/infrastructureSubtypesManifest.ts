@@ -31,6 +31,12 @@ export const MANIFEST_POINT_MENU_HIDDEN = [
   ...MANIFEST_IE_DERIVED_POINT,
 ] as const;
 
+export const MANIFEST_SUBTYPE_LABELS = manifest.labels as Readonly<Record<string, string>>;
+export const MANIFEST_SUBTYPE_CATEGORIES = manifest.categories as Readonly<Record<string, string>>;
+export const MANIFEST_POINT_MENU_LABELS = manifest.point_menu_labels as Readonly<
+  Record<string, string>
+>;
+
 export const LINE_SUBTYPES = [...MANIFEST_LINEAR_ALL] as const;
 export const POINT_SUBTYPES = [...MANIFEST_POINT_MAP] as const;
 export const ANALYSIS_LINE_SUBTYPES = [...MANIFEST_ANALYSIS_INTERNAL_LINEAR] as const;

@@ -9,6 +9,8 @@ import {
   MANIFEST_IMMUTABLE_POINT,
   MANIFEST_PAD_DERIVED_POINT,
   MANIFEST_POINT_MENU_HIDDEN,
+  MANIFEST_POINT_MENU_LABELS,
+  MANIFEST_SUBTYPE_LABELS,
   NODE_CLUSTER_SUBTYPES,
   PAD_CLUSTER_SUBTYPES,
   POINT_SUBTYPES,
@@ -40,36 +42,7 @@ export const ALL_MAP_SUBTYPES = [...POINT_SUBTYPES, ...LINE_SUBTYPES] as const;
 /** Nearest vertex/node on map for all drawable line subtypes (analysis external linear). */
 export const EXTERNAL_LINEAR_SUBTYPES = ANALYSIS_EXTERNAL_LINEAR_SUBTYPES;
 
-export const SUBTYPE_LABELS: Record<string, string> = {
-  autoroad: 'Автодорога',
-  oil_pipeline: 'Нефтепровод',
-  gas_pipeline: 'Газопровод',
-  water_pipeline: 'Водопровод',
-  power_line: 'ЛЭП',
-  methanol_pipeline: 'Метанолопровод',
-  gas_processing: 'ГКС',
-  ukg: 'УКГ',
-  tsg: 'ТСГ',
-  gtes: 'ГТЭС',
-  gpes: 'ГПЭС',
-  vies: 'ВИЭС',
-  substation: 'ПС/ТП',
-  refinery: 'НПЗ',
-  node: 'Узел',
-  oil_pad: 'Нефтяной куст',
-  gas_pad: 'Газовый куст',
-  preliminary_water_discharge_station: 'УПСВ',
-  booster_pumping_station: 'ДНС',
-  oil_pumping_station: 'НПС',
-  ground_pumping_station: 'БКНС',
-  sand_quarry: 'Карьер песка',
-  methanol_facility: 'Объект метанола',
-  methanol_joint: 'Узел метанола',
-  power_line_node: 'Узел ЛЭП',
-  additional_line: 'Доп. линия',
-  additional_facility: 'Доп. объект',
-  offplot: 'ВО',
-};
+export const SUBTYPE_LABELS: Record<string, string> = { ...MANIFEST_SUBTYPE_LABELS };
 
 export function createDefaultSubtypeFilter(): Record<string, boolean> {
   return Object.fromEntries(ALL_MAP_SUBTYPES.map((s) => [s, true]));
@@ -77,8 +50,7 @@ export function createDefaultSubtypeFilter(): Record<string, boolean> {
 
 /** Подпись в меню «Точка» (если отличается от SUBTYPE_LABELS). */
 export const POINT_MENU_LABELS: Partial<Record<string, string>> = {
-  gtes: 'ИЭ',
-  oil_pad: 'Куст',
+  ...MANIFEST_POINT_MENU_LABELS,
 };
 
 export function pointMenuLabel(subtype: string): string {

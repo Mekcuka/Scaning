@@ -25,6 +25,8 @@ from app.subtype_manifest import (
     PAD_DERIVED_POINT_SUBTYPES,
     POINT_MAP_SUBTYPES,
     SPARK_EXCLUSIVE_POINT_SUBTYPES,
+    SUBTYPE_CATEGORY,
+    SUBTYPE_LABELS,
     load_infrastructure_subtypes_manifest,
 )
 
@@ -34,7 +36,7 @@ _MANIFEST_PATH = Path(__file__).resolve().parents[2] / "shared" / "infrastructur
 def test_manifest_file_exists_and_parses():
     assert _MANIFEST_PATH.is_file()
     data = load_infrastructure_subtypes_manifest()
-    assert data["version"] == 3
+    assert data["version"] == 4
 
 
 def test_manifest_linear_all_matches_geo_line_subtypes():
@@ -94,3 +96,16 @@ def test_manifest_point_policies_match_geo_constants():
     assert geo_constants.IMMUTABLE_POINT_SUBTYPES == IMMUTABLE_POINT_SUBTYPES
     assert geo_constants.IMPORT_ONLY_POINT_SUBTYPES == IMPORT_ONLY_POINT_SUBTYPES
     assert geo_constants.IE_DERIVED_POINT_SUBTYPES == IE_DERIVED_POINT_SUBTYPES
+
+
+def test_manifest_labels_and_categories_cover_map_subtypes():
+    raw = json.loads(_MANIFEST_PATH.read_text(encoding="utf-8"))
+    map_subtypes = set(raw["linear"]["all"]) | set(raw["point"]["map"])
+    labels = raw["labels"]
+    categories = raw["categories"]
+    assert map_subtypes <= set(labels.keys())
+    assert map_subtypes <= set(categories.keys())
+    assert SUBTYPE_LABELS == labels
+    assert SUBTYPE_CATEGORY == categories
+    assert geo_constants.SUBTYPE_LABELS == SUBTYPE_LABELS
+    assert geo_constants.SUBTYPE_CATEGORY == SUBTYPE_CATEGORY

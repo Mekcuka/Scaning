@@ -266,6 +266,24 @@ Frontend: `infrastructureSubtypesManifest.ts` → `subtypes.ts`.
 
 ---
 
+## Post-phase: subtype manifest v3 ✅
+
+**Статус:** завершена (июнь 2026).
+
+- `point_policies.*` — immutable, exclusive, facility, import_only, ie_derived, node_derived, pad_derived, spark_exclusive
+- Backend validation и frontend menu hidden — из одного JSON
+
+---
+
+## Post-phase: subtype manifest v4 ✅
+
+**Статус:** завершена (июнь 2026).
+
+- `labels` / `categories` — все map subtypes (backend + frontend)
+- `point_menu_labels` — переопределения UI меню «Точка» (gtes → ИЭ, oil_pad → Куст)
+
+---
+
 ## Порядок выполнения PR
 
 | # | Фаза | Эффект | Риск |

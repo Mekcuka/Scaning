@@ -57,6 +57,9 @@ NODE_DERIVED_POINT_SUBTYPES = _frozenset(["point_policies", "node_derived"])
 PAD_DERIVED_POINT_SUBTYPES = _frozenset(["point_policies", "pad_derived"])
 SPARK_EXCLUSIVE_POINT_SUBTYPES = _frozenset(["point_policies", "spark_exclusive"])
 
+SUBTYPE_LABELS = _dict(["labels"])
+SUBTYPE_CATEGORY = _dict(["categories"])
+
 LEGACY_SUBTYPE_ALIASES = _dict(["legacy_aliases"])
 
 ANALYSIS_SUBTYPES = (
