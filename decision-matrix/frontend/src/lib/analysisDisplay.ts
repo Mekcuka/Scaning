@@ -5,24 +5,12 @@ type MapInfraLike = Pick<
   'id' | 'subtype' | 'name' | 'lon' | 'lat' | 'end_lon' | 'end_lat' | 'coordinates'
 >;
 import { STATUS_LABELS, SUBTYPE_LABELS } from './specs';
+import {
+  ANALYSIS_EXTERNAL_POINT_SUBTYPES,
+} from './api/infrastructureSubtypesManifest';
 
-export const ANALYSIS_LINE_SUBTYPES = [
-  'autoroad',
-  'oil_pipeline',
-  'water_pipeline',
-  'power_line',
-] as const;
-
-export const ANALYSIS_EXTERNAL_SUBTYPES = [
-  'gas_processing',
-  'gtes',
-  'substation',
-  'refinery',
-  'ground_pumping_station',
-  'sand_quarry',
-] as const;
-
-export { EXTERNAL_LINEAR_SUBTYPES } from './api';
+export { ANALYSIS_LINE_SUBTYPES, ANALYSIS_EXTERNAL_LINEAR_SUBTYPES as EXTERNAL_LINEAR_SUBTYPES } from './api';
+export const ANALYSIS_EXTERNAL_SUBTYPES = ANALYSIS_EXTERNAL_POINT_SUBTYPES;
 
 export function subtypeDisplayLabel(subtype: string): string {
   return SUBTYPE_LABELS[subtype] || subtype;

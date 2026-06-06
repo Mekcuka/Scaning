@@ -1,5 +1,8 @@
 """Infrastructure subtype and geometry constants (FR-2.3.9)."""
 
+from app.subtype_manifest import EXTERNAL_POINT_SUBTYPES as _ANALYSIS_EXTERNAL_POINTS
+from app.subtype_manifest import LINEAR_SUBTYPES as _MANIFEST_LINEAR_ALL
+
 POINT_SUBTYPES = frozenset(
     {
         "gas_processing",
@@ -25,17 +28,7 @@ POINT_SUBTYPES = frozenset(
         "additional_facility",
     }
 )
-LINE_SUBTYPES = frozenset(
-    {
-        "autoroad",
-        "oil_pipeline",
-        "gas_pipeline",
-        "water_pipeline",
-        "power_line",
-        "methanol_pipeline",
-        "additional_line",
-    }
-)
+LINE_SUBTYPES = frozenset(_MANIFEST_LINEAR_ALL)
 ALL_INFRA_SUBTYPES = POINT_SUBTYPES | LINE_SUBTYPES
 
 # ГКС / УКГ / ТСГ — в карточке объекта смена только внутри этой тройки.
@@ -110,17 +103,8 @@ def subtypes_for_nearest_search(subtype: str) -> frozenset[str]:
     return frozenset({st})
 
 
-# FR-6.1.2 autosearch — only classic external facilities
-EXTERNAL_POINT_SUBTYPES = frozenset(
-    {
-        "gas_processing",
-        "gtes",
-        "substation",
-        "refinery",
-        "ground_pumping_station",
-        "sand_quarry",
-    }
-)
+# FR-6.1.2 autosearch — only classic external facilities (from shared manifest)
+EXTERNAL_POINT_SUBTYPES = frozenset(_ANALYSIS_EXTERNAL_POINTS)
 
 LINEAR_SUBTYPES = LINE_SUBTYPES
 

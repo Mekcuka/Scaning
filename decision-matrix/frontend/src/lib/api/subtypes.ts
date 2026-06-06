@@ -1,4 +1,15 @@
 import type { InfraObject } from './entities';
+import {
+  ANALYSIS_EXTERNAL_LINEAR_SUBTYPES,
+  LINE_SUBTYPES,
+} from './infrastructureSubtypesManifest';
+
+export {
+  ANALYSIS_EXTERNAL_LINEAR_SUBTYPES,
+  ANALYSIS_EXTERNAL_POINT_SUBTYPES,
+  ANALYSIS_LINE_SUBTYPES,
+  LINE_SUBTYPES,
+} from './infrastructureSubtypesManifest';
 
 /** Legacy DB/API subtype codes → current codes (keep in sync with backend constants.py). */
 export const LEGACY_SUBTYPE_ALIASES: Record<string, string> = {
@@ -34,23 +45,10 @@ export const POINT_SUBTYPES = [
   'additional_facility',
 ] as const;
 
-/** Map/import layer filter (includes gas_pipeline). */
-export const LINE_SUBTYPES = [
-  'autoroad',
-  'oil_pipeline',
-  'gas_pipeline',
-  'water_pipeline',
-  'power_line',
-  'methanol_pipeline',
-  'additional_line',
-] as const;
-
 export const ALL_MAP_SUBTYPES = [...POINT_SUBTYPES, ...LINE_SUBTYPES] as const;
 
-/** FR-6: 4 internal linear subtypes in environment analysis. */
-export const ANALYSIS_LINE_SUBTYPES = ['autoroad', 'oil_pipeline', 'water_pipeline', 'power_line'] as const;
-/** Nearest vertex/node on map for all drawable line subtypes. */
-export const EXTERNAL_LINEAR_SUBTYPES = LINE_SUBTYPES;
+/** Nearest vertex/node on map for all drawable line subtypes (analysis external linear). */
+export const EXTERNAL_LINEAR_SUBTYPES = ANALYSIS_EXTERNAL_LINEAR_SUBTYPES;
 
 export const SUBTYPE_LABELS: Record<string, string> = {
   autoroad: 'Автодорога',

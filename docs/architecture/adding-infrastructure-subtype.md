@@ -10,26 +10,25 @@
 | Внешняя линейная | `external_linear` | `gas_pipeline`, `methanol_pipeline` |
 | Внешняя точечная | `external` | `gas_processing`, `gtes` |
 
-## 2. Backend — константы и ставки
+## 2. Backend — manifest, константы и ставки
 
-1. **`backend/app/geo/constants.py`** — добавить subtype в `LINEAR_SUBTYPES` или `POINT_SUBTYPES` (если объект отображается на карте).
-2. **`backend/app/services/cost_rates.py`** — добавить в нужный кортеж:
-   - `ANALYSIS_LINEAR_SUBTYPES` (internal)
-   - `EXTERNAL_LINEAR_SUBTYPES` (external_linear)
-   - `EXTERNAL_POINT_SUBTYPES` (external)
-   - и ставку в `DEFAULT_COST_RATES`.
-3. **`backend/app/services/analysis/compute.py`** — при необходимости поля лимитов/порогов в `get_distance_maps()` (POI + `ProjectDistanceDefaults`).
-4. **`backend/app/services/calculations.py`** — если subtype зависит от инженерных решений, обновить `apply_engineering_rules()`.
+1. **`decision-matrix/shared/infrastructure_subtypes.json`** — добавить subtype в нужный список:
+   - `linear.analysis_internal` (internal)
+   - `linear.analysis_external` (external_linear; обычно = `linear.all`)
+   - `point.analysis_external` (external)
+2. **`backend/app/geo/constants.py`** — если объект отображается на карте, добавить в `POINT_SUBTYPES` (map-only subtypes).
+3. **`backend/app/services/cost_rates.py`** — ставка в `DEFAULT_COST_RATES` (списки subtypes берутся из manifest автоматически).
+4. **`backend/app/services/analysis/compute.py`** — при необходимости поля лимитов/порогов в `get_distance_maps()`.
+5. **`backend/app/services/calculations.py`** — если subtype зав зависит от инженерных решений, обновить `apply_engineering_rules()`.
 
-Реестр builders (`analysis/builders/`) **не менять** — он итерирует кортежи из `cost_rates.py`.
+Реестры builders и `MATRIX_SECTIONS` на frontend подхватят списки из manifest **без правок оркестраторов**.
 
-## 3. Frontend — каталог и матрица
+## 3. Frontend — labels и map-only UI
 
-1. **`frontend/src/lib/api/subtypes.ts`** — subtype, `SUBTYPE_LABELS`, группы слоёв (синхрон с `constants.py`).
-2. **`frontend/src/lib/matrixData/sections.ts`** — добавить subtype в нужную секцию `MATRIX_SECTIONS` (OCP-реестр).
-3. При необходимости — иконка/стиль на карте (`mapConstants`, layer prefs).
+1. **`frontend/src/lib/api/subtypes.ts`** — `SUBTYPE_LABELS`, группы слоёв (map-only; analysis lists из manifest).
+2. При необходимости — иконка/стиль на карте (`mapConstants`, layer prefs).
 
-Реестр рендереров (`MATRIX_CELL_RENDERERS`) **не менять**, если `param_type` стандартный.
+Реестр `MATRIX_SECTIONS` и `MATRIX_CELL_RENDERERS` **не менять**, если `param_type` стандартный.
 
 ## 4. Тесты (минимум)
 

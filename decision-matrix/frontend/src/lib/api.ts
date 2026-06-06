@@ -7,6 +7,11 @@ export * from './api/sandLogistics';
 export * from './api/importTypes';
 export * from './api/onePager';
 export * from './api/subtypes';
+export {
+  MANIFEST_ANALYSIS_EXTERNAL_POINT,
+  MANIFEST_MATRIX_INTERNAL_EXTRA_ROWS,
+  MANIFEST_MATRIX_POINT_EXCLUDE,
+} from './api/infrastructureSubtypesManifest';
 export { adminApi } from './api/adminApi';
 export { analysisApi } from './api/analysisApi';
 export { authApi } from './api/authApi';

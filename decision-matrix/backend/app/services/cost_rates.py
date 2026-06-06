@@ -1,5 +1,13 @@
 """Default cost rates (FR-4.1.2) — values in thousand RUB."""
 
+from app.subtype_manifest import (
+    ANALYSIS_LINEAR_SUBTYPES,
+    ANALYSIS_SUBTYPES,
+    EXTERNAL_LINEAR_SUBTYPES,
+    EXTERNAL_POINT_SUBTYPES,
+    LINEAR_SUBTYPES,
+)
+
 DEFAULT_COST_RATES: dict[str, float] = {
     "autoroad": 5000,
     "oil_pipeline": 8000,
@@ -54,30 +62,3 @@ OIL_PREP_RATE_MAP = {
     "upsv": "eq_upsv",
     "mfns": None,
 }
-
-# FR-6.1.1: 4 internal linear — formula km/КП×кусты; all drawable lines also in external_linear search
-ANALYSIS_LINEAR_SUBTYPES = ("autoroad", "oil_pipeline", "water_pipeline", "power_line")
-LINEAR_SUBTYPES = (
-    "autoroad",
-    "oil_pipeline",
-    "gas_pipeline",
-    "water_pipeline",
-    "power_line",
-    "methanol_pipeline",
-    "additional_line",
-)
-EXTERNAL_LINEAR_SUBTYPES = LINEAR_SUBTYPES
-EXTERNAL_POINT_SUBTYPES = (
-    "gas_processing",
-    "gtes",
-    "substation",
-    "refinery",
-    "ground_pumping_station",
-    "sand_quarry",
-)
-ANALYSIS_SUBTYPES = (
-    *ANALYSIS_LINEAR_SUBTYPES,
-    *EXTERNAL_LINEAR_SUBTYPES,
-    *EXTERNAL_POINT_SUBTYPES,
-    "pads",
-)

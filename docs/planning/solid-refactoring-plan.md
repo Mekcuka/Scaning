@@ -251,6 +251,18 @@ pages/import/
 
 ---
 
+## Post-phase: subtype manifest ✅
+
+**Статус:** завершена (июнь 2026).
+
+Единый источник списков analysis/matrix: `decision-matrix/shared/infrastructure_subtypes.json`
+
+- Backend: `app/subtype_manifest.py` → `cost_rates.py`, `geo/constants.py`
+- Frontend: `lib/api/infrastructureSubtypesManifest.ts` → `subtypes.ts`, `matrixData/sections.ts`
+- Тесты: `test_subtype_manifest.py`, `infrastructureSubtypesManifest.test.ts`
+
+---
+
 ## Порядок выполнения PR
 
 | # | Фаза | Эффект | Риск |

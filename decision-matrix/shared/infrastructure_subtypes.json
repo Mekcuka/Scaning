@@ -1,0 +1,43 @@
+{
+  "version": 1,
+  "linear": {
+    "all": [
+      "autoroad",
+      "oil_pipeline",
+      "gas_pipeline",
+      "water_pipeline",
+      "power_line",
+      "methanol_pipeline",
+      "additional_line"
+    ],
+    "analysis_internal": [
+      "autoroad",
+      "oil_pipeline",
+      "water_pipeline",
+      "power_line"
+    ],
+    "analysis_external": [
+      "autoroad",
+      "oil_pipeline",
+      "gas_pipeline",
+      "water_pipeline",
+      "power_line",
+      "methanol_pipeline",
+      "additional_line"
+    ]
+  },
+  "point": {
+    "analysis_external": [
+      "gas_processing",
+      "gtes",
+      "substation",
+      "refinery",
+      "ground_pumping_station",
+      "sand_quarry"
+    ]
+  },
+  "matrix": {
+    "point_exclude": ["node"],
+    "internal_extra_rows": ["pads"]
+  }
+}

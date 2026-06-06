@@ -1,13 +1,17 @@
 import {
+  ANALYSIS_EXTERNAL_LINEAR_SUBTYPES,
   ANALYSIS_LINE_SUBTYPES,
-  EXTERNAL_LINEAR_SUBTYPES,
+  MANIFEST_MATRIX_INTERNAL_EXTRA_ROWS,
+  MANIFEST_MATRIX_POINT_EXCLUDE,
   POINT_SUBTYPES,
   SUBTYPE_LABELS,
 } from '../api';
 import type { MatrixSectionDef } from './types';
 
 /** Point subtypes in the comparison matrix (excludes connection nodes on the map). */
-const MATRIX_POINT_SUBTYPES = POINT_SUBTYPES.filter((s) => s !== 'node');
+const MATRIX_POINT_SUBTYPES = POINT_SUBTYPES.filter(
+  (s) => !MANIFEST_MATRIX_POINT_EXCLUDE.includes(s)
+);
 
 function defaultLabel(subtype: string): string {
   return SUBTYPE_LABELS[subtype] || subtype;
@@ -18,13 +22,14 @@ export const MATRIX_SECTIONS: readonly MatrixSectionDef[] = [
   {
     section: 'Внутренние решения',
     paramType: 'internal',
-    subtypes: [...ANALYSIS_LINE_SUBTYPES, 'pads'],
-    labelOf: (subtype) => (subtype === 'pads' ? 'Кустовые площадки' : defaultLabel(subtype)),
+    subtypes: [...ANALYSIS_LINE_SUBTYPES, ...MANIFEST_MATRIX_INTERNAL_EXTRA_ROWS],
+    labelOf: (subtype) =>
+      subtype === 'pads' ? 'Кустовые площадки' : defaultLabel(subtype),
   },
   {
     section: 'Внешние линейные объекты',
     paramType: 'external_linear',
-    subtypes: EXTERNAL_LINEAR_SUBTYPES,
+    subtypes: ANALYSIS_EXTERNAL_LINEAR_SUBTYPES,
     labelOf: defaultLabel,
   },
   {
