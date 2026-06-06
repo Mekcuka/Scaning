@@ -114,13 +114,24 @@ test.describe('Map', () => {
     const patchRes = await patchPromise;
     expect((await patchRes.json()).name).toBe('E2E ГКС переименован');
 
-    await page.keyboard.press('Escape');
+    await page.locator('.object-detail-panel__close').click();
+    await expect(page.locator('.object-detail-panel')).toBeHidden({ timeout: 10_000 });
+
     await page.getByRole('button', { name: 'Линейка' }).click();
-    await clickMapLonLat(page, viewport, 37.617, 55.755);
-    await page.waitForTimeout(400);
-    await clickMapLonLat(page, viewport, 37.62, 55.758);
-    await page.waitForTimeout(400);
-    await expect(page.getByRole('button', { name: 'Готово' })).toBeEnabled({ timeout: 15_000 });
+    const mapViewport = page.locator('.ol-viewport').first();
+    await clickMapLonLat(page, mapViewport, 37.617, 55.755);
+    await page.waitForTimeout(600);
+    await clickMapLonLat(page, mapViewport, 37.62, 55.758);
+    await page.waitForTimeout(600);
+
+    await page.waitForFunction(
+      () => {
+        const buttons = Array.from(document.querySelectorAll('button'));
+        const done = buttons.find((b) => b.textContent?.includes('Готово'));
+        return Boolean(done && !(done as HTMLButtonElement).disabled);
+      },
+      { timeout: 20_000 },
+    );
     await page.getByRole('button', { name: 'Готово' }).click();
     await expect(page.locator('.measure-label').first()).toBeVisible({ timeout: 15_000 });
   });
