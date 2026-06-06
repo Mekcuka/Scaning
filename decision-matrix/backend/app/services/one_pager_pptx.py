@@ -13,6 +13,7 @@ from pptx.enum.shapes import MSO_SHAPE
 from pptx.enum.text import MSO_ANCHOR, PP_ALIGN
 from pptx.util import Inches, Pt
 
+from app.geo.constants import SUBTYPE_LABELS as _MANIFEST_SUBTYPE_LABELS
 from app.models import OnePager
 from app.services.one_pager_builder import ENG_LABELS
 
@@ -32,16 +33,8 @@ SLIDE_W = Inches(13.333)
 SLIDE_H = Inches(7.5)
 
 SUBTYPE_LABELS: dict[str, str] = {
-    "autoroad": "Автодорога",
-    "oil_pipeline": "Нефтепровод",
-    "water_pipeline": "Водопровод",
-    "power_line": "ЛЭП",
-    "gas_pipeline": "Газопровод",
-    "gas_processing": "ГКС",
+    **_MANIFEST_SUBTYPE_LABELS,
     "gtes": "ГТЭС/ГПЭС",
-    "substation": "ПС/ТП",
-    "refinery": "НПЗ",
-    "ground_pumping_station": "НПС",
     "pads": "Кустовые площадки",
 }
 

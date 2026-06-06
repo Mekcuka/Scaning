@@ -37,7 +37,7 @@
 | ~~`backend/app/api/v1/router.py`~~ | ~34 | compose only | фаза 6 ✅ |
 | ~~`backend/app/api/v1/map.py`~~ | ~38 | compose only | map split ✅ |
 | ~~`ImportPage.tsx`, `Import3DPage.tsx`~~ | ~75 / ~220 | workflow hooks | фаза 3 ✅ |
-| `buildMapPageSections.ts` | ~416 | props mapping | опционально |
+| `buildMapPageSections/` | ~50 each | props mapping per section | **✅ split** |
 
 ## Метрики готовности этапа
 
