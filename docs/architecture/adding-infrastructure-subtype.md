@@ -17,8 +17,9 @@
    - `linear.all` — если линейный объект на карте
    - `linear.analysis_internal` / `linear.analysis_external` / `point.analysis_external` — для строк анализа
    - `clusters.*` — если входит в группу смены подтипа (ГКС, узел, куст, ИЭ)
+   - `point_policies.*` — immutable, exclusive, facility, import_only, ie_derived, node_derived, pad_derived
    - `legacy_aliases` — устаревшие коды Искра/БД
-2. **`backend/app/geo/constants.py`** — map-only policy sets (`IMMUTABLE`, `IMPORT_ONLY`, …) при необходимости.
+2. **`backend/app/geo/constants.py`** — re-export policy sets из manifest (не дублировать списки вручную).
 3. **`backend/app/services/cost_rates.py`** — ставка в `DEFAULT_COST_RATES` (списки subtypes берутся из manifest автоматически).
 4. **`backend/app/services/analysis/compute.py`** — при необходимости поля лимитов/порогов в `get_distance_maps()`.
 5. **`backend/app/services/calculations.py`** — если subtype зав зависит от инженерных решений, обновить `apply_engineering_rules()`.
@@ -27,7 +28,7 @@
 
 ## 3. Frontend — labels и map-only UI
 
-1. **`frontend/src/lib/api/subtypes.ts`** — `SUBTYPE_LABELS`, группы слоёв (map-only; analysis lists из manifest).
+1. **`frontend/src/lib/api/subtypes.ts`** — `SUBTYPE_LABELS`, группы слоёв (map-only; analysis lists и point policies из manifest).
 2. При необходимости — иконка/стиль на карте (`mapConstants`, layer prefs).
 
 Реестр `MATRIX_SECTIONS` и `MATRIX_CELL_RENDERERS` **не менять**, если `param_type` стандартный.

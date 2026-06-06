@@ -5,6 +5,10 @@ import {
   GTES_CLUSTER_SUBTYPES,
   LEGACY_SUBTYPE_ALIASES,
   LINE_SUBTYPES,
+  MANIFEST_EXCLUSIVE_POINT,
+  MANIFEST_IMMUTABLE_POINT,
+  MANIFEST_PAD_DERIVED_POINT,
+  MANIFEST_POINT_MENU_HIDDEN,
   NODE_CLUSTER_SUBTYPES,
   PAD_CLUSTER_SUBTYPES,
   POINT_SUBTYPES,
@@ -18,6 +22,9 @@ export {
   GTES_CLUSTER_SUBTYPES,
   LEGACY_SUBTYPE_ALIASES,
   LINE_SUBTYPES,
+  MANIFEST_IE_DERIVED_POINT,
+  MANIFEST_IMPORT_ONLY_POINT,
+  MANIFEST_NODE_DERIVED_POINT,
   NODE_CLUSTER_SUBTYPES,
   PAD_CLUSTER_SUBTYPES,
   POINT_SUBTYPES,
@@ -191,34 +198,18 @@ export function isGtesClusterSubtype(subtype: string): boolean {
 }
 
 /** Point subtypes that cannot be changed after the object is created. */
-export const IMMUTABLE_POINT_SUBTYPES = [
-  'sand_quarry',
-  'ground_pumping_station',
-  'oil_pumping_station',
-  'methanol_facility',
-  'offplot',
-  'additional_facility',
-] as const;
+export const IMMUTABLE_POINT_SUBTYPES = [...MANIFEST_IMMUTABLE_POINT] as const;
 
-/** Не в меню «Точка»: Искра, facility-objects API или смена у базового подтипа (см. paste plan). */
-export const IMPORT_ONLY_POINT_SUBTYPES = [
-  'ukg',
-  'tsg',
-  'gpes',
-  'vies',
-  'oil_pumping_station',
-  'methanol_joint',
-  'power_line_node',
-  'gas_pad',
-] as const;
+/** Не в меню «Точка»: import_only + ie_derived из manifest (см. paste plan). */
+export const IMPORT_ONLY_POINT_SUBTYPES = [...MANIFEST_POINT_MENU_HIDDEN] as const;
 
 /** Подтип куста без пункта «Точка» — импорт Искра или смена у «Куст» (oil_pad). */
-export const PAD_DERIVED_POINT_SUBTYPES = ['gas_pad'] as const;
+export const PAD_DERIVED_POINT_SUBTYPES = [...MANIFEST_PAD_DERIVED_POINT] as const;
 
 const IMPORT_ONLY_POINT_SET = new Set<string>(IMPORT_ONLY_POINT_SUBTYPES);
 
 /** Нельзя выбрать в карточке другого объекта (кроме самого подтипа). */
-export const EXCLUSIVE_POINT_SUBTYPES = ['sand_quarry', 'methanol_facility', 'offplot', 'additional_facility'] as const;
+export const EXCLUSIVE_POINT_SUBTYPES = [...MANIFEST_EXCLUSIVE_POINT] as const;
 
 const EXCLUSIVE_POINT_SET = new Set<string>(EXCLUSIVE_POINT_SUBTYPES);
 

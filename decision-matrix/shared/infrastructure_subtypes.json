@@ -1,5 +1,5 @@
 {
-  "version": 2,
+  "version": 3,
   "linear": {
     "all": [
       "autoroad",
@@ -58,6 +58,35 @@
       "ground_pumping_station",
       "sand_quarry"
     ]
+  },
+  "point_policies": {
+    "immutable": [
+      "sand_quarry",
+      "ground_pumping_station",
+      "oil_pumping_station",
+      "methanol_facility",
+      "offplot",
+      "additional_facility"
+    ],
+    "exclusive": [
+      "sand_quarry",
+      "offplot",
+      "additional_facility",
+      "methanol_facility"
+    ],
+    "facility": ["refinery", "oil_pumping_station"],
+    "import_only": [
+      "ukg",
+      "tsg",
+      "oil_pumping_station",
+      "methanol_joint",
+      "power_line_node",
+      "gas_pad"
+    ],
+    "ie_derived": ["gpes", "vies"],
+    "node_derived": ["methanol_joint", "power_line_node"],
+    "pad_derived": ["gas_pad"],
+    "spark_exclusive": []
   },
   "clusters": {
     "gks": ["gas_processing", "ukg", "tsg"],

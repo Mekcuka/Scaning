@@ -10,13 +10,21 @@ from app.services.cost_rates import (
     EXTERNAL_POINT_SUBTYPES,
 )
 from app.subtype_manifest import (
+    EXCLUSIVE_POINT_SUBTYPES,
+    FACILITY_POINT_SUBTYPES,
     GKS_CLUSTER_SUBTYPES,
     GTES_CLUSTER_SUBTYPES,
+    IE_DERIVED_POINT_SUBTYPES,
+    IMMUTABLE_POINT_SUBTYPES,
+    IMPORT_ONLY_POINT_SUBTYPES,
     LEGACY_SUBTYPE_ALIASES,
     LINEAR_SUBTYPES,
     NODE_CLUSTER_SUBTYPES,
+    NODE_DERIVED_POINT_SUBTYPES,
     PAD_CLUSTER_SUBTYPES,
+    PAD_DERIVED_POINT_SUBTYPES,
     POINT_MAP_SUBTYPES,
+    SPARK_EXCLUSIVE_POINT_SUBTYPES,
     load_infrastructure_subtypes_manifest,
 )
 
@@ -26,7 +34,7 @@ _MANIFEST_PATH = Path(__file__).resolve().parents[2] / "shared" / "infrastructur
 def test_manifest_file_exists_and_parses():
     assert _MANIFEST_PATH.is_file()
     data = load_infrastructure_subtypes_manifest()
-    assert data["version"] == 2
+    assert data["version"] == 3
 
 
 def test_manifest_linear_all_matches_geo_line_subtypes():
@@ -70,3 +78,19 @@ def test_analysis_external_linear_covers_internal():
 
 def test_analysis_external_points_are_on_map():
     assert set(EXTERNAL_POINT_SUBTYPES).issubset(set(POINT_MAP_SUBTYPES))
+
+
+def test_manifest_point_policies_match_geo_constants():
+    raw = json.loads(_MANIFEST_PATH.read_text(encoding="utf-8"))
+    policies = raw["point_policies"]
+    assert IMMUTABLE_POINT_SUBTYPES == frozenset(policies["immutable"])
+    assert EXCLUSIVE_POINT_SUBTYPES == frozenset(policies["exclusive"])
+    assert FACILITY_POINT_SUBTYPES == frozenset(policies["facility"])
+    assert IMPORT_ONLY_POINT_SUBTYPES == frozenset(policies["import_only"])
+    assert IE_DERIVED_POINT_SUBTYPES == frozenset(policies["ie_derived"])
+    assert NODE_DERIVED_POINT_SUBTYPES == frozenset(policies["node_derived"])
+    assert PAD_DERIVED_POINT_SUBTYPES == frozenset(policies["pad_derived"])
+    assert SPARK_EXCLUSIVE_POINT_SUBTYPES == frozenset(policies["spark_exclusive"])
+    assert geo_constants.IMMUTABLE_POINT_SUBTYPES == IMMUTABLE_POINT_SUBTYPES
+    assert geo_constants.IMPORT_ONLY_POINT_SUBTYPES == IMPORT_ONLY_POINT_SUBTYPES
+    assert geo_constants.IE_DERIVED_POINT_SUBTYPES == IE_DERIVED_POINT_SUBTYPES

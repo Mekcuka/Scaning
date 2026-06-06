@@ -48,6 +48,15 @@ NODE_CLUSTER_SUBTYPES = _frozenset(["clusters", "node"])
 PAD_CLUSTER_SUBTYPES = _frozenset(["clusters", "pad"])
 GTES_CLUSTER_SUBTYPES = _frozenset(["clusters", "gtes"])
 
+IMMUTABLE_POINT_SUBTYPES = _frozenset(["point_policies", "immutable"])
+EXCLUSIVE_POINT_SUBTYPES = _frozenset(["point_policies", "exclusive"])
+FACILITY_POINT_SUBTYPES = _frozenset(["point_policies", "facility"])
+IMPORT_ONLY_POINT_SUBTYPES = _frozenset(["point_policies", "import_only"])
+IE_DERIVED_POINT_SUBTYPES = _frozenset(["point_policies", "ie_derived"])
+NODE_DERIVED_POINT_SUBTYPES = _frozenset(["point_policies", "node_derived"])
+PAD_DERIVED_POINT_SUBTYPES = _frozenset(["point_policies", "pad_derived"])
+SPARK_EXCLUSIVE_POINT_SUBTYPES = _frozenset(["point_policies", "spark_exclusive"])
+
 LEGACY_SUBTYPE_ALIASES = _dict(["legacy_aliases"])
 
 ANALYSIS_SUBTYPES = (

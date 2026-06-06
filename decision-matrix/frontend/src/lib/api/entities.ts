@@ -1,3 +1,5 @@
+import { MANIFEST_FACILITY_POINT } from './infrastructureSubtypesManifest';
+
 export interface Project {
   id: string;
   name: string;
@@ -125,11 +127,10 @@ export interface InfraObjectCreate {
 }
 
 /** НПЗ / НПС — subtype обязателен и только из этого списка. */
-export type FacilityPointSubtype = 'refinery' | 'oil_pumping_station';
+export type FacilityPointSubtype = (typeof MANIFEST_FACILITY_POINT)[number];
 
 export const FACILITY_POINT_SUBTYPES: readonly FacilityPointSubtype[] = [
-  'refinery',
-  'oil_pumping_station',
+  ...MANIFEST_FACILITY_POINT,
 ] as const;
 
 export function isFacilityPointSubtype(subtype: string): subtype is FacilityPointSubtype {
