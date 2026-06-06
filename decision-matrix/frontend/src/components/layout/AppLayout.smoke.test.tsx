@@ -87,7 +87,7 @@ describe('AppLayout smoke', () => {
     );
 
     await waitFor(() => {
-      expect(screen.getByText(/Все проекты/i)).toBeInTheDocument();
+      expect(screen.getByText(/Мои проекты/i)).toBeInTheDocument();
     });
     expect(screen.queryByText(/Произошла ошибка/i)).not.toBeInTheDocument();
   });
