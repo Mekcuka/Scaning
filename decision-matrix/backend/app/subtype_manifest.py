@@ -1,4 +1,4 @@
-"""Load shared infrastructure_subtypes.json — single source for analysis subtype lists."""
+"""Load shared infrastructure_subtypes.json — single source for map and analysis subtype lists."""
 
 from __future__ import annotations
 
@@ -24,12 +24,31 @@ def _tuple(key_path: list[str]) -> tuple[str, ...]:
     return tuple(str(item) for item in node)
 
 
+def _frozenset(key_path: list[str]) -> frozenset[str]:
+    return frozenset(_tuple(key_path))
+
+
+def _dict(key_path: list[str]) -> dict[str, str]:
+    node: Any = load_infrastructure_subtypes_manifest()
+    for key in key_path:
+        node = node[key]
+    return {str(k): str(v) for k, v in node.items()}
+
+
 LINEAR_SUBTYPES = _tuple(["linear", "all"])
 ANALYSIS_LINEAR_SUBTYPES = _tuple(["linear", "analysis_internal"])
 EXTERNAL_LINEAR_SUBTYPES = _tuple(["linear", "analysis_external"])
+POINT_MAP_SUBTYPES = _tuple(["point", "map"])
 EXTERNAL_POINT_SUBTYPES = _tuple(["point", "analysis_external"])
 MATRIX_POINT_EXCLUDE = _tuple(["matrix", "point_exclude"])
 MATRIX_INTERNAL_EXTRA_ROWS = _tuple(["matrix", "internal_extra_rows"])
+
+GKS_CLUSTER_SUBTYPES = _frozenset(["clusters", "gks"])
+NODE_CLUSTER_SUBTYPES = _frozenset(["clusters", "node"])
+PAD_CLUSTER_SUBTYPES = _frozenset(["clusters", "pad"])
+GTES_CLUSTER_SUBTYPES = _frozenset(["clusters", "gtes"])
+
+LEGACY_SUBTYPE_ALIASES = _dict(["legacy_aliases"])
 
 ANALYSIS_SUBTYPES = (
     *ANALYSIS_LINEAR_SUBTYPES,

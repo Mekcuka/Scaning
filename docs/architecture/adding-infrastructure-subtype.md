@@ -12,11 +12,13 @@
 
 ## 2. Backend — manifest, константы и ставки
 
-1. **`decision-matrix/shared/infrastructure_subtypes.json`** — добавить subtype в нужный список:
-   - `linear.analysis_internal` (internal)
-   - `linear.analysis_external` (external_linear; обычно = `linear.all`)
-   - `point.analysis_external` (external)
-2. **`backend/app/geo/constants.py`** — если объект отображается на карте, добавить в `POINT_SUBTYPES` (map-only subtypes).
+1. **`decision-matrix/shared/infrastructure_subtypes.json`** — добавить subtype:
+   - `point.map` — если объект на карте
+   - `linear.all` — если линейный объект на карте
+   - `linear.analysis_internal` / `linear.analysis_external` / `point.analysis_external` — для строк анализа
+   - `clusters.*` — если входит в группу смены подтипа (ГКС, узел, куст, ИЭ)
+   - `legacy_aliases` — устаревшие коды Искра/БД
+2. **`backend/app/geo/constants.py`** — map-only policy sets (`IMMUTABLE`, `IMPORT_ONLY`, …) при необходимости.
 3. **`backend/app/services/cost_rates.py`** — ставка в `DEFAULT_COST_RATES` (списки subtypes берутся из manifest автоматически).
 4. **`backend/app/services/analysis/compute.py`** — при необходимости поля лимитов/порогов в `get_distance_maps()`.
 5. **`backend/app/services/calculations.py`** — если subtype зав зависит от инженерных решений, обновить `apply_engineering_rules()`.

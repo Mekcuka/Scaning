@@ -1,5 +1,5 @@
 {
-  "version": 1,
+  "version": 2,
   "linear": {
     "all": [
       "autoroad",
@@ -27,6 +27,29 @@
     ]
   },
   "point": {
+    "map": [
+      "gas_processing",
+      "ukg",
+      "tsg",
+      "gtes",
+      "gpes",
+      "vies",
+      "substation",
+      "refinery",
+      "node",
+      "oil_pad",
+      "gas_pad",
+      "preliminary_water_discharge_station",
+      "booster_pumping_station",
+      "oil_pumping_station",
+      "ground_pumping_station",
+      "sand_quarry",
+      "methanol_facility",
+      "methanol_joint",
+      "power_line_node",
+      "offplot",
+      "additional_facility"
+    ],
     "analysis_external": [
       "gas_processing",
       "gtes",
@@ -35,6 +58,16 @@
       "ground_pumping_station",
       "sand_quarry"
     ]
+  },
+  "clusters": {
+    "gks": ["gas_processing", "ukg", "tsg"],
+    "node": ["node", "methanol_joint", "power_line_node"],
+    "pad": ["oil_pad", "gas_pad"],
+    "gtes": ["gtes", "gpes", "vies"]
+  },
+  "legacy_aliases": {
+    "pad": "oil_pad",
+    "delivery_acceptance_point": "refinery"
   },
   "matrix": {
     "point_exclude": ["node"],

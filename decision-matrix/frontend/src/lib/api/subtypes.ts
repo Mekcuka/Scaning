@@ -1,49 +1,32 @@
 import type { InfraObject } from './entities';
 import {
   ANALYSIS_EXTERNAL_LINEAR_SUBTYPES,
+  GKS_CLUSTER_SUBTYPES,
+  GTES_CLUSTER_SUBTYPES,
+  LEGACY_SUBTYPE_ALIASES,
   LINE_SUBTYPES,
+  NODE_CLUSTER_SUBTYPES,
+  PAD_CLUSTER_SUBTYPES,
+  POINT_SUBTYPES,
 } from './infrastructureSubtypesManifest';
 
 export {
   ANALYSIS_EXTERNAL_LINEAR_SUBTYPES,
   ANALYSIS_EXTERNAL_POINT_SUBTYPES,
   ANALYSIS_LINE_SUBTYPES,
+  GKS_CLUSTER_SUBTYPES,
+  GTES_CLUSTER_SUBTYPES,
+  LEGACY_SUBTYPE_ALIASES,
   LINE_SUBTYPES,
+  NODE_CLUSTER_SUBTYPES,
+  PAD_CLUSTER_SUBTYPES,
+  POINT_SUBTYPES,
 } from './infrastructureSubtypesManifest';
-
-/** Legacy DB/API subtype codes → current codes (keep in sync with backend constants.py). */
-export const LEGACY_SUBTYPE_ALIASES: Record<string, string> = {
-  pad: 'oil_pad',
-};
 
 export function normalizeInfraSubtype(subtype: string): string {
   const st = subtype.trim().toLowerCase();
   return LEGACY_SUBTYPE_ALIASES[st] ?? st;
 }
-
-export const POINT_SUBTYPES = [
-  'gas_processing',
-  'ukg',
-  'tsg',
-  'gtes',
-  'gpes',
-  'vies',
-  'substation',
-  'refinery',
-  'node',
-  'oil_pad',
-  'gas_pad',
-  'preliminary_water_discharge_station',
-  'booster_pumping_station',
-  'oil_pumping_station',
-  'ground_pumping_station',
-  'sand_quarry',
-  'methanol_facility',
-  'methanol_joint',
-  'power_line_node',
-  'offplot',
-  'additional_facility',
-] as const;
 
 export const ALL_MAP_SUBTYPES = [...POINT_SUBTYPES, ...LINE_SUBTYPES] as const;
 
@@ -85,15 +68,6 @@ export function createDefaultSubtypeFilter(): Record<string, boolean> {
   return Object.fromEntries(ALL_MAP_SUBTYPES.map((s) => [s, true]));
 }
 
-/** ГКС + УКГ + ТСГ — смена подтипа только внутри этой группы. */
-export const GKS_CLUSTER_SUBTYPES = ['gas_processing', 'ukg', 'tsg'] as const;
-
-/** Узел + узел метанола + узел ЛЭП — смена подтипа только внутри группы. */
-export const NODE_CLUSTER_SUBTYPES = ['node', 'methanol_joint', 'power_line_node'] as const;
-
-/** Нефтяной / газовый куст — смена подтипа только внутри пары. */
-export const PAD_CLUSTER_SUBTYPES = ['oil_pad', 'gas_pad'] as const;
-
 /** Подпись в меню «Точка» (если отличается от SUBTYPE_LABELS). */
 export const POINT_MENU_LABELS: Partial<Record<string, string>> = {
   gtes: 'ИЭ',
@@ -103,9 +77,6 @@ export const POINT_MENU_LABELS: Partial<Record<string, string>> = {
 export function pointMenuLabel(subtype: string): string {
   return POINT_MENU_LABELS[subtype] ?? SUBTYPE_LABELS[subtype] ?? subtype;
 }
-
-/** ГТЭС + ГПЭС + ВИЭС — смена подтипа только внутри группы. */
-export const GTES_CLUSTER_SUBTYPES = ['gtes', 'gpes', 'vies'] as const;
 
 export type LayerVisibilityGroup = {
   id: string;

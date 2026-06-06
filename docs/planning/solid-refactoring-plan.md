@@ -251,15 +251,18 @@ pages/import/
 
 ---
 
-## Post-phase: subtype manifest ✅
+## Post-phase: subtype manifest v2 ✅
 
 **Статус:** завершена (июнь 2026).
 
-Единый источник списков analysis/matrix: `decision-matrix/shared/infrastructure_subtypes.json`
+Расширение `infrastructure_subtypes.json` (version 2):
 
-- Backend: `app/subtype_manifest.py` → `cost_rates.py`, `geo/constants.py`
-- Frontend: `lib/api/infrastructureSubtypesManifest.ts` → `subtypes.ts`, `matrixData/sections.ts`
-- Тесты: `test_subtype_manifest.py`, `infrastructureSubtypesManifest.test.ts`
+- `point.map` — все point subtypes карты
+- `clusters.*` — GKS, node, pad, gtes
+- `legacy_aliases` — pad, delivery_acceptance_point
+
+Backend: `geo/constants.py` POINT + clusters + legacy из manifest.  
+Frontend: `infrastructureSubtypesManifest.ts` → `subtypes.ts`.
 
 ---
 

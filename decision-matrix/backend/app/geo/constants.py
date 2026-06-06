@@ -1,49 +1,21 @@
 """Infrastructure subtype and geometry constants (FR-2.3.9)."""
 
-from app.subtype_manifest import EXTERNAL_POINT_SUBTYPES as _ANALYSIS_EXTERNAL_POINTS
-from app.subtype_manifest import LINEAR_SUBTYPES as _MANIFEST_LINEAR_ALL
-
-POINT_SUBTYPES = frozenset(
-    {
-        "gas_processing",
-        "ukg",
-        "tsg",
-        "gtes",
-        "gpes",
-        "vies",
-        "substation",
-        "refinery",
-        "node",
-        "oil_pad",
-        "gas_pad",
-        "preliminary_water_discharge_station",
-        "booster_pumping_station",
-        "oil_pumping_station",
-        "ground_pumping_station",
-        "sand_quarry",
-        "methanol_facility",
-        "methanol_joint",
-        "power_line_node",
-        "offplot",
-        "additional_facility",
-    }
+from app.subtype_manifest import (
+    EXTERNAL_POINT_SUBTYPES as _ANALYSIS_EXTERNAL_POINTS,
+    GKS_CLUSTER_SUBTYPES,
+    GTES_CLUSTER_SUBTYPES,
+    LEGACY_SUBTYPE_ALIASES,
+    LINEAR_SUBTYPES as _MANIFEST_LINEAR_ALL,
+    NODE_CLUSTER_SUBTYPES,
+    PAD_CLUSTER_SUBTYPES,
+    POINT_MAP_SUBTYPES,
 )
+
+POINT_SUBTYPES = frozenset(POINT_MAP_SUBTYPES)
 LINE_SUBTYPES = frozenset(_MANIFEST_LINEAR_ALL)
 ALL_INFRA_SUBTYPES = POINT_SUBTYPES | LINE_SUBTYPES
 
-# ГКС / УКГ / ТСГ — в карточке объекта смена только внутри этой тройки.
-GKS_CLUSTER_SUBTYPES = frozenset({"gas_processing", "ukg", "tsg"})
-
-# Узел / узел метанола / узел ЛЭП — смена подтипа только внутри группы.
-NODE_CLUSTER_SUBTYPES = frozenset({"node", "methanol_joint", "power_line_node"})
-
-# ГТЭС / ГПЭС / ВИЭС — смена подтипа только внутри группы (на карте «Точка» → ИЭ, subtype gtes).
-GTES_CLUSTER_SUBTYPES = frozenset({"gtes", "gpes", "vies"})
-
-# Нефтяной / газовый куст — смена подтипа только внутри пары.
-PAD_CLUSTER_SUBTYPES = frozenset({"oil_pad", "gas_pad"})
-
-# Подтипы без пункта «Точка» — импорт Искра или смена у объекта группы ИЭ.
+# Cluster groups — from shared manifest (clusters.*)
 IE_DERIVED_POINT_SUBTYPES = frozenset({"gpes", "vies"})
 
 # Point subtypes that cannot be reclassified after creation (UI + API).
@@ -83,13 +55,7 @@ NODE_DERIVED_POINT_SUBTYPES = frozenset({"methanol_joint", "power_line_node"})
 # Подтип куста без пункта «Точка» — импорт Искра или смена у объекта «Куст» (oil_pad).
 PAD_DERIVED_POINT_SUBTYPES = frozenset({"gas_pad"})
 
-# Устаревшие коды подтипов → актуальные (Искра/БД до миграции).
-LEGACY_SUBTYPE_ALIASES: dict[str, str] = {
-    "delivery_acceptance_point": "refinery",
-    "pad": "oil_pad",
-}
-
-
+# Устаревшие коды подтипов → актуальные (Искра/БД до миграции) — shared manifest.
 def normalize_infra_subtype(subtype: str) -> str:
     st = subtype.lower().strip()
     return LEGACY_SUBTYPE_ALIASES.get(st, st)
