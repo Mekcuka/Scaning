@@ -28,6 +28,8 @@ class Settings(BaseSettings):
     AUTOROAD_NETWORK_INPROCESS: bool = True
     AUTOROAD_NETWORK_SOLVER: str = "geosteiner"
     GEOSTEINER_BIN_DIR: str = ""
+    ASSISTANT_MCP_ENABLED: bool = True
+    ASSISTANT_MCP_PATH: str = "/api/v1/mcp"
 
     @property
     def jobs_use_queue(self) -> bool:

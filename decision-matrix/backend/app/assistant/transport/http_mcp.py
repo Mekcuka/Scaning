@@ -1,0 +1,80 @@
+"""Streamable HTTP MCP bridge — delegates list_tools / call_tool to the shared registry."""
+
+from __future__ import annotations
+
+import json
+from collections.abc import AsyncIterator, Sequence
+from contextlib import asynccontextmanager
+from typing import Any
+
+from fastapi import FastAPI
+from mcp.server.fastmcp import FastMCP
+from mcp.server.transport_security import TransportSecuritySettings
+from mcp.types import TextContent, Tool as MCPTool
+from starlette.types import ASGIApp
+
+from app.assistant.context import ToolContext, ToolEnv
+from app.assistant.registry import execute_tool, list_tools as registry_list_tools
+from app.assistant.transport.auth import McpAuthMiddleware, require_mcp_user
+from app.core.config import settings
+from app.core.database import async_session
+
+_mcp: AtlasGridMCP | None = None
+
+
+def _tool_env() -> ToolEnv:
+    env = settings.ENVIRONMENT
+    if env in ("development", "staging", "production", "test"):
+        return env  # type: ignore[return-value]
+    return "development"
+
+
+class AtlasGridMCP(FastMCP):
+    async def list_tools(self) -> list[MCPTool]:
+        user = require_mcp_user()
+        async with async_session() as db:
+            ctx = ToolContext(user=user, db=db, env=_tool_env())
+            metas = registry_list_tools(ctx)
+        return [
+            MCPTool(name=m.name, description=m.description, inputSchema=m.input_schema)
+            for m in metas
+        ]
+
+    async def call_tool(self, name: str, arguments: dict[str, Any]) -> Sequence[TextContent]:
+        user = require_mcp_user()
+        async with async_session() as db:
+            ctx = ToolContext(user=user, db=db, env=_tool_env())
+            result = await execute_tool(name, arguments or {}, ctx)
+        return [TextContent(type="text", text=json.dumps(result.model_dump(), ensure_ascii=False))]
+
+
+def _get_mcp() -> AtlasGridMCP:
+    global _mcp
+    if _mcp is None:
+        _mcp = AtlasGridMCP(
+            "Atlas Grid",
+            stateless_http=True,
+            json_response=True,
+            streamable_http_path="/",
+            transport_security=TransportSecuritySettings(enable_dns_rebinding_protection=False),
+        )
+    return _mcp
+
+
+def create_mcp_asgi_app() -> ASGIApp:
+    inner = _get_mcp().streamable_http_app()
+    return McpAuthMiddleware(inner)
+
+
+@asynccontextmanager
+async def mcp_lifespan() -> AsyncIterator[None]:
+    mcp = _get_mcp()
+    mcp.streamable_http_app()
+    async with mcp.session_manager.run():
+        yield
+
+
+def mount_assistant_mcp(app: FastAPI) -> None:
+    if not settings.ASSISTANT_MCP_ENABLED:
+        return
+    app.mount(settings.ASSISTANT_MCP_PATH, create_mcp_asgi_app())

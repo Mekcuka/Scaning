@@ -39,6 +39,7 @@
 | `/matrix` | Матрица | admin, analyst, viewer |
 | `/report` | Отчёты (одностраничники) | admin, analyst, viewer |
 | `/import` | Импорт | admin, analyst, data_manager |
+| `/export` | Экспорт (координаты, GeoJSON) | все роли |
 | `/import-3d` | Импорт 3D (custom GLB) | admin (загрузка); admin + владелец проекта (назначение) |
 | `/admin/users`, `/admin/jobs` | Администрирование (пользователи, журнал задач) | admin |
 
@@ -66,6 +67,7 @@
 | Экономика потоков | `economic_flow_schematic.py`, `economic_rates.py` | ✅ |
 | Автосеть автодорог | `network-planner` + `planner_adapter.py`: Steiner tree, post-processing, preview overlay; BFF request/compute/apply | ✅ |
 | Autoroad Network Service (HTTP :8080) | `autoroad-network-planner` microservice / legacy `services/autoroad-network/` | ⬜ опционально (`AUTOROAD_NETWORK_INPROCESS=false`) |
+| AI Assistant (Tool Registry) | `app/assistant/` — registry, `tools/domain/*` (10 tools), HTTP MCP `/api/v1/mcp`, `tests/test_assistant_tools.py`, `tests/test_assistant_mcp_http.py` | ✅ фаза 1–2; ⬜ chat UI (фаза 3) |
 | UI «Построить сеть» | `MapPage` drawMode `autoroad_network`, `AutoroadNetworkPanel` (массовый выбор, параметры), `AutoroadNetworkParamsSection` | ✅ |
 
 **БД:** SQLite (`run_local.py`) или PostgreSQL + PostGIS (`DATABASE_URL` в `.env`). Geodesic: PostGIS `geography` или haversine fallback.
@@ -84,12 +86,13 @@
 | `/matrix` | `MatrixPage` | ✅ |
 | `/report/*` | `ReportListPage`, `ReportEditorPage`, … | ✅ |
 | `/import` | `ImportPage` | ✅ |
+| `/export` | `ExportPage` — выбор проекта в панели, карточки форматов с количествами; координаты точечных/всех объектов, GeoJSON (клиент) | ✅ |
 | `/import-3d` | `Import3DPage` — custom GLB (admin upload; owner assign) | ✅ |
 | `/flows/*` | `FlowTechnologyPage`, … | ✅ |
 | `/admin/users` | `AdminLayout` + `AdminUsersPage` | ✅ |
 | `/admin/jobs` | `AdminLayout` + `AdminJobsPage` (health, фильтры, отмена только `pending`/`running`, автообновление 3 с) | ✅ |
 
-**Оболочка (`AppLayout`):** выход (иконка `LogOut`) в нижней панели сайдбара; в шапке — тема и выбор проекта. PWA: `public/sw.js` — fallback на `index.html` для deep link (например `/Scaning/admin/jobs` на Pages).
+**Оболочка (`AppLayout`):** выход (иконка `LogOut`) в нижней панели сайдбара; в шапке — **журнал задач** и переключатель **темы** (глобального селектора проекта в шапке нет). Активный проект (`currentProjectId`) задаётся на страницах **Экспорт**, **Карта**, **Дашборд** и др. PWA: `public/sw.js` — fallback на `index.html` для deep link (например `/Scaning/admin/jobs` на Pages).
 
 **3D-карта:** `VITE_MAP_3D_ENABLED`, `VITE_MAPTILER_KEY`, `VITE_API_URL` (обязателен на GitHub Pages) — см. [map-3d-features.md](../features/map-3d-features.md), cross-origin auth — [auth-rbac.md](../architecture/auth-rbac.md).
 
@@ -111,6 +114,7 @@
 - **FR-8:** матрица (таблица + карточки), смена eng-параметров, фильтр превышений, мини-карта.
 - **FR-10:** иконки, радиусы, линии статусов.
 - **FR-11:** CRUD one-pagers, PPTX export, PDF через `window.print()`.
+- **Экспорт инфраструктуры:** `/export` — Excel/CSV координат, GeoJSON проекта (клиент, [project-export.md](../features/project-export.md)).
 
 ### Частично / упрощённо
 
@@ -121,7 +125,7 @@
 | FR-11.2.1 | Server PDF | Клиентский print CSS, не WeasyPrint. |
 | FR-12.1.2 | i18n | Только русский UI. |
 | FR-12.2.2 | Меню | См. таблицу навигации выше. |
-| FR-12.3 | Таблицы | По экранам; Excel — выгрузка таблиц **параметров**, не полного отчёта. |
+| FR-12.3 | Таблицы | По экранам; Excel — выгрузка таблиц **параметров**; **экспорт координат/GeoJSON** — страница `/export`; полный Excel отчёта/матрицы — нет. |
 
 ### Не реализовано (MVP / post-MVP)
 

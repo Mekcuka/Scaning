@@ -3,7 +3,7 @@ import asyncio
 import logging
 import subprocess
 import sys
-from contextlib import asynccontextmanager
+from contextlib import AsyncExitStack, asynccontextmanager
 from pathlib import Path
 
 from alembic.config import Config
@@ -16,6 +16,7 @@ from slowapi.errors import RateLimitExceeded
 from sqlalchemy import text
 
 from app.api.v1.router import router
+from app.assistant.transport import mcp_lifespan, mount_assistant_mcp
 from app.core.config import settings
 from app.core.database import Base, async_session, engine
 from app.core.error_handlers import register_exception_handlers
@@ -83,22 +84,27 @@ async def lifespan(app: FastAPI):
             if not settings.is_sqlite:
                 await conn.run_sync(patch_postgres_schema)
 
-    try:
-        await asyncio.wait_for(init_db(), timeout=30.0)
-        if settings.DEMO_USERS_ENABLED and not settings.is_sqlite:
-            async with async_session() as db:
-                created = await ensure_demo_users(db)
-                await db.commit()
-                if created:
-                    logger.info("Created demo users: %s", ", ".join(created))
-    except TimeoutError:
-        logger.error("Database init timed out after 30s")
-        raise
-    except Exception:
-        logger.exception("Database init failed")
-        raise
+    async with AsyncExitStack() as stack:
+        if settings.ASSISTANT_MCP_ENABLED:
+            await stack.enter_async_context(mcp_lifespan())
 
-    yield
+        try:
+            await asyncio.wait_for(init_db(), timeout=30.0)
+            if settings.DEMO_USERS_ENABLED and not settings.is_sqlite:
+                async with async_session() as db:
+                    created = await ensure_demo_users(db)
+                    await db.commit()
+                    if created:
+                        logger.info("Created demo users: %s", ", ".join(created))
+        except TimeoutError:
+            logger.error("Database init timed out after 30s")
+            raise
+        except Exception:
+            logger.exception("Database init failed")
+            raise
+
+        yield
+
     await engine.dispose()
 
 
@@ -124,11 +130,21 @@ app.add_middleware(
     allow_origins=settings.cors_origins_list,
     allow_credentials=True,
     allow_methods=["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
-    allow_headers=["Authorization", "Content-Type", "X-CSRF-Token", "X-Request-ID"],
-    expose_headers=["X-CSRF-Token", "X-Request-ID"],
+    allow_headers=[
+        "Authorization",
+        "Content-Type",
+        "X-CSRF-Token",
+        "X-Request-ID",
+        "Mcp-Session-Id",
+        "MCP-Protocol-Version",
+    ],
+    expose_headers=["X-CSRF-Token", "X-Request-ID", "Mcp-Session-Id"],
 )
 
 app.include_router(router, prefix="/api/v1")
+
+if settings.ASSISTANT_MCP_ENABLED:
+    mount_assistant_mcp(app)
 
 
 @app.get("/", include_in_schema=False)
