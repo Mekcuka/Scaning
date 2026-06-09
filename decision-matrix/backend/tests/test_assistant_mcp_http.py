@@ -3,10 +3,34 @@
 from __future__ import annotations
 
 import json
+from contextlib import AsyncExitStack, asynccontextmanager
 
+import pytest
+from fastapi import FastAPI
+from starlette.testclient import TestClient
+
+from app.assistant.transport.http_mcp import create_mcp_asgi_app, mcp_lifespan, reset_mcp_singleton
+from app.core.config import settings
 from tests.conftest import login
 
 MCP_PATH = "/api/v1/mcp/"
+
+
+@pytest.fixture(scope="module")
+def mcp_client():
+    """Isolated MCP sub-app — avoids singleton session manager conflicts in full pytest run."""
+    reset_mcp_singleton()
+
+    @asynccontextmanager
+    async def lifespan(_app: FastAPI):
+        async with AsyncExitStack() as stack:
+            await stack.enter_async_context(mcp_lifespan())
+            yield
+
+    test_app = FastAPI(lifespan=lifespan)
+    test_app.mount(settings.ASSISTANT_MCP_PATH, create_mcp_asgi_app())
+    with TestClient(test_app) as client:
+        yield client
 
 
 def _mcp_headers(access_token: str) -> dict[str, str]:
@@ -40,8 +64,8 @@ def _mcp_initialize(client, headers: dict[str, str]) -> None:
     )
 
 
-def test_mcp_requires_auth(client):
-    response = client.post(
+def test_mcp_requires_auth(mcp_client):
+    response = mcp_client.post(
         MCP_PATH,
         headers={"Content-Type": "application/json", "Accept": "application/json"},
         json={
@@ -58,15 +82,15 @@ def test_mcp_requires_auth(client):
     assert response.status_code == 401
 
 
-def test_mcp_list_tools_authenticated(client):
+def test_mcp_list_tools_authenticated(client, mcp_client):
     login_response = login(client, "analyst@test.ru")
     assert login_response.status_code == 200
     token = login_response.json()["access_token"]
     headers = _mcp_headers(token)
 
-    _mcp_initialize(client, headers)
+    _mcp_initialize(mcp_client, headers)
 
-    response = client.post(
+    response = mcp_client.post(
         MCP_PATH,
         headers=headers,
         json={"jsonrpc": "2.0", "method": "tools/list", "params": {}, "id": 2},
@@ -89,14 +113,14 @@ def test_mcp_list_tools_authenticated(client):
     }
 
 
-def test_mcp_call_tool_list_projects(client):
+def test_mcp_call_tool_list_projects(client, mcp_client):
     login_response = login(client, "analyst@test.ru")
     token = login_response.json()["access_token"]
     headers = _mcp_headers(token)
 
-    _mcp_initialize(client, headers)
+    _mcp_initialize(mcp_client, headers)
 
-    response = client.post(
+    response = mcp_client.post(
         MCP_PATH,
         headers=headers,
         json={

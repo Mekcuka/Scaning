@@ -16,6 +16,7 @@ os.environ.setdefault("DEMO_USERS_ENABLED", "false")
 os.environ.setdefault("ENVIRONMENT", "test")
 # API tests expect synchronous analyze/import (200), not 202 job enqueue.
 os.environ.setdefault("JOBS_SYNC_FALLBACK", "false")
+os.environ.setdefault("ASSISTANT_MCP_ENABLED", "false")
 os.environ["REDIS_URL"] = ""
 
 from app.core.database import async_session

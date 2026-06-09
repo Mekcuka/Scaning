@@ -74,6 +74,12 @@ async def mcp_lifespan() -> AsyncIterator[None]:
         yield
 
 
+def reset_mcp_singleton() -> None:
+    """Reset lazy MCP instance (pytest: fresh session manager per TestClient)."""
+    global _mcp
+    _mcp = None
+
+
 def mount_assistant_mcp(app: FastAPI) -> None:
     if not settings.ASSISTANT_MCP_ENABLED:
         return
