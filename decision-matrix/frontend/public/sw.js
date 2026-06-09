@@ -1,5 +1,5 @@
 /** SPA shell for GitHub Pages — network-first HTML so deploys never 404 hashed assets. */
-const CACHE = 'sppr-shell-v5';
+const CACHE = 'sppr-shell-v6';
 
 const PRECACHE = ['./manifest.webmanifest', './pwa-icon.svg'];
 
@@ -25,16 +25,20 @@ function isNavigationRequest(request) {
   return accept.includes('text/html');
 }
 
-async function networkFirstShell(request) {
-  try {
-    const response = await fetch(request, { cache: 'no-cache' });
-    if (response.ok) {
-      const cache = await caches.open(CACHE);
-      await cache.put('./index.html', response.clone());
-      return response;
+/** GitHub Pages returns HTTP 404 for SPA routes; fetch the shell document, not the path. */
+async function networkFirstShell() {
+  const shellUrls = ['./index.html', './404.html'];
+  for (const shellPath of shellUrls) {
+    try {
+      const response = await fetch(shellPath, { cache: 'no-cache' });
+      if (response.ok) {
+        const cache = await caches.open(CACHE);
+        await cache.put('./index.html', response.clone());
+        return response;
+      }
+    } catch {
+      /* try next shell URL */
     }
-  } catch {
-    /* offline — fall through */
   }
   const cached = await caches.match('./index.html');
   if (cached) return cached;
@@ -48,7 +52,7 @@ self.addEventListener('fetch', (event) => {
   if (url.pathname.includes('/api/')) return;
 
   if (isNavigationRequest(request)) {
-    event.respondWith(networkFirstShell(request));
+    event.respondWith(networkFirstShell());
     return;
   }
 
