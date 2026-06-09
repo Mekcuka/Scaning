@@ -63,7 +63,7 @@ def _csrf_headers(client: TestClient) -> dict[str, str]:
 
 
 def test_register_login_sets_cookies(client: TestClient):
-    res = _register(client, "analyst@test.ru", "Analyst User")
+    res = _register(client, "register-cookies@test.ru", "Register Cookies")
     assert res.status_code == 201
     body = res.json()
     assert body.get("access_token")
