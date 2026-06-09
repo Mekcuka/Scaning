@@ -13,13 +13,20 @@
 
 См. [decision-matrix/README.md](decision-matrix/README.md) и [decision-matrix/RUN_GUIDE.md](decision-matrix/RUN_GUIDE.md).
 
-```powershell
-# Backend (SQLite)
-cd decision-matrix\backend
-.\venv\Scripts\python.exe run_local.py
+Корень репозитория: `C:\Users\user\Documents\Cursore`.
 
-# Frontend (другой терминал)
-cd decision-matrix\frontend
+**Первый запуск** — полные команды в [decision-matrix/README.md](decision-matrix/README.md#режим-a--sqlite-рекомендуется-для-первого-запуска).
+
+**Повторный запуск** (SQLite, venv уже создан):
+
+```powershell
+cd C:\Users\user\Documents\Cursore\decision-matrix\backend
+.\venv\Scripts\Activate.ps1
+python C:\Users\user\Documents\Cursore\decision-matrix\backend\run_local.py
+```
+
+```powershell
+cd C:\Users\user\Documents\Cursore\decision-matrix\frontend
 npm run dev
 ```
 
@@ -39,4 +46,4 @@ npm run dev
 
 ## Документация
 
-[docs/](docs/) — требования, архитектура, [auth-rbac.md](docs/architecture/auth-rbac.md), **[статус реализации](docs/planning/implementation-status.md)**, [план SOLID](docs/planning/solid-refactoring-plan.md), [границы модулей](docs/architecture/module-boundaries.md), план разработки.
+[docs/](docs/) — требования, архитектура, [auth-rbac.md](docs/architecture/auth-rbac.md), **[статус реализации](docs/planning/implementation-status.md)**, [экспорт проекта](docs/features/project-export.md), [план SOLID](docs/planning/solid-refactoring-plan.md), [границы модулей](docs/architecture/module-boundaries.md), план разработки.

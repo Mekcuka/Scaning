@@ -30,6 +30,26 @@ class Settings(BaseSettings):
     GEOSTEINER_BIN_DIR: str = ""
     ASSISTANT_MCP_ENABLED: bool = True
     ASSISTANT_MCP_PATH: str = "/api/v1/mcp"
+    ASSISTANT_CHAT_ENABLED: bool = True
+    ASSISTANT_LLM_BASE_URL: str = "http://127.0.0.1:1234/v1"
+    ASSISTANT_LLM_API_KEY: str = "lm-studio"
+    ASSISTANT_LLM_MODEL: str = ""
+    ASSISTANT_LLM_TIMEOUT_SECONDS: int = 120
+    ASSISTANT_CHAT_MAX_TOOL_ROUNDS: int = 8
+    ASSISTANT_CHAT_MAX_TOOL_ROUNDS_VIEWER: int = 4
+    ASSISTANT_CHAT_MAX_ROUTED_TOOLS: int = 12
+    ASSISTANT_CHAT_RATE_LIMIT: str = "20/minute"
+    ASSISTANT_CHAT_RATE_LIMIT_VIEWER: str = "10/minute"
+    ASSISTANT_CHAT_RATE_LIMIT_DEFAULT: str = "20/minute"
+    ASSISTANT_CHAT_RATE_LIMIT_ADMIN: str = "40/minute"
+    ASSISTANT_MCP_RATE_LIMIT: str = "30/minute"
+    ASSISTANT_MCP_RATE_LIMIT_VIEWER: str = "15/minute"
+    ASSISTANT_MCP_RATE_LIMIT_DEFAULT: str = "30/minute"
+    ASSISTANT_MCP_RATE_LIMIT_ADMIN: str = "60/minute"
+    ASSISTANT_DEV_MCP_ENABLED: bool = True
+    ASSISTANT_DEV_MCP_DOMAIN_TOOLS: bool = False
+    ASSISTANT_DEV_MCP_USER_EMAIL: str = "admin@test.ru"
+    ASSISTANT_DEV_MCP_REPO_ROOT: str = ""
 
     @property
     def jobs_use_queue(self) -> bool:

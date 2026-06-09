@@ -6,7 +6,8 @@
 > **Схема потоков (PFD):** [fluid-flow-schematic.md](../features/fluid-flow-schematic.md) — отдельный визуальный поток от анализа окружения; использует граф сети и POI, не таблицу `poi_infrastructure_analysis`.  
 > **Статус реализации:** [implementation-status.md](../planning/implementation-status.md).  
 > **Границы модулей (SOLID):** [module-boundaries.md](module-boundaries.md), [solid-refactoring-plan.md](../planning/solid-refactoring-plan.md).  
-> **Автопостроение сети автодорог (сервис):** [autoroad-network-plan.md](../autoroad/autoroad-network-plan.md).
+> **Автопостроение сети автодорог (сервис):** [autoroad-network-plan.md](../autoroad/autoroad-network-plan.md).  
+> **AI Assistant (Shared Tool Registry):** [assistant.md](assistant.md).
 
 ## Актуальная реализация (FastAPI + React, май 2026)
 
@@ -23,6 +24,7 @@
 | Graph | `api/v1/graph.py`, `graph_builder.py` | PFD + карта |
 | Sand | `api/v1/sand_logistics.py` | `SandParametersPage`, logistics schematic |
 | Autoroad network | BFF `request` → `compute` → `apply`, `planner_adapter` + `network-planner` (in-process); legacy `autoroad-connect` | «Сеть» на карте; группа «Соединить автодорогами» |
+| AI Assistant (Tool Registry) | `app/assistant/` — 10 tools, HTTP MCP `/api/v1/mcp/` (фаза 2 ✅) | ⬜ UI чат (фаза 3); см. [assistant.md](assistant.md) |
 
 **Префикс API:** `/api/v1/projects/{project_id}/...` для проектных ресурсов; Swagger — `/api/v1/docs`.
 
@@ -403,7 +405,7 @@ POST   /api/reports/generate       - Сгенерировать отчёт
 GET    /api/reports/:id            - Получить отчёт
 GET    /api/reports/:id/download   - Скачать отчёт
 DELETE /api/reports/:id            - Удалить отчёт
-POST   /api/export/geojson         - Экспорт GeoJSON
+POST   /api/export/geojson         - Экспорт GeoJSON (план; **факт:** клиент `/export`, `lib/projectExport/`)
 POST   /api/export/excel           - Экспорт Excel
 ```
 

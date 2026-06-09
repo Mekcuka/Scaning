@@ -1,0 +1,25 @@
+{
+  "mcpServers": {
+    "atlas-grid": {
+      "url": "https://erascaning.duckdns.org/api/v1/mcp/",
+      "headers": {
+        "Authorization": "Bearer <run scripts/get-atlas-grid-token.ps1>"
+      }
+    },
+    "atlas-grid-local": {
+      "url": "http://127.0.0.1:8000/api/v1/mcp/",
+      "headers": {
+        "Authorization": "Bearer <run scripts/get-atlas-grid-token.ps1 -McpUrl http://127.0.0.1:8000/api/v1/mcp/>"
+      }
+    },
+    "atlas-grid-dev": {
+      "command": "<repo>/decision-matrix/backend/venv/Scripts/python.exe",
+      "args": ["-m", "app.assistant.dev.stdio_mcp"],
+      "cwd": "<repo>/decision-matrix/backend",
+      "env": {
+        "ASSISTANT_DEV_MCP_DOMAIN_TOOLS": "false",
+        "ASSISTANT_DEV_MCP_USER_EMAIL": "admin@test.ru"
+      }
+    }
+  }
+}

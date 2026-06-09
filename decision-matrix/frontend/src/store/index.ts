@@ -111,14 +111,21 @@ export type ToastItem = {
 
 const TOAST_DISMISS_MS = 5000;
 
+export type AssistantUiContext = {
+  selectedPoiId: string | null;
+  selectedPoiName: string | null;
+};
+
 interface AppState {
   theme: 'light' | 'dark';
   currentProjectId: string | null;
   /** Incremented after import / bulk map data changes — MapPage resets bbox filter. */
   mapRefreshNonce: number;
+  assistantUiContext: AssistantUiContext;
   toasts: ToastItem[];
   toggleTheme: () => void;
   setCurrentProjectId: (id: string | null) => void;
+  setAssistantUiContext: (patch: Partial<AssistantUiContext>) => void;
   bumpMapRefresh: () => void;
   pushToast: (tone: ToastTone, text: string) => void;
   dismissToast: (id: number) => void;
@@ -128,6 +135,7 @@ export const useAppStore = create<AppState>((set, get) => ({
   theme: (localStorage.getItem('theme') as 'light' | 'dark') || 'light',
   currentProjectId: localStorage.getItem('currentProjectId'),
   mapRefreshNonce: 0,
+  assistantUiContext: { selectedPoiId: null, selectedPoiName: null },
   toasts: [],
   pushToast: (tone, text) => {
     const id = Date.now() + Math.floor(Math.random() * 1000);
@@ -148,5 +156,9 @@ export const useAppStore = create<AppState>((set, get) => ({
     else localStorage.removeItem('currentProjectId');
     set({ currentProjectId: id });
   },
+  setAssistantUiContext: (patch) =>
+    set((s) => ({
+      assistantUiContext: { ...s.assistantUiContext, ...patch },
+    })),
   bumpMapRefresh: () => set((s) => ({ mapRefreshNonce: s.mapRefreshNonce + 1 })),
 }));

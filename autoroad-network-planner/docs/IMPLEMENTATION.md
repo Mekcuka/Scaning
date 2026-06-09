@@ -2,6 +2,8 @@
 
 Current behaviour of the Steiner network planner as of the GeoSteiner connectivity fix and shared post-processing pipeline.
 
+Russian: [IMPLEMENTATION.ru.md](IMPLEMENTATION.ru.md)
+
 ## Architecture
 
 ```

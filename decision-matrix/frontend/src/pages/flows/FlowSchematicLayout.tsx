@@ -1,4 +1,5 @@
-import { useState } from 'react';
+import { useMemo, useState } from 'react';
+import { useSyncAssistantUiContext } from '../../lib/assistant/assistantContext';
 import { Link, NavLink, Outlet, useLocation } from 'react-router-dom';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useActiveProject } from '../../hooks/useActiveProject';
@@ -31,6 +32,15 @@ export function FlowSchematicLayout() {
   const { data: pois = [], isLoading: poisLoading } = useProjectPois(projectId);
 
   const activePoiId = selectedPoiId || pois[0]?.id || '';
+  const activePoi = useMemo(
+    () => pois.find((p) => p.id === activePoiId) ?? null,
+    [pois, activePoiId],
+  );
+
+  useSyncAssistantUiContext({
+    selectedPoiId: activePoi?.id ?? null,
+    selectedPoiName: activePoi?.name ?? null,
+  });
 
   const schematicQuery = useQuery({
     queryKey: ['flow-schematic', projectId, activePoiId],

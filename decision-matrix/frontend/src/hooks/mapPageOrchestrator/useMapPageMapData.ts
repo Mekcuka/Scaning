@@ -1,4 +1,5 @@
 import { useCallback, useEffect } from 'react';
+import { useSyncAssistantUiContext } from '../../lib/assistant/assistantContext';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { buildMapFitAllFocus } from '../../lib/analysisDisplay';
 import { setProjectCustomGltfAssets } from '../../lib/map3d/map3dCustomAssets';
@@ -126,6 +127,11 @@ export function useMapPageMapData(params: {
   });
 
   const selectedPoi = pois.find((p) => p.id === edit.selectedPoiId) ?? pois[0] ?? null;
+
+  useSyncAssistantUiContext({
+    selectedPoiId: selectedPoi?.id ?? null,
+    selectedPoiName: selectedPoi?.name ?? null,
+  });
 
   const { groupSelectionDetails, detailSelection } = useMapSelection({
     featureSel: edit.featureSel,

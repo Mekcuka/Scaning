@@ -10,6 +10,7 @@ from app.assistant.context import ToolContext
 from app.assistant.errors import ToolError
 from app.assistant.registry import register_tool
 from app.assistant.tools.base import ToolDefinition
+from app.assistant.tools.categories import CAT_FLOW, cats
 from app.models.enums import AccessLevel, WriteScope
 from app.schemas import SandLogisticsAnalyzeResponse
 from app.services.project_access import resolve_project
@@ -37,5 +38,6 @@ def register() -> None:
             description="Get stored sand logistics analysis result for a project.",
             input_model=SandLogisticsInput,
             handler=_get_sand_logistics_result,
+            categories=cats(CAT_FLOW),
         )
     )

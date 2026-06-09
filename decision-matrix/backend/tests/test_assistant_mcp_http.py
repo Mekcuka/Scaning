@@ -98,19 +98,11 @@ def test_mcp_list_tools_authenticated(client, mcp_client):
     assert response.status_code == 200, response.text
     body = response.json()
     tools = body["result"]["tools"]
-    assert len(tools) == 10
-    assert {t["name"] for t in tools} == {
-        "get_flow_schematic",
-        "get_poi_analysis",
-        "get_project",
-        "get_project_job",
-        "get_sand_logistics_result",
-        "list_infra_objects",
-        "list_pois",
-        "list_project_jobs",
-        "list_projects",
-        "start_analyze_all_pois",
-    }
+    names = {t["name"] for t in tools}
+    assert "list_projects" in names
+    assert "get_me" in names
+    assert "admin_list_jobs" not in names
+    assert len(names) >= 28
 
 
 def test_mcp_call_tool_list_projects(client, mcp_client):
@@ -136,3 +128,101 @@ def test_mcp_call_tool_list_projects(client, mcp_client):
     payload = json.loads(content[0]["text"])
     assert payload["ok"] is True
     assert isinstance(payload["data"], list)
+
+
+def test_mcp_list_resources(client, mcp_client):
+    login_response = login(client, "analyst@test.ru")
+    token = login_response.json()["access_token"]
+    headers = _mcp_headers(token)
+
+    _mcp_initialize(mcp_client, headers)
+
+    response = mcp_client.post(
+        MCP_PATH,
+        headers=headers,
+        json={"jsonrpc": "2.0", "method": "resources/list", "params": {}, "id": 10},
+    )
+    assert response.status_code == 200, response.text
+    resources = response.json()["result"]["resources"]
+    uris = {r["uri"] for r in resources}
+    assert "docs://calculation-logic" in uris
+    assert "docs://infrastructure-subtypes" in uris
+    assert "openapi://v1" in uris
+
+
+def test_mcp_read_resource_calculation_logic(client, mcp_client):
+    login_response = login(client, "analyst@test.ru")
+    token = login_response.json()["access_token"]
+    headers = _mcp_headers(token)
+
+    _mcp_initialize(mcp_client, headers)
+
+    response = mcp_client.post(
+        MCP_PATH,
+        headers=headers,
+        json={
+            "jsonrpc": "2.0",
+            "method": "resources/read",
+            "params": {"uri": "docs://calculation-logic"},
+            "id": 11,
+        },
+    )
+    assert response.status_code == 200, response.text
+    contents = response.json()["result"]["contents"]
+    assert len(contents) == 1
+    assert len(contents[0]["text"]) > 100
+    assert contents[0]["mimeType"] == "text/markdown"
+
+
+def test_mcp_call_mutating_tool_blocked(client, mcp_client):
+    login_response = login(client, "analyst@test.ru")
+    token = login_response.json()["access_token"]
+    headers = _mcp_headers(token)
+
+    _mcp_initialize(mcp_client, headers)
+
+    response = mcp_client.post(
+        MCP_PATH,
+        headers=headers,
+        json={
+            "jsonrpc": "2.0",
+            "method": "tools/call",
+            "params": {
+                "name": "cancel_project_job",
+                "arguments": {
+                    "project_id": "00000000-0000-0000-0000-000000000001",
+                    "job_id": "00000000-0000-0000-0000-000000000002",
+                },
+            },
+            "id": 20,
+        },
+    )
+    assert response.status_code == 200, response.text
+    payload = json.loads(response.json()["result"]["content"][0]["text"])
+    assert payload["ok"] is False
+    assert payload["code"] == "confirm_required"
+
+
+def test_mcp_read_resource_openapi(client, mcp_client):
+    login_response = login(client, "analyst@test.ru")
+    token = login_response.json()["access_token"]
+    headers = _mcp_headers(token)
+
+    _mcp_initialize(mcp_client, headers)
+
+    response = mcp_client.post(
+        MCP_PATH,
+        headers=headers,
+        json={
+            "jsonrpc": "2.0",
+            "method": "resources/read",
+            "params": {"uri": "openapi://v1"},
+            "id": 12,
+        },
+    )
+    assert response.status_code == 200, response.text
+    contents = response.json()["result"]["contents"]
+    assert len(contents) == 1
+    schema = json.loads(contents[0]["text"])
+    assert "paths" in schema
+    assert contents[0]["mimeType"] == "application/json"

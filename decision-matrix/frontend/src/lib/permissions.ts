@@ -65,6 +65,7 @@ export const NAV_VISIBILITY: Record<string, UserRole[]> = {
   '/matrix': ['admin', 'analyst', 'viewer'],
   '/report': ['admin', 'analyst', 'viewer'],
   '/import': ['admin', 'analyst', 'data_manager'],
+  '/export': ['admin', 'analyst', 'data_manager', 'viewer'],
   '/admin': ['admin'],
 };
 

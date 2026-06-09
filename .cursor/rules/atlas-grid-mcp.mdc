@@ -1,0 +1,39 @@
+---
+description: Use Atlas Grid MCP for live app data (projects, POI, jobs, analysis)
+alwaysApply: true
+---
+
+# Atlas Grid MCP
+
+When the user asks about **live application data** (projects, POI, infrastructure, jobs, sand logistics, flow schematics, analysis results), use the **`atlas-grid`** MCP server — not raw `curl`, REST calls, or guessing from code.
+
+## When to use MCP
+
+- Count/list projects, project metadata, POI, infra objects
+- Job status, analyze-all, persisted calculation results
+- Mutating operations (create POI, update rates, etc.) — **только через веб-чат** (HTTP MCP вернёт `confirm_required`)
+- Project cost rates and economic params
+- Admin job journal (admin role only)
+- Questions like «сколько проектов», «статус задачи», «тарифы», «отмени задачу»
+
+## When NOT to use MCP (`atlas-grid`)
+
+- Reading/editing **source code** in the repo
+- Architecture/docs questions answerable from files
+- Local **pytest**, **git**, or **code search** — use **`atlas-grid-dev`** stdio MCP instead ([atlas-grid-dev-mcp.mdc](atlas-grid-dev-mcp.mdc))
+
+## Available tools (RBAC-filtered)
+
+Read-only tools (~31): projects, POI, map layers/objects, analysis results, jobs, rates, flow, sand logistics, networks, one-pagers, imports, 3D models, session. **Mutating** (8 tools) заблокированы в HTTP MCP — `confirm_required`; подтверждение в панели AI-помощник. Admin read: `admin_list_jobs`, `admin_jobs_health`, `admin_list_users`, `admin_stats`, `admin_list_assistant_audit`. Полный список: `docs/features/assistant-tools.md` §2.
+
+## Auth
+
+- MCP requires Bearer JWT in `.cursor/mcp.json` (generated locally, gitignored).
+- On Windows, `${env:ATLAS_GRID_ACCESS_TOKEN}` in HTTP headers often fails — run `.\scripts\get-atlas-grid-token.ps1` instead (embeds token, ~60 min TTL).
+- If MCP returns 401: re-run the script, then reload MCP in Cursor Settings.
+- Prod: `https://erascaning.duckdns.org/api/v1/mcp`; local: add `-McpUrl http://127.0.0.1:8000/api/v1/mcp`.
+
+## Docs
+
+- [assistant-tools.md](docs/features/assistant-tools.md) §9
+- [transport/README.md](decision-matrix/backend/app/assistant/transport/README.md)

@@ -5,6 +5,7 @@ import { api, normalizePoiAnalysisResponse } from '../lib/api';
 import { analyzeAllPoisAndWait } from '../lib/runApiJob';
 import { useAppStore } from '../store';
 import { usePermissions } from '../hooks/usePermissions';
+import { useSyncAssistantUiContext } from '../lib/assistant/assistantContext';
 import { PoiParamsPanel } from '../components/PoiParamsPanel';
 import {
   AnalysisEnvironmentTable,
@@ -38,6 +39,12 @@ export function ProjectDetailPage() {
   useEffect(() => {
     if (pois.length > 0 && !selectedPoiId) setSelectedPoiId(pois[0].id);
   }, [pois, selectedPoiId]);
+
+  const selectedPoi = pois.find((p) => p.id === selectedPoiId) ?? null;
+  useSyncAssistantUiContext({
+    selectedPoiId: selectedPoi?.id ?? null,
+    selectedPoiName: selectedPoi?.name ?? null,
+  });
 
   const { data: analysisData } = useQuery({
     queryKey: ['analysis', id, selectedPoiId],

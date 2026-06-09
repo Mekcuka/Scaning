@@ -4,6 +4,8 @@ from fastapi import APIRouter, Depends
 
 from app.api.deps import verify_csrf
 from app.api.v1.admin import admin_router
+from app.api.v1.admin_assistant import admin_assistant_router
+from app.api.v1.assistant import assistant_router
 from app.api.v1.admin_jobs import admin_jobs_router
 from app.api.v1.analysis import analysis_router
 from app.api.v1.auth import auth_router
@@ -21,6 +23,7 @@ router = APIRouter(dependencies=[Depends(verify_csrf)])
 router.include_router(auth_router)
 router.include_router(admin_router)
 router.include_router(admin_jobs_router)
+router.include_router(admin_assistant_router)
 router.include_router(projects_router)
 router.include_router(analysis_router)
 router.include_router(one_pagers_router)
@@ -31,3 +34,4 @@ router.include_router(flow_router)
 router.include_router(connections_router)
 router.include_router(sand_logistics_router)
 router.include_router(jobs_router)
+router.include_router(assistant_router)

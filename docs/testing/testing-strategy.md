@@ -178,6 +178,8 @@ vi.mock('../lib/api', async (importOriginal) => {
 ## Инфраструктура backend
 
 - [`tests/conftest.py`](../../decision-matrix/backend/tests/conftest.py) — client, login, CSRF, shared DB, rate limit off.
+- [`tests/test_assistant_tools.py`](../../decision-matrix/backend/tests/test_assistant_tools.py) — Shared Tool Registry: list_tools RBAC, smoke projects.
+- [`tests/test_assistant_mcp_http.py`](../../decision-matrix/backend/tests/test_assistant_mcp_http.py) — HTTP MCP: auth 401, `tools/list`, `tools/call` (изолированный `mcp_client`; `ASSISTANT_MCP_ENABLED=false` в conftest).
 - [`tests/factories.py`](../../decision-matrix/backend/tests/factories.py) — `create_test_project`, layer, POI.
 - [`pytest.ini`](../../decision-matrix/backend/pytest.ini) — `test_demo_users` исключён из default run.
 
@@ -187,6 +189,8 @@ vi.mock('../lib/api', async (importOriginal) => {
 |------|----------------|
 | `test_projects_api.py` | GET/PATCH/DELETE project |
 | `test_project_delete.py` | cascade delete |
+| `test_assistant_tools.py` | AI assistant registry: 10 tools, viewer RBAC |
+| `test_assistant_mcp_http.py` | Streamable HTTP MCP wire protocol + JWT middleware |
 | `test_map_api_crud.py` | layer, point, line objects |
 | `test_flow_api.py` | flow-schematic, economic-flow |
 | `test_sand_api.py` | sand-logistics analyze + GET result persist |

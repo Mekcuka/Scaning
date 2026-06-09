@@ -11,13 +11,18 @@
 
 | Компонент | Статус |
 |-----------|--------|
-| Shared Tool Registry (10 tools) | ✅ реализован |
-| HTTP MCP `/api/v1/mcp` | ✅ фаза 2 |
-| Веб-чат `/assistant/chat` | ⬜ фаза 3 |
-| UI помощника в React | ⬜ фаза 3 |
-| Dev stdio MCP (pytest, codebase) | ⬜ фаза 4 |
+| Shared Tool Registry (39 tools: 31 read + 8 mutating) | ✅ фазы 1–9 |
+| HTTP MCP `/api/v1/mcp/` (read + mutating block) | ✅ фаза 2, 9 |
+| Веб-чат `/assistant/chat` + SSE stream | ✅ фазы 3, 8 |
+| UI помощника в React (`AssistantPanel`) | ✅ фазы 3, 9 |
+| Dev stdio MCP (pytest, codebase, git) | ✅ фаза 4 |
+| Dev MCP domain proxy (read-only, опционально) | ✅ фаза 9.6 |
+| Расширение команд (тарифы, cancel job, admin) | ✅ фаза 5 |
+| Полное покрытие GET API (read-only) | ✅ фаза 6 |
+| Mutating tools + confirm, audit log, rate limits | ✅ фаза 9 |
+| Роутинг tools в чате + server-side formatters | ✅ фаза 7 (7.1–7.2, 7.5) |
 
-Пользовательский UI **пока отсутствует** — tools доступны из Python-тестов и HTTP MCP (Cursor).
+Tools доступны из **веб-чата** (панель в header), Python-тестов и HTTP MCP (Cursor). В **чате** в prompt LLM попадает 5–12 релевантных tools (не весь registry); типовые ответы с цифрами формируются на сервере без LLM.
 
 ---
 
@@ -35,8 +40,39 @@
 | 8 | `list_project_jobs` | нет | read project | `GET .../projects/{id}/jobs` |
 | 9 | `get_sand_logistics_result` | нет | read infra | `GET .../sand-logistics/result` |
 | 10 | `get_flow_schematic` | нет | read project | `GET .../flow-schematic` |
+| 11 | `get_cost_rates` | нет | read project | `GET .../rates` |
+| 12 | `get_economic_params` | нет | read project | `GET .../economic-params` |
+| 13 | `cancel_project_job` | **да** | write infra | `POST .../jobs/{id}/cancel` |
+| 14 | `admin_list_jobs` | нет | **admin** | `GET /admin/jobs` |
+| 15 | `admin_jobs_health` | нет | **admin** | `GET /admin/jobs/health` |
+| 16 | `get_me` | нет | auth | `GET /auth/me` |
+| 17 | `get_assistant_status` | нет | auth | `GET /assistant/status` |
+| 18 | `get_autoroad_solver_status` | нет | auth | `GET /autoroad-network/solver-status` |
+| 19 | `get_distance_defaults` | нет | read project | `GET .../distance-defaults` |
+| 20 | `list_infra_layers` | нет | read project | `GET .../infrastructure/layers` |
+| 21 | `get_poi_candidates` | нет | read project | `GET .../pois/{id}/candidates` |
+| 22 | `list_networks` | нет | read infra | `GET .../infrastructure/networks` |
+| 23 | `list_network_nodes` | нет | read infra | `GET .../networks/{id}/nodes` |
+| 24 | `list_network_edges` | нет | read infra | `GET .../networks/{id}/edges` |
+| 25 | `list_one_pagers` | нет | read project | `GET .../one-pagers` |
+| 26 | `get_one_pager` | нет | read project | `GET .../one-pagers/{id}` |
+| 27 | `list_import_logs` | нет | auth (owner) | `GET /import/logs` |
+| 28 | `get_import_log` | нет | auth (owner) | `GET /import/logs/{id}` |
+| 29 | `list_import_connections` | нет | read infra | `GET .../import_connections` |
+| 30 | `list_map3d_custom_models` | нет | read project | `GET .../map3d-custom-models` |
+| 31 | `admin_list_users` | нет | **admin** | `GET /admin/users` |
+| 32 | `admin_stats` | нет | **admin** | `GET /admin/stats` |
+| 33 | `create_project` | **да** | admin/analyst | `POST /projects` |
+| 34 | `create_poi` | **да** | write project | `POST .../pois` |
+| 35 | `update_infra_object` | **да** | write infra | `PATCH .../objects/{id}` (metadata only) |
+| 36 | `analyze_poi` | **да** | write project | `POST .../pois/{id}/analyze` |
+| 37 | `update_cost_rates` | **да** | write project | `PUT .../rates` |
+| 38 | `batch_delete_map_objects` | **да** | write | `POST .../map/batch-delete` |
+| 39 | `admin_list_assistant_audit` | нет | **admin** | `GET /admin/assistant/audit` |
 
-**RBAC в списке tools:** роль `viewer` **не видит** tool #6 (`start_analyze_all_pois`) в `list_tools()`, но может вызывать read-only tools (#1–5, #7–10) при доступе к проекту.
+**RBAC:** `viewer` не видит **ни один** mutating tool (8 шт.). `create_project` скрыт от `viewer` и `data_manager`. Admin tools (#14–15, #31–32, #39) — только `role=admin`.
+
+**Вне scope tools:** бинарная выдача GLB (`GET .../map3d-custom-models/{id}/file`) — не передаётся в LLM.
 
 ---
 
@@ -280,38 +316,325 @@ else:
 
 ---
 
-## 8. Roadmap (не в фазе 1)
+## 8. Roadmap (post-MVP)
 
-- Mutating tools: create project, cancel job, map edit (с confirm в UI)
-- Admin tools: `admin_list_jobs` (role=admin)
-- MCP resources: `docs://calculation-logic`, OpenAPI snapshot
-- Аудит действий через assistant (FR post-MVP)
+**Выполнено (фазы 1–6):** registry, HTTP MCP, веб-чат, dev stdio MCP, расширение команд, все GET read-only → 32 tools.
+
+**Запланировано / в работе:** детали в [assistant.md §16–18](../architecture/assistant.md).
+
+| Фаза | Фокус | Статус |
+|------|-------|--------|
+| **7** | Стабильность LLM | ✅ 7.1 роутинг, 7.2 formatters, 7.5 тесты; planned: 7.3 context fallback, 7.4 `/assistant/status` hints |
+| **8** | UX чата | ✅ 8.1 SSE, 8.3 UI-контекст, 8.4 chips, 8.5 MCP resources; 8.2 история в БД — planned |
+| **9** | Запись и prod | ✅ Mutating tools, audit log, rate limits по роли, MCP token UX, dev MCP domain proxy, admin LLM override |
+
+- ✅ Фаза 7: `tool_router.py`, `response_formatters.py` (infra, проекты, POI, jobs, тарифы), `ASSISTANT_CHAT_MAX_ROUTED_TOOLS`
+- ✅ `cancel_project_job`, `admin_list_jobs`, `get_cost_rates` (фаза 5)
+- ✅ Все GET read-only API (фаза 6)
+- ✅ SSE streaming `POST /assistant/chat/stream` (фаза 8.1)
+- ✅ UI-контекст чата: `project_name`, `selected_poi_id`, `active_tab` (фаза 8.3)
+- ✅ Контекстные chips по маршруту (фаза 8.4)
+- ✅ MCP resources read-only (фаза 8.5)
+- ✅ Фаза 9: mutating tools (confirm в чате, блок в HTTP MCP), audit log, rate limits, MCP UX
+
+### Mutating tools (фаза 9)
+
+| Tool | REST-аналог | Confirm в чате | HTTP MCP |
+|------|-------------|----------------|----------|
+| `start_analyze_all_pois` | `POST .../pois/analyze-all` | да | `confirm_required` |
+| `cancel_project_job` | cancel job API | да | `confirm_required` |
+| `create_project` | `POST /projects` | да (admin/analyst) | `confirm_required` |
+| `create_poi` | `POST .../pois` | да | `confirm_required` |
+| `update_infra_object` | `PATCH .../objects/{id}` (name/subtype/description) | да | `confirm_required` |
+| `analyze_poi` | `POST .../pois/{id}/analyze` | да | `confirm_required` |
+| `update_cost_rates` | `PUT .../rates` | да | `confirm_required` |
+| `batch_delete_map_objects` | `POST .../map/batch-delete` | да | `confirm_required` |
+
+**Политика HTTP MCP:** mutating tools не выполняются — ответ `code=confirm_required`. Подтверждение только в веб-чате (панель AI-помощник).
+
+### Audit и admin API (фаза 9.3, 9.7)
+
+| Метод | Путь | Описание |
+|-------|------|----------|
+| `GET` | `/api/v1/admin/assistant/audit` | Журнал вызовов tools (admin, пагинация `limit`, фильтры `tool_name`, `user_id`) |
+| `POST` | `/api/v1/admin/assistant/llm-config` | In-memory override LLM (`base_url`, `model`, `api_key`) без рестарта |
+| `DELETE` | `/api/v1/admin/assistant/llm-config` | Сброс override |
+
+Tool-аналог журнала: `admin_list_assistant_audit`.
+
+### Rate limits (фаза 9.4)
+
+| Канал | viewer | analyst / data_manager | admin |
+|-------|--------|------------------------|-------|
+| Chat (`/assistant/chat*`) | 10/min | 20/min | 40/min |
+| HTTP MCP | 15/min | 30/min | 60/min |
+
+Ключ slowapi: `ip:user_id`. Viewer: `ASSISTANT_CHAT_MAX_TOOL_ROUNDS_VIEWER=4`.
 
 ---
 
 ## 9. Подключение Cursor (HTTP MCP)
 
-**URL:** `http://127.0.0.1:8000/api/v1/mcp` (локально) или `https://erascaning.duckdns.org/api/v1/mcp` (prod).
+### URL (обязателен trailing slash)
 
-1. Запустите backend (`python run_local.py`).
-2. Получите access token: `POST /api/v1/auth/login` с email/password demo-пользователя.
-3. Добавьте в настройки MCP Cursor (не коммитьте токены в git):
+| Среда | URL |
+|-------|-----|
+| Prod | `https://erascaning.duckdns.org/api/v1/mcp/` |
+| Local | `http://127.0.0.1:8000/api/v1/mcp/` |
+
+Без завершающего `/` сервер отвечает **307 redirect**; Cursor при редиректе **теряет** заголовок `Authorization` → 401.
+
+### Быстрая настройка (Windows, рекомендуется)
+
+Из корня репозитория:
+
+```powershell
+.\scripts\get-atlas-grid-token.ps1
+```
+
+Скрипт логинится (по умолчанию `admin@oilgas.ru`), записывает `.cursor/mcp.json` с Bearer-токеном (файл в `.gitignore`) и напоминает сделать **Reload** MCP в Cursor.
+
+Локальный backend:
+
+```powershell
+.\scripts\get-atlas-grid-token.ps1 `
+  -ApiUrl "http://127.0.0.1:8000/api/v1" `
+  -McpUrl "http://127.0.0.1:8000/api/v1/mcp/"
+```
+
+Шаблон для команды (без секретов): [`.cursor/mcp.json.example`](../../.cursor/mcp.json.example).
+
+### Cursor rule
+
+Правило [`.cursor/rules/atlas-grid-mcp.mdc`](../../.cursor/rules/atlas-grid-mcp.mdc) (`alwaysApply: true`) — агент использует MCP `atlas-grid` для вопросов о **живых данных** приложения (проекты, POI, jobs), а не curl/REST.
+
+### Auth и TTL
+
+- Только **Bearer JWT** (тот же `access_token`, что REST login).
+- Токен живёт **~60 мин** — при 401 перезапустите `get-atlas-grid-token.ps1` → Reload MCP.
+- На Windows **`${env:VAR}` в HTTP headers** у Cursor часто не работает — используйте скрипт, не переменную окружения в `mcp.json`.
+- `list_tools` фильтруется по роли (как REST RBAC).
+
+### Отключение на prod
+
+`ASSISTANT_MCP_ENABLED=false` в `app.env` на VM.
+
+Подробнее: [assistant.md §11](../architecture/assistant.md), [`transport/README.md`](../../decision-matrix/backend/app/assistant/transport/README.md).
+
+---
+
+## 10. Веб-чат (фаза 3)
+
+### UI
+
+Иконка **MessageSquare** в header приложения (слева от «Журнал задач»). Панель `AssistantPanel` — slide-over с session-only историей.
+
+Контекст запроса: `project_id`, `project_name`, `selected_poi_id`, `active_tab`, `route_path` — собирается в [`assistantContext.ts`](../../decision-matrix/frontend/src/lib/assistant/assistantContext.ts); POI синхронизируется со страниц карты, проекта и схем потоков через `useSyncAssistantUiContext`.
+
+### API
+
+| Метод | Путь | Описание |
+|-------|------|----------|
+| `GET` | `/api/v1/assistant/status` | `{ enabled, model, provider_ready, base_url, mcp_url, mcp_token_ttl_minutes, mcp_setup_hint_ru }` — badge + MCP hint в UI |
+| `POST` | `/api/v1/assistant/chat` | `{ messages, project_id?, project_name?, selected_poi_id?, active_tab?, route_path?, confirm_action_id? }` → `ChatResponse` |
+| `POST` | `/api/v1/assistant/chat/stream` | Тот же body → SSE (`token`, `tool_start`, `tool_done`, `pending_action`, `done`, `error`) |
+
+Auth: JWT + CSRF (как остальной `/api/v1`). Rate limit по роли: viewer `10/min`, analyst `20/min`, admin `40/min` (`ASSISTANT_CHAT_RATE_LIMIT_*`). HTTP MCP: отдельные лимиты `ASSISTANT_MCP_RATE_LIMIT_*`.
+
+### Mutating tools в чате
+
+При вызове LLM tool с `mutating=true` (например `start_analyze_all_pois`) backend **не выполняет** операцию сразу. Ответ содержит:
 
 ```json
 {
-  "mcpServers": {
-    "atlas-grid": {
-      "url": "http://127.0.0.1:8000/api/v1/mcp",
-      "headers": {
-        "Authorization": "Bearer <access_token>"
-      }
-    }
+  "pending_action": {
+    "action_id": "<signed>",
+    "tool": "start_analyze_all_pois",
+    "arguments": { "project_id": "..." },
+    "description": "Запустить анализ всех POI в проекте?"
   }
 }
 ```
 
-**Auth:** только Bearer JWT (обязателен). Список tools фильтруется по роли пользователя (как REST RBAC).
+UI показывает карточку **Подтвердить / Отмена**. Подтверждение — повторный `POST /chat` с `confirm_action_id`. Роль `viewer` не видит mutating tool в `list_tools()`.
 
-**Отключение на prod:** `ASSISTANT_MCP_ENABLED=false` в `app.env` на VM.
+### LM Studio (локально)
 
-Подробнее: [assistant.md §11](../architecture/assistant.md), [`transport/README.md`](../../decision-matrix/backend/app/assistant/transport/README.md).
+1. LM Studio → загрузить модель с **function calling**.
+2. Local Server на `http://127.0.0.1:1234`.
+3. Backend **на том же ПК**: `ASSISTANT_LLM_BASE_URL=http://127.0.0.1:1234/v1`.
+4. Открыть приложение с локальным API (`VITE_API_URL=http://127.0.0.1:8000/api/v1`).
+
+**Не работает:** GitHub Pages + backend на VM + LM Studio на ПК — VM не достучится до `localhost:1234`. На prod задайте облачный LLM в `app.env`.
+
+### Prod
+
+```env
+ASSISTANT_LLM_BASE_URL=https://openrouter.ai/api/v1
+ASSISTANT_LLM_API_KEY=<secret>
+ASSISTANT_LLM_MODEL=openai/gpt-4o-mini
+```
+
+`ASSISTANT_CHAT_ENABLED=false` — чат отключён (404 на `/chat`).
+
+`ASSISTANT_CHAT_MAX_ROUTED_TOOLS` (default `12`) — макс. tools в prompt LLM после категорийного роутинга.
+
+### Качество ответов (фаза 7)
+
+После успешного tool-вызова оркестратор вызывает `try_server_answer_after_tools()` ([`response_formatters.py`](../../decision-matrix/backend/app/assistant/chat/response_formatters.py)). При совпадении intent пользователя и tool ответ отдаётся **без второго вызова LLM** — числа и списки из API, не галлюцинации слабой модели.
+
+| Вопрос (примеры) | Tool | Server formatter |
+|------------------|------|------------------|
+| объекты на карте, сколько объектов | `list_infra_objects` | `format_infra_objects_summary` |
+| сколько проектов, список проектов | `list_projects` | `format_projects_summary` |
+| сколько POI, список точек | `list_pois` | `format_pois_summary` |
+| статус задачи, фоновая задача | `get_project_job`, `list_project_jobs` | `format_job_summary` |
+| тарифы, ставки | `get_cost_rates` | `format_cost_rates_summary` |
+| экономика, OPEX | `get_economic_params` | `format_economic_params_summary` |
+
+**Роутинг tools (только чат):** [`tool_router.py`](../../decision-matrix/backend/app/assistant/chat/tool_router.py) — сигналы: `active_tab`, ключевые слова, core-set (`list_projects`, `get_me`), fallback при <3 tools. Категории на `ToolDefinition.categories` (`projects`, `map`, `jobs`, `rates`, `analysis`, `flow`, `admin`, `session`). HTTP MCP и dev MCP по-прежнему видят **полный** registry.
+
+Подробнее: [`chat/README.md`](../../decision-matrix/backend/app/assistant/chat/README.md), [assistant.md §16](../architecture/assistant.md).
+
+---
+
+## 14. MCP resources (фаза 8.5)
+
+HTTP MCP `atlas-grid` отдаёт read-only **resources** — документацию и OpenAPI без загрузки 32 tools в prompt Cursor.
+
+### URI
+
+| URI | Содержимое | mimeType |
+|-----|------------|----------|
+| `docs://calculation-logic` | [`docs/calculations/calculation-logic-flow.md`](../calculations/calculation-logic-flow.md) | `text/markdown` |
+| `docs://infrastructure-subtypes` | [`decision-matrix/shared/infrastructure_subtypes.json`](../../decision-matrix/shared/infrastructure_subtypes.json) | `application/json` |
+| `openapi://v1` | Снимок `app.openapi()` FastAPI | `application/json` |
+
+Реализация: [`transport/resources.py`](../../decision-matrix/backend/app/assistant/transport/resources.py); `AtlasGridMCP.list_resources` / `read_resource`.
+
+### Auth
+
+Те же правила, что для tools: **Bearer JWT**, URL с trailing slash (`/api/v1/mcp/`).
+
+### Пример (JSON-RPC)
+
+```json
+{ "jsonrpc": "2.0", "method": "resources/list", "params": {}, "id": 1 }
+```
+
+```json
+{
+  "jsonrpc": "2.0",
+  "method": "resources/read",
+  "params": { "uri": "docs://calculation-logic" },
+  "id": 2
+}
+```
+
+Ответ: `result.contents[]` с полями `text`, `mimeType`.
+
+Подробнее: [`transport/README.md`](../../decision-matrix/backend/app/assistant/transport/README.md).
+
+---
+
+## 11. Dev stdio MCP (фаза 4)
+
+Отдельный MCP-сервер **`atlas-grid-dev`** для разработки в Cursor. Не смешивать с HTTP `atlas-grid` (live data).
+
+### Tools
+
+| Tool | Аргументы | Результат |
+|------|-----------|-----------|
+| `run_pytest_tool` | `path`, `keyword`, `markers`, `timeout_seconds` | exit_code, stdout/stderr tail |
+| `search_codebase_tool` | `query`, `glob`, `max_results` | matches `{ path, line, snippet }` |
+| `git_status_tool` | optional `path` | branch, short status |
+| `git_log_tool` | `max_count`, optional `path` | oneline commits |
+
+### Cursor setup
+
+```powershell
+.\scripts\get-atlas-grid-token.ps1 -IncludeDevMcp
+```
+
+Или вручную из [`.cursor/mcp.json.example`](../../.cursor/mcp.json.example):
+
+```json
+"atlas-grid-dev": {
+  "command": "<repo>/decision-matrix/backend/venv/Scripts/python.exe",
+  "args": ["-m", "app.assistant.dev.stdio_mcp"],
+  "cwd": "<repo>/decision-matrix/backend"
+}
+```
+
+Правила Cursor:
+- [`.cursor/rules/atlas-grid-dev-mcp.mdc`](../../.cursor/rules/atlas-grid-dev-mcp.mdc) — pytest, search, git
+- [`.cursor/rules/atlas-grid-mcp.mdc`](../../.cursor/rules/atlas-grid-mcp.mdc) — live app data
+
+### Конфиг
+
+| Env | Default |
+|-----|---------|
+| `ASSISTANT_DEV_MCP_ENABLED` | `true` |
+| `ASSISTANT_DEV_MCP_DOMAIN_TOOLS` | `false` | `true` — read-only domain tools из registry |
+| `ASSISTANT_DEV_MCP_USER_EMAIL` | `admin@test.ru` | Пользователь SQLite для domain proxy |
+| `ASSISTANT_DEV_MCP_REPO_ROOT` | `""` (auto) |
+
+`ENVIRONMENT=production` — entrypoint отказывается стартовать. Mutating tools в dev MCP **не** регистрируются.
+
+Подробнее: [`dev/README.md`](../../decision-matrix/backend/app/assistant/dev/README.md), [assistant.md §13](../architecture/assistant.md).
+
+---
+
+## 12. Команды чата (фаза 5)
+
+Веб-чат и MCP используют **один registry** — новые tools доступны в обоих каналах.
+
+### Быстрые команды в UI
+
+При пустой истории `AssistantPanel` показывает chips: **Проекты**, **Активная задача**, **Тарифы**, **POI**; для admin — **Журнал задач**.
+
+### Mutating с подтверждением
+
+Все 8 mutating tools → `pending_action` + кнопка «Подтвердить» в чате. В HTTP MCP — `confirm_required` (см. таблицу в §8).
+
+### Отображение tool calls
+
+Под ответом помощника: `Использовано: Список проектов ✓, Тарифы проекта ✓`.
+
+### System prompt
+
+Orchestrator включает шпаргалку доступных tools на русском ([`tool_labels.py`](../../decision-matrix/backend/app/assistant/chat/tool_labels.py)).
+
+Подробнее: [assistant.md §14](../architecture/assistant.md).
+
+---
+
+## 13. Полное покрытие GET API (фаза 6)
+
+Все **read-only** REST `GET` эндпоинты приложения доступны помощнику через shared registry (веб-чат + HTTP MCP). Mutating (`POST`/`PUT`/`PATCH`/`DELETE`) — по-прежнему только отдельные tools с confirm или вне registry.
+
+| Роль | Tools (примерно) |
+|------|------------------|
+| analyst | 34 (26 read + 8 mutating) |
+| data_manager | 33 (как analyst, без `create_project`) |
+| viewer | 26 (только read, без mutating и admin) |
+| admin | 39 (все analyst + 5 admin tools) |
+
+---
+
+## 15. Tool categories (фаза 7.1)
+
+Категории задаются в [`tools/categories.py`](../../decision-matrix/backend/app/assistant/tools/categories.py) и поле `ToolDefinition.categories` при `register_tool`.
+
+| Категория | Tools (примеры) |
+|-----------|-----------------|
+| `session` | `get_me`, `get_assistant_status`, `get_autoroad_solver_status` |
+| `projects` | `list_projects`, `get_project`, `list_pois`, `create_poi`, imports, one-pagers |
+| `map` | `list_infra_objects`, `list_infra_layers`, `update_infra_object`, graph/network, map3d |
+| `jobs` | `get_project_job`, `list_project_jobs`, `cancel_project_job` |
+| `rates` | `get_cost_rates`, `get_economic_params`, `update_cost_rates`, `get_distance_defaults` |
+| `analysis` | `get_poi_analysis`, `analyze_poi`, `start_analyze_all_pois`, … |
+| `flow` | `get_flow_schematic`, `get_sand_logistics_result` |
+| `admin` | `admin_list_jobs`, `admin_stats`, `admin_list_assistant_audit`, … |
+
+При добавлении tool укажите `categories=cats(CAT_…)` и RU-label в `tool_labels.py`. Для типовых read-сценариев с числами — рассмотрите matcher в `response_formatters.py`.

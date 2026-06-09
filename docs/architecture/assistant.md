@@ -40,11 +40,11 @@ decision-matrix/backend/app/
     ├── context.py       ← ToolContext
     ├── tools/domain/    ← 10 domain tools
     ├── transport/       ← HTTP MCP `/api/v1/mcp` (фаза 2 ✅)
-    ├── chat/            ← заглушка: POST /assistant/chat (фаза 3)
-    └── dev/             ← заглушка: stdio dev tools (фаза 4)
+    ├── chat/            ← POST /assistant/chat, LLM orchestrator (фаза 3 ✅)
+    └── dev/             ← stdio dev MCP (фаза 4 ✅)
 ```
 
-В [`main.py`](../../decision-matrix/backend/app/main.py) смонтирован **HTTP MCP** на `/api/v1/mcp` (если `ASSISTANT_MCP_ENABLED=true`). Endpoint `/assistant/chat` — фаза 3.
+В [`main.py`](../../decision-matrix/backend/app/main.py) смонтирован **HTTP MCP** (`ASSISTANT_MCP_PATH` + `/`; клиентский URL: `/api/v1/mcp/`) при `ASSISTANT_MCP_ENABLED=true`. **Chat API** — `POST /api/v1/assistant/chat`, `GET /api/v1/assistant/status` в router v1 (CSRF + JWT как REST).
 
 ---
 
@@ -56,7 +56,7 @@ flowchart TB
     React["React GitHub Pages"]
     RestAPI["/api/v1/*"]
     ChatAPI["/api/v1/assistant/chat"]
-    McpHTTP["/api/v1/mcp"]
+    McpHTTP["/api/v1/mcp/"]
     Registry["app/assistant/registry.py"]
     Services["app/services/*"]
     DB[(PostgreSQL)]
@@ -82,8 +82,13 @@ flowchart TB
 |------|--------|------------|
 | **1** | ✅ scaffold | `ToolContext`, registry, 10 domain tools, pytest |
 | **2** | ✅ | HTTP MCP mount (`transport/`), зависимость `mcp`, JWT auth, CORS |
-| **3** | ⬜ | `POST /api/v1/assistant/chat`, LLM orchestrator, UI в `AppLayout` |
-| **4** | ⬜ | stdio MCP: `run_pytest`, поиск по репозиторию |
+| **3** | ✅ | `POST /api/v1/assistant/chat`, OpenAI-compatible LLM, orchestrator, `AssistantPanel` в `AppLayout` |
+| **4** | ✅ | stdio MCP `atlas-grid-dev`: `run_pytest`, `search_codebase`, `git_status`, `git_log` |
+| **5** | ✅ | +6 domain tools (тарифы, cancel job, admin journal); UX чата (chips, tool log) |
+| **6** | ✅ | Все GET read-only API → 32 tools с RBAC по роли |
+| **7** | planned | Tool routing, форматирование ответов, context fallback, status hints |
+| **8** | partial | ✅ 8.1 SSE, 8.3 UI-контекст, 8.4 chips, 8.5 MCP resources; 8.2 история в БД — planned |
+| **9** | ✅ | Mutating tools + confirm, HTTP MCP block, audit log, rate limits, MCP UX, dev domain proxy, admin LLM override |
 
 ---
 
@@ -149,11 +154,13 @@ Chat  ──► assistant/tools/domain/projects.py ──► services/project_ac
 
 - [`tests/test_assistant_tools.py`](../../decision-matrix/backend/tests/test_assistant_tools.py) — list_tools RBAC, smoke `list_projects` / `get_project`.
 - [`tests/test_assistant_mcp_http.py`](../../decision-matrix/backend/tests/test_assistant_mcp_http.py) — MCP auth 401, `tools/list`, `tools/call`.
+- [`tests/test_assistant_chat.py`](../../decision-matrix/backend/tests/test_assistant_chat.py) — mock LLM, tool loop, mutating confirm.
+- [`tests/test_assistant_dev_mcp.py`](../../decision-matrix/backend/tests/test_assistant_dev_mcp.py) — dev tools sandbox, pytest/git/search handlers.
 - Фикстуры пользователей — [`tests/conftest.py`](../../decision-matrix/backend/tests/conftest.py) (`analyst@test.ru`, `viewer@test.ru`).
 
 ```bash
 cd decision-matrix/backend
-pytest tests/test_assistant_tools.py tests/test_assistant_mcp_http.py -v
+pytest tests/test_assistant_tools.py tests/test_assistant_mcp_http.py tests/test_assistant_chat.py tests/test_assistant_dev_mcp.py -v
 ```
 
 ---
@@ -180,7 +187,7 @@ pytest tests/test_assistant_tools.py tests/test_assistant_mcp_http.py -v
 
 ## 11. HTTP MCP (фаза 2)
 
-**Endpoint:** `POST /api/v1/mcp` — [Streamable HTTP](https://modelcontextprotocol.io) через официальный Python SDK (`mcp>=1.9.0`).
+**Endpoint:** `POST /api/v1/mcp/` — [Streamable HTTP](https://modelcontextprotocol.io) через официальный Python SDK (`mcp>=1.9.0`). Клиенты должны использовать URL **с завершающим slash** (иначе 307 и потеря `Authorization` в Cursor).
 
 ```mermaid
 sequenceDiagram
@@ -189,16 +196,197 @@ sequenceDiagram
   participant Bridge as AtlasGridMCP
   participant Reg as registry.py
 
-  Client->>Auth: POST /api/v1/mcp + Bearer JWT
+  Client->>Auth: POST /api/v1/mcp/ + Bearer JWT
   Auth->>Bridge: tools/list or tools/call
   Bridge->>Reg: list_tools(ctx) / execute_tool(...)
   Reg-->>Client: Tool[] or ToolResult JSON in TextContent
 ```
 
+**Mutating (фаза 9):** `call_tool` для tools с `mutating=True` **не вызывает** `execute_tool` — ответ `ToolResult` с `code=confirm_required`. Запись данных только через веб-чат (кнопка «Подтвердить»).
+
+**Rate limit (фаза 9):** per-role лимиты в `McpAuthMiddleware` (`ASSISTANT_MCP_RATE_LIMIT_*`, ключ `ip:user_id`).
+
 **Auth:** Bearer JWT обязателен (тот же access token, что REST). Cookie опционально через `_extract_access_token`. CSRF **не** применяется — mount вне router с `verify_csrf`.
+
+**Mount:** ASGI sub-app на `ASSISTANT_MCP_PATH + "/"` — без редиректа bare path → slash.
 
 **Lifespan:** `mcp.session_manager.run()` объединён с DB init через `AsyncExitStack` в `main.py`.
 
 **CORS:** заголовки `Mcp-Session-Id`, `MCP-Protocol-Version` добавлены в `allow_headers`.
 
-Подробнее: [`transport/README.md`](../../decision-matrix/backend/app/assistant/transport/README.md), [assistant-tools.md §9](../features/assistant-tools.md).
+**Cursor (prod):** `scripts/get-atlas-grid-token.ps1` → `.cursor/mcp.json` (gitignored); rule `.cursor/rules/atlas-grid-mcp.mdc`. См. [assistant-tools.md §9](../features/assistant-tools.md).
+
+Подробнее: [`transport/README.md`](../../decision-matrix/backend/app/assistant/transport/README.md).
+
+---
+
+## 12. Веб-чат (фаза 3)
+
+**Endpoints:** `POST /api/v1/assistant/chat`, `GET /api/v1/assistant/status` — внутри router v1 (JWT + CSRF, per-role rate limit `ASSISTANT_CHAT_RATE_LIMIT_*`).
+
+```mermaid
+sequenceDiagram
+  participant UI as AssistantPanel
+  participant API as /assistant/chat
+  participant Orch as orchestrator.py
+  participant LLM as OpenAI-compatible API
+  participant Reg as registry.py
+
+  UI->>API: messages + project_id
+  API->>Orch: run_chat()
+  loop tool rounds
+    Orch->>LLM: chat/completions + tools[]
+    LLM-->>Orch: tool_calls or text
+    Orch->>Reg: execute_tool (read-only)
+    Orch-->>UI: pending_action (mutating)
+  end
+  UI->>API: confirm_action_id
+  API->>Reg: execute_tool (mutating)
+```
+
+**LLM:** OpenAI-compatible HTTP (`httpx`) — один клиент для LM Studio (локально `http://127.0.0.1:1234/v1`) и облака на prod (`ASSISTANT_LLM_BASE_URL` в `app.env`).
+
+**Ответ:** `POST /assistant/chat` — цельный JSON (`ChatResponse`); `POST /assistant/chat/stream` — SSE (`token`, `tool_start`, `tool_done`, `pending_action`, `done`, `error`). UI: `fetch` + `ReadableStream` (POST + CSRF).
+
+**История:** session-only в React state (без БД).
+
+**Mutating:** `pending_action` + кнопка «Подтвердить»; `action_id` — HMAC-signed token (`pending.py`).
+
+**UI:** [`AssistantPanel.tsx`](../../decision-matrix/frontend/src/components/assistant/AssistantPanel.tsx) в header [`AppLayout.tsx`](../../decision-matrix/frontend/src/components/layout/AppLayout.tsx).
+
+Подробнее: [`chat/README.md`](../../decision-matrix/backend/app/assistant/chat/README.md), [assistant-tools.md §10](../features/assistant-tools.md).
+
+---
+
+## 13. Dev stdio MCP (фаза 4)
+
+**Сервер Cursor:** `atlas-grid-dev` — subprocess stdio, **не** HTTP mount на FastAPI.
+
+```mermaid
+sequenceDiagram
+  participant Cursor as Cursor IDE
+  participant DevMcp as atlas-grid-dev stdio
+  participant Repo as Repo + git
+  participant Py as pytest
+
+  Cursor->>DevMcp: run_pytest_tool / search_codebase_tool
+  DevMcp->>Repo: sandboxed path + rg/git
+  DevMcp->>Py: subprocess pytest
+  DevMcp-->>Cursor: JSON result
+```
+
+| Tool | Назначение |
+|------|------------|
+| `run_pytest_tool` | pytest в `decision-matrix/backend` |
+| `search_codebase_tool` | ripgrep / Python search |
+| `git_status_tool` | branch + short status |
+| `git_log_tool` | recent commits |
+
+**Domain data** — по умолчанию HTTP **`atlas-grid`** (`/api/v1/mcp/`). Опционально (фаза 9.6): read-only domain tools в stdio при `ASSISTANT_DEV_MCP_DOMAIN_TOOLS=true` (mutating не экспортируются).
+
+**Setup:** `.\scripts\get-atlas-grid-token.ps1 -IncludeDevMcp` или [`.cursor/mcp.json.example`](../../.cursor/mcp.json.example).
+
+**Prod VM:** dev MCP **не деплоится** (stdio только на ПК разработчика).
+
+Подробнее: [`dev/README.md`](../../decision-matrix/backend/app/assistant/dev/README.md), [assistant-tools.md §11](../features/assistant-tools.md).
+
+---
+
+## 14. Расширение команд (фаза 5)
+
+**Новые tools** в registry (автоматически в HTTP MCP и веб-чате):
+
+| Tool | Тип |
+|------|-----|
+| `get_cost_rates`, `get_economic_params` | read |
+| `cancel_project_job` | mutating + confirm |
+| `admin_list_jobs`, `admin_jobs_health` | admin only |
+
+**Чат UX:** быстрые chips, лог `tool_calls_made`, «Очистить чат», русские labels ([`tool_labels.py`](../../decision-matrix/backend/app/assistant/chat/tool_labels.py)).
+
+Подробнее: [assistant-tools.md §12](../features/assistant-tools.md).
+
+---
+
+## 15. Полное покрытие GET (фаза 6)
+
+Добавлены tools для всех read-only REST команд: сессия (`get_me`), слои карты, граф сетей, one-pagers, импорты, 3D-модели (метаданные), admin users/stats и др. Исключение: бинарные файлы GLB.
+
+Модули: `session.py`, `graph.py`, `one_pagers.py`, `imports.py`, `map3d.py`, `admin.py` + расширения `projects.py`, `map.py`, `analysis.py`.
+
+Подробнее: [assistant-tools.md §13](../features/assistant-tools.md).
+
+---
+
+## 16. Стабильность LLM и качество ответов (фаза 7)
+
+**Цель:** стабильная работа чата на локальных LLM с малым контекстом (n_ctx 2048–4096) и понятные ответы пользователю вместо сырого JSON.
+
+**Проблема:** 32 tools с полными JSON-схемами переполняют контекст (`n_keep >= n_ctx`). Меры: `_DATA_HINTS`, `_slim_tool_schema`, **категорийный роутинг** (7.1), **server-side formatters** (7.2).
+
+### Задачи
+
+| ID | Задача | Код / артефакты | Статус |
+|----|--------|-----------------|--------|
+| 7.1 | Категорийный роутинг tools | [`chat/tool_router.py`](../../decision-matrix/backend/app/assistant/chat/tool_router.py); `categories` на `ToolDefinition`; `_tools_for_llm(ctx, request)` → 5–12 tools; `ASSISTANT_CHAT_MAX_ROUTED_TOOLS` | ✅ |
+| 7.2 | Форматирование ответов | [`chat/response_formatters.py`](../../decision-matrix/backend/app/assistant/chat/response_formatters.py) — infra, проекты, POI, jobs, тарифы; [`job_labels.py`](../../decision-matrix/backend/app/assistant/chat/job_labels.py), [`rate_labels.py`](../../decision-matrix/backend/app/assistant/chat/rate_labels.py) | ✅ |
+| 7.3 | Fallback при переполнении контекста | `llm_client.py` / orchestrator: catch `llm_http` + «context» → retry без tools или core-set | planned |
+| 7.4 | Расширенный `/assistant/status` | `min_context_recommended`, `tools_count`, `model_hint` | planned |
+| 7.5 | Тесты | `test_assistant_tool_router.py`, `test_assistant_response_formatters.py`, интеграция в `test_assistant_chat.py` | ✅ |
+
+**Server formatters (7.2):** после успешного tool-вызова оркестратор вызывает `try_server_answer_after_tools()` — при совпадении intent + tool ответ идёт **без LLM** (числа и списки из API, не галлюцинации). Покрыто: `list_infra_objects`, `list_projects`, `list_pois`, `get_project_job` / `list_project_jobs`, `get_cost_rates` / `get_economic_params`.
+
+**Зависимости:** 7.1 — основа для 7.3; 7.2 можно параллельно с 7.1.
+
+**Риски:** эвристики роутинга пропускают нужный tool — mitigation: core-set fallback + полный набор в MCP (без LLM prompt).
+
+**Вне scope:** история чата в БД (фаза 8.2).
+
+---
+
+## 17. UX чата и контекст приложения (фаза 8)
+
+**Цель:** помощник ощущается отзывчивым, помнит диалог и использует контекст UI (проект, вкладка, выбранный POI).
+
+### Задачи
+
+| ID | Задача | Код / артефакты | Критерий готовности |
+|----|--------|-----------------|---------------------|
+| 8.1 | SSE streaming | ✅ `POST /assistant/chat/stream`; `postChatStream` + [`AssistantPanel.tsx`](../../decision-matrix/frontend/src/components/assistant/AssistantPanel.tsx); события `token`, `tool_start`, `tool_done`, `pending_action`, `done` | Текст появляется до завершения запроса |
+| 8.2 | История чата в БД | `AssistantChatSession`, `AssistantMessage`; API list/create session; UI выбор сессии | История после F5 |
+| 8.3 | Богатый контекст UI | ✅ `ChatRequest`: `project_name`, `selected_poi_id`, `active_tab`; [`assistantContext.ts`](../../decision-matrix/frontend/src/lib/assistant/assistantContext.ts); `_build_system_prompt()` | Меньше уточнений «какой проект?» |
+| 8.4 | Контекстные chips | ✅ [`getQuickCommands`](../../decision-matrix/frontend/src/lib/assistant/toolLabels.ts) по `pathname` и роли | На `/map` — «Объекты на карте»; admin — «Статистика» |
+| 8.5 | MCP resources (read-only) | ✅ `docs://calculation-logic`, `docs://infrastructure-subtypes`, `openapi://v1` в [`transport/resources.py`](../../decision-matrix/backend/app/assistant/transport/resources.py) | `resources/list` в Cursor без 32 tools в prompt |
+| 8.6 | Документация | ✅ assistant-tools.md §14; [`transport/README.md`](../../decision-matrix/backend/app/assistant/transport/README.md) | Протокол и auth описаны |
+
+**Зависимости:** 8.1 не блокирует 8.2; 8.3 параллельно с 8.1.
+
+**Риски:** SSE + CSRF/cookies — проверить proxy Vite и prod CORS.
+
+**Вне scope:** история чата в БД (8.2).
+
+---
+
+## 18. Запись, безопасность, production (фаза 9) ✅
+
+**Цель:** полноценный ассистент с изменением данных (confirm), наблюдаемостью и защитой на prod.
+
+### Задачи
+
+| ID | Задача | Код / артефакты | Критерий готовности |
+|----|--------|-----------------|---------------------|
+| 9.1 | Mutating tools (пакет 1) | `create_project`, `create_poi`, `update_infra_object`; `mutating=True` + `pending_action` | ✅ Confirm UI; HTTP MCP → `confirm_required` |
+| 9.2 | Mutating tools (пакет 2) | `analyze_poi`, `update_cost_rates`, `batch_delete_map_objects` | ✅ RBAC; viewer не видит mutating в `list_tools` |
+| 9.3 | Журнал действий assistant | `assistant_audit_log`; хук в `execute_tool`; `admin_list_assistant_audit`, `GET /admin/assistant/audit` | ✅ |
+| 9.4 | Rate limits по роли | per-role chat/MCP лимиты; `ASSISTANT_CHAT_MAX_TOOL_ROUNDS_VIEWER` | ✅ |
+| 9.5 | MCP / токен UX | `GET /assistant/status` → `mcp_url`, `mcp_setup_hint_ru`; блок в `AssistantPanel` | ✅ |
+| 9.6 | Dev MCP domain proxy | `ASSISTANT_DEV_MCP_DOMAIN_TOOLS=true` — read-only domain tools в stdio MCP | ✅ |
+| 9.7 | Смена модели без рестарта | `POST/DELETE /admin/assistant/llm-config` (in-memory override) | ✅ |
+
+**Зависимости:** 9.1 перед 9.2; 9.3 после стабилизации mutating (9.1–9.2).
+
+**Риски:** mutating через LLM — строгий confirm и audit обязательны.
+
+**Вне scope:** полный proxy всех REST write endpoints; SSE (фаза 8).
+
+Подробнее: [assistant-tools.md §8](../features/assistant-tools.md).

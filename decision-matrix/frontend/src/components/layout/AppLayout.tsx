@@ -13,6 +13,7 @@ import {
   LogOut,
   Moon,
   Sun,
+  Download,
   Menu,
   SlidersHorizontal,
 } from 'lucide-react';
@@ -27,9 +28,9 @@ import {
   rememberSectionFromPath,
   type NavSection,
 } from '../../lib/sectionNavMemory';
-import { AppSelect } from '../AppSelect';
 import { ToastStack } from '../ToastStack';
 import { ReadOnlyBanner } from '../ReadOnlyBanner';
+import { AssistantPanel } from '../assistant/AssistantPanel';
 import { TaskLogPanel } from '../TaskLogPanel';
 
 type NavItem = {
@@ -56,6 +57,7 @@ const NAV: NavItem[] = [
   { to: '/matrix', permissionPath: '/matrix', icon: Grid3X3, label: 'Матрица', end: true },
   { to: '/report', permissionPath: '/report', icon: FileText, label: 'Отчёты', end: true },
   { to: '/import', permissionPath: '/import', icon: Upload, label: 'Импорт', end: true },
+  { to: '/export', permissionPath: '/export', icon: Download, label: 'Экспорт', end: true },
   { to: '/import-3d', permissionPath: '/import-3d', icon: Box, label: 'Импорт 3D', end: true },
   {
     section: 'admin',
@@ -75,7 +77,7 @@ export function AppLayout() {
   const { user, logout } = useAuthStore();
   const { role } = usePermissions();
   const { theme, toggleTheme, toasts, dismissToast } = useAppStore();
-  const { projects, projectId, activeProject, setProjectId, hasProjects } = useActiveProject();
+  const { projectId, activeProject } = useActiveProject();
   const navigate = useNavigate();
   const { pathname } = useLocation();
   const [navOpen, setNavOpen] = useState(false);
@@ -199,21 +201,7 @@ export function AppLayout() {
           </button>
           <div className="app-header-toolbar">
             <div className="app-header-actions">
-              {pathname !== '/' && pathname !== '/projects' && hasProjects && (
-                <label className="app-header-project flex items-center gap-2 text-sm min-w-0">
-                  <span className="app-header-project-label" style={{ color: 'var(--text-muted)' }}>
-                    Проект:
-                  </span>
-                  <AppSelect
-                    variant="toolbar"
-                    icon={<FolderOpen size={14} aria-hidden />}
-                    ariaLabel="Проект"
-                    value={projectId ?? ''}
-                    onChange={(id) => setProjectId(id || null)}
-                    options={projects.map((p) => ({ value: p.id, label: p.name }))}
-                  />
-                </label>
-              )}
+              <AssistantPanel />
               <TaskLogPanel projectId={projectId ?? null} />
               <button type="button" className="btn btn-ghost p-2 shrink-0" onClick={toggleTheme} title="Тема">
                 {theme === 'light' ? <Moon size={18} /> : <Sun size={18} />}

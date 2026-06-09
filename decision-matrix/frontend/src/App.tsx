@@ -19,6 +19,7 @@ import {
   FlowTechnologyPage,
   FlowsIndexRedirect,
   ImportPage,
+  ExportPage,
   Import3DPage,
   LoginPage,
   MapPage,
@@ -63,6 +64,7 @@ function AppRoutes() {
                   <Route element={<RoleProtectedRoute roles={['admin', 'analyst', 'data_manager']} />}>
                     <Route path="/import" element={<ImportPage />} />
                   </Route>
+                  <Route path="/export" element={<ExportPage />} />
                   <Route path="/projects" element={<ProjectsPage />} />
                   <Route path="/projects/:id" element={<ProjectDetailPage />} />
                   <Route path="/matrix" element={<MatrixPage />} />

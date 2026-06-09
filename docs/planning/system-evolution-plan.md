@@ -306,7 +306,7 @@ gantt
 | H1.6 | Coverage gates | pages 80%, components 30%, backend services 70% | P1 |
 | H1.7 | Drag-and-drop слоёв | FR-2.2.4 | P2 |
 | H1.8 | OSM подложка 2D | FR-2.1.2 (дополнение к Esri) | P2 |
-| H1.9 | Полный Excel / GeoJSON export | FR-12.3, development-plan этап 5 | P2 |
+| H1.9 | Полный Excel отчёта/матрицы; GeoJSON export | FR-12.3, development-plan этап 5 | P2 (GeoJSON/координаты — ✅ `/export`) |
 | H1.10 | Server PDF | FR-11.2.1, WeasyPrint | P2 |
 
 **Критерий выхода:** все пункты «Метрики успеха MVP» в [development-plan.md](development-plan.md) отмечены или явно отложены с обоснованием.
@@ -344,6 +344,7 @@ gantt
 | H3.5 | Расширение API-коннекторов | OSM Overpass, GeoNames — по запросу |
 | H3.6 | WebSocket / SSE | прогресс импорта, уведомления |
 | H3.7 | Managed PostgreSQL | миграция с Docker Postgres на YC MDB |
+| H3.8 | AI Assistant (MCP + чат) | фазы 1–2 ✅ registry + HTTP MCP `/api/v1/mcp/`; фаза 3 UI чат — [assistant.md](../architecture/assistant.md) |
 
 **Критерий выхода:** для POI доступен выбор политики «geodesic vs network»; импорт &gt; 10k объектов не блокирует API.
 
@@ -500,6 +501,7 @@ flowchart TB
 | [testing-strategy.md](../testing/testing-strategy.md) | H1 Quality |
 | [map-3d-plan.md](../features/map-3d-plan.md) | H2 3D в отчётах, L3 storage |
 | [map-objects-and-spatial-calculations.md](../features/map-objects-and-spatial-calculations.md) | H3 network_node |
+| [assistant.md](../architecture/assistant.md) | H3.8 AI Assistant |
 | [architecture.md](../architecture/architecture.md) | Celery, analytics, enterprise |
 
 ---

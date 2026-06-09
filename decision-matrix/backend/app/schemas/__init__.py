@@ -85,6 +85,22 @@ class AdminStatsResponse(BaseModel):
     pois: int
 
 
+class AssistantAuditLogItem(BaseModel):
+    id: UUID
+    user_id: UUID
+    tool_name: str
+    args_hash: str
+    ok: bool
+    code: str | None = None
+    source: str
+    created_at: datetime
+
+
+class AssistantAuditLogListResponse(BaseModel):
+    items: list[AssistantAuditLogItem] = Field(default_factory=list)
+    count: int = 0
+
+
 class ProjectCreate(BaseModel):
     name: str = Field(min_length=1, max_length=255)
     description: str | None = None

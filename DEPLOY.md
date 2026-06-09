@@ -124,9 +124,19 @@ Get-Content -Raw "C:\Users\user\Documents\mykey\ssh-key\ssh-key-1779903372392" |
 | `REDIS_URL` | **`redis://redis:6379/0`** (сервис `redis` в `deploy/docker-compose.yml`; нужен для ARQ-очереди) |
 | `ARQ_QUEUE_NAME` | `decision-matrix` (опционально) |
 | `JOBS_SYNC_FALLBACK` | `true` только для локальной отладки без Redis; на prod — **`false`** при заданном `REDIS_URL` |
-| `ASSISTANT_MCP_ENABLED` | `true` (default) — Streamable HTTP MCP на `/api/v1/mcp`; `false` чтобы отключить |
+| `ASSISTANT_MCP_ENABLED` | `true` (default) — Streamable HTTP MCP; `false` чтобы отключить |
+| `ASSISTANT_CHAT_ENABLED` | `true` (default) — веб-чат `/api/v1/assistant/chat`; `false` чтобы отключить |
+| `ASSISTANT_LLM_BASE_URL` | **обязательно на prod** — OpenAI-compatible API, напр. `https://openrouter.ai/api/v1` (не `127.0.0.1:1234` — VM не видит LM Studio на ПК разработчика) |
+| `ASSISTANT_LLM_API_KEY` | секрет LLM-провайдера |
+| `ASSISTANT_LLM_MODEL` | имя модели, напр. `openai/gpt-4o-mini` |
+| `ASSISTANT_LLM_TIMEOUT_SECONDS` | `120` (optional) |
+| `ASSISTANT_CHAT_MAX_TOOL_ROUNDS` | `8` (optional) |
+| `ASSISTANT_CHAT_MAX_ROUTED_TOOLS` | `12` (optional) — макс. tools в prompt чата после категорийного роутинга (фаза 7) |
+| `ASSISTANT_CHAT_RATE_LIMIT` | `20/minute` (optional) |
 | Swagger | https://erascaning.duckdns.org/api/v1/docs |
-| MCP (Cursor) | https://erascaning.duckdns.org/api/v1/mcp — Bearer JWT после login; **не** на GitHub Pages |
+| MCP (Cursor) | `https://erascaning.duckdns.org/api/v1/mcp/` — **trailing slash обязателен**; настройка: `.\scripts\get-atlas-grid-token.ps1` из корня репо; **не** на GitHub Pages |
+| Assistant chat | `GET /api/v1/assistant/status`, `POST /api/v1/assistant/chat` — нужен `ASSISTANT_LLM_*` на VM; UI: иконка в header приложения |
+| Dev stdio MCP (`atlas-grid-dev`) | **не на VM** — только локально в Cursor (`python -m app.assistant.dev.stdio_mcp`); pytest/search/git |
 
 **Фоновые задачи:** контейнер **`worker`** (`arq app.worker.settings.WorkerSettings`) обрабатывает соединение автодорог, async-импорт, логистику песка и `analyze-all`. В проекте одновременно не более одной задачи в статусе `pending`/`running` (ответ **409** при конфликте). API: `POST/GET /projects/{id}/jobs`, `GET .../jobs/active`, `POST .../jobs/{job_id}/cancel`.
 

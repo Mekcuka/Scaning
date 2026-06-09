@@ -10,11 +10,13 @@ from app.assistant.context import ToolContext
 from app.assistant.errors import ToolError
 from app.assistant.registry import register_tool
 from app.assistant.tools.base import ToolDefinition
+from app.assistant.tools.categories import CAT_JOBS, cats
 from app.models import ProjectJob
 from app.models.enums import AccessLevel, WriteScope
 from app.schemas import ProjectJobResponse
 from app.services.project_access import resolve_project
 from app.services.project_jobs import (
+    cancel_active_job,
     get_active_job_for_project,
     list_recent_jobs,
     reconcile_stale_active_job,
@@ -29,6 +31,11 @@ class ListProjectJobsInput(BaseModel):
 class GetProjectJobInput(BaseModel):
     project_id: UUID
     job_id: UUID | None = None
+
+
+class CancelProjectJobInput(BaseModel):
+    project_id: UUID
+    job_id: UUID
 
 
 def _job_dict(job: ProjectJob) -> dict:
@@ -52,6 +59,22 @@ async def _get_project_job(ctx: ToolContext, args: GetProjectJobInput) -> dict |
     return _job_dict(job)
 
 
+async def _cancel_project_job(ctx: ToolContext, args: CancelProjectJobInput) -> dict:
+    await resolve_project(
+        args.project_id, ctx.user, ctx.db, min_access=AccessLevel.write, write_scope=WriteScope.infra
+    )
+    try:
+        job = await cancel_active_job(ctx.db, project_id=args.project_id, job_id=args.job_id)
+    except ValueError as e:
+        msg = str(e)
+        if "not found" in msg.lower():
+            raise ToolError("not_found", msg) from e
+        raise ToolError("conflict", msg) from e
+    await ctx.db.commit()
+    await ctx.db.refresh(job)
+    return _job_dict(job)
+
+
 async def _list_project_jobs(ctx: ToolContext, args: ListProjectJobsInput) -> dict:
     await resolve_project(
         args.project_id, ctx.user, ctx.db, min_access=AccessLevel.read, write_scope=WriteScope.infra
@@ -71,6 +94,7 @@ def register() -> None:
             description="Get a project job by id, or the active job when job_id is omitted.",
             input_model=GetProjectJobInput,
             handler=_get_project_job,
+            categories=cats(CAT_JOBS),
         )
     )
     register_tool(
@@ -79,5 +103,16 @@ def register() -> None:
             description="List recent background jobs for a project.",
             input_model=ListProjectJobsInput,
             handler=_list_project_jobs,
+            categories=cats(CAT_JOBS),
+        )
+    )
+    register_tool(
+        ToolDefinition(
+            name="cancel_project_job",
+            description="Cancel a pending (or stale running) background job in a project.",
+            input_model=CancelProjectJobInput,
+            handler=_cancel_project_job,
+            mutating=True,
+            categories=cats(CAT_JOBS),
         )
     )

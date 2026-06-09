@@ -21,6 +21,7 @@ class ToolDefinition:
     input_model: type[BaseModel]
     handler: ToolHandler
     mutating: bool = False
+    categories: frozenset[str] = field(default_factory=frozenset)
     hide_from_roles: frozenset[UserRole] = field(default_factory=frozenset)
 
     def visible_for(self, role: UserRole) -> bool:

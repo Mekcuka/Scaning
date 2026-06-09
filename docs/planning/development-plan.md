@@ -13,7 +13,7 @@
 | 2. Backend — ядро | **✅ готово** | auth, карта, импорт, async jobs |
 | 3. Frontend — ядро | **11/12** | i18n — только русский UI |
 | 4. Матрица + инфраструктура | **✅ готово** | 9 строк, one-pager PDF/PPTX |
-| 5. Визуализация и отчёты | **3/4** | Excel параметров есть; полный экспорт матрицы/GeoJSON — нет |
+| 5. Визуализация и отчёты | **4/4** | Excel параметров; экспорт GeoJSON/координат на `/export` |
 | 6. Интеграция и тестирование | **частично** | unit + E2E + rate limit; perf/security — не формализованы |
 | 7. Деплой | **5/7** | Pages + VM + PG (Docker) + SSL + smoke; Winston/ELK — нет |
 | Метрики успеха MVP | **3/8** | см. § внизу |
@@ -167,13 +167,14 @@
 - [x] Линии/статусы на карте по выбранной POI
 - [x] PDF отчёта (клиентский print; server PDF — post-MVP)
 - [x] Excel: таблицы экрана «Параметры» (`exportExcel.ts`)
-- [ ] Полный экспорт матрицы/отчёта в Excel, экспорт GeoJSON проекта
+- [x] **Экспорт GeoJSON и координат проекта** — страница `/export`, клиент (`lib/projectExport/`, [project-export.md](../features/project-export.md))
+- [ ] Полный экспорт матрицы/отчёта в Excel
 
 ### Результат
 - [x] Визуализация результатов матрицы по POI (линии/статусы на карте)
 - [x] Одностраничники (PDF/PPTX) по выбранной точке интереса
 - [x] Экспорт Excel таблиц экрана «Параметры»
-- [ ] Полный экспорт матрицы/отчёта в Excel, экспорт GeoJSON проекта
+- [ ] Полный экспорт матрицы/отчёта в Excel
 
 ---
 
@@ -240,6 +241,7 @@
 - [x] **Импорт Искра** — `spark_import.py` ([spark-import-mapping.md](../features/spark-import-mapping.md))
 - [x] **Импорт 3D** — custom GLB, `/import-3d` ([map-3d-features.md](../features/map-3d-features.md))
 - [x] **Журнал задач** — панель в шапке + `/admin/jobs` ([task-log-panel.md](../features/task-log-panel.md))
+- [x] **Экспорт проекта** — `/export` ([project-export.md](../features/project-export.md))
 - [x] **Админка пользователей** — `/admin/users`, RBAC, stats
 - [x] **Граф сети** — build/list nodes/edges (для расчётов, не на карте)
 

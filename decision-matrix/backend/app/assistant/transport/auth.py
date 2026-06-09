@@ -13,7 +13,11 @@ from starlette.responses import JSONResponse
 from starlette.types import ASGIApp
 
 from app.api.deps import _extract_access_token
+from limits import parse
+
+from app.assistant.rate_limit import assistant_rate_limit_key, mcp_rate_limit_value
 from app.core.database import async_session
+from app.core.rate_limit import limiter
 from app.core.security import decode_token
 from app.models import User
 
@@ -69,6 +73,14 @@ class McpAuthMiddleware(BaseHTTPMiddleware):
                 status_code=401,
                 content={"detail": "Сессия не найдена. Войдите снова"},
             )
+        if limiter.enabled:
+            limit_value = mcp_rate_limit_value(request)
+            key = assistant_rate_limit_key(request)
+            if not limiter.limiter.hit(parse(limit_value), key):
+                return JSONResponse(
+                    status_code=429,
+                    content={"detail": "Превышен лимит запросов MCP"},
+                )
         token = _mcp_user_ctx.set(user)
         try:
             return await call_next(request)

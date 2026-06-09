@@ -1,3 +1,4 @@
+import { assistantApi } from '../assistant/assistantApi';
 import { adminApi } from './adminApi';
 import { analysisApi } from './analysisApi';
 import { authApi } from './authApi';
@@ -23,4 +24,5 @@ export const api = {
   ...sandLogisticsApi,
   ...flowApi,
   ...onePagerApi,
+  ...assistantApi,
 };

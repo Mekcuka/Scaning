@@ -1,0 +1,33 @@
+---
+description: Use Atlas Grid Dev MCP for pytest, codebase search, and git in the repo
+alwaysApply: true
+---
+
+# Atlas Grid Dev MCP (stdio)
+
+For **repository development** tasks, use the **`atlas-grid-dev`** MCP server — not `atlas-grid` HTTP MCP and not raw shell unless dev MCP is unavailable.
+
+## When to use `atlas-grid-dev`
+
+- Run backend tests: `run_pytest_tool`
+- Search source/docs in the repo: `search_codebase_tool`
+- Git branch/status or recent commits: `git_status_tool`, `git_log_tool`
+
+## When NOT to use `atlas-grid-dev`
+
+- Live app data (projects, POI, jobs, analysis) — use **`atlas-grid`** HTTP MCP
+- Editing files directly — use normal Cursor file tools
+
+## Setup (local, one-time)
+
+1. Ensure `decision-matrix/backend/venv` exists
+2. Add server from [`.cursor/mcp.json.example`](../mcp.json.example) (`atlas-grid-dev` block) or run:
+   `.\scripts\get-atlas-grid-token.ps1 -IncludeDevMcp`
+3. Cursor → Settings → Tools & MCP → Reload
+
+Entrypoint: `python -m app.assistant.dev.stdio_mcp` (cwd: `decision-matrix/backend`).
+
+## Docs
+
+- [dev/README.md](decision-matrix/backend/app/assistant/dev/README.md)
+- [assistant-tools.md §11](docs/features/assistant-tools.md)

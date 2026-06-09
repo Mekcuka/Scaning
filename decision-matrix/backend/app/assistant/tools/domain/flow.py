@@ -12,6 +12,7 @@ from app.assistant.context import ToolContext
 from app.assistant.errors import ToolError
 from app.assistant.registry import register_tool
 from app.assistant.tools.base import ToolDefinition
+from app.assistant.tools.categories import CAT_FLOW, cats
 from app.models import PointOfInterest
 from app.models.enums import AccessLevel, WriteScope
 from app.schemas import EconomicFlowResponse, FlowSchematicResponse
@@ -57,5 +58,6 @@ def register() -> None:
             description="Get technology or economic flow schematic (PFD) for a POI.",
             input_model=GetFlowSchematicInput,
             handler=_get_flow_schematic,
+            categories=cats(CAT_FLOW),
         )
     )

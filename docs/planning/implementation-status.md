@@ -67,7 +67,10 @@
 | Экономика потоков | `economic_flow_schematic.py`, `economic_rates.py` | ✅ |
 | Автосеть автодорог | `network-planner` + `planner_adapter.py`: Steiner tree, post-processing, preview overlay; BFF request/compute/apply | ✅ |
 | Autoroad Network Service (HTTP :8080) | `autoroad-network-planner` microservice / legacy `services/autoroad-network/` | ⬜ опционально (`AUTOROAD_NETWORK_INPROCESS=false`) |
-| AI Assistant (Tool Registry) | `app/assistant/` — registry, `tools/domain/*` (10 tools), HTTP MCP `/api/v1/mcp`, `tests/test_assistant_tools.py`, `tests/test_assistant_mcp_http.py` | ✅ фаза 1–2; ⬜ chat UI (фаза 3) |
+| AI Assistant (Tool Registry) | `app/assistant/` — 39 tools (31 read + 8 mutating), HTTP MCP, chat UI + SSE, dev stdio MCP, `tests/test_assistant_*` | ✅ фазы 1–8 |
+| AI Assistant (фаза 9) | mutating tools + confirm, HTTP MCP block, audit log, rate limits, MCP UX, dev domain proxy, admin LLM override — [assistant.md §18](../architecture/assistant.md) | ✅ |
+| AI Assistant (фаза 7) | tool routing (`tool_router.py`), server formatters (POI/jobs/тарифы/проекты/карта) — [assistant.md §16](../architecture/assistant.md) | ✅ 7.1–7.2, 7.5 |
+| AI Assistant (roadmap) | фаза 7.3–7.4 (context fallback, status hints), 8.2 (история чата в БД) — [assistant.md §16–18](../architecture/assistant.md) | planned |
 | UI «Построить сеть» | `MapPage` drawMode `autoroad_network`, `AutoroadNetworkPanel` (массовый выбор, параметры), `AutoroadNetworkParamsSection` | ✅ |
 
 **БД:** SQLite (`run_local.py`) или PostgreSQL + PostGIS (`DATABASE_URL` в `.env`). Geodesic: PostGIS `geography` или haversine fallback.

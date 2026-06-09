@@ -429,3 +429,16 @@ class InfrastructureEdge(Base):
     length_km: Mapped[float] = mapped_column(Float, default=0)
 
     network: Mapped["InfrastructureNetwork"] = relationship(back_populates="edges")
+
+
+class AssistantAuditLog(Base):
+    __tablename__ = "assistant_audit_log"
+
+    id: Mapped[uuid.UUID] = mapped_column(Uuid, primary_key=True, default=uuid.uuid4)
+    user_id: Mapped[uuid.UUID] = mapped_column(Uuid, ForeignKey("users.id", ondelete="CASCADE"), index=True)
+    tool_name: Mapped[str] = mapped_column(String(128), index=True)
+    args_hash: Mapped[str] = mapped_column(String(64))
+    ok: Mapped[bool] = mapped_column(Boolean, default=False)
+    code: Mapped[str | None] = mapped_column(String(32), nullable=True)
+    source: Mapped[str] = mapped_column(String(16), default="chat")
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now(), index=True)

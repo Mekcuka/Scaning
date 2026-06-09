@@ -32,6 +32,8 @@ deploy/*.env.local
 .idea/
 .vscode/
 !.vscode/extensions.json
+.cursor/mcp.json
+.cursor/mcp.local.json
 .DS_Store
 Thumbs.db
 

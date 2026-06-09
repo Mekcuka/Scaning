@@ -9,7 +9,8 @@ Calculation is done by external solvers only: **SteinerPy** (pip) or **GeoSteine
 | Document | Contents |
 |----------|----------|
 | [docs/MICROSERVICE.md](docs/MICROSERVICE.md) | Deploy (Docker Compose), env, probes, logging |
-| [docs/IMPLEMENTATION.md](docs/IMPLEMENTATION.md) | Architecture, post-processing pipeline, node IDs, warnings, source layout |
+| [docs/IMPLEMENTATION.md](docs/IMPLEMENTATION.md) | Architecture, post-processing pipeline, node IDs, warnings, source layout (EN) |
+| [docs/IMPLEMENTATION.ru.md](docs/IMPLEMENTATION.ru.md) | То же: архитектура, пайплайн, ID узлов, warnings, структура кода (RU) |
 | [docs/PARAMETERS.ru.md](docs/PARAMETERS.ru.md) | Parameter reference (RU): solver-specific behaviour, recommended settings |
 
 ## Model

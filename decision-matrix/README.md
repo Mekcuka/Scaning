@@ -41,19 +41,17 @@
 
 ### Режим A — SQLite (рекомендуется для первого запуска)
 
+Команды для **Windows PowerShell**. Корень репозитория: `C:\Users\user\Documents\Cursore`.
+
+**Backend** (первый запуск — venv и зависимости):
+
 ```powershell
-# 1)
-cd decision-matrix\backend
-# 2)
+cd C:\Users\user\Documents\Cursore\decision-matrix\backend
 python -m venv venv
-# 3)
 .\venv\Scripts\Activate.ps1
-# 4)
-python -m pip install -r requirements.txt
-# 5) планировщик автосети
-python -m pip install -e ..\..\..\autoroad-network-planner[steinerpy]
-# 6)
-python run_local.py
+python -m pip install -r C:\Users\user\Documents\Cursore\decision-matrix\backend\requirements.txt
+python -m pip install -e C:\Users\user\Documents\Cursore\autoroad-network-planner[steinerpy]
+python C:\Users\user\Documents\Cursore\decision-matrix\backend\run_local.py
 ```
 
 Проверить, что активен именно `venv`:
@@ -63,14 +61,26 @@ python -c "import sys; print(sys.executable)"
 python -m pip -V
 ```
 
-В другом терминале:
+**Backend** (повторный запуск — venv уже создан):
 
 ```powershell
-# 1)
-cd decision-matrix\frontend
-# 2)
+cd C:\Users\user\Documents\Cursore\decision-matrix\backend
+.\venv\Scripts\Activate.ps1
+python C:\Users\user\Documents\Cursore\decision-matrix\backend\run_local.py
+```
+
+**Frontend** (в другом терминале; `npm install` — только при первом запуске или после изменения `package.json`):
+
+```powershell
+cd C:\Users\user\Documents\Cursore\decision-matrix\frontend
 npm install
-# 3)
+npm run dev
+```
+
+**Frontend** (повторный запуск):
+
+```powershell
+cd C:\Users\user\Documents\Cursore\decision-matrix\frontend
 npm run dev
 ```
 
@@ -88,22 +98,27 @@ npm run dev
    DATABASE_URL=postgresql+asyncpg://sppr:sppr_secret@localhost:5432/sppr
    ```
 
-4. Backend:
+4. Backend (первый запуск — venv, зависимости, seed; затем API):
 
    ```powershell
-   # 1)
    cd C:\Users\user\Documents\Cursore\decision-matrix\backend
-   # 2)
+   python -m venv venv
    .\venv\Scripts\Activate.ps1
-   # 3)
    python -m pip install -r C:\Users\user\Documents\Cursore\decision-matrix\backend\requirements.txt
-   # 4)
-   uvicorn app.main:app --reload --host 127.0.0.1 --port 8000
-   # 5)
+   python -m pip install -e C:\Users\user\Documents\Cursore\autoroad-network-planner[steinerpy]
    python C:\Users\user\Documents\Cursore\decision-matrix\backend\seed.py
+   uvicorn app.main:app --reload --host 127.0.0.1 --port 8000
    ```
 
-5. Frontend — как в режиме A (`npm run dev`).
+   Повторный запуск (venv уже есть):
+
+   ```powershell
+   cd C:\Users\user\Documents\Cursore\decision-matrix\backend
+   .\venv\Scripts\Activate.ps1
+   uvicorn app.main:app --reload --host 127.0.0.1 --port 8000
+   ```
+
+5. Frontend — как в режиме A (см. блоки выше).
 
 > **Карта:** полный FR-2.4 (PostGIS-геометрия, пространственные запросы) — только в режиме B. В SQLite используется haversine fallback; часть PostGIS-функций недоступна.
 
@@ -128,7 +143,8 @@ decision-matrix/
 │   └── seed.py                        # Демо-пользователи и проект
 └── frontend/
     └── src/
-        ├── pages/                     # Login, Register, Admin, Dashboard...
+        ├── pages/                     # Login, Register, Admin, Dashboard, Export...
+        ├── lib/projectExport/         # GeoJSON + Excel/CSV export
         ├── lib/permissions.ts         # Матрица прав UI
         └── hooks/usePermissions.ts
 ```
@@ -150,6 +166,7 @@ decision-matrix/
 | Карта 3D MapLibre (`VITE_MAP_3D_ENABLED`) | ✅ |
 | Матрица (таблица + карточки, eng-бейджи, фильтр превышений) | ✅ |
 | Импорт: CSV, GeoJSON, KML, Shapefile, Spark, API connections, async | ✅ |
+| **Экспорт** (`/export`): координаты точечных/всех объектов, GeoJSON проекта (Excel, CSV, `.geojson`) | ✅ |
 | Потоки PFD (`/flows`) | ✅ |
 | Граф сети (build/list nodes/edges) | ✅ |
 | Одностраничник (CRUD, PDF print, PPTX export) | ✅ |

@@ -308,5 +308,5 @@ components/flowSchematicEditor/
 
 ## Оставшиеся кандидаты на дробление
 
-Основной план рефакторинга карты (июнь 2026) выполнен. `useMapPageMapActions.ts` разбит на `mapPageOrchestrator/actions/*` (фаза 3 ✅). Import — `pages/import/*`, `pages/import3d/*`. Опционально: `buildMapPageSections.ts`. План — [solid-refactoring-plan.md](../planning/solid-refactoring-plan.md). Границы — [module-boundaries.md](module-boundaries.md).
+Основной план рефакторинга карты (июнь 2026) выполнен. `useMapPageMapActions.ts` разбит на `mapPageOrchestrator/actions/*` (фаза 3 ✅). Import — `pages/import/*`, `pages/import3d/*`; **Export** — `pages/ExportPage.tsx`, `pages/export/*`, `lib/projectExport/*`. Опционально: `buildMapPageSections.ts`. План — [solid-refactoring-plan.md](../planning/solid-refactoring-plan.md). Границы — [module-boundaries.md](module-boundaries.md).
 

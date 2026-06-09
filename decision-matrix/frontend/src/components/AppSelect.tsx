@@ -212,6 +212,8 @@ export function AppSelect({
         ariaLabel={ariaLabel}
         className={`app-select-menu${
           className.includes('project-status-select') ? ' app-select-menu--status' : ''
+        }${
+          className.includes('export-project-select') ? ' app-select-menu--export-project' : ''
         }`}
       >
         <ul id={listId} className="app-select-menu-list">

@@ -18,23 +18,17 @@ npm --version
 
 ## 2) Быстрый запуск (рекомендуется, SQLite)
 
-### Шаг 1. Запуск backend
+Команды для **Windows PowerShell**. Корень репозитория: `C:\Users\user\Documents\Cursore` (рядом с `autoroad-network-planner/`).
 
-Из корня репозитория (рядом с `autoroad-network-planner/`):
+### Шаг 1. Запуск backend (первый раз — venv и зависимости)
 
 ```powershell
-# 1)
-cd decision-matrix\backend
-# 2)
+cd C:\Users\user\Documents\Cursore\decision-matrix\backend
 python -m venv venv
-# 3)
 .\venv\Scripts\Activate.ps1
-# 4)
-python -m pip install -r requirements.txt
-# 5) планировщик автосети (обязательно для «Сеть» на карте)
-python -m pip install -e ..\..\..\autoroad-network-planner[steinerpy]
-# 6)
-python run_local.py
+python -m pip install -r C:\Users\user\Documents\Cursore\decision-matrix\backend\requirements.txt
+python -m pip install -e C:\Users\user\Documents\Cursore\autoroad-network-planner[steinerpy]
+python C:\Users\user\Documents\Cursore\decision-matrix\backend\run_local.py
 ```
 
 Проверка, что активен именно `venv`:
@@ -49,20 +43,19 @@ python -m pip -V
 - выполняет сидирование демо-данными
 - запускает API на `http://127.0.0.1:8000`
 
-### Шаг 2. Запуск frontend (в новом терминале)
+### Шаг 2. Запуск frontend (в новом терминале; `npm install` — только при первом запуске)
 
 ```powershell
-# 1)
-cd decision-matrix\frontend
-# 2)
+cd C:\Users\user\Documents\Cursore\decision-matrix\frontend
 npm install
-# 3)
 npm run dev
 ```
 
 Frontend будет доступен на `http://127.0.0.1:5173`.
 
-**Журнал задач:** в шапке приложения (иконка слева от «Тема») — статусы расчётов и экспорт JSON запросов/ответов по текущему проекту. См. [docs/features/task-log-panel.md](../docs/features/task-log-panel.md).
+**Журнал задач:** в шапке приложения (иконка слева от «Тема») — статусы расчётов и экспорт JSON запросов/ответов по **активному проекту** (`currentProjectId` в store). См. [docs/features/task-log-panel.md](../docs/features/task-log-panel.md).
+
+**Экспорт данных:** раздел **«Экспорт»** (`/export`) — выбор проекта в панели на странице, количества объектов на карточках форматов, выгрузка координат и GeoJSON инфраструктуры. См. [docs/features/project-export.md](../docs/features/project-export.md).
 
 ## 3) Повторный запуск (со второго раза)
 
@@ -76,20 +69,15 @@ Frontend будет доступен на `http://127.0.0.1:5173`.
 Backend:
 
 ```powershell
-# 1)
-cd decision-matrix\backend
-# 2)
-.\\venv\\Scripts\\Activate.ps1
-# 3)
-python run_local.py
+cd C:\Users\user\Documents\Cursore\decision-matrix\backend
+.\venv\Scripts\Activate.ps1
+python C:\Users\user\Documents\Cursore\decision-matrix\backend\run_local.py
 ```
 
 Frontend (в отдельном терминале):
 
 ```powershell
-# 1)
 cd C:\Users\user\Documents\Cursore\decision-matrix\frontend
-# 2)
 npm run dev
 ```
 
@@ -119,8 +107,8 @@ npm run dev
 ### Пересоздание demo-пользователей
 
 ```powershell
-cd decision-matrix\backend
-.\venv\Scripts\python.exe seed.py
+cd C:\Users\user\Documents\Cursore\decision-matrix\backend
+.\venv\Scripts\python.exe C:\Users\user\Documents\Cursore\decision-matrix\backend\seed.py
 ```
 
 `seed.py` дополняет отсутствующих пользователей в SQLite (`data/sppr.db`).
@@ -142,27 +130,30 @@ CORS_ORIGINS=http://localhost:5173,http://localhost:5174,http://127.0.0.1:5173
 
 > Для Postgres `seed.py` использует `DATABASE_URL` из `.env`. Для SQLite-dev используйте `run_local.py` + `seed.py` (override на SQLite внутри скрипта).
 
-5. Запустите backend:
+5. Запустите backend (первый раз — venv, зависимости, seed; затем API):
 
 ```powershell
-# 1)
-cd decision-matrix\backend
-# 2)
-.\\venv\\Scripts\\Activate.ps1
-# 3)
-python -m pip install -r requirements.txt
-# 4)
+cd C:\Users\user\Documents\Cursore\decision-matrix\backend
+python -m venv venv
+.\venv\Scripts\Activate.ps1
+python -m pip install -r C:\Users\user\Documents\Cursore\decision-matrix\backend\requirements.txt
+python -m pip install -e C:\Users\user\Documents\Cursore\autoroad-network-planner[steinerpy]
+python C:\Users\user\Documents\Cursore\decision-matrix\backend\seed.py
 uvicorn app.main:app --reload --host 127.0.0.1 --port 8000
-# 5)
-python seed.py
 ```
 
-6. Frontend запускается как обычно:
+Повторный запуск (venv уже есть):
 
 ```powershell
-# 1)
+cd C:\Users\user\Documents\Cursore\decision-matrix\backend
+.\venv\Scripts\Activate.ps1
+uvicorn app.main:app --reload --host 127.0.0.1 --port 8000
+```
+
+6. Frontend — как в §2 (повторный запуск):
+
+```powershell
 cd C:\Users\user\Documents\Cursore\decision-matrix\frontend
-# 2)
 npm run dev
 ```
 
@@ -173,7 +164,7 @@ npm run dev
 - macOS/Linux: `source venv/bin/activate`
 - Windows PowerShell: `.\venv\Scripts\Activate.ps1`
 
-Остальные команды одинаковые.
+Остальные команды те же; замените `C:\Users\user\Documents\Cursore` на путь к вашему клону репозитория.
 
 ## 7) Карта (поведение UI)
 
@@ -186,15 +177,76 @@ npm run dev
 - **Два порта frontend** (`5173` и `5174`): это **разные** dev-серверы и разные origin в браузере (`localStorage` / `sessionStorage` не общие). Держите **один** `npm run dev`; если 5173 занят — остановите старый процесс. На странице карты в dev показывается предупреждение, если frontend открыт не на порту **5173**.
 - **2.5D / 3D карта:** в `frontend/.env`: `VITE_MAP_3D_ENABLED=true` и `VITE_MAPTILER_KEY=<ключ MapTiler>`. Перезапустите `npm run dev`. На `/map` — **2D | 3D**; в слоях — спутник, **Рельеф (3D)**, **3D-модели** (glTF), фильтры подтипов. Рисование только в 2D. Точки: glTF + палитра слоя; линии: 3D-трубы **по прямым сегментам между вершинами** (как 2D), ЛЭП — пролёты проводов в плане как 2D. Документация: [docs/features/map-3d-features.md](../docs/features/map-3d-features.md), правила объектов: [map-objects-and-spatial-calculations.md](../docs/features/map-objects-and-spatial-calculations.md) §1.5.
 - **Локальный dev и `VITE_BASE_PATH`:** для `npm run dev` задайте `VITE_BASE_PATH=/` (или не задавайте переменную), иначе Vite может собрать base `/Scaning/` и страница login не откроется на `http://localhost:5173/`.
-- **Проверка перед релизом:** `cd decision-matrix/frontend && npm run test && npm run build`; `cd decision-matrix/backend && pytest tests/ -q` (кроме `test_demo_users` — нужна SQLite `data/sppr.db` с таблицами).
-- **E2E (Playwright):** в одном терминале `python run_local.py` (backend `:8000`), в другом `cd decision-matrix/frontend && npm run test:e2e` (Vite на `:5174`). После прогона тестовые данные чистятся автоматически (`scripts/cleanup_e2e_data.py`). Ручная очистка: `python scripts/cleanup_e2e_data.py` из `backend/`.
-- **Покрытие (опционально):** `npm run test:coverage` (frontend), `pytest tests/ --cov=app --cov-report=term-missing` (backend). См. [docs/testing/testing-strategy.md](../docs/testing/testing-strategy.md).
-- **Демо-сеть для проверки 3D:** из `backend` с активированным venv: `python scripts/draw_demo_map_network.py --project-name "третий проект"` (или имя вашего проекта).
+- **Проверка перед релизом:**
+
+  ```powershell
+  cd C:\Users\user\Documents\Cursore\decision-matrix\frontend
+  npm run test
+  npm run build
+
+  cd C:\Users\user\Documents\Cursore\decision-matrix\backend
+  .\venv\Scripts\Activate.ps1
+  pytest tests/ -q
+  ```
+
+  (кроме `test_demo_users` — нужна SQLite `data/sppr.db` с таблицами)
+
+- **E2E (Playwright):** backend в одном терминале, тесты — в другом:
+
+  ```powershell
+  cd C:\Users\user\Documents\Cursore\decision-matrix\backend
+  .\venv\Scripts\Activate.ps1
+  python C:\Users\user\Documents\Cursore\decision-matrix\backend\run_local.py
+  ```
+
+  ```powershell
+  cd C:\Users\user\Documents\Cursore\decision-matrix\frontend
+  npm run test:e2e
+  ```
+
+  Vite для E2E — на `:5174`. После прогона данные чистятся автоматически. Ручная очистка:
+
+  ```powershell
+  cd C:\Users\user\Documents\Cursore\decision-matrix\backend
+  .\venv\Scripts\python.exe C:\Users\user\Documents\Cursore\decision-matrix\backend\scripts\cleanup_e2e_data.py
+  ```
+
+- **Покрытие (опционально):**
+
+  ```powershell
+  cd C:\Users\user\Documents\Cursore\decision-matrix\frontend
+  npm run test:coverage
+  ```
+
+  ```powershell
+  cd C:\Users\user\Documents\Cursore\decision-matrix\backend
+  .\venv\Scripts\Activate.ps1
+  pytest tests/ --cov=app --cov-report=term-missing
+  ```
+
+  См. [docs/testing/testing-strategy.md](../docs/testing/testing-strategy.md).
+
+- **Демо-сеть для проверки 3D:**
+
+  ```powershell
+  cd C:\Users\user\Documents\Cursore\decision-matrix\backend
+  .\venv\Scripts\Activate.ps1
+  python C:\Users\user\Documents\Cursore\decision-matrix\backend\scripts\draw_demo_map_network.py --project-name "третий проект"
+  ```
+
+  (или укажите имя вашего проекта)
 
 ## 8) Частые проблемы
 
 - **Не входит admin / Invalid credentials**  
-  Demo-пользователи могли не попасть в SQLite. Запустите `python seed.py` в `backend/`. Убедитесь, что backend запущен через `run_local.py` (SQLite), а не только через `.env` Postgres.
+  Demo-пользователи могли не попасть в SQLite:
+
+  ```powershell
+  cd C:\Users\user\Documents\Cursore\decision-matrix\backend
+  .\venv\Scripts\python.exe C:\Users\user\Documents\Cursore\decision-matrix\backend\seed.py
+  ```
+
+  Убедитесь, что backend запущен через `run_local.py` (SQLite), а не только через `.env` Postgres.
 
 - **Request failed / 401 после входа**  
   Очистите cookies для `localhost`. Используйте frontend через Vite proxy (`http://localhost:5173`), не задавайте `VITE_API_URL` на прямой backend в dev.
@@ -203,13 +255,33 @@ npm run dev
   Освободите порт или запустите сервис на другом порту. Добавьте новый порт frontend в `CORS_ORIGINS`. Не открывайте одновременно `localhost:5173` и `localhost:5174` — см. §7 «Карта».
 
 - **«Сеть» / ModuleNotFoundError: network_planner**  
-  Установите пакет планировщика: `pip install -e ../../../autoroad-network-planner[steinerpy]` (из `decision-matrix/backend`, путь зависит от расположения monorepo). Перезапустите `run_local.py`.
+  Установите пакет планировщика и перезапустите backend:
+
+  ```powershell
+  cd C:\Users\user\Documents\Cursore\decision-matrix\backend
+  .\venv\Scripts\Activate.ps1
+  python -m pip install -e C:\Users\user\Documents\Cursore\autoroad-network-planner[steinerpy]
+  python C:\Users\user\Documents\Cursore\decision-matrix\backend\run_local.py
+  ```
 
 - **«Построить сеть» / Not Found** при вызове API  
-  Часто на порту `8000` висит **старый** uvicorn без маршрутов `autoroad-network`. Закройте лишние терминалы с backend или выполните `Get-Process python* | Stop-Process -Force`, затем **один** раз `python run_local.py` (скрипт освобождает порт 8000 на Windows). Проверка: в Swagger (`http://127.0.0.1:8000/api/v1/docs`) должны быть `POST .../autoroad-network/request`, `.../compute` и `.../apply`. UI открывайте на **5173** (`npm run dev`), не на `:8000`.
+  Часто на порту `8000` висит **старый** uvicorn без маршрутов `autoroad-network`. Закройте лишние терминалы с backend или выполните `Get-Process python* | Stop-Process -Force`, затем **один** раз:
+
+  ```powershell
+  cd C:\Users\user\Documents\Cursore\decision-matrix\backend
+  .\venv\Scripts\Activate.ps1
+  python C:\Users\user\Documents\Cursore\decision-matrix\backend\run_local.py
+  ```
+
+  (`run_local.py` освобождает порт 8000 на Windows.) Проверка: в Swagger (`http://127.0.0.1:8000/api/v1/docs`) должны быть `POST .../autoroad-network/request`, `.../compute` и `.../apply`. UI открывайте на **5173**, не на `:8000`.
 
 - `pip install` падает на зависимостях  
-  Обновите pip: `python -m pip install --upgrade pip`.
+
+  ```powershell
+  cd C:\Users\user\Documents\Cursore\decision-matrix\backend
+  .\venv\Scripts\Activate.ps1
+  python -m pip install --upgrade pip
+  ```
 
 - Frontend не видит API  
   Убедитесь, что backend запущен и доступен по `http://127.0.0.1:8000`.

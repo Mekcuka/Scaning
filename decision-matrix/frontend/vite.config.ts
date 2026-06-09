@@ -1,7 +1,8 @@
-import { defineConfig } from 'vite'
+import { defineConfig, type Plugin } from 'vite'
 import react from '@vitejs/plugin-react'
 import tailwindcss from '@tailwindcss/vite'
 import fs from 'node:fs'
+import http from 'node:http'
 import path from 'node:path'
 import { fileURLToPath } from 'node:url'
 
@@ -26,11 +27,85 @@ function resolveBackendProxyTarget(): string {
   return 'http://127.0.0.1:8000'
 }
 
-const backendProxyTarget = resolveBackendProxyTarget()
+/**
+ * Vite 8 resolves server.proxy.target once at startup; the legacy `router` option
+ * is ignored. Proxy /api ourselves so each request reads backend/.dev-port.
+ */
+function dynamicBackendApiProxy(): Plugin {
+  return {
+    name: 'dynamic-backend-api-proxy',
+    enforce: 'pre',
+    configureServer(server) {
+      server.middlewares.use((req, res, next) => {
+        const url = req.url ?? ''
+        if (!url.startsWith('/api')) {
+          next()
+          return
+        }
+
+        const target = resolveBackendProxyTarget()
+        const parsed = new URL(target)
+        const port =
+          parsed.port ||
+          (parsed.protocol === 'https:' ? 443 : 80)
+
+        const proxyReq = http.request(
+          {
+            hostname: parsed.hostname,
+            port,
+            path: url,
+            method: req.method,
+            headers: {
+              ...req.headers,
+              host: parsed.host,
+            },
+          },
+          (proxyRes) => {
+            const headers = { ...proxyRes.headers }
+            const setCookie = headers['set-cookie']
+            if (setCookie) {
+              const rewritten = (Array.isArray(setCookie) ? setCookie : [setCookie]).map(
+                (cookie) =>
+                  cookie
+                    .replace(/;\s*Domain=[^;]*/gi, '; Domain=localhost')
+                    .replace(/;\s*Path=[^;]*/gi, '; Path=/'),
+              )
+              headers['set-cookie'] = rewritten
+            }
+            res.writeHead(proxyRes.statusCode ?? 502, headers)
+            proxyRes.pipe(res)
+          },
+        )
+
+        proxyReq.on('error', (err) => {
+          server.config.logger.error(
+            `api proxy ${req.method} ${url} -> ${target}: ${err.message}`,
+          )
+          if (!res.headersSent) {
+            res.writeHead(502)
+            res.end('Bad Gateway')
+          }
+        })
+
+        req.pipe(proxyReq)
+      })
+
+      try {
+        fs.watch(devPortFile, () => {
+          server.config.logger.info(
+            `backend proxy target -> ${resolveBackendProxyTarget()}`,
+          )
+        })
+      } catch {
+        // run_local.py not started yet
+      }
+    },
+  }
+}
 
 export default defineConfig({
   base,
-  plugins: [react(), tailwindcss()],
+  plugins: [dynamicBackendApiProxy(), react(), tailwindcss()],
   build: {
     rollupOptions: {
       output: {
@@ -46,13 +121,5 @@ export default defineConfig({
   server: {
     host: true,
     port: 5173,
-    proxy: {
-      '/api': {
-        target: backendProxyTarget,
-        changeOrigin: true,
-        cookieDomainRewrite: 'localhost',
-        cookiePathRewrite: '/',
-      },
-    },
   },
 })
