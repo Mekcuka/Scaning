@@ -1,5 +1,6 @@
 import { create } from 'zustand';
-import { api, clearServerSession, syncClientAuthSession, type AuthUser } from '../lib/api';
+import { hasStoredAuthTokens } from '../lib/authSession';
+import { api, clearServerSession, isCrossOriginApi, syncClientAuthSession, type AuthUser } from '../lib/api';
 
 /** Ignore stale fetchUser() after login/register/logout. */
 let authEpoch = 0;
@@ -61,6 +62,11 @@ export const useAuthStore = create<AuthState>((set) => ({
   fetchUser: async () => {
     const epoch = authEpoch;
     try {
+      if (isCrossOriginApi() && !hasStoredAuthTokens()) {
+        if (epoch !== authEpoch) return;
+        set({ user: null });
+        return;
+      }
       const user = await api.me();
       if (epoch !== authEpoch) return;
       if (user) {

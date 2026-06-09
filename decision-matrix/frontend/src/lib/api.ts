@@ -1,4 +1,5 @@
 export * from './api/session';
+export { isCrossOriginApi } from './api/client';
 export * from './api/entities';
 export * from './api/jobs';
 export * from './api/network';

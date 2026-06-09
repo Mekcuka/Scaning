@@ -14,6 +14,17 @@ import { CSRF_STORAGE_KEY, appLoginPath, type AuthSession, type AuthUser } from 
 
 export const API_BASE = import.meta.env.VITE_API_URL || '/api/v1';
 export const REQUEST_TIMEOUT_MS = 12_000;
+
+/** GitHub Pages + external API — sessionStorage Bearer, not same-origin cookies. */
+export function isCrossOriginApi(): boolean {
+  const apiUrl = import.meta.env.VITE_API_URL?.trim();
+  if (!apiUrl?.startsWith('http')) return false;
+  try {
+    return new URL(apiUrl).origin !== window.location.origin;
+  } catch {
+    return false;
+  }
+}
 const MUTATING_METHODS = new Set(['POST', 'PUT', 'PATCH', 'DELETE']);
 
 export function storeCsrfFromResponse(res: Response): void {
@@ -188,7 +199,9 @@ export async function request<T>(path: string, options: RequestOptions = {}): Pr
   }
 
   if (res.status === 401) {
-    if (!_retry && redirectOn401 && !path.startsWith('/auth/')) {
+    const authRetryAllowed =
+      !_retry && path !== '/auth/refresh' && path !== '/auth/login' && path !== '/auth/register';
+    if (authRetryAllowed && (path === '/auth/me' || (redirectOn401 && !path.startsWith('/auth/')))) {
       const refreshed = await tryRefreshSession();
       if (refreshed) {
         return request<T>(path, { ...options, _retry: true });

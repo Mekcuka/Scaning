@@ -29,3 +29,7 @@ export function getRefreshToken(): string | null {
 export function hasAuthTokens(): boolean {
   return Boolean(getAccessToken());
 }
+
+export function hasStoredAuthTokens(): boolean {
+  return Boolean(getAccessToken() || getRefreshToken());
+}
