@@ -20,7 +20,7 @@
         "data_manager"
       ],
       "file": "articles/assistant-chat.md",
-      "char_count": 1141
+      "char_count": 1634
     },
     {
       "slug": "background-jobs",
@@ -151,7 +151,7 @@
         "data_manager"
       ],
       "file": "articles/navigation.md",
-      "char_count": 1232
+      "char_count": 1478
     },
     {
       "slug": "roles-rbac",

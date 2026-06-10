@@ -23,7 +23,6 @@ import httpx
 
 from app.assistant.chat.errors import ChatError
 from app.assistant.llm_override import get_effective_llm_config
-from app.core.config import settings
 
 
 @dataclass(slots=True)
@@ -107,7 +106,8 @@ def _build_payload(
         payload["tool_choice"] = "auto"
     if stream:
         payload["stream"] = True
-    payload["max_tokens"] = settings.ASSISTANT_LLM_MAX_TOKENS
+    cfg = get_effective_llm_config()
+    payload["max_tokens"] = cfg.max_tokens
     return payload
 
 
@@ -233,8 +233,9 @@ async def chat_completion(
     payload = _build_payload(messages, tools)
     headers = _llm_headers()
 
+    cfg = get_effective_llm_config()
     try:
-        async with httpx.AsyncClient(timeout=settings.ASSISTANT_LLM_TIMEOUT_SECONDS) as client:
+        async with httpx.AsyncClient(timeout=cfg.timeout_seconds) as client:
             res = await client.post(url, json=payload, headers=headers)
     except httpx.TimeoutException as e:
         raise ChatError("LLM request timed out", code="llm_timeout") from e
@@ -275,8 +276,9 @@ async def chat_completion_stream(
     payload = _build_payload(messages, tools, stream=True)
     headers = _llm_headers()
 
+    cfg = get_effective_llm_config()
     try:
-        async with httpx.AsyncClient(timeout=settings.ASSISTANT_LLM_TIMEOUT_SECONDS) as client:
+        async with httpx.AsyncClient(timeout=cfg.timeout_seconds) as client:
             async with client.stream("POST", url, json=payload, headers=headers) as res:
                 if res.status_code >= 400:
                     body = (await res.aread()).decode("utf-8", errors="replace")
@@ -327,6 +329,6 @@ async def probe_provider() -> bool:
     try:
         async with httpx.AsyncClient(timeout=5.0) as client:
             res = await client.get(url, headers=headers)
-            return res.status_code < 500
+            return res.status_code == 200
     except httpx.HTTPError:
         return False

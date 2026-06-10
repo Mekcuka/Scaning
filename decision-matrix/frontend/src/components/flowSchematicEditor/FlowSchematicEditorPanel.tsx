@@ -91,7 +91,7 @@ export function FlowSchematicEditorPanel({
         <div className="flow-schematic-edit-panel-section">
           <span className="flow-schematic-edit-panel-label">Тип блока</span>
           <select
-            className="input text-sm py-1.5 px-2 w-full"
+            className="input input-sm w-full"
             value={addTemplateIndex}
             onChange={(e) => onAddTemplateIndexChange(Number(e.target.value))}
           >

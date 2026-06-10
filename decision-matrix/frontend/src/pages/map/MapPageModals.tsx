@@ -1,7 +1,7 @@
 import type { UseMutationResult } from '@tanstack/react-query';
 import { AppModal } from '../../components/AppModal';
 import { CandidatesModal } from '../../components/CandidatesModal';
-import { PoiParamsForm } from '../../components/PoiParamsForm';
+import { PoiCreateForm } from '../../components/poiParamsForm/PoiCreateForm';
 import type { Candidate, POI } from '../../lib/api';
 import type { PoiFormValues } from '../../lib/poiParams';
 import type { DeleteConfirmState } from '../../hooks/useMapDeleteSelection';
@@ -90,8 +90,11 @@ export function MapPageModals({
       {poiModalOpen && (
         <AppModal
           title="Новая точка интереса"
+          subtitle="Основные параметры — остальное можно изменить в карточке точки"
+          titleId="poi-create-title"
           onClose={onClosePoiModal}
-          size="lg"
+          size="md"
+          overlayClassName="app-modal-overlay--poi-create"
           footer={
             <>
               <button type="button" className="btn btn-secondary" onClick={onClosePoiModal}>
@@ -101,17 +104,16 @@ export function MapPageModals({
                 type="button"
                 className="btn btn-primary"
                 onClick={onSubmitPoi}
-                disabled={createPoiPending}
+                disabled={createPoiPending || !canWriteProject}
               >
-                Сохранить точку
+                {createPoiPending ? 'Сохранение…' : 'Сохранить точку'}
               </button>
             </>
           }
         >
-          <PoiParamsForm
+          <PoiCreateForm
             value={poiForm}
             onChange={onPoiFormChange}
-            coordsReadOnly={false}
             readOnly={!canWriteProject}
           />
         </AppModal>

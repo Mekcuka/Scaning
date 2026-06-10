@@ -149,6 +149,8 @@ Get-Content -Raw "C:\Users\user\Documents\mykey\ssh-key\ssh-key-1779903372392" |
 
 **Журнал задач (admin):** при `REDIS_URL` на VM администратор видит очередь в UI (**Администрирование → Журнал задач**, `/admin/jobs`): `GET /admin/jobs`, `GET /admin/jobs/health`, `POST /admin/jobs/{id}/cancel` (идемпотентная отмена с актуальным статусом). Список и счётчики автообновляются каждые 3 с, пока есть `pending`/`running`. См. [docs/product/user-flows.md](docs/product/user-flows.md) §5.3.
 
+**Параметры LLM (admin):** **Администрирование → AI-помощник** (`/admin/assistant`) — статус, probe, runtime override (chat + embeddings), тест completion; `GET/POST/DELETE /admin/assistant/llm-config`, `POST /llm-probe`, `POST /llm-test`, `GET /llm-models`. Постоянные `ASSISTANT_LLM_*` и `ASSISTANT_WIKI_EMBEDDING_*` — только через `app.env` и перезапуск API. См. [docs/features/assistant-tools.md](docs/features/assistant-tools.md), [docs/product/user-flows.md](docs/product/user-flows.md) §5.4.
+
 ### Runtime env на VM (один раз)
 
 После первого `terraform apply` создайте файл:

@@ -41,4 +41,25 @@ summary: Чат в шапке Atlas Grid — факты из проекта че
 
 ## Cursor MCP
 
-Для разработчиков доступен HTTP MCP (`atlas-grid`) и wiki resources `wiki://*`. Настройка — в блоке «Подключение Cursor MCP» в панели помощника.
+Для разработчиков доступен HTTP MCP (`atlas-grid`) и wiki resources `wiki://*`. Настройка — в блоке «Подключение Cursor MCP» в панели помощника или на странице **Администрирование → AI-помощник**.
+
+## Параметры LLM (только admin)
+
+Вкладка **Администрирование → AI-помощник** (`/admin/assistant`):
+
+**Статус и настройка**
+
+- карточки статуса LLM, веб-чата, Wiki RAG и runtime override;
+- **Детали проверки** — probe chat и embeddings (HTTP-коды, подсказки);
+- текущие `base_url`, модель, max tokens, timeout (без полного API key);
+- **временный override** — подвкладки Chat и Wiki RAG / Embeddings; смена модели или URL без перезапуска backend;
+- **Тестовый запрос** — проверка completion после override;
+- combobox моделей с провайдера (если доступен `GET /models`).
+
+**Справка и пресеты**
+
+- карточки провайдеров (Ollama, LM Studio, OpenRouter) — кнопка **Подставить**;
+- локальные пресеты в браузере (без секретов);
+- блок Cursor MCP (URL, подсказка по токену).
+
+Постоянная смена LLM на production — `ASSISTANT_LLM_*` и при необходимости `ASSISTANT_WIKI_EMBEDDING_*` в `app.env` и деплой backend.

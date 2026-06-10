@@ -19,7 +19,19 @@ export {
   MANIFEST_PAD_CLUSTER,
   MANIFEST_POINT_MAP,
 } from './api/infrastructureSubtypesManifest';
-export { adminApi } from './api/adminApi';
+export {
+  adminApi,
+  loadLlmLocalPresets,
+  saveLlmLocalPreset,
+  llmConfigFromAssistantStatus,
+} from './api/adminApi';
+export type {
+  AssistantLlmConfigDetail,
+  AssistantLlmConfigUpdate,
+  AssistantLlmLocalPreset,
+  AssistantLlmProbeDetail,
+  AssistantLlmTestResult,
+} from './api/adminApi';
 export { analysisApi } from './api/analysisApi';
 export { authApi } from './api/authApi';
 export { flowApi } from './api/flowApi';

@@ -116,13 +116,14 @@ python C:\Users\user\Documents\Cursore\scripts\sync-assistant-wiki.py
 
 ### AI-помощник и LLM (ошибки)
 
-Настройка в `backend/.env` — см. [`.env.example`](backend/.env.example) (Ollama, LM Studio, OpenRouter).
+Настройка в `backend/.env` — см. [`.env.example`](backend/.env.example) (Ollama, LM Studio, OpenRouter). Wiki RAG embeddings — `ASSISTANT_WIKI_EMBEDDING_*` (можно отдельно от chat LLM).
 
+- **Admin UI:** `/admin/assistant` — probe, override chat/embeddings, тест completion ([assistant-tools.md §8](../docs/features/assistant-tools.md)).
 - `GET /api/v1/assistant/status` → `provider_ready: true` только если отвечает `GET …/models`.
 - Если при отправке сообщения ошибка **OpenRouter 429** — исчерпан лимит бесплатной модели (`:free`); смените `ASSISTANT_LLM_MODEL` или подождите.
 - Сообщения в панели помощника зависят от провайдера ([`frontend/src/lib/assistant/chatErrors.ts`](frontend/src/lib/assistant/chatErrors.ts)).
 
-Подробнее: [chat/README.md](backend/app/assistant/chat/README.md), [assistant-tools.md §10](../docs/features/assistant-tools.md).
+Подробнее: [chat/README.md](backend/app/assistant/chat/README.md), [assistant-tools.md §8–§10](../docs/features/assistant-tools.md).
 
 ### Пересоздание demo-пользователей
 
@@ -284,8 +285,8 @@ npm run dev
   python C:\Users\user\Documents\Cursore\decision-matrix\backend\run_local.py
   ```
 
-- **«Построить сеть» / Not Found** при вызове API  
-  Часто на порту `8000` висит **старый** uvicorn без маршрутов `autoroad-network`. Закройте лишние терминалы с backend или выполните `Get-Process python* | Stop-Process -Force`, затем **один** раз:
+- **«Построить сеть» / Not Found** или **Method Not Allowed** на `/admin/assistant/llm-config`  
+  Часто на порту `8000` висит **старый** uvicorn (без новых маршрутов). Предпочтительно запускать **`run_local.py`** — он освобождает порт и при занятости `8000` пишет актуальный порт в `backend/.dev-port` (например `8001`). Vite proxy читает этот файл на каждый запрос; если frontend уже был запущен до смены порта — перезапустите `npm run dev`.
 
   ```powershell
   cd C:\Users\user\Documents\Cursore\decision-matrix\backend
@@ -293,7 +294,7 @@ npm run dev
   python C:\Users\user\Documents\Cursore\decision-matrix\backend\run_local.py
   ```
 
-  (`run_local.py` освобождает порт 8000 на Windows.) Проверка: в Swagger (`http://127.0.0.1:8000/api/v1/docs`) должны быть `POST .../autoroad-network/request`, `.../compute` и `.../apply`. UI открывайте на **5173**, не на `:8000`.
+  Проверка: в OpenAPI (`http://127.0.0.1:<port>/api/v1/openapi.json`) у `/api/v1/admin/assistant/llm-config` — `get`, `post`, `delete`; также `llm-probe` и `llm-test` (`post`), `llm-models` (`get`). На `/admin/assistant` (вкладка **Статус и настройка**) кнопка **Проверить подключение** и авто-probe при загрузке вызывают `POST /llm-probe`. Если probe возвращает 404 — перезапустите backend; UI может показать упрощённый статус из `llm-config`. UI открывайте на **5173**, не на `:8000`.
 
 - `pip install` падает на зависимостях  
 
@@ -304,7 +305,7 @@ npm run dev
   ```
 
 - Frontend не видит API  
-  Убедитесь, что backend запущен и доступен по `http://127.0.0.1:8000`.
+  Убедитесь, что backend запущен. Актуальный порт — в `decision-matrix/backend/.dev-port` (по умолчанию `8000`). Не задавайте `VITE_API_URL` в dev — используйте Vite proxy.
 
 - Ошибка CORS  
   Проверьте `CORS_ORIGINS` в `backend/.env` — должен совпадать с URL frontend (включая порт).

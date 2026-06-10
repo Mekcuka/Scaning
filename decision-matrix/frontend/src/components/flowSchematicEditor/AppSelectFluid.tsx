@@ -10,7 +10,7 @@ export function AppSelectFluid({
 }) {
   return (
     <select
-      className="input text-sm py-1.5 px-2 w-full"
+      className="input input-sm w-full"
       value={value}
       onChange={(e) => onChange(e.target.value as FluidKind)}
       title="Тип флюида для новой связи"

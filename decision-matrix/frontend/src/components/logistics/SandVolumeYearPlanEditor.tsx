@@ -92,7 +92,7 @@ export function SandVolumeYearPlanEditor({
             <li key={`${row.year}-${index}`} className="flex items-center gap-2">
               <input
                 type="number"
-                className="input text-sm w-24 shrink-0"
+                className="input input-sm input--w24"
                 min={2000}
                 max={2100}
                 step={1}
@@ -104,7 +104,7 @@ export function SandVolumeYearPlanEditor({
               />
               <input
                 type="number"
-                className="input text-sm flex-1 min-w-0"
+                className="input input-sm input--grow"
                 min={0}
                 step="any"
                 placeholder="м³"
@@ -132,7 +132,7 @@ export function SandVolumeYearPlanEditor({
         <div className="flex items-center gap-2">
           <input
             type="number"
-            className="input text-sm w-24 shrink-0"
+            className="input input-sm input--w24"
             min={2000}
             max={2100}
             step={1}

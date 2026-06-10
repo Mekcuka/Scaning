@@ -399,7 +399,7 @@ chat/formatters/
 | 9.4 | Rate limits по роли | per-role chat/MCP лимиты; `ASSISTANT_CHAT_MAX_TOOL_ROUNDS_VIEWER` | ✅ |
 | 9.5 | MCP / токен UX | `GET /assistant/status` → `mcp_url`, `mcp_setup_hint_ru`; блок в `AssistantPanel` | ✅ |
 | 9.6 | Dev MCP domain proxy | `ASSISTANT_DEV_MCP_DOMAIN_TOOLS=true` — read-only domain tools в stdio MCP | ✅ |
-| 9.7 | Смена модели без рестарта | `POST/DELETE /admin/assistant/llm-config` (in-memory override) | ✅ |
+| 9.7 | Смена модели без рестарта | `GET/POST/DELETE /admin/assistant/llm-config`; `POST /llm-probe`, `POST /llm-test`, `GET /llm-models`; UI `/admin/assistant` (вкладки статус/справка, probe-таблица, override chat+embeddings, пресеты); маскирование `api_key` в JSON | ✅ |
 
 **Зависимости:** 9.1 перед 9.2; 9.3 после стабилизации mutating (9.1–9.2).
 

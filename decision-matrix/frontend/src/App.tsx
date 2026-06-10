@@ -9,6 +9,7 @@ import { RoleProtectedRoute } from './components/RoleProtectedRoute';
 import { RouteFallback } from './routes/lazyPages';
 import {
   AdminJobsPage,
+  AdminAssistantPage,
   AdminLayout,
   AdminUsersPage,
   DashboardPage,
@@ -83,6 +84,7 @@ function AppRoutes() {
                       <Route index element={<SectionIndexRedirect section="admin" />} />
                       <Route path="users" element={<AdminUsersPage />} />
                       <Route path="jobs" element={<AdminJobsPage />} />
+                      <Route path="assistant" element={<AdminAssistantPage />} />
                     </Route>
                   </Route>
                 </Route>

@@ -3,6 +3,7 @@ import { X } from 'lucide-react';
 
 interface AppModalProps {
   title?: string;
+  subtitle?: string;
   titleId?: string;
   onClose: () => void;
   children: ReactNode;
@@ -17,6 +18,7 @@ const FOCUSABLE =
 
 export function AppModal({
   title,
+  subtitle,
   titleId: titleIdProp,
   onClose,
   children,
@@ -75,9 +77,12 @@ export function AppModal({
       <div ref={panelRef} className={`app-modal-panel app-modal-panel--${size}`}>
         <div className="app-modal-header">
           {title ? (
-            <h2 id={titleId} className="app-modal-title">
-              {title}
-            </h2>
+            <div className="app-modal-header__text">
+              <h2 id={titleId} className="app-modal-title">
+                {title}
+              </h2>
+              {subtitle ? <p className="app-modal-subtitle">{subtitle}</p> : null}
+            </div>
           ) : (
             <span />
           )}

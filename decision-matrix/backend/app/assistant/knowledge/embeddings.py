@@ -7,35 +7,32 @@ import logging
 import httpx
 import numpy as np
 
-from app.assistant.llm_override import get_effective_llm_config
+from app.assistant.llm_override import get_effective_embedding_config, get_effective_llm_config
 from app.core.config import settings
 
 logger = logging.getLogger(__name__)
 
 
 def embedding_model() -> str:
-    configured = settings.ASSISTANT_WIKI_EMBEDDING_MODEL.strip()
-    if configured:
-        return configured
-    return "text-embedding-3-small"
+    return get_effective_embedding_config().model
 
 
 async def probe_embedding_provider() -> bool:
-    """Check whether the LLM base URL accepts /embeddings."""
+    """Check whether the embedding endpoint accepts /embeddings (HTTP 200)."""
     if not settings.ASSISTANT_WIKI_RAG_ENABLED:
         return False
-    cfg = get_effective_llm_config()
-    if not cfg.base_url.strip():
+    emb = get_effective_embedding_config()
+    if not emb.base_url.strip():
         return False
-    url = cfg.base_url.rstrip("/") + "/embeddings"
+    url = emb.base_url.rstrip("/") + "/embeddings"
     headers: dict[str, str] = {"Content-Type": "application/json"}
-    if cfg.api_key.strip():
-        headers["Authorization"] = f"Bearer {cfg.api_key.strip()}"
-    payload = {"model": embedding_model(), "input": ["ping"]}
+    if emb.api_key.strip():
+        headers["Authorization"] = f"Bearer {emb.api_key.strip()}"
+    payload = {"model": emb.model, "input": ["ping"]}
     try:
         async with httpx.AsyncClient(timeout=10.0) as client:
             res = await client.post(url, headers=headers, json=payload)
-            return res.status_code < 400
+            return res.status_code == 200
     except httpx.HTTPError:
         return False
 
@@ -43,13 +40,16 @@ async def probe_embedding_provider() -> bool:
 async def embed_texts(texts: list[str]) -> list[np.ndarray]:
     if not texts:
         return []
-    cfg = get_effective_llm_config()
-    url = cfg.base_url.rstrip("/") + "/embeddings"
+    emb = get_effective_embedding_config()
+    if not emb.base_url.strip():
+        raise ValueError("Embedding base URL is not configured")
+    url = emb.base_url.rstrip("/") + "/embeddings"
     headers: dict[str, str] = {"Content-Type": "application/json"}
-    if cfg.api_key.strip():
-        headers["Authorization"] = f"Bearer {cfg.api_key.strip()}"
-    payload = {"model": embedding_model(), "input": texts}
-    async with httpx.AsyncClient(timeout=settings.ASSISTANT_LLM_TIMEOUT_SECONDS) as client:
+    if emb.api_key.strip():
+        headers["Authorization"] = f"Bearer {emb.api_key.strip()}"
+    payload = {"model": emb.model, "input": texts}
+    timeout = get_effective_llm_config().timeout_seconds
+    async with httpx.AsyncClient(timeout=timeout) as client:
         res = await client.post(url, headers=headers, json=payload)
         res.raise_for_status()
         data = res.json()

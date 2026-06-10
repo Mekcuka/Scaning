@@ -1,9 +1,10 @@
 import { NavLink, Outlet } from 'react-router-dom';
-import { Activity, Shield } from 'lucide-react';
+import { Activity, Bot, Shield } from 'lucide-react';
 
 const TABS = [
   { to: '/admin/users', label: 'Пользователи', icon: Shield },
   { to: '/admin/jobs', label: 'Журнал задач', icon: Activity },
+  { to: '/admin/assistant', label: 'AI-помощник', icon: Bot },
 ] as const;
 
 export function AdminLayout() {
@@ -12,7 +13,7 @@ export function AdminLayout() {
       <header className="parameters-layout__head">
         <h1 className="parameters-layout__title">Администрирование</h1>
         <p className="parameters-layout__subtitle">
-          Пользователи, роли и фоновые задачи проектов
+          Пользователи, роли, фоновые задачи и параметры AI-помощника
         </p>
       </header>
       <nav className="parameters-subnav" aria-label="Разделы администрирования">

@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useRef, useState, useCallback } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { Loader2, MessageSquare, Plus, Send, Trash2, X } from 'lucide-react';
-import { useLocation } from 'react-router-dom';
+import { Link, useLocation } from 'react-router-dom';
 
 import { useAssistantChatContext } from '../../lib/assistant/assistantContext';
 import { assistantApi } from '../../lib/assistant/assistantApi';
@@ -401,7 +401,15 @@ export function AssistantPanel() {
               <p className="assistant-hint">Чат отключён на сервере (ASSISTANT_CHAT_ENABLED=false).</p>
             )}
             {status?.enabled && !status.provider_ready && (
-              <p className="assistant-hint">{formatLlmUnavailableHint(status)}</p>
+              <>
+                <p className="assistant-hint">{formatLlmUnavailableHint(status)}</p>
+                {role === 'admin' && (
+                  <p className="assistant-hint">
+                    <Link to="/admin/assistant">Настройки LLM (admin)</Link> — проверка подключения и
+                    временный override.
+                  </p>
+                )}
+              </>
             )}
             {status?.enabled && status.mcp_url && (
               <div className="assistant-mcp-hint">

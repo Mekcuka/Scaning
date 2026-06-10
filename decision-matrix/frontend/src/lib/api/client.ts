@@ -114,6 +114,10 @@ const API_ERROR_MESSAGES_RU: Record<string, string> = {
   'Account deactivated': 'Учётная запись отключена',
   'Insufficient permissions': 'Недостаточно прав для этого действия',
   Unauthorized: 'Требуется вход в систему',
+  'Method Not Allowed':
+    'Сервер API устарел: нет GET /admin/assistant/llm-config. Перезапустите backend локально или задеployьте новую версию.',
+  'Not Found':
+    'Маршрут API не найден. Перезапустите backend (run_local.py) или задеployьте новую версию.',
 };
 
 export function formatApiError(detail: unknown, fallback: string): string {

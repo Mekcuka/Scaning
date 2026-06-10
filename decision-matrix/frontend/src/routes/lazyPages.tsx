@@ -9,6 +9,9 @@ export const LoginPage = lazy(() => import('../pages/LoginPage').then((m) => ({ 
 export const RegisterPage = lazy(() => import('../pages/RegisterPage').then((m) => ({ default: m.RegisterPage })));
 export const AdminUsersPage = lazy(() => import('../pages/AdminUsersPage').then((m) => ({ default: m.AdminUsersPage })));
 export const AdminJobsPage = lazy(() => import('../pages/AdminJobsPage').then((m) => ({ default: m.AdminJobsPage })));
+export const AdminAssistantPage = lazy(() =>
+  import('../pages/AdminAssistantPage').then((m) => ({ default: m.AdminAssistantPage })),
+);
 export const AdminLayout = lazy(() =>
   import('../components/layout/AdminLayout').then((m) => ({ default: m.AdminLayout })),
 );

@@ -53,7 +53,7 @@ export function FieldLabel({
 }) {
   return (
     <span className="object-detail-panel__label">
-      {children}
+      <span className="object-detail-panel__label-text">{children}</span>
       {unit && <span className="object-detail-panel__label-unit">{unit}</span>}
     </span>
   );

@@ -216,7 +216,7 @@ export function FlowLogisticsPage() {
             Горизонт с
             <input
               type="date"
-              className="input text-sm"
+              className="input input-sm"
               value={horizonFrom}
               readOnly
               title="Минимальная дата ввода объектов и автодорог"
@@ -226,7 +226,7 @@ export function FlowLogisticsPage() {
             Горизонт по
             <input
               type="date"
-              className="input text-sm"
+              className="input input-sm"
               value={horizonTo}
               onChange={(e) => {
                 const next = e.target.value || autoBounds?.horizonTo || todayIsoLocal();

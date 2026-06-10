@@ -164,6 +164,8 @@ export async function createApiMock(
   return {
     ...actual,
     api: mockedApi,
+    loadLlmLocalPresets: actual.loadLlmLocalPresets ?? (() => []),
+    saveLlmLocalPreset: actual.saveLlmLocalPreset ?? (() => undefined),
     ...createDefaultPorts(mockedApi),
   };
 }

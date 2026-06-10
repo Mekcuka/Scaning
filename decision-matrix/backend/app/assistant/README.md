@@ -272,10 +272,25 @@ result = await execute_tool("list_projects", {}, ctx)
 
 ## Admin LLM override (фаза 9.7)
 
+| Метод | Путь | Назначение |
+|-------|------|------------|
+| `GET` | `/api/v1/admin/assistant/llm-config` | Конфигурация для admin UI (effective + env, embedding, wiki RAG, кэш probe 30 с) |
+| `POST` | `/api/v1/admin/assistant/llm-config` | In-memory override: `base_url`, `model`, `api_key`, `max_tokens`, `timeout_seconds`, `embedding_*` |
+| `DELETE` | `/api/v1/admin/assistant/llm-config` | Сброс override |
+| `POST` | `/api/v1/admin/assistant/llm-probe` | Probe chat (`/models`, `/chat/completions`) и embeddings (`/embeddings`) |
+| `POST` | `/api/v1/admin/assistant/llm-test` | Короткий тестовый completion |
+| `GET` | `/api/v1/admin/assistant/llm-models` | Список моделей провайдера |
 
+Код probe/override: `app/assistant/llm_probe.py`, `app/assistant/llm_override.py`; API — `app/api/v1/admin_assistant.py`.
 
-- `POST /api/v1/admin/assistant/llm-config` — in-memory override `base_url` / `model` / `api_key`
+Frontend: **Администрирование → AI-помощник** (`/admin/assistant`).
 
-- `DELETE /api/v1/admin/assistant/llm-config` — сброс override
+| Файл | Роль |
+|------|------|
+| `frontend/src/pages/AdminAssistantPage.tsx` | Страница, вкладки, формы |
+| `frontend/src/components/admin-assistant/*` | Probe panel, model field, Wiki RAG modal |
+| `frontend/src/lib/api/adminApi.ts` | REST-клиент (probe fallback при 404) |
+
+Тесты: `tests/test_admin_assistant_llm.py`, `tests/test_admin_assistant_llm_probe.py`, `frontend/src/pages/AdminAssistantPage.test.tsx`.
 
 

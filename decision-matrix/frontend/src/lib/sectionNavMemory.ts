@@ -25,7 +25,7 @@ const ALLOWED_PATHS: Record<NavSection, readonly string[]> = {
     '/parameters/rates',
   ],
   flows: ['/flows/technology', '/flows/economic', '/flows/logistics'],
-  admin: ['/admin/users', '/admin/jobs'],
+  admin: ['/admin/users', '/admin/jobs', '/admin/assistant'],
 };
 
 const STORAGE_KEY = 'dm-nav-last-section';
