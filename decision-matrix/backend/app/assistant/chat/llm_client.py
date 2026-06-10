@@ -13,6 +13,12 @@ _TOOL_CALL_BLOCK = re.compile(
     re.DOTALL | re.IGNORECASE,
 )
 
+# OpenRouter `openrouter/free` may route to nvidia/nemotron-3.5-content-safety — not a chat model.
+_SAFETY_LABEL_LINE = re.compile(
+    r"^(User Safety|Response Safety|Safety Categories):",
+    re.IGNORECASE,
+)
+
 import httpx
 
 from app.assistant.chat.errors import ChatError
@@ -34,11 +40,24 @@ class LlmResponse:
     finish_reason: str | None = None
 
 
+def is_content_safety_verdict(text: str | None) -> bool:
+    """True when the model returned only moderation labels, not a chat answer."""
+    if not text or not text.strip():
+        return False
+    lines = [ln.strip() for ln in text.strip().splitlines() if ln.strip()]
+    if not lines:
+        return False
+    return all(_SAFETY_LABEL_LINE.match(ln) for ln in lines)
+
+
 def _llm_headers() -> dict[str, str]:
     cfg = get_effective_llm_config()
     headers = {"Content-Type": "application/json"}
     if cfg.api_key.strip():
         headers["Authorization"] = f"Bearer {cfg.api_key.strip()}"
+    if "openrouter.ai" in cfg.base_url:
+        headers["HTTP-Referer"] = "https://mekcuka.github.io/Scaning/"
+        headers["X-OpenRouter-Title"] = "Atlas Grid"
     return headers
 
 
@@ -64,7 +83,34 @@ def _build_payload(
         payload["tool_choice"] = "auto"
     if stream:
         payload["stream"] = True
+    payload["max_tokens"] = settings.ASSISTANT_LLM_MAX_TOKENS
     return payload
+
+
+def _message_text(message: dict[str, Any]) -> str | None:
+    content = message.get("content")
+    if isinstance(content, list):
+        content = "".join(
+            part.get("text", "") for part in content if isinstance(part, dict)
+        )
+    if isinstance(content, str) and content.strip():
+        if is_content_safety_verdict(content):
+            raise ChatError(
+                "LLM вернул метки модерации вместо ответа — смените ASSISTANT_LLM_MODEL "
+                "(не используйте openrouter/free; попробуйте nvidia/nemotron-nano-9b-v2:free)",
+                code="llm_safety_router",
+            )
+        return content
+    for key in ("reasoning_content", "reasoning"):
+        fallback = message.get(key)
+        if isinstance(fallback, str) and fallback.strip():
+            if is_content_safety_verdict(fallback):
+                raise ChatError(
+                    "LLM вернул метки модерации вместо ответа — смените ASSISTANT_LLM_MODEL",
+                    code="llm_safety_router",
+                )
+            return fallback
+    return None
 
 
 def parse_text_tool_calls(content: str | None) -> list[LlmToolCall]:
@@ -168,20 +214,10 @@ async def chat_completion(
 
     message = choices[0].get("message") or {}
     tool_calls = _parse_tool_calls(message.get("tool_calls") or [])
-    content = message.get("content")
-    if isinstance(content, list):
-        content = "".join(
-            part.get("text", "") for part in content if isinstance(part, dict)
-        )
-    if not content:
-        for key in ("reasoning_content", "reasoning"):
-            fallback = message.get(key)
-            if isinstance(fallback, str) and fallback.strip():
-                content = fallback
-                break
+    content = _message_text(message)
     return enrich_llm_response(
         LlmResponse(
-            content=content if content else None,
+            content=content,
             tool_calls=tool_calls,
             finish_reason=choices[0].get("finish_reason"),
         )
@@ -229,9 +265,11 @@ async def chat_completion_stream(
                             part.get("text", "") for part in content if isinstance(part, dict)
                         )
                     if not content:
-                        reasoning = delta.get("reasoning_content")
-                        if isinstance(reasoning, str):
-                            content = reasoning
+                        for key in ("reasoning_content", "reasoning"):
+                            reasoning = delta.get(key)
+                            if isinstance(reasoning, str):
+                                content = reasoning
+                                break
                     if content:
                         yield content
     except httpx.TimeoutException as e:

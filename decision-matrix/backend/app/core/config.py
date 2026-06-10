@@ -34,6 +34,7 @@ class Settings(BaseSettings):
     ASSISTANT_LLM_BASE_URL: str = "http://127.0.0.1:1234/v1"
     ASSISTANT_LLM_API_KEY: str = "lm-studio"
     ASSISTANT_LLM_MODEL: str = ""
+    ASSISTANT_LLM_MAX_TOKENS: int = 1024
     ASSISTANT_LLM_TIMEOUT_SECONDS: int = 120
     ASSISTANT_CHAT_MAX_TOOL_ROUNDS: int = 8
     ASSISTANT_CHAT_MAX_TOOL_ROUNDS_VIEWER: int = 4

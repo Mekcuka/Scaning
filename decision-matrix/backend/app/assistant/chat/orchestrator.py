@@ -15,6 +15,7 @@ from app.assistant.chat.llm_client import (
     chat_completion,
     chat_completion_stream,
     enrich_llm_response,
+    is_content_safety_verdict,
     strip_text_tool_calls,
 )
 from app.assistant.chat.pending import create_pending_action_id, verify_pending_action_id
@@ -438,6 +439,12 @@ async def _execute_llm_tool_calls(
 
 def _finalize_assistant_content(content: str | None) -> str:
     text = strip_text_tool_calls(content) or ""
+    if is_content_safety_verdict(text):
+        raise ChatError(
+            "Модель вернула метки модерации вместо ответа. На prod укажите чат-модель, "
+            "например nvidia/nemotron-nano-9b-v2:free — не openrouter/free.",
+            code="llm_safety_router",
+        )
     return humanize_tool_names_in_text(text)
 
 
