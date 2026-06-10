@@ -1,4 +1,8 @@
-import { api, type ProjectJobResponse } from './api';
+import {
+  defaultProjectJobsApi,
+  type ProjectJobResponse,
+  type ProjectJobsApiPort,
+} from './api';
 import { taskLog } from './taskLog/store';
 
 function sleep(ms: number): Promise<void> {
@@ -19,13 +23,14 @@ export function isProjectJobCreateResponse(
 export async function pollProjectJobUntilDone(
   projectId: string,
   jobId: string,
-  options?: { intervalMs?: number; timeoutMs?: number },
+  options?: { intervalMs?: number; timeoutMs?: number; jobsApi?: ProjectJobsApiPort },
 ): Promise<ProjectJobResponse> {
+  const jobsApi = options?.jobsApi ?? defaultProjectJobsApi;
   const intervalMs = options?.intervalMs ?? 1500;
   const timeoutMs = options?.timeoutMs ?? 600_000;
   const deadline = Date.now() + timeoutMs;
   while (Date.now() < deadline) {
-    const job = await api.getProjectJob(projectId, jobId);
+    const job = await jobsApi.getProjectJob(projectId, jobId);
     taskLog.updateJob(job);
     if (job.status === 'completed') return job;
     if (job.status === 'failed') {

@@ -8,12 +8,14 @@ import { useAppStore } from '../store';
 import { queryKeys } from '../lib/queryKeys';
 import { makeProject, sampleProjects } from '../test/fixtures/projects';
 
-vi.mock('../lib/api', () => ({
-  api: {
-    deleteProject: vi.fn(),
-    projects: vi.fn(),
-  },
+const { mockDeleteProject } = vi.hoisted(() => ({
+  mockDeleteProject: vi.fn(),
 }));
+
+vi.mock('../lib/api', async (importOriginal) => {
+  const { createApiMock } = await import('../test/pages/apiMockModule');
+  return createApiMock(importOriginal, { deleteProject: mockDeleteProject });
+});
 
 import { api } from '../lib/api';
 

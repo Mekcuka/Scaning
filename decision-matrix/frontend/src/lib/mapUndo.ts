@@ -1,9 +1,11 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import type { QueryClient } from '@tanstack/react-query';
 import {
-  api,
+  defaultMapUndoApi,
+  projectsApi,
   type InfraObject,
   type InfraObjectCreate,
+  type MapUndoApiPort,
   type POI,
 } from './api';
 import { formValuesToPoiCreatePayload, poiToFormValues } from './poiParams';
@@ -86,8 +88,10 @@ function infraSnapshotToCreate(obj: InfraObject): InfraObjectCreate {
   };
 }
 
-function poiSnapshotToCreate(poi: POI): Parameters<typeof api.createPoi>[1] {
-  return formValuesToPoiCreatePayload(poiToFormValues(poi)) as Parameters<typeof api.createPoi>[1];
+type CreatePoiPayload = Parameters<typeof projectsApi.createPoi>[1];
+
+function poiSnapshotToCreate(poi: POI): CreatePoiPayload {
+  return formValuesToPoiCreatePayload(poiToFormValues(poi)) as CreatePoiPayload;
 }
 
 export function infraGeometryUndo(obj: InfraObject): InfraGeometryUndo {
@@ -145,6 +149,7 @@ async function runInBatches<T>(
 }
 
 async function restoreGroup(
+  undoApi: MapUndoApiPort,
   projectId: string,
   pois: POI[],
   infra: InfraObject[],
@@ -155,74 +160,79 @@ async function restoreGroup(
   const req = { timeoutMs };
 
   await runInBatches(pois, RESTORE_BATCH_SIZE, async (poi) => {
-    await api.createPoi(projectId, poiSnapshotToCreate(poi), req);
+    await undoApi.createPoi(projectId, poiSnapshotToCreate(poi), req);
   });
   await runInBatches(pointInfra, RESTORE_BATCH_SIZE, async (obj) => {
-    await api.createInfraObject(projectId, infraSnapshotToCreate(obj), req);
+    await undoApi.createInfraObject(projectId, infraSnapshotToCreate(obj), req);
   });
   await runInBatches(lineInfra, RESTORE_BATCH_SIZE, async (obj) => {
-    await api.createInfraObject(projectId, infraSnapshotToCreate(obj), req);
+    await undoApi.createInfraObject(projectId, infraSnapshotToCreate(obj), req);
   });
 }
 
-export async function applyMapUndo(entry: MapUndoEntry, projectId: string): Promise<void> {
+export async function applyMapUndo(
+  entry: MapUndoEntry,
+  projectId: string,
+  undoApi: MapUndoApiPort = defaultMapUndoApi,
+): Promise<void> {
   switch (entry.kind) {
     case 'create_infra':
-      await api.deleteInfraObject(projectId, entry.objectId);
+      await undoApi.deleteInfraObject(projectId, entry.objectId);
       return;
     case 'split_line_create_point':
-      await api.updateInfraObject(projectId, entry.lineId, infraUndoToPatch(entry.lineBefore));
-      await api.deleteInfraObject(projectId, entry.secondLineId);
-      await api.deleteInfraObject(projectId, entry.pointId);
+      await undoApi.updateInfraObject(projectId, entry.lineId, infraUndoToPatch(entry.lineBefore));
+      await undoApi.deleteInfraObject(projectId, entry.secondLineId);
+      await undoApi.deleteInfraObject(projectId, entry.pointId);
       try {
-        await api.buildNetwork(projectId);
+        await undoApi.buildNetwork(projectId);
       } catch {
         /* network rebuild best-effort on undo */
       }
       return;
     case 'create_poi':
-      await api.deletePoi(projectId, entry.poiId);
+      await undoApi.deletePoi(projectId, entry.poiId);
       return;
     case 'restore_infra':
-      await api.createInfraObject(projectId, infraSnapshotToCreate(entry.snapshot));
+      await undoApi.createInfraObject(projectId, infraSnapshotToCreate(entry.snapshot));
       return;
     case 'restore_poi':
-      await api.createPoi(projectId, poiSnapshotToCreate(entry.snapshot));
+      await undoApi.createPoi(projectId, poiSnapshotToCreate(entry.snapshot));
       return;
     case 'patch_infra_geometry':
     case 'patch_infra_detail':
-      await api.updateInfraObject(projectId, entry.objectId, infraUndoToPatch(entry.before));
+      await undoApi.updateInfraObject(projectId, entry.objectId, infraUndoToPatch(entry.before));
       return;
     case 'patch_infra_batch':
       for (const item of entry.entries) {
-        await api.updateInfraObject(projectId, item.objectId, infraUndoToPatch(item.before));
+        await undoApi.updateInfraObject(projectId, item.objectId, infraUndoToPatch(item.before));
       }
       return;
     case 'patch_poi_geometry':
     case 'patch_poi_detail':
-      await api.updatePoi(projectId, entry.poiId, entry.before);
+      await undoApi.updatePoi(projectId, entry.poiId, entry.before);
       return;
     case 'patch_geometry_group':
       for (const item of entry.poiEntries) {
-        await api.updatePoi(projectId, item.poiId, item.before);
+        await undoApi.updatePoi(projectId, item.poiId, item.before);
       }
       for (const item of entry.infraEntries) {
-        await api.updateInfraObject(projectId, item.objectId, infraUndoToPatch(item.before));
+        await undoApi.updateInfraObject(projectId, item.objectId, infraUndoToPatch(item.before));
       }
       return;
     case 'create_clipboard_group':
       await Promise.all([
-        ...entry.poiIds.map((id) => api.deletePoi(projectId, id)),
-        ...entry.infraIds.map((id) => api.deleteInfraObject(projectId, id)),
+        ...entry.poiIds.map((id) => undoApi.deletePoi(projectId, id)),
+        ...entry.infraIds.map((id) => undoApi.deleteInfraObject(projectId, id)),
       ]);
       try {
-        if (entry.infraIds.length > 0) await api.buildNetwork(projectId);
+        if (entry.infraIds.length > 0) await undoApi.buildNetwork(projectId);
       } catch {
         /* best-effort */
       }
       return;
     case 'restore_group':
       await restoreGroup(
+        undoApi,
         projectId,
         entry.pois,
         entry.infra,
@@ -240,8 +250,10 @@ export function useMapUndo(options: {
   queryClient: QueryClient;
   invalidateMap: () => void;
   onUndoError?: (message: string) => void;
+  undoApi?: MapUndoApiPort;
 }) {
-  const { projectId, enabled, queryClient, invalidateMap, onUndoError } = options;
+  const { projectId, enabled, queryClient, invalidateMap, onUndoError, undoApi = defaultMapUndoApi } =
+    options;
   const stackRef = useRef<MapUndoEntry[]>([]);
   const undoingRef = useRef(false);
   const [undoCount, setUndoCount] = useState(0);
@@ -281,7 +293,7 @@ export function useMapUndo(options: {
     syncCount();
     undoingRef.current = true;
     try {
-      await applyMapUndo(entry, projectId);
+      await applyMapUndo(entry, projectId, undoApi);
       invalidateMap();
       await refreshMapQueries(queryClient, projectId);
       const restoredCount =
@@ -306,7 +318,7 @@ export function useMapUndo(options: {
     } finally {
       undoingRef.current = false;
     }
-  }, [projectId, enabled, invalidateMap, queryClient, syncCount, onUndoError]);
+  }, [projectId, enabled, invalidateMap, queryClient, syncCount, onUndoError, undoApi]);
 
   useEffect(() => {
     const onKeyDown = (e: KeyboardEvent) => {

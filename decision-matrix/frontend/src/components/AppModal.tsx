@@ -9,6 +9,7 @@ interface AppModalProps {
   footer?: ReactNode;
   size?: 'sm' | 'md' | 'lg';
   closeOnBackdrop?: boolean;
+  overlayClassName?: string;
 }
 
 const FOCUSABLE =
@@ -22,6 +23,7 @@ export function AppModal({
   footer,
   size = 'md',
   closeOnBackdrop = true,
+  overlayClassName,
 }: AppModalProps) {
   const autoTitleId = useId();
   const titleId = titleIdProp ?? (title ? autoTitleId : undefined);
@@ -62,7 +64,7 @@ export function AppModal({
 
   return (
     <div
-      className="app-modal-overlay"
+      className={['app-modal-overlay', overlayClassName].filter(Boolean).join(' ')}
       role="dialog"
       aria-modal="true"
       aria-labelledby={titleId}

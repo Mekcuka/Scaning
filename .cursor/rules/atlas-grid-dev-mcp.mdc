@@ -21,8 +21,7 @@ For **repository development** tasks, use the **`atlas-grid-dev`** MCP server �
 ## Setup (local, one-time)
 
 1. Ensure `decision-matrix/backend/venv` exists
-2. Add server from [`.cursor/mcp.json.example`](../mcp.json.example) (`atlas-grid-dev` block) or run:
-   `.\scripts\get-atlas-grid-token.ps1 -IncludeDevMcp`
+2. Run `.\scripts\get-atlas-grid-token.ps1` (includes `atlas-grid-dev` by default) or copy from [`.cursor/mcp.json.example`](../mcp.json.example)
 3. Cursor → Settings → Tools & MCP → Reload
 
 Entrypoint: `python -m app.assistant.dev.stdio_mcp` (cwd: `decision-matrix/backend`).

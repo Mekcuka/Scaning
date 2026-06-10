@@ -10,7 +10,10 @@ import {
   connectionLinesFromAnalysis,
 } from '../../lib/analysisDisplay';
 import {
-  api,
+  defaultAuthSessionApi,
+  defaultMapAnalysisApi,
+  defaultOnePagerEditorApi,
+  defaultProjectsDataApi,
   normalizePoiAnalysisResponse,
   type AnalysisRow,
   type InfraLayer,
@@ -74,18 +77,18 @@ export function ReportEditorPage({ mode }: { mode: 'new' | 'edit' }) {
 
   const { data: authUser } = useQuery({
     queryKey: ['auth', 'me'],
-    queryFn: () => api.me(),
+    queryFn: () => defaultAuthSessionApi.me(),
   });
 
   const { data: saved, isLoading: loadingSaved } = useQuery({
     queryKey: ['one-pager', projectId, id],
-    queryFn: () => api.getOnePager(projectId!, id!),
+    queryFn: () => defaultOnePagerEditorApi.getOnePager(projectId!, id!),
     enabled: mode === 'edit' && !!projectId && !!id,
   });
 
   const { data: project } = useQuery({
     queryKey: ['project', projectId],
-    queryFn: () => api.getProject(projectId!),
+    queryFn: () => defaultProjectsDataApi.getProject(projectId!),
     enabled: !!projectId,
   });
 
@@ -116,7 +119,10 @@ export function ReportEditorPage({ mode }: { mode: 'new' | 'edit' }) {
 
   const { data: liveAnalysis } = useQuery({
     queryKey: ['analysis', projectId, activePoiId],
-    queryFn: async () => normalizePoiAnalysisResponse(await api.getPoiAnalysis(projectId!, activePoiId)),
+    queryFn: async () =>
+      normalizePoiAnalysisResponse(
+        await defaultMapAnalysisApi.getPoiAnalysis(projectId!, activePoiId),
+      ),
     enabled: !!projectId && !!activePoiId,
     retry: false,
   });
@@ -260,7 +266,7 @@ export function ReportEditorPage({ mode }: { mode: 'new' | 'edit' }) {
     mutationFn: async () => {
       const mapRoot = previewRef.current?.querySelector('[data-map-capture-root]') as HTMLElement | null;
       const snapshot = captureMapSnapshot(mapRoot);
-      return api.createOnePager(projectId!, {
+      return defaultOnePagerEditorApi.createOnePager(projectId!, {
         poi_id: activePoiId,
         engineer_name: authUser?.username,
         roadmap,
@@ -280,7 +286,7 @@ export function ReportEditorPage({ mode }: { mode: 'new' | 'edit' }) {
     mutationFn: async () => {
       const mapRoot = previewRef.current?.querySelector('[data-map-capture-root]') as HTMLElement | null;
       const snapshot = captureMapSnapshot(mapRoot);
-      return api.updateOnePager(projectId!, id!, {
+      return defaultOnePagerEditorApi.updateOnePager(projectId!, id!, {
         recommendation_text: recommendationText,
         roadmap,
         map_snapshot_base64: snapshot,
@@ -298,7 +304,7 @@ export function ReportEditorPage({ mode }: { mode: 'new' | 'edit' }) {
     mutationFn: async () => {
       const mapRoot = previewRef.current?.querySelector('[data-map-capture-root]') as HTMLElement | null;
       const snapshot = captureMapSnapshot(mapRoot);
-      const blob = await api.exportOnePagerPptx(projectId!, id!, snapshot);
+      const blob = await defaultOnePagerEditorApi.exportOnePagerPptx(projectId!, id!, snapshot);
       downloadBlob(blob, `one-pager-${activePoiId.slice(0, 8)}.pptx`);
     },
     onSuccess: () => {

@@ -69,8 +69,9 @@
 | Autoroad Network Service (HTTP :8080) | `autoroad-network-planner` microservice / legacy `services/autoroad-network/` | ⬜ опционально (`AUTOROAD_NETWORK_INPROCESS=false`) |
 | AI Assistant (Tool Registry) | `app/assistant/` — 39 tools (31 read + 8 mutating), HTTP MCP, chat UI + SSE, dev stdio MCP, `tests/test_assistant_*` | ✅ фазы 1–8 |
 | AI Assistant (фаза 9) | mutating tools + confirm, HTTP MCP block, audit log, rate limits, MCP UX, dev domain proxy, admin LLM override — [assistant.md §18](../architecture/assistant.md) | ✅ |
-| AI Assistant (фаза 7) | tool routing (`tool_router.py`), server formatters (POI/jobs/тарифы/проекты/карта) — [assistant.md §16](../architecture/assistant.md) | ✅ 7.1–7.2, 7.5 |
-| AI Assistant (roadmap) | фаза 7.3–7.4 (context fallback, status hints), 8.2 (история чата в БД) — [assistant.md §16–18](../architecture/assistant.md) | planned |
+| AI Assistant (фаза 7) | tool routing (`tool_router.py`), formatters registry (`chat/formatters/`, tool-first, analysis/admin/flow/sand, `answer_source`) — [assistant.md §16](../architecture/assistant.md) | ✅ 7.1–7.2, 7.5 |
+| AI Assistant (фаза 10) | product wiki: `docs/wiki/`, bundle, `search_wiki` tools, MCP `wiki://*`, chat chips — [assistant.md §19](../architecture/assistant.md) | ✅ |
+| AI Assistant (roadmap) | фаза 7.3 (context fallback), 7.4 (остальные status hints), 8.2 (история чата в БД), 10.2 (wiki RAG) — [assistant.md](../architecture/assistant.md) | planned |
 | UI «Построить сеть» | `MapPage` drawMode `autoroad_network`, `AutoroadNetworkPanel` (массовый выбор, параметры), `AutoroadNetworkParamsSection` | ✅ |
 
 **БД:** SQLite (`run_local.py`) или PostgreSQL + PostGIS (`DATABASE_URL` в `.env`). Geodesic: PostGIS `geography` или haversine fallback.

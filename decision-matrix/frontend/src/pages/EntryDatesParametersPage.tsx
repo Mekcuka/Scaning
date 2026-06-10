@@ -2,7 +2,7 @@ import { useMemo, useState } from 'react';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { Link } from 'react-router-dom';
 import { MapPin, Search } from 'lucide-react';
-import { api, SUBTYPE_LABELS, type InfraObject } from '../lib/api';
+import { defaultMapMutationsApi, SUBTYPE_LABELS, type InfraObject } from '../lib/api';
 import {
   mergeEntryDate,
   objectShowsEntryDate,
@@ -57,7 +57,7 @@ export function EntryDatesParametersPage() {
 
   const saveMut = useMutation({
     mutationFn: async ({ object, iso }: { object: InfraObject; iso: string }) =>
-      api.updateInfraObject(projectId!, object.id, {
+      defaultMapMutationsApi.updateInfraObject(projectId!, object.id, {
         properties: mergeEntryDate(object.properties, iso),
       }),
     onMutate: ({ object, iso }) => {

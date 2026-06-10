@@ -7,12 +7,19 @@ import {
   request,
   storeCsrfFromResponse,
 } from '../api/client';
-import type { AssistantStatus, ChatRequest, ChatResponse, PendingAction } from './types';
+import type {
+  AssistantStatus,
+  ChatRequest,
+  ChatResponse,
+  ChatSessionSummary,
+  PendingAction,
+} from './types';
 
 const CHAT_STREAM_TIMEOUT_MS = 130_000;
 
 export type ChatStreamCallbacks = {
   onToken?: (delta: string) => void;
+  onReasoningToken?: (delta: string) => void;
   onToolStart?: (name: string) => void;
   onToolDone?: (payload: { name: string; ok: boolean; code?: string | null }) => void;
   onPendingAction?: (action: PendingAction) => void;
@@ -37,6 +44,11 @@ function parseSseBlock(block: string, callbacks: ChatStreamCallbacks): void {
     case 'token':
       if (typeof parsed.delta === 'string') {
         callbacks.onToken?.(parsed.delta);
+      }
+      break;
+    case 'reasoning_token':
+      if (typeof parsed.delta === 'string') {
+        callbacks.onReasoningToken?.(parsed.delta);
       }
       break;
     case 'tool_start':
@@ -142,6 +154,18 @@ export async function postChatStream(
 
 export const assistantApi = {
   getStatus: () => request<AssistantStatus>('/assistant/status'),
+  listSessions: () => request<ChatSessionSummary[]>('/assistant/sessions'),
+  createSession: (body: { project_id?: string | null; title?: string | null }) =>
+    request<ChatSessionSummary>('/assistant/sessions', {
+      method: 'POST',
+      body: JSON.stringify(body),
+    }),
+  getSessionMessages: (sessionId: string) =>
+    request<{ session_id: string; messages: ChatRequest['messages'] }>(
+      `/assistant/sessions/${sessionId}/messages`,
+    ),
+  deleteSession: (sessionId: string) =>
+    request<void>(`/assistant/sessions/${sessionId}`, { method: 'DELETE' }),
   postChat: (body: ChatRequest) =>
     request<ChatResponse>('/assistant/chat', {
       method: 'POST',

@@ -9,14 +9,8 @@ import { useAuthStore, useAppStore } from '../../store';
 import type { Project } from '../../lib/api';
 
 vi.mock('../../lib/api', async (importOriginal) => {
-  const actual = await importOriginal<typeof import('../../lib/api')>();
-  return {
-    ...actual,
-    api: {
-      ...actual.api,
-      projects: vi.fn(),
-    },
-  };
+  const { createApiMock } = await import('../../test/pages/apiMockModule');
+  return createApiMock(importOriginal);
 });
 
 import { api } from '../../lib/api';

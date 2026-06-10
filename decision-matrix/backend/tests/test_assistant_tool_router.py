@@ -79,6 +79,16 @@ def test_router_core_set_without_project():
     names = _names(request)
     assert "list_projects" in names
     assert "get_me" in names
+    assert "search_wiki" in names
+
+
+def test_router_help_keyword_includes_wiki_tools():
+    request = ChatRequest(
+        messages=[ChatMessage(role="user", content="Как импортировать данные в проект?")]
+    )
+    names = _names(request)
+    assert "search_wiki" in names
+    assert "get_wiki_article" in names
 
 
 def test_list_tools_still_returns_full_registry():

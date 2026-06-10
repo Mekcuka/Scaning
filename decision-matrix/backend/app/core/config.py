@@ -39,6 +39,7 @@ class Settings(BaseSettings):
     ASSISTANT_CHAT_MAX_TOOL_ROUNDS: int = 8
     ASSISTANT_CHAT_MAX_TOOL_ROUNDS_VIEWER: int = 4
     ASSISTANT_CHAT_MAX_ROUTED_TOOLS: int = 12
+    ASSISTANT_CHAT_HISTORY_ENABLED: bool = True
     ASSISTANT_CHAT_RATE_LIMIT: str = "20/minute"
     ASSISTANT_CHAT_RATE_LIMIT_VIEWER: str = "10/minute"
     ASSISTANT_CHAT_RATE_LIMIT_DEFAULT: str = "20/minute"
@@ -51,6 +52,14 @@ class Settings(BaseSettings):
     ASSISTANT_DEV_MCP_DOMAIN_TOOLS: bool = False
     ASSISTANT_DEV_MCP_USER_EMAIL: str = "admin@test.ru"
     ASSISTANT_DEV_MCP_REPO_ROOT: str = ""
+    ASSISTANT_WIKI_ENABLED: bool = True
+    ASSISTANT_WIKI_ROOT: str = ""
+    ASSISTANT_WIKI_MAX_ARTICLE_CHARS: int = 12000
+    ASSISTANT_WIKI_RAG_ENABLED: bool = True
+    ASSISTANT_WIKI_EMBEDDING_MODEL: str = ""
+    ASSISTANT_WIKI_RAG_KEYWORD_WEIGHT: float = 0.35
+    ASSISTANT_WIKI_RAG_VECTOR_WEIGHT: float = 0.65
+    ASSISTANT_WIKI_RAG_MIN_SCORE: float = 0.15
 
     @property
     def jobs_use_queue(self) -> bool:

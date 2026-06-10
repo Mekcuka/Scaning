@@ -8,7 +8,15 @@ import {
 } from 'react';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import type { DrawMode, MapFeatureSelection } from '../components/MapView';
-import { api, type InfraLayer, type InfraObject } from '../lib/api';
+import {
+  defaultMapMutationsApi,
+  defaultProjectsPoiWriteApi,
+  projectsApi,
+  type InfraLayer,
+  type InfraObject,
+  type MapMutationsApiPort,
+  type ProjectsPoiWriteApiPort,
+} from '../lib/api';
 import {
   clearLineHealDoneForProject,
   isLineHealDoneForProject,
@@ -41,6 +49,8 @@ export type UseMapInfraCreateParams = {
   pushToast: (kind: 'success' | 'error' | 'info', message: string) => void;
   invalidateMap: () => void;
   lineHealSkipIdsRef: MutableRefObject<Set<string>>;
+  mapApi?: MapMutationsApiPort;
+  poiApi?: ProjectsPoiWriteApiPort;
 };
 
 export function useMapInfraCreate({
@@ -61,12 +71,15 @@ export function useMapInfraCreate({
   pushToast,
   invalidateMap,
   lineHealSkipIdsRef,
+  mapApi = defaultMapMutationsApi,
+  poiApi = defaultProjectsPoiWriteApi,
 }: UseMapInfraCreateParams) {
   const queryClient = useQueryClient();
   const lineHealAttemptedRef = useRef<Set<string>>(new Set());
 
   const createPoiMut = useMutation({
-    mutationFn: (data: Parameters<typeof api.createPoi>[1]) => api.createPoi(projectId!, data),
+    mutationFn: (data: Parameters<typeof projectsApi.createPoi>[1]) =>
+      poiApi.createPoi(projectId!, data),
     onSuccess: (created) => {
       pushUndo({
         kind: 'create_poi',
@@ -110,7 +123,7 @@ export function useMapInfraCreate({
         const payload = lineEndpointHealPayload(line, infraObjects);
         if (!payload || cancelled) continue;
         try {
-          const updated = await api.updateInfraObject(projectId, line.id, payload);
+          const updated = await mapApi.updateInfraObject(projectId, line.id, payload);
           if (!cancelled) {
             upsertInfraInCache(updated);
             healed += 1;
@@ -175,8 +188,8 @@ export function useMapInfraCreate({
   );
 
   const createInfraMut = useMutation({
-    mutationFn: (data: Parameters<typeof api.createInfraObject>[1]) =>
-      api.createInfraObject(projectId!, {
+    mutationFn: (data: Parameters<typeof mapApi.createInfraObject>[1]) =>
+      mapApi.createInfraObject(projectId!, {
         ...data,
         properties: mergeInfraPropertiesForSave(data.subtype, data.properties),
       }),
@@ -218,7 +231,7 @@ export function useMapInfraCreate({
 
       try {
         await queryClient.cancelQueries({ queryKey: ['infra', projectId] });
-        const created = await api.createInfraObject(projectId, {
+        const created = await mapApi.createInfraObject(projectId, {
           name: nextAutoName(subtype),
           subtype,
           lon: rLon,
@@ -233,6 +246,7 @@ export function useMapInfraCreate({
               split: splitFound,
               splitLon: rLon,
               splitLat: rLat,
+              mapApi,
             });
             if (splitResult) {
               const { updated, second } = splitResult;
@@ -256,7 +270,7 @@ export function useMapInfraCreate({
             }
           } catch (splitErr) {
             try {
-              await api.deleteInfraObject(projectId, created.id);
+              await mapApi.deleteInfraObject(projectId, created.id);
             } catch {
               /* ignore rollback failure */
             }

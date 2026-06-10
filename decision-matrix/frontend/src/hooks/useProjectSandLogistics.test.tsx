@@ -8,20 +8,13 @@ import {
   writeSandLogisticsCache,
 } from './useProjectSandLogistics';
 import { createTestQueryClient } from '../test/renderWithProviders';
-import { api } from '../lib/api';
+import type { SandLogisticsReadApiPort } from '../lib/api';
 import { complexSandLogisticsResult } from '../test/fixtures/sandLogisticsFixtures';
 import { clearSandLogisticsSessionCache } from '../lib/sandLogisticsResult';
 
-vi.mock('../lib/api', async (importOriginal) => {
-  const actual = await importOriginal<typeof import('../lib/api')>();
-  return {
-    ...actual,
-    api: {
-      ...actual.api,
-      getSandLogisticsResult: vi.fn(),
-    },
-  };
-});
+function createSandApiMock(): SandLogisticsReadApiPort {
+  return { getSandLogisticsResult: vi.fn() };
+}
 
 function wrapper({ children }: { children: ReactNode }) {
   const client = createTestQueryClient();
@@ -29,12 +22,14 @@ function wrapper({ children }: { children: ReactNode }) {
 }
 
 describe('useProjectSandLogistics', () => {
+  let sandLogisticsApi: SandLogisticsReadApiPort;
+
   beforeEach(() => {
-    vi.mocked(api.getSandLogisticsResult).mockReset();
+    sandLogisticsApi = createSandApiMock();
   });
 
   it('loads result from API', async () => {
-    vi.mocked(api.getSandLogisticsResult).mockResolvedValue({
+    vi.mocked(sandLogisticsApi.getSandLogisticsResult).mockResolvedValue({
       project_id: 'p-sand',
       horizon_from: '2025-01-01',
       horizon_to: '2025-12-31',
@@ -47,21 +42,30 @@ describe('useProjectSandLogistics', () => {
       object_names: {},
       calculated_at: '2025-06-01T12:00:00+00:00',
     });
-    const { result } = renderHook(() => useProjectSandLogistics('p-sand'), { wrapper });
+    const { result } = renderHook(
+      () => useProjectSandLogistics('p-sand', { sandLogisticsApi }),
+      { wrapper },
+    );
     await waitFor(() => expect(result.current.isSuccess).toBe(true));
     expect(result.current.data?.subnets).toEqual([]);
     expect(result.current.data?.calculated_at).toBeTruthy();
   });
 
   it('returns null when API returns null (404)', async () => {
-    vi.mocked(api.getSandLogisticsResult).mockResolvedValue(null);
-    const { result } = renderHook(() => useProjectSandLogistics('p-empty'), { wrapper });
+    vi.mocked(sandLogisticsApi.getSandLogisticsResult).mockResolvedValue(null);
+    const { result } = renderHook(
+      () => useProjectSandLogistics('p-empty', { sandLogisticsApi }),
+      { wrapper },
+    );
     await waitFor(() => expect(result.current.isSuccess).toBe(true));
     expect(result.current.data).toBeNull();
   });
 
   it('returns null when projectId is missing', async () => {
-    const { result } = renderHook(() => useProjectSandLogistics(null), { wrapper });
+    const { result } = renderHook(
+      () => useProjectSandLogistics(null, { sandLogisticsApi }),
+      { wrapper },
+    );
     expect(result.current.fetchStatus).toBe('idle');
   });
 
@@ -72,16 +76,16 @@ describe('useProjectSandLogistics', () => {
     const fixture = complexSandLogisticsResult();
     writeSandLogisticsCache(client, projectId, fixture);
 
-    vi.mocked(api.getSandLogisticsResult).mockClear();
+    vi.mocked(sandLogisticsApi.getSandLogisticsResult).mockClear();
     client.removeQueries({ queryKey: ['sand-logistics', projectId] });
     expect(hydrateSandLogisticsFromSession(client, projectId)).toBe(true);
     expect(client.getQueryData(['sand-logistics', projectId])).toBeTruthy();
-    expect(api.getSandLogisticsResult).not.toHaveBeenCalled();
+    expect(sandLogisticsApi.getSandLogisticsResult).not.toHaveBeenCalled();
     clearSandLogisticsSessionCache(projectId);
   });
 
   it('does not refetch on remount when data is already cached', async () => {
-    vi.mocked(api.getSandLogisticsResult).mockResolvedValue({
+    vi.mocked(sandLogisticsApi.getSandLogisticsResult).mockResolvedValue({
       project_id: 'p-remount',
       horizon_from: '2025-01-01',
       horizon_to: '2025-12-31',
@@ -98,10 +102,13 @@ describe('useProjectSandLogistics', () => {
     const wrap = ({ children }: { children: ReactNode }) => (
       <QueryClientProvider client={client}>{children}</QueryClientProvider>
     );
-    const { unmount } = renderHook(() => useProjectSandLogistics('p-remount'), { wrapper: wrap });
-    await waitFor(() => expect(api.getSandLogisticsResult).toHaveBeenCalledTimes(1));
+    const { unmount } = renderHook(
+      () => useProjectSandLogistics('p-remount', { sandLogisticsApi }),
+      { wrapper: wrap },
+    );
+    await waitFor(() => expect(sandLogisticsApi.getSandLogisticsResult).toHaveBeenCalledTimes(1));
     unmount();
-    renderHook(() => useProjectSandLogistics('p-remount'), { wrapper: wrap });
-    await waitFor(() => expect(api.getSandLogisticsResult).toHaveBeenCalledTimes(1));
+    renderHook(() => useProjectSandLogistics('p-remount', { sandLogisticsApi }), { wrapper: wrap });
+    await waitFor(() => expect(sandLogisticsApi.getSandLogisticsResult).toHaveBeenCalledTimes(1));
   });
 });

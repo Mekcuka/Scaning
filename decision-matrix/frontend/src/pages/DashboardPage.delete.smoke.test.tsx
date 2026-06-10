@@ -8,12 +8,10 @@ import { testAnalyst } from '../test/fixtures/users';
 
 const deleteMutate = vi.fn();
 
-vi.mock('../lib/api', () => ({
-  api: {
-    projects: vi.fn(),
-    deleteProject: vi.fn(),
-  },
-}));
+vi.mock('../lib/api', async (importOriginal) => {
+  const { createApiMock } = await import('../test/pages/apiMockModule');
+  return createApiMock(importOriginal);
+});
 
 vi.mock('../hooks/useDeleteProjectDialog', () => ({
   useDeleteProjectDialog: () => ({

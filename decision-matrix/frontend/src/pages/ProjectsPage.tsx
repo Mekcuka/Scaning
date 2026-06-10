@@ -2,7 +2,7 @@ import { useMemo, useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { Link } from 'react-router-dom';
 import { Plus, Trash2 } from 'lucide-react';
-import { api, type Project } from '../lib/api';
+import { defaultProjectsListApi, defaultProjectsWriteApi, type Project } from '../lib/api';
 import { queryKeys } from '../lib/queryKeys';
 import { normalizeProjectsList } from '../lib/normalizeProjectsList';
 import {
@@ -37,7 +37,7 @@ export function ProjectsPage() {
 
   const { data: projectsData, isLoading } = useQuery({
     queryKey: queryKeys.projects,
-    queryFn: api.projects,
+    queryFn: defaultProjectsListApi.projects,
   });
   const projects = normalizeProjectsList(projectsData);
 
@@ -47,7 +47,7 @@ export function ProjectsPage() {
   );
 
   const createMut = useMutation({
-    mutationFn: () => api.createProject(name, description || undefined),
+    mutationFn: () => defaultProjectsWriteApi.createProject(name, description || undefined),
     onSuccess: (project) => {
       qc.invalidateQueries({ queryKey: queryKeys.projects });
       setCurrentProjectId(project.id);
@@ -69,7 +69,7 @@ export function ProjectsPage() {
 
   const updateMut = useMutation({
     mutationFn: ({ id, toastMessage: _toast, ...data }: ProjectUpdateVars) =>
-      api.updateProject(id, data),
+      defaultProjectsWriteApi.updateProject(id, data),
     onSuccess: (_data, vars) => {
       qc.invalidateQueries({ queryKey: queryKeys.projects });
       pushToast('success', vars.toastMessage ?? 'Изменения сохранены');

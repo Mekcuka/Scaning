@@ -2,7 +2,7 @@ import { useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { RefreshCw } from 'lucide-react';
-import { api, type ProjectJobAdminItem } from '../lib/api';
+import { defaultAdminJobsApi, type ProjectJobAdminItem } from '../lib/api';
 import {
   ACTIVE_JOB_STATUSES as ACTIVE_STATUSES,
   jobStatusLabel,
@@ -101,7 +101,7 @@ export function AdminJobsPage() {
 
   const { data: health, isFetching: healthLoading, refetch: refetchHealth } = useQuery({
     queryKey: ['admin-jobs-health'],
-    queryFn: () => api.adminJobsHealth(),
+    queryFn: () => defaultAdminJobsApi.adminJobsHealth(),
     refetchInterval: (query) =>
       countActiveJobs(query.state.data?.jobs_by_status) > 0 ? POLL_ACTIVE_MS : false,
     refetchOnWindowFocus: true,
@@ -109,7 +109,7 @@ export function AdminJobsPage() {
 
   const { data: list, isLoading, isFetching: listFetching, refetch: refetchList } = useQuery({
     queryKey: ['admin-jobs', listParams],
-    queryFn: () => api.adminListJobs(listParams),
+    queryFn: () => defaultAdminJobsApi.adminListJobs(listParams),
     refetchInterval: (query) => {
       if (countActiveJobs(health?.jobs_by_status) > 0) return POLL_ACTIVE_MS;
       if (listHasActiveJobs(query.state.data?.items)) return POLL_ACTIVE_MS;
@@ -123,7 +123,7 @@ export function AdminJobsPage() {
   const isRefreshing = healthLoading || listFetching;
 
   const cancelMutation = useMutation({
-    mutationFn: (jobId: string) => api.adminCancelJob(jobId),
+    mutationFn: (jobId: string) => defaultAdminJobsApi.adminCancelJob(jobId),
     onSuccess: (job: ProjectJobAdminItem) => {
       queryClient.invalidateQueries({ queryKey: ['admin-jobs'] });
       queryClient.invalidateQueries({ queryKey: ['admin-jobs-health'] });

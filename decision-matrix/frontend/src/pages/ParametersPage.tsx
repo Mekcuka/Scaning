@@ -2,7 +2,7 @@ import { useMemo, useState } from 'react';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { Link } from 'react-router-dom';
 import { MapPin, Search } from 'lucide-react';
-import { api, SUBTYPE_LABELS, type InfraObject } from '../lib/api';
+import { defaultMapMutationsApi, SUBTYPE_LABELS, type InfraObject } from '../lib/api';
 import {
   capacityUnitLabel,
   defaultCapacityUnitForSubtype,
@@ -73,7 +73,7 @@ export function ParametersPage() {
     }) => {
       const unit = defaultCapacityUnitForSubtype(object.subtype);
       const numVal = value === '' ? null : value;
-      return api.updateInfraObject(projectId!, object.id, {
+      return defaultMapMutationsApi.updateInfraObject(projectId!, object.id, {
         properties: mergeThroughputCapacity(object.properties, numVal, unit),
       });
     },

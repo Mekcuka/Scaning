@@ -1,6 +1,6 @@
 import { Navigate } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
-import { api } from '../../lib/api';
+import { defaultProjectsDataApi } from '../../lib/api';
 import { getSavedSectionPath } from '../../lib/sectionNavMemory';
 import { useAppStore } from '../../store';
 
@@ -10,7 +10,7 @@ export function FlowsIndexRedirect() {
   const projectId = useAppStore((s) => s.currentProjectId);
   const { data: pois = [], isLoading } = useQuery({
     queryKey: ['pois', projectId],
-    queryFn: () => api.getPois(projectId!),
+    queryFn: () => defaultProjectsDataApi.getPois(projectId!),
     enabled: !!projectId && !saved,
   });
 

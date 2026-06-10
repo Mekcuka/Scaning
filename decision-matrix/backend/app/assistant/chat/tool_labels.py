@@ -12,6 +12,7 @@ TOOL_LABELS_RU: dict[str, str] = {
     "get_project": "Данные проекта",
     "get_distance_defaults": "Пороги расстояний проекта",
     "list_pois": "Список POI",
+    "get_poi": "Карточка POI (инженерные решения)",
     "list_infra_layers": "Слои карты",
     "list_infra_objects": "Объекты инфраструктуры",
     "update_infra_object": "Изменить объект инфраструктуры",
@@ -42,6 +43,9 @@ TOOL_LABELS_RU: dict[str, str] = {
     "admin_jobs_health": "Состояние очереди задач (админ)",
     "admin_list_users": "Пользователи (админ)",
     "admin_stats": "Статистика системы (админ)",
+    "list_wiki_articles": "Справка: список статей",
+    "search_wiki": "Поиск в справке",
+    "get_wiki_article": "Статья справки",
 }
 
 PENDING_DESCRIPTIONS_RU: dict[str, str] = {

@@ -1,6 +1,6 @@
 import { useCallback } from 'react';
 import { useQuery } from '@tanstack/react-query';
-import { api } from '../../lib/api';
+import { defaultProjectsMapSettingsApi } from '../../lib/api';
 import { iconDataUrl } from '../../lib/mapIcons';
 import { useAppStore } from '../../store';
 import type { ObjectDetailPanelProps } from './types';
@@ -29,7 +29,7 @@ export function useObjectDetailPanel({
   const projectId = selection.kind === 'poi' ? selection.poi.project_id : null;
   const { data: defaults } = useQuery({
     queryKey: ['distanceDefaults', projectId],
-    queryFn: () => api.getDistanceDefaults(projectId!),
+    queryFn: () => defaultProjectsMapSettingsApi.getDistanceDefaults(projectId!),
     enabled: !!projectId,
     retry: false,
   });

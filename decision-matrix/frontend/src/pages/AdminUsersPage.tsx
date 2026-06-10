@@ -1,5 +1,5 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { api } from '../lib/api';
+import { defaultAdminUsersApi } from '../lib/api';
 import { ROLE_LABELS, type UserRole } from '../lib/permissions';
 import { useAppStore, useAuthStore } from '../store';
 
@@ -12,16 +12,16 @@ export function AdminUsersPage() {
   const pushToast = useAppStore((s) => s.pushToast);
   const { data: users = [], isLoading } = useQuery({
     queryKey: ['admin-users'],
-    queryFn: () => api.adminUsers(),
+    queryFn: () => defaultAdminUsersApi.adminUsers(),
   });
   const { data: stats } = useQuery({
     queryKey: ['admin-stats'],
-    queryFn: () => api.adminStats(),
+    queryFn: () => defaultAdminUsersApi.adminStats(),
   });
 
   const updateMutation = useMutation({
     mutationFn: ({ id, role, is_active }: { id: string; role?: string; is_active?: boolean }) =>
-      api.updateAdminUser(id, { role, is_active }),
+      defaultAdminUsersApi.updateAdminUser(id, { role, is_active }),
     onSuccess: async (_data, vars) => {
       queryClient.invalidateQueries({ queryKey: ['admin-users'] });
       if (vars.id === currentUser?.id) {

@@ -1,10 +1,16 @@
 import { Fragment, useEffect, useMemo, useState } from 'react';
 import { useMutation, useQueries, useQueryClient } from '@tanstack/react-query';
 import { LayoutGrid, Table, Zap } from 'lucide-react';
-import { api, normalizePoiAnalysisResponse, type POI } from '../lib/api';
+import {
+  defaultMapAnalysisApi,
+  defaultProjectsPoiWriteApi,
+  normalizePoiAnalysisResponse,
+  type POI,
+} from '../lib/api';
 import { analyzeAllPoisAndWait } from '../lib/runApiJob';
 import { buildMatrixRowsByPois, resolvePoiColumnAnalysis } from '../lib/matrixData';
 import { engineeringOptionsForKey, type EngineeringParamKey } from '../lib/poiParams';
+import { useSyncAssistantUiContext } from '../lib/assistant/assistantContext';
 import { useActiveProject } from '../hooks/useActiveProject';
 import { useProjectPois } from '../hooks/useProjectData';
 import { useAppStore } from '../store';
@@ -41,7 +47,7 @@ export function MatrixPage() {
     queries: pois.map((poi) => ({
       queryKey: projectId ? queryKeys.analysis(projectId, poi.id) : ['analysis', null, poi.id],
       queryFn: async () => {
-        const raw = await api.getPoiAnalysis(projectId!, poi.id);
+        const raw = await defaultMapAnalysisApi.getPoiAnalysis(projectId!, poi.id);
         return normalizePoiAnalysisResponse(raw);
       },
       enabled: !!projectId,
@@ -77,6 +83,11 @@ export function MatrixPage() {
   );
 
   const safeSelectedCol = Math.min(selectedCol, Math.max(0, columnNames.length - 1));
+  const selectedMatrixPoi = poisByColumn[safeSelectedCol] ?? null;
+  useSyncAssistantUiContext({
+    selectedPoiId: selectedMatrixPoi?.id ?? null,
+    selectedPoiName: selectedMatrixPoi?.name ?? null,
+  });
 
   const sections = useMemo(() => {
     const seen = new Set<string>();
@@ -126,7 +137,7 @@ export function MatrixPage() {
       key: EngineeringParamKey;
       value: string;
     }) => {
-      return api.updatePoi(projectId!, poiId, { [key]: value } as Partial<POI>);
+      return defaultProjectsPoiWriteApi.updatePoi(projectId!, poiId, { [key]: value } as Partial<POI>);
     },
     onSuccess: (updated) => {
       if (!projectId) return;

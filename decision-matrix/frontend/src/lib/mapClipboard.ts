@@ -1,11 +1,13 @@
 import {
-  api,
   isFacilityPointSubtype,
+  projectsApi,
   type FacilityInfraObjectCreate,
   type InfraObject,
   type InfraObjectCreate,
   type POI,
 } from './api';
+
+type CreatePoiPayload = Parameters<typeof projectsApi.createPoi>[1];
 import type { MapFeatureSelection } from '../components/MapView';
 import { isLineSubtype } from './infraGeometry';
 import { lineEndpointAttachmentsFromObject } from './lineEndpointRules';
@@ -295,10 +297,8 @@ export function remapLineEndpointsOnPaste(
 
 export function poiClipboardToCreatePayload(
   snap: PoiDetailUndo,
-): Parameters<typeof api.createPoi>[1] {
-  return formValuesToPoiCreatePayload(poiToFormValues(snap as POI)) as Parameters<
-    typeof api.createPoi
-  >[1];
+): CreatePoiPayload {
+  return formValuesToPoiCreatePayload(poiToFormValues(snap as POI)) as CreatePoiPayload;
 }
 
 /** Strip read-only / invalid API fields from infra create payloads (batch paste). */
@@ -316,9 +316,7 @@ function sanitizePropertiesForInfraCreate(
   return Object.keys(next).length > 0 ? next : undefined;
 }
 
-export function sanitizePoiCreateForApi(
-  create: Parameters<typeof api.createPoi>[1],
-): Parameters<typeof api.createPoi>[1] {
+export function sanitizePoiCreateForApi(create: CreatePoiPayload): CreatePoiPayload {
   const raw = create as Record<string, unknown>;
   const lon = Number(raw.lon);
   const lat = Number(raw.lat);

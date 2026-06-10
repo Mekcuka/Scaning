@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { api, type ImportConnectionCreate } from '../../lib/api';
+import { defaultImportWorkflowApi, type ImportConnectionCreate } from '../../lib/api';
 import { refreshMapQueries } from '../../lib/mapQueries';
 import { useActiveProject } from '../../hooks/useActiveProject';
 import { usePermissions } from '../../hooks/usePermissions';
@@ -30,19 +30,19 @@ export function useImportPageWorkflow() {
 
   const { data: history = [], isLoading } = useQuery({
     queryKey: ['importLogs', projectId],
-    queryFn: () => api.getImportLogs(projectId ?? undefined),
+    queryFn: () => defaultImportWorkflowApi.getImportLogs(projectId ?? undefined),
     enabled: !!projectId,
   });
 
   const { data: connections = [] } = useQuery({
     queryKey: ['importConnections', projectId],
-    queryFn: () => api.getImportConnections(projectId!),
+    queryFn: () => defaultImportWorkflowApi.getImportConnections(projectId!),
     enabled: !!projectId,
   });
 
   const { data: pendingLog } = useQuery({
     queryKey: ['importLog', pendingLogId],
-    queryFn: () => api.getImportLog(pendingLogId!),
+    queryFn: () => defaultImportWorkflowApi.getImportLog(pendingLogId!),
     enabled: !!pendingLogId,
     refetchInterval: (q) => {
       const st = q.state.data?.status;
@@ -71,20 +71,20 @@ export function useImportPageWorkflow() {
       if (!projectId) throw new Error('Выберите проект');
       if (useAsync) {
         let log;
-        if (format === 'csv') log = await api.importCsvAsync(projectId, file);
-        else if (format === 'kml') log = await api.importKmlAsync(projectId, file);
-        else if (format === 'spark') log = await api.importSparkAsync(projectId, file);
-        else if (format === 'geojson') log = await api.importGeojsonAsync(projectId, file);
+        if (format === 'csv') log = await defaultImportWorkflowApi.importCsvAsync(projectId, file);
+        else if (format === 'kml') log = await defaultImportWorkflowApi.importKmlAsync(projectId, file);
+        else if (format === 'spark') log = await defaultImportWorkflowApi.importSparkAsync(projectId, file);
+        else if (format === 'geojson') log = await defaultImportWorkflowApi.importGeojsonAsync(projectId, file);
         else {
-          return api.importShapefile(projectId, file);
+          return defaultImportWorkflowApi.importShapefile(projectId, file);
         }
         return log;
       }
-      if (format === 'csv') return api.importCsv(projectId, file);
-      if (format === 'kml') return api.importKml(projectId, file);
-      if (format === 'shp') return api.importShapefile(projectId, file);
-      if (format === 'spark') return api.importSpark(projectId, file);
-      return api.importGeojson(projectId, file);
+      if (format === 'csv') return defaultImportWorkflowApi.importCsv(projectId, file);
+      if (format === 'kml') return defaultImportWorkflowApi.importKml(projectId, file);
+      if (format === 'shp') return defaultImportWorkflowApi.importShapefile(projectId, file);
+      if (format === 'spark') return defaultImportWorkflowApi.importSpark(projectId, file);
+      return defaultImportWorkflowApi.importGeojson(projectId, file);
     },
     onSuccess: (log) => {
       if (log.status === 'pending' || log.status === 'running') {
@@ -100,7 +100,7 @@ export function useImportPageWorkflow() {
   });
 
   const saveConnMut = useMutation({
-    mutationFn: () => api.createImportConnection(projectId!, connForm),
+    mutationFn: () => defaultImportWorkflowApi.createImportConnection(projectId!, connForm),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['importConnections', projectId] });
       pushToast('success', 'Подключение сохранено');
@@ -109,7 +109,7 @@ export function useImportPageWorkflow() {
   });
 
   const testConnMut = useMutation({
-    mutationFn: (id: string) => api.testImportConnection(projectId!, id),
+    mutationFn: (id: string) => defaultImportWorkflowApi.testImportConnection(projectId!, id),
     onSuccess: (r) =>
       pushToast(
         r.ok ? 'success' : 'error',
@@ -119,7 +119,7 @@ export function useImportPageWorkflow() {
   });
 
   const syncConnMut = useMutation({
-    mutationFn: (id: string) => api.syncImportConnection(projectId!, id),
+    mutationFn: (id: string) => defaultImportWorkflowApi.syncImportConnection(projectId!, id),
     onSuccess: (r) => {
       pushToast('success', `Синхронизировано объектов: ${r.imported}`);
       if (projectId) void refreshMapQueries(queryClient, projectId);
@@ -131,7 +131,7 @@ export function useImportPageWorkflow() {
     if (!file || !projectId) return;
     const format = await detectImportFormat(file);
     if (!commit) {
-      const p = await api.previewImport(projectId, file, format === 'shp' ? 'csv' : format);
+      const p = await defaultImportWorkflowApi.previewImport(projectId, file, format === 'shp' ? 'csv' : format);
       setPreview(p);
       return;
     }

@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { RotateCcw, Save } from 'lucide-react';
-import { api, type DistanceDefaults } from '../lib/api';
+import { defaultProjectsRatesApi, type DistanceDefaults } from '../lib/api';
 import { useAppStore } from '../store';
 import { usePermissions } from '../hooks/usePermissions';
 import {
@@ -140,19 +140,19 @@ export function RatesPage() {
 
   const { data, isLoading } = useQuery({
     queryKey: ['rates', projectId],
-    queryFn: () => api.getRates(projectId!),
+    queryFn: () => defaultProjectsRatesApi.getRates(projectId!),
     enabled: !!projectId,
   });
 
   const { data: econData, isLoading: econLoading } = useQuery({
     queryKey: ['economic-params', projectId],
-    queryFn: () => api.getEconomicParams(projectId!),
+    queryFn: () => defaultProjectsRatesApi.getEconomicParams(projectId!),
     enabled: !!projectId,
   });
 
   const { data: distanceData, isLoading: distanceLoading } = useQuery({
     queryKey: ['distanceDefaults', projectId],
-    queryFn: () => api.getDistanceDefaults(projectId!),
+    queryFn: () => defaultProjectsRatesApi.getDistanceDefaults(projectId!),
     enabled: !!projectId,
   });
 
@@ -185,7 +185,7 @@ export function RatesPage() {
     backfillRef.current = true;
     const normalized = { ...data.rates, ...patch };
     setRates(normalized);
-    void api.updateRates(projectId, normalized).then(() => {
+    void defaultProjectsRatesApi.updateRates(projectId, normalized).then(() => {
       void qc.invalidateQueries({ queryKey: ['rates', projectId] });
       void qc.invalidateQueries({ queryKey: ['economic-flow-schematic', projectId] });
     });
@@ -197,9 +197,9 @@ export function RatesPage() {
 
   const saveMut = useMutation({
     mutationFn: async () => {
-      await api.updateRates(projectId!, rates);
-      await api.updateEconomicParams(projectId!, econParams);
-      await api.updateDistanceDefaults(projectId!, distanceDefaults);
+      await defaultProjectsRatesApi.updateRates(projectId!, rates);
+      await defaultProjectsRatesApi.updateEconomicParams(projectId!, econParams);
+      await defaultProjectsRatesApi.updateDistanceDefaults(projectId!, distanceDefaults);
     },
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ['rates', projectId] });

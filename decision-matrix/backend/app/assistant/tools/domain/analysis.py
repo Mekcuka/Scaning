@@ -158,7 +158,7 @@ def register() -> None:
     register_tool(
         ToolDefinition(
             name="get_poi_analysis",
-            description="Get enriched infrastructure analysis for a single POI.",
+            description="Get enriched infrastructure analysis for a single POI (poi_id — имя POI или из UI).",
             input_model=PoiAnalysisInput,
             handler=_get_poi_analysis,
             categories=cats(CAT_ANALYSIS),

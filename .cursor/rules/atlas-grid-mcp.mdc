@@ -29,7 +29,7 @@ Read-only tools (~31): projects, POI, map layers/objects, analysis results, jobs
 ## Auth
 
 - MCP requires Bearer JWT in `.cursor/mcp.json` (generated locally, gitignored).
-- On Windows, `${env:ATLAS_GRID_ACCESS_TOKEN}` in HTTP headers often fails — run `.\scripts\get-atlas-grid-token.ps1` instead (embeds token, ~60 min TTL).
+- On Windows, `${env:ATLAS_GRID_ACCESS_TOKEN}` in HTTP headers often fails — run `.\scripts\get-atlas-grid-token.ps1` instead (embeds token, ~60 min TTL; keeps `atlas-grid-dev` by default).
 - If MCP returns 401: re-run the script, then reload MCP in Cursor Settings.
 - Prod: `https://erascaning.duckdns.org/api/v1/mcp`; local: add `-McpUrl http://127.0.0.1:8000/api/v1/mcp`.
 

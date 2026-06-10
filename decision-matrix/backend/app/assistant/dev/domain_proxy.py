@@ -10,7 +10,7 @@ from typing import Any
 from sqlalchemy import select
 
 from app.assistant.context import ToolContext
-from app.assistant.registry import execute_tool, list_tools
+from app.assistant.ports.tool_registry_port import default_tool_registry
 from app.core.database import async_session
 from app.models import User
 from mcp.server.fastmcp import FastMCP
@@ -33,7 +33,7 @@ async def _dev_execute_tool(name: str, arguments: dict[str, Any]) -> dict:
     user = await _resolve_dev_user()
     async with async_session() as db:
         ctx = ToolContext(user=user, db=db, env="development", tool_source="mcp")
-        result = await execute_tool(name, arguments, ctx)
+        result = await default_tool_registry.execute_tool(name, arguments, ctx)
     return result.model_dump()
 
 
@@ -48,7 +48,7 @@ def register_readonly_domain_tools(mcp: FastMCP) -> int:
         user = await _resolve_dev_user()
         async with async_session() as db:
             ctx = ToolContext(user=user, db=db, env="development", tool_source="mcp")
-            return [m for m in list_tools(ctx) if not m.mutating]
+            return [m for m in default_tool_registry.list_tools(ctx) if not m.mutating]
 
     metas = _run_async(_metas())
     for meta in metas:

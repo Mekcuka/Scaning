@@ -442,3 +442,40 @@ class AssistantAuditLog(Base):
     code: Mapped[str | None] = mapped_column(String(32), nullable=True)
     source: Mapped[str] = mapped_column(String(16), default="chat")
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now(), index=True)
+
+
+class AssistantChatSession(Base):
+    __tablename__ = "assistant_chat_sessions"
+
+    id: Mapped[uuid.UUID] = mapped_column(Uuid, primary_key=True, default=uuid.uuid4)
+    user_id: Mapped[uuid.UUID] = mapped_column(Uuid, ForeignKey("users.id", ondelete="CASCADE"), index=True)
+    project_id: Mapped[uuid.UUID | None] = mapped_column(
+        Uuid, ForeignKey("projects.id", ondelete="SET NULL"), nullable=True
+    )
+    title: Mapped[str] = mapped_column(String(255), default="Новый чат")
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now(), onupdate=func.now(), index=True
+    )
+
+    messages: Mapped[list["AssistantChatMessage"]] = relationship(
+        back_populates="session", cascade="all, delete-orphan", order_by="AssistantChatMessage.seq"
+    )
+
+
+class AssistantChatMessage(Base):
+    __tablename__ = "assistant_chat_messages"
+    __table_args__ = (UniqueConstraint("session_id", "seq", name="uq_assistant_chat_messages_session_seq"),)
+
+    id: Mapped[uuid.UUID] = mapped_column(Uuid, primary_key=True, default=uuid.uuid4)
+    session_id: Mapped[uuid.UUID] = mapped_column(
+        Uuid, ForeignKey("assistant_chat_sessions.id", ondelete="CASCADE"), index=True
+    )
+    seq: Mapped[int] = mapped_column(Integer)
+    role: Mapped[str] = mapped_column(String(16))
+    content: Mapped[str] = mapped_column(Text)
+    reasoning: Mapped[str | None] = mapped_column(Text, nullable=True)
+    tool_calls_json: Mapped[str | None] = mapped_column(Text, nullable=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
+
+    session: Mapped["AssistantChatSession"] = relationship(back_populates="messages")

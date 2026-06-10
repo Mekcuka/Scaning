@@ -2,7 +2,7 @@ import { useMemo, useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { Link } from 'react-router-dom';
 import { FileOutput, Grid3X3, Map, Plus, Trash2 } from 'lucide-react';
-import { api, type Project } from '../lib/api';
+import { defaultProjectsListApi, type Project } from '../lib/api';
 import { queryKeys } from '../lib/queryKeys';
 import { normalizeProjectsList } from '../lib/normalizeProjectsList';
 import {
@@ -41,7 +41,7 @@ export function DashboardPage() {
     isLoading,
     isError,
     refetch,
-  } = useQuery({ queryKey: queryKeys.projects, queryFn: api.projects });
+  } = useQuery({ queryKey: queryKeys.projects, queryFn: defaultProjectsListApi.projects });
   const projects = normalizeProjectsList(projectsData);
   const myProjects = useMemo(
     () => filterProjectsOwnedByUser(projects, user?.id),

@@ -2,7 +2,7 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { Activity, ChevronDown, ChevronRight, Download, X } from 'lucide-react';
 
-import { api } from '../lib/api';
+import { defaultProjectJobsApi } from '../lib/api';
 import { useActiveProjectJob } from '../hooks/useActiveProjectJob';
 import {
   ACTIVE_JOB_STATUSES,
@@ -124,7 +124,7 @@ function EntryCard({
   const cancelMut = useMutation({
     mutationFn: () => {
       if (entry.kind !== 'project_job') return Promise.reject(new Error('Not a job'));
-      return api.cancelProjectJob(projectId, entry.id);
+      return defaultProjectJobsApi.cancelProjectJob(projectId, entry.id);
     },
     onSuccess: onJobCancelled,
   });
@@ -224,7 +224,7 @@ export function TaskLogPanel({ projectId }: { projectId: string | null }) {
 
   const { data: jobsList } = useQuery({
     queryKey: ['projectJobs', projectId],
-    queryFn: () => api.listProjectJobs(projectId!, { limit: 30 }),
+    queryFn: () => defaultProjectJobsApi.listProjectJobs(projectId!, { limit: 30 }),
     enabled: Boolean(projectId) && open,
     refetchInterval: open ? 5000 : false,
   });

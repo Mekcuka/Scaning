@@ -5,7 +5,10 @@ import {
   useQueryClient,
   type QueryClient,
 } from '@tanstack/react-query';
-import { api } from '../lib/api';
+import {
+  defaultSandLogisticsReadApi,
+  type SandLogisticsReadApiPort,
+} from '../lib/api';
 import {
   loadSandLogisticsSessionCache,
   normalizeSandLogisticsResult,
@@ -43,8 +46,16 @@ export function writeSandLogisticsCache(
   saveSandLogisticsSessionCache(projectId, result);
 }
 
+export type UseProjectSandLogisticsOptions = {
+  sandLogisticsApi?: SandLogisticsReadApiPort;
+};
+
 /** Last sand logistics result: DB on first open, then in-memory (+ sessionStorage) until invalidate. */
-export function useProjectSandLogistics(projectId: string | null | undefined) {
+export function useProjectSandLogistics(
+  projectId: string | null | undefined,
+  options: UseProjectSandLogisticsOptions = {},
+) {
+  const sandLogisticsApi = options.sandLogisticsApi ?? defaultSandLogisticsReadApi;
   const queryClient = useQueryClient();
 
   useEffect(() => {
@@ -55,7 +66,7 @@ export function useProjectSandLogistics(projectId: string | null | undefined) {
     queryKey: sandLogisticsQueryKey(projectId),
     queryFn: async () => {
       if (!projectId) return null;
-      const data = await api.getSandLogisticsResult(projectId);
+      const data = await sandLogisticsApi.getSandLogisticsResult(projectId);
       const normalized = data ? normalizeSandLogisticsResult(data) : null;
       if (normalized) saveSandLogisticsSessionCache(projectId, normalized);
       return normalized;

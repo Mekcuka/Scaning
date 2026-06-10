@@ -23,10 +23,11 @@ import {
   type AutoroadPlanPreviewLine,
 } from '../lib/autoroadPlanPreview';
 import {
-  api,
+  defaultAutoroadNetworkApi,
   syncClientAuthSession,
   SUBTYPE_LABELS,
   type AutoroadConnectResult,
+  type AutoroadNetworkApiPort,
   type AutoroadNetworkApplyResult,
   type InfraObject,
 } from '../lib/api';
@@ -68,6 +69,7 @@ export type UseMapAutoroadNetworkParams = {
   pushToast: (kind: 'success' | 'error' | 'info', message: string) => void;
   pushUndo: (entry: MapUndoEntry) => void;
   invalidateMap: () => void;
+  networkApi?: AutoroadNetworkApiPort;
 };
 
 export function useMapAutoroadNetwork({
@@ -83,6 +85,7 @@ export function useMapAutoroadNetwork({
   pushToast,
   pushUndo,
   invalidateMap,
+  networkApi = defaultAutoroadNetworkApi,
 }: UseMapAutoroadNetworkParams) {
   const queryClient = useQueryClient();
   const [terminalIds, setTerminalIds] = useState<string[]>([]);
@@ -117,7 +120,7 @@ export function useMapAutoroadNetwork({
     if (drawMode !== 'autoroad_network' || !projectId) return;
     let cancelled = false;
     setSolverStatusLoading(true);
-    void api
+    void networkApi
       .autoroadNetworkSolverStatus()
       .then((status) => {
         if (cancelled) return;
@@ -313,7 +316,7 @@ export function useMapAutoroadNetwork({
         'Соединение автодорогами',
       );
       try {
-        const preview = (await api.autoroadConnect(projectId!, {
+        const preview = (await networkApi.autoroadConnect(projectId!, {
           object_ids: objectIds,
           dry_run: true,
         })) as AutoroadConnectResult;
@@ -321,7 +324,7 @@ export function useMapAutoroadNetwork({
           taskLog.endHttpFlow(flowId, 'cancelled');
           return null;
         }
-        const applyRes = await api.autoroadConnect(projectId!, {
+        const applyRes = await networkApi.autoroadConnect(projectId!, {
           object_ids: objectIds,
           dry_run: false,
         });
@@ -383,7 +386,7 @@ export function useMapAutoroadNetwork({
         'Построение сети автодорог',
       );
       try {
-        const planRequest = await api.autoroadNetworkBuildRequest(projectId!, {
+        const planRequest = await networkApi.autoroadNetworkBuildRequest(projectId!, {
           object_ids: objectIds,
           full_network_rebuild: true,
         });
@@ -391,7 +394,7 @@ export function useMapAutoroadNetwork({
           ...planRequest.options,
           ...plannerOptionsToRequestOptions(plannerOptions),
         };
-        const plan = await api.autoroadNetworkCompute(projectId!, planRequest);
+        const plan = await networkApi.autoroadNetworkCompute(projectId!, planRequest);
         const plannedTotal = plannedSegmentCount(plan);
         setPlanPreviewLines(linesFromNetworkPlanResponse(plan));
         const previewForModal = networkPlanToConnectPreview(plan);
@@ -400,7 +403,7 @@ export function useMapAutoroadNetwork({
           taskLog.endHttpFlow(flowId, 'cancelled');
           return null;
         }
-        const applyRes = await api.autoroadNetworkApply(projectId!, {
+        const applyRes = await networkApi.autoroadNetworkApply(projectId!, {
           object_ids: objectIds,
           plan,
           full_network_rebuild: true,

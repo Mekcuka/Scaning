@@ -132,11 +132,16 @@ Get-Content -Raw "C:\Users\user\Documents\mykey\ssh-key\ssh-key-1779903372392" |
 | `ASSISTANT_LLM_TIMEOUT_SECONDS` | `120` (optional) |
 | `ASSISTANT_CHAT_MAX_TOOL_ROUNDS` | `8` (optional) |
 | `ASSISTANT_CHAT_MAX_ROUTED_TOOLS` | `12` (optional) — макс. tools в prompt чата после категорийного роутинга (фаза 7) |
+| `ASSISTANT_WIKI_ENABLED` | `true` (default) — product wiki tools и MCP `wiki://*` |
+| `ASSISTANT_WIKI_ROOT` | пусто — bundled `app/assistant/knowledge/bundle/` в образе |
+| `ASSISTANT_WIKI_MAX_ARTICLE_CHARS` | `12000` (optional) |
 | `ASSISTANT_CHAT_RATE_LIMIT` | `20/minute` (optional) |
 | Swagger | https://erascaning.duckdns.org/api/v1/docs |
 | MCP (Cursor) | `https://erascaning.duckdns.org/api/v1/mcp/` — **trailing slash обязателен**; настройка: `.\scripts\get-atlas-grid-token.ps1` из корня репо; **не** на GitHub Pages |
 | Assistant chat | `GET /api/v1/assistant/status`, `POST /api/v1/assistant/chat` — нужен `ASSISTANT_LLM_*` на VM; UI: иконка в header приложения |
+| Assistant LLM troubleshooting | `provider_ready` проверяет только `GET …/models`; **429** на chat — лимит OpenRouter (free-модели) или rate limit провайдера; UI показывает текст по `code` (`llm_rate_limit`, …), не «LM Studio» при OpenRouter |
 | Dev stdio MCP (`atlas-grid-dev`) | **не на VM** — только локально в Cursor (`python -m app.assistant.dev.stdio_mcp`); pytest/search/git |
+| Wiki bundle | Статьи в образе backend (`knowledge/bundle/`). После правки [`docs/wiki/`](docs/wiki/) локально: `python scripts/sync-assistant-wiki.py` и пересборка образа |
 
 **Фоновые задачи:** контейнер **`worker`** (`arq app.worker.settings.WorkerSettings`) обрабатывает соединение автодорог, async-импорт, логистику песка и `analyze-all`. В проекте одновременно не более одной задачи в статусе `pending`/`running` (ответ **409** при конфликте). API: `POST/GET /projects/{id}/jobs`, `GET .../jobs/active`, `POST .../jobs/{job_id}/cancel`.
 

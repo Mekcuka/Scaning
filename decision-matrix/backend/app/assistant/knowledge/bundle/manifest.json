@@ -1,0 +1,179 @@
+{
+  "version": 1,
+  "article_count": 8,
+  "articles": [
+    {
+      "slug": "assistant-chat",
+      "title": "AI-помощник в приложении",
+      "summary": "Чат в шапке Atlas Grid — факты из проекта через tools и справка из wiki; подтверждение опасных действий.",
+      "tags": [
+        "assistant",
+        "chat",
+        "ai",
+        "help"
+      ],
+      "tab_hints": [],
+      "roles": [
+        "viewer",
+        "analyst",
+        "admin",
+        "data_manager"
+      ],
+      "file": "articles/assistant-chat.md",
+      "char_count": 1141
+    },
+    {
+      "slug": "background-jobs",
+      "title": "Фоновые задачи",
+      "summary": "Фоновый расчёт анализа POI, импорта и логистики; журнал задач в шапке и админ-панель.",
+      "tags": [
+        "jobs",
+        "tasks",
+        "analysis",
+        "queue"
+      ],
+      "tab_hints": [
+        "admin/jobs"
+      ],
+      "roles": [
+        "viewer",
+        "analyst",
+        "admin",
+        "data_manager"
+      ],
+      "file": "articles/background-jobs.md",
+      "char_count": 1035
+    },
+    {
+      "slug": "flows-overview",
+      "title": "Потоки — технология, экономика, логистика",
+      "summary": "Три вкладки раздела Потоки — PFD, экономическая схема и логистика песка для выбранного POI.",
+      "tags": [
+        "flows",
+        "pfd",
+        "economic",
+        "sand",
+        "logistics"
+      ],
+      "tab_hints": [
+        "flows/technology",
+        "flows/economic",
+        "flows/logistics"
+      ],
+      "roles": [
+        "viewer",
+        "analyst",
+        "admin",
+        "data_manager"
+      ],
+      "file": "articles/flows-overview.md",
+      "char_count": 1043
+    },
+    {
+      "slug": "import-spark",
+      "title": "Импорт данных и проект Искра",
+      "summary": "Раздел Импорт, форматы файлов, импорт проекта Искра (SPARK) и журнал импортов.",
+      "tags": [
+        "import",
+        "spark",
+        "data",
+        "geojson"
+      ],
+      "tab_hints": [
+        "import"
+      ],
+      "roles": [
+        "analyst",
+        "admin",
+        "data_manager"
+      ],
+      "file": "articles/import-spark.md",
+      "char_count": 1044
+    },
+    {
+      "slug": "map-2d",
+      "title": "Карта 2D — объекты и слои",
+      "summary": "Панель слоёв, объекты инфраструктуры, POI, редактирование и просмотр на карте OpenLayers.",
+      "tags": [
+        "map",
+        "ui",
+        "layers",
+        "infrastructure"
+      ],
+      "tab_hints": [
+        "map"
+      ],
+      "roles": [
+        "viewer",
+        "analyst",
+        "admin",
+        "data_manager"
+      ],
+      "file": "articles/map-2d.md",
+      "char_count": 1249
+    },
+    {
+      "slug": "matrix",
+      "title": "Матрица решений",
+      "summary": "Сравнение POI по стоимости подключения, кандидатам инфраструктуры и результатам анализа.",
+      "tags": [
+        "matrix",
+        "analysis",
+        "poi",
+        "comparison"
+      ],
+      "tab_hints": [
+        "matrix"
+      ],
+      "roles": [
+        "viewer",
+        "analyst",
+        "admin",
+        "data_manager"
+      ],
+      "file": "articles/matrix.md",
+      "char_count": 1074
+    },
+    {
+      "slug": "navigation",
+      "title": "Навигация по приложению",
+      "summary": "Боковое меню, основные разделы Atlas Grid и кто их видит по роли.",
+      "tags": [
+        "ui",
+        "navigation",
+        "onboarding"
+      ],
+      "tab_hints": [],
+      "roles": [
+        "viewer",
+        "analyst",
+        "admin",
+        "data_manager"
+      ],
+      "file": "articles/navigation.md",
+      "char_count": 1232
+    },
+    {
+      "slug": "roles-rbac",
+      "title": "Роли и доступ",
+      "summary": "Роли viewer, analyst, data_manager, admin — что можно читать, изменять и импортировать.",
+      "tags": [
+        "rbac",
+        "roles",
+        "security",
+        "admin"
+      ],
+      "tab_hints": [
+        "admin/users"
+      ],
+      "roles": [
+        "viewer",
+        "analyst",
+        "admin",
+        "data_manager"
+      ],
+      "file": "articles/roles-rbac.md",
+      "char_count": 1167
+    }
+  ]
+}

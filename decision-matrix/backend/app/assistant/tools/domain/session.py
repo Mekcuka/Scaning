@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from pydantic import BaseModel
 
-from app.assistant.chat.llm_client import probe_provider
+from app.assistant.chat.ports.llm_port import default_llm_client
 from app.assistant.context import ToolContext
 from app.assistant.registry import register_tool
 from app.assistant.tools.base import ToolDefinition
@@ -25,7 +25,7 @@ async def _get_me(ctx: ToolContext, _args: EmptyInput) -> dict:
 async def _get_assistant_status(ctx: ToolContext, _args: EmptyInput) -> dict:
     if not settings.ASSISTANT_CHAT_ENABLED:
         return {"enabled": False, "provider_ready": False}
-    ready = await probe_provider()
+    ready = await default_llm_client.probe_provider()
     model = settings.ASSISTANT_LLM_MODEL.strip() or None
     return {
         "enabled": True,

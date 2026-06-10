@@ -1,7 +1,12 @@
 import { useEffect, useState } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { Save } from 'lucide-react';
-import { api, type POI } from '../lib/api';
+import {
+  defaultProjectsDataApi,
+  defaultProjectsMapSettingsApi,
+  defaultProjectsPoiWriteApi,
+  type POI,
+} from '../lib/api';
 import { useAppStore } from '../store';
 import { usePermissions } from '../hooks/usePermissions';
 import { AppSelect } from './AppSelect';
@@ -50,13 +55,13 @@ export function PoiParamsPanel({
 
   const { data: pois = [] } = useQuery({
     queryKey: ['pois', projectId],
-    queryFn: () => api.getPois(projectId!),
+    queryFn: () => defaultProjectsDataApi.getPois(projectId!),
     enabled: !!projectId,
   });
 
   const { data: defaults } = useQuery({
     queryKey: ['distanceDefaults', projectId],
-    queryFn: () => api.getDistanceDefaults(projectId!),
+    queryFn: () => defaultProjectsMapSettingsApi.getDistanceDefaults(projectId!),
     enabled: !!projectId,
     retry: false,
   });
@@ -75,7 +80,7 @@ export function PoiParamsPanel({
 
   const saveMut = useMutation({
     mutationFn: (payload: ReturnType<typeof formValuesToPoiPayload>) =>
-      api.updatePoi(projectId!, selectedPoi!.id, payload as Partial<POI>),
+      defaultProjectsPoiWriteApi.updatePoi(projectId!, selectedPoi!.id, payload as Partial<POI>),
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ['pois', projectId] });
       const msg = 'Параметры точки сохранены';

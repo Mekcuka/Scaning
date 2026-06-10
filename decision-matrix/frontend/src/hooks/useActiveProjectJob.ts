@@ -1,18 +1,26 @@
 import { useEffect } from 'react';
 import { useQuery } from '@tanstack/react-query';
 
-import { api } from '../lib/api';
+import { defaultProjectJobsApi, type ProjectJobsApiPort } from '../lib/api';
 import { ACTIVE_JOB_STATUSES } from '../lib/taskLog/jobLabels';
 import { useTaskLogStore } from '../lib/taskLog/store';
 
-export function useActiveProjectJob(projectId: string | null | undefined) {
+export type UseActiveProjectJobOptions = {
+  jobsApi?: ProjectJobsApiPort;
+};
+
+export function useActiveProjectJob(
+  projectId: string | null | undefined,
+  options: UseActiveProjectJobOptions = {},
+) {
+  const jobsApi = options.jobsApi ?? defaultProjectJobsApi;
   const updateJob = useTaskLogStore((s) => s.updateJob);
 
   const query = useQuery({
     queryKey: ['activeJob', projectId],
     queryFn: async () => {
       if (!projectId) return null;
-      return api.getActiveProjectJob(projectId);
+      return jobsApi.getActiveProjectJob(projectId);
     },
     enabled: Boolean(projectId),
     refetchInterval: (q) => {

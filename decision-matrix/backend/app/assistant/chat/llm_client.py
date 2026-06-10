@@ -36,8 +36,15 @@ class LlmToolCall:
 @dataclass(slots=True)
 class LlmResponse:
     content: str | None = None
+    reasoning: str | None = None
     tool_calls: list[LlmToolCall] = field(default_factory=list)
     finish_reason: str | None = None
+
+
+@dataclass(slots=True)
+class LlmStreamChunk:
+    content: str = ""
+    reasoning: str = ""
 
 
 def is_content_safety_verdict(text: str | None) -> bool:
@@ -68,6 +75,23 @@ def _llm_url() -> str:
     return cfg.base_url.rstrip("/") + "/chat/completions"
 
 
+def _chat_error_for_http(status_code: int, body: str) -> ChatError:
+    """User-facing ChatError for OpenAI-compatible HTTP failures."""
+    if status_code == 429:
+        return ChatError(
+            "Провайдер LLM временно ограничил число запросов (429). "
+            "Подождите или смените модель в ASSISTANT_LLM_MODEL.",
+            code="llm_rate_limit",
+        )
+    if status_code in (401, 403):
+        return ChatError(
+            "Неверный API-ключ LLM. Проверьте ASSISTANT_LLM_API_KEY.",
+            code="llm_auth",
+        )
+    detail = body[:500]
+    return ChatError(f"LLM error {status_code}: {detail}", code="llm_http")
+
+
 def _build_payload(
     messages: list[dict[str, Any]],
     tools: list[dict[str, Any]] | None,
@@ -87,30 +111,48 @@ def _build_payload(
     return payload
 
 
-def _message_text(message: dict[str, Any]) -> str | None:
-    content = message.get("content")
-    if isinstance(content, list):
-        content = "".join(
-            part.get("text", "") for part in content if isinstance(part, dict)
-        )
-    if isinstance(content, str) and content.strip():
+def _extract_text_field(value: Any) -> str | None:
+    if isinstance(value, list):
+        return "".join(part.get("text", "") for part in value if isinstance(part, dict)) or None
+    if isinstance(value, str):
+        return value
+    return None
+
+
+def _parse_assistant_message(message: dict[str, Any]) -> tuple[str | None, str | None]:
+    """Return (answer_text, reasoning_text) without mixing reasoning into the answer."""
+    from app.assistant.chat.reasoning_content import merge_reasoning_text, split_reasoning_answer
+
+    reasoning_parts: list[str] = []
+    for key in ("reasoning_content", "reasoning"):
+        field = _extract_text_field(message.get(key))
+        if field and field.strip():
+            if is_content_safety_verdict(field):
+                raise ChatError(
+                    "LLM вернул метки модерации вместо ответа — смените ASSISTANT_LLM_MODEL",
+                    code="llm_safety_router",
+                )
+            reasoning_parts.append(field.strip())
+
+    content = _extract_text_field(message.get("content"))
+    answer: str | None = None
+    if content and content.strip():
         if is_content_safety_verdict(content):
             raise ChatError(
                 "LLM вернул метки модерации вместо ответа — смените ASSISTANT_LLM_MODEL "
                 "(не используйте openrouter/free; попробуйте nvidia/nemotron-nano-9b-v2:free)",
                 code="llm_safety_router",
             )
-        return content
-    for key in ("reasoning_content", "reasoning"):
-        fallback = message.get(key)
-        if isinstance(fallback, str) and fallback.strip():
-            if is_content_safety_verdict(fallback):
-                raise ChatError(
-                    "LLM вернул метки модерации вместо ответа — смените ASSISTANT_LLM_MODEL",
-                    code="llm_safety_router",
-                )
-            return fallback
-    return None
+        embedded_reasoning, answer = split_reasoning_answer(content)
+        if embedded_reasoning:
+            reasoning_parts.append(embedded_reasoning)
+
+    return answer, merge_reasoning_text(*reasoning_parts)
+
+
+def _message_text(message: dict[str, Any]) -> str | None:
+    answer, _reasoning = _parse_assistant_message(message)
+    return answer
 
 
 def parse_text_tool_calls(content: str | None) -> list[LlmToolCall]:
@@ -200,8 +242,7 @@ async def chat_completion(
         raise ChatError(f"LLM connection failed: {e}", code="llm_connection") from e
 
     if res.status_code >= 400:
-        detail = res.text[:500]
-        raise ChatError(f"LLM error {res.status_code}: {detail}", code="llm_http")
+        raise _chat_error_for_http(res.status_code, res.text)
 
     try:
         data = res.json()
@@ -214,10 +255,11 @@ async def chat_completion(
 
     message = choices[0].get("message") or {}
     tool_calls = _parse_tool_calls(message.get("tool_calls") or [])
-    content = _message_text(message)
+    content, reasoning = _parse_assistant_message(message)
     return enrich_llm_response(
         LlmResponse(
             content=content,
+            reasoning=reasoning,
             tool_calls=tool_calls,
             finish_reason=choices[0].get("finish_reason"),
         )
@@ -227,8 +269,8 @@ async def chat_completion(
 async def chat_completion_stream(
     messages: list[dict[str, Any]],
     tools: list[dict[str, Any]] | None = None,
-) -> AsyncIterator[str]:
-    """Yield text deltas from an OpenAI-compatible streaming completion."""
+) -> AsyncIterator[LlmStreamChunk]:
+    """Yield content/reasoning deltas from an OpenAI-compatible streaming completion."""
     url = _llm_url()
     payload = _build_payload(messages, tools, stream=True)
     headers = _llm_headers()
@@ -237,8 +279,8 @@ async def chat_completion_stream(
         async with httpx.AsyncClient(timeout=settings.ASSISTANT_LLM_TIMEOUT_SECONDS) as client:
             async with client.stream("POST", url, json=payload, headers=headers) as res:
                 if res.status_code >= 400:
-                    body = (await res.aread()).decode("utf-8", errors="replace")[:500]
-                    raise ChatError(f"LLM error {res.status_code}: {body}", code="llm_http")
+                    body = (await res.aread()).decode("utf-8", errors="replace")
+                    raise _chat_error_for_http(res.status_code, body)
 
                 async for line in res.aiter_lines():
                     if not line or not line.startswith("data:"):
@@ -259,19 +301,14 @@ async def chat_completion_stream(
                             "LLM returned tool_calls in stream; use non-stream completion",
                             code="llm_stream_tools",
                         )
-                    content = delta.get("content")
-                    if isinstance(content, list):
-                        content = "".join(
-                            part.get("text", "") for part in content if isinstance(part, dict)
-                        )
-                    if not content:
-                        for key in ("reasoning_content", "reasoning"):
-                            reasoning = delta.get(key)
-                            if isinstance(reasoning, str):
-                                content = reasoning
-                                break
-                    if content:
-                        yield content
+                    content = _extract_text_field(delta.get("content")) or ""
+                    reasoning = ""
+                    for key in ("reasoning_content", "reasoning"):
+                        field = _extract_text_field(delta.get(key))
+                        if field:
+                            reasoning += field
+                    if content or reasoning:
+                        yield LlmStreamChunk(content=content, reasoning=reasoning)
     except httpx.TimeoutException as e:
         raise ChatError("LLM request timed out", code="llm_timeout") from e
     except httpx.RequestError as e:

@@ -1,12 +1,21 @@
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useEffect, useMemo, useRef, useState, useCallback } from 'react';
 import { useQuery } from '@tanstack/react-query';
-import { Loader2, MessageSquare, Send, Trash2, X } from 'lucide-react';
+import { Loader2, MessageSquare, Plus, Send, Trash2, X } from 'lucide-react';
 import { useLocation } from 'react-router-dom';
 
 import { useAssistantChatContext } from '../../lib/assistant/assistantContext';
 import { assistantApi } from '../../lib/assistant/assistantApi';
 import { getQuickCommands, toolLabel } from '../../lib/assistant/toolLabels';
 import type { AssistantMessage, PendingAction, ToolCallSummary } from '../../lib/assistant/types';
+import {
+  formatAssistantChatError,
+  formatLlmUnavailableHint,
+} from '../../lib/assistant/chatErrors';
+import { normalizeAssistantMessage, toChatHistory } from '../../lib/assistant/messageContent';
+import { useAssistantChatSession } from '../../lib/assistant/useAssistantChatSession';
+import { AssistantMessageBody } from './AssistantMessageBody';
+import { AssistantSessionMenu } from './AssistantSessionMenu';
+import { DeleteChatConfirmModal } from './DeleteChatConfirmModal';
 import { useActiveProject } from '../../hooks/useActiveProject';
 import { usePermissions } from '../../hooks/usePermissions';
 import { useAppStore } from '../../store';
@@ -27,11 +36,15 @@ export function AssistantPanel() {
   const [streamingStatus, setStreamingStatus] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [mcpHintOpen, setMcpHintOpen] = useState(false);
+  const [sessionMutating, setSessionMutating] = useState(false);
+  const [deleteTarget, setDeleteTarget] = useState<{ id: string; title: string } | null>(null);
   const anchorRef = useRef<HTMLDivElement>(null);
   const panelRef = useRef<HTMLDivElement>(null);
   const bodyRef = useRef<HTMLDivElement>(null);
   const sendInFlightRef = useRef(false);
   const wasOpenRef = useRef(false);
+  const prevSessionIdRef = useRef<string | null>(null);
+  const stickToBottomRef = useRef(true);
   const { projectId } = useActiveProject();
   const { pathname } = useLocation();
   const { role } = usePermissions();
@@ -45,6 +58,43 @@ export function AssistantPanel() {
   });
 
   const chatAvailable = status?.enabled && status?.provider_ready;
+  const historyEnabled = status?.chat_history_enabled !== false;
+
+  const {
+    sessionId,
+    sessions,
+    loadedMessages,
+    loadingMessages,
+    selectSession,
+    startNewChat,
+    deleteSessionById,
+    applySessionFromResponse,
+  } = useAssistantChatSession(open, projectId, historyEnabled);
+
+  useEffect(() => {
+    if (!open || !historyEnabled || loadingMessages || streaming || loading) return;
+    if (!sessionId) {
+      if (prevSessionIdRef.current !== null) {
+        prevSessionIdRef.current = null;
+        setMessages([]);
+        setPendingAction(null);
+      }
+      return;
+    }
+    if (!loadedMessages) return;
+
+    const sessionChanged = prevSessionIdRef.current !== sessionId;
+    if (sessionChanged) {
+      prevSessionIdRef.current = sessionId;
+      setMessages(loadedMessages);
+      setPendingAction(null);
+      stickToBottomRef.current = true;
+      return;
+    }
+
+    // Same session: do not overwrite an active/local transcript (fixes post-stream wipe).
+    setMessages((prev) => (prev.length === 0 ? loadedMessages : prev));
+  }, [open, historyEnabled, sessionId, loadedMessages, loadingMessages, streaming, loading]);
 
   const quickCommands = useMemo(
     () =>
@@ -67,6 +117,13 @@ export function AssistantPanel() {
     return () => document.removeEventListener('mousedown', onDoc);
   }, [open]);
 
+  const handleBodyScroll = useCallback(() => {
+    const el = bodyRef.current;
+    if (!el) return;
+    const distanceFromBottom = el.scrollHeight - el.scrollTop - el.clientHeight;
+    stickToBottomRef.current = distanceFromBottom < 48;
+  }, []);
+
   useEffect(() => {
     if (!open) {
       wasOpenRef.current = false;
@@ -77,12 +134,16 @@ export function AssistantPanel() {
 
     const justOpened = !wasOpenRef.current;
     wasOpenRef.current = true;
+    if (justOpened) {
+      stickToBottomRef.current = true;
+    }
+
+    if (!stickToBottomRef.current && !justOpened) return;
 
     const scrollToEnd = (behavior: ScrollBehavior) => {
       el.scrollTo({ top: el.scrollHeight, behavior });
     };
 
-    // Panel remounts on each open — scroll after layout so the latest message is visible.
     scrollToEnd(justOpened ? 'auto' : 'smooth');
     const rafId = requestAnimationFrame(() => scrollToEnd('auto'));
     return () => cancelAnimationFrame(rafId);
@@ -95,23 +156,22 @@ export function AssistantPanel() {
     setLoading(true);
     setError(null);
     const userMsg: AssistantMessage = { role: 'user', content: text.trim() || 'Подтверждаю' };
-    const historyForApi = messages
-      .filter((m) => m.content.trim().length > 0)
-      .map(({ role: r, content }) => ({ role: r, content }));
+    const historyForApi = toChatHistory(messages);
     const history = confirmActionId ? historyForApi : [...historyForApi, userMsg];
     const withPlaceholder: AssistantMessage[] = confirmActionId
       ? messages
       : [...messages, userMsg];
     const withAssistant: AssistantMessage[] = [
       ...withPlaceholder,
-      { role: 'assistant', content: '' },
+      { role: 'assistant', content: '', reasoning: '' },
     ];
 
+    stickToBottomRef.current = true;
     if (!confirmActionId) {
       setMessages(withAssistant);
       setInput('');
     } else {
-      setMessages([...messages, { role: 'assistant', content: '' }]);
+      setMessages([...messages, { role: 'assistant', content: '', reasoning: '' }]);
     }
     setStreaming(true);
     setStreamingStatus(null);
@@ -127,15 +187,31 @@ export function AssistantPanel() {
       });
     };
 
+    const appendReasoningToken = (delta: string) => {
+      setMessages((prev) => {
+        const next = [...prev];
+        const last = next[next.length - 1];
+        if (last?.role === 'assistant') {
+          next[next.length - 1] = {
+            ...last,
+            reasoning: `${last.reasoning ?? ''}${delta}`,
+          };
+        }
+        return next;
+      });
+    };
+
     try {
       await assistantApi.postChatStream(
         {
           messages: history,
           ...chatContext,
           confirm_action_id: confirmActionId ?? null,
+          session_id: historyEnabled ? sessionId : null,
         },
         {
           onToken: appendToken,
+          onReasoningToken: appendReasoningToken,
           onToolStart: (name) => setStreamingStatus(`Выполняю: ${toolLabel(name)}…`),
           onToolDone: () => setStreamingStatus(null),
           onPendingAction: (action) => setPendingAction(action),
@@ -144,30 +220,30 @@ export function AssistantPanel() {
               const next = [...prev];
               const last = next[next.length - 1];
               if (last?.role === 'assistant') {
-                next[next.length - 1] = {
+                next[next.length - 1] = normalizeAssistantMessage({
                   ...last,
                   content: res.message.content || last.content,
+                  reasoning: res.message.reasoning ?? last.reasoning ?? null,
                   tools: res.tool_calls_made.length > 0 ? res.tool_calls_made : undefined,
-                };
+                });
               }
               return next;
             });
             setPendingAction(res.pending_action);
             setStreamingStatus(null);
+            applySessionFromResponse(res.session_id);
           },
-          onError: (message) => {
-            throw new Error(message);
+          onError: (message, code) => {
+            throw Object.assign(new Error(formatAssistantChatError(message, code, status)), {
+              chatErrorCode: code,
+            });
           },
         },
       );
     } catch (e) {
       const msg = e instanceof Error ? e.message : 'Ошибка помощника';
       setMessages(withPlaceholder);
-      setError(
-        msg.includes('503') || msg.toLowerCase().includes('llm')
-          ? 'Помощник недоступен — проверьте LM Studio или настройки LLM API на сервере.'
-          : msg,
-      );
+      setError(formatAssistantChatError(msg, undefined, status));
     } finally {
       sendInFlightRef.current = false;
       setLoading(false);
@@ -190,12 +266,67 @@ export function AssistantPanel() {
 
   const handleCancelPending = () => setPendingAction(null);
 
-  const handleClearChat = () => {
-    setMessages([]);
-    setPendingAction(null);
-    setError(null);
-    setInput('');
-  };
+  const handleNewChat = useCallback(() => {
+    if (sessionMutating) return;
+    void (async () => {
+      setSessionMutating(true);
+      try {
+        if (historyEnabled) {
+          await startNewChat();
+          prevSessionIdRef.current = null;
+        }
+        setMessages([]);
+        setPendingAction(null);
+        setError(null);
+        setInput('');
+        stickToBottomRef.current = true;
+      } finally {
+        setSessionMutating(false);
+      }
+    })();
+  }, [historyEnabled, sessionMutating, startNewChat]);
+
+  const requestDeleteSession = useCallback(
+    (id: string, title: string) => {
+      if (!historyEnabled || sessionMutating) return;
+      setDeleteTarget({ id, title });
+    },
+    [historyEnabled, sessionMutating],
+  );
+
+  const handleDeleteChat = useCallback(() => {
+    if (!historyEnabled || !sessionId || sessionMutating) {
+      if (!historyEnabled) {
+        setMessages([]);
+        setPendingAction(null);
+        setError(null);
+      }
+      return;
+    }
+    const current = sessions.find((s) => s.id === sessionId);
+    requestDeleteSession(sessionId, current?.title ?? 'Текущий диалог');
+  }, [historyEnabled, requestDeleteSession, sessionId, sessionMutating, sessions]);
+
+  const confirmDeleteSession = useCallback(() => {
+    if (!deleteTarget || sessionMutating) return;
+    void (async () => {
+      setSessionMutating(true);
+      try {
+        const { id } = deleteTarget;
+        await deleteSessionById(id);
+        if (id === sessionId) {
+          prevSessionIdRef.current = null;
+          setMessages([]);
+          setPendingAction(null);
+          setError(null);
+          setInput('');
+        }
+        setDeleteTarget(null);
+      } finally {
+        setSessionMutating(false);
+      }
+    })();
+  }, [deleteSessionById, deleteTarget, sessionId, sessionMutating]);
 
   return (
     <div className="assistant-anchor" ref={anchorRef}>
@@ -214,15 +345,29 @@ export function AssistantPanel() {
       {open && (
         <div className="assistant-panel" ref={panelRef} role="dialog" aria-label="AI-помощник">
           <div className="assistant-panel-head">
-            <h2 className="assistant-panel-title">AI-помощник</h2>
-            <div className="assistant-panel-head-actions">
-              {messages.length > 0 && (
+            <div className="assistant-panel-head-row">
+              <h2 className="assistant-panel-title">AI-помощник</h2>
+              <div className="assistant-panel-head-actions">
+              {historyEnabled && (
                 <button
                   type="button"
                   className="btn btn-ghost p-1"
-                  onClick={handleClearChat}
-                  aria-label="Очистить чат"
-                  title="Очистить чат"
+                  onClick={handleNewChat}
+                  aria-label="Новый чат"
+                  title="Новый чат"
+                  disabled={loading || streaming || sessionMutating}
+                >
+                  <Plus size={16} />
+                </button>
+              )}
+              {historyEnabled && sessionId && (
+                <button
+                  type="button"
+                  className="btn btn-ghost p-1"
+                  onClick={handleDeleteChat}
+                  aria-label="Удалить диалог"
+                  title="Удалить диалог"
+                  disabled={loading || streaming || sessionMutating}
                 >
                   <Trash2 size={16} />
                 </button>
@@ -235,17 +380,28 @@ export function AssistantPanel() {
               >
                 <X size={18} />
               </button>
+              </div>
             </div>
+            {historyEnabled && (
+              <AssistantSessionMenu
+                sessions={sessions}
+                sessionId={sessionId}
+                disabled={loading || streaming || sessionMutating}
+                onSelect={(id) => {
+                  prevSessionIdRef.current = null;
+                  selectSession(id);
+                }}
+                onNewChat={handleNewChat}
+                onRequestDelete={requestDeleteSession}
+              />
+            )}
           </div>
-          <div className="assistant-panel-body" ref={bodyRef}>
+          <div className="assistant-panel-body" ref={bodyRef} onScroll={handleBodyScroll}>
             {!status?.enabled && (
               <p className="assistant-hint">Чат отключён на сервере (ASSISTANT_CHAT_ENABLED=false).</p>
             )}
             {status?.enabled && !status.provider_ready && (
-              <p className="assistant-hint">
-                LLM недоступен. Локально: запустите LM Studio Local Server на{' '}
-                <code>http://127.0.0.1:1234</code>.
-              </p>
+              <p className="assistant-hint">{formatLlmUnavailableHint(status)}</p>
             )}
             {status?.enabled && status.mcp_url && (
               <div className="assistant-mcp-hint">
@@ -282,7 +438,7 @@ export function AssistantPanel() {
                   {assistantUiContext.selectedPoiName
                     ? `, POI «${assistantUiContext.selectedPoiName}»`
                     : assistantUiContext.selectedPoiId
-                      ? `, POI ${assistantUiContext.selectedPoiId.slice(0, 8)}…`
+                      ? ', POI выбран'
                       : ''}
                   {chatContext.active_tab ? `, раздел ${chatContext.active_tab}` : ''}.
                 </p>
@@ -319,12 +475,18 @@ export function AssistantPanel() {
                   <span className="assistant-msg-role">
                     {m.role === 'user' ? 'Вы' : 'Помощник'}
                   </span>
-                  <div className="assistant-msg-text">
-                    {m.content}
-                    {isStreamingMsg && !m.content && !streamingStatus && (
+                  {m.role === 'assistant' ? (
+                    <AssistantMessageBody message={m} />
+                  ) : (
+                    <div className="assistant-msg-text">{m.content}</div>
+                  )}
+                  {m.role === 'assistant' &&
+                    isStreamingMsg &&
+                    !m.content &&
+                    !m.reasoning &&
+                    !streamingStatus && (
                       <Loader2 size={14} className="animate-spin assistant-streaming-spinner" />
                     )}
-                  </div>
                   {m.tools && m.tools.length > 0 && (
                     <div className="assistant-tool-log">Использовано: {formatToolLog(m.tools)}</div>
                   )}
@@ -377,6 +539,16 @@ export function AssistantPanel() {
             </button>
           </form>
         </div>
+      )}
+      {deleteTarget && (
+        <DeleteChatConfirmModal
+          title={deleteTarget.title}
+          isPending={sessionMutating}
+          onClose={() => {
+            if (!sessionMutating) setDeleteTarget(null);
+          }}
+          onConfirm={confirmDeleteSession}
+        />
       )}
     </div>
   );

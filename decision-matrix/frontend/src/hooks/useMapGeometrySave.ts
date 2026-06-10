@@ -2,11 +2,14 @@ import { useCallback, useRef, useState } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
 import type { MapFeatureSelection } from '../components/MapView';
 import {
-  api,
+  defaultMapMutationsApi,
+  defaultProjectsPoiWriteApi,
   LINE_SUBTYPES,
   type InfraObject,
   type InfraObjectCreate,
+  type MapMutationsApiPort,
   type POI,
+  type ProjectsPoiWriteApiPort,
 } from '../lib/api';
 import { isLineSubtype } from '../lib/infraGeometry';
 import { linkCoordMatch, lineCoordsOrEndpoints } from '../lib/infraLinks';
@@ -34,6 +37,8 @@ export type UseMapGeometrySaveParams = {
   pushToast: (kind: 'success' | 'error' | 'info', message: string) => void;
   invalidateMap: () => void;
   touchInfraOverlay: (ids: Iterable<string>) => void;
+  mapApi?: MapMutationsApiPort;
+  poiApi?: ProjectsPoiWriteApiPort;
 };
 
 export function useMapGeometrySave({
@@ -44,6 +49,8 @@ export function useMapGeometrySave({
   pushToast,
   invalidateMap,
   touchInfraOverlay,
+  mapApi = defaultMapMutationsApi,
+  poiApi = defaultProjectsPoiWriteApi,
 }: UseMapGeometrySaveParams) {
   const queryClient = useQueryClient();
   const [geometrySavePending, setGeometrySavePending] = useState(0);
@@ -84,7 +91,7 @@ export function useMapGeometrySave({
           queryClient.setQueriesData<POI[]>({ queryKey: ['pois', projectId] }, (old) =>
             old?.map((p) => (p.id === sel.id ? { ...p, lon: rLon, lat: rLat } : p)) ?? [],
           );
-          await api.updatePoi(projectId, sel.id, { lon: rLon, lat: rLat });
+          await poiApi.updatePoi(projectId, sel.id, { lon: rLon, lat: rLat });
           if (saveSeq !== geometrySaveSeqRef.current) return;
           if (poiBefore) {
             pushUndo({
@@ -130,7 +137,7 @@ export function useMapGeometrySave({
             o.id === sel.id ? { ...o, ...payload } : o,
           );
           touchInfraOverlay([sel.id]);
-          await api.updateInfraObject(projectId, sel.id, payload);
+          await mapApi.updateInfraObject(projectId, sel.id, payload);
           if (saveSeq !== geometrySaveSeqRef.current) return;
           if (infraBefore) {
             pushUndo({
@@ -214,9 +221,9 @@ export function useMapGeometrySave({
             return linePatch ? { ...o, ...linePatch.payload } : o;
           });
           touchInfraOverlay(touchedIds);
-          await api.updateInfraObject(projectId, sel.id, { lon: rLon, lat: rLat });
+          await mapApi.updateInfraObject(projectId, sel.id, { lon: rLon, lat: rLat });
           for (const linePatch of updatedLinePayloads) {
-            await api.updateInfraObject(projectId, linePatch.id, linePatch.payload);
+            await mapApi.updateInfraObject(projectId, linePatch.id, linePatch.payload);
           }
           if (saveSeq !== geometrySaveSeqRef.current) return;
           if (infraBefore) {
@@ -377,7 +384,7 @@ export function useMapGeometrySave({
             }) ?? [],
           );
           for (const save of poiSaves) {
-            await api.updatePoi(projectId, save.id, { lon: save.lon, lat: save.lat });
+            await poiApi.updatePoi(projectId, save.id, { lon: save.lon, lat: save.lat });
           }
         }
 
@@ -394,10 +401,10 @@ export function useMapGeometrySave({
           });
           touchInfraOverlay(touchedIds);
           for (const save of pointSaves) {
-            await api.updateInfraObject(projectId, save.id, { lon: save.lon, lat: save.lat });
+            await mapApi.updateInfraObject(projectId, save.id, { lon: save.lon, lat: save.lat });
           }
           for (const save of lineSaves) {
-            await api.updateInfraObject(projectId, save.id, save.payload);
+            await mapApi.updateInfraObject(projectId, save.id, save.payload);
           }
         }
 

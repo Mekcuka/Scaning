@@ -6,7 +6,7 @@ describe('getQuickCommands', () => {
   it('adds map contextual chip on /map', () => {
     const cmds = getQuickCommands({ pathname: '/map', role: 'analyst', hasProject: true });
     expect(cmds.some((c) => c.label === 'Объекты на карте')).toBe(true);
-    expect(cmds[0]?.label).toBe('Объекты на карте');
+    expect(cmds[0]?.label).toBe('Справка: карта');
   });
 
   it('adds admin statistics chip on /admin', () => {

@@ -8,7 +8,12 @@ from uuid import uuid4
 
 import pytest
 
-from app.assistant.chat.llm_client import LlmResponse, LlmToolCall, parse_text_tool_calls
+from app.assistant.chat.llm_client import (
+    LlmResponse,
+    LlmStreamChunk,
+    LlmToolCall,
+    parse_text_tool_calls,
+)
 from app.assistant.chat.orchestrator import (
     _compact_tool_payload_for_llm,
     _enrich_tool_arguments,
@@ -55,13 +60,17 @@ def test_assistant_status(client):
     assert body["enabled"] is True
     assert "mcp_url" in body
     assert "mcp_setup_hint_ru" in body
+    assert body.get("formatters_count", 0) > 0
+    assert body.get("formatter_tools")
+    assert body.get("wiki_enabled") is True
+    assert body.get("wiki_articles_count", 0) >= 8
 
 
 @patch("app.assistant.chat.orchestrator.chat_completion", new_callable=AsyncMock)
 def test_chat_mock_llm_list_projects(mock_llm, client):
     async def _side_effect(messages, tools=None):
         if any(m.get("role") == "tool" for m in messages):
-            return LlmResponse(content="У вас есть проекты в системе.")
+            raise AssertionError("LLM must not be called after formatter path")
         return LlmResponse(
             tool_calls=[
                 LlmToolCall(id="call_1", name="list_projects", arguments={}),
@@ -82,6 +91,9 @@ def test_chat_mock_llm_list_projects(mock_llm, client):
     assert body["tool_calls_made"]
     assert body["tool_calls_made"][0]["name"] == "list_projects"
     assert body["tool_calls_made"][0]["ok"] is True
+    assert body.get("answer_source") == "formatter"
+    assert "проект" in body["message"]["content"].lower()
+    assert mock_llm.await_count == 1
 
 
 @patch("app.assistant.chat.orchestrator.chat_completion", new_callable=AsyncMock)
@@ -251,7 +263,7 @@ def test_chat_stream_requires_auth(client):
 def test_chat_stream_mock_tokens(mock_llm, mock_stream, client):
     async def _stream(messages, tools=None):
         for part in ("Привет", ", мир"):
-            yield part
+            yield LlmStreamChunk(content=part)
 
     mock_stream.side_effect = _stream
 
@@ -371,6 +383,54 @@ def test_enrich_tool_arguments_injects_project_id():
     assert enriched["project_id"] == str(project_id)
 
 
+def test_resolve_tool_arguments_maps_poi_name_to_uuid():
+    import asyncio
+
+    from sqlalchemy import select
+
+    from app.assistant.chat.tool_payload import resolve_tool_arguments
+    from app.assistant.context import ToolContext
+    from app.core.database import async_session
+    from app.models import PointOfInterest, Project, User
+
+    asyncio.run(seed_role_users())
+
+    async def _run():
+        async with async_session() as db:
+            user = await db.scalar(select(User).where(User.email == "analyst@test.ru"))
+            assert user is not None
+            from app.services.spatial import point_wkt
+
+            project = Project(user_id=user.id, name="POI resolve test", status="draft")
+            db.add(project)
+            await db.flush()
+            poi_name = "TOCHKA_1"
+            poi = PointOfInterest(
+                project_id=project.id,
+                name=poi_name,
+                longitude=50.0,
+                latitude=60.0,
+                geometry=point_wkt(50.0, 60.0),
+            )
+            db.add(poi)
+            await db.commit()
+
+            ctx = ToolContext(user=user, db=db, env={}, tool_source="chat")
+            request = ChatRequest(
+                messages=[ChatMessage(role="user", content=f"анализ POI {poi_name}")],
+                project_id=project.id,
+            )
+            resolved = await resolve_tool_arguments(
+                ctx,
+                "get_poi_analysis",
+                {"project_id": str(project.id), "poi_id": poi_name},
+                request,
+            )
+            assert resolved["poi_id"] == str(poi.id)
+
+    asyncio.run(_run())
+
+
 def test_user_wants_data_uses_last_turn_only():
     msgs = [
         ChatMessage(role="user", content="Сколько проектов?"),
@@ -393,10 +453,8 @@ def test_chat_stream_multi_turn(mock_llm, mock_stream, client):
 
     async def _stream(messages, tools=None):
         user_turns = [m["content"] for m in messages if m.get("role") == "user"]
-        if len(user_turns) >= 2:
-            yield "Второй ответ."
-        else:
-            yield "Первый ответ."
+        text = "Второй ответ." if len(user_turns) >= 2 else "Первый ответ."
+        yield LlmStreamChunk(content=text)
 
     mock_llm.side_effect = _completion
     mock_stream.side_effect = _stream
@@ -525,7 +583,8 @@ def test_chat_map_objects_count_uses_ui_project(mock_llm, client):
 @patch("app.assistant.chat.orchestrator.chat_completion", new_callable=AsyncMock)
 def test_chat_text_tool_call_after_tool_round(mock_llm, client):
     """Local LLMs often emit <tool_call> in synthesis after first tool — must execute, not leak."""
-    project_id = str(uuid4())
+    project, _headers = create_test_project(client, email="analyst@test.ru", name="test_text_tool_round")
+    project_id = project["id"]
     layer_call_done = False
 
     async def _side_effect(messages, tools=None):
@@ -564,7 +623,8 @@ def test_chat_text_tool_call_after_tool_round(mock_llm, client):
     assert "list_infra_layers" in names
     assert "list_infra_objects" in names
     assert "<tool_call>" not in body["message"]["content"]
-    assert "3 объекта" in body["message"]["content"]
+    assert body.get("answer_source") == "formatter"
+    assert "видимых слоях" in body["message"]["content"] or "инфраструктур" in body["message"]["content"].lower()
 
 
 @patch("app.assistant.chat.orchestrator.chat_completion", new_callable=AsyncMock)
@@ -611,6 +671,7 @@ def test_chat_ui_context_in_system_prompt(mock_llm, client):
             "project_id": project_id,
             "project_name": "Тестовый проект",
             "selected_poi_id": poi_id,
+            "selected_poi_name": "Точка_1",
             "active_tab": "map",
             "route_path": "/map",
         },
@@ -619,9 +680,11 @@ def test_chat_ui_context_in_system_prompt(mock_llm, client):
     assert captured_messages
     system = captured_messages[0][0]["content"]
     assert "Тестовый проект" in system
-    assert project_id in system
-    assert poi_id in system
+    assert project_id not in system
+    assert poi_id not in system
+    assert "Точка_1" in system
     assert "map" in system
+    assert "Никогда не показывай пользователю UUID" in system
 
 
 @patch("app.assistant.chat.orchestrator.chat_completion", new_callable=AsyncMock)

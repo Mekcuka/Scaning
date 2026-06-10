@@ -10,6 +10,7 @@ from app.assistant.tools.categories import (
     CAT_ADMIN,
     CAT_ANALYSIS,
     CAT_FLOW,
+    CAT_HELP,
     CAT_JOBS,
     CAT_MAP,
     CAT_PROJECTS,
@@ -19,6 +20,7 @@ from app.assistant.tools.categories import (
 from app.core.config import settings
 
 _CORE_TOOLS_NO_PROJECT = frozenset({"list_projects", "get_me"})
+_CORE_WIKI_TOOLS = frozenset({"list_wiki_articles", "search_wiki", "get_wiki_article"})
 _FALLBACK_WITH_PROJECT = ("list_projects", "get_project", "list_infra_objects")
 _MIN_ROUTED_TOOLS = 3
 
@@ -28,12 +30,19 @@ _PRIORITY_READ_TOOLS: tuple[str, ...] = (
     "get_project",
     "list_infra_objects",
     "list_pois",
+    "get_poi",
     "get_cost_rates",
     "get_economic_params",
     "get_project_job",
     "list_project_jobs",
     "get_poi_analysis",
+    "get_poi_candidates",
     "list_infra_layers",
+    "get_flow_schematic",
+    "get_economic_flow",
+    "get_sand_logistics_result",
+    "admin_list_jobs",
+    "admin_jobs_health",
 )
 
 _TAB_CATEGORIES: dict[str, frozenset[str]] = {
@@ -54,12 +63,38 @@ _KEYWORD_CATEGORIES: list[tuple[tuple[str, ...], frozenset[str]]] = [
     (("карта", "объект", "инфраструктур", "слой", "на карте"), frozenset({CAT_MAP})),
     (("задач", "job", "фонов", "журнал"), frozenset({CAT_JOBS})),
     (("тариф", "ставк", "rates", "цен", "эконом", "opex"), frozenset({CAT_RATES})),
-    (("анализ", "кандидат", "матриц"), frozenset({CAT_ANALYSIS})),
-    (("поток", "схем", "логистик", "песок", "sand"), frozenset({CAT_FLOW})),
+    (
+        ("анализ", "кандидат", "матриц", "превыш", "стоимост"),
+        frozenset({CAT_ANALYSIS}),
+    ),
+    (
+        ("электроснабжен", "инженерн", "ппд", "внешн", "внутренн", "мкос", "транспорт"),
+        frozenset({CAT_PROJECTS, CAT_ANALYSIS}),
+    ),
+    (("поток", "схем", "логистик", "песок", "sand", "pfd"), frozenset({CAT_FLOW})),
     (("импорт", "import"), frozenset({CAT_PROJECTS})),
     (("сеть", "network", "автодорог"), frozenset({CAT_MAP, CAT_ANALYSIS})),
     (("admin", "админ", "пользовател"), frozenset({CAT_ADMIN})),
     (("статус", "solver"), frozenset({CAT_SESSION, CAT_JOBS})),
+    (
+        (
+            "как",
+            "где",
+            "помощь",
+            "инструкц",
+            "wiki",
+            "справк",
+            "что такое",
+            "зачем",
+            "импортировать",
+            "зарегистрир",
+            "роль",
+            "доступ",
+            "навигац",
+            "раздел",
+        ),
+        frozenset({CAT_HELP}),
+    ),
 ]
 
 
@@ -96,6 +131,7 @@ def select_tools_for_chat(request: ChatRequest, ctx: ToolContext) -> list[ToolMe
     explicit_names: set[str] = set()
     if not request.project_id:
         explicit_names.update(_CORE_TOOLS_NO_PROJECT)
+    explicit_names.update(_CORE_WIKI_TOOLS)
 
     categories = _wanted_categories(request)
     selected: list[ToolMeta] = []
@@ -124,4 +160,7 @@ def select_tools_for_chat(request: ChatRequest, ctx: ToolContext) -> list[ToolMe
     selected.sort(key=lambda meta: (priority.get(meta.name, 999), meta.name))
 
     cap = settings.ASSISTANT_CHAT_MAX_ROUTED_TOOLS
-    return selected[:cap]
+    must_have = [m for m in selected if m.name in explicit_names]
+    optional = [m for m in selected if m.name not in explicit_names]
+    room = max(cap - len(must_have), 0)
+    return must_have + optional[:room]

@@ -1,8 +1,6 @@
 import { Link } from 'react-router-dom';
-import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { Download, FileText, Plus, Trash2 } from 'lucide-react';
-import { api } from '../../lib/api';
-import { downloadBlob } from '../../lib/mapSnapshot';
+import { useOnePagerList } from '../../hooks/useOnePagerList';
 import { useAppStore } from '../../store';
 import { usePermissions } from '../../hooks/usePermissions';
 
@@ -15,33 +13,7 @@ const STATUS_LABEL: Record<string, string> = {
 export function ReportListPage() {
   const projectId = useAppStore((s) => s.currentProjectId);
   const { canWriteProject } = usePermissions();
-  const queryClient = useQueryClient();
-  const pushToast = useAppStore((s) => s.pushToast);
-
-  const { data: reports = [], isLoading } = useQuery({
-    queryKey: ['one-pagers', projectId],
-    queryFn: () => api.getOnePagers(projectId!),
-    enabled: !!projectId,
-  });
-
-  const deleteMut = useMutation({
-    mutationFn: (id: string) => api.deleteOnePager(projectId!, id),
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['one-pagers', projectId] });
-      pushToast('success', 'Отчёт удалён');
-    },
-    onError: (e: Error) => pushToast('error', e.message),
-  });
-
-  const pptxMut = useMutation({
-    mutationFn: (reportId: string) => api.exportOnePagerPptx(projectId!, reportId),
-    onSuccess: (blob, reportId) => {
-      downloadBlob(blob, `one-pager-${reportId.slice(0, 8)}.pptx`);
-      queryClient.invalidateQueries({ queryKey: ['one-pagers', projectId] });
-      pushToast('success', 'PPTX скачан');
-    },
-    onError: (e: Error) => pushToast('error', e.message),
-  });
+  const { reports, isLoading, deleteMut, pptxMut } = useOnePagerList(projectId);
 
   return (
     <div>

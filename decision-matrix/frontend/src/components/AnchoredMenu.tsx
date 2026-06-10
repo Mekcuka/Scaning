@@ -13,6 +13,7 @@ type Props = {
   width?: number;
   role?: string;
   ariaLabel?: string;
+  zIndex?: number;
 };
 
 export function AnchoredMenu({
@@ -25,6 +26,7 @@ export function AnchoredMenu({
   width,
   role,
   ariaLabel,
+  zIndex = 1200,
 }: Props) {
   const menuId = useId();
   const [pos, setPos] = useState<AnchoredMenuPosition | null>(null);
@@ -88,7 +90,7 @@ export function AnchoredMenu({
         minWidth: pos.minWidth,
         width: width ?? undefined,
         transform: pos.openUp ? 'translateY(-100%)' : undefined,
-        zIndex: 1200,
+        zIndex,
       }}
     >
       {children}

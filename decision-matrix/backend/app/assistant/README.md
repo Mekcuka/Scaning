@@ -10,7 +10,7 @@ Tools вызывают `app/services/*` и `project_access` — **не** REST ha
 
 
 
-## Tools (39)
+## Tools (42)
 
 
 
@@ -228,7 +228,7 @@ result = await execute_tool("list_projects", {}, ctx)
 
 5. Add RU labels in `chat/tool_labels.py` and `frontend/.../toolLabels.ts` (if mutating — `PENDING_DESCRIPTIONS_RU`)
 
-6. Add test in `tests/test_assistant_tools.py`; для типовых read-ответов — matcher в `chat/response_formatters.py`
+6. Add test in `tests/test_assistant_tools.py`; для типовых read-ответов — matcher в `chat/formatters/` (см. `formatters/README.md`)
 
 
 
@@ -250,7 +250,7 @@ result = await execute_tool("list_projects", {}, ctx)
 
 - `POST /api/v1/assistant/chat`, `POST /api/v1/assistant/chat/stream`, `GET /api/v1/assistant/status`
 
-- **Фаза 7:** категорийный роутинг tools в prompt (`tool_router.py`, max `ASSISTANT_CHAT_MAX_ROUTED_TOOLS`); server-side ответы после tools (`response_formatters.py` — infra, проекты, POI, jobs, тарифы) без галлюцинаций LLM
+- **Фаза 7:** категорийный роутинг tools (`tool_router.py`); server-side formatters (`chat/formatters/` — реестр, tool-first, `answer_source`) без галлюцинаций LLM
 
 - UI: `AssistantPanel` в `AppLayout` (MCP hint, confirm card)
 

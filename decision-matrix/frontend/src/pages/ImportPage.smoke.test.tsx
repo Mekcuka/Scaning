@@ -3,11 +3,12 @@ import { screen } from '@testing-library/react';
 import { ImportPage } from './ImportPage';
 import { renderWithProviders } from '../test/renderWithProviders';
 
-vi.mock('../lib/api', () => ({
-  api: {
+vi.mock('../lib/api', async (importOriginal) => {
+  const { createApiMock } = await import('../test/pages/apiMockModule');
+  return createApiMock(importOriginal, {
     listImportConnections: vi.fn().mockResolvedValue([]),
-  },
-}));
+  });
+});
 
 vi.mock('../hooks/usePermissions', () => ({
   usePermissions: () => ({ can: () => true, hasRole: () => true }),

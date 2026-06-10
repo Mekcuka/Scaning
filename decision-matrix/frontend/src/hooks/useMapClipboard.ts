@@ -1,7 +1,7 @@
 import { useCallback, useMemo, useRef, useState, type Dispatch, type MutableRefObject, type SetStateAction } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
 import type { DrawMode, MapFeatureSelection, SelectMode } from '../components/MapView';
-import { api, type InfraObject, type POI } from '../lib/api';
+import { defaultMapMutationsApi, type InfraObject, type MapMutationsApiPort, type POI } from '../lib/api';
 import { isLineSubtype } from '../lib/infraGeometry';
 import {
   applyOffsetToClipboard,
@@ -46,6 +46,7 @@ export type UseMapClipboardParams = {
   requestDeleteSelection: () => void;
   lineHealSkipIdsRef: MutableRefObject<Set<string>>;
   canDeleteCurrentSelection: boolean;
+  mapApi?: MapMutationsApiPort;
 };
 
 export function useMapClipboard({
@@ -76,6 +77,7 @@ export function useMapClipboard({
   requestDeleteSelection,
   lineHealSkipIdsRef,
   canDeleteCurrentSelection,
+  mapApi = defaultMapMutationsApi,
 }: UseMapClipboardParams) {
   const queryClient = useQueryClient();
   const pasteInFlightRef = useRef(false);
@@ -188,7 +190,7 @@ export function useMapClipboard({
           projectId,
           batchPayload,
           (pid, data) =>
-            api.batchPasteMapObjects(pid, data, { timeoutMs: batchPasteTimeoutMs(data) }),
+            mapApi.batchPasteMapObjects(pid, data, { timeoutMs: batchPasteTimeoutMs(data) }),
           setPasteProgress,
         );
         const createdPoiIds = result.created_pois.map((p) => p.id);

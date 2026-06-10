@@ -1,5 +1,16 @@
 """Server-side assistant response formatters."""
 
+from app.assistant.chat.formatters.analysis import (
+    format_poi_analysis_summary,
+    format_poi_candidates_summary,
+)
+from app.assistant.chat.formatters.admin import format_admin_jobs_summary
+from app.assistant.chat.formatters.counts import format_layers_summary, format_project_card
+from app.assistant.chat.formatters.flow_sand import (
+    format_flow_schematic_summary,
+    format_sand_logistics_summary,
+)
+from app.assistant.chat.formatters.registry import try_server_answer_after_tools as _try_answer
 from app.assistant.chat.response_formatters import (
     format_cost_rates_summary,
     format_infra_objects_summary,
@@ -9,6 +20,11 @@ from app.assistant.chat.response_formatters import (
     try_server_answer_after_tools,
 )
 from app.assistant.chat.schemas import ChatMessage, ChatRequest, ToolCallSummary
+
+
+def _try(request, summaries, cache):
+    answer, _ = _try_answer(request, summaries, cache)
+    return answer
 
 
 def test_format_infra_objects_summary_uses_manifest_labels():
@@ -135,3 +151,158 @@ def test_try_server_answer_after_rates_tool():
     answer = try_server_answer_after_tools(request, summaries, cache)
     assert answer is not None
     assert "тариф" in answer.lower() or "ставк" in answer.lower()
+
+
+def test_try_server_answer_tool_first_projects_count():
+    request = ChatRequest(messages=[ChatMessage(role="user", content="сколько?")])
+    summaries = [ToolCallSummary(name="list_projects", ok=True)]
+    cache = {
+        "list_projects": {
+            "count": 3,
+            "preview": [{"name": "A"}, {"name": "B"}],
+            "truncated": False,
+        }
+    }
+    answer = try_server_answer_after_tools(request, summaries, cache)
+    assert answer is not None
+    assert "3" in answer
+
+
+def test_format_layers_summary():
+    text = format_layers_summary(
+        {
+            "count": 2,
+            "count_by_layer_type": {"vector": 1, "raster": 1},
+            "preview": [{"title": "Base"}, {"title": "Roads"}],
+        },
+        project_name="Тест",
+    )
+    assert "2" in text
+    assert "Base" in text
+
+
+def test_try_server_answer_layers_tool():
+    request = ChatRequest(
+        messages=[ChatMessage(role="user", content="сколько слоёв на карте?")],
+        project_name="Тест",
+    )
+    summaries = [ToolCallSummary(name="list_infra_layers", ok=True)]
+    cache = {"list_infra_layers": {"count": 4, "preview": [{"title": "L1"}], "truncated": False}}
+    answer = _try(request, summaries, cache)
+    assert answer is not None
+    assert "4" in answer
+
+
+def test_format_project_card():
+    text = format_project_card(
+        {
+            "name": "Alpha",
+            "status": "active",
+            "poi_count": 5,
+            "owner_email": "user@test.ru",
+        }
+    )
+    assert "Alpha" in text
+    assert "5" in text
+
+
+def test_try_server_answer_get_project_card():
+    request = ChatRequest(
+        messages=[ChatMessage(role="user", content="расскажи о проекте")],
+        project_id="00000000-0000-0000-0000-000000000001",
+    )
+    summaries = [ToolCallSummary(name="get_project", ok=True)]
+    cache = {
+        "get_project": {
+            "name": "Alpha",
+            "status": "active",
+            "poi_count": 2,
+            "owner_email": "a@test.ru",
+        }
+    }
+    answer = _try(request, summaries, cache)
+    assert answer is not None
+    assert "Alpha" in answer
+
+
+def test_try_server_answer_single_tool_error():
+    request = ChatRequest(messages=[ChatMessage(role="user", content="анализ")])
+    summaries = [ToolCallSummary(name="get_poi_analysis", ok=False, code="not_found")]
+    cache = {"get_poi_analysis": {"error": True, "code": "not_found", "error_message": "Нет анализа"}}
+    answer, source = _try_answer(request, summaries, cache)
+    assert answer is not None
+    assert source == "tool_error"
+    assert "Нет анализа" in answer
+
+
+def test_format_poi_analysis_summary():
+    text = format_poi_analysis_summary(
+        {
+            "total_cost_mln": 12.5,
+            "overall_status": "warning",
+            "rows": [
+                {"subtype": "autoroad", "status": "exceed", "cost_mln": 5.0},
+                {"subtype": "gas_pipeline", "status": "ok", "cost_mln": 1.0},
+            ],
+        }
+    )
+    assert "12.5" in text
+    assert "превыш" in text.lower() or "Превыш" in text
+
+
+def test_format_poi_candidates_summary():
+    text = format_poi_candidates_summary(
+        {
+            "count": 2,
+            "preview": [
+                {"name": "Obj-A", "distance_km": 1.5},
+                {"name": "Obj-B", "distance_km": 3.0},
+            ],
+        }
+    )
+    assert "Obj-A" in text
+    assert "1.50" in text
+
+
+def test_format_admin_jobs_summary():
+    text = format_admin_jobs_summary(
+        {
+            "total": 10,
+            "items": [
+                {
+                    "job_type": "poi_analyze_all",
+                    "status": "running",
+                    "project_name": "P1",
+                }
+            ],
+        }
+    )
+    assert "10" in text
+    assert "P1" in text
+
+
+def test_format_sand_logistics_summary():
+    text = format_sand_logistics_summary(
+        {
+            "subnet_count": 1,
+            "timeline": [
+                {
+                    "year": 2024,
+                    "total_demand_m3": 1000,
+                    "total_allocated_m3": 900,
+                    "unmet_m3": 100,
+                }
+            ],
+            "subnets": [{"name": "West", "quarry_count": 2, "consumer_count": 3}],
+        }
+    )
+    assert "2024" in text
+    assert "West" in text
+
+
+def test_format_flow_schematic_summary():
+    text = format_flow_schematic_summary(
+        {"nodes": [{"id": "n1"}], "edges": [{"id": "e1"}], "source": "auto"}
+    )
+    assert "узлов" in text.lower() or "узл" in text.lower()
+    assert "1" in text

@@ -1,5 +1,5 @@
 import { useQuery } from '@tanstack/react-query';
-import { api, SUBTYPE_LABELS, type Candidate } from '../lib/api';
+import { defaultMapAnalysisApi, SUBTYPE_LABELS, type Candidate } from '../lib/api';
 import { AppModal } from './AppModal';
 
 interface CandidatesModalProps {
@@ -21,7 +21,7 @@ export function CandidatesModal({
 }: CandidatesModalProps) {
   const { data: candidates = [], isLoading } = useQuery({
     queryKey: ['candidates', projectId, poiId, subtype, paramType],
-    queryFn: () => api.getCandidates(projectId, poiId, subtype, 20, paramType),
+    queryFn: () => defaultMapAnalysisApi.getCandidates(projectId, poiId, subtype, 20, paramType),
   });
 
   return (

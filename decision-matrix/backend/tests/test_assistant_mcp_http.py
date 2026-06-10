@@ -147,7 +147,34 @@ def test_mcp_list_resources(client, mcp_client):
     uris = {r["uri"] for r in resources}
     assert "docs://calculation-logic" in uris
     assert "docs://infrastructure-subtypes" in uris
+    assert "wiki://index" in uris
+    assert "wiki://navigation" in uris
+    assert "wiki://map-2d" in uris
     assert "openapi://v1" in uris
+
+
+def test_mcp_read_resource_wiki_navigation(client, mcp_client):
+    login_response = login(client, "analyst@test.ru")
+    token = login_response.json()["access_token"]
+    headers = _mcp_headers(token)
+
+    _mcp_initialize(mcp_client, headers)
+
+    response = mcp_client.post(
+        MCP_PATH,
+        headers=headers,
+        json={
+            "jsonrpc": "2.0",
+            "method": "resources/read",
+            "params": {"uri": "wiki://navigation"},
+            "id": 12,
+        },
+    )
+    assert response.status_code == 200, response.text
+    contents = response.json()["result"]["contents"]
+    assert len(contents) == 1
+    assert "Навигация" in contents[0]["text"]
+    assert contents[0]["mimeType"] == "text/markdown"
 
 
 def test_mcp_read_resource_calculation_logic(client, mcp_client):

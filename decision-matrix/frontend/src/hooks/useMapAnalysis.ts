@@ -7,13 +7,14 @@ import {
   connectionLinesFromAnalysis,
 } from '../lib/analysisDisplay';
 import {
-  api,
+  defaultMapAnalysisApi,
   normalizePoiAnalysisResponse,
   type AnalysisResult,
   type AnalysisRow,
   type Candidate,
   type InfraLayer,
   type InfraObject,
+  type MapAnalysisApiPort,
   type PoiAnalysisResponse,
   type DistanceDefaults,
   type POI,
@@ -36,6 +37,7 @@ export type UseMapAnalysisParams = {
   setCandidateSubtype: (subtype: string | null) => void;
   candidateParamType: 'external' | 'external_linear';
   setCandidateParamType: (type: 'external' | 'external_linear') => void;
+  analysisApi?: MapAnalysisApiPort;
 };
 
 export function useMapAnalysis({
@@ -53,6 +55,7 @@ export function useMapAnalysis({
   setCandidateSubtype,
   candidateParamType,
   setCandidateParamType,
+  analysisApi = defaultMapAnalysisApi,
 }: UseMapAnalysisParams) {
   const queryClient = useQueryClient();
 
@@ -60,7 +63,7 @@ export function useMapAnalysis({
     queryKey: ['analysis', projectId, selectedPoi?.id],
     queryFn: async () => {
       try {
-        const raw = await api.getPoiAnalysis(projectId!, selectedPoi!.id);
+        const raw = await analysisApi.getPoiAnalysis(projectId!, selectedPoi!.id);
         return normalizePoiAnalysisResponse(raw);
       } catch (e) {
         const msg = e instanceof Error ? e.message : String(e);
@@ -188,12 +191,12 @@ export function useMapAnalysis({
         | { subtype: string; force_construction: boolean; param_type: 'external' | 'external_linear' },
     ) => {
       if ('force_construction' in payload) {
-        return api.overrideAnalysis(projectId!, selectedPoi!.id, payload.subtype, {
+        return analysisApi.overrideAnalysis(projectId!, selectedPoi!.id, payload.subtype, {
           force_construction: payload.force_construction,
           param_type: payload.param_type,
         });
       }
-      return api.overrideAnalysis(projectId!, selectedPoi!.id, candidateSubtype!, {
+      return analysisApi.overrideAnalysis(projectId!, selectedPoi!.id, candidateSubtype!, {
         nearest_object_id: payload.object_id ?? undefined,
         nearest_node_id: payload.nearest_node_id ?? undefined,
         param_type: candidateParamType,

@@ -8,6 +8,7 @@ export const TOOL_LABELS_RU: Record<string, string> = {
   get_project: 'Данные проекта',
   get_distance_defaults: 'Пороги расстояний проекта',
   list_pois: 'Список POI',
+  get_poi: 'Карточка POI (инженерные решения)',
   list_infra_layers: 'Слои карты',
   list_infra_objects: 'Объекты инфраструктуры',
   update_infra_object: 'Изменить объект инфраструктуры',
@@ -38,6 +39,9 @@ export const TOOL_LABELS_RU: Record<string, string> = {
   admin_jobs_health: 'Состояние очереди (админ)',
   admin_list_users: 'Пользователи (админ)',
   admin_stats: 'Статистика системы (админ)',
+  list_wiki_articles: 'Справка: список статей',
+  search_wiki: 'Поиск в справке',
+  get_wiki_article: 'Статья справки',
 };
 
 export function toolLabel(tool: string): string {
@@ -79,6 +83,14 @@ export const QUICK_COMMANDS: QuickCommand[] = [
     message: 'Покажи журнал фоновых задач (админ)',
     adminOnly: true,
   },
+  {
+    label: 'Роли и доступ',
+    message: 'Какие роли есть в Atlas Grid и что им доступно?',
+  },
+  {
+    label: 'Фоновые задачи',
+    message: 'Как работают фоновые задачи и где смотреть их статус?',
+  },
 ];
 
 type ContextualChip = {
@@ -86,7 +98,20 @@ type ContextualChip = {
   chip: QuickCommand;
 };
 
+const TAB_HELP_CHIPS: { prefix: string; label: string; message: string }[] = [
+  { prefix: '/map', label: 'Справка: карта', message: 'Как пользоваться картой 2D и панелью слоёв?' },
+  { prefix: '/matrix', label: 'Справка: матрица', message: 'Как работает матрица решений?' },
+  { prefix: '/flows/', label: 'Справка: потоки', message: 'Что показывают вкладки раздела Потоки?' },
+  { prefix: '/import', label: 'Справка: импорт', message: 'Как импортировать данные и проект Искра?' },
+  { prefix: '/parameters/', label: 'Справка: параметры', message: 'Что настраивается в разделе Параметры?' },
+];
+
 const CONTEXTUAL_CHIPS: ContextualChip[] = [
+  ...TAB_HELP_CHIPS.map(({ prefix, label, message }) => ({
+    match: ({ pathname }: QuickCommandContext) =>
+      pathname === prefix || (prefix.endsWith('/') && pathname.startsWith(prefix)),
+    chip: { label, message },
+  })),
   {
     match: ({ pathname, hasProject }) => pathname === '/map' && hasProject,
     chip: {

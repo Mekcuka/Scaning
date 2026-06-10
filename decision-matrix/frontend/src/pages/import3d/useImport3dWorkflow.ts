@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useProjectInfraObjects } from '../../hooks/useProjectData';
-import { api, SUBTYPE_LABELS, type Map3dCustomModel } from '../../lib/api';
+import { defaultMap3dModelsApi, SUBTYPE_LABELS, type Map3dCustomModel } from '../../lib/api';
 import {
   canAssignMap3dCustomModel,
   canUploadMap3dCustomModel,
@@ -29,7 +29,7 @@ export function useImport3dWorkflow() {
 
   const { data: models = [], isLoading: modelsLoading } = useQuery({
     queryKey: ['map3d-custom-models', projectId],
-    queryFn: () => api.listMap3dCustomModels(projectId!),
+    queryFn: () => defaultMap3dModelsApi.listMap3dCustomModels(projectId!),
     enabled: !!projectId && hasPageAccess,
   });
 
@@ -88,7 +88,7 @@ export function useImport3dWorkflow() {
   };
 
   const uploadMut = useMutation({
-    mutationFn: (file: File) => api.uploadMap3dCustomModel(projectId!, file),
+    mutationFn: (file: File) => defaultMap3dModelsApi.uploadMap3dCustomModel(projectId!, file),
     onSuccess: async () => {
       pushToast('success', 'Модель загружена');
       await invalidateAll();
@@ -98,7 +98,7 @@ export function useImport3dWorkflow() {
   });
 
   const deleteMut = useMutation({
-    mutationFn: (modelId: string) => api.deleteMap3dCustomModel(projectId!, modelId),
+    mutationFn: (modelId: string) => defaultMap3dModelsApi.deleteMap3dCustomModel(projectId!, modelId),
     onSuccess: async () => {
       pushToast('success', 'Модель удалена');
       await invalidateAll();
@@ -108,7 +108,7 @@ export function useImport3dWorkflow() {
 
   const assignMut = useMutation({
     mutationFn: ({ modelId, subtypes }: { modelId: string; subtypes: string[] }) =>
-      api.assignMap3dCustomModel(projectId!, modelId, subtypes),
+      defaultMap3dModelsApi.assignMap3dCustomModel(projectId!, modelId, subtypes),
     onSuccess: async (_data, { subtypes }) => {
       pushToast(
         'success',

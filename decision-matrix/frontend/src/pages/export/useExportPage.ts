@@ -1,6 +1,6 @@
 import { useMemo } from 'react';
 import { useQuery } from '@tanstack/react-query';
-import { mapApi } from '../../lib/api';
+import { defaultMapDataApi } from '../../lib/api';
 import { useActiveProject } from '../../hooks/useActiveProject';
 import { queryKeys } from '../../lib/queryKeys';
 import {
@@ -33,7 +33,7 @@ export function useExportPage() {
     error,
   } = useQuery({
     queryKey: queryKeys.infra(projectId ?? ''),
-    queryFn: () => mapApi.getInfraObjects(projectId!),
+    queryFn: () => defaultMapDataApi.getInfraObjects(projectId!),
     enabled: !!projectId,
   });
 

@@ -16,6 +16,7 @@ def register_all_tools() -> None:
         graph,
         imports,
         jobs,
+        knowledge,
         map,
         map_mutations,
         map3d,
@@ -32,6 +33,7 @@ def register_all_tools() -> None:
     map_mutations.register()
     analysis.register()
     jobs.register()
+    knowledge.register()
     rates.register()
     sand_logistics.register()
     flow.register()

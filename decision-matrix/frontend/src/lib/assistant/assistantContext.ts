@@ -19,7 +19,12 @@ export function deriveActiveTab(pathname: string): string | null {
 
 export function useAssistantChatContext(): Pick<
   ChatRequest,
-  'project_id' | 'project_name' | 'selected_poi_id' | 'active_tab' | 'route_path'
+  | 'project_id'
+  | 'project_name'
+  | 'selected_poi_id'
+  | 'selected_poi_name'
+  | 'active_tab'
+  | 'route_path'
 > {
   const { pathname } = useLocation();
   const { projectId, activeProject } = useActiveProject();
@@ -29,6 +34,7 @@ export function useAssistantChatContext(): Pick<
     project_id: projectId ?? null,
     project_name: activeProject?.name ?? null,
     selected_poi_id: assistantUiContext.selectedPoiId,
+    selected_poi_name: assistantUiContext.selectedPoiName,
     active_tab: deriveActiveTab(pathname),
     route_path: pathname,
   };

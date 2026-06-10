@@ -1,7 +1,7 @@
 import { useState, type MouseEvent } from 'react';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { useLocation, useNavigate } from 'react-router-dom';
-import { api, type Project } from '../lib/api';
+import { defaultProjectsWriteApi, type Project, type ProjectsWriteApiPort } from '../lib/api';
 import { queryKeys } from '../lib/queryKeys';
 import { normalizeProjectsList } from '../lib/normalizeProjectsList';
 import { DeleteProjectConfirmModal } from '../components/DeleteProjectConfirmModal';
@@ -18,7 +18,12 @@ function reconcileCurrentProjectAfterDelete(
   }
 }
 
-export function useDeleteProjectDialog() {
+export type UseDeleteProjectDialogOptions = {
+  projectsApi?: ProjectsWriteApiPort;
+};
+
+export function useDeleteProjectDialog(options: UseDeleteProjectDialogOptions = {}) {
+  const projectsApi = options.projectsApi ?? defaultProjectsWriteApi;
   const [projectToDelete, setProjectToDelete] = useState<Project | null>(null);
   const qc = useQueryClient();
   const navigate = useNavigate();
@@ -27,7 +32,7 @@ export function useDeleteProjectDialog() {
   const setCurrentProjectId = useAppStore((s) => s.setCurrentProjectId);
 
   const deleteMut = useMutation({
-    mutationFn: (projectId: string) => api.deleteProject(projectId),
+    mutationFn: (projectId: string) => projectsApi.deleteProject(projectId),
     onSuccess: (_data, projectId) => {
       qc.setQueryData<Project[]>(queryKeys.projects, (old) =>
         normalizeProjectsList(old).filter((p) => p.id !== projectId),

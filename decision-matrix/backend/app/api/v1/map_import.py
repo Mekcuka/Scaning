@@ -3,35 +3,58 @@
 from uuid import UUID
 
 from fastapi import APIRouter, Depends, File, HTTPException, Query, UploadFile, status
-from fastapi.responses import JSONResponse
-from sqlalchemy import cast, delete, or_, select, String, update
+from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.api.deps import get_current_user
-from app.api.v1.map_deps import (
-    get_infra_object,
-    get_layer,
-    get_or_create_default_layer,
-    get_poi,
-    get_user_project,
-    require_infra_write,
-    require_project_write,
-)
+from app.api.v1.map_deps import get_or_create_default_layer, require_infra_write
 from app.core.database import get_db
-from app.models import User
-
-from app.models import ImportLog
+from app.models import ImportLog, User
 from app.schemas import ImportLogResponse, ImportPreviewResponse
-from app.services.import_service import (
-    create_pending_import_log,
-    detect_import_format,
-    parse_import_content,
-    run_file_import,
-    run_shapefile_import,
-    schedule_import_via_job,
+from app.services.file_import.parse import parse_import_content
+from app.services.file_import.upload_decode import (
+    KmzWithoutKmlError,
+    decode_csv_bytes,
+    decode_kml_bytes,
+    decode_upload_for_preview,
+    decode_utf8_bytes,
 )
+from app.services.file_import.workflows import (
+    CSV_IMPORT,
+    GEOJSON_IMPORT,
+    KML_IMPORT,
+    SHAPEFILE_IMPORT,
+    SPARK_IMPORT,
+    commit_sync_file_import,
+    commit_sync_shapefile_import,
+    enqueue_async_file_import,
+)
+from app.services.project_jobs import ActiveProjectJobError
 
 import_router = APIRouter(tags=["map-import"])
+
+
+def _active_job_http(exc: ActiveProjectJobError) -> HTTPException:
+    return HTTPException(
+        status_code=409,
+        detail={"message": "Project already has an active job", "active_job_id": str(exc.active_job_id)},
+    )
+
+
+async def _enqueue_import(project_id, user, db, layer, spec, content, file_name):
+    try:
+        return await enqueue_async_file_import(
+            db,
+            user_id=user.id,
+            project_id=project_id,
+            layer=layer,
+            spec=spec,
+            content=content,
+            file_name=file_name,
+        )
+    except ActiveProjectJobError as e:
+        raise _active_job_http(e) from e
+
 
 @import_router.get("/import/logs/{log_id}", response_model=ImportLogResponse)
 async def get_import_log(
@@ -55,25 +78,7 @@ async def preview_import(
 ):
     await require_infra_write(project_id, user, db)
     raw = await file.read()
-    name = (file.filename or "").lower()
-    if format == "kml" or name.endswith((".kml", ".kmz")):
-        if name.endswith(".kmz"):
-            import io
-            import zipfile
-
-            with zipfile.ZipFile(io.BytesIO(raw)) as zf:
-                kml_names = [n for n in zf.namelist() if n.lower().endswith(".kml")]
-                content = zf.read(kml_names[0]).decode("utf-8", errors="replace") if kml_names else ""
-            fmt = "kml"
-        else:
-            content = raw.decode("utf-8", errors="replace")
-            fmt = "kml"
-    elif format in ("geojson", "spark") or name.endswith((".geojson", ".json")):
-        content = raw.decode("utf-8", errors="replace")
-        fmt = format if format == "spark" else detect_import_format(content, name)
-    else:
-        content = raw.decode("utf-8-sig")
-        fmt = "csv"
+    content, fmt = decode_upload_for_preview(raw, file.filename or "", format)
     rows, errors = parse_import_content(content, fmt)
     preview = [
         {
@@ -97,21 +102,18 @@ async def import_csv(
     file: UploadFile = File(...),
 ):
     await require_infra_write(project_id, user, db)
-    content = (await file.read()).decode("utf-8-sig")
-    layer = await get_or_create_default_layer(project_id, db, source_type="csv_import", name="Импорт CSV")
-    log = await run_file_import(
+    layer = await get_or_create_default_layer(
+        project_id, db, source_type=CSV_IMPORT.source_type, name=CSV_IMPORT.layer_name
+    )
+    return await commit_sync_file_import(
         db,
         user_id=user.id,
         project_id=project_id,
         layer=layer,
-        source_type="csv_import",
-        file_name=file.filename or "import.csv",
-        content=content,
-        format="csv",
+        spec=CSV_IMPORT,
+        content=decode_csv_bytes(await file.read()),
+        file_name=file.filename or CSV_IMPORT.default_filename,
     )
-    await db.commit()
-    await db.refresh(log)
-    return log
 
 
 @import_router.post("/projects/{project_id}/import/csv/async", response_model=ImportLogResponse, status_code=202)
@@ -122,32 +124,18 @@ async def import_csv_async(
     file: UploadFile = File(...),
 ):
     await require_infra_write(project_id, user, db)
-    content = (await file.read()).decode("utf-8-sig")
-    layer = await get_or_create_default_layer(project_id, db, source_type="csv_import", name="Импорт CSV")
-    log = await create_pending_import_log(
-        db,
-        user_id=user.id,
-        project_id=project_id,
-        source_type="csv_import",
-        file_name=file.filename or "import.csv",
+    layer = await get_or_create_default_layer(
+        project_id, db, source_type=CSV_IMPORT.source_type, name=CSV_IMPORT.layer_name
     )
-    from app.services.project_jobs import ActiveProjectJobError
-
-    try:
-        return await schedule_import_via_job(
-            db,
-            user_id=user.id,
-            project_id=project_id,
-            log=log,
-            layer_id=layer.id,
-            content=content,
-            format="csv",
-        )
-    except ActiveProjectJobError as e:
-        raise HTTPException(
-            status_code=409,
-            detail={"message": "Project already has an active job", "active_job_id": str(e.active_job_id)},
-        ) from e
+    return await _enqueue_import(
+        project_id,
+        user,
+        db,
+        layer,
+        CSV_IMPORT,
+        decode_csv_bytes(await file.read()),
+        file.filename or CSV_IMPORT.default_filename,
+    )
 
 
 @import_router.post("/projects/{project_id}/import/kml", response_model=ImportLogResponse)
@@ -158,33 +146,24 @@ async def import_kml(
     file: UploadFile = File(...),
 ):
     await require_infra_write(project_id, user, db)
-    raw = await file.read()
-    name = (file.filename or "import.kml").lower()
-    if name.endswith(".kmz"):
-        import zipfile
-        import io
-
-        with zipfile.ZipFile(io.BytesIO(raw)) as zf:
-            kml_names = [n for n in zf.namelist() if n.lower().endswith(".kml")]
-            if not kml_names:
-                raise HTTPException(status_code=400, detail="KMZ contains no KML")
-            content = zf.read(kml_names[0]).decode("utf-8", errors="replace")
-    else:
-        content = raw.decode("utf-8", errors="replace")
-    layer = await get_or_create_default_layer(project_id, db, source_type="kml_import", name="Импорт KML")
-    log = await run_file_import(
+    try:
+        content = decode_kml_bytes(
+            await file.read(), file.filename or KML_IMPORT.default_filename, strict_kmz=True
+        )
+    except KmzWithoutKmlError as e:
+        raise HTTPException(status_code=400, detail=str(e)) from e
+    layer = await get_or_create_default_layer(
+        project_id, db, source_type=KML_IMPORT.source_type, name=KML_IMPORT.layer_name
+    )
+    return await commit_sync_file_import(
         db,
         user_id=user.id,
         project_id=project_id,
         layer=layer,
-        source_type="kml_import",
-        file_name=file.filename or "import.kml",
+        spec=KML_IMPORT,
         content=content,
-        format="kml",
+        file_name=file.filename or KML_IMPORT.default_filename,
     )
-    await db.commit()
-    await db.refresh(log)
-    return log
 
 
 @import_router.post("/projects/{project_id}/import/shapefile", response_model=ImportLogResponse)
@@ -195,19 +174,17 @@ async def import_shapefile(
     file: UploadFile = File(...),
 ):
     await require_infra_write(project_id, user, db)
-    data = await file.read()
-    layer = await get_or_create_default_layer(project_id, db, source_type="shapefile_import", name="Импорт SHP")
-    log = await run_shapefile_import(
+    layer = await get_or_create_default_layer(
+        project_id, db, source_type=SHAPEFILE_IMPORT.source_type, name=SHAPEFILE_IMPORT.layer_name
+    )
+    return await commit_sync_shapefile_import(
         db,
         user_id=user.id,
         project_id=project_id,
         layer=layer,
-        file_name=file.filename or "import.zip",
-        zip_bytes=data,
+        file_name=file.filename or SHAPEFILE_IMPORT.default_filename,
+        zip_bytes=await file.read(),
     )
-    await db.commit()
-    await db.refresh(log)
-    return log
 
 
 @import_router.post("/projects/{project_id}/import/geojson", response_model=ImportLogResponse)
@@ -218,21 +195,18 @@ async def import_geojson(
     file: UploadFile = File(...),
 ):
     await require_infra_write(project_id, user, db)
-    content = (await file.read()).decode("utf-8")
-    layer = await get_or_create_default_layer(project_id, db, source_type="geojson_import", name="Импорт GeoJSON")
-    log = await run_file_import(
+    layer = await get_or_create_default_layer(
+        project_id, db, source_type=GEOJSON_IMPORT.source_type, name=GEOJSON_IMPORT.layer_name
+    )
+    return await commit_sync_file_import(
         db,
         user_id=user.id,
         project_id=project_id,
         layer=layer,
-        source_type="geojson_import",
-        file_name=file.filename or "import.geojson",
-        content=content,
-        format="geojson",
+        spec=GEOJSON_IMPORT,
+        content=decode_utf8_bytes(await file.read()),
+        file_name=file.filename or GEOJSON_IMPORT.default_filename,
     )
-    await db.commit()
-    await db.refresh(log)
-    return log
 
 
 @import_router.post("/projects/{project_id}/import/geojson/async", response_model=ImportLogResponse, status_code=202)
@@ -243,32 +217,18 @@ async def import_geojson_async(
     file: UploadFile = File(...),
 ):
     await require_infra_write(project_id, user, db)
-    content = (await file.read()).decode("utf-8")
-    layer = await get_or_create_default_layer(project_id, db, source_type="geojson_import", name="Импорт GeoJSON")
-    log = await create_pending_import_log(
-        db,
-        user_id=user.id,
-        project_id=project_id,
-        source_type="geojson_import",
-        file_name=file.filename or "import.geojson",
+    layer = await get_or_create_default_layer(
+        project_id, db, source_type=GEOJSON_IMPORT.source_type, name=GEOJSON_IMPORT.layer_name
     )
-    from app.services.project_jobs import ActiveProjectJobError
-
-    try:
-        return await schedule_import_via_job(
-            db,
-            user_id=user.id,
-            project_id=project_id,
-            log=log,
-            layer_id=layer.id,
-            content=content,
-            format="geojson",
-        )
-    except ActiveProjectJobError as e:
-        raise HTTPException(
-            status_code=409,
-            detail={"message": "Project already has an active job", "active_job_id": str(e.active_job_id)},
-        ) from e
+    return await _enqueue_import(
+        project_id,
+        user,
+        db,
+        layer,
+        GEOJSON_IMPORT,
+        decode_utf8_bytes(await file.read()),
+        file.filename or GEOJSON_IMPORT.default_filename,
+    )
 
 
 @import_router.post("/projects/{project_id}/import/kml/async", response_model=ImportLogResponse, status_code=202)
@@ -279,42 +239,21 @@ async def import_kml_async(
     file: UploadFile = File(...),
 ):
     await require_infra_write(project_id, user, db)
-    raw = await file.read()
-    name = (file.filename or "import.kml").lower()
-    if name.endswith(".kmz"):
-        import io
-        import zipfile
-
-        with zipfile.ZipFile(io.BytesIO(raw)) as zf:
-            kml_names = [n for n in zf.namelist() if n.lower().endswith(".kml")]
-            content = zf.read(kml_names[0]).decode("utf-8", errors="replace") if kml_names else ""
-    else:
-        content = raw.decode("utf-8", errors="replace")
-    layer = await get_or_create_default_layer(project_id, db, source_type="kml_import", name="Импорт KML")
-    log = await create_pending_import_log(
-        db,
-        user_id=user.id,
-        project_id=project_id,
-        source_type="kml_import",
-        file_name=file.filename or "import.kml",
+    content = decode_kml_bytes(
+        await file.read(), file.filename or KML_IMPORT.default_filename, strict_kmz=False
     )
-    from app.services.project_jobs import ActiveProjectJobError
-
-    try:
-        return await schedule_import_via_job(
-            db,
-            user_id=user.id,
-            project_id=project_id,
-            log=log,
-            layer_id=layer.id,
-            content=content,
-            format="kml",
-        )
-    except ActiveProjectJobError as e:
-        raise HTTPException(
-            status_code=409,
-            detail={"message": "Project already has an active job", "active_job_id": str(e.active_job_id)},
-        ) from e
+    layer = await get_or_create_default_layer(
+        project_id, db, source_type=KML_IMPORT.source_type, name=KML_IMPORT.layer_name
+    )
+    return await _enqueue_import(
+        project_id,
+        user,
+        db,
+        layer,
+        KML_IMPORT,
+        content,
+        file.filename or KML_IMPORT.default_filename,
+    )
 
 
 @import_router.post("/projects/{project_id}/import/spark", response_model=ImportLogResponse)
@@ -325,21 +264,18 @@ async def import_spark(
     file: UploadFile = File(...),
 ):
     await require_infra_write(project_id, user, db)
-    content = (await file.read()).decode("utf-8")
-    layer = await get_or_create_default_layer(project_id, db, source_type="spark_import", name="Импорт Искра")
-    log = await run_file_import(
+    layer = await get_or_create_default_layer(
+        project_id, db, source_type=SPARK_IMPORT.source_type, name=SPARK_IMPORT.layer_name
+    )
+    return await commit_sync_file_import(
         db,
         user_id=user.id,
         project_id=project_id,
         layer=layer,
-        source_type="spark_import",
-        file_name=file.filename or "export.json",
-        content=content,
-        format="spark",
+        spec=SPARK_IMPORT,
+        content=decode_utf8_bytes(await file.read()),
+        file_name=file.filename or SPARK_IMPORT.default_filename,
     )
-    await db.commit()
-    await db.refresh(log)
-    return log
 
 
 @import_router.post("/projects/{project_id}/import/spark/async", response_model=ImportLogResponse, status_code=202)
@@ -350,32 +286,18 @@ async def import_spark_async(
     file: UploadFile = File(...),
 ):
     await require_infra_write(project_id, user, db)
-    content = (await file.read()).decode("utf-8")
-    layer = await get_or_create_default_layer(project_id, db, source_type="spark_import", name="Импорт Искра")
-    log = await create_pending_import_log(
-        db,
-        user_id=user.id,
-        project_id=project_id,
-        source_type="spark_import",
-        file_name=file.filename or "export.json",
+    layer = await get_or_create_default_layer(
+        project_id, db, source_type=SPARK_IMPORT.source_type, name=SPARK_IMPORT.layer_name
     )
-    from app.services.project_jobs import ActiveProjectJobError
-
-    try:
-        return await schedule_import_via_job(
-            db,
-            user_id=user.id,
-            project_id=project_id,
-            log=log,
-            layer_id=layer.id,
-            content=content,
-            format="spark",
-        )
-    except ActiveProjectJobError as e:
-        raise HTTPException(
-            status_code=409,
-            detail={"message": "Project already has an active job", "active_job_id": str(e.active_job_id)},
-        ) from e
+    return await _enqueue_import(
+        project_id,
+        user,
+        db,
+        layer,
+        SPARK_IMPORT,
+        decode_utf8_bytes(await file.read()),
+        file.filename or SPARK_IMPORT.default_filename,
+    )
 
 
 @import_router.get("/import/logs", response_model=list[ImportLogResponse])

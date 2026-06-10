@@ -1,21 +1,21 @@
 # План приведения к SOLID
 
-> **Статус:** фаза 6 — **завершена** (июнь 2026); SOLID-план фаз 0–6 выполнен.  
+> **Статус:** фаза 13 (map_import polish) — **завершена** (июнь 2026); фазы 0–13 выполнены.  
 > **Связанные документы:** [module-boundaries.md](../architecture/module-boundaries.md), [architecture.md](../architecture/architecture.md), [frontend-structure.md](../architecture/frontend-structure.md), [implementation-status.md](implementation-status.md).
 
 ## Цель
 
 Улучшить поддерживаемость и тестируемость Atlas Grid (`decision-matrix/`) без остановки разработки фич. SOLID применяется **прагматично** — без избыточных абстракций.
 
-## Текущая оценка SOLID (после фаз 0–6 + map split)
+## Текущая оценка SOLID (после фаз 0–7 + map split)
 
 | Принцип | Оценка | Комментарий |
 |---------|--------|-------------|
-| **S** — Single Responsibility | ✅ **~80%** | API split: `projects`, `analysis`, `map_*`; services `infra_create` |
+| **S** — Single Responsibility | ✅ **~85%** | API split; `assistant/chat/*` декомпозирован (фаза 7) |
 | **O** — Open/Closed | ✅ **~65%** | Реестры analysis/matrix; subtype в нескольких файлах |
 | **L** — Liskov Substitution | ✅ N/A | Композиция, без иерархий классов |
-| **I** — Interface Segregation | ⚠️ **~55%** | TS/Python порты точечно; `api` — монолитный фасад |
-| **D** — Dependency Inversion | ⚠️ **~60%** | planner, spatial, API ports; остальное — прямые импорты |
+| **I** — Interface Segregation | ✅ **~70%** | Порты sand/flow/one-pager + projects/map (фаза 10) |
+| **D** — Dependency Inversion | ✅ **~75%** | planner, spatial, API ports, `LlmClientPort` + `ToolRegistryPort` (фазы 11–12) |
 
 ## Уже сделано (база, не откатывать)
 
@@ -283,6 +283,271 @@ Frontend: `infrastructureSubtypesManifest.ts` → `subtypes.ts`.
 
 - `labels` / `categories` — все map subtypes (backend + frontend)
 - `point_menu_labels` — переопределения UI меню «Точка» (gtes → ИЭ, oil_pad → Куст)
+
+---
+
+## Фаза 7 — SRP: `assistant/chat/orchestrator.py` ✅
+
+**Срок:** 1 неделя. **Статус:** завершена (июнь 2026).
+
+**Целевая структура:**
+
+```
+backend/app/assistant/chat/
+├── orchestrator.py      # run_chat, run_chat_stream, _chat_events (~260 строк)
+├── prompt.py            # system prompt, data hints, tool_env
+├── message_history.py   # llm_messages, history slimming
+├── tool_payload.py      # slim schema, compact/summarize list tools
+├── tool_loop.py         # execute tools, confirm, finalize message
+└── events.py            # ChatStreamEvent
+```
+
+**Критерий:** `orchestrator.py` ≤ 300 строк; вспомогательные модули ≤ 200 строк; barrel-реэкспорт `_user_wants_data`, `_compact_tool_payload_for_llm` для тестов.
+
+### Выполнено
+
+- [x] Декомпозиция монолита (~706 строк) → 6 модулей
+- [x] `orchestrator.py` — compose + публичный API без изменения поведения
+- [x] Тесты: `test_assistant_chat.py`, `test_assistant_reasoning_content.py` — 32 passed
+- [x] Smoke: `test_orchestrator_modules.py`
+
+---
+
+## Фаза 8 — SRP: `PoiParamsForm.tsx` ✅
+
+**Срок:** 1 неделя. **Статус:** завершена (июнь 2026).
+
+**Целевая структура:**
+
+```
+frontend/src/components/
+├── PoiParamsForm.tsx              # barrel re-export
+└── poiParamsForm/
+    ├── PoiParamsForm.tsx          # compose (~120 строк)
+    ├── PoiBasicFlatSection.tsx
+    ├── PoiBasicAccordionSection.tsx
+    ├── PoiEngineeringSection.tsx
+    ├── PoiThresholdGrid.tsx
+    ├── PoiNumberField.tsx
+    ├── PoiAccordionSection.tsx
+    ├── types.ts, constants.ts, formatNum.ts
+    └── PoiParamsForm.test.tsx
+```
+
+**Критерий:** главный compose ≤ 150 строк; секции ≤ 200 строк; `import { PoiParamsForm } from '../components/PoiParamsForm'` без изменений.
+
+### Выполнено
+
+- [x] Монолит (~548 строк) → 10 модулей
+- [x] Flat-режим (панель объекта) и accordion (страницы проекта) разделены по секциям
+- [x] Vitest: `PoiParamsForm.test.tsx`; `npm run build` green
+
+---
+
+## Фаза 9 — SRP: `import_service.py` ✅
+
+**Срок:** 1 неделя. **Статус:** завершена (июнь 2026).
+
+**Целевая структура:**
+
+```
+backend/app/services/
+├── import_service.py          # barrel (~45 строк)
+└── file_import/
+    ├── csv_parser.py
+    ├── geojson_parser.py
+    ├── kml_parser.py
+    ├── shapefile.py
+    ├── persist.py             # import_rows_to_layer
+    ├── parse.py               # detect + dispatch
+    └── run.py                 # logs, jobs, run_file_import
+```
+
+**Критерий:** `import_service.py` — только re-export; парсеры без SQL; `persist.py` — без HTTP.
+
+### Выполнено
+
+- [x] Монолит (~608 строк) → 7 модулей + barrel
+- [x] Обратная совместимость: `_parse_csv_rows`, `_parse_geojson` для тестов
+- [x] Тесты: `test_file_import_package.py`, `test_render_3d_import.py`, `test_import_service_rows.py`, `test_import_geojson.py` — 10 passed
+
+---
+
+## Фаза 10 — ISP: узкие `*Api` порты (sand, flow, report) ✅
+
+**Срок:** ongoing. **Статус:** завершена (июнь 2026), первая волна.
+
+**Порты:** `lib/api/ports/sandLogisticsApiPort.ts`, `flowApiPort.ts`, `onePagerApiPort.ts`.
+
+**Миграция:**
+
+| Домен | Хук / страница | Порт |
+|-------|----------------|------|
+| Песок | `useProjectSandLogistics`, `runApiJob` | `SandLogisticsReadApiPort` / `SandLogisticsApiPort` |
+| Потоки | `FlowSchematicLayout` | `FlowSchematicApiPort` |
+| Отчёты | `useOnePagerList`, `ReportEditorPage` | `OnePagerListApiPort` / `OnePagerEditorApiPort` |
+
+**Критерий:** хуки принимают `options.*Api`; тесты инжектят mock без `vi.mock` всего `api`; `apiMockModule` синхронизирует default ports.
+
+### Выполнено
+
+- [x] 3 новых порта + расширение `apiPorts.test.ts`
+- [x] `useOnePagerList` — новый хук для списка отчётов
+- [x] `useProjectSandLogistics.test.tsx` — DIP через inject mock port
+- [x] `apiMockModule` — wiring для flow/sand/one-pager ports
+
+### Волна 2 (map + jobs + projects write)
+
+- [x] `MapAnalysisApiPort` → `useMapAnalysis`
+- [x] `ProjectJobsApiPort` → `useActiveProjectJob`
+- [x] `MapMutationsApiPort` → `useMapClipboard`, `useMapDeleteSelection`
+- [x] `ProjectsWriteApiPort` / `ProjectsPoiWriteApiPort` → `useDeleteProjectDialog`, delete POI on map
+
+### Волна 3 (map create/edit + autoroad)
+
+- [x] Расширены `MapMutationsApiPort` (create/update infra), `ProjectsPoiWriteApiPort` (create/update POI)
+- [x] `ProjectsMapSettingsApiPort`, расширен `MapDataApiPort` (layers, 3D models)
+- [x] `AutoroadNetworkApiPort` → `useMapAutoroadNetwork`
+- [x] `useMapInfraCreate`, `useMapLineDrawing`, `useMapDetailSave`, `useMapGeometrySave`
+- [x] `useMapPageMapData`, `submitPoi` (типы без `api`)
+
+### Волна 4 (lib map utilities)
+
+- [x] `MapUndoApiPort` / `NetworkBuildApiPort` → `mapUndo`, `applyInfraLineSplit`
+- [x] `mapClipboard` — типы через `projectsApi` (без `api`)
+- [x] хуки передают `mapApi` в `applyInfraLineSplit`
+
+### Волна 5 (jobs + project pages)
+
+- [x] `ProjectJobsApiPort` + `getProjectJob` → `pollProjectJob`
+- [x] `AnalysisBatchApiPort` → `runApiJob.analyzeAllPoisAndWait`
+- [x] `ProjectsRatesApiPort`, расширены `ProjectsDataApiPort` / `ProjectsWriteApiPort`
+- [x] `ParametersPage`, `SandParametersPage`, `EntryDatesParametersPage` → `MapMutationsApiPort`
+- [x] `RatesPage`, `ProjectsPage`, `DashboardPage`, `ProjectDetailPage`, `MatrixPage`, `FlowsIndexRedirect`
+
+### Волна 6 (import, admin, components)
+
+- [x] `ImportWorkflowApiPort` → `useImportPageWorkflow`
+- [x] `Map3dModelsApiPort` → `useImport3dWorkflow`
+- [x] `AdminUsersApiPort`, `AdminJobsApiPort` → admin pages
+- [x] `AuthSessionApiPort` → `ReportEditorPage`
+- [x] `PoiParamsPanel`, `ProjectDistanceDefaultsForm`, `useObjectDetailPanel`, `CandidatesModal`, `TaskLogPanel`
+
+### Волна 7 (auth store + export/flows)
+
+- [x] `AuthApiPort` → `store` (login/register/me)
+- [x] `useExportPage` → `MapDataApiPort`
+- [x] `FlowSchematicLayout` → `ProjectsPoiWriteApiPort`
+
+**Итог фазы 10:** production-код переведён на порты; `export const api` сохранён для тестов и обратной совместимости.
+
+---
+
+## Фаза 11 — DIP: assistant LLM port ✅
+
+**Срок:** 1 неделя. **Статус:** завершена (июнь 2026).
+
+**Цель:** оркестратор и status endpoints зависят от абстракции LLM-провайдера, а не от httpx-функций напрямую.
+
+**Структура:**
+
+```
+backend/app/assistant/chat/
+├── ports/
+│   ├── __init__.py
+│   └── llm_port.py       # LlmClientPort (Protocol), HttpLlmClient, default_llm_client
+├── llm_client.py         # httpx-реализация (без изменений публичного API)
+└── orchestrator.py       # inject llm_client; shim chat_completion* для @patch в тестах
+```
+
+### Выполнено
+
+- [x] `LlmClientPort` — `chat_completion`, `chat_completion_stream`, `probe_provider`
+- [x] `HttpLlmClient` + `default_llm_client`
+- [x] `orchestrator.run_chat` / `run_chat_stream` — опциональный `llm_client`
+- [x] `api/v1/assistant.py`, `tools/domain/session.py` → `default_llm_client.probe_provider()`
+- [x] Тесты: `test_llm_port.py`, `test_orchestrator_modules.py`; существующие `@patch orchestrator.chat_completion` сохранены
+- [x] `llm_client.py` остаётся единственным местом httpx-вызовов
+
+---
+
+## Фаза 12 — DIP: assistant tool registry port ✅
+
+**Срок:** 1 неделя. **Статус:** завершена (июнь 2026).
+
+**Цель:** chat tool loop, HTTP MCP и dev stdio зависят от абстракции registry, а не от прямых импортов `registry.py`.
+
+**Структура:**
+
+```
+backend/app/assistant/
+├── ports/
+│   ├── __init__.py
+│   └── tool_registry_port.py   # ToolRegistryPort, DefaultToolRegistry, default_tool_registry
+├── registry.py                 # in-process реализация (без изменений публичного API)
+└── chat/tool_loop.py           # inject tool_registry; shim execute_tool/get_tool
+```
+
+### Выполнено
+
+- [x] `ToolRegistryPort` — `get_tool`, `list_tools`, `execute_tool`
+- [x] `DefaultToolRegistry` + `default_tool_registry`
+- [x] `tool_loop.execute_llm_tool_calls` / `execute_confirmed_events` — опциональный `tool_registry`
+- [x] `orchestrator` — проброс `tool_registry` в tool loop
+- [x] `transport/http_mcp.py`, `dev/domain_proxy.py` → `default_tool_registry`
+- [x] Тесты: `test_tool_registry_port.py`; assistant suite green
+
+---
+
+## Фаза 13 — SRP: `map_import.py` polish ✅
+
+**Срок:** 3–5 дней. **Статус:** завершена (июнь 2026).
+
+**Цель:** убрать дублирование decode KML/KMZ, sync/async import и commit из HTTP handlers.
+
+**Структура:**
+
+```
+backend/app/services/file_import/
+├── upload_decode.py    # decode_csv/kml/geojson, preview helper
+└── workflows.py        # ImportUploadSpec, commit_sync_*, enqueue_async_*
+
+backend/app/api/v1/map_import.py   # тонкие handlers (~280 → ~270 строк, без inline zipfile)
+```
+
+### Выполнено
+
+- [x] `upload_decode.py` — единый KML/KMZ decode (`strict_kmz` для sync)
+- [x] `workflows.py` — `ImportUploadSpec` + sync/async commit/enqueue
+- [x] `map_import.py` — handlers без дублирования `ActiveProjectJobError` / zipfile
+- [x] Тесты: `test_upload_decode.py`
+
+---
+
+## Assistant roadmap: Wiki RAG (phase 10.2) ✅
+
+**Статус:** завершена (июнь 2026).
+
+- [x] `chunking.py` — разбиение статей по `##`
+- [x] `tfidf.py` + `embeddings.py` — offline fallback и OpenAI-compatible `/embeddings`
+- [x] `rag.py` — hybrid search, disk cache, `GET /assistant/status` → `wiki_rag_*`
+- [x] `search_wiki` async + поле `mode` в ответе
+- [x] Тесты: `test_assistant_wiki_rag.py`
+
+---
+
+## Assistant roadmap: история чата в БД (phase 8.2) ✅
+
+**Статус:** завершена (июнь 2026).
+
+- [x] `assistant_chat_sessions`, `assistant_chat_messages` + migration `021`
+- [x] `chat/history.py` — persist turn, list/create/delete
+- [x] API: `GET/POST /assistant/sessions`, `GET/DELETE .../messages`
+- [x] `ChatRequest.session_id`, `ChatResponse.session_id`
+- [x] Frontend: `useAssistantChatSession`, selector в `AssistantPanel`
+- [x] Тесты: `test_assistant_chat_history.py`
+
+**Дальше:** assistant 7.3 (context overflow fallback).
 
 ---
 

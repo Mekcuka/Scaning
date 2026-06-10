@@ -4,8 +4,9 @@ import {
   formValuesToPoiCreatePayload,
   nextPoiAutoName,
 } from '../../lib/poiParams';
-import { api } from '../../lib/api';
-import type { POI } from '../../lib/api';
+import { projectsApi, type POI } from '../../lib/api';
+
+type CreatePoiPayload = Parameters<typeof projectsApi.createPoi>[1];
 
 type PoiFormValues = ReturnType<typeof emptyPoiFormValues>;
 
@@ -15,7 +16,7 @@ export function submitPoiCreate(params: {
   poiForm: PoiFormValues;
   pois: POI[];
   pushToast: (type: 'error' | 'info', message: string) => void;
-  createPoiMut: { mutate: (payload: Parameters<typeof api.createPoi>[1]) => void };
+  createPoiMut: { mutate: (payload: CreatePoiPayload) => void };
 }) {
   const { projectId, modal, poiForm, pois, pushToast, createPoiMut } = params;
   if (!projectId) {
@@ -36,5 +37,5 @@ export function submitPoiCreate(params: {
     ...formValuesToPoiCreatePayload({ ...poiForm, name }),
     lon,
     lat,
-  } as Parameters<typeof api.createPoi>[1]);
+  } as CreatePoiPayload);
 }

@@ -1,7 +1,14 @@
 import { useCallback, useMemo, useState, type Dispatch, type SetStateAction } from 'react';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import type { MapFeatureSelection } from '../components/MapView';
-import { api, type InfraObject, type POI } from '../lib/api';
+import {
+  defaultMapMutationsApi,
+  defaultProjectsPoiWriteApi,
+  type InfraObject,
+  type MapMutationsApiPort,
+  type POI,
+  type ProjectsPoiWriteApiPort,
+} from '../lib/api';
 import { expandInfraDeleteIds, infraDeleteApiIds } from '../lib/infraLinks';
 import { bulkOperationTimeoutMs, type MapBulkProgressUpdate } from '../lib/mapBulkProgress';
 import type { MapUndoEntry } from '../lib/mapUndo';
@@ -26,6 +33,8 @@ export type UseMapDeleteSelectionParams = {
   pushToast: (kind: 'success' | 'error' | 'info', message: string) => void;
   invalidateMap: () => void;
   removeInfraFromCaches: (ids: Set<string>) => void;
+  mapApi?: MapMutationsApiPort;
+  poiApi?: ProjectsPoiWriteApiPort;
 };
 
 export function useMapDeleteSelection({
@@ -42,6 +51,8 @@ export function useMapDeleteSelection({
   pushToast,
   invalidateMap,
   removeInfraFromCaches,
+  mapApi = defaultMapMutationsApi,
+  poiApi = defaultProjectsPoiWriteApi,
 }: UseMapDeleteSelectionParams) {
   const queryClient = useQueryClient();
   const [deleteConfirm, setDeleteConfirm] = useState<DeleteConfirmState>(null);
@@ -64,7 +75,7 @@ export function useMapDeleteSelection({
       const currentInfra =
         queryClient.getQueryData<InfraObject[]>(['infra', projectId]) ?? infraObjects;
       const deleteIds = expandInfraDeleteIds([id], currentInfra);
-      await api.deleteInfraObject(projectId!, id);
+      await mapApi.deleteInfraObject(projectId!, id);
       return [...deleteIds];
     },
     onMutate: async (id) => {
@@ -128,7 +139,7 @@ export function useMapDeleteSelection({
       const poiIds = items.filter((sel) => sel.kind === 'poi').map((sel) => sel.id);
       const total = poiIds.length + allInfraIds.size;
 
-      await api.batchDeleteMapObjects(
+      await mapApi.batchDeleteMapObjects(
         projectId!,
         {
           object_ids: infraApiIds,
@@ -272,7 +283,7 @@ export function useMapDeleteSelection({
     if (featureSel.kind === 'poi') {
       const poi = pois.find((p) => p.id === featureSel.id);
       if (!poi) return;
-      api
+      poiApi
         .deletePoi(projectId, poi.id)
         .then(() => {
           pushUndo({

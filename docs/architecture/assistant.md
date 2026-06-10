@@ -87,8 +87,9 @@ flowchart TB
 | **5** | ✅ | +6 domain tools (тарифы, cancel job, admin journal); UX чата (chips, tool log) |
 | **6** | ✅ | Все GET read-only API → 32 tools с RBAC по роли |
 | **7** | planned | Tool routing, форматирование ответов, context fallback, status hints |
-| **8** | partial | ✅ 8.1 SSE, 8.3 UI-контекст, 8.4 chips, 8.5 MCP resources; 8.2 история в БД — planned |
+| **8** | ✅ | 8.1 SSE, 8.2 история в БД, 8.3 UI-контекст, 8.4 chips, 8.5 MCP resources |
 | **9** | ✅ | Mutating tools + confirm, HTTP MCP block, audit log, rate limits, MCP UX, dev domain proxy, admin LLM override |
+| **10** | ✅ | Product wiki: `docs/wiki/`, bundle, `search_wiki` tools, MCP `wiki://*`, chat routing `help` |
 
 ---
 
@@ -238,15 +239,22 @@ sequenceDiagram
     Orch->>LLM: chat/completions + tools[]
     LLM-->>Orch: tool_calls or text
     Orch->>Reg: execute_tool (read-only)
+    Orch->>Orch: formatters.try_server_answer_after_tools
+    alt formatter match
+      Orch-->>UI: ChatResponse (answer_source=formatter)
+    else LLM synthesis
+      Orch->>LLM: chat/completions (no tools)
+      Orch-->>UI: ChatResponse (answer_source=llm)
+    end
     Orch-->>UI: pending_action (mutating)
   end
   UI->>API: confirm_action_id
   API->>Reg: execute_tool (mutating)
 ```
 
-**LLM:** OpenAI-compatible HTTP (`httpx`) — один клиент для LM Studio (локально `http://127.0.0.1:1234/v1`) и облака на prod (`ASSISTANT_LLM_BASE_URL` в `app.env`).
+**LLM:** OpenAI-compatible HTTP (`httpx`) — один клиент для Ollama, LM Studio (локально) и облака (OpenRouter и др.) через `ASSISTANT_LLM_*` в `.env` / `app.env`. `probe_provider()` — только `GET …/models`; ошибки chat (`429`, `401`, …) → `ChatError` с кодами `llm_rate_limit`, `llm_auth`, … и русские подсказки в UI ([`chatErrors.ts`](../../decision-matrix/frontend/src/lib/assistant/chatErrors.ts)).
 
-**Ответ:** `POST /assistant/chat` — цельный JSON (`ChatResponse`); `POST /assistant/chat/stream` — SSE (`token`, `tool_start`, `tool_done`, `pending_action`, `done`, `error`). UI: `fetch` + `ReadableStream` (POST + CSRF).
+**Ответ:** `POST /assistant/chat` — цельный JSON (`ChatResponse`: `message`, `tool_calls_made`, `pending_action?`, `answer_source?`); `POST /assistant/chat/stream` — SSE (`token`, `tool_start`, `tool_done`, `pending_action`, `done`, `error`). UI: `fetch` + `ReadableStream` (POST + CSRF).
 
 **История:** session-only в React state (без БД).
 
@@ -329,12 +337,24 @@ sequenceDiagram
 | ID | Задача | Код / артефакты | Статус |
 |----|--------|-----------------|--------|
 | 7.1 | Категорийный роутинг tools | [`chat/tool_router.py`](../../decision-matrix/backend/app/assistant/chat/tool_router.py); `categories` на `ToolDefinition`; `_tools_for_llm(ctx, request)` → 5–12 tools; `ASSISTANT_CHAT_MAX_ROUTED_TOOLS` | ✅ |
-| 7.2 | Форматирование ответов | [`chat/response_formatters.py`](../../decision-matrix/backend/app/assistant/chat/response_formatters.py) — infra, проекты, POI, jobs, тарифы; [`job_labels.py`](../../decision-matrix/backend/app/assistant/chat/job_labels.py), [`rate_labels.py`](../../decision-matrix/backend/app/assistant/chat/rate_labels.py) | ✅ |
+| 7.2 | Форматирование ответов | [`chat/formatters/`](../../decision-matrix/backend/app/assistant/chat/formatters/) — реестр `FormatterSpec`, tool-first для list/count; анализ POI, admin, потоки/песок, misc read-tools; `answer_source` в `ChatResponse` | ✅ |
 | 7.3 | Fallback при переполнении контекста | `llm_client.py` / orchestrator: catch `llm_http` + «context» → retry без tools или core-set | planned |
-| 7.4 | Расширенный `/assistant/status` | `min_context_recommended`, `tools_count`, `model_hint` | planned |
+| 7.4 | Расширенный `/assistant/status` | `formatters_count`, `formatter_tools`; planned: `min_context_recommended`, `tools_count`, `model_hint` | частично ✅ |
 | 7.5 | Тесты | `test_assistant_tool_router.py`, `test_assistant_response_formatters.py`, интеграция в `test_assistant_chat.py` | ✅ |
 
-**Server formatters (7.2):** после успешного tool-вызова оркестратор вызывает `try_server_answer_after_tools()` — при совпадении intent + tool ответ идёт **без LLM** (числа и списки из API, не галлюцинации). Покрыто: `list_infra_objects`, `list_projects`, `list_pois`, `get_project_job` / `list_project_jobs`, `get_cost_rates` / `get_economic_params`.
+**Server formatters (7.2):** после tool round оркестратор вызывает `formatters/registry.try_server_answer_after_tools()` — ответ **без LLM** при совпадении matcher'а или единственной ошибке tool (`answer_source`: `formatter` | `tool_error` | `llm`). Tool-first для `list_projects`, `list_pois`, `list_infra_objects`, `list_infra_layers`. Полный список tools — `GET /assistant/status` → `formatter_tools`.
+
+Структура пакета:
+
+```
+chat/formatters/
+  registry.py    # FormatterSpec, try_server_answer_after_tools
+  counts.py      # list/count, get_project
+  analysis.py    # POI analysis, candidates
+  jobs.py, rates.py, admin.py, flow_sand.py, misc.py, errors.py
+```
+
+Подробнее: [`formatters/README.md`](../../decision-matrix/backend/app/assistant/chat/formatters/README.md).
 
 **Зависимости:** 7.1 — основа для 7.3; 7.2 можно параллельно с 7.1.
 
@@ -353,7 +373,7 @@ sequenceDiagram
 | ID | Задача | Код / артефакты | Критерий готовности |
 |----|--------|-----------------|---------------------|
 | 8.1 | SSE streaming | ✅ `POST /assistant/chat/stream`; `postChatStream` + [`AssistantPanel.tsx`](../../decision-matrix/frontend/src/components/assistant/AssistantPanel.tsx); события `token`, `tool_start`, `tool_done`, `pending_action`, `done` | Текст появляется до завершения запроса |
-| 8.2 | История чата в БД | `AssistantChatSession`, `AssistantMessage`; API list/create session; UI выбор сессии | История после F5 |
+| 8.2 | История чата в БД | ✅ `AssistantChatSession`, `AssistantChatMessage`; `GET/POST /assistant/sessions`; `history.py`; UI selector | История после F5 |
 | 8.3 | Богатый контекст UI | ✅ `ChatRequest`: `project_name`, `selected_poi_id`, `active_tab`; [`assistantContext.ts`](../../decision-matrix/frontend/src/lib/assistant/assistantContext.ts); `_build_system_prompt()` | Меньше уточнений «какой проект?» |
 | 8.4 | Контекстные chips | ✅ [`getQuickCommands`](../../decision-matrix/frontend/src/lib/assistant/toolLabels.ts) по `pathname` и роли | На `/map` — «Объекты на карте»; admin — «Статистика» |
 | 8.5 | MCP resources (read-only) | ✅ `docs://calculation-logic`, `docs://infrastructure-subtypes`, `openapi://v1` в [`transport/resources.py`](../../decision-matrix/backend/app/assistant/transport/resources.py) | `resources/list` в Cursor без 32 tools в prompt |
@@ -362,8 +382,6 @@ sequenceDiagram
 **Зависимости:** 8.1 не блокирует 8.2; 8.3 параллельно с 8.1.
 
 **Риски:** SSE + CSRF/cookies — проверить proxy Vite и prod CORS.
-
-**Вне scope:** история чата в БД (8.2).
 
 ---
 
@@ -390,3 +408,25 @@ sequenceDiagram
 **Вне scope:** полный proxy всех REST write endpoints; SSE (фаза 8).
 
 Подробнее: [assistant-tools.md §8](../features/assistant-tools.md).
+
+---
+
+## 19. Product wiki (фаза 10) ✅
+
+**Цель:** проверяемая справка о продукте для LLM (веб-чат и HTTP MCP), без смешения с live data.
+
+### Задачи
+
+| ID | Задача | Код / артефакты | Критерий готовности |
+|----|--------|-----------------|---------------------|
+| 10.1 | Контент wiki | [`docs/wiki/`](../wiki/), 8+ статей с frontmatter | Русский how-to по разделам UI |
+| 10.2 | Bundle + sync | [`scripts/sync-assistant-wiki.py`](../../scripts/sync-assistant-wiki.py), `knowledge/bundle/` | Docker prod без monorepo root |
+| 10.3 | Store + search | [`knowledge/store.py`](../../decision-matrix/backend/app/assistant/knowledge/store.py) | RBAC по `roles` в manifest |
+| 10.4 | Chat tools | `list_wiki_articles`, `search_wiki`, `get_wiki_article`; `CAT_HELP` в router | Wiki tools всегда в routed set |
+| 10.5 | MCP resources | `wiki://{slug}`, `wiki://index`; `docs://*` из bundle | `resources/read` в Cursor |
+| 10.6 | Status + UX | `wiki_enabled` в `/assistant/status`; chips «Справка» в UI | Пользователь видит подсказки |
+
+| 10.2 | Wiki RAG | [`knowledge/rag.py`](../../decision-matrix/backend/app/assistant/knowledge/rag.py) | ✅ hybrid keyword + TF-IDF/embeddings |
+| — | Админ-редактор wiki в БД | — | вне scope |
+
+Подробнее: [assistant-tools.md §15](../features/assistant-tools.md).

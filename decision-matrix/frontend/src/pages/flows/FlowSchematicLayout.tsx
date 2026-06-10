@@ -7,7 +7,7 @@ import { useProjectPois } from '../../hooks/useProjectData';
 import { queryKeys } from '../../lib/queryKeys';
 import { GitBranch, Coins, Truck, Workflow } from 'lucide-react';
 import { AppSelect } from '../../components/AppSelect';
-import { api, type POI } from '../../lib/api';
+import { defaultFlowSchematicApi, defaultProjectsPoiWriteApi, type POI } from '../../lib/api';
 import type { FlowSchematicDto } from '../../lib/flowSchematic';
 import { WARNING_LABELS } from '../../lib/flowSchematic';
 import { useAppStore } from '../../store';
@@ -44,7 +44,7 @@ export function FlowSchematicLayout() {
 
   const schematicQuery = useQuery({
     queryKey: ['flow-schematic', projectId, activePoiId],
-    queryFn: () => api.getFlowSchematic(projectId!, activePoiId),
+    queryFn: () => defaultFlowSchematicApi.getFlowSchematic(projectId!, activePoiId),
     enabled: !!projectId && !!activePoiId,
   });
 
@@ -53,13 +53,13 @@ export function FlowSchematicLayout() {
 
   const economicQuery = useQuery({
     queryKey: ['economic-flow-schematic', projectId, activePoiId],
-    queryFn: () => api.getEconomicFlowSchematic(projectId!, activePoiId),
+    queryFn: () => defaultFlowSchematicApi.getEconomicFlowSchematic(projectId!, activePoiId),
     enabled: !!projectId && !!activePoiId && !!schematic && !isError,
   });
 
   const persistSchematicMut = useMutation({
     mutationFn: (dto: FlowSchematicDto) =>
-      api.saveFlowSchematic(projectId!, activePoiId, {
+      defaultFlowSchematicApi.saveFlowSchematic(projectId!, activePoiId, {
         nodes: dto.nodes,
         edges: dto.edges,
       }),
@@ -73,7 +73,7 @@ export function FlowSchematicLayout() {
 
   const saveMut = useMutation({
     mutationFn: (dto: FlowSchematicDto) =>
-      api.saveFlowSchematic(projectId!, activePoiId, {
+      defaultFlowSchematicApi.saveFlowSchematic(projectId!, activePoiId, {
         nodes: dto.nodes,
         edges: dto.edges,
       }),
@@ -91,7 +91,9 @@ export function FlowSchematicLayout() {
 
   const poiProductionMut = useMutation({
     mutationFn: (volume: number) =>
-      api.updatePoi(projectId!, activePoiId, { planned_production_volume: volume }),
+      defaultProjectsPoiWriteApi.updatePoi(projectId!, activePoiId, {
+        planned_production_volume: volume,
+      }),
     onSuccess: (updated) => {
       queryClient.setQueryData<POI[]>(queryKeys.pois(projectId!), (old) =>
         old?.map((p) => (p.id === updated.id ? { ...p, ...updated } : p)) ?? []
@@ -103,7 +105,7 @@ export function FlowSchematicLayout() {
   });
 
   const resetMut = useMutation({
-    mutationFn: () => api.resetFlowSchematic(projectId!, activePoiId),
+    mutationFn: () => defaultFlowSchematicApi.resetFlowSchematic(projectId!, activePoiId),
     onSuccess: (data) => {
       queryClient.setQueryData(['flow-schematic', projectId, activePoiId], data);
       void queryClient.invalidateQueries({ queryKey: ['flow-schematic', projectId, activePoiId] });

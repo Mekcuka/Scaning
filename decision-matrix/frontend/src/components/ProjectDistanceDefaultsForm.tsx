@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { Save } from 'lucide-react';
-import { api, type DistanceDefaults } from '../lib/api';
+import { defaultProjectsRatesApi, type DistanceDefaults } from '../lib/api';
 import { useAppStore } from '../store';
 import { usePermissions } from '../hooks/usePermissions';
 import { DISTANCE_PARAMETER_GROUPS } from '../lib/parameterCatalog';
@@ -27,7 +27,7 @@ export function ProjectDistanceDefaultsForm({
 
   const { data, isLoading } = useQuery({
     queryKey: ['distanceDefaults', projectId],
-    queryFn: () => api.getDistanceDefaults(projectId),
+    queryFn: () => defaultProjectsRatesApi.getDistanceDefaults(projectId),
     enabled: !!projectId,
   });
 
@@ -36,7 +36,8 @@ export function ProjectDistanceDefaultsForm({
   }, [data]);
 
   const saveMut = useMutation({
-    mutationFn: (payload: Partial<DistanceDefaults>) => api.updateDistanceDefaults(projectId, payload),
+    mutationFn: (payload: Partial<DistanceDefaults>) =>
+      defaultProjectsRatesApi.updateDistanceDefaults(projectId, payload),
     onSuccess: (row) => {
       setValues(row);
       qc.invalidateQueries({ queryKey: ['distanceDefaults', projectId] });

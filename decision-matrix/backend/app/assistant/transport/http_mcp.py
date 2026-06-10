@@ -16,7 +16,7 @@ from pydantic import AnyUrl
 from starlette.types import ASGIApp
 
 from app.assistant.context import ToolContext, ToolEnv
-from app.assistant.registry import execute_tool, get_tool, list_tools as registry_list_tools
+from app.assistant.ports.tool_registry_port import default_tool_registry
 from app.assistant.schemas import ToolResult
 from app.assistant.transport.auth import McpAuthMiddleware, require_mcp_user
 from app.assistant.transport.resources import list_mcp_resources, read_mcp_resource
@@ -43,7 +43,7 @@ class AtlasGridMCP(FastMCP):
         user = require_mcp_user()
         async with async_session() as db:
             ctx = ToolContext(user=user, db=db, env=_tool_env(), tool_source="mcp")
-            metas = registry_list_tools(ctx)
+            metas = default_tool_registry.list_tools(ctx)
         return [
             MCPTool(name=m.name, description=m.description, inputSchema=m.input_schema)
             for m in metas
@@ -51,13 +51,13 @@ class AtlasGridMCP(FastMCP):
 
     async def call_tool(self, name: str, arguments: dict[str, Any]) -> Sequence[TextContent]:
         user = require_mcp_user()
-        defn = get_tool(name)
+        defn = default_tool_registry.get_tool(name)
         if defn and defn.mutating:
             result = ToolResult(ok=False, error=_MCP_CONFIRM_REQUIRED_MSG, code="confirm_required")
             return [TextContent(type="text", text=json.dumps(result.model_dump(), ensure_ascii=False))]
         async with async_session() as db:
             ctx = ToolContext(user=user, db=db, env=_tool_env(), tool_source="mcp")
-            result = await execute_tool(name, arguments or {}, ctx)
+            result = await default_tool_registry.execute_tool(name, arguments or {}, ctx)
         return [TextContent(type="text", text=json.dumps(result.model_dump(), ensure_ascii=False))]
 
     async def list_resources(self) -> list[MCPResource]:

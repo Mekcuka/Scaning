@@ -20,7 +20,7 @@ def upgrade() -> None:
         sa.Column("user_id", sa.Uuid(), nullable=False),
         sa.Column("tool_name", sa.String(128), nullable=False),
         sa.Column("args_hash", sa.String(64), nullable=False),
-        sa.Column("ok", sa.Boolean(), nullable=False, server_default=sa.text("0")),
+        sa.Column("ok", sa.Boolean(), nullable=False, server_default=sa.text("false")),
         sa.Column("code", sa.String(32), nullable=True),
         sa.Column("source", sa.String(16), nullable=False, server_default="chat"),
         sa.Column(

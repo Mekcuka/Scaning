@@ -11,7 +11,8 @@ from app.assistant.context import ToolContext
 from app.assistant.errors import ToolError
 from app.assistant.registry import register_tool
 from app.assistant.tools.base import ToolDefinition
-from app.assistant.tools.categories import CAT_PROJECTS, CAT_RATES, cats
+from app.assistant.poi_engineering import engineering_fields_from_model
+from app.assistant.tools.categories import CAT_ANALYSIS, CAT_PROJECTS, CAT_RATES, cats
 from app.models import PointOfInterest, Project, ProjectDistanceDefaults, User
 from app.models.enums import AccessLevel, UserRole, WriteScope
 from app.schemas import DistanceDefaultsResponse, POICreate
@@ -40,6 +41,11 @@ class CreatePoiInput(BaseModel):
     lon: float
     lat: float
     description: str | None = None
+
+
+class GetPoiInput(BaseModel):
+    project_id: UUID
+    poi_id: UUID
 
 
 async def _list_projects(ctx: ToolContext, _args: ListProjectsInput) -> list[dict]:
@@ -108,6 +114,23 @@ async def _create_poi(ctx: ToolContext, args: CreatePoiInput) -> dict:
     return poi_to_response(poi).model_dump(mode="json")
 
 
+async def _get_poi(ctx: ToolContext, args: GetPoiInput) -> dict:
+    await resolve_project(
+        args.project_id, ctx.user, ctx.db, min_access=AccessLevel.read, write_scope=WriteScope.project
+    )
+    poi = await ctx.db.scalar(
+        select(PointOfInterest).where(
+            PointOfInterest.id == args.poi_id,
+            PointOfInterest.project_id == args.project_id,
+        )
+    )
+    if not poi:
+        raise ToolError("not_found", "POI not found")
+    data = poi_to_response(poi).model_dump(mode="json")
+    data["engineering_labels_ru"] = engineering_fields_from_model(poi)
+    return data
+
+
 async def _list_pois(ctx: ToolContext, args: ProjectIdInput) -> list[dict]:
     await resolve_project(
         args.project_id, ctx.user, ctx.db, min_access=AccessLevel.read, write_scope=WriteScope.project
@@ -144,6 +167,19 @@ def register() -> None:
             input_model=ProjectIdInput,
             handler=_list_pois,
             categories=cats(CAT_PROJECTS),
+        )
+    )
+    register_tool(
+        ToolDefinition(
+            name="get_poi",
+            description=(
+                "Get POI card with engineering matrix settings "
+                "(электроснабжение, ППД, транспорт и т.д.). "
+                "poi_id — имя POI или из UI."
+            ),
+            input_model=GetPoiInput,
+            handler=_get_poi,
+            categories=cats(CAT_PROJECTS, CAT_ANALYSIS),
         )
     )
     register_tool(

@@ -1,7 +1,11 @@
 import { useParams, Link } from 'react-router-dom';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useState, useEffect } from 'react';
-import { api, normalizePoiAnalysisResponse } from '../lib/api';
+import {
+  defaultMapAnalysisApi,
+  defaultProjectsDataApi,
+  normalizePoiAnalysisResponse,
+} from '../lib/api';
 import { analyzeAllPoisAndWait } from '../lib/runApiJob';
 import { useAppStore } from '../store';
 import { usePermissions } from '../hooks/usePermissions';
@@ -26,13 +30,13 @@ export function ProjectDetailPage() {
 
   const { data: project } = useQuery({
     queryKey: ['project', id],
-    queryFn: () => api.getProject(id!),
+    queryFn: () => defaultProjectsDataApi.getProject(id!),
     enabled: !!id,
   });
 
   const { data: pois = [] } = useQuery({
     queryKey: ['pois', id],
-    queryFn: () => api.getPois(id!),
+    queryFn: () => defaultProjectsDataApi.getPois(id!),
     enabled: !!id,
   });
 
@@ -48,7 +52,7 @@ export function ProjectDetailPage() {
 
   const { data: analysisData } = useQuery({
     queryKey: ['analysis', id, selectedPoiId],
-    queryFn: () => api.getPoiAnalysis(id!, selectedPoiId!),
+    queryFn: () => defaultMapAnalysisApi.getPoiAnalysis(id!, selectedPoiId!),
     enabled: !!id && !!selectedPoiId,
     retry: false,
   });
@@ -88,7 +92,7 @@ export function ProjectDetailPage() {
       force: boolean;
       param_type: 'external' | 'external_linear';
     }) =>
-      api.overrideAnalysis(id!, selectedPoiId!, subtype, {
+      defaultMapAnalysisApi.overrideAnalysis(id!, selectedPoiId!, subtype, {
         force_construction: force,
         param_type,
       }),

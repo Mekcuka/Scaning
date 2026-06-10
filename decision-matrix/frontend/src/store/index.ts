@@ -1,6 +1,13 @@
 import { create } from 'zustand';
 import { hasStoredAuthTokens } from '../lib/authSession';
-import { api, clearServerSession, isCrossOriginApi, syncClientAuthSession, type AuthUser } from '../lib/api';
+import {
+  defaultAuthApi,
+  clearServerSession,
+  isCrossOriginApi,
+  syncClientAuthSession,
+  type AuthApiPort,
+  type AuthUser,
+} from '../lib/api';
 
 /** Ignore stale fetchUser() after login/register/logout. */
 let authEpoch = 0;
@@ -10,8 +17,10 @@ function bumpAuthEpoch(): number {
   return authEpoch;
 }
 
+const authApi: AuthApiPort = defaultAuthApi;
+
 async function confirmSession(epoch: number): Promise<AuthUser> {
-  const me = await api.me();
+  const me = await authApi.me();
   if (epoch !== authEpoch) {
     throw new Error('Сессия прервана');
   }
@@ -34,7 +43,7 @@ export const useAuthStore = create<AuthState>((set) => ({
   login: async (email, password) => {
     const epoch = bumpAuthEpoch();
     await clearServerSession();
-    const user = await api.login(email, password);
+    const user = await authApi.login(email, password);
     if (epoch !== authEpoch) return;
     try {
       const me = await confirmSession(epoch);
@@ -45,7 +54,7 @@ export const useAuthStore = create<AuthState>((set) => ({
   },
   register: async (email, password, username) => {
     const epoch = bumpAuthEpoch();
-    const user = await api.register(email, password, username);
+    const user = await authApi.register(email, password, username);
     if (epoch !== authEpoch) return;
     try {
       const me = await confirmSession(epoch);
@@ -67,7 +76,7 @@ export const useAuthStore = create<AuthState>((set) => ({
         set({ user: null });
         return;
       }
-      const user = await api.me();
+      const user = await authApi.me();
       if (epoch !== authEpoch) return;
       if (user) {
         await syncClientAuthSession();
@@ -86,7 +95,7 @@ export const useAuthStore = create<AuthState>((set) => ({
   refreshUser: async () => {
     const epoch = authEpoch;
     try {
-      const user = await api.me();
+      const user = await authApi.me();
       if (epoch !== authEpoch) return;
       set({ user });
     } catch {

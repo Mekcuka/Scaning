@@ -2,7 +2,12 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import type { UseMutationResult } from '@tanstack/react-query';
 import { useQueryClient } from '@tanstack/react-query';
 import type { DrawMode, MapClickHit, MapFeatureSelection } from '../components/MapView';
-import { api, type InfraObject, type InfraObjectCreate } from '../lib/api';
+import {
+  defaultMapMutationsApi,
+  type InfraObject,
+  type InfraObjectCreate,
+  type MapMutationsApiPort,
+} from '../lib/api';
 import { applyInfraLineSplit, resolveLineSplitCandidate, type LineSplitHint } from '../lib/applyInfraLineSplit';
 import { normalizeLinePathEndpoints } from '../lib/lineEndpointRules';
 import {
@@ -27,6 +32,7 @@ export type UseMapLineDrawingParams = {
   upsertInfraInCache: (created: InfraObject) => void;
   nextAutoName: (subtype: string) => string;
   setFeatureSel: (sel: MapFeatureSelection | null) => void;
+  mapApi?: MapMutationsApiPort;
 };
 
 export function useMapLineDrawing({
@@ -41,6 +47,7 @@ export function useMapLineDrawing({
   upsertInfraInCache,
   nextAutoName,
   setFeatureSel,
+  mapApi = defaultMapMutationsApi,
 }: UseMapLineDrawingParams) {
   const queryClient = useQueryClient();
   const [lineDraft, setLineDraft] = useState<number[][]>([]);
@@ -231,7 +238,7 @@ export function useMapLineDrawing({
           const rLon = splitFound?.snapLon ?? resolved.lon;
           const rLat = splitFound?.snapLat ?? resolved.lat;
           try {
-            const node = await api.createInfraObject(projectId, {
+            const node = await mapApi.createInfraObject(projectId, {
               name: nextAutoName('node'),
               subtype: 'node',
               lon: rLon,
@@ -245,6 +252,7 @@ export function useMapLineDrawing({
             if (splitFound) {
               try {
                 const splitResult = await applyInfraLineSplit({
+                  mapApi,
                   projectId,
                   split: splitFound,
                   splitLon: rLon,
@@ -269,7 +277,7 @@ export function useMapLineDrawing({
                 }
               } catch (splitErr) {
                 try {
-                  await api.deleteInfraObject(projectId, node.id);
+                  await mapApi.deleteInfraObject(projectId, node.id);
                 } catch {
                   /* ignore rollback failure */
                 }

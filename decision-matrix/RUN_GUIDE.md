@@ -104,6 +104,26 @@ npm run dev
 
 Аутентификация через **httpOnly cookies** (не localStorage). Подробнее: [docs/architecture/auth-rbac.md](../docs/architecture/auth-rbac.md).
 
+### Wiki для AI-помощника (фаза 10)
+
+Исходники: [`docs/wiki/`](../docs/wiki/). После редактирования статей синхронизируйте bundle:
+
+```powershell
+python C:\Users\user\Documents\Cursore\scripts\sync-assistant-wiki.py
+```
+
+Проверка актуальности: `python scripts/sync-assistant-wiki.py --check`. Подробнее: [knowledge/README.md](backend/app/assistant/knowledge/README.md).
+
+### AI-помощник и LLM (ошибки)
+
+Настройка в `backend/.env` — см. [`.env.example`](backend/.env.example) (Ollama, LM Studio, OpenRouter).
+
+- `GET /api/v1/assistant/status` → `provider_ready: true` только если отвечает `GET …/models`.
+- Если при отправке сообщения ошибка **OpenRouter 429** — исчерпан лимит бесплатной модели (`:free`); смените `ASSISTANT_LLM_MODEL` или подождите.
+- Сообщения в панели помощника зависят от провайдера ([`frontend/src/lib/assistant/chatErrors.ts`](frontend/src/lib/assistant/chatErrors.ts)).
+
+Подробнее: [chat/README.md](backend/app/assistant/chat/README.md), [assistant-tools.md §10](../docs/features/assistant-tools.md).
+
 ### Пересоздание demo-пользователей
 
 ```powershell

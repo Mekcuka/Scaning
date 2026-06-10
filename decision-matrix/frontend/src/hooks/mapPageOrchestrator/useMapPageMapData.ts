@@ -4,7 +4,12 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { buildMapFitAllFocus } from '../../lib/analysisDisplay';
 import { setProjectCustomGltfAssets } from '../../lib/map3d/map3dCustomAssets';
 import { clearGltfPrototypeCache } from '../../lib/map3d/map3dGltfLoader';
-import { api } from '../../lib/api';
+import {
+  defaultMapDataApi,
+  defaultProjectsMapSettingsApi,
+  type MapDataApiPort,
+  type ProjectsMapSettingsApiPort,
+} from '../../lib/api';
 import { useMapInfraData } from '../useMapInfraData';
 import { useMapSearchFilter } from '../useMapSearchFilter';
 import { useMapSelection } from '../useMapSelection';
@@ -25,8 +30,18 @@ export function useMapPageMapData(params: {
   layerPrefs: LayerPrefs;
   setLayerPrefs: ReturnType<typeof useMapLayerPreferences>['setPrefs'];
   pushToast: (type: 'error' | 'info' | 'success', message: string) => void;
+  mapDataApi?: MapDataApiPort;
+  mapSettingsApi?: ProjectsMapSettingsApiPort;
 }) {
-  const { projectId, edit, layerPrefs, setLayerPrefs, pushToast } = params;
+  const {
+    projectId,
+    edit,
+    layerPrefs,
+    setLayerPrefs,
+    pushToast,
+    mapDataApi = defaultMapDataApi,
+    mapSettingsApi = defaultProjectsMapSettingsApi,
+  } = params;
   const effectiveProjectId = projectId ?? undefined;
   const { showPoisOnMap, subtypeFilter } = layerPrefs;
   const queryClient = useQueryClient();
@@ -40,7 +55,7 @@ export function useMapPageMapData(params: {
 
   const { data: distanceDefaults } = useQuery({
     queryKey: ['distance-defaults', projectId],
-    queryFn: () => api.getDistanceDefaults(projectId!),
+    queryFn: () => mapSettingsApi.getDistanceDefaults(projectId!),
     enabled: !!projectId,
   });
 
@@ -48,7 +63,7 @@ export function useMapPageMapData(params: {
 
   const layerVisibilityMut = useMutation({
     mutationFn: ({ layerId, is_visible }: { layerId: string; is_visible: boolean }) =>
-      api.updateLayer(projectId!, layerId, { is_visible }),
+      mapDataApi.updateLayer(projectId!, layerId, { is_visible }),
     onSuccess: () => {
       if (projectId) queryClient.invalidateQueries({ queryKey: queryKeys.layers(projectId) });
     },
@@ -89,7 +104,7 @@ export function useMapPageMapData(params: {
 
   const { data: map3dCustomModels = [] } = useQuery({
     queryKey: ['map3d-custom-models', projectId],
-    queryFn: () => api.listMap3dCustomModels(projectId!),
+    queryFn: () => mapDataApi.listMap3dCustomModels(projectId!),
     enabled: !!projectId,
   });
 

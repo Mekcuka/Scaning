@@ -1,6 +1,13 @@
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import type { SelectedFeature } from '../components/ObjectDetailPanel';
-import { api, type InfraObject, type POI } from '../lib/api';
+import {
+  defaultMapMutationsApi,
+  defaultProjectsPoiWriteApi,
+  type InfraObject,
+  type MapMutationsApiPort,
+  type POI,
+  type ProjectsPoiWriteApiPort,
+} from '../lib/api';
 import { upsertInfraObjectInQueries } from '../lib/mapQueries';
 import {
   infraDetailUndo,
@@ -13,6 +20,8 @@ export type UseMapDetailSaveParams = {
   detailSelection: SelectedFeature | null;
   pushUndo: (entry: MapUndoEntry) => void;
   pushToast: (kind: 'success' | 'error' | 'info', message: string) => void;
+  mapApi?: MapMutationsApiPort;
+  poiApi?: ProjectsPoiWriteApiPort;
 };
 
 export function useMapDetailSave({
@@ -20,6 +29,8 @@ export function useMapDetailSave({
   detailSelection,
   pushUndo,
   pushToast,
+  mapApi = defaultMapMutationsApi,
+  poiApi = defaultProjectsPoiWriteApi,
 }: UseMapDetailSaveParams) {
   const queryClient = useQueryClient();
 
@@ -27,12 +38,12 @@ export function useMapDetailSave({
     mutationFn: async (data: Record<string, unknown>) => {
       if (!detailSelection) return;
       if (detailSelection.kind === 'poi') {
-        return api.updatePoi(projectId!, detailSelection.poi.id, data as Partial<POI> & {
+        return poiApi.updatePoi(projectId!, detailSelection.poi.id, data as Partial<POI> & {
           lon?: number;
           lat?: number;
         });
       }
-      return api.updateInfraObject(projectId!, detailSelection.object.id, {
+      return mapApi.updateInfraObject(projectId!, detailSelection.object.id, {
         name: data.name as string,
         description: data.description as string,
         subtype: data.subtype as string,
