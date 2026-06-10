@@ -9,10 +9,9 @@ from app.assistant.chat.orchestrator import run_chat, run_chat_stream
 from app.assistant.chat.schemas import AssistantStatusResponse, ChatRequest, ChatResponse
 from app.assistant.chat.sse import sse_response
 from app.assistant.llm_override import apply_llm_override, get_effective_llm_config, llm_override_snapshot
-from app.assistant.rate_limit import assistant_rate_limit_key, chat_rate_limit_value
+from app.assistant.rate_limit import enforce_chat_rate_limit
 from app.core.config import settings
 from app.core.database import get_db
-from app.core.rate_limit import limiter
 from app.models import User
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -56,12 +55,12 @@ async def assistant_status() -> AssistantStatusResponse:
 
 
 @assistant_router.post("/chat", response_model=ChatResponse)
-@limiter.limit(chat_rate_limit_value, key_func=assistant_rate_limit_key)
 async def assistant_chat(
     request: Request,
     body: ChatRequest,
     user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
+    _: None = Depends(enforce_chat_rate_limit),
 ) -> ChatResponse:
     _ensure_chat_enabled()
     try:
@@ -74,12 +73,12 @@ async def assistant_chat(
 
 
 @assistant_router.post("/chat/stream")
-@limiter.limit(chat_rate_limit_value, key_func=assistant_rate_limit_key)
 async def assistant_chat_stream(
     request: Request,
     body: ChatRequest,
     user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
+    _: None = Depends(enforce_chat_rate_limit),
 ) -> StreamingResponse:
     _ensure_chat_enabled()
     try:
