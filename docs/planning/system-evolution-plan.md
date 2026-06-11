@@ -281,7 +281,7 @@ gantt
 
 | # | Инициатива | Результат | Зависимости |
 |---|------------|-----------|-------------|
-| H0.1 | Volume для `map3d_models` + бэкап БД | Custom GLB переживают redeploy | `deploy/docker-compose.yml` |
+| H0.1 | Volume для `map3d_models` + бэкап БД | Custom GLB переживают redeploy | `deploy/docker-compose.yml`, [map3d-models-storage.md](../deploy/map3d-models-storage.md) — **✅ volume на prod (2026-06)**; бэкап каталога — в runbook |
 | H0.2 | Smoke-suite prod | Чеклист после релиза в CI или runbook | DEPLOY §5 |
 | H0.3 | Структурированные логи + ротация | JSON/stderr, уровни по `ENVIRONMENT` | backend logging config |
 | H0.4 | Алерты uptime | UptimeRobot / YC Monitoring на `/health` | APP_DOMAIN |

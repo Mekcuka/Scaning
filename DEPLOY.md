@@ -240,17 +240,41 @@ ssh -i "C:\Users\user\Documents\mykey\ssh-key\ssh-key-1779903372392" vovavolgin9
 
 ### Custom GLB на VM (хранение)
 
-Файлы: `backend/data/map3d_models/{project_id}/{uuid}.glb` внутри контейнера backend.  
-При деплое без постоянного volume каталог **обнуляется** — записи в БД остаются, `GET .../file` отдаёт **404 Model file not found on disk**.
+**Реализовано (H0.1):** bind-mount в `deploy/docker-compose.yml` для `api` и `worker`:
 
-Рекомендация для prod: смонтировать volume в `deploy/docker-compose.yml` на путь `data/map3d_models` (или вынести в object storage — post-MVP).
+```text
+/opt/decision-matrix/shared/map3d_models  →  /app/data/map3d_models
+```
+
+Файлы: `{project_id}/{uuid}.glb` (в контейнере — `/app/data/map3d_models/...`). Метаданные — таблица `project_map3d_models` (миграция **`022`**). Миграции применяются при старте API (`alembic upgrade head`); в `/health` поле `alembic_head` должно содержать `022_map3d_model_metadata`.
+
+#### One-time: каталог на VM (до или сразу после первого деплоя с volume)
+
+```bash
+ssh -i "<key>" <VM_USER>@<VM_HOST>
+sudo mkdir -p /opt/decision-matrix/shared/map3d_models
+sudo chmod 755 /opt/decision-matrix/shared/map3d_models
+```
+
+Проверка mount:
+
+```bash
+docker inspect decision-matrix-api --format '{{range .Mounts}}{{.Source}} -> {{.Destination}}{{println}}{{end}}' | grep map3d
+ls -la /opt/decision-matrix/shared/map3d_models/
+```
+
+Опционально в `/opt/decision-matrix/shared/app.env`: `MAP3D_MODELS_ROOT=/app/data/map3d_models` (по умолчанию тот же путь).
+
+Подробнее: [docs/deploy/map3d-models-storage.md](docs/deploy/map3d-models-storage.md), [map-3d-features.md](docs/features/map-3d-features.md) § Custom GLB.
+
+**Старые GLB** (загруженные до volume): файлы на диске могли быть потеряны при redeploy — перезагрузите через «Импорт 3D». Записи в БД без файла дают `404 Model file not found on disk`.
 
 ### Типичные проблемы после релиза frontend
 
 | Симптом | Действие |
 |---------|----------|
 | «Ошибка CSRF» при upload GLB | Обновить frontend (sync Bearer/CSRF); Ctrl+F5; перелогин |
-| Custom GLB **404 (from disk cache)** на карте | Ctrl+F5; проверить наличие файла на VM; убедиться, что задеплоен frontend с `map3dCustomGlbFetch` |
+| Custom GLB **404 (from disk cache)** на карте | Ctrl+F5; на VM: `ls /opt/decision-matrix/shared/map3d_models/<project_id>/`; проверить mount и `map3dCustomGlbFetch` на frontend |
 | Bundled Kenney не грузятся | Проверить `VITE_BASE_PATH` / `/Scaning/map3d-models/` в сборке Pages |
 
 ### `/health` показывает `"environment":"development"` на prod

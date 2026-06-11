@@ -644,7 +644,7 @@ sequenceDiagram
 | `render_3d_model_id` | string | переопределение точки: пусто — Kenney по подтипу; `custom:{uuid}` — GLB, назначенный на подтип |
 | `render_3d_scale` | number | множитель 0.1–10 (по умолчанию 1) |
 
-**Custom GLB:** `project_map3d_models.assigned_subtypes` (массив подтипов); страница `/import-3d`; PATCH `custom:*` только если подтип объекта в списке. Подробно: [map-3d-features.md](map-3d-features.md).
+**Custom GLB:** таблица `project_map3d_models` (`display_name`, `file_size_bytes`, `assigned_subtypes`, `usage_count` в API); страница `/import-3d` — upload, PATCH метаданных, назначение подтипов, опционально массовое `apply_to_objects`; файлы на prod: volume `/opt/decision-matrix/shared/map3d_models`. PATCH `custom:*` на объекте — только если подтип в `assigned_subtypes`. Подробно: [map-3d-features.md](map-3d-features.md), [map3d-models-storage.md](../deploy/map3d-models-storage.md).
 
 **L3 (клиент, реализовано):**
 
@@ -658,7 +658,7 @@ sequenceDiagram
 
 **Импорт:** `height_m` в CSV/GeoJSON → `render_3d_height_m`; Z в `[lon, lat, z]` → `render_3d_base_m` (`merge_geojson_render_3d`).
 
-**API:** `render_3d_effective: { height_m, base_m, visible, scale }`; `GET/POST .../map3d-custom-models`.
+**API:** `render_3d_effective: { height_m, base_m, visible, scale }`; `GET/POST/PATCH .../map3d-custom-models`, `POST .../assign` (`apply_to_objects`), `GET .../apply-preview`.
 
 **QA:** `python scripts/draw_demo_map_network.py` (backend); `npm run test -- src/lib/map3d`; `pytest tests/test_render_3d_*.py tests/test_map3d_custom_models.py`.
 

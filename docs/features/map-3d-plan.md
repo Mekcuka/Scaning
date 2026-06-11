@@ -63,7 +63,7 @@ flowchart LR
 | **L0 — геометрия 2D** | `lon`, `lat`, `coordinates`, PostGIS | всегда | да (уже есть) |
 | **L1 — стиль 3D по подтипу** | frontend `extrusionHeights.ts` + backend defaults | автоматически для всех объектов | да |
 | **L2 — переопределение на объект** | `infrastructure_objects.properties` | точная высота, скрытие, модель | фаза B |
-| **L3 — 3D-ассеты (glTF)** | `public/map3d-models/` + каталог на клиенте ([map-3d-features.md](map-3d-features.md)) | админ-загрузка, таблица в БД | **частично реализовано** |
+| **L3 — 3D-ассеты (glTF)** | bundled: `public/map3d-models/`; custom: `project_map3d_models` + volume на VM ([map-3d-features.md](map-3d-features.md), [map3d-models-storage.md](../deploy/map3d-models-storage.md)) | админ-загрузка, assign, bulk apply | **реализовано** (object storage — post-MVP) |
 
 ---
 
@@ -174,7 +174,7 @@ CREATE TABLE infrastructure_3d_assets (
 
 | Задача | Описание |
 |--------|----------|
-| **D-C1** Хранилище файлов: `/opt/decision-matrix/assets/3d/` или S3 Yandex Object Storage |
+| **D-C1** Хранилище файлов: `/opt/decision-matrix/shared/map3d_models` (bind-mount) — **✅**; S3 — post-MVP |
 | **D-C2** Admin UI: загрузка glTF, привязка к `subtype` |
 | **D-C3** `render_3d_model_id` в `properties` → MapLibre custom layer / three.js overlay |
 | **D-C4** Лимит размера, CDN, lazy load по bbox |

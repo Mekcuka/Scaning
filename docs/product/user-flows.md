@@ -176,9 +176,11 @@
 
 **Прод (GitHub Pages):** после входа клиент синхронизирует Bearer и CSRF (`syncClientAuthSession`); загрузка GLB на сервер и отображение в 3D/превью используют разные каналы — файл модели запрашивается с `Authorization: Bearer` (см. [auth-rbac.md](../architecture/auth-rbac.md), [map-3d-features.md](../features/map-3d-features.md) § custom GLB).
 
-**Если модели не видны после upload:** жёсткое обновление страницы (Ctrl+F5); проверить назначение подтипов и выбор «Модель 3D» на точке; при «404 (from disk cache)» — очистить кэш сайта.
+**Хранение на prod:** GLB на диске VM (`/opt/decision-matrix/shared/map3d_models`), bind-mount в контейнер — переживают redeploy. См. [map3d-models-storage.md](../deploy/map3d-models-storage.md).
 
-Линейные подтипы glTF не поддерживают. Подробности: [map-3d-features.md](../features/map-3d-features.md).
+**Если модели не видны после upload:** жёсткое обновление страницы (Ctrl+F5); проверить назначение подтипов и выбор «Модель 3D» на точке; при «404 (from disk cache)» — очистить кэш сайта; на VM — наличие файла в volume.
+
+Линейные подтипы glTF не поддерживают. Подробности: [map-3d-features.md](../features/map-3d-features.md), wiki [import-3d](../wiki/articles/import-3d.md).
 
 ### 2.3 Экспорт данных проекта
 

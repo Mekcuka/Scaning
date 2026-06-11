@@ -138,7 +138,7 @@ Cookies могут **не отправляться** (инкогнито, бло
 | `Request failed` / 401 после входа (localhost) | Очистите cookies; откройте `http://localhost:5173` (proxy), не задавайте `VITE_API_URL` на прямой backend |
 | CORS | В `.env` API: `CORS_ORIGINS` должен включать `https://mekcuka.github.io` (без path) |
 | CSRF validation failed / «Обновите страницу» при upload GLB | Обновите frontend (sync + retry); перелогин; при Bearer mutating CSRF не нужен |
-| Custom GLB 404 на карте после upload | Ctrl+F5 (сброс disk cache); проверьте файл на VM в `data/map3d_models/`; см. [map-3d-features.md](../features/map-3d-features.md) §12 |
+| Custom GLB 404 на карте после upload | Ctrl+F5; на VM: `ls /opt/decision-matrix/shared/map3d_models/<project_id>/`; mount и миграция `022` — [map3d-models-storage.md](../deploy/map3d-models-storage.md), [map-3d-features.md](../features/map-3d-features.md) §12 |
 
 ## Тесты
 

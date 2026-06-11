@@ -56,7 +56,7 @@
 | Фоновые задачи (admin) | `api/v1/admin_jobs.py`, `services/admin_jobs.py` | ✅ |
 | Проекты, POI, ставки, пороги | `api/v1/router.py`, `services/cost_rates.py`, `calculations.py` | ✅ |
 | Карта, слои, объекты | `api/v1/map.py` | ✅ |
-| Custom GLB 3D (`project_map3d_models`) | `api/v1/map3d_models.py`, `services/map3d_custom_models.py`, миграции `015`–`016`, **`022`** (метаданные, usage_count, bulk apply, volume `map3d_models`); клиент: `Import3DPage`, `map3dCustomGlbFetch.ts` | ✅ |
+| Custom GLB 3D (`project_map3d_models`) | `api/v1/map3d_models.py`, `services/map3d_custom_models.py`, миграции `015`–`016`, **`022`** (метаданные, usage_count, bulk apply); volume на prod — [map3d-models-storage.md](../deploy/map3d-models-storage.md); клиент: `Import3DPage`, `map3dCustomGlbFetch.ts` | ✅ |
 | Анализ окружения | `services/infrastructure_analysis.py`, `spatial.py` | ✅ |
 | Импорт | `services/import_service.py`, `spark_import.py`, `import_connections.py` | ✅ |
 | Async import | `schedule_async_import` (фоновые задачи asyncio, **не** Celery) | ✅ |

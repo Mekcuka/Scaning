@@ -1,6 +1,6 @@
 {
   "version": 1,
-  "article_count": 8,
+  "article_count": 9,
   "articles": [
     {
       "slug": "assistant-chat",
@@ -20,7 +20,7 @@
         "data_manager"
       ],
       "file": "articles/assistant-chat.md",
-      "char_count": 1634
+      "char_count": 2095
     },
     {
       "slug": "background-jobs",
@@ -68,6 +68,27 @@
       ],
       "file": "articles/flows-overview.md",
       "char_count": 1043
+    },
+    {
+      "slug": "import-3d",
+      "title": "Импорт 3D — пользовательские GLB",
+      "summary": "Загрузка GLB, назначение подтипам, массовое применение на карте и таблица моделей проекта.",
+      "tags": [
+        "map",
+        "3d",
+        "glb",
+        "import",
+        "models"
+      ],
+      "tab_hints": [
+        "import-3d"
+      ],
+      "roles": [
+        "admin",
+        "analyst"
+      ],
+      "file": "articles/import-3d.md",
+      "char_count": 1977
     },
     {
       "slug": "import-spark",
@@ -151,7 +172,7 @@
         "data_manager"
       ],
       "file": "articles/navigation.md",
-      "char_count": 1478
+      "char_count": 1583
     },
     {
       "slug": "roles-rbac",

@@ -339,7 +339,7 @@ python scripts/draw_demo_map_network.py --project-name "<имя проекта>"
 | Несколько custom на один подтип | разрешено; на карте у каждой точки свой выбор в «Модель 3D» |
 | Custom GLB на проде (Pages) | обязателен `VITE_API_URL` с полным URL API; загрузка файла — Bearer (не только cookie) |
 | 404 custom GLB «from disk cache» | браузер закэшировал неудачный ответ; **Ctrl+F5** или очистка данных сайта; после фикса frontend — повторная загрузка с `cache: no-store` |
-| Файлы на VM | `backend/data/map3d_models/{project_id}/{id}.glb` — при пересоздании контейнера без volume файлы теряются (см. [DEPLOY.md](../../DEPLOY.md)) |
+| Файлы на VM | bind-mount `/opt/decision-matrix/shared/map3d_models` → `/app/data/map3d_models` (prod); без volume при redeploy файлы теряются — см. [map3d-models-storage.md](../deploy/map3d-models-storage.md) |
 | Cesium / 3D-редактирование | вне scope |
 
 ---
