@@ -136,7 +136,7 @@ apply    → тот же plan (без повторного compute)
 | `frontend/src/hooks/useActiveProjectJob.ts` | Активная задача проекта |
 | `frontend/src/pages/MapPage.tsx` | `startHttpFlow` для «Сеть» и «Соединить» |
 
-Стили: `frontend/src/index.css` (классы `.task-log-*`).
+Стили: `frontend/src/styles/features/task-log.css` (классы `.task-log-*`).
 
 ---
 

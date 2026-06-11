@@ -1,6 +1,6 @@
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
-import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import { keepPreviousData, useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { RefreshCw } from 'lucide-react';
 import { defaultAdminJobsApi, type ProjectJobAdminItem } from '../lib/api';
 import {
@@ -27,6 +27,7 @@ const STATUS_LABELS: Record<string, string> = {
   cancelled: jobStatusLabel('cancelled'),
 };
 const POLL_ACTIVE_MS = 3_000;
+const PAGE_SIZE = 10;
 
 function countActiveJobs(counts: Record<string, number> | undefined): number {
   if (!counts) return 0;
@@ -87,16 +88,21 @@ export function AdminJobsPage() {
   const [statusFilter, setStatusFilter] = useState<string>('');
   const [jobTypeFilter, setJobTypeFilter] = useState<string>('');
   const [projectIdFilter, setProjectIdFilter] = useState('');
+  const [page, setPage] = useState(1);
+
+  useEffect(() => {
+    setPage(1);
+  }, [statusFilter, jobTypeFilter, projectIdFilter]);
 
   const listParams = useMemo(
     () => ({
       status: statusFilter ? [statusFilter] : undefined,
       job_type: jobTypeFilter || undefined,
       project_id: projectIdFilter.trim() || undefined,
-      limit: 50,
-      offset: 0,
+      limit: PAGE_SIZE,
+      offset: (page - 1) * PAGE_SIZE,
     }),
-    [statusFilter, jobTypeFilter, projectIdFilter],
+    [statusFilter, jobTypeFilter, projectIdFilter, page],
   );
 
   const { data: health, isFetching: healthLoading, refetch: refetchHealth } = useQuery({
@@ -110,6 +116,7 @@ export function AdminJobsPage() {
   const { data: list, isLoading, isFetching: listFetching, refetch: refetchList } = useQuery({
     queryKey: ['admin-jobs', listParams],
     queryFn: () => defaultAdminJobsApi.adminListJobs(listParams),
+    placeholderData: keepPreviousData,
     refetchInterval: (query) => {
       if (countActiveJobs(health?.jobs_by_status) > 0) return POLL_ACTIVE_MS;
       if (listHasActiveJobs(query.state.data?.items)) return POLL_ACTIVE_MS;
@@ -148,6 +155,16 @@ export function AdminJobsPage() {
   };
 
   const counts = health?.jobs_by_status ?? {};
+  const totalJobs = list?.total ?? 0;
+  const shownCount = list?.items.length ?? 0;
+  const totalPages = Math.max(1, Math.ceil(totalJobs / PAGE_SIZE));
+  const rangeFrom = totalJobs === 0 ? 0 : (page - 1) * PAGE_SIZE + 1;
+  const rangeTo = totalJobs === 0 ? 0 : rangeFrom + shownCount - 1;
+
+  useEffect(() => {
+    if (!list) return;
+    if (page > totalPages) setPage(totalPages);
+  }, [list, page, totalPages]);
 
   return (
     <div className="page-stack">
@@ -252,9 +269,36 @@ export function AdminJobsPage() {
           <p style={{ color: 'var(--text-muted)' }}>Загрузка...</p>
         ) : (
           <>
-            <p className="text-sm mb-3" style={{ color: 'var(--text-muted)' }}>
-              Показано {list?.items.length ?? 0} из {list?.total ?? 0}
-            </p>
+            <div className="flex flex-wrap items-center justify-between gap-3 mb-3">
+              <p className="text-sm" style={{ color: 'var(--text-muted)' }}>
+                {totalJobs === 0
+                  ? 'Показано 0 из 0'
+                  : `Показано ${rangeFrom}–${rangeTo} из ${totalJobs}`}
+              </p>
+              {totalJobs > PAGE_SIZE && (
+                <div className="flex items-center gap-2">
+                  <button
+                    type="button"
+                    className="btn btn-secondary btn-sm"
+                    disabled={page <= 1}
+                    onClick={() => setPage((p) => Math.max(1, p - 1))}
+                  >
+                    Назад
+                  </button>
+                  <span className="text-sm tabular" style={{ color: 'var(--text-muted)' }}>
+                    Страница {page} из {totalPages}
+                  </span>
+                  <button
+                    type="button"
+                    className="btn btn-secondary btn-sm"
+                    disabled={page >= totalPages}
+                    onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
+                  >
+                    Вперёд
+                  </button>
+                </div>
+              )}
+            </div>
             <table className="w-full text-sm">
               <thead>
                 <tr className="border-b" style={{ borderColor: 'var(--border)' }}>

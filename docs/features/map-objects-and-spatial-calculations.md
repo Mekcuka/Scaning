@@ -265,7 +265,7 @@ flowchart LR
 
 **Preview** autoroad (`dry_run: true`) остаётся **синхронным** в HTTP. Локально без Redis: `JOBS_SYNC_FALLBACK=true` — задачи в `asyncio.create_task` в процессе API. Deploy: [DEPLOY.md](../../DEPLOY.md) — сервисы `redis` и `worker`.
 
-**Админ-журнал (UI):** `/admin/jobs` — health Redis, таблица задач, отмена; автообновление 3 с при активных статусах ([user-flows.md](../product/user-flows.md) §5.3).
+**Админ-журнал (UI):** `/admin/jobs` — health Redis, таблица задач (**10 записей на страницу**, серверная `limit`/`offset`), отмена; автообновление 3 с при активных статусах ([user-flows.md](../product/user-flows.md) §5.3).
 
 #### 1.7.1 Схема движения песка (React Flow)
 
@@ -692,7 +692,7 @@ sequenceDiagram
 |------|-----------|
 | 2026-06 | Hub junction на snap + `line_preserve_geometry` при apply |
 | 2026-06 | 2D drag точек: `updateWhileInteracting` в editMode, `mapFeatureGeometrySync` (иконка + ручка вместе, в т.ч. `methanol_facility`) |
-| 2026-06 | Admin `/admin/jobs`: журнал, health, отмена; кнопка «Отменить» только для `pending`/`running`; автообновление 3 с |
+| 2026-06 | Admin `/admin/jobs`: журнал, health, отмена; пагинация 10/стр.; кнопка «Отменить» только для `pending`/`running`; автообновление 3 с |
 | 2026-06 | §1.9: фоновые задачи проекта (`project_jobs`, Redis + ARQ, worker); сериализация по `project_id` |
 | 2026-06 | [autoroad-network-plan.md](../autoroad/autoroad-network-plan.md): план выделенного сервиса plan API, BFF, UI «Построить сеть» |
 | 2026-06 | §1.8: серверное соединение точек автодорогами (`autoroad-connect`, `road_graph`, `line_split`); UI в панели группового выделения |

@@ -1,0 +1,16 @@
+/* —— Projects table: hide low-priority columns before full mobile layout —— */
+@media (max-width: 1200px) {
+  table.data-table--projects {
+    min-width: 36rem;
+  }
+
+  .projects-table-card > .card-header {
+    padding-inline: 16px;
+  }
+
+  .data-table--projects .col-date,
+  .data-table--projects .col-cost {
+    display: none;
+  }
+}
+

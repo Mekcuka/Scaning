@@ -42,7 +42,7 @@
         "data_manager"
       ],
       "file": "articles/background-jobs.md",
-      "char_count": 1035
+      "char_count": 1080
     },
     {
       "slug": "flows-overview",
@@ -88,7 +88,7 @@
         "analyst"
       ],
       "file": "articles/import-3d.md",
-      "char_count": 1977
+      "char_count": 2116
     },
     {
       "slug": "import-spark",

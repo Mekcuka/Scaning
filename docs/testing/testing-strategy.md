@@ -7,7 +7,7 @@
 
 1. **Unit** — чистая логика в `frontend/src/lib`, `backend/app/services`, `backend/app/geo`.
 2. **Integration** — FastAPI `TestClient`, React smoke с `renderWithProviders` и моком `api`.
-3. **E2E** — Playwright: критические сценарии (auth, проекты, параметры, потоки, импорт, карта).
+3. **E2E** — Playwright: критические сценарии (auth, проекты, параметры, потоки, импорт, матрица, отчёты, import-3d, карта).
 
 ## Покрытие кода (строки, Vitest v8 / pytest-cov)
 
@@ -33,7 +33,7 @@
 | Frontend unit | 154 | **~240** |
 | Frontend test-файлов | 42 | **~82** |
 | Backend `def test_` | ~120 | **143** |
-| E2E Playwright | 1 | **12** |
+| E2E Playwright | 1 | **16** |
 
 ### Текущий baseline (для следующих сравнений)
 
@@ -74,7 +74,7 @@ npm run test:e2e
 
 Перед прогоном остановите лишние процессы на порту 8000 (иначе rate-limit и CSRF могут флапать). В `development`/`test` лимитер auth отключён (`app/main.py`).
 
-### E2E сценарии (12)
+### E2E сценарии (16)
 
 | Файл | Сценарий |
 |------|----------|
@@ -84,6 +84,9 @@ npm run test:e2e
 | `flows.spec.ts` | раздел «Потоки» |
 | `flows-logistics.spec.ts` | логистика песка: загрузка, analyze, timeline |
 | `import.spec.ts` | страница импорта |
+| `matrix.spec.ts` | матрица решений (заголовок, вкладка «Таблица») |
+| `report.spec.ts` | список отчётов |
+| `import-3d.spec.ts` | импорт 3D для владельца проекта |
 | `map.spec.ts` | 2D-карта; автодорога (seed точек + «Готово»); detail PATCH; линейка |
 
 ### Инфраструктура E2E
@@ -147,7 +150,8 @@ python scripts/cleanup_e2e_data.py
 - [`src/test/renderWithProviders.tsx`](../../decision-matrix/frontend/src/test/renderWithProviders.tsx) — QueryClient + Router.
 - [`src/test/pages/`](../../decision-matrix/frontend/src/test/pages/) — `renderPage`, `createApiMock` / [`apiMockModule.ts`](../../decision-matrix/frontend/src/test/pages/apiMockModule.ts), [`mapPageHarness.tsx`](../../decision-matrix/frontend/src/test/pages/mapPageHarness.tsx).
 - [`src/test/fixtures/`](../../decision-matrix/frontend/src/test/fixtures/) — проекты, пользователи, infra, map (`map.ts`).
-- E2E: [`e2e/`](../../decision-matrix/frontend/e2e/) — 7 spec-файлов, 12 тестов; `helpers.ts`, `global-teardown.ts`; автоочистка `cleanup_e2e_data.py`.
+- E2E: [`e2e/`](../../decision-matrix/frontend/e2e/) — 10 spec-файлов, **16** тестов; `helpers.ts`, `global-teardown.ts`; автоочистка `cleanup_e2e_data.py`.
+- CSS: `npm run verify:css` — конкатенация `src/styles/*` совпадает с эталоном `.snapshot-monolith.css` (после split, июнь 2026).
 
 ### Pages 80% (план, май 2026)
 
@@ -155,7 +159,7 @@ python scripts/cleanup_e2e_data.py
 |------|--------|----------------------|
 | Инфраструктура harness + fixtures | готово | — |
 | Auth, report utils, flows, admin | готово | |
-| Admin jobs (`test_admin_jobs.py`, `AdminJobsPage.test.tsx`) | готово | |
+| Admin jobs (`test_admin_jobs.py`, `AdminJobsPage.test.tsx`, пагинация) | готово | |
 | Job queue (`test_job_queue.py`, имя очереди ARQ) | готово | |
 | MapPage integration (mock MapView + OL) | готово | MapPage ~76% |
 | CI gate `src/pages/**` | **77%** (ступень к 80%) | **~78–79%** |
@@ -217,6 +221,6 @@ vi.mock('../lib/api', async (importOriginal) => {
 
 - **Frontend:** `npm run test` (обязательно); `npm run test:coverage` — пороги v8: `src/lib/**` ≥ 30%, `src/pages/**` ≥ 77%, `MapPage.tsx` ≥ 73%.
 - **Backend:** `pytest tests/ -q`; `pytest --cov=app/services --cov-fail-under=25` — soft gate на сервисы.
-- **E2E:** job `E2E (Playwright)` — backend `e2e.db`, `vite preview`, 12 сценариев, `globalTeardown` + `E2E_DATABASE_URL`.
+- **E2E:** job `E2E (Playwright)` — backend `e2e.db`, `vite preview`, 16 сценариев, `globalTeardown` + `E2E_DATABASE_URL`.
 
 См. [`.github/workflows/ci.yml`](../../.github/workflows/ci.yml).

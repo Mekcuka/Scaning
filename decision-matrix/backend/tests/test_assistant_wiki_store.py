@@ -32,11 +32,12 @@ def test_search_map_keyword():
 def test_search_wiki_api():
     import asyncio
 
-    result = asyncio.run(search("как импортировать", UserRole.analyst, limit=5))
-    assert result["query"] == "как импортировать"
+    # Query must rank import-spark in both keyword and hybrid-tfidf modes.
+    result = asyncio.run(search("импорт искра", UserRole.analyst, limit=5))
+    assert result["query"] == "импорт искра"
     assert result["mode"]
     assert result["hits"]
-    assert any(h["slug"] == "import-spark" for h in result["hits"])
+    assert result["hits"][0]["slug"] == "import-spark"
 
 
 def test_get_article_by_slug():

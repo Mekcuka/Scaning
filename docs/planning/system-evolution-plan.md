@@ -483,6 +483,7 @@ flowchart TB
 |------|---------|-----------|
 | Потеря GLB при деплое | Высокое | H0.1 volume; H2.7 object storage |
 | MapPage — монолит, регрессии | Снижено (2026-06) | Рефакторинг завершён; остаётся ~981 строк оркестратора — см. [frontend-structure.md](../architecture/frontend-structure.md) |
+| Монолит `index.css` (~9k строк) | Снижено (2026-06) | Split → `src/styles/` (23 файла), `npm run verify:css`; см. [ui-guidelines.md](../architecture/ui-guidelines.md) |
 | SQLite vs PostGIS расхождение | Среднее | CI только PostGIS; локальный README режим B |
 | Один сервер VM — SPOF | Среднее | бэкапы; H3.7 managed DB; H5 HA |
 | Scope creep (TOPSIS, ML) | Среднее | legacy FR-14 вне UI; отдельные POC |

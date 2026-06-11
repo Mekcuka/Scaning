@@ -94,7 +94,7 @@
 | `/import-3d` | `Import3DPage` — custom GLB (upload + metadata table, PATCH, bulk apply on assign) | ✅ |
 | `/flows/*` | `FlowTechnologyPage`, … | ✅ |
 | `/admin/users` | `AdminLayout` + `AdminUsersPage` | ✅ |
-| `/admin/jobs` | `AdminLayout` + `AdminJobsPage` (health, фильтры, отмена только `pending`/`running`, автообновление 3 с) | ✅ |
+| `/admin/jobs` | `AdminLayout` + `AdminJobsPage` (health, фильтры, **пагинация 10 записей/стр.**, отмена только `pending`/`running`, автообновление 3 с) | ✅ |
 
 **Оболочка (`AppLayout`):** выход (иконка `LogOut`) в нижней панели сайдбара; в шапке — **журнал задач** и переключатель **темы** (глобального селектора проекта в шапке нет). Активный проект (`currentProjectId`) задаётся на страницах **Экспорт**, **Карта**, **Дашборд** и др. PWA: `public/sw.js` — fallback на `index.html` для deep link (например `/Scaning/admin/jobs` на Pages).
 
@@ -104,7 +104,7 @@
 
 **Загрузка объектов на `/map`:** гибрид полного кэша + bbox при просмотре (порог 80 объектов, буфер 12%, без лишних `GET` при мелком пане); синхронизация full+bbox кэшей при CRUD/геометрии (`mapQueries.ts`); API [`bbox_filter.py`](../../decision-matrix/backend/app/geo/bbox_filter.py). **Плавность 2D:** rAF на `pointermove`, spatial hit-test (`mapHitTest.ts`), точечный hover, `React.memo(MapView)`, idle-sync слоя при ≥150 объектах, LOD линий по умолчанию 1:500 000 — §6.1.2 [map-objects-and-spatial-calculations.md](../features/map-objects-and-spatial-calculations.md). **Drag точек в editMode:** `updateWhileInteracting` + [`mapFeatureGeometrySync.ts`](../../decision-matrix/frontend/src/lib/mapFeatureGeometrySync.ts).
 
-**Рефакторинг frontend (июнь 2026):** монолиты разбиты без смены публичных импортов — `MapPage` ~3836→**~35** (`sections` из `useMapPageOrchestrator`), `MapView` ~2227→~58, `ObjectDetailPanel` ~1163→~168, `FlowSchematicEditor` / `SandLogisticsSubnetPanel` / `SandLogisticsTables` → barrels, `useMapPageOrchestrator` → `mapPageOrchestrator/*`, `useObjectDetailPanel` → sub-hooks, `setupModifyHandlers` / `setupTranslateHandlers` → submodules. Детали: [frontend-structure.md](../architecture/frontend-structure.md). Тесты: **469/469** Vitest.
+**Рефакторинг frontend (июнь 2026):** монолиты разбиты без смены публичных импортов — `MapPage` ~3836→**~35** (`sections` из `useMapPageOrchestrator`), `MapView` ~2227→~58, `ObjectDetailPanel` ~1163→~168, `FlowSchematicEditor` / `SandLogisticsSubnetPanel` / `SandLogisticsTables` → barrels, `useMapPageOrchestrator` → `mapPageOrchestrator/*`, `useObjectDetailPanel` → sub-hooks, `setupModifyHandlers` / `setupTranslateHandlers` → submodules. **CSS:** `index.css` ~9170 строк → `src/styles/` (23 файла, порядок каскада в `cascade-order.md`, проверка `npm run verify:css`). **UI guidelines** + Cursor rule `.cursor/rules/ui-guidelines.mdc`. Детали: [frontend-structure.md](../architecture/frontend-structure.md), [ui-guidelines.md](../architecture/ui-guidelines.md). Тесты: **581/581** Vitest, **16** E2E.
 
 ---
 
@@ -167,8 +167,8 @@
 ## Тестирование и CI
 
 - Backend: `tests/test_autoroad_network_plan.py` (MST Steiner, `total_new_km` vs legacy chain), `tests/test_autoroad_connect.py`; `test_road_graph.py` (`geodesic_midpoint`).
-- Frontend: `AdminJobsPage.test.tsx` (журнал, кнопка «Отменить» только для активных задач); `mapFeatureGeometrySync.test.ts` (drag точки/линии, methanol_facility).
-- **E2E (Playwright, 12):** login, projects, parameters, flows, import, map (2D, draw autoroad, detail save, ruler), flows-logistics (analyze, timeline). Инфра: `e2e/helpers.ts`, `VITE_E2E_MAP_HOOK` / `__dmOlMap`, автоочистка [`cleanup_e2e_data.py`](../../decision-matrix/backend/scripts/cleanup_e2e_data.py) через `globalTeardown`. Подробнее: [testing-strategy.md](../testing/testing-strategy.md).
+- Frontend: `AdminJobsPage.test.tsx` (журнал, пагинация, «Отменить» только для активных задач); `mapFeatureGeometrySync.test.ts` (drag точки/линии, methanol_facility); `npm run verify:css` (каскад после split CSS).
+- **E2E (Playwright, 16):** login, projects, parameters, flows, import, **matrix**, **report**, **import-3d**, map (2D, draw autoroad, detail save, ruler), flows-logistics (analyze, timeline). Инфра: `e2e/helpers.ts`, `VITE_E2E_MAP_HOOK` / `__dmOlMap`, автоочистка [`cleanup_e2e_data.py`](../../decision-matrix/backend/scripts/cleanup_e2e_data.py) через `globalTeardown`. Подробнее: [testing-strategy.md](../testing/testing-strategy.md).
 - GitHub Actions: [`.github/workflows/ci.yml`](../../.github/workflows/ci.yml) — lint, unit, coverage gates, job `E2E (Playwright)`.
 - Husky / lint-staged в корне — **не** настроены ([development-plan.md](development-plan.md) этап 1).
 - Деплой: [DEPLOY.md](../../DEPLOY.md), GitHub Pages + VM workflow.

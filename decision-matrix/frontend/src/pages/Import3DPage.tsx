@@ -24,6 +24,33 @@ export function Import3DPage() {
   const uploadStep = 1;
   const assignStep = showUploadCard ? 2 : 1;
 
+  const modelsPanel = w.hasPageAccess ? (
+    <Import3dPanel
+      className="import-3d-models-footer"
+      icon={<FileBox size={20} />}
+      title="Модели проекта"
+      subtitle={
+        w.modelsLoading
+          ? 'Загрузка…'
+          : w.models.length === 0
+            ? 'Список GLB в выбранном проекте'
+            : `${w.models.length} ${w.models.length === 1 ? 'файл' : w.models.length < 5 ? 'файла' : 'файлов'} в проекте`
+      }
+    >
+      <ModelsList
+        models={w.models}
+        modelsLoading={w.modelsLoading}
+        assignedSubtypes={w.assignedSubtypesForModel}
+        canDelete={w.canUpload}
+        canEdit={w.canAssign}
+        onDelete={w.onDeleteModel}
+        onEdit={w.onEditModel}
+        deletePending={w.deleteMut.isPending}
+        emptyHint={modelsEmptyHint}
+      />
+    </Import3dPanel>
+  ) : null;
+
   return (
     <div className="import-3d-page">
       <header className="page-header import-3d-page__header">
@@ -236,6 +263,7 @@ export function Import3DPage() {
               </Import3dPanel>
             ) : null}
           </div>
+          {w.canAssign ? modelsPanel : null}
         </div>
 
         {w.canAssign ? (
@@ -257,32 +285,7 @@ export function Import3DPage() {
         ) : null}
       </div>
 
-      {w.hasPageAccess ? (
-        <Import3dPanel
-          className="import-3d-models-footer"
-          icon={<FileBox size={20} />}
-          title="Модели проекта"
-          subtitle={
-            w.modelsLoading
-              ? 'Загрузка…'
-              : w.models.length === 0
-                ? 'Список GLB в выбранном проекте'
-                : `${w.models.length} ${w.models.length === 1 ? 'файл' : w.models.length < 5 ? 'файла' : 'файлов'} в проекте`
-          }
-        >
-          <ModelsList
-            models={w.models}
-            modelsLoading={w.modelsLoading}
-            assignedSubtypes={w.assignedSubtypesForModel}
-            canDelete={w.canUpload}
-            canEdit={w.canAssign}
-            onDelete={w.onDeleteModel}
-            onEdit={w.onEditModel}
-            deletePending={w.deleteMut.isPending}
-            emptyHint={modelsEmptyHint}
-          />
-        </Import3dPanel>
-      ) : null}
+      {!w.canAssign ? modelsPanel : null}
     </div>
   );
 }
