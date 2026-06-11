@@ -131,6 +131,7 @@ export function computeInfraTabDirty(
     draft.layerId !== infraObject.layer_id ||
     draft.lon !== formatCoord(infraObject.lon) ||
     draft.lat !== formatCoord(infraObject.lat) ||
+    draft.description !== origDesc ||
     entryDirty ||
     (pointShowsThroughputCapacity(infraObject.subtype) &&
       !isLine &&
@@ -142,7 +143,7 @@ export function computeInfraTabDirty(
     case 'logistics':
       return sandDirty;
     case 'extra':
-      return draft.description !== origDesc || render3dFieldsDirty(infraObject, draft, map3dCustomModels);
+      return render3dFieldsDirty(infraObject, draft, map3dCustomModels);
     default:
       return false;
   }

@@ -1,5 +1,6 @@
 """Explicit project deletion (SQLite-safe, no ORM nullify on children)."""
 
+import shutil
 from uuid import UUID
 
 from sqlalchemy import delete, select
@@ -18,9 +19,11 @@ from app.models import (
     ProjectCostRates,
     ProjectDistanceDefaults,
     ProjectEconomicParams,
+    ProjectMap3dModel,
     ProjectSandLogisticsResult,
     OnePager,
 )
+from app.services.map3d_custom_models import map3d_models_root
 
 
 async def delete_project_cascade(db: AsyncSession, project_id: UUID) -> bool:
@@ -43,6 +46,9 @@ async def delete_project_cascade(db: AsyncSession, project_id: UUID) -> bool:
     await db.execute(
         delete(ProjectSandLogisticsResult).where(ProjectSandLogisticsResult.project_id == project_id)
     )
+    await db.execute(delete(ProjectMap3dModel).where(ProjectMap3dModel.project_id == project_id))
 
     result = await db.execute(delete(Project).where(Project.id == project_id))
+    if result.rowcount > 0:
+        shutil.rmtree(map3d_models_root() / str(project_id), ignore_errors=True)
     return result.rowcount > 0

@@ -1,4 +1,4 @@
-import { Calculator, FileText, Settings2, Truck, Wrench, type LucideIcon } from 'lucide-react';
+import { Box, Calculator, Settings2, Truck, Wrench, type LucideIcon } from 'lucide-react';
 import type { PoiFormValues, PoiSectionId } from '../../lib/poiParams';
 
 export type InfraDetailTab = 'main' | 'logistics' | 'extra';
@@ -58,7 +58,7 @@ export const POI_TAB_LABELS: Record<PoiDetailTab, string> = {
 export const INFRA_TAB_ICONS: Record<InfraDetailTab, LucideIcon> = {
   main: Settings2,
   logistics: Truck,
-  extra: FileText,
+  extra: Box,
 };
 
 export const POI_TAB_ICONS: Record<PoiDetailTab, LucideIcon> = {

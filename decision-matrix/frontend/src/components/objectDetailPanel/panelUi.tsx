@@ -59,6 +59,43 @@ export function FieldLabel({
   );
 }
 
+export function PanelSwitch({
+  label,
+  description,
+  checked,
+  disabled = false,
+  onChange,
+}: {
+  label: string;
+  description?: string;
+  checked: boolean;
+  disabled?: boolean;
+  onChange: (checked: boolean) => void;
+}) {
+  return (
+    <div className="object-detail-panel__toggle-row">
+      <div className="object-detail-panel__toggle-text">
+        <span className="object-detail-panel__toggle-label">{label}</span>
+        {description && <p className="object-detail-panel__hint">{description}</p>}
+      </div>
+      <label
+        className={`map-layers-switch object-detail-panel__toggle-switch${
+          disabled ? ' map-layers-switch--disabled' : ''
+        }`}
+      >
+        <input
+          type="checkbox"
+          className="map-layers-switch-input"
+          checked={checked}
+          disabled={disabled}
+          onChange={(e) => onChange(e.target.checked)}
+        />
+        <span className="map-layers-switch-track" aria-hidden />
+      </label>
+    </div>
+  );
+}
+
 export function FluidToggle({
   value,
   readOnly,

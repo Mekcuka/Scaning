@@ -2250,8 +2250,21 @@ table.data-table--projects .col-actions {
   max-width: 100%;
 }
 
-.object-detail-panel__section {
+.object-detail-panel__tab-sections {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
   min-width: 0;
+  width: 100%;
+}
+
+.object-detail-panel__section {
+  flex-shrink: 0;
+  position: relative;
+  min-width: 0;
+  width: 100%;
+  max-width: 100%;
+  box-sizing: border-box;
 }
 
 .object-detail-panel__section--card {
@@ -2292,30 +2305,113 @@ table.data-table--projects .col-actions {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: 10px 12px;
-  align-items: stretch;
+  align-items: start;
   min-width: 0;
+  width: 100%;
 }
 
 .object-detail-panel__fields-grid .object-detail-panel__field {
   display: flex;
   flex-direction: column;
   gap: 4px;
-  height: 100%;
-}
-
-.object-detail-panel__fields-grid .object-detail-panel__label {
-  flex-direction: column;
-  align-items: flex-start;
-  justify-content: flex-end;
-  flex: 1 1 auto;
-  gap: 1px;
-  min-height: 2.35rem;
+  min-width: 0;
 }
 
 .object-detail-panel__fields-grid .object-detail-panel__input,
 .object-detail-panel__fields-grid .object-detail-panel__value {
-  flex-shrink: 0;
   min-height: 32px;
+}
+
+.object-detail-panel__pair-grid {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  min-width: 0;
+  width: 100%;
+}
+
+.object-detail-panel__pair-grid-row {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px 12px;
+  align-items: start;
+  min-width: 0;
+}
+
+.object-detail-panel__pair-grid--single .object-detail-panel__pair-grid-row {
+  grid-template-columns: minmax(0, 1fr);
+}
+
+.object-detail-panel__pair-grid-row .object-detail-panel__field-control {
+  min-width: 0;
+}
+
+.object-detail-panel__pair-grid-row .app-select,
+.object-detail-panel__pair-grid-row .object-detail-panel__input,
+.object-detail-panel__pair-grid-row .object-detail-panel__value {
+  width: 100%;
+  max-width: 100%;
+  min-height: 32px;
+}
+
+.object-detail-panel__pair-grid-row--hints .object-detail-panel__hint {
+  margin: 0;
+  min-height: 1.125rem;
+  line-height: 1.25;
+}
+
+.object-detail-panel__toggle-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 6px 8px;
+  border-radius: 8px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+}
+
+.object-detail-panel__toggle-text {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+
+.object-detail-panel__toggle-label {
+  font-size: 0.8125rem;
+  font-weight: 500;
+  color: var(--text);
+}
+
+.object-detail-panel__toggle-row .object-detail-panel__hint {
+  margin: 0;
+}
+
+.object-detail-panel__toggle-switch {
+  flex-shrink: 0;
+}
+
+.object-detail-panel__3d-dims {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  margin-top: 4px;
+}
+
+.object-detail-panel__3d-dims--muted,
+.object-detail-panel__3d-model.object-detail-panel__3d-dims--muted {
+  opacity: 0.5;
+  pointer-events: none;
+}
+
+.object-detail-panel__field--compact {
+  gap: 4px;
+  margin: 0;
+}
+
+.object-detail-panel__textarea--compact {
+  min-height: 88px;
 }
 
 .object-detail-panel__field--span-2 {
@@ -7278,6 +7374,74 @@ tr:hover .inline-table-edit-trigger,
   height: 0;
   opacity: 0;
   pointer-events: none;
+}
+
+.import-3d-upload-meta {
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+  max-width: 12rem;
+}
+
+.import-3d-upload-meta__height {
+  width: 100%;
+}
+
+.import-3d-apply-options {
+  display: flex;
+  flex-direction: column;
+  gap: 0.65rem;
+  margin-top: 0.75rem;
+}
+
+.import-3d-apply-toggle {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  font-size: 0.875rem;
+  cursor: pointer;
+}
+
+.import-3d-apply-mode {
+  margin: 0;
+  padding: 0;
+  border: none;
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+}
+
+.import-3d-apply-mode__option {
+  display: flex;
+  align-items: center;
+  gap: 0.45rem;
+  font-size: 0.8125rem;
+  cursor: pointer;
+}
+
+.import-3d-apply-preview {
+  margin: 0.25rem 0 0;
+  font-size: 0.8125rem;
+}
+
+.import-3d-models-table__edit,
+.import-3d-models-table__delete {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0.25rem;
+  margin-right: 0.15rem;
+  border: none;
+  border-radius: 6px;
+  background: transparent;
+  color: var(--text-muted);
+  cursor: pointer;
+}
+
+.import-3d-models-table__edit:hover,
+.import-3d-models-table__delete:hover {
+  background: var(--surface-2);
+  color: var(--text);
 }
 
 .import-3d-models-footer {

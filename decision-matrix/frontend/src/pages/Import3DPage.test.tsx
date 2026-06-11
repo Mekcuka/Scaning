@@ -37,9 +37,12 @@ describe('Import3DPage', () => {
         id: 'aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee',
         project_id: 'p1',
         filename: 'tank.glb',
+        display_name: 'tank',
         target_height_m: 8,
+        file_size_bytes: 0,
         created_at: '2026-01-01T00:00:00Z',
         assigned_subtypes: [],
+        usage_count: 0,
       },
     ]);
     renderPage(<Import3DPage />, { route: '/import-3d' });

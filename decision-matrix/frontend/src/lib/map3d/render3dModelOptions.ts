@@ -41,7 +41,7 @@ export function buildRender3dModelOptions(
     if (customModelAssignedToSubtype(st, m)) {
       options.push({
         value: customModelPropertyId(m.id),
-        label: m.filename,
+        label: (m.display_name || m.filename).trim() || m.filename,
       });
     }
   }

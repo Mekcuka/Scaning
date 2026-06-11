@@ -60,6 +60,7 @@ export function ObjectDetailPanel({
           onChange={panel.setPoiTab}
           tabDirty={panel.poiTabDirty}
           ariaLabel="Параметры точки интереса"
+          showLabels={false}
         />
       ) : (
         <DetailPanelTabs
@@ -68,6 +69,7 @@ export function ObjectDetailPanel({
           onChange={panel.setInfraTab}
           tabDirty={panel.infraTabDirty}
           ariaLabel="Параметры объекта"
+          showLabels={false}
         />
       )}
 
@@ -114,6 +116,8 @@ export function ObjectDetailPanel({
                 lat={panel.lat}
                 setLat={panel.setLat}
                 copyCoordinates={panel.copyCoordinates}
+                description={panel.description}
+                setDescription={panel.setDescription}
               />
             )}
 
@@ -155,8 +159,6 @@ export function ObjectDetailPanel({
                 render3dModelId={panel.render3dModelId}
                 setRender3dModelId={panel.setRender3dModelId}
                 render3dModelOptions={panel.render3dModelOptions}
-                description={panel.description}
-                setDescription={panel.setDescription}
               />
             )}
           </>

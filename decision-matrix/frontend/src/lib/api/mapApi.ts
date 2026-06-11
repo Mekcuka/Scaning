@@ -5,6 +5,8 @@ import type {
   InfraObject,
   InfraObjectCreate,
   Map3dCustomModel,
+  Map3dCustomModelApplyPreview,
+  Map3dCustomModelAssignResult,
   MapBatchPasteRequest,
   MapBatchPasteResponse,
 } from './entities';
@@ -51,11 +53,45 @@ export const mapApi = {
   },
   deleteMap3dCustomModel: (projectId: string, modelId: string) =>
     request<void>(`/projects/${projectId}/map3d-custom-models/${modelId}`, { method: 'DELETE' }),
-  assignMap3dCustomModel: (projectId: string, modelId: string, subtypes: string[]) =>
-    request<Map3dCustomModel>(`/projects/${projectId}/map3d-custom-models/${modelId}/assign`, {
-      method: 'POST',
-      body: JSON.stringify({ subtypes }),
+  assignMap3dCustomModel: (
+    projectId: string,
+    modelId: string,
+    payload: {
+      subtypes: string[];
+      apply_to_objects?: boolean;
+      apply_mode?: 'empty_only' | 'all';
+    },
+  ) =>
+    request<Map3dCustomModelAssignResult>(
+      `/projects/${projectId}/map3d-custom-models/${modelId}/assign`,
+      {
+        method: 'POST',
+        body: JSON.stringify(payload),
+      },
+    ),
+  patchMap3dCustomModel: (
+    projectId: string,
+    modelId: string,
+    data: { display_name?: string; target_height_m?: number },
+  ) =>
+    request<Map3dCustomModel>(`/projects/${projectId}/map3d-custom-models/${modelId}`, {
+      method: 'PATCH',
+      body: JSON.stringify(data),
     }),
+  previewMap3dCustomModelApply: (
+    projectId: string,
+    modelId: string,
+    subtypes: string[],
+    mode: 'empty_only' | 'all' = 'empty_only',
+  ) => {
+    const qs = new URLSearchParams({
+      subtypes: subtypes.join(','),
+      mode,
+    });
+    return request<Map3dCustomModelApplyPreview>(
+      `/projects/${projectId}/map3d-custom-models/${modelId}/apply-preview?${qs}`,
+    );
+  },
   createInfraObject: (projectId: string, data: InfraObjectCreate, opts?: { timeoutMs?: number }) =>
     request<InfraObject>(`/projects/${projectId}/infrastructure/objects`, {
       method: 'POST',

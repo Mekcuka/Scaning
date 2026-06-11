@@ -83,6 +83,8 @@ function createDefaultPorts(mockedApi: Record<string, unknown>) {
       uploadMap3dCustomModel: mockedApi.uploadMap3dCustomModel,
       deleteMap3dCustomModel: mockedApi.deleteMap3dCustomModel,
       assignMap3dCustomModel: mockedApi.assignMap3dCustomModel,
+      patchMap3dCustomModel: mockedApi.patchMap3dCustomModel,
+      previewMap3dCustomModelApply: mockedApi.previewMap3dCustomModelApply,
     },
     defaultAdminUsersApi: {
       adminUsers: mockedApi.adminUsers,

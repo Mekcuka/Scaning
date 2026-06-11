@@ -12,7 +12,11 @@ from app.assistant.tools.base import ToolDefinition
 from app.assistant.tools.categories import CAT_MAP, cats
 from app.models.enums import AccessLevel, WriteScope
 from app.schemas import Map3dCustomModelResponse
-from app.services.map3d_custom_models import list_custom_models, normalize_assigned_subtypes
+from app.services.map3d_custom_models import (
+    default_display_name,
+    list_custom_models,
+    normalize_assigned_subtypes,
+)
 from app.services.project_access import resolve_project
 
 
@@ -25,9 +29,13 @@ def _to_response(row) -> dict:
         id=row.id,
         project_id=row.project_id,
         filename=row.filename,
+        display_name=(row.display_name or "").strip() or default_display_name(row.filename),
         target_height_m=float(row.target_height_m),
+        file_size_bytes=int(row.file_size_bytes or 0),
         created_at=row.created_at,
+        updated_at=row.updated_at,
         assigned_subtypes=normalize_assigned_subtypes(row.assigned_subtypes),
+        usage_count=0,
     ).model_dump(mode="json")
 
 

@@ -1,13 +1,20 @@
-import { FileBox, Trash2 } from 'lucide-react';
+import { FileBox, Pencil, Trash2 } from 'lucide-react';
 import type { Map3dCustomModel } from '../../lib/api';
+import { formatImport3dFileSize } from './formatBytes';
 import { formatImport3dDate } from './formatDate';
+
+export function map3dModelLabel(m: Map3dCustomModel): string {
+  return (m.display_name || m.filename).trim() || m.filename;
+}
 
 export function ModelsList({
   models,
   modelsLoading,
   assignedSubtypes,
   canDelete,
+  canEdit,
   onDelete,
+  onEdit,
   deletePending,
   emptyHint,
 }: {
@@ -15,7 +22,9 @@ export function ModelsList({
   modelsLoading: boolean;
   assignedSubtypes: (m: Map3dCustomModel) => string[];
   canDelete: boolean;
-  onDelete: (id: string) => void;
+  canEdit: boolean;
+  onDelete: (m: Map3dCustomModel) => void;
+  onEdit: (m: Map3dCustomModel) => void;
   deletePending: boolean;
   emptyHint: string;
 }) {
@@ -35,49 +44,71 @@ export function ModelsList({
     );
   }
 
+  const showActions = canDelete || canEdit;
+
   return (
     <div className="import-3d-models-section">
       <table className="import-3d-models-table">
         <thead>
           <tr>
-            <th scope="col">Файл</th>
+            <th scope="col">Имя</th>
+            <th scope="col">Размер</th>
+            <th scope="col">Высота</th>
+            <th scope="col">Использ.</th>
             <th scope="col">Подтип</th>
             <th scope="col">Загружен</th>
-            {canDelete ? <th scope="col" className="import-3d-models-table__actions" /> : null}
+            {showActions ? <th scope="col" className="import-3d-models-table__actions" /> : null}
           </tr>
         </thead>
         <tbody>
           {models.map((m) => {
             const subtypes = assignedSubtypes(m);
+            const label = map3dModelLabel(m);
             return (
               <tr key={m.id}>
                 <td className="import-3d-models-table__file" title={m.filename}>
-                  {m.filename}
+                  {label}
                 </td>
+                <td className="import-3d-models-table__size">{formatImport3dFileSize(m.file_size_bytes)}</td>
+                <td className="import-3d-models-table__height">{m.target_height_m} м</td>
+                <td className="import-3d-models-table__usage">{m.usage_count ?? 0}</td>
                 <td className="import-3d-models-table__subtypes">
                   {subtypes.length === 0 ? (
                     <span className="import-3d-badge import-3d-badge--free">—</span>
                   ) : (
-                    subtypes.map((label) => (
-                      <span key={label} className="import-3d-badge import-3d-badge--assigned">
-                        {label}
+                    subtypes.map((st) => (
+                      <span key={st} className="import-3d-badge import-3d-badge--assigned">
+                        {st}
                       </span>
                     ))
                   )}
                 </td>
                 <td className="import-3d-models-table__date">{formatImport3dDate(m.created_at)}</td>
-                {canDelete ? (
+                {showActions ? (
                   <td className="import-3d-models-table__actions">
-                    <button
-                      type="button"
-                      className="import-3d-models-table__delete"
-                      title="Удалить модель"
-                      aria-label={`Удалить ${m.filename}`}
-                      disabled={deletePending}
-                      onClick={() => onDelete(m.id)}
-                    >
-                      <Trash2 size={15} aria-hidden />
-                    </button>
+                    {canEdit ? (
+                      <button
+                        type="button"
+                        className="import-3d-models-table__edit"
+                        title="Изменить имя и высоту"
+                        aria-label={`Изменить ${label}`}
+                        onClick={() => onEdit(m)}
+                      >
+                        <Pencil size={15} aria-hidden />
+                      </button>
+                    ) : null}
+                    {canDelete ? (
+                      <button
+                        type="button"
+                        className="import-3d-models-table__delete"
+                        title="Удалить модель"
+                        aria-label={`Удалить ${label}`}
+                        disabled={deletePending}
+                        onClick={() => onDelete(m)}
+                      >
+                        <Trash2 size={15} aria-hidden />
+                      </button>
+                    ) : null}
                   </td>
                 ) : null}
               </tr>

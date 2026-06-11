@@ -13,6 +13,7 @@ import { refreshMapQueries } from '../../lib/mapQueries';
 import { useActiveProject } from '../../hooks/useActiveProject';
 import { usePermissions } from '../../hooks/usePermissions';
 import { useAppStore } from '../../store';
+import { map3dModelLabel } from './ModelsList';
 
 export function useImport3dWorkflow() {
   const { user, role } = usePermissions();
@@ -22,6 +23,9 @@ export function useImport3dWorkflow() {
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [assignModelId, setAssignModelId] = useState('');
   const [assignSubtypes, setAssignSubtypes] = useState<string[]>([]);
+  const [assignApplyToObjects, setAssignApplyToObjects] = useState(false);
+  const [assignApplyMode, setAssignApplyMode] = useState<'empty_only' | 'all'>('empty_only');
+  const [uploadTargetHeightM, setUploadTargetHeightM] = useState(8);
 
   const canUpload = canUploadMap3dCustomModel(role);
   const canAssign = canAssignMap3dCustomModel(role, user?.id, activeProject);
@@ -69,6 +73,32 @@ export function useImport3dWorkflow() {
     // eslint-disable-next-line react-hooks/exhaustive-deps -- sync when server assignment changes
   }, [assignModelId, serverSubtypesKey]);
 
+  const applyPreviewKey = [
+    'map3d-apply-preview',
+    projectId,
+    assignModelId,
+    assignSubtypes.join(','),
+    assignApplyMode,
+    assignApplyToObjects,
+  ] as const;
+
+  const { data: applyPreview } = useQuery({
+    queryKey: applyPreviewKey,
+    queryFn: () =>
+      defaultMap3dModelsApi.previewMap3dCustomModelApply(
+        projectId!,
+        assignModelId,
+        assignSubtypes,
+        assignApplyMode,
+      ),
+    enabled:
+      !!projectId &&
+      canAssign &&
+      assignApplyToObjects &&
+      !!assignModelId &&
+      assignSubtypes.length > 0,
+  });
+
   const toggleAssignSubtype = (subtype: string) => {
     setAssignSubtypes((prev) =>
       prev.includes(subtype) ? prev.filter((s) => s !== subtype) : [...prev, subtype],
@@ -84,11 +114,13 @@ export function useImport3dWorkflow() {
 
   const invalidateAll = async () => {
     await queryClient.invalidateQueries({ queryKey: ['map3d-custom-models', projectId] });
+    await queryClient.invalidateQueries({ queryKey: ['map3d-apply-preview', projectId] });
     await refreshMapQueries(queryClient, projectId!);
   };
 
   const uploadMut = useMutation({
-    mutationFn: (file: File) => defaultMap3dModelsApi.uploadMap3dCustomModel(projectId!, file),
+    mutationFn: (file: File) =>
+      defaultMap3dModelsApi.uploadMap3dCustomModel(projectId!, file, uploadTargetHeightM),
     onSuccess: async () => {
       pushToast('success', 'Модель загружена');
       await invalidateAll();
@@ -106,14 +138,49 @@ export function useImport3dWorkflow() {
     onError: (e: Error) => pushToast('error', e.message),
   });
 
+  const patchMut = useMutation({
+    mutationFn: ({
+      modelId,
+      display_name,
+      target_height_m,
+    }: {
+      modelId: string;
+      display_name?: string;
+      target_height_m?: number;
+    }) => defaultMap3dModelsApi.patchMap3dCustomModel(projectId!, modelId, { display_name, target_height_m }),
+    onSuccess: async () => {
+      pushToast('success', 'Модель обновлена');
+      await invalidateAll();
+    },
+    onError: (e: Error) => pushToast('error', e.message),
+  });
+
   const assignMut = useMutation({
-    mutationFn: ({ modelId, subtypes }: { modelId: string; subtypes: string[] }) =>
-      defaultMap3dModelsApi.assignMap3dCustomModel(projectId!, modelId, subtypes),
-    onSuccess: async (_data, { subtypes }) => {
-      pushToast(
-        'success',
-        subtypes.length === 0 ? 'Назначение снято' : 'Назначение сохранено',
-      );
+    mutationFn: ({
+      modelId,
+      subtypes,
+      apply_to_objects,
+      apply_mode,
+    }: {
+      modelId: string;
+      subtypes: string[];
+      apply_to_objects: boolean;
+      apply_mode: 'empty_only' | 'all';
+    }) =>
+      defaultMap3dModelsApi.assignMap3dCustomModel(projectId!, modelId, {
+        subtypes,
+        apply_to_objects,
+        apply_mode,
+      }),
+    onSuccess: async (data, { subtypes }) => {
+      const updated = data.objects_updated ?? 0;
+      if (subtypes.length === 0) {
+        pushToast('success', 'Назначение снято');
+      } else if (updated > 0) {
+        pushToast('success', `Назначение сохранено, обновлено объектов: ${updated}`);
+      } else {
+        pushToast('success', 'Назначение сохранено');
+      }
       await invalidateAll();
     },
     onError: (e: Error) => pushToast('error', e.message),
@@ -123,6 +190,41 @@ export function useImport3dWorkflow() {
     const file = fileInputRef.current?.files?.[0];
     if (!file || !projectId || !canUpload) return;
     uploadMut.mutate(file);
+  };
+
+  const onDeleteModel = (m: Map3dCustomModel) => {
+    const usage = m.usage_count ?? 0;
+    const usageText =
+      usage > 0
+        ? `Используется ${usage} ${usage === 1 ? 'объектом' : usage < 5 ? 'объектами' : 'объектами'}. `
+        : '';
+    const ok = window.confirm(
+      `${usageText}Удалить модель «${map3dModelLabel(m)}»? Это действие нельзя отменить.`,
+    );
+    if (!ok) return;
+    deleteMut.mutate(m.id);
+  };
+
+  const onEditModel = (m: Map3dCustomModel) => {
+    const nextName = window.prompt('Отображаемое имя модели', map3dModelLabel(m));
+    if (nextName === null) return;
+    const trimmed = nextName.trim();
+    if (!trimmed) {
+      pushToast('error', 'Имя не может быть пустым');
+      return;
+    }
+    const heightRaw = window.prompt('Высота модели (м)', String(m.target_height_m));
+    if (heightRaw === null) return;
+    const height = Number(heightRaw);
+    if (!Number.isFinite(height) || height <= 0 || height > 500) {
+      pushToast('error', 'Высота должна быть от 0 до 500 м');
+      return;
+    }
+    patchMut.mutate({
+      modelId: m.id,
+      display_name: trimmed,
+      target_height_m: height,
+    });
   };
 
   const assignedSubtypesForModel = (m: Map3dCustomModel) =>
@@ -137,6 +239,13 @@ export function useImport3dWorkflow() {
     setAssignModelId,
     assignSubtypes,
     toggleAssignSubtype,
+    assignApplyToObjects,
+    setAssignApplyToObjects,
+    assignApplyMode,
+    setAssignApplyMode,
+    applyPreview,
+    uploadTargetHeightM,
+    setUploadTargetHeightM,
     canUpload,
     canAssign,
     hasPageAccess,
@@ -148,8 +257,11 @@ export function useImport3dWorkflow() {
     assignableSubtypes,
     uploadMut,
     deleteMut,
+    patchMut,
     assignMut,
     onUpload,
+    onDeleteModel,
+    onEditModel,
     assignedSubtypesForModel,
   };
 }

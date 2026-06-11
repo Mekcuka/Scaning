@@ -5,7 +5,7 @@ import { AppSelect } from '../components/AppSelect';
 import { SUBTYPE_LABELS } from '../lib/api';
 import { GlbUploadZone } from './import3d/GlbUploadZone';
 import { Import3dPanel } from './import3d/Import3dPanel';
-import { ModelsList } from './import3d/ModelsList';
+import { map3dModelLabel, ModelsList } from './import3d/ModelsList';
 import { useImport3dWorkflow } from './import3d/useImport3dWorkflow';
 
 export function Import3DPage() {
@@ -87,6 +87,8 @@ export function Import3DPage() {
                   fileInputRef={w.fileInputRef}
                   disabled={!w.projectId}
                   busy={w.uploadMut.isPending}
+                  targetHeightM={w.uploadTargetHeightM}
+                  onTargetHeightChange={w.setUploadTargetHeightM}
                   onPick={w.onUpload}
                 />
               </Import3dPanel>
@@ -112,7 +114,7 @@ export function Import3DPage() {
                     disabled={!w.projectId || w.models.length === 0}
                     options={[
                       { value: '', label: '— не выбрано —' },
-                      ...w.models.map((m) => ({ value: m.id, label: m.filename })),
+                      ...w.models.map((m) => ({ value: m.id, label: map3dModelLabel(m) })),
                     ]}
                   />
                 </div>
@@ -139,14 +141,69 @@ export function Import3DPage() {
                     })}
                   </div>
                 </fieldset>
+                <div className="import-3d-apply-options">
+                  <label className="import-3d-apply-toggle">
+                    <input
+                      type="checkbox"
+                      checked={w.assignApplyToObjects}
+                      onChange={(e) => w.setAssignApplyToObjects(e.target.checked)}
+                      disabled={!assignReady}
+                    />
+                    <span>Применить к объектам на карте</span>
+                  </label>
+                  {w.assignApplyToObjects && assignReady && hasSubtypeSelection ? (
+                    <fieldset className="import-3d-apply-mode" disabled={w.assignMut.isPending}>
+                      <legend className="form-label">Режим применения</legend>
+                      <label className="import-3d-apply-mode__option">
+                        <input
+                          type="radio"
+                          name="import3d-apply-mode"
+                          checked={w.assignApplyMode === 'empty_only'}
+                          onChange={() => w.setAssignApplyMode('empty_only')}
+                        />
+                        <span>Только объекты без модели</span>
+                      </label>
+                      <label className="import-3d-apply-mode__option">
+                        <input
+                          type="radio"
+                          name="import3d-apply-mode"
+                          checked={w.assignApplyMode === 'all'}
+                          onChange={() => w.setAssignApplyMode('all')}
+                        />
+                        <span>Все объекты выбранных подтипов</span>
+                      </label>
+                      {w.applyPreview ? (
+                        <p className="import-3d-muted import-3d-apply-preview">
+                          Будет обновлено: {w.applyPreview.would_update} из{' '}
+                          {w.applyPreview.total_matching} подходящих объектов
+                        </p>
+                      ) : null}
+                    </fieldset>
+                  ) : null}
+                </div>
                 <div className="import-3d-assign-actions">
                   <button
                     type="button"
                     className="btn btn-primary"
                     disabled={!assignReady || w.assignMut.isPending}
-                    onClick={() =>
-                      w.assignMut.mutate({ modelId: w.assignModelId, subtypes: w.assignSubtypes })
-                    }
+                    onClick={() => {
+                      if (
+                        w.assignApplyToObjects &&
+                        w.assignApplyMode === 'all' &&
+                        (w.applyPreview?.would_update ?? 0) > 0 &&
+                        !window.confirm(
+                          `Перезаписать модель 3D у ${w.applyPreview?.would_update} объектов?`,
+                        )
+                      ) {
+                        return;
+                      }
+                      w.assignMut.mutate({
+                        modelId: w.assignModelId,
+                        subtypes: w.assignSubtypes,
+                        apply_to_objects: w.assignApplyToObjects,
+                        apply_mode: w.assignApplyMode,
+                      });
+                    }}
                   >
                     {w.assignMut.isPending ? 'Сохранение…' : 'Сохранить назначение'}
                   </button>
@@ -154,7 +211,14 @@ export function Import3DPage() {
                     type="button"
                     className="btn btn-secondary"
                     disabled={!assignReady || w.assignMut.isPending}
-                    onClick={() => w.assignMut.mutate({ modelId: w.assignModelId, subtypes: [] })}
+                    onClick={() =>
+                      w.assignMut.mutate({
+                        modelId: w.assignModelId,
+                        subtypes: [],
+                        apply_to_objects: false,
+                        apply_mode: w.assignApplyMode,
+                      })
+                    }
                   >
                     Снять все
                   </button>
@@ -211,7 +275,9 @@ export function Import3DPage() {
             modelsLoading={w.modelsLoading}
             assignedSubtypes={w.assignedSubtypesForModel}
             canDelete={w.canUpload}
-            onDelete={(id) => w.deleteMut.mutate(id)}
+            canEdit={w.canAssign}
+            onDelete={w.onDeleteModel}
+            onEdit={w.onEditModel}
             deletePending={w.deleteMut.isPending}
             emptyHint={modelsEmptyHint}
           />

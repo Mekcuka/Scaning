@@ -38,6 +38,8 @@ services:
     restart: unless-stopped
     env_file:
       - /opt/decision-matrix/shared/app.env
+    volumes:
+      - /opt/decision-matrix/shared/map3d_models:/app/data/map3d_models
     expose:
       - "8000"
     depends_on:
@@ -84,6 +86,8 @@ services:
     restart: unless-stopped
     env_file:
       - /opt/decision-matrix/shared/app.env
+    volumes:
+      - /opt/decision-matrix/shared/map3d_models:/app/data/map3d_models
     command: ["arq", "app.worker.settings.WorkerSettings"]
     depends_on:
       db:

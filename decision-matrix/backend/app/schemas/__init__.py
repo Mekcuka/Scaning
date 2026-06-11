@@ -404,9 +404,18 @@ class Map3dCustomModelResponse(BaseModel):
     id: UUID
     project_id: UUID
     filename: str
+    display_name: str
     target_height_m: float
+    file_size_bytes: int = 0
     created_at: datetime
+    updated_at: datetime | None = None
     assigned_subtypes: list[str] = Field(default_factory=list)
+    usage_count: int = 0
+
+
+class Map3dCustomModelUpdate(BaseModel):
+    display_name: str | None = None
+    target_height_m: float | None = None
 
 
 class Map3dCustomModelAssign(BaseModel):
@@ -415,6 +424,8 @@ class Map3dCustomModelAssign(BaseModel):
     subtypes: list[str] | None = None
     subtype: str | None = None
     object_id: UUID | None = None
+    apply_to_objects: bool = False
+    apply_mode: str = "empty_only"
 
     @model_validator(mode="after")
     def require_assign_payload(self) -> "Map3dCustomModelAssign":
@@ -424,6 +435,22 @@ class Map3dCustomModelAssign(BaseModel):
         if has_subtype or self.object_id is not None:
             return self
         raise ValueError("subtypes, subtype or object_id is required")
+
+    @model_validator(mode="after")
+    def validate_apply_mode(self) -> "Map3dCustomModelAssign":
+        if self.apply_mode not in ("empty_only", "all"):
+            raise ValueError("apply_mode must be empty_only or all")
+        return self
+
+
+class Map3dCustomModelAssignResponse(BaseModel):
+    model: Map3dCustomModelResponse
+    objects_updated: int = 0
+
+
+class Map3dCustomModelApplyPreview(BaseModel):
+    would_update: int
+    total_matching: int
 
 
 class Render3DEffective(BaseModel):

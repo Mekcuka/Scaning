@@ -34,6 +34,8 @@ interface InfraDetailMainTabProps {
   lat: string;
   setLat: (value: string) => void;
   copyCoordinates: () => Promise<void>;
+  description: string;
+  setDescription: (value: string) => void;
 }
 
 function formatEntryDate(value: string): string {
@@ -72,48 +74,71 @@ export function InfraDetailMainTab({
   lat,
   setLat,
   copyCoordinates,
+  description,
+  setDescription,
 }: InfraDetailMainTabProps) {
   const selectedLayerLabel = layers.find((l) => l.id === layerId)?.name;
   const showLayerSourceHint =
     Boolean(layerName) && layerName !== name && layerName !== selectedLayerLabel;
   const showParamsSection = showEntryDateField || showThroughputCapacity;
 
+  const classificationTwoColumns = layers.length > 0;
+  const operationsTwoColumns = showEntryDateField && showThroughputCapacity;
+
+  const capacityHint = [
+    capacityUnitLabel(capacityUnit),
+    throughputCapacity &&
+      !throughputCapacity.isStored &&
+      throughputCapacity.value != null &&
+      ' · значение по умолчанию для подтипа',
+  ]
+    .filter(Boolean)
+    .join('');
+
   return (
-    <>
+    <div className="object-detail-panel__tab-sections">
       <PanelSection title="Классификация" card>
-        <div className="object-detail-panel__fields-grid">
-          <label
-            className={`object-detail-panel__field${
-              layers.length === 0 ? ' object-detail-panel__field--span-2' : ''
-            }`}
-          >
+        <div
+          className={`object-detail-panel__pair-grid${
+            classificationTwoColumns ? '' : ' object-detail-panel__pair-grid--single'
+          }`}
+        >
+          <div className="object-detail-panel__pair-grid-row">
             <FieldLabel>Подтип</FieldLabel>
-            <AppSelect
-              variant="compact"
-              value={subtype}
-              readOnly={readOnly || subtypeLocked}
-              onChange={setSubtype}
-              options={infraSubtypeOptions}
-            />
-            {subtypeLocked && (
-              <p className="object-detail-panel__hint">Подтип фиксирован для этого объекта</p>
-            )}
-          </label>
-          {layers.length > 0 && (
-            <label className="object-detail-panel__field">
-              <FieldLabel>Слой</FieldLabel>
+            {classificationTwoColumns && <FieldLabel>Слой</FieldLabel>}
+          </div>
+          <div className="object-detail-panel__pair-grid-row">
+            <div className="object-detail-panel__field-control">
               <AppSelect
                 variant="compact"
-                value={layerId}
-                readOnly={readOnly}
-                onChange={setLayerId}
-                options={layers.map((l) => ({ value: l.id, label: l.name }))}
+                value={subtype}
+                readOnly={readOnly || subtypeLocked}
+                onChange={setSubtype}
+                options={infraSubtypeOptions}
               />
-              {showLayerSourceHint && (
-                <p className="object-detail-panel__hint">Источник: {layerName}</p>
-              )}
-            </label>
-          )}
+            </div>
+            {classificationTwoColumns && (
+              <div className="object-detail-panel__field-control">
+                <AppSelect
+                  variant="compact"
+                  value={layerId}
+                  readOnly={readOnly}
+                  onChange={setLayerId}
+                  options={layers.map((l) => ({ value: l.id, label: l.name }))}
+                />
+              </div>
+            )}
+          </div>
+          <div className="object-detail-panel__pair-grid-row object-detail-panel__pair-grid-row--hints">
+            <p className="object-detail-panel__hint">
+              {subtypeLocked ? 'Подтип фиксирован для этого объекта' : '\u00a0'}
+            </p>
+            {classificationTwoColumns && (
+              <p className="object-detail-panel__hint">
+                {showLayerSourceHint ? `Источник: ${layerName}` : '\u00a0'}
+              </p>
+            )}
+          </div>
         </div>
         {sparkType && (
           <p className="object-detail-panel__meta object-detail-panel__meta--badge">
@@ -125,59 +150,64 @@ export function InfraDetailMainTab({
 
       {showParamsSection && (
         <PanelSection title="Эксплуатация" card>
-          <div className="object-detail-panel__fields-grid">
-            {showEntryDateField && (
-              <label className="object-detail-panel__field">
-                <FieldLabel>Дата ввода</FieldLabel>
-                {readOnly ? (
-                  <ReadOnlyValue placeholder="Не указана">
-                    {formatEntryDate(entryDate)}
-                  </ReadOnlyValue>
-                ) : (
-                  <input
-                    className="input object-detail-panel__input"
-                    type="date"
-                    value={entryDate}
-                    onChange={(e) => setEntryDate(e.target.value)}
-                  />
-                )}
-              </label>
-            )}
-            {showThroughputCapacity && (
-              <label
-                className={`object-detail-panel__field${
-                  showEntryDateField ? '' : ' object-detail-panel__field--span-2'
-                }`}
-              >
-                <FieldLabel>Пропускная способность</FieldLabel>
-                {readOnly ? (
-                  <ReadOnlyValue placeholder="Не задана">
-                    {capacityValue !== ''
-                      ? `${Number(capacityValue).toLocaleString('ru-RU')} ${capacityUnitLabel(capacityUnit)}`
-                      : null}
-                  </ReadOnlyValue>
-                ) : (
-                  <DeferredNumberInput
-                    allowEmpty
-                    min={0}
-                    className="input object-detail-panel__input"
-                    placeholder="Не задана"
-                    value={capacityValue}
-                    disabled={saving}
-                    onCommit={(v) =>
-                      setCapacityValue(v === '' ? '' : typeof v === 'number' ? v : Number(v))
-                    }
-                  />
-                )}
-                <p className="object-detail-panel__hint">
-                  {capacityUnitLabel(capacityUnit)}
-                  {throughputCapacity &&
-                    !throughputCapacity.isStored &&
-                    throughputCapacity.value != null &&
-                    ' · значение по умолчанию для подтипа'}
-                </p>
-              </label>
-            )}
+          <div
+            className={`object-detail-panel__pair-grid${
+              operationsTwoColumns ? '' : ' object-detail-panel__pair-grid--single'
+            }`}
+          >
+            <div className="object-detail-panel__pair-grid-row">
+              {showEntryDateField && <FieldLabel>Дата ввода</FieldLabel>}
+              {showThroughputCapacity && <FieldLabel>Пропускная способность</FieldLabel>}
+            </div>
+            <div className="object-detail-panel__pair-grid-row">
+              {showEntryDateField && (
+                <div className="object-detail-panel__field-control">
+                  {readOnly ? (
+                    <ReadOnlyValue placeholder="Не указана">
+                      {formatEntryDate(entryDate)}
+                    </ReadOnlyValue>
+                  ) : (
+                    <input
+                      className="input object-detail-panel__input"
+                      type="date"
+                      value={entryDate}
+                      onChange={(e) => setEntryDate(e.target.value)}
+                    />
+                  )}
+                </div>
+              )}
+              {showThroughputCapacity && (
+                <div className="object-detail-panel__field-control">
+                  {readOnly ? (
+                    <ReadOnlyValue placeholder="Не задана">
+                      {capacityValue !== ''
+                        ? `${Number(capacityValue).toLocaleString('ru-RU')} ${capacityUnitLabel(capacityUnit)}`
+                        : null}
+                    </ReadOnlyValue>
+                  ) : (
+                    <DeferredNumberInput
+                      allowEmpty
+                      min={0}
+                      className="input object-detail-panel__input"
+                      placeholder="Не задана"
+                      value={capacityValue}
+                      disabled={saving}
+                      onCommit={(v) =>
+                        setCapacityValue(v === '' ? '' : typeof v === 'number' ? v : Number(v))
+                      }
+                    />
+                  )}
+                </div>
+              )}
+            </div>
+            <div className="object-detail-panel__pair-grid-row object-detail-panel__pair-grid-row--hints">
+              {showEntryDateField && (
+                <p className="object-detail-panel__hint">{'\u00a0'}</p>
+              )}
+              {showThroughputCapacity && (
+                <p className="object-detail-panel__hint">{capacityHint || '\u00a0'}</p>
+              )}
+            </div>
           </div>
         </PanelSection>
       )}
@@ -232,6 +262,21 @@ export function InfraDetailMainTab({
           </p>
         )}
       </PanelSection>
-    </>
+
+      <PanelSection title="Описание" card>
+        <label className="object-detail-panel__field">
+          <FieldLabel>Комментарий</FieldLabel>
+          <textarea
+            className="input object-detail-panel__textarea object-detail-panel__textarea--compact"
+            value={description}
+            rows={4}
+            placeholder="Заметки к объекту…"
+            readOnly={readOnly}
+            disabled={readOnly}
+            onChange={(e) => setDescription(e.target.value)}
+          />
+        </label>
+      </PanelSection>
+    </div>
   );
 }

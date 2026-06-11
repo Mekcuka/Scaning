@@ -56,7 +56,7 @@
 | Фоновые задачи (admin) | `api/v1/admin_jobs.py`, `services/admin_jobs.py` | ✅ |
 | Проекты, POI, ставки, пороги | `api/v1/router.py`, `services/cost_rates.py`, `calculations.py` | ✅ |
 | Карта, слои, объекты | `api/v1/map.py` | ✅ |
-| Custom GLB 3D (`project_map3d_models`) | `api/v1/map3d_models.py`, `services/map3d_custom_models.py`, миграции `015`–`016` (`assigned_subtypes[]`); клиент: `map3dCustomGlbFetch.ts` (Bearer на проде) | ✅ |
+| Custom GLB 3D (`project_map3d_models`) | `api/v1/map3d_models.py`, `services/map3d_custom_models.py`, миграции `015`–`016`, **`022`** (метаданные, usage_count, bulk apply, volume `map3d_models`); клиент: `Import3DPage`, `map3dCustomGlbFetch.ts` | ✅ |
 | Анализ окружения | `services/infrastructure_analysis.py`, `spatial.py` | ✅ |
 | Импорт | `services/import_service.py`, `spark_import.py`, `import_connections.py` | ✅ |
 | Async import | `schedule_async_import` (фоновые задачи asyncio, **не** Celery) | ✅ |
@@ -91,7 +91,7 @@
 | `/report/*` | `ReportListPage`, `ReportEditorPage`, … | ✅ |
 | `/import` | `ImportPage` | ✅ |
 | `/export` | `ExportPage` — выбор проекта в панели, карточки форматов с количествами; координаты точечных/всех объектов, GeoJSON (клиент) | ✅ |
-| `/import-3d` | `Import3DPage` — custom GLB (admin upload; owner assign) | ✅ |
+| `/import-3d` | `Import3DPage` — custom GLB (upload + metadata table, PATCH, bulk apply on assign) | ✅ |
 | `/flows/*` | `FlowTechnologyPage`, … | ✅ |
 | `/admin/users` | `AdminLayout` + `AdminUsersPage` | ✅ |
 | `/admin/jobs` | `AdminLayout` + `AdminJobsPage` (health, фильтры, отмена только `pending`/`running`, автообновление 3 с) | ✅ |
@@ -160,7 +160,7 @@
 
 Базовый URL: `/api/v1`. Полный список — Swagger `/api/v1/docs` и [decision-matrix/README.md](../../decision-matrix/README.md).
 
-Группы: `auth`, `admin`, `admin/jobs` (list, health, cancel), `projects`, `projects/{id}/pois`, `projects/{id}/infrastructure/*`, `projects/{id}/map3d-custom-models` (upload / list / assign-by-subtype / file), `projects/{id}/pois/{id}/analysis`, `projects/{id}/import/*`, `import/logs`, `projects/{id}/one-pagers`, `projects/{id}/flow-schematic`, `projects/{id}/infrastructure/networks`, `projects/{id}/import_connections`, `projects/{id}/sand-logistics` (GET result, POST analyze).
+Группы: `auth`, `admin`, `admin/jobs` (list, health, cancel), `projects`, `projects/{id}/pois`, `projects/{id}/infrastructure/*`, `projects/{id}/map3d-custom-models` (upload / list / PATCH / assign + bulk apply / apply-preview / file), `projects/{id}/pois/{id}/analysis`, `projects/{id}/import/*`, `import/logs`, `projects/{id}/one-pagers`, `projects/{id}/flow-schematic`, `projects/{id}/infrastructure/networks`, `projects/{id}/import_connections`, `projects/{id}/sand-logistics` (GET result, POST analyze).
 
 ---
 

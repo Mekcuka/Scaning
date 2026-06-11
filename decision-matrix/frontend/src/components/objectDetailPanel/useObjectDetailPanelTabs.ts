@@ -51,7 +51,7 @@ export function useObjectDetailPanelTabs(params: {
     if (showLogisticsTab) {
       tabs.push({ id: 'logistics', label: 'Логистика', icon: INFRA_TAB_ICONS.logistics });
     }
-    tabs.push({ id: 'extra', label: 'Дополнительно', icon: INFRA_TAB_ICONS.extra });
+    tabs.push({ id: 'extra', label: '3D', icon: INFRA_TAB_ICONS.extra });
     return tabs;
   }, [showLogisticsTab]);
 

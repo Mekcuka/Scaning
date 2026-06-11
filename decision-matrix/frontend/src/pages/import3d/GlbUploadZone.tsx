@@ -5,11 +5,15 @@ export function GlbUploadZone({
   fileInputRef,
   disabled,
   busy,
+  targetHeightM,
+  onTargetHeightChange,
   onPick,
 }: {
   fileInputRef: RefObject<HTMLInputElement | null>;
   disabled: boolean;
   busy: boolean;
+  targetHeightM: number;
+  onTargetHeightChange: (value: number) => void;
   onPick: () => void;
 }) {
   const [dragOver, setDragOver] = useState(false);
@@ -71,6 +75,22 @@ export function GlbUploadZone({
           className="import-3d-dropzone__input"
           disabled={disabled}
           onChange={syncFileName}
+        />
+      </div>
+      <div className="import-3d-upload-meta">
+        <label className="form-label" htmlFor="import3d-target-height">
+          Высота модели (м)
+        </label>
+        <input
+          id="import3d-target-height"
+          type="number"
+          className="form-input import-3d-upload-meta__height"
+          min={0.1}
+          max={500}
+          step={0.1}
+          value={targetHeightM}
+          disabled={disabled}
+          onChange={(e) => onTargetHeightChange(Number(e.target.value) || 8)}
         />
       </div>
       <div className="import-3d-assign-actions">

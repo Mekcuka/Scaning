@@ -134,18 +134,20 @@ flowchart TB
 | Превью Three.js | **admin** или **владелец** |
 | Выбор custom в карточке объекта | пользователь с write на инфраструктуру |
 
-**Хранение:** таблица `project_map3d_models` (`assigned_subtypes` — JSON-массив подтипов), файлы `backend/data/map3d_models/{project_id}/{id}.glb`.
+**Хранение:** таблица `project_map3d_models` (`display_name`, `file_size_bytes`, `content_sha256`, `assigned_subtypes`, `updated_at`), файлы `MAP3D_MODELS_ROOT/{project_id}/{id}.glb` (по умолчанию `backend/data/map3d_models`; на проде — bind-mount `/opt/decision-matrix/shared/map3d_models` в `deploy/docker-compose.yml`).
 
 **Поведение:**
 
 - Одна GLB может быть назначена на **несколько** подтипов; один подтип может иметь **несколько** GLB (все попадают в список «Модель 3D»).
-- Назначение **не** меняет `properties` объектов — только делает модель доступной в списке для точек выбранных подтипов.
+- По умолчанию назначение только обновляет `assigned_subtypes` (модель доступна в списке «Модель 3D»). Опционально `POST .../assign` с `apply_to_objects: true` массово проставляет `render_3d_model_id` и `render_3d_style: model` на точках выбранных подтипов (`apply_mode`: `empty_only` | `all`).
+- `GET .../apply-preview?subtypes=node,gtes&mode=empty_only` — счётчик объектов до подтверждения в UI.
 - `POST .../assign` с `{ "subtypes": [] }` снимает все назначения с модели. Legacy: `{ "subtype": "node" }` эквивалентно `{ "subtypes": ["node"] }`.
+- `PATCH .../{model_id}` — `display_name`, `target_height_m` (admin или владелец, как assign).
 - PATCH `render_3d_model_id: custom:*` — только если подтип объекта входит в `assigned_subtypes` модели (иначе **400**).
-- Удаление GLB снимает `render_3d_model_id` у всех объектов с этим `custom:{uuid}`.
-- Миграции: **`015`** (один подтип), **`016`** (`assigned_subtypes`, backfill из `assigned_subtype`).
+- Удаление GLB снимает `render_3d_model_id` у всех объектов с этим `custom:{uuid}`; удаление проекта чистит строки и каталог на диске.
+- Миграции: **`015`** (один подтип), **`016`** (`assigned_subtypes`), **`022`** (метаданные файла).
 
-**API:** `GET/POST /api/v1/projects/{project_id}/map3d-custom-models`, `POST .../{model_id}/assign`, `GET .../{model_id}/file`, `DELETE .../{model_id}`. Ответ: `assigned_subtypes: string[]`.
+**API:** `GET/POST /api/v1/projects/{project_id}/map3d-custom-models`, `PATCH .../{model_id}`, `POST .../{model_id}/assign` (ответ `{ model, objects_updated }`), `GET .../{model_id}/apply-preview`, `GET .../{model_id}/file`, `DELETE .../{model_id}`. Список включает `usage_count` (число объектов с `custom:{id}`).
 
 **Загрузка файла на клиенте (прод):**
 

@@ -201,16 +201,21 @@ def patch_sqlite_schema(conn: Connection) -> None:
             id CHAR(32) PRIMARY KEY,
             project_id CHAR(32) NOT NULL,
             filename VARCHAR(255) NOT NULL,
+            display_name VARCHAR(255) NOT NULL DEFAULT 'model',
             target_height_m FLOAT NOT NULL DEFAULT 8,
+            file_size_bytes INTEGER NOT NULL DEFAULT 0,
+            content_sha256 VARCHAR(64),
             assigned_subtypes TEXT NOT NULL DEFAULT '[]',
             created_by_user_id CHAR(32),
             created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+            updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
             FOREIGN KEY(project_id) REFERENCES projects(id) ON DELETE CASCADE,
             FOREIGN KEY(created_by_user_id) REFERENCES users(id) ON DELETE SET NULL
         )
         """,
     )
     _patch_map3d_assigned_subtypes(conn)
+    _patch_map3d_model_metadata(conn)
 
 
 def _patch_map3d_assigned_subtypes(conn: Connection) -> None:
@@ -259,6 +264,66 @@ def _patch_map3d_assigned_subtypes(conn: Connection) -> None:
         )
 
 
+def _patch_map3d_model_metadata(conn: Connection) -> None:
+    """022: display_name, file_size_bytes, content_sha256, updated_at. Idempotent."""
+    insp = inspect(conn)
+    if "project_map3d_models" not in insp.get_table_names():
+        return
+
+    is_sqlite = conn.dialect.name == "sqlite"
+    size_type = "INTEGER NOT NULL DEFAULT 0" if is_sqlite else "BIGINT NOT NULL DEFAULT 0"
+    updated_type = "DATETIME DEFAULT CURRENT_TIMESTAMP" if is_sqlite else "TIMESTAMPTZ DEFAULT NOW()"
+
+    _add_column_if_missing(
+        conn,
+        "project_map3d_models",
+        "display_name",
+        "display_name VARCHAR(255)",
+    )
+    _add_column_if_missing(
+        conn,
+        "project_map3d_models",
+        "file_size_bytes",
+        f"file_size_bytes {size_type}",
+    )
+    _add_column_if_missing(
+        conn,
+        "project_map3d_models",
+        "content_sha256",
+        "content_sha256 VARCHAR(64)",
+    )
+    _add_column_if_missing(
+        conn,
+        "project_map3d_models",
+        "updated_at",
+        f"updated_at {updated_type}",
+    )
+
+    rows = conn.execute(
+        text("SELECT id, filename, display_name FROM project_map3d_models")
+    ).fetchall()
+    for model_id, filename, display_name in rows:
+        if display_name and str(display_name).strip():
+            continue
+        stem = (filename or "model").strip()
+        if stem.lower().endswith(".glb"):
+            stem = stem[:-4] or "model"
+        conn.execute(
+            text("UPDATE project_map3d_models SET display_name = :dn WHERE id = :id"),
+            {"dn": stem or "model", "id": str(model_id)},
+        )
+
+    conn.execute(
+        text(
+            """
+            UPDATE project_map3d_models
+            SET updated_at = created_at
+            WHERE updated_at IS NULL
+            """
+        )
+    )
+
+
 def patch_postgres_schema(conn: Connection) -> None:
     """Incremental patches for PostgreSQL (create_all does not alter existing tables)."""
     for table in ("project_distance_defaults", "points_of_interest"):
@@ -303,3 +368,4 @@ def patch_postgres_schema(conn: Connection) -> None:
     )
 
     _patch_map3d_assigned_subtypes(conn)
+    _patch_map3d_model_metadata(conn)

@@ -14,6 +14,11 @@ OIL_DRUM_RED_GLB = Path(
 MINIMAL_GLB = b"glTF" + b"\x02\x00\x00\x00" + b"\x1c\x00\x00\x00" + b"\x00" * 12
 
 
+def _assign_body(resp):
+    body = resp.json()
+    return body["model"]
+
+
 def _admin_headers(client):
     login(client, "admin@test.ru")
     return csrf_headers(client)
@@ -51,7 +56,7 @@ def test_map3d_custom_models_admin_upload_assign_by_subtype(client):
         headers=headers,
     )
     assert assign.status_code == 200, assign.text
-    assert assign.json()["assigned_subtypes"] == ["node"]
+    assert _assign_body(assign)["assigned_subtypes"] == ["node"]
 
     obj_before = client.get(f"/api/v1/projects/{pid}/infrastructure/objects").json()
     node_obj = next(o for o in obj_before if o["id"] == point["id"])
@@ -87,7 +92,7 @@ def test_map3d_custom_models_assign_gtes_subtype(client):
         headers=headers,
     )
     assert assign.status_code == 200, assign.text
-    assert assign.json()["assigned_subtypes"] == ["gtes"]
+    assert _assign_body(assign)["assigned_subtypes"] == ["gtes"]
 
 
 def test_map3d_custom_models_assign_multiple_subtypes(client):
@@ -113,7 +118,7 @@ def test_map3d_custom_models_assign_multiple_subtypes(client):
         headers=headers,
     )
     assert assign.status_code == 200, assign.text
-    assert set(assign.json()["assigned_subtypes"]) == {"node", "gtes"}
+    assert set(_assign_body(assign)["assigned_subtypes"]) == {"node", "gtes"}
 
     ok = client.patch(
         f"/api/v1/projects/{pid}/infrastructure/objects/{gtes_point['id']}",
@@ -151,7 +156,7 @@ def test_map3d_custom_models_assign_clear_subtypes(client):
         headers=headers,
     )
     assert cleared.status_code == 200, cleared.text
-    assert cleared.json()["assigned_subtypes"] == []
+    assert _assign_body(cleared)["assigned_subtypes"] == []
 
 
 def test_map3d_custom_models_shared_subtype_two_models(client):
@@ -210,7 +215,7 @@ def test_map3d_custom_models_assign_legacy_object_id(client):
         headers=headers,
     )
     assert assign.status_code == 200, assign.text
-    assert assign.json()["assigned_subtypes"] == ["gtes"]
+    assert _assign_body(assign)["assigned_subtypes"] == ["gtes"]
 
 
 def test_map3d_custom_models_patch_rejects_wrong_subtype(client):
@@ -269,7 +274,7 @@ def test_map3d_custom_models_owner_can_assign(client):
         headers=owner_csrf,
     )
     assert assign.status_code == 200, assign.text
-    assert assign.json()["assigned_subtypes"] == ["node"]
+    assert _assign_body(assign)["assigned_subtypes"] == ["node"]
 
 
 def test_map3d_custom_models_non_owner_cannot_assign(client):
@@ -404,7 +409,7 @@ def test_map3d_custom_model_legacy_pad_assignment(client):
         headers=headers,
     )
     assert assign.status_code == 200, assign.text
-    assert assign.json()["assigned_subtypes"] == ["oil_pad"]
+    assert _assign_body(assign)["assigned_subtypes"] == ["oil_pad"]
 
     ok = client.patch(
         f"/api/v1/projects/{pid}/infrastructure/objects/{pad['id']}",
@@ -412,3 +417,189 @@ def test_map3d_custom_model_legacy_pad_assignment(client):
         headers=headers,
     )
     assert ok.status_code == 200, ok.text
+
+
+def test_map3d_custom_models_upload_metadata(client):
+    project, _ = create_test_project(client, email="admin@test.ru", name="test_map3d_metadata")
+    pid = project["id"]
+    headers = _admin_headers(client)
+    upload = client.post(
+        f"/api/v1/projects/{pid}/map3d-custom-models",
+        files={"file": ("my-tower.glb", MINIMAL_GLB, "model/gltf-binary")},
+        data={"target_height_m": "12.5"},
+        headers=headers,
+    )
+    assert upload.status_code == 201, upload.text
+    model = upload.json()
+    assert model["display_name"] == "my-tower"
+    assert model["file_size_bytes"] == len(MINIMAL_GLB)
+    assert model["target_height_m"] == 12.5
+
+
+def test_map3d_custom_models_patch_target_height(client):
+    project, _ = create_test_project(client, email="admin@test.ru", name="test_map3d_patch")
+    pid = project["id"]
+    headers = _admin_headers(client)
+    upload = client.post(
+        f"/api/v1/projects/{pid}/map3d-custom-models",
+        files={"file": ("patch.glb", MINIMAL_GLB, "model/gltf-binary")},
+        headers=headers,
+    )
+    model_id = upload.json()["id"]
+    patched = client.patch(
+        f"/api/v1/projects/{pid}/map3d-custom-models/{model_id}",
+        json={"display_name": "Башня", "target_height_m": 15},
+        headers=headers,
+    )
+    assert patched.status_code == 200, patched.text
+    body = patched.json()
+    assert body["display_name"] == "Башня"
+    assert body["target_height_m"] == 15
+    assert body["updated_at"] is not None
+
+
+def test_map3d_custom_models_assign_apply_empty_only(client):
+    project, _ = create_test_project(client, email="admin@test.ru", name="test_map3d_apply_empty")
+    pid = project["id"]
+    headers = _admin_headers(client)
+    layer = create_test_layer(client, pid, headers)
+    node_a = create_test_infra_point(client, pid, layer["id"], headers, name="n1", subtype="node")
+    node_b = create_test_infra_point(client, pid, layer["id"], headers, name="n2", subtype="node")
+    decoy = client.post(
+        f"/api/v1/projects/{pid}/map3d-custom-models",
+        files={"file": ("decoy.glb", MINIMAL_GLB, "model/gltf-binary")},
+        headers=headers,
+    )
+    decoy_id = decoy.json()["id"]
+    client.post(
+        f"/api/v1/projects/{pid}/map3d-custom-models/{decoy_id}/assign",
+        json={"subtype": "node"},
+        headers=headers,
+    )
+    client.patch(
+        f"/api/v1/projects/{pid}/infrastructure/objects/{node_b['id']}",
+        json={"properties": {"render_3d_model_id": f"custom:{decoy_id}"}},
+        headers=headers,
+    )
+
+    upload = client.post(
+        f"/api/v1/projects/{pid}/map3d-custom-models",
+        files={"file": ("apply.glb", MINIMAL_GLB, "model/gltf-binary")},
+        headers=headers,
+    )
+    model_id = upload.json()["id"]
+    assign = client.post(
+        f"/api/v1/projects/{pid}/map3d-custom-models/{model_id}/assign",
+        json={"subtypes": ["node"], "apply_to_objects": True, "apply_mode": "empty_only"},
+        headers=headers,
+    )
+    assert assign.status_code == 200, assign.text
+    body = assign.json()
+    assert body["objects_updated"] == 1
+
+    objs = client.get(f"/api/v1/projects/{pid}/infrastructure/objects").json()
+    by_id = {o["id"]: o for o in objs}
+    assert by_id[node_a["id"]]["properties"].get("render_3d_model_id") == f"custom:{model_id}"
+    assert by_id[node_a["id"]]["properties"].get("render_3d_style") == "model"
+    assert by_id[node_b["id"]]["properties"].get("render_3d_model_id") != f"custom:{model_id}"
+
+
+def test_map3d_custom_models_assign_apply_all(client):
+    project, _ = create_test_project(client, email="admin@test.ru", name="test_map3d_apply_all")
+    pid = project["id"]
+    headers = _admin_headers(client)
+    layer = create_test_layer(client, pid, headers)
+    node_a = create_test_infra_point(client, pid, layer["id"], headers, name="n1", subtype="node")
+    node_b = create_test_infra_point(client, pid, layer["id"], headers, name="n2", subtype="node")
+    decoy = client.post(
+        f"/api/v1/projects/{pid}/map3d-custom-models",
+        files={"file": ("decoy2.glb", MINIMAL_GLB, "model/gltf-binary")},
+        headers=headers,
+    )
+    decoy_id = decoy.json()["id"]
+    client.post(
+        f"/api/v1/projects/{pid}/map3d-custom-models/{decoy_id}/assign",
+        json={"subtype": "node"},
+        headers=headers,
+    )
+    client.patch(
+        f"/api/v1/projects/{pid}/infrastructure/objects/{node_b['id']}",
+        json={"properties": {"render_3d_model_id": f"custom:{decoy_id}"}},
+        headers=headers,
+    )
+
+    upload = client.post(
+        f"/api/v1/projects/{pid}/map3d-custom-models",
+        files={"file": ("all.glb", MINIMAL_GLB, "model/gltf-binary")},
+        headers=headers,
+    )
+    model_id = upload.json()["id"]
+    assign = client.post(
+        f"/api/v1/projects/{pid}/map3d-custom-models/{model_id}/assign",
+        json={"subtypes": ["node"], "apply_to_objects": True, "apply_mode": "all"},
+        headers=headers,
+    )
+    assert assign.status_code == 200, assign.text
+    assert assign.json()["objects_updated"] == 2
+
+    objs = client.get(f"/api/v1/projects/{pid}/infrastructure/objects").json()
+    by_id = {o["id"]: o for o in objs}
+    assert by_id[node_a["id"]]["properties"].get("render_3d_model_id") == f"custom:{model_id}"
+    assert by_id[node_b["id"]]["properties"].get("render_3d_model_id") == f"custom:{model_id}"
+
+
+def test_map3d_custom_models_usage_count_in_list(client):
+    project, _ = create_test_project(client, email="admin@test.ru", name="test_map3d_usage")
+    pid = project["id"]
+    headers = _admin_headers(client)
+    layer = create_test_layer(client, pid, headers)
+    p1 = create_test_infra_point(client, pid, layer["id"], headers, name="n1", subtype="node")
+    p2 = create_test_infra_point(client, pid, layer["id"], headers, name="n2", subtype="node")
+
+    upload = client.post(
+        f"/api/v1/projects/{pid}/map3d-custom-models",
+        files={"file": ("usage.glb", MINIMAL_GLB, "model/gltf-binary")},
+        headers=headers,
+    )
+    model_id = upload.json()["id"]
+    client.post(
+        f"/api/v1/projects/{pid}/map3d-custom-models/{model_id}/assign",
+        json={"subtype": "node"},
+        headers=headers,
+    )
+    for pid_obj in (p1, p2):
+        client.patch(
+            f"/api/v1/projects/{pid}/infrastructure/objects/{pid_obj['id']}",
+            json={"properties": {"render_3d_model_id": f"custom:{model_id}"}},
+            headers=headers,
+        )
+
+    listed = client.get(f"/api/v1/projects/{pid}/map3d-custom-models", headers=headers)
+    assert listed.status_code == 200
+    row = next(m for m in listed.json() if m["id"] == model_id)
+    assert row["usage_count"] == 2
+
+
+def test_map3d_custom_models_apply_preview(client):
+    project, _ = create_test_project(client, email="admin@test.ru", name="test_map3d_preview")
+    pid = project["id"]
+    headers = _admin_headers(client)
+    layer = create_test_layer(client, pid, headers)
+    create_test_infra_point(client, pid, layer["id"], headers, name="n1", subtype="node")
+    create_test_infra_point(client, pid, layer["id"], headers, name="g1", subtype="gtes")
+
+    upload = client.post(
+        f"/api/v1/projects/{pid}/map3d-custom-models",
+        files={"file": ("prev.glb", MINIMAL_GLB, "model/gltf-binary")},
+        headers=headers,
+    )
+    model_id = upload.json()["id"]
+    preview = client.get(
+        f"/api/v1/projects/{pid}/map3d-custom-models/{model_id}/apply-preview"
+        "?subtypes=node,gtes&mode=empty_only",
+        headers=headers,
+    )
+    assert preview.status_code == 200, preview.text
+    body = preview.json()
+    assert body["total_matching"] == 2
+    assert body["would_update"] == 2

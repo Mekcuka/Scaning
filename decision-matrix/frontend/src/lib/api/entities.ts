@@ -87,9 +87,23 @@ export interface Map3dCustomModel {
   id: string;
   project_id: string;
   filename: string;
+  display_name: string;
   target_height_m: number;
+  file_size_bytes: number;
   created_at: string;
+  updated_at?: string | null;
   assigned_subtypes: string[];
+  usage_count: number;
+}
+
+export interface Map3dCustomModelAssignResult {
+  model: Map3dCustomModel;
+  objects_updated: number;
+}
+
+export interface Map3dCustomModelApplyPreview {
+  would_update: number;
+  total_matching: number;
 }
 
 export interface InfraObject {

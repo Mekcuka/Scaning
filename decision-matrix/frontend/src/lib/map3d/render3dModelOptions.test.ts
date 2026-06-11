@@ -2,15 +2,22 @@ import { describe, expect, it } from 'vitest';
 import type { Map3dCustomModel } from '../api';
 import { buildRender3dModelOptions, render3dModelSelectValue } from './render3dModelOptions';
 
-const baseModel = (overrides: Partial<Map3dCustomModel>): Map3dCustomModel => ({
-  id: 'aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee',
-  project_id: 'p1',
-  filename: 'tank.glb',
-  target_height_m: 8,
-  created_at: '2026-01-01T00:00:00Z',
-  assigned_subtypes: [],
-  ...overrides,
-});
+const baseModel = (overrides: Partial<Map3dCustomModel>): Map3dCustomModel => {
+  const filename = overrides.filename ?? 'tank.glb';
+  const stem = filename.toLowerCase().endsWith('.glb') ? filename.slice(0, -4) : filename;
+  return {
+    id: 'aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee',
+    project_id: 'p1',
+    filename,
+    target_height_m: 8,
+    file_size_bytes: 0,
+    created_at: '2026-01-01T00:00:00Z',
+    assigned_subtypes: [],
+    usage_count: 0,
+    ...overrides,
+    display_name: overrides.display_name ?? stem,
+  };
+};
 
 describe('render3dModelOptions', () => {
   it('includes standard and custom models for matching subtype', () => {
@@ -26,7 +33,7 @@ describe('render3dModelOptions', () => {
     expect(opts[0]!.value).toBe('');
     expect(opts[0]!.label).toContain('Стандартная');
     expect(opts[1]!.value).toBe('custom:aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee');
-    expect(opts[1]!.label).toBe('drum.glb');
+    expect(opts[1]!.label).toBe('drum');
     expect(opts).toHaveLength(2);
   });
 
@@ -51,6 +58,6 @@ describe('render3dModelOptions', () => {
     const models = [baseModel({ assigned_subtypes: ['pad'], filename: 'legacy-pad.glb' })];
     const opts = buildRender3dModelOptions('oil_pad', models);
     expect(opts).toHaveLength(2);
-    expect(opts[1]!.label).toBe('legacy-pad.glb');
+    expect(opts[1]!.label).toBe('legacy-pad');
   });
 });
