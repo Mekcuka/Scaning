@@ -363,7 +363,7 @@ function applySnapDims(
   lockAspect: boolean,
   aspectRatio: number,
 ): { length_m: number; width_m: number } {
-  let l = clampLength(snapStep > 0 ? snapMeters(length, snapStep) : length);
+  const l = clampLength(snapStep > 0 ? snapMeters(length, snapStep) : length);
   let w = clampWidth(snapStep > 0 ? snapMeters(width, snapStep) : width);
   if (lockAspect && aspectRatio > 0) {
     w = clampWidth(l / aspectRatio);
@@ -840,7 +840,7 @@ export function offsetPolygonOutward(vertices: PlanVertex[], distance: number): 
       bx /= bl;
       by /= bl;
       const dot = n1.x * bx + n1.y * by;
-      let scale = Math.abs(dot) > 1e-6 ? distance / dot : distance;
+      const scale = Math.abs(dot) > 1e-6 ? distance / dot : distance;
       if (!Number.isFinite(scale) || scale < 0 || scale > maxMiter) {
         ox = n1.x * distance;
         oy = n1.y * distance;

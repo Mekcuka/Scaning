@@ -16,7 +16,6 @@ import {
   polygonEdgeLabels,
   polygonVertexRightAngleGuides,
   vertexInteriorAngleDeg,
-  polygonEdgeLengthM,
   offsetPolygonOutward,
   planFootprintAreaM2,
   planFromFormFields,
