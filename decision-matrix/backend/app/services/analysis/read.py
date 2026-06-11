@@ -24,12 +24,68 @@ from app.services.analysis.compute import (
 )
 from app.services.analysis_override import parse_point_wkt
 from app.services.calculations import (
+    EngineeringState,
+    apply_engineering_rules,
     calc_distance_status_external,
+    calc_internal_line_distance_km,
+    calc_linear_cost_thousand_rub,
     calc_pads_count,
     format_internal_formula_label,
+    internal_analysis_status,
     thousand_to_million_rub,
 )
-from app.services.cost_rates import merge_project_cost_rates
+from app.services.cost_rates import ANALYSIS_LINEAR_SUBTYPES, resolve_cost_rates
+
+
+def synthesize_missing_internal_linear_items(
+    items: list[dict[str, Any]],
+    *,
+    eng: EngineeringState,
+    rates: dict[str, float],
+    km_per_pad_map: dict[str, float],
+    pads: int,
+) -> list[dict[str, Any]]:
+    """Backfill internal rows added after the POI was last analyzed (e.g. gas_pipeline)."""
+    present = {i["subtype"] for i in items if i.get("param_type") == "internal"}
+    subtype_status = apply_engineering_rules(eng)
+    extra: list[dict[str, Any]] = []
+
+    for subtype in ANALYSIS_LINEAR_SUBTYPES:
+        if subtype in present:
+            continue
+        active = subtype_status.get(subtype, "active") != "not_required"
+        st = internal_analysis_status(active=active)
+        if not active:
+            extra.append(
+                {
+                    "subtype": subtype,
+                    "param_type": "internal",
+                    "status": st,
+                    "distance_km": 0,
+                    "limit_km": None,
+                    "cost_mln": 0,
+                }
+            )
+            continue
+
+        km_pp = km_per_pad_map[subtype]
+        dist, _ = calc_internal_line_distance_km(pads, km_pp)
+        cost = calc_linear_cost_thousand_rub(dist, rates.get(subtype, 0))
+        extra.append(
+            {
+                "subtype": subtype,
+                "param_type": "internal",
+                "status": st,
+                "distance_km": round(dist, 1),
+                "limit_km": None,
+                "cost_mln": thousand_to_million_rub(cost),
+                "km_per_pad": km_pp,
+                "pads_count": pads,
+                "formula_label": format_internal_formula_label(km_pp, pads, dist),
+            }
+        )
+
+    return extra
 
 
 async def row_to_analysis_item(
@@ -70,7 +126,7 @@ async def row_to_analysis_item(
                     linked_object = None
 
     if row.param_type == "internal":
-        st = "computed"
+        st = row.distance_status or "computed"
     else:
         st = row.distance_status
     force_construction = getattr(row, "force_construction", False)
@@ -89,7 +145,18 @@ async def row_to_analysis_item(
             object_found=False,
         )
 
+    subtype_status = apply_engineering_rules(engineering_state_from_poi(poi))
+    if subtype_status.get(row.subtype) == "not_required":
+        st = "not_required"
+        if row.param_type in ("external", "external_linear"):
+            linked_object = None
+            name = None
+            anchor_lon = anchor_lat = None
+            orphan_network_ref = False
+
     dist_km = None if orphan_network_ref else row.distance_km
+    if st == "not_required" and row.param_type in ("external", "external_linear"):
+        dist_km = 0
     cost_th = subtype_cost_thousand(
         row,
         subtype=row.subtype,
@@ -125,7 +192,11 @@ async def row_to_analysis_item(
         "nearest_node_id": None if orphan_network_ref else (str(row.nearest_node_id) if row.nearest_node_id else None),
         "cost_mln": thousand_to_million_rub(cost_th),
     }
-    if row.param_type == "internal" and row.subtype in km_per_pad_map:
+    if (
+        row.param_type == "internal"
+        and row.subtype in km_per_pad_map
+        and st != "not_required"
+    ):
         km_pp = km_per_pad_map[row.subtype]
         item["km_per_pad"] = km_pp
         item["pads_count"] = pads_count
@@ -142,7 +213,10 @@ async def build_enriched_analysis_from_db(
         select(ProjectDistanceDefaults).where(ProjectDistanceDefaults.project_id == project_id)
     )
     rates_row = await db.scalar(select(ProjectCostRates).where(ProjectCostRates.project_id == project_id))
-    rates = merge_project_cost_rates(rates_row.rates if rates_row else None)
+    rates = resolve_cost_rates(
+        rates_row.rates if rates_row else None,
+        poi.cost_rates,
+    )
     km_per_pad_map, _, _ = get_distance_maps(poi, defaults)
     pads = calc_pads_count(poi.planned_production_volume, poi.production_per_well, poi.wells_per_pad)
     eng = engineering_state_from_poi(poi)
@@ -168,6 +242,15 @@ async def build_enriched_analysis_from_db(
                 project_id=project_id,
             )
         )
+    items.extend(
+        synthesize_missing_internal_linear_items(
+            items,
+            eng=eng,
+            rates=rates,
+            km_per_pad_map=km_per_pad_map,
+            pads=pads,
+        )
+    )
     return build_analysis_summary(poi, items, rates=rates, eng=eng)
 
 

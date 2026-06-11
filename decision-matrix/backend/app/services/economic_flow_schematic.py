@@ -16,13 +16,19 @@ from app.services.calculations import (
     calc_pads_count,
     thousand_to_million_rub,
 )
-from app.services.cost_rates import DEFAULT_COST_RATES, EXTERNAL_POINT_SUBTYPES, OIL_PREP_RATE_MAP, merge_project_cost_rates
+from app.services.cost_rates import (
+    DEFAULT_COST_RATES,
+    EXTERNAL_POINT_SUBTYPES,
+    OIL_PREP_RATE_MAP,
+    resolve_cost_rates,
+)
 from app.services.economic_rates import (
     DEFAULT_ECONOMIC_PARAMS,
     OPEX_EQUIPMENT_KEYS,
     OPEX_PIPELINE_KEYS,
     OPEX_TERMINAL_KEYS,
     REVENUE_TERMINAL_SUBTYPES,
+    resolve_economic_params,
 )
 from app.services.flow_schematic_store import get_flow_schematic
 
@@ -46,12 +52,12 @@ def _parse_length_km(node: dict[str, Any]) -> float | None:
         return None
 
 
-def _merged_cost_rates(row: ProjectCostRates | None) -> dict[str, float]:
-    return merge_project_cost_rates(row.rates if row else None)
+def _merged_cost_rates(row: ProjectCostRates | None, poi: PointOfInterest) -> dict[str, float]:
+    return resolve_cost_rates(row.rates if row else None, poi.cost_rates)
 
 
-def _merged_economic_params(row: ProjectEconomicParams | None) -> dict[str, float]:
-    return {**DEFAULT_ECONOMIC_PARAMS, **(row.params if row else {})}
+def _merged_economic_params(row: ProjectEconomicParams | None, poi: PointOfInterest) -> dict[str, float]:
+    return resolve_economic_params(row.params if row else None, poi.economic_params)
 
 
 def _node_capex_thousand(
@@ -309,7 +315,7 @@ async def get_economic_flow_schematic(
     return build_economic_flow_schematic(
         tech,
         poi,
-        _merged_cost_rates(cost_row),
-        _merged_economic_params(econ_row),
+        _merged_cost_rates(cost_row, poi),
+        _merged_economic_params(econ_row, poi),
         external_point_status_by_subtype=external_status,
     )

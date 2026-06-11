@@ -7,9 +7,10 @@ def calc_wells_total(planned_production: float, production_per_well: float) -> f
         planned_production is None
         or production_per_well is None
         or production_per_well <= 0
+        or planned_production <= 0
     ):
         return 0
-    return planned_production / production_per_well
+    return float(max(1, math.ceil(planned_production / production_per_well)))
 
 
 def calc_pads_count(planned_production: float, production_per_well: float, wells_per_pad: int) -> int:
@@ -126,6 +127,7 @@ def apply_engineering_rules(state: EngineeringState) -> dict[str, str]:
     statuses: dict[str, str] = {
         "autoroad": "active",
         "oil_pipeline": "active",
+        "gas_pipeline": "not_required",
         "water_pipeline": "active",
         "power_line": "active",
         "gas_processing": "active",
@@ -159,6 +161,12 @@ def apply_engineering_rules(state: EngineeringState) -> dict[str, str]:
 
     if state.fluid_type == "gas":
         statuses["refinery"] = "not_required"
+        statuses["oil_pipeline"] = "not_required"
+        statuses["water_pipeline"] = "not_required"
+        statuses["gas_pipeline"] = "active"
+    else:
+        statuses["oil_pipeline"] = "active"
+        statuses["gas_pipeline"] = "not_required"
 
     return statuses
 

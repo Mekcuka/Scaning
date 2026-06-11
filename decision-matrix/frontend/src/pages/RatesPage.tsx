@@ -1,13 +1,16 @@
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, useMemo } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { RotateCcw, Save } from 'lucide-react';
 import { defaultProjectsRatesApi, type DistanceDefaults } from '../lib/api';
 import { useAppStore } from '../store';
 import { usePermissions } from '../hooks/usePermissions';
+import { useProjectPois } from '../hooks/useProjectData';
+import { AppSelect } from '../components/AppSelect';
 import {
   CAPEX_RATE_GROUPS,
   DISTANCE_PARAMETER_GROUPS,
   OPEX_PARAMETER_GROUPS,
+  REVENUE_PARAMETER_GROUPS,
   buildDefaultDistanceDefaults,
   buildDefaultEconomicParams,
   buildDefaultRates,
@@ -17,6 +20,8 @@ import type { DistanceParameterGroup, ParameterGroup } from '../lib/parameterCat
 import { DeferredNumberInput } from '../components/DeferredNumberInput';
 import { TableExcelExportButton } from '../components/TableExcelExportButton';
 import { ratesKeyValueExportColumns } from '../lib/tableExcelExportData';
+
+export const RATES_PROJECT_SCOPE = '__project__';
 
 function RatesGroupTable({
   group,
@@ -132,49 +137,91 @@ export function RatesPage() {
   const { canWriteProject } = usePermissions();
   const projectId = useAppStore((s) => s.currentProjectId);
   const qc = useQueryClient();
+  const [scope, setScope] = useState(RATES_PROJECT_SCOPE);
   const [rates, setRates] = useState<Record<string, number>>(buildDefaultRates());
   const [econParams, setEconParams] = useState<Record<string, number>>(buildDefaultEconomicParams());
   const [distanceDefaults, setDistanceDefaults] = useState<DistanceDefaults>(buildDefaultDistanceDefaults());
   const pushToast = useAppStore((s) => s.pushToast);
   const backfillRef = useRef(false);
 
-  const { data, isLoading } = useQuery({
-    queryKey: ['rates', projectId],
+  const isProjectScope = scope === RATES_PROJECT_SCOPE;
+  const activePoiId = isProjectScope ? '' : scope;
+
+  const { data: pois = [], isLoading: poisLoading } = useProjectPois(projectId);
+
+  const scopeOptions = useMemo(
+    () => [
+      { value: RATES_PROJECT_SCOPE, label: 'Проект (по умолчанию)' },
+      ...pois.map((p) => ({ value: p.id, label: p.name })),
+    ],
+    [pois],
+  );
+
+  const { data: projectRatesData, isLoading: projectRatesLoading } = useQuery({
+    queryKey: ['rates', projectId, 'project'],
     queryFn: () => defaultProjectsRatesApi.getRates(projectId!),
-    enabled: !!projectId,
+    enabled: !!projectId && isProjectScope,
   });
 
-  const { data: econData, isLoading: econLoading } = useQuery({
-    queryKey: ['economic-params', projectId],
+  const { data: projectEconData, isLoading: projectEconLoading } = useQuery({
+    queryKey: ['economic-params', projectId, 'project'],
     queryFn: () => defaultProjectsRatesApi.getEconomicParams(projectId!),
-    enabled: !!projectId,
+    enabled: !!projectId && isProjectScope,
   });
 
-  const { data: distanceData, isLoading: distanceLoading } = useQuery({
-    queryKey: ['distanceDefaults', projectId],
+  const { data: projectDistanceData, isLoading: projectDistanceLoading } = useQuery({
+    queryKey: ['distanceDefaults', projectId, 'project'],
     queryFn: () => defaultProjectsRatesApi.getDistanceDefaults(projectId!),
-    enabled: !!projectId,
+    enabled: !!projectId && isProjectScope,
+  });
+
+  const { data: poiRatesData, isLoading: poiRatesLoading } = useQuery({
+    queryKey: ['rates', projectId, activePoiId],
+    queryFn: () => defaultProjectsRatesApi.getPoiRates(projectId!, activePoiId),
+    enabled: !!projectId && !!activePoiId,
+  });
+
+  const { data: poiEconData, isLoading: poiEconLoading } = useQuery({
+    queryKey: ['economic-params', projectId, activePoiId],
+    queryFn: () => defaultProjectsRatesApi.getPoiEconomicParams(projectId!, activePoiId),
+    enabled: !!projectId && !!activePoiId,
+  });
+
+  const { data: poiDistanceData, isLoading: poiDistanceLoading } = useQuery({
+    queryKey: ['distanceDefaults', projectId, activePoiId],
+    queryFn: () => defaultProjectsRatesApi.getPoiDistanceSettings(projectId!, activePoiId),
+    enabled: !!projectId && !!activePoiId,
   });
 
   useEffect(() => {
     backfillRef.current = false;
+    setScope(RATES_PROJECT_SCOPE);
   }, [projectId]);
 
   useEffect(() => {
-    if (!data?.rates) return;
-    setRates(data.rates);
-  }, [data]);
+    if (isProjectScope) {
+      if (projectRatesData?.rates) setRates(projectRatesData.rates);
+      if (projectEconData?.params) setEconParams(projectEconData.params);
+      if (projectDistanceData) setDistanceDefaults(projectDistanceData);
+    }
+  }, [isProjectScope, projectRatesData, projectEconData, projectDistanceData]);
 
   useEffect(() => {
-    if (distanceData) setDistanceDefaults(distanceData);
-  }, [distanceData]);
+    if (!isProjectScope) {
+      if (poiRatesData?.rates) setRates(poiRatesData.rates);
+      if (poiEconData?.params) setEconParams(poiEconData.params);
+      if (poiDistanceData?.settings) setDistanceDefaults(poiDistanceData.settings);
+    }
+  }, [isProjectScope, poiRatesData, poiEconData, poiDistanceData, activePoiId]);
 
   useEffect(() => {
-    if (!projectId || !data?.rates || backfillRef.current || !canWriteProject) return;
+    if (!projectId || !projectRatesData?.rates || backfillRef.current || !canWriteProject || !isProjectScope) {
+      return;
+    }
     const defaults = buildDefaultRates();
     const patch: Record<string, number> = {};
     for (const [key, defaultVal] of Object.entries(defaults)) {
-      if ((data.rates[key] ?? 0) === 0 && defaultVal !== 0) {
+      if ((projectRatesData.rates[key] ?? 0) === 0 && defaultVal !== 0) {
         patch[key] = defaultVal;
       }
     }
@@ -183,29 +230,39 @@ export function RatesPage() {
       return;
     }
     backfillRef.current = true;
-    const normalized = { ...data.rates, ...patch };
+    const normalized = { ...projectRatesData.rates, ...patch };
     setRates(normalized);
     void defaultProjectsRatesApi.updateRates(projectId, normalized).then(() => {
       void qc.invalidateQueries({ queryKey: ['rates', projectId] });
       void qc.invalidateQueries({ queryKey: ['economic-flow-schematic', projectId] });
     });
-  }, [projectId, data, qc, canWriteProject]);
-
-  useEffect(() => {
-    if (econData?.params) setEconParams(econData.params);
-  }, [econData]);
+  }, [projectId, projectRatesData, qc, canWriteProject, isProjectScope]);
 
   const saveMut = useMutation({
     mutationFn: async () => {
-      await defaultProjectsRatesApi.updateRates(projectId!, rates);
-      await defaultProjectsRatesApi.updateEconomicParams(projectId!, econParams);
-      await defaultProjectsRatesApi.updateDistanceDefaults(projectId!, distanceDefaults);
+      if (!projectId) return;
+      if (isProjectScope) {
+        await defaultProjectsRatesApi.updateRates(projectId, rates);
+        await defaultProjectsRatesApi.updateEconomicParams(projectId, econParams);
+        await defaultProjectsRatesApi.updateDistanceDefaults(projectId, distanceDefaults);
+        return;
+      }
+      await defaultProjectsRatesApi.updatePoiRates(projectId, activePoiId, rates);
+      await defaultProjectsRatesApi.updatePoiEconomicParams(projectId, activePoiId, econParams);
+      await defaultProjectsRatesApi.updatePoiDistanceSettings(projectId, activePoiId, distanceDefaults);
     },
     onSuccess: () => {
-      qc.invalidateQueries({ queryKey: ['rates', projectId] });
-      qc.invalidateQueries({ queryKey: ['economic-params', projectId] });
-      qc.invalidateQueries({ queryKey: ['distanceDefaults', projectId] });
-      qc.invalidateQueries({ queryKey: ['economic-flow-schematic', projectId] });
+      if (!projectId) return;
+      const scopeKey = isProjectScope ? 'project' : activePoiId;
+      void qc.invalidateQueries({ queryKey: ['rates', projectId, scopeKey] });
+      void qc.invalidateQueries({ queryKey: ['economic-params', projectId, scopeKey] });
+      void qc.invalidateQueries({ queryKey: ['distanceDefaults', projectId, scopeKey] });
+      if (!isProjectScope) {
+        void qc.invalidateQueries({ queryKey: ['economic-flow-schematic', projectId, activePoiId] });
+        void qc.invalidateQueries({ queryKey: ['poi-analysis', projectId, activePoiId] });
+      } else {
+        void qc.invalidateQueries({ queryKey: ['economic-flow-schematic', projectId] });
+      }
       pushToast('success', 'Параметры сохранены');
     },
     onError: (err: Error) => {
@@ -213,11 +270,42 @@ export function RatesPage() {
     },
   });
 
-  const handleReset = () => {
-    setRates(buildDefaultRates());
-    setEconParams(buildDefaultEconomicParams());
-    setDistanceDefaults(buildDefaultDistanceDefaults());
-  };
+  const resetMut = useMutation({
+    mutationFn: async () => {
+      if (!projectId) return;
+      if (isProjectScope) {
+        setRates(buildDefaultRates());
+        setEconParams(buildDefaultEconomicParams());
+        setDistanceDefaults(buildDefaultDistanceDefaults());
+        return;
+      }
+      await defaultProjectsRatesApi.updatePoiRates(projectId, activePoiId, null);
+      await defaultProjectsRatesApi.updatePoiEconomicParams(projectId, activePoiId, null);
+      await defaultProjectsRatesApi.updatePoiDistanceSettings(projectId, activePoiId, { clear: true });
+      const [ratesRes, econRes, distRes] = await Promise.all([
+        defaultProjectsRatesApi.getPoiRates(projectId, activePoiId),
+        defaultProjectsRatesApi.getPoiEconomicParams(projectId, activePoiId),
+        defaultProjectsRatesApi.getPoiDistanceSettings(projectId, activePoiId),
+      ]);
+      setRates(ratesRes.rates);
+      setEconParams(econRes.params);
+      setDistanceDefaults(distRes.settings);
+    },
+    onSuccess: () => {
+      if (!projectId) return;
+      const scopeKey = isProjectScope ? 'project' : activePoiId;
+      void qc.invalidateQueries({ queryKey: ['rates', projectId, scopeKey] });
+      void qc.invalidateQueries({ queryKey: ['economic-params', projectId, scopeKey] });
+      void qc.invalidateQueries({ queryKey: ['distanceDefaults', projectId, scopeKey] });
+      if (!isProjectScope) {
+        void qc.invalidateQueries({ queryKey: ['economic-flow-schematic', projectId, activePoiId] });
+      }
+      pushToast('success', isProjectScope ? 'Значения сброшены' : 'Переопределения POI сброшены');
+    },
+    onError: (err: Error) => {
+      pushToast('error', err.message || 'Не удалось сбросить параметры');
+    },
+  });
 
   const setDistanceField = (key: keyof DistanceDefaults, value: number) => {
     setDistanceDefaults((prev) => ({ ...prev, [key]: value }));
@@ -233,20 +321,43 @@ export function RatesPage() {
     );
   }
 
-  const busy = isLoading || econLoading || distanceLoading;
+  const busy = isProjectScope
+    ? projectRatesLoading || projectEconLoading || projectDistanceLoading
+    : poiRatesLoading || poiEconLoading || poiDistanceLoading || poisLoading;
+
+  const resetLabel = isProjectScope ? 'Сброс' : 'Наследовать проект';
 
   return (
     <div className="rates-page">
       <header className="parameters-section-head rates-page-top">
-        <p className="parameters-section-head__subtitle">
-          Расстояния · CAPEX · OPEX — значения по умолчанию для анализа и экономики потока
-        </p>
+        <div className="rates-page-top__main">
+          <p className="parameters-section-head__subtitle">
+            {isProjectScope
+              ? 'Шаблон проекта: расстояния, CAPEX, выручка и OPEX для новых POI'
+              : 'Значения POI наследуют шаблон проекта, если не переопределены'}
+          </p>
+          <div className="rates-poi-select">
+            <AppSelect
+              ariaLabel="Объект"
+              value={scope}
+              onChange={setScope}
+              options={scopeOptions}
+              disabled={poisLoading}
+              fullWidth
+            />
+          </div>
+        </div>
         <div className="rates-actions">
           {!canWriteProject ? null : (
             <>
-              <button type="button" className="btn btn-secondary btn-sm" onClick={handleReset}>
+              <button
+                type="button"
+                className="btn btn-secondary btn-sm"
+                onClick={() => resetMut.mutate()}
+                disabled={resetMut.isPending || busy}
+              >
                 <RotateCcw size={14} className="inline mr-1" />
-                Сброс
+                {resetMut.isPending ? 'Сброс…' : resetLabel}
               </button>
               <button
                 type="button"
@@ -292,6 +403,23 @@ export function RatesPage() {
                 readOnly={!canWriteProject}
                 getValue={(id, fallback) => effectiveCostRate(rates, id, fallback)}
                 onCommit={(id, value) => setRates({ ...rates, [id]: value })}
+              />
+            ))}
+          </div>
+        </section>
+
+        <section className="rates-category" aria-labelledby="rates-revenue-heading">
+          <h2 id="rates-revenue-heading" className="rates-section-title">
+            Выручка
+          </h2>
+          <div className="rates-groups-grid">
+            {REVENUE_PARAMETER_GROUPS.map((group) => (
+              <RatesGroupTable
+                key={group.id}
+                group={group}
+                readOnly={!canWriteProject}
+                getValue={(id, fallback) => econParams[id] ?? fallback}
+                onCommit={(id, value) => setEconParams({ ...econParams, [id]: value })}
               />
             ))}
           </div>

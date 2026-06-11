@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useState, type ReactNode } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { Save } from 'lucide-react';
 import {
@@ -27,6 +27,11 @@ interface PoiParamsPanelProps {
   sections?: PoiSectionId[];
   title?: string;
   showSave?: boolean;
+  flat?: boolean;
+  hidePoiSelector?: boolean;
+  /** Без внешней card — встраивается в родительскую панель (страница проекта). */
+  embedded?: boolean;
+  footer?: ReactNode;
   className?: string;
   onSaveSuccess?: (message: string) => void;
   onSaveError?: (message: string) => void;
@@ -38,8 +43,12 @@ export function PoiParamsPanel({
   onPoiChange,
   readOnly,
   sections,
-  title = 'Параметры точки интереса (POI)',
+  title = 'Параметры точки',
   showSave = true,
+  flat = false,
+  hidePoiSelector = false,
+  embedded = false,
+  footer,
   className = '',
   onSaveSuccess,
   onSaveError,
@@ -94,9 +103,11 @@ export function PoiParamsPanel({
     },
   });
 
+  const shellClass = embedded ? `poi-params-panel--embedded ${className}` : `card ${className}`;
+
   if (!projectId) {
     return (
-      <div className={`card ${className}`} style={{ color: 'var(--text-muted)' }}>
+      <div className={shellClass} style={{ color: 'var(--text-muted)' }}>
         Выберите проект в шапке приложения.
       </div>
     );
@@ -104,7 +115,7 @@ export function PoiParamsPanel({
 
   if (pois.length === 0) {
     return (
-      <div className={`card ${className}`} style={{ color: 'var(--text-muted)' }}>
+      <div className={shellClass} style={{ color: 'var(--text-muted)' }}>
         Нет точек интереса. Добавьте POI на карте.
       </div>
     );
@@ -116,19 +127,21 @@ export function PoiParamsPanel({
   };
 
   return (
-    <div className={`card ${className}`}>
-      <div className="flex flex-wrap items-center justify-between gap-2 mb-3">
-        <h2 className="font-semibold text-sm">{title}</h2>
-        {pois.length > 1 && (
-          <AppSelect
-            variant="sm"
-            ariaLabel="Точка интереса"
-            value={selectedPoi?.id ?? ''}
-            onChange={handlePoiSelect}
-            options={pois.map((p) => ({ value: p.id, label: p.name }))}
-          />
-        )}
-      </div>
+    <div className={shellClass}>
+      {!embedded && (title || (!hidePoiSelector && pois.length > 1)) && (
+        <div className="flex flex-wrap items-center justify-between gap-2 mb-3">
+          {title ? <h2 className="font-semibold text-sm">{title}</h2> : <span />}
+          {!hidePoiSelector && pois.length > 1 && (
+            <AppSelect
+              variant="sm"
+              ariaLabel="Точка интереса"
+              value={selectedPoi?.id ?? ''}
+              onChange={handlePoiSelect}
+              options={pois.map((p) => ({ value: p.id, label: p.name }))}
+            />
+          )}
+        </div>
+      )}
 
       <PoiParamsForm
         value={form}
@@ -136,21 +149,31 @@ export function PoiParamsPanel({
         defaults={defaults}
         readOnly={effectiveReadOnly}
         sections={sections}
+        flat={flat}
       />
 
-      {showSave && !effectiveReadOnly && selectedPoi && (
-        <div className="mt-3 flex justify-end">
-          <button
-            type="button"
-            className="btn btn-primary btn-sm"
-            disabled={saveMut.isPending}
-            onClick={() => saveMut.mutate(formValuesToPoiPayload(form))}
-          >
-            <Save size={14} />
-            {saveMut.isPending ? 'Сохранение…' : 'Сохранить POI'}
-          </button>
+      {(showSave && !effectiveReadOnly && selectedPoi) || footer ? (
+        <div
+          className={
+            embedded
+              ? 'poi-params-panel__footer'
+              : 'mt-3 flex flex-wrap items-center justify-between gap-2'
+          }
+        >
+          {footer ? <div className="project-detail-params-footer">{footer}</div> : <span />}
+          {showSave && !effectiveReadOnly && selectedPoi && (
+            <button
+              type="button"
+              className={`btn btn-primary btn-sm${embedded ? '' : ' ml-auto'}`}
+              disabled={saveMut.isPending}
+              onClick={() => saveMut.mutate(formValuesToPoiPayload(form))}
+            >
+              <Save size={14} />
+              {saveMut.isPending ? 'Сохранение…' : 'Сохранить POI'}
+            </button>
+          )}
         </div>
-      )}
+      ) : null}
     </div>
   );
 }

@@ -2,6 +2,9 @@ export function internalMatrixCellParts(item: Record<string, unknown>): {
   text: string;
   subtext?: string;
 } {
+  if (item.status === 'not_required') {
+    return { text: 'Не требуется' };
+  }
   const costMln = item.cost_mln;
   const text =
     costMln != null && costMln !== '' ? `${costMln} млн ₽` : '0 млн ₽';

@@ -2,6 +2,7 @@ import {
   ANALYSIS_EXTERNAL_LINEAR_SUBTYPES,
   ANALYSIS_LINE_SUBTYPES,
   MANIFEST_MATRIX_INTERNAL_EXTRA_ROWS,
+  MANIFEST_MATRIX_LINEAR_EXCLUDE,
   MANIFEST_MATRIX_POINT_EXCLUDE,
   POINT_SUBTYPES,
   SUBTYPE_LABELS,
@@ -10,7 +11,11 @@ import type { MatrixSectionDef } from './types';
 
 /** Point subtypes in the comparison matrix (excludes connection nodes on the map). */
 const MATRIX_POINT_SUBTYPES = POINT_SUBTYPES.filter(
-  (s) => !MANIFEST_MATRIX_POINT_EXCLUDE.includes(s)
+  (s) => !MANIFEST_MATRIX_POINT_EXCLUDE.includes(s),
+);
+
+const MATRIX_EXTERNAL_LINEAR_SUBTYPES = ANALYSIS_EXTERNAL_LINEAR_SUBTYPES.filter(
+  (s) => !MANIFEST_MATRIX_LINEAR_EXCLUDE.includes(s),
 );
 
 function defaultLabel(subtype: string): string {
@@ -29,7 +34,7 @@ export const MATRIX_SECTIONS: readonly MatrixSectionDef[] = [
   {
     section: 'Внешние линейные объекты',
     paramType: 'external_linear',
-    subtypes: ANALYSIS_EXTERNAL_LINEAR_SUBTYPES,
+    subtypes: MATRIX_EXTERNAL_LINEAR_SUBTYPES,
     labelOf: defaultLabel,
   },
   {

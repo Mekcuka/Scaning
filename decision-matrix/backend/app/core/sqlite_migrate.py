@@ -34,6 +34,16 @@ def patch_sqlite_schema(conn: Connection) -> None:
     ):
         _add_column_if_missing(conn, "project_distance_defaults", col, ddl)
 
+    for col, ddl in (
+        ("threshold_ground_pumping_station_km", "threshold_ground_pumping_station_km FLOAT"),
+        ("threshold_sand_quarry_km", "threshold_sand_quarry_km FLOAT"),
+        ("max_total_line_methanol_pipeline_km", "max_total_line_methanol_pipeline_km FLOAT"),
+        ("max_total_line_additional_line_km", "max_total_line_additional_line_km FLOAT"),
+        ("cost_rates", "cost_rates JSON"),
+        ("economic_params", "economic_params JSON"),
+    ):
+        _add_column_if_missing(conn, "points_of_interest", col, ddl)
+
     _add_column_if_missing(
         conn,
         "poi_infrastructure_analysis",
@@ -110,6 +120,7 @@ def patch_sqlite_schema(conn: Connection) -> None:
         "gas_factor",
         "gas_factor FLOAT NOT NULL DEFAULT 120",
     )
+    _add_column_if_missing(conn, "users", "last_login_at", "last_login_at DATETIME")
     _create_table_if_missing(
         conn,
         "refresh_tokens",

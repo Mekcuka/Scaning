@@ -6,6 +6,7 @@ const mapLoadHandlers = vi.hoisted(() => [] as Array<() => void>);
 const createdMapOptions = vi.hoisted(() => [] as Array<{ style: unknown }>);
 
 const ensureMap3dModelsLayer = vi.hoisted(() => vi.fn());
+const removeMap3dModelsLayer = vi.hoisted(() => vi.fn());
 const syncMap3dBasemap = vi.hoisted(() => vi.fn());
 const applyMap3dTerrain = vi.hoisted(() => vi.fn(() => false));
 const addMap3dVectorLayers = vi.hoisted(() => vi.fn());
@@ -126,6 +127,7 @@ vi.mock('../lib/map3d/map3dLinesLayer', () => ({
 
 vi.mock('../lib/map3d/map3dModelsLayer', () => ({
   ensureMap3dModelsLayer,
+  removeMap3dModelsLayer,
   Map3dModelsCustomLayer: class {
     id = 'dm-3d-models';
     setInstances = vi.fn();
@@ -220,5 +222,32 @@ describe('MapView3D init (lazy layer loading)', () => {
     await flushMapLoad();
 
     expect(applyMap3dTerrain).toHaveBeenCalledWith(expect.anything(), false, expect.any(Number));
+  });
+
+  it('detaches models layer when showModels turns off after being on', async () => {
+    const { rerender } = render(
+      <MapView3D showBasemap={true} showTerrain={false} showModels={true} height="200px" />,
+    );
+    await flushMapLoad();
+    removeMap3dModelsLayer.mockClear();
+
+    rerender(<MapView3D showBasemap={true} showTerrain={false} showModels={false} height="200px" />);
+
+    await waitFor(() => expect(removeMap3dModelsLayer).toHaveBeenCalled());
+  });
+
+  it('reattaches models layer when showModels turns on again', async () => {
+    const { rerender } = render(
+      <MapView3D showBasemap={true} showTerrain={false} showModels={true} height="200px" />,
+    );
+    await flushMapLoad();
+    ensureMap3dModelsLayer.mockClear();
+
+    rerender(<MapView3D showBasemap={true} showTerrain={false} showModels={false} height="200px" />);
+    await waitFor(() => expect(removeMap3dModelsLayer).toHaveBeenCalled());
+
+    rerender(<MapView3D showBasemap={true} showTerrain={false} showModels={true} height="200px" />);
+    await waitFor(() => expect(ensureMap3dModelsLayer).toHaveBeenCalled());
+    expect(buildMap3dModelInstances).toHaveBeenCalled();
   });
 });

@@ -1,4 +1,5 @@
 import { useEffect, useId, useRef, type ReactNode } from 'react';
+import { createPortal } from 'react-dom';
 import { X } from 'lucide-react';
 
 interface AppModalProps {
@@ -35,7 +36,12 @@ export function AppModal({
 
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') onCloseRef.current();
+      if (e.key === 'Escape') {
+        e.preventDefault();
+        e.stopImmediatePropagation();
+        onCloseRef.current();
+        return;
+      }
       if (e.key === 'Tab' && panelRef.current) {
         const nodes = panelRef.current.querySelectorAll<HTMLElement>(FOCUSABLE);
         if (nodes.length === 0) return;
@@ -52,7 +58,7 @@ export function AppModal({
     };
     const prevOverflow = document.body.style.overflow;
     document.body.style.overflow = 'hidden';
-    window.addEventListener('keydown', onKey);
+    window.addEventListener('keydown', onKey, true);
     const body = panelRef.current?.querySelector('.app-modal-body');
     const focusTarget =
       body?.querySelector<HTMLElement>(FOCUSABLE) ??
@@ -60,11 +66,11 @@ export function AppModal({
     focusTarget?.focus();
     return () => {
       document.body.style.overflow = prevOverflow;
-      window.removeEventListener('keydown', onKey);
+      window.removeEventListener('keydown', onKey, true);
     };
   }, []);
 
-  return (
+  return createPortal(
     <div
       className={['app-modal-overlay', overlayClassName].filter(Boolean).join(' ')}
       role="dialog"
@@ -98,6 +104,7 @@ export function AppModal({
         <div className="app-modal-body">{children}</div>
         {footer ? <div className="app-modal-footer">{footer}</div> : null}
       </div>
-    </div>
+    </div>,
+    document.body,
   );
 }

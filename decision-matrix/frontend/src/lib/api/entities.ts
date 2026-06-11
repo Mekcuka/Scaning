@@ -38,11 +38,17 @@ export interface POI {
   threshold_gtes_km?: number | null;
   threshold_substation_km?: number | null;
   threshold_refinery_km?: number | null;
+  threshold_ground_pumping_station_km?: number | null;
+  threshold_sand_quarry_km?: number | null;
   max_total_line_autoroad_km?: number | null;
   max_total_line_oil_pipeline_km?: number | null;
   max_total_line_gas_pipeline_km?: number | null;
   max_total_line_water_pipeline_km?: number | null;
   max_total_line_power_line_km?: number | null;
+  max_total_line_methanol_pipeline_km?: number | null;
+  max_total_line_additional_line_km?: number | null;
+  cost_rates?: Record<string, number> | null;
+  economic_params?: Record<string, number> | null;
   km_per_pad_autoroad?: number | null;
   km_per_pad_oil_pipeline?: number | null;
   km_per_pad_gas_pipeline?: number | null;

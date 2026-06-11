@@ -90,7 +90,7 @@ export function FlowNode({ id, data, selected }: NodeProps<Node<FlowNodeData>>) 
               min={1}
               max={100}
               className="w-11 px-1 py-0.5 rounded border border-slate-300 text-center text-[10px] bg-white text-[#0f1c2e]"
-              title="Процент сепарации нефти от дебита жидкости"
+              title="Доля нефти в скважинной жидкости (для оценки жидкости на сепараторе)"
               onKeyDown={(e) => e.stopPropagation()}
               onCommit={(v) => actions?.onSeparationPercentChange(id, v as number)}
             />

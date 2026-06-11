@@ -1,5 +1,10 @@
 import type { AnalysisRow, POI } from './api';
-import type { MatrixCell, MatrixRow, PoiColumnAnalysis } from './matrixData';
+import {
+  engineeringAppliesToFluid,
+  type MatrixCell,
+  type MatrixRow,
+  type PoiColumnAnalysis,
+} from './matrixData';
 import { formatExternalDistanceBlock } from './analysisDisplay';
 import { engineeringOptionsForKey } from './poiParams';
 
@@ -22,37 +27,59 @@ const STATUS_LABELS: Record<string, string> = {
   construction_required: 'Строительство',
 };
 
-const CARD_SECTION_ORDER = [
-  'Точка интереса',
-  'Внутренние решения',
-  'Внешние линейные объекты',
-  'Инженерные решения',
-  'Внешние объекты',
-] as const;
-
-function isGasBlockRow(row: MatrixRow): boolean {
-  if (row.engineeringKey === 'eng_gas') return true;
-  return row.subtype === 'gas_processing';
-}
-
-export function partitionMatrixRowsForCards(rows: MatrixRow[]): {
-  main: MatrixRow[];
-  gas: MatrixRow[];
-} {
-  const main: MatrixRow[] = [];
-  const gas: MatrixRow[] = [];
-  for (const section of CARD_SECTION_ORDER) {
-    for (const row of rows) {
-      if (row.total) continue;
-      if (row.section !== section) continue;
-      if (isGasBlockRow(row)) {
-        gas.push(row);
-        continue;
-      }
-      main.push(row);
+export function getMatrixSectionOrder(rows: MatrixRow[]): string[] {
+  const seen = new Set<string>();
+  const order: string[] = [];
+  for (const row of rows) {
+    if (row.total) continue;
+    if (!seen.has(row.section)) {
+      seen.add(row.section);
+      order.push(row.section);
     }
   }
-  return { main, gas };
+  return order;
+}
+
+export type MatrixCardSectionGroup = { section: string; rows: MatrixRow[] };
+
+export function matrixRowHasCardData(
+  row: MatrixRow,
+  column: PoiColumnAnalysis,
+  poi?: POI,
+): boolean {
+  if (row.total) return false;
+  if (row.section === 'Точка интереса') return true;
+  if (row.engineering) {
+    if (
+      row.engineeringKey &&
+      poi &&
+      !engineeringAppliesToFluid(row.engineeringKey, poi.fluid_type)
+    ) {
+      return false;
+    }
+    return true;
+  }
+  return findAnalysisItem(column, row) != null;
+}
+
+export function partitionMatrixRowsForCardGroups(
+  rows: MatrixRow[],
+  column: PoiColumnAnalysis,
+  poi?: POI,
+): MatrixCardSectionGroup[] {
+  const groups: MatrixCardSectionGroup[] = [];
+  for (const section of getMatrixSectionOrder(rows)) {
+    const sectionRows = rows.filter(
+      (row) =>
+        row.section === section &&
+        !row.total &&
+        matrixRowHasCardData(row, column, poi),
+    );
+    if (sectionRows.length > 0) {
+      groups.push({ section, rows: sectionRows });
+    }
+  }
+  return groups;
 }
 
 function findAnalysisItem(

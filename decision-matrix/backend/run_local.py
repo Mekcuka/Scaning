@@ -129,8 +129,33 @@ async def init_db():
         pass
 
 
+def ensure_pad_earthwork_planner() -> None:
+    """Install pad-earthwork-planner from monorepo sibling if missing."""
+    try:
+        import pad_earthwork  # noqa: F401
+        return
+    except ImportError:
+        pass
+    planner_dir = BACKEND_DIR.parent.parent / "pad-earthwork-planner"
+    if not planner_dir.is_dir():
+        print(
+            "WARNING: pad-earthwork-planner not installed and not found at",
+            planner_dir,
+            "— pad earthwork compute will fail until you run:",
+            "pip install -e ../../../pad-earthwork-planner",
+        )
+        return
+    print("Installing pad-earthwork-planner (editable)...")
+    subprocess.run(
+        [sys.executable, "-m", "pip", "install", "-e", str(planner_dir)],
+        cwd=BACKEND_DIR,
+        check=True,
+    )
+
+
 def main():
     sys.path.insert(0, str(BACKEND_DIR))
+    ensure_pad_earthwork_planner()
     print("Initializing SQLite database...")
     asyncio.run(init_db())
     print("Seeding demo data...")

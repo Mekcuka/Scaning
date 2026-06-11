@@ -24,6 +24,8 @@ describe('AdminUsersPage', () => {
         role: 'analyst',
         is_active: true,
         project_count: 2,
+        created_at: '2024-06-01T10:00:00.000Z',
+        last_login_at: '2024-06-02T15:30:00.000Z',
       },
     ] as never);
   });
@@ -40,6 +42,10 @@ describe('AdminUsersPage', () => {
     expect(screen.getByText('Администрирование')).toBeInTheDocument();
     await waitFor(() => expect(screen.getByText('a@test.ru')).toBeInTheDocument());
     expect(screen.getByRole('link', { name: /Пользователи/i })).toBeInTheDocument();
+    expect(screen.getByText('Зарегистрирован')).toBeInTheDocument();
+    expect(screen.getByText('Последний вход')).toBeInTheDocument();
+    expect(screen.getByText('01.06.2024, 13:00:00')).toBeInTheDocument();
+    expect(screen.getByText('02.06.2024, 18:30:00')).toBeInTheDocument();
   });
 
   it('shows loading state', () => {

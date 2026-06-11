@@ -1,6 +1,6 @@
 import { AppSelect } from '../AppSelect';
 import { DeferredNumberInput } from '../DeferredNumberInput';
-import { calcPadsPreview } from '../../lib/poiParams';
+import { POI_WATER_VOLUME_UNIT, calcPadsPreview, poiProductionVolumeUnit } from '../../lib/poiParams';
 import type { PoiSectionCommonProps } from './types';
 
 export function PoiBasicAccordionSection({
@@ -26,7 +26,7 @@ export function PoiBasicAccordionSection({
         />
       </div>
       <div className="form-group mb-0">
-        <label>Флюид (FR-4.2.10)</label>
+        <label>Флюид</label>
         <AppSelect
           value={value.fluid_type}
           readOnly={readOnly}
@@ -39,7 +39,9 @@ export function PoiBasicAccordionSection({
       </div>
       <div className="form-group mb-0">
         <label>
-          {value.fluid_type === 'gas' ? 'Объём добычи газа (тыс. т/год)' : 'Объём добычи нефти (тыс. т/год)'}
+          {value.fluid_type === 'gas'
+            ? `Объём добычи газа (${poiProductionVolumeUnit('gas')})`
+            : `Объём добычи нефти (${poiProductionVolumeUnit('oil')})`}
         </label>
         <DeferredNumberInput
           min={0}
@@ -48,15 +50,17 @@ export function PoiBasicAccordionSection({
           onCommit={(v) => patch({ planned_production_volume: v as number })}
         />
       </div>
-      <div className="form-group mb-0">
-        <label>Объём закачки воды (тыс. т/год)</label>
-        <DeferredNumberInput
-          min={0}
-          value={value.water_injection_volume}
-          readOnly={readOnly}
-          onCommit={(v) => patch({ water_injection_volume: v as number })}
-        />
-      </div>
+      {value.fluid_type === 'oil' && (
+        <div className="form-group mb-0">
+          <label>Объём закачки воды ({POI_WATER_VOLUME_UNIT})</label>
+          <DeferredNumberInput
+            min={0}
+            value={value.water_injection_volume}
+            readOnly={readOnly}
+            onCommit={(v) => patch({ water_injection_volume: v as number })}
+          />
+        </div>
+      )}
       {value.fluid_type === 'oil' && (
         <div className="form-group mb-0">
           <label>Газовый фактор (м³/т)</label>
@@ -73,7 +77,7 @@ export function PoiBasicAccordionSection({
         </div>
       )}
       <div className="form-group mb-0">
-        <label>Добыча на 1 скважину (тыс. т/год)</label>
+        <label>Добыча на 1 скважину ({poiProductionVolumeUnit(value.fluid_type)})</label>
         <DeferredNumberInput
           min={0.1}
           value={value.production_per_well}
@@ -92,9 +96,9 @@ export function PoiBasicAccordionSection({
         />
       </div>
       <div className="form-group mb-0 md:col-span-2">
-        <label>Кустовые площадки (авто, FR-5.3.1)</label>
+        <label>Кустовые площадки (авто)</label>
         <div className="text-xs py-2 px-3 rounded-lg" style={{ background: 'var(--bg)' }}>
-          Скважин: <strong>{wells.toFixed(1)}</strong> → КП: <strong>{pads} шт.</strong>
+          Скважин: <strong>{wells}</strong> → КП: <strong>{pads} шт.</strong>
         </div>
       </div>
       <div className="form-group mb-0">

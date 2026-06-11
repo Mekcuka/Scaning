@@ -14,6 +14,7 @@ import {
   effectiveThroughputCapacity,
   pointShowsThroughputCapacity,
 } from '../../lib/infraCapacity';
+import { isPadSubtype } from '../../lib/infraPadEarthwork';
 import {
   isSandQuarrySubtype,
   pointShowsSandDemand,
@@ -100,8 +101,11 @@ export function useObjectDetailInfraDerived(params: {
     selection.kind === 'infra' && isSandQuarrySubtype(form.subtype) && !isLine;
   const showSandDemandField =
     selection.kind === 'infra' && pointShowsSandDemand(form.subtype) && !isLine;
+  const showPadEarthworkSection =
+    selection.kind === 'infra' && isPadSubtype(form.subtype) && !isLine;
 
   const { projectId: mapProjectId } = useActiveProject();
+  const resolvedMapProjectId = mapProjectId ?? null;
   const sandLogisticsProjectId =
     selection.kind === 'poi' ? selection.poi.project_id : mapProjectId;
   const infraObjectId = selection.kind === 'infra' ? selection.object.id : null;
@@ -132,7 +136,7 @@ export function useObjectDetailInfraDerived(params: {
   const capacityUnit =
     throughputCapacity?.unit || defaultCapacityUnitForSubtype(form.subtype);
 
-  const showLogisticsTab = showSandQuarryFields || showSandDemandField;
+  const showLogisticsTab = showSandQuarryFields || showSandDemandField || showPadEarthworkSection;
 
   const displayName = isPoi
     ? (form.poiForm?.name ?? (selection.kind === 'poi' ? selection.poi.name : 'Объект'))
@@ -162,6 +166,7 @@ export function useObjectDetailInfraDerived(params: {
     showThroughputCapacity,
     showSandQuarryFields,
     showSandDemandField,
+    showPadEarthworkSection,
     sandLogistics,
     infraObjectId,
     showEntryDateField,
@@ -170,6 +175,7 @@ export function useObjectDetailInfraDerived(params: {
     isDirty,
     capacityUnit,
     showLogisticsTab,
+    mapProjectId: resolvedMapProjectId,
     displayName,
     setDisplayName,
   };

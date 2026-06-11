@@ -1,5 +1,5 @@
-import { describe, expect, it, vi, beforeEach } from 'vitest';
-import { screen, waitFor } from '@testing-library/react';
+import { describe, expect, it, vi, afterEach, beforeEach } from 'vitest';
+import { cleanup, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { Routes, Route } from 'react-router-dom';
 import { ProjectDetailPage } from './ProjectDetailPage';
@@ -21,35 +21,74 @@ vi.mock('../hooks/usePermissions', () => ({
 }));
 
 describe('ProjectDetailPage', () => {
+  afterEach(() => cleanup());
+
   beforeEach(() => {
     seedAppStore();
-    vi.mocked(api.getProject).mockResolvedValue(makeProject({ id: 'p1', name: 'Alpha' }));
+    vi.mocked(api.getProject).mockResolvedValue(
+      makeProject({ id: 'p1', name: 'Alpha', description: 'Test project' }),
+    );
     vi.mocked(api.getPois).mockResolvedValue(samplePois);
+    vi.mocked(api.getPoiAnalysis).mockRejectedValue(new Error('not found'));
   });
 
-  it('renders project detail', async () => {
+  async function renderDetail() {
     renderPage(
       <Routes>
         <Route path="/projects/:id" element={<ProjectDetailPage />} />
       </Routes>,
       { initialEntries: ['/projects/p1'] },
     );
-    await waitFor(() => expect(screen.getByText('Alpha')).toBeInTheDocument());
+    await waitFor(() =>
+      expect(screen.getByRole('heading', { name: 'Alpha', level: 1 })).toBeInTheDocument(),
+    );
+  }
+
+  it('renders master-detail layout and toolbar navigation', async () => {
+    await renderDetail();
+
+    expect(document.querySelector('.project-detail-grid')).toBeTruthy();
+    expect(screen.getByRole('navigation', { name: /разделы проекта/i })).toBeInTheDocument();
+    expect(screen.getByRole('link', { name: /^карта$/i })).toBeInTheDocument();
+    expect(screen.getByRole('link', { name: /матрица/i })).toBeInTheDocument();
+    expect(screen.getByRole('link', { name: /ставки/i })).toBeInTheDocument();
+    expect(screen.getByText('Test project')).toBeInTheDocument();
   });
 
-  it('runs analyze all pois', async () => {
+  it('shows analysis empty state for selected poi', async () => {
+    await renderDetail();
+
+    await userEvent.click(screen.getByRole('tab', { name: /анализ окружения/i }));
+    await waitFor(() =>
+      expect(screen.getByText(/анализ окружения не выполнен/i)).toBeInTheDocument(),
+    );
+    expect(screen.getByRole('button', { name: /анализировать окружение/i })).toBeInTheDocument();
+  });
+
+  it('runs analyze all pois from toolbar', async () => {
     vi.mocked(api.analyzeAllPois).mockResolvedValue({
       analyzed_count: 1,
       results: [{ poi_id: 'poi-1', rows: [], computed_at: '2024-01-01' }],
     } as never);
+
+    await renderDetail();
+
+    const toolbarBtn = screen.getByRole('button', { name: /анализ \(2\)/i });
+    await userEvent.click(toolbarBtn);
+    expect(api.analyzeAllPois).toHaveBeenCalled();
+  });
+
+  it('shows empty state with link to map when no pois', async () => {
+    vi.mocked(api.getPois).mockResolvedValue([]);
+
     renderPage(
       <Routes>
         <Route path="/projects/:id" element={<ProjectDetailPage />} />
       </Routes>,
       { initialEntries: ['/projects/p1'] },
     );
-    await waitFor(() => expect(screen.getByText('Alpha')).toBeInTheDocument());
-    const btn = screen.queryByRole('button', { name: /анализ/i });
-    if (btn) await userEvent.click(btn);
+
+    await waitFor(() => expect(screen.getByText('Добавить на карте')).toBeInTheDocument());
+    expect(screen.getByRole('link', { name: /добавить на карте/i })).toHaveAttribute('href', '/map');
   });
 });

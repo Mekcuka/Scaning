@@ -13,6 +13,7 @@
     "analysis_internal": [
       "autoroad",
       "oil_pipeline",
+      "gas_pipeline",
       "water_pipeline",
       "power_line"
     ],
@@ -99,7 +100,8 @@
     "delivery_acceptance_point": "refinery"
   },
   "matrix": {
-    "point_exclude": ["node"],
+    "point_exclude": ["node", "oil_pad", "gas_pad", "methanol_joint", "power_line_node"],
+    "linear_exclude": ["additional_line"],
     "internal_extra_rows": ["pads"]
   },
   "labels": {

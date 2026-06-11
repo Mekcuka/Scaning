@@ -1,5 +1,6 @@
 /**
- * Split monolithic index.css into styles/ per cascade-order manifest.
+ * FROZEN: primary split from .snapshot-monolith.css (phase 1 only).
+ * For sub-splits use scripts/split-css-file.mjs; manifest: scripts/css-segments.mjs.
  * Run from decision-matrix/frontend: node scripts/split-css.mjs
  */
 import fs from 'node:fs';

@@ -2,6 +2,23 @@ import type { POI } from '../api';
 import type { EngineeringParamKey } from '../poiParams';
 import type { MatrixCell, MatrixRow } from './types';
 
+export const GAS_FLUID_NOT_REQUIRED_ENGINEERING_KEYS = [
+  'eng_injection',
+  'eng_oil_preparation',
+] as const satisfies readonly EngineeringParamKey[];
+
+const GAS_FLUID_NOT_REQUIRED_SET = new Set<EngineeringParamKey>(
+  GAS_FLUID_NOT_REQUIRED_ENGINEERING_KEYS,
+);
+
+export function engineeringAppliesToFluid(
+  key: EngineeringParamKey,
+  fluidType: POI['fluid_type'] | undefined,
+): boolean {
+  if (fluidType !== 'gas') return true;
+  return !GAS_FLUID_NOT_REQUIRED_SET.has(key);
+}
+
 /** Row labels in the matrix (may differ from form section titles). */
 export const MATRIX_ENGINEERING_ROWS: { key: EngineeringParamKey; label: string }[] = [
   { key: 'eng_power', label: 'Электроснабжение' },
@@ -28,6 +45,9 @@ export function buildEngineeringMatrixRows(pois: POI[]): MatrixRow[] {
     engineering: true,
     engineeringKey: rowDef.key,
     cells: pois.map((poi) => {
+      if (!engineeringAppliesToFluid(rowDef.key, poi.fluid_type)) {
+        return { text: 'Не требуется' } satisfies MatrixCell;
+      }
       const raw = String((poi[rowDef.key] as string | undefined) || '—');
       const mapped = ENGINEERING_LABELS[rowDef.key]?.[raw] || raw;
       return { text: mapped, badge: true } satisfies MatrixCell;

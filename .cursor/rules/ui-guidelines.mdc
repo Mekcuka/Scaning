@@ -17,13 +17,13 @@ Before changing layout, forms, or styles in `decision-matrix/frontend`, read the
 2. **Primitives** — reuse existing building blocks:
    - Buttons: `.btn`, `.btn-primary`, `.btn-secondary`, `.btn-ghost`, `.btn-sm`
    - Forms: `.form-group`, `.input`; selects: `AppSelect`
-   - Modals: `AppModal` + `.app-modal-*`
+   - Modals: `AppModal` + `.app-modal-*` (styles in `src/styles/components/app-modal/core.css`)
    - Page shell: `.page-header`, `.page-title`, `.subtitle`, `.card`
 
 3. **Object detail / dense forms** — use wrappers from `components/objectDetailPanel/panelUi.tsx`:
    `PanelSection`, `FieldLabel`, `PanelSwitch`, `DetailPanelTabs`, pair-grid classes (`object-detail-panel__pair-grid*`).
 
-4. **CSS naming** — feature prefix + BEM (`import-3d-*`, `object-detail-panel__*`). New feature styles → `src/styles/features/<feature>.css`; respect import order in `styles/cascade-order.md`; run `npm run verify:css` after global CSS changes.
+4. **CSS naming** — feature prefix + BEM (`import-3d-*`, `object-detail-panel__*`). New feature styles → `src/styles/features/<feature>.css`; map styles → `src/styles/features/map/` (see `styles/README.md`). Manifest: `scripts/css-segments.mjs`; run `npm run verify:css` after global CSS changes.
 
 5. **Tailwind** — layout utilities only (`flex`, `gap`, `shrink-0`). Do not recreate buttons/inputs with Tailwind.
 

@@ -25,6 +25,7 @@ JOB_TYPE_AUTOROAD_CONNECT = "autoroad_connect"
 JOB_TYPE_IMPORT_FILE = "import_file"
 JOB_TYPE_SAND_LOGISTICS_ANALYZE = "sand_logistics_analyze"
 JOB_TYPE_POI_ANALYZE_ALL = "poi_analyze_all"
+JOB_TYPE_PAD_EARTHWORK_COMPUTE = "pad_earthwork_compute"
 
 ALLOWED_JOB_TYPES = frozenset(
     {
@@ -32,6 +33,7 @@ ALLOWED_JOB_TYPES = frozenset(
         JOB_TYPE_IMPORT_FILE,
         JOB_TYPE_SAND_LOGISTICS_ANALYZE,
         JOB_TYPE_POI_ANALYZE_ALL,
+        JOB_TYPE_PAD_EARTHWORK_COMPUTE,
     }
 )
 

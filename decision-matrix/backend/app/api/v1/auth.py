@@ -1,4 +1,5 @@
 import re
+from datetime import datetime, timezone
 
 from fastapi import APIRouter, Depends, HTTPException, Request, Response, status
 from sqlalchemy import select
@@ -86,6 +87,7 @@ async def login(
         raise HTTPException(status_code=401, detail="Неверный email или пароль")
     if not user.is_active:
         raise HTTPException(status_code=403, detail="Учётная запись отключена")
+    user.last_login_at = datetime.now(timezone.utc)
     return await _issue_session(user, db, response)
 
 

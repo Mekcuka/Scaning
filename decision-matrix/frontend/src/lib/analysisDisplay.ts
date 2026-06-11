@@ -47,7 +47,7 @@ export function formatExternalDistanceBlock(
   return extras.length ? `${core} · ${extras.join(' · ')}` : core;
 }
 
-/** POI→external lines only for objects present on the map (FR-10). */
+/** POI→external lines only for objects present on the map. */
 export type AnalysisRowFocus = {
   lon: number;
   lat: number;

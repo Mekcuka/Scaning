@@ -34,6 +34,7 @@ def _user_admin_response(user: User, project_counts: dict[UUID, int]) -> UserAdm
         role=user.role,
         is_active=user.is_active,
         created_at=user.created_at,
+        last_login_at=user.last_login_at,
         project_count=project_counts.get(_as_uuid(user.id), 0),
     )
 

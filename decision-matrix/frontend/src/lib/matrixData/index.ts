@@ -1,4 +1,8 @@
 export { buildMatrixRowsByPois, resolvePoiColumnAnalysis } from './buildMatrixRows';
+export {
+  engineeringAppliesToFluid,
+  GAS_FLUID_NOT_REQUIRED_ENGINEERING_KEYS,
+} from './engineeringRows';
 export { internalMatrixCellParts } from './cellParts/internal';
 export { externalLinearMatrixCellParts } from './cellParts/externalLinear';
 export { externalPointMatrixCellParts } from './cellParts/externalPoint';

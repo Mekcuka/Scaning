@@ -3,9 +3,14 @@ import type { SandLogisticsResult } from '../../lib/api';
 import { AppSelect } from '../AppSelect';
 import { SandHaulLegDetails } from '../logistics/SandHaulLegDetails';
 import { SandVolumeYearPlanEditor } from '../logistics/SandVolumeYearPlanEditor';
+import type { InfraObject } from '../../lib/api';
 import { FieldLabel, PanelSection } from './panelUi';
+import { InfraPadEarthworkSection } from './InfraPadEarthworkSection';
 
 interface InfraDetailLogisticsTabProps {
+  showPadEarthworkSection: boolean;
+  projectId: string | null;
+  infraObject: InfraObject | null;
   showSandQuarryFields: boolean;
   showSandDemandField: boolean;
   readOnly: boolean;
@@ -25,6 +30,9 @@ interface InfraDetailLogisticsTabProps {
 }
 
 export function InfraDetailLogisticsTab({
+  showPadEarthworkSection,
+  projectId,
+  infraObject,
   showSandQuarryFields,
   showSandDemandField,
   readOnly,
@@ -44,6 +52,14 @@ export function InfraDetailLogisticsTab({
 }: InfraDetailLogisticsTabProps) {
   return (
     <>
+      {showPadEarthworkSection && projectId && infraObject && (
+        <InfraPadEarthworkSection
+          projectId={projectId}
+          infraObject={infraObject}
+          readOnly={readOnly}
+          setSandDemandM3={setSandDemandM3}
+        />
+      )}
       {(showSandQuarryFields || showSandDemandField) && (
         <PanelSection title="Песок">
           {showSandQuarryFields && (

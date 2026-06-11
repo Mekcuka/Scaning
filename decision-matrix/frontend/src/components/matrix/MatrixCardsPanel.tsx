@@ -1,7 +1,7 @@
 import type { POI } from '../../lib/api';
 import {
   buildMatrixCardModel,
-  partitionMatrixRowsForCards,
+  partitionMatrixRowsForCardGroups,
   poiColumnHasExceed,
   type MatrixCardModel,
 } from '../../lib/matrixCardView';
@@ -54,7 +54,8 @@ export function MatrixCardsPanel({
   const safeCol = Math.min(selectedCol, Math.max(0, columnNames.length - 1));
   const poi = poisByColumn[safeCol];
   const column = columnAnalysis[safeCol] ?? { rows: [], total_cost_mln: null };
-  const { main, gas } = partitionMatrixRowsForCards(matrixRows);
+  const groups = partitionMatrixRowsForCardGroups(matrixRows, column, poi);
+  const hasCards = groups.length > 0;
 
   const renderCard = (row: MatrixRow) => (
     <MatrixCard
@@ -96,15 +97,20 @@ export function MatrixCardsPanel({
         })}
       </div>
 
-      <div className="matrix-cards-grid">
-        <div className="matrix-cards-col">{main.map(renderCard)}</div>
-        {gas.length > 0 ? (
-          <aside className="matrix-gas-block">
-            <div className="matrix-gas-block-title">Газовый блок</div>
-            <div className="matrix-gas-block-inner">{gas.map(renderCard)}</div>
-          </aside>
-        ) : null}
-      </div>
+      {hasCards ? (
+        <div className="matrix-cards-grid">
+          {groups.map(({ section, rows }) => (
+            <section key={section} className="matrix-cards-section">
+              <h2 className="matrix-cards-section-title">{section}</h2>
+              <div className="matrix-cards-col">{rows.map(renderCard)}</div>
+            </section>
+          ))}
+        </div>
+      ) : (
+        <p className="matrix-fr-hint">
+          Нет данных анализа для выбранной точки. Выполните анализ окружения на карте или в матрице.
+        </p>
+      )}
 
       <div className="matrix-template-legend">
         <div className="matrix-template-legend-items">

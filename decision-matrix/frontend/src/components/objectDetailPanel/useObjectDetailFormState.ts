@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import type { Map3dCustomModel } from '../../lib/api';
 import type { PoiFormValues } from '../../lib/poiParams';
 import { DEFAULT_RENDER_3D_SCALE } from '../../lib/map3d/render3d';
@@ -33,12 +33,20 @@ export function useObjectDetailFormState(
   const [render3dModelId, setRender3dModelId] = useState('');
   const [infraTab, setInfraTab] = useState<InfraDetailTab>('main');
   const [poiTab, setPoiTab] = useState<PoiDetailTab>('basic');
+  const selectionKeyRef = useRef('');
 
   useEffect(() => {
     if (selection.kind === 'poi') {
+      const key = `poi:${selection.poi.id}`;
+      const isNewSelection = selectionKeyRef.current !== key;
+      selectionKeyRef.current = key;
       setPoiForm(createPoiFormFromSelection(selection.poi));
+      if (isNewSelection) setPoiTab('basic');
       return;
     }
+    const key = `infra:${selection.object.id}`;
+    const isNewSelection = selectionKeyRef.current !== key;
+    selectionKeyRef.current = key;
     const draft = createInfraFormDraftFromObject(selection.object, map3dCustomModels);
     setName(draft.name);
     setDescription(draft.description);
@@ -60,8 +68,10 @@ export function useObjectDetailFormState(
     setRender3dVisible(draft.render3dVisible);
     setRender3dStyle(draft.render3dStyle);
     setRender3dModelId(draft.render3dModelId);
-    setInfraTab(draft.infraTab);
-    setPoiTab(draft.poiTab);
+    if (isNewSelection) {
+      setInfraTab(draft.infraTab);
+      setPoiTab(draft.poiTab);
+    }
   }, [selection, map3dCustomModels]);
 
   return {

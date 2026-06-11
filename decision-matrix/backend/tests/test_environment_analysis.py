@@ -62,6 +62,29 @@ def test_gas_fluid_refinery_not_required():
     assert st["refinery"] == "not_required"
 
 
+def test_fluid_type_pipeline_internal_rules():
+    st_gas = apply_engineering_rules(EngineeringState(fluid_type="gas"))
+    assert st_gas["gas_pipeline"] == "active"
+    assert st_gas["oil_pipeline"] == "not_required"
+    assert st_gas["water_pipeline"] == "not_required"
+
+    st_oil = apply_engineering_rules(EngineeringState(fluid_type="oil"))
+    assert st_oil["gas_pipeline"] == "not_required"
+    assert st_oil["oil_pipeline"] == "active"
+
+
+def test_gas_fluid_water_pipeline_not_required_despite_centralized_injection():
+    st = apply_engineering_rules(
+        EngineeringState(
+            fluid_type="gas",
+            eng_injection="centralized",
+            water_injection_volume=120.0,
+        )
+    )
+    assert st["water_pipeline"] == "not_required"
+    assert st["oil_pipeline"] == "not_required"
+
+
 def test_is_power_generation_aliases():
     assert is_power_generation("power_generation")
     assert is_power_generation("generation")
@@ -182,15 +205,53 @@ def test_get_distance_maps_covers_all_external_linear():
         max_total_line_gas_pipeline_km=None,
         max_total_line_water_pipeline_km=None,
         max_total_line_power_line_km=None,
+        max_total_line_methanol_pipeline_km=None,
+        max_total_line_additional_line_km=None,
         threshold_gas_processing_km=None,
         threshold_gtes_km=None,
         threshold_substation_km=None,
         threshold_refinery_km=None,
+        threshold_ground_pumping_station_km=None,
+        threshold_sand_quarry_km=None,
     )
-    _, max_line_map, _ = get_distance_maps(poi, None)
+    _, max_line_map, threshold_map = get_distance_maps(poi, None)
     for subtype in EXTERNAL_LINEAR_SUBTYPES:
         assert subtype in max_line_map
         assert max_line_map[subtype] > 0
+    assert threshold_map["ground_pumping_station"] == 50.0
+    assert threshold_map["sand_quarry"] == 50.0
+
+
+def test_get_distance_maps_poi_overrides_new_fields():
+    from types import SimpleNamespace
+
+    from app.services.infrastructure_analysis import get_distance_maps
+
+    poi = SimpleNamespace(
+        km_per_pad_autoroad=None,
+        km_per_pad_oil_pipeline=None,
+        km_per_pad_gas_pipeline=None,
+        km_per_pad_water_pipeline=None,
+        km_per_pad_power_line=None,
+        max_total_line_autoroad_km=None,
+        max_total_line_oil_pipeline_km=None,
+        max_total_line_gas_pipeline_km=None,
+        max_total_line_water_pipeline_km=None,
+        max_total_line_power_line_km=None,
+        max_total_line_methanol_pipeline_km=55.0,
+        max_total_line_additional_line_km=66.0,
+        threshold_gas_processing_km=None,
+        threshold_gtes_km=None,
+        threshold_substation_km=None,
+        threshold_refinery_km=None,
+        threshold_ground_pumping_station_km=42.0,
+        threshold_sand_quarry_km=43.0,
+    )
+    _, max_line_map, threshold_map = get_distance_maps(poi, None)
+    assert max_line_map["methanol_pipeline"] == 55.0
+    assert max_line_map["additional_line"] == 66.0
+    assert threshold_map["ground_pumping_station"] == 42.0
+    assert threshold_map["sand_quarry"] == 43.0
 
 
 def test_gas_processing_distance_status_with_poi_threshold():

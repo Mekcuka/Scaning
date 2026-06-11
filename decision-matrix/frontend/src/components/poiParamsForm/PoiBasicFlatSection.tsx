@@ -5,7 +5,11 @@ import {
   PanelSubsection,
   ReadOnlyValue,
 } from '../objectDetailPanel/panelUi';
-import { calcPadsPreview } from '../../lib/poiParams';
+import {
+  POI_WATER_VOLUME_UNIT,
+  calcPadsPreview,
+  poiProductionVolumeUnit,
+} from '../../lib/poiParams';
 import { formatPoiNum } from './formatNum';
 import { PoiNumberField } from './PoiNumberField';
 import type { PoiSectionCommonProps } from './types';
@@ -22,14 +26,11 @@ export function PoiBasicFlatSection({
     value.wells_per_pad,
   );
   const volumeLabel = value.fluid_type === 'gas' ? 'Добыча газа' : 'Добыча нефти';
-  const volumeUnit = 'тыс. т/год';
+  const productionUnit = poiProductionVolumeUnit(value.fluid_type);
 
   return (
     <PanelSection title="Параметры добычи" card>
-      <PanelSubsection
-        title="Флюид"
-        action={<span className="object-detail-panel__meta-tag">FR-4.2.10</span>}
-      >
+      <PanelSubsection title="Флюид">
         <FluidToggle
           value={value.fluid_type}
           readOnly={readOnly}
@@ -44,15 +45,17 @@ export function PoiBasicFlatSection({
             fieldValue={value.planned_production_volume}
             onCommit={(v) => patch({ planned_production_volume: v })}
             readOnly={readOnly}
-            unit={volumeUnit}
+            unit={productionUnit}
           />
-          <PoiNumberField
-            label="Закачка воды"
-            fieldValue={value.water_injection_volume}
-            onCommit={(v) => patch({ water_injection_volume: v })}
-            readOnly={readOnly}
-            unit={volumeUnit}
-          />
+          {value.fluid_type === 'oil' && (
+            <PoiNumberField
+              label="Закачка воды"
+              fieldValue={value.water_injection_volume}
+              onCommit={(v) => patch({ water_injection_volume: v })}
+              readOnly={readOnly}
+              unit={POI_WATER_VOLUME_UNIT}
+            />
+          )}
           {value.fluid_type === 'oil' && (
             <PoiNumberField
               label="Газовый фактор"
@@ -71,7 +74,7 @@ export function PoiBasicFlatSection({
 
       <div className="object-detail-panel__summary-bar" aria-live="polite">
         <div className="object-detail-panel__summary-item">
-          <span className="object-detail-panel__summary-value">{formatPoiNum(wells)}</span>
+          <span className="object-detail-panel__summary-value">{formatPoiNum(wells, 0)}</span>
           <span className="object-detail-panel__summary-label">скважин</span>
         </div>
         <div className="object-detail-panel__summary-divider" aria-hidden />
@@ -89,7 +92,7 @@ export function PoiBasicFlatSection({
             onCommit={(v) => patch({ production_per_well: v })}
             readOnly={readOnly}
             min={0.1}
-            unit={volumeUnit}
+            unit={productionUnit}
           />
           <PoiNumberField
             label="Скважин на КП"

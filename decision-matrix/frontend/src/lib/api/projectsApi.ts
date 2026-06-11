@@ -45,4 +45,35 @@ export const projectsApi = {
       method: 'PUT',
       body: JSON.stringify({ params }),
     }),
+  getPoiRates: (projectId: string, poiId: string) =>
+    request<{ poi_id: string; rates: Record<string, number>; overrides: Record<string, number> | null }>(
+      `/projects/${projectId}/pois/${poiId}/rates`,
+    ),
+  updatePoiRates: (projectId: string, poiId: string, rates: Record<string, number> | null) =>
+    request<{ poi_id: string; rates: Record<string, number>; overrides: Record<string, number> | null }>(
+      `/projects/${projectId}/pois/${poiId}/rates`,
+      { method: 'PUT', body: JSON.stringify({ rates }) },
+    ),
+  getPoiEconomicParams: (projectId: string, poiId: string) =>
+    request<{ poi_id: string; params: Record<string, number>; overrides: Record<string, number> | null }>(
+      `/projects/${projectId}/pois/${poiId}/economic-params`,
+    ),
+  updatePoiEconomicParams: (projectId: string, poiId: string, params: Record<string, number> | null) =>
+    request<{ poi_id: string; params: Record<string, number>; overrides: Record<string, number> | null }>(
+      `/projects/${projectId}/pois/${poiId}/economic-params`,
+      { method: 'PUT', body: JSON.stringify({ params }) },
+    ),
+  getPoiDistanceSettings: (projectId: string, poiId: string) =>
+    request<{ poi_id: string; settings: DistanceDefaults }>(
+      `/projects/${projectId}/pois/${poiId}/distance-settings`,
+    ),
+  updatePoiDistanceSettings: (
+    projectId: string,
+    poiId: string,
+    data: Partial<DistanceDefaults> & { clear?: boolean },
+  ) =>
+    request<{ poi_id: string; settings: DistanceDefaults }>(
+      `/projects/${projectId}/pois/${poiId}/distance-settings`,
+      { method: 'PUT', body: JSON.stringify(data) },
+    ),
 };

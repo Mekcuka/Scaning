@@ -197,6 +197,26 @@ def test_admin_lists_users(client: TestClient):
     assert len(body) >= 1
     assert "project_count" in body[0]
     assert isinstance(body[0]["project_count"], int)
+    assert "created_at" in body[0]
+    assert "last_login_at" in body[0]
+
+
+def test_admin_users_last_login_updated_on_login(client: TestClient):
+    _register(client, "lastlogin@test.ru", "Last Login User")
+    client.post("/api/v1/auth/logout")
+    _login(client, "admin@test.ru")
+    res = client.get("/api/v1/admin/users")
+    row = next(u for u in res.json() if u["email"] == "lastlogin@test.ru")
+    assert row["created_at"]
+    assert row["last_login_at"] is None
+
+    client.post("/api/v1/auth/logout")
+    _login(client, "lastlogin@test.ru")
+    client.post("/api/v1/auth/logout")
+    _login(client, "admin@test.ru")
+    res = client.get("/api/v1/admin/users")
+    row = next(u for u in res.json() if u["email"] == "lastlogin@test.ru")
+    assert row["last_login_at"] is not None
 
 
 def test_password_policy(client: TestClient):

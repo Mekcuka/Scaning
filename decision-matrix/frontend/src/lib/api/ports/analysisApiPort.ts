@@ -3,7 +3,7 @@ import { analysisApi } from '../analysisApi';
 /** POI environment analysis read/override on the map. */
 export type MapAnalysisApiPort = Pick<
   typeof analysisApi,
-  'getPoiAnalysis' | 'overrideAnalysis' | 'getCandidates'
+  'getPoiAnalysis' | 'analyzePoi' | 'overrideAnalysis' | 'getCandidates'
 >;
 
 export const defaultMapAnalysisApi: MapAnalysisApiPort = analysisApi;

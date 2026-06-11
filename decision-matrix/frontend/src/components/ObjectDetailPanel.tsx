@@ -123,6 +123,9 @@ export function ObjectDetailPanel({
 
             {panel.infraTab === 'logistics' && (
               <InfraDetailLogisticsTab
+                showPadEarthworkSection={panel.showPadEarthworkSection}
+                projectId={panel.mapProjectId}
+                infraObject={panel.infraObject}
                 showSandQuarryFields={panel.showSandQuarryFields}
                 showSandDemandField={panel.showSandDemandField}
                 readOnly={readOnly}

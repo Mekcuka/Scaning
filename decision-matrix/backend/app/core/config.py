@@ -26,6 +26,8 @@ class Settings(BaseSettings):
     JOB_STALE_RUNNING_SECONDS: int = 660
     AUTOROAD_NETWORK_SERVICE_URL: str = ""
     AUTOROAD_NETWORK_INPROCESS: bool = True
+    PAD_EARTHWORK_SERVICE_URL: str = ""
+    PAD_EARTHWORK_INPROCESS: bool = True
     AUTOROAD_NETWORK_SOLVER: str = "geosteiner"
     GEOSTEINER_BIN_DIR: str = ""
     ASSISTANT_MCP_ENABLED: bool = True

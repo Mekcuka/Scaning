@@ -16,7 +16,7 @@ from app.services.calculations import (
     calc_pads_count,
     thousand_to_million_rub,
 )
-from app.services.cost_rates import merge_project_cost_rates
+from app.services.cost_rates import resolve_cost_rates
 from app.services.infrastructure_analysis import build_enriched_analysis_from_db, engineering_state_from_poi
 
 DEFAULT_ROADMAP: list[dict[str, Any]] = [
@@ -112,7 +112,10 @@ async def build_one_pager_snapshot(
     exceed_count = _count_exceeds(rows)
 
     rates_row = await db.scalar(select(ProjectCostRates).where(ProjectCostRates.project_id == project_id))
-    rates = merge_project_cost_rates(rates_row.rates if rates_row else None)
+    rates = resolve_cost_rates(
+        rates_row.rates if rates_row else None,
+        poi.cost_rates,
+    )
     eng = engineering_state_from_poi(poi)
     equipment_mln = thousand_to_million_rub(calc_engineering_equipment_cost(eng, rates))
 

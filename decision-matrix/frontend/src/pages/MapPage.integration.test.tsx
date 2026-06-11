@@ -106,12 +106,18 @@ describe('MapPage integration', () => {
     await userEvent.click(screen.getByRole('button', { name: 'Закрыть панель слоёв' }));
     await enableEdit();
     await userEvent.click(screen.getByRole('button', { name: 'Точка интереса (POI)' }));
-    const analyzeButtons = screen.getAllByRole('button', { name: /анализ/i });
-    await userEvent.click(analyzeButtons[0]!);
+    await userEvent.click(screen.getByRole('button', { name: /Все точки/i }));
     await waitFor(() => expect(api.analyzeAllPois).toHaveBeenCalled());
     await userEvent.click(screen.getByRole('button', { name: 'Карта 3D' }));
     await waitFor(() => expect(screen.getByTestId('mock-map-3d')).toBeInTheDocument());
     await userEvent.click(screen.getByRole('button', { name: 'Карта 2D' }));
+  });
+
+  it('analyze selected poi from split button', async () => {
+    await renderMap();
+    await enableEdit();
+    await userEvent.click(screen.getByRole('button', { name: /Выбранная точка/i }));
+    await waitFor(() => expect(api.analyzePoi).toHaveBeenCalled());
   });
 
   it('select and draw tools', async () => {

@@ -55,3 +55,5 @@ export {
   defaultSandLogisticsApi,
   defaultSandLogisticsReadApi,
 } from './sandLogisticsApiPort';
+export type { PadEarthworkApiPort } from './padEarthworkApiPort';
+export { defaultPadEarthworkApi } from './padEarthworkApiPort';

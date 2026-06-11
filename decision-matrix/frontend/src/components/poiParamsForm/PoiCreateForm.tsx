@@ -1,7 +1,12 @@
 import { useState } from 'react';
 import { ChevronDown, Droplets, Flame } from 'lucide-react';
 
-import { calcPadsPreview, type PoiFormValues } from '../../lib/poiParams';
+import {
+  POI_WATER_VOLUME_UNIT,
+  calcPadsPreview,
+  poiProductionVolumeUnit,
+  type PoiFormValues,
+} from '../../lib/poiParams';
 import { PoiEngineeringSection } from './PoiEngineeringSection';
 import { formatPoiNum } from './formatNum';
 import { PoiCreateNumberField } from './PoiCreateNumberField';
@@ -20,7 +25,7 @@ export function PoiCreateForm({ value, onChange, readOnly }: Props) {
     value.production_per_well,
     value.wells_per_pad,
   );
-  const volumeUnit = 'тыс. т/год';
+  const productionUnit = poiProductionVolumeUnit(value.fluid_type);
   const volumeLabel = value.fluid_type === 'gas' ? 'Добыча газа' : 'Добыча нефти';
   const isOil = value.fluid_type === 'oil';
 
@@ -81,22 +86,24 @@ export function PoiCreateForm({ value, onChange, readOnly }: Props) {
             fieldValue={value.planned_production_volume}
             onCommit={(v) => patch({ planned_production_volume: v })}
             readOnly={readOnly}
-            unit={volumeUnit}
+            unit={productionUnit}
           />
-          <PoiCreateNumberField
-            label="Закачка воды"
-            fieldValue={value.water_injection_volume}
-            onCommit={(v) => patch({ water_injection_volume: v })}
-            readOnly={readOnly}
-            unit={volumeUnit}
-          />
+          {isOil && (
+            <PoiCreateNumberField
+              label="Закачка воды"
+              fieldValue={value.water_injection_volume}
+              onCommit={(v) => patch({ water_injection_volume: v })}
+              readOnly={readOnly}
+              unit={POI_WATER_VOLUME_UNIT}
+            />
+          )}
           <PoiCreateNumberField
             label="Добыча на скважину"
             fieldValue={value.production_per_well}
             onCommit={(v) => patch({ production_per_well: v })}
             readOnly={readOnly}
             min={0.1}
-            unit={volumeUnit}
+            unit={productionUnit}
           />
           <PoiCreateNumberField
             label="Скважин на КП"
@@ -123,7 +130,7 @@ export function PoiCreateForm({ value, onChange, readOnly }: Props) {
 
         <div className="poi-create-form__summary" aria-live="polite">
           <div className="poi-create-form__summary-item">
-            <span className="poi-create-form__summary-value">{formatPoiNum(wells)}</span>
+            <span className="poi-create-form__summary-value">{formatPoiNum(wells, 0)}</span>
             <span className="poi-create-form__summary-label">скважин</span>
           </div>
           <div className="poi-create-form__summary-divider" aria-hidden />

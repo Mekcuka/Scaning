@@ -20,5 +20,6 @@ arq>=0.26.0
 redis[hiredis]>=5.0.0
 python-pptx>=1.0.2
 # network-planner: pip install -e ../../../autoroad-network-planner[steinerpy]
+# pad-earthwork-planner: pip install -e ../../../pad-earthwork-planner
 steinerpy>=1.0.0
 mcp>=1.9.0

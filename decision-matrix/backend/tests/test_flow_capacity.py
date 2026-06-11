@@ -64,7 +64,7 @@ def test_gas_branch_uses_gas_factor():
         poi, state, kind="network_segment", fluid="gas", subtype=None
     )
     assert unit == "thousand_m3_per_year"
-    assert cap == round(1000.0 * 0.85 * 200.0 / 1000, 1)
+    assert cap == round(1000.0 * 200.0 / 1000, 1)
 
 
 def test_gas_branch_default_gas_factor():
@@ -83,7 +83,7 @@ def test_gas_branch_default_gas_factor():
     cap_explicit, _ = estimate_node_capacity(
         poi, state, kind="network_segment", fluid="gas", subtype=None
     )
-    assert cap_default == cap_explicit == 102.0
+    assert cap_default == cap_explicit == 120.0
 
 
 def test_enrich_fills_missing():

@@ -4,9 +4,12 @@ export {
   DISTANCE_PARAMETER_GROUPS,
   ECONOMIC_PARAM_GROUPS,
   OPEX_PARAMETER_GROUPS,
+  REVENUE_PARAMETER_GROUPS,
   buildDefaultDistanceDefaults,
   buildDefaultEconomicParamsFromCatalog as buildDefaultEconomicParams,
   buildDefaultRatesFromCatalog as buildDefaultRates,
+  effectiveDistanceDefaults,
+  sparseNumericOverrides,
 } from './parameterCatalog';
 
 export type { DistanceParameterGroup, ParameterGroup } from './parameterCatalog';

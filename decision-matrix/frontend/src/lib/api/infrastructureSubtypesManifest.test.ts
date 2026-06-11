@@ -14,6 +14,7 @@ import {
   MANIFEST_IMPORT_ONLY_POINT,
   MANIFEST_IE_DERIVED_POINT,
   MANIFEST_MATRIX_INTERNAL_EXTRA_ROWS,
+  MANIFEST_MATRIX_LINEAR_EXCLUDE,
   MANIFEST_MATRIX_POINT_EXCLUDE,
   MANIFEST_NODE_DERIVED_POINT,
   MANIFEST_PAD_DERIVED_POINT,
@@ -48,6 +49,7 @@ describe('infrastructureSubtypesManifest', () => {
 
   it('matrix helpers match manifest', () => {
     expect([...MANIFEST_MATRIX_POINT_EXCLUDE]).toEqual(manifest.matrix.point_exclude);
+    expect([...MANIFEST_MATRIX_LINEAR_EXCLUDE]).toEqual(manifest.matrix.linear_exclude);
     expect([...MANIFEST_MATRIX_INTERNAL_EXTRA_ROWS]).toEqual(manifest.matrix.internal_extra_rows);
   });
 
@@ -81,6 +83,11 @@ describe('infrastructureSubtypesManifest', () => {
     for (const subtype of ANALYSIS_LINE_SUBTYPES) {
       expect(ANALYSIS_EXTERNAL_LINEAR_SUBTYPES).toContain(subtype);
     }
+  });
+
+  it('includes gas_pipeline in internal linear analysis', () => {
+    expect(ANALYSIS_LINE_SUBTYPES).toContain('gas_pipeline');
+    expect(MANIFEST_SUBTYPE_LABELS.gas_pipeline).toBe('Газопровод');
   });
 
   it('analysis external points are on the map', () => {

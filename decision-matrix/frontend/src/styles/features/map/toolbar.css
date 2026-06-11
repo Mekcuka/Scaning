@@ -1,0 +1,98 @@
+
+.map-container .ol-zoom .ol-fit-view {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  line-height: 1;
+}
+
+.map-container .ol-zoom .ol-fit-view svg {
+  display: block;
+  pointer-events: none;
+}
+
+.map-tools {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  padding: 10px 14px;
+  border-bottom: 1px solid var(--border);
+  background: var(--surface);
+  align-items: center;
+  flex-shrink: 0;
+}
+
+.map-tools-group {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  flex-shrink: 0;
+  min-width: 0;
+}
+
+.map-tools-sep {
+  width: 1px;
+  height: 1.75rem;
+  margin-inline: 2px;
+  flex-shrink: 0;
+  background: var(--border);
+}
+
+.map-tools-draw-actions {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  flex-shrink: 0;
+  min-width: 16.75rem;
+}
+
+.map-tools-draw-actions:not(.map-tools-draw-actions--visible) {
+  display: none;
+}
+
+.map-tools-group--search {
+  margin-left: auto;
+  flex: 1 1 10rem;
+  min-width: 120px;
+  max-width: 220px;
+}
+
+.map-tools-group--search input {
+  width: 100%;
+}
+
+.map-tool-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  padding: 6px 10px !important;
+  min-height: 32px;
+}
+
+.map-tool-label {
+  white-space: nowrap;
+}
+
+/* 2D|3D toggle: always visible (unlike map-layers-toggle, which is mobile-only). */
+.map-display-mode-toggle {
+  display: inline-flex;
+  flex-shrink: 0;
+  align-items: stretch;
+}
+
+.map-display-mode-sep {
+  display: inline-block;
+  width: 1px;
+  height: 1.75rem;
+  margin-inline: 2px;
+  flex-shrink: 0;
+  background: var(--border);
+}
+
+.map-tool-btn--action {
+  min-width: 5.25rem;
+  justify-content: center;
+  white-space: nowrap;
+}
+

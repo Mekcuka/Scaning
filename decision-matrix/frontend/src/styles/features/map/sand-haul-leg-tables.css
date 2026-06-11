@@ -1,0 +1,73 @@
+
+.sand-haul-leg-table-wrap {
+  overflow-x: auto;
+  margin: 0 -2px;
+}
+
+.sand-haul-leg-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.6875rem;
+  line-height: 1.25;
+}
+
+.sand-haul-leg-table th,
+.sand-haul-leg-table td {
+  padding: 3px 4px;
+  vertical-align: top;
+  border-bottom: 1px solid var(--border);
+}
+
+.sand-haul-leg-table th {
+  font-weight: 600;
+  font-size: 0.625rem;
+  letter-spacing: 0.02em;
+  text-transform: uppercase;
+  color: var(--text-muted);
+  white-space: nowrap;
+}
+
+.sand-haul-leg-table tbody tr:last-child td {
+  border-bottom: none;
+}
+
+.sand-haul-leg-table__name {
+  font-weight: 500;
+  max-width: 9rem;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.sand-haul-leg-details__summary {
+  color: var(--primary);
+  list-style: none;
+}
+
+.sand-haul-leg-details__summary::-webkit-details-marker {
+  display: none;
+}
+
+.sand-haul-leg-details__summary::before {
+  content: '▸ ';
+  display: inline-block;
+  transition: transform 0.15s ease;
+}
+
+.sand-haul-leg-details[open] .sand-haul-leg-details__summary::before {
+  transform: rotate(90deg);
+}
+
+.parameters-table__haul-leg {
+  min-width: 8.5rem;
+  max-width: 14rem;
+}
+
+.sand-haul-leg-alloc-list li {
+  white-space: nowrap;
+}
+
+.sand-haul-leg-table .tabular-nums {
+  white-space: nowrap;
+}
+

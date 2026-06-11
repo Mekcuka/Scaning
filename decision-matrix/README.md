@@ -51,8 +51,11 @@ python -m venv venv
 .\venv\Scripts\Activate.ps1
 python -m pip install -r C:\Users\user\Documents\Cursore\decision-matrix\backend\requirements.txt
 python -m pip install -e C:\Users\user\Documents\Cursore\autoroad-network-planner[steinerpy]
+python -m pip install -e C:\Users\user\Documents\Cursore\pad-earthwork-planner
 python C:\Users\user\Documents\Cursore\decision-matrix\backend\run_local.py
 ```
+
+> `run_local.py` при отсутствии `pad-earthwork-planner` попытается установить его автоматически. Земляные работы куста: [docs/features/pad-earthwork.md](../docs/features/pad-earthwork.md).
 
 Проверить, что активен именно `venv`:
 
@@ -84,7 +87,7 @@ cd C:\Users\user\Documents\Cursore\decision-matrix\frontend
 npm run dev
 ```
 
-Скрипт `run_local.py` создаёт БД в `backend/data/sppr.db`, выполняет seed и запускает API.
+Скрипт `run_local.py` создаёт БД в `backend/data/sppr.db`, при необходимости ставит `pad-earthwork-planner`, выполняет seed и запускает API.
 
 > **Важно:** `run_local.py` всегда использует SQLite. Файл `backend/.env` с PostgreSQL применяется только при запуске через `uvicorn` напрямую. `seed.py` по умолчанию пишет в SQLite (как `run_local.py`).
 
@@ -106,6 +109,7 @@ npm run dev
    .\venv\Scripts\Activate.ps1
    python -m pip install -r C:\Users\user\Documents\Cursore\decision-matrix\backend\requirements.txt
    python -m pip install -e C:\Users\user\Documents\Cursore\autoroad-network-planner[steinerpy]
+   python -m pip install -e C:\Users\user\Documents\Cursore\pad-earthwork-planner
    python C:\Users\user\Documents\Cursore\decision-matrix\backend\seed.py
    uvicorn app.main:app --reload --host 127.0.0.1 --port 8000
    ```
@@ -171,6 +175,7 @@ decision-matrix/
 | Граф сети (build/list nodes/edges) | ✅ |
 | Одностраничник (CRUD, PDF print, PPTX export) | ✅ |
 | Песок / логистика (analyze API + UI) | ✅ |
+| Земляные работы куста (`oil_pad`/`gas_pad`, flat MVP) | ✅ |
 
 ## API
 
@@ -215,6 +220,9 @@ GET/PUT/DELETE .../flow-schematic
 GET/POST .../infrastructure/networks/build
 GET      .../infrastructure/networks/:id/nodes|edges
 POST     .../sand-logistics/analyze
+POST     .../infrastructure/objects/:id/pad-earthwork/compute
+GET      .../infrastructure/objects/:id/pad-earthwork/last
+PATCH    .../infrastructure/objects/:id/pad-earthwork/params
 GET/POST/PUT/DELETE .../one-pagers
 POST     .../one-pagers/:opId/export/pptx
 ```

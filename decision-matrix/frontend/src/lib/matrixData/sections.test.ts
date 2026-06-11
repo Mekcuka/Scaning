@@ -18,5 +18,15 @@ describe('MATRIX_SECTIONS registry', () => {
   it('excludes connection nodes from external point section', () => {
     const external = MATRIX_SECTIONS.find((s) => s.paramType === 'external');
     expect(external?.subtypes).not.toContain('node');
+    expect(external?.subtypes).not.toContain('oil_pad');
+    expect(external?.subtypes).not.toContain('gas_pad');
+    expect(external?.subtypes).not.toContain('methanol_joint');
+    expect(external?.subtypes).not.toContain('power_line_node');
+  });
+
+  it('excludes additional_line from external linear section', () => {
+    const externalLinear = MATRIX_SECTIONS.find((s) => s.paramType === 'external_linear');
+    expect(externalLinear?.subtypes).not.toContain('additional_line');
+    expect(externalLinear?.subtypes).toContain('methanol_pipeline');
   });
 });

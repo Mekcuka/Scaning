@@ -40,6 +40,7 @@ async def _admin_list_users(ctx: ToolContext, _args: EmptyInput) -> list[dict]:
             role=u.role,
             is_active=u.is_active,
             created_at=u.created_at,
+            last_login_at=u.last_login_at,
             project_count=project_counts.get(u.id, 0),
         ).model_dump(mode="json")
         for u in users

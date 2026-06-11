@@ -80,7 +80,13 @@ export function FlowCapacityPopover({
       onPointerDown={(e) => e.stopPropagation()}
     >
       <div className="font-semibold mb-2">
-        {showCapacity ? (isPoiNode ? 'Плановый дебит' : 'Пропускная способность') : data.label}
+        {showCapacity
+          ? isPoiNode
+            ? poiCtx?.fluid_type === 'gas'
+              ? 'Плановый дебит газа'
+              : 'Плановый дебит нефти'
+            : 'Пропускная способность'
+          : data.label}
       </div>
       {isWaterFormation && (
         <div className="text-slate-500 mb-2">

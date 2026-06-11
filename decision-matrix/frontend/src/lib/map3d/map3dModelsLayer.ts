@@ -254,6 +254,8 @@ export class Map3dModelsCustomLayer implements CustomLayerInterface {
     if (this.map) releaseMap3dThreeRenderer(this.map);
     this.renderer = null;
     this.map = null;
+    this.instances = [];
+    this.visible = false;
   }
 
   render(_gl: WebGLRenderingContext | WebGL2RenderingContext, options: CustomRenderMethodInput): void {
@@ -291,6 +293,12 @@ export class Map3dModelsCustomLayer implements CustomLayerInterface {
 export function ensureMap3dModelsLayer(map: MapLibreMap, layer: Map3dModelsCustomLayer): void {
   if (map.getLayer(MAP3D_MODELS_LAYER_ID)) return;
   map.addLayer(layer);
+}
+
+/** Detach custom layer so the next enable runs a fresh onAdd/WebGL setup. */
+export function removeMap3dModelsLayer(map: MapLibreMap): void {
+  if (!map.getLayer(MAP3D_MODELS_LAYER_ID)) return;
+  map.removeLayer(MAP3D_MODELS_LAYER_ID);
 }
 
 export function setMap3dModelsLayerVisible(layer: Map3dModelsCustomLayer, visible: boolean): void {

@@ -69,6 +69,7 @@ class UserAdminResponse(BaseModel):
     role: str
     is_active: bool
     created_at: datetime
+    last_login_at: datetime | None = None
     project_count: int = 0
 
     model_config = {"from_attributes": True}
@@ -146,6 +147,48 @@ class EconomicParamsResponse(BaseModel):
     params: dict[str, float]
 
 
+class PoiCostRatesResponse(BaseModel):
+    poi_id: UUID
+    rates: dict[str, float]
+    overrides: dict[str, float] | None = None
+
+
+class PoiCostRatesUpdate(BaseModel):
+    rates: dict[str, float] | None = None
+
+
+class PoiEconomicParamsResponse(BaseModel):
+    poi_id: UUID
+    params: dict[str, float]
+    overrides: dict[str, float] | None = None
+
+
+class PoiEconomicParamsUpdate(BaseModel):
+    params: dict[str, float] | None = None
+
+
+class PoiDistanceSettingsUpdate(BaseModel):
+    clear: bool = False
+    threshold_gas_processing_km: float | None = None
+    threshold_gtes_km: float | None = None
+    threshold_substation_km: float | None = None
+    threshold_refinery_km: float | None = None
+    threshold_ground_pumping_station_km: float | None = None
+    threshold_sand_quarry_km: float | None = None
+    max_total_line_autoroad_km: float | None = None
+    max_total_line_oil_pipeline_km: float | None = None
+    max_total_line_gas_pipeline_km: float | None = None
+    max_total_line_water_pipeline_km: float | None = None
+    max_total_line_power_line_km: float | None = None
+    max_total_line_methanol_pipeline_km: float | None = None
+    max_total_line_additional_line_km: float | None = None
+    km_per_pad_autoroad: float | None = None
+    km_per_pad_oil_pipeline: float | None = None
+    km_per_pad_gas_pipeline: float | None = None
+    km_per_pad_water_pipeline: float | None = None
+    km_per_pad_power_line: float | None = None
+
+
 class DistanceDefaultsUpdate(BaseModel):
     threshold_gas_processing_km: float | None = None
     threshold_gtes_km: float | None = None
@@ -188,6 +231,11 @@ class DistanceDefaultsResponse(BaseModel):
     km_per_pad_power_line: float
 
     model_config = {"from_attributes": True}
+
+
+class PoiDistanceSettingsResponse(BaseModel):
+    poi_id: UUID
+    settings: DistanceDefaultsResponse
 
 
 class POICreate(BaseModel):
@@ -234,11 +282,17 @@ class POIResponse(BaseModel):
     threshold_gtes_km: float | None = None
     threshold_substation_km: float | None = None
     threshold_refinery_km: float | None = None
+    threshold_ground_pumping_station_km: float | None = None
+    threshold_sand_quarry_km: float | None = None
     max_total_line_autoroad_km: float | None = None
     max_total_line_oil_pipeline_km: float | None = None
     max_total_line_gas_pipeline_km: float | None = None
     max_total_line_water_pipeline_km: float | None = None
     max_total_line_power_line_km: float | None = None
+    max_total_line_methanol_pipeline_km: float | None = None
+    max_total_line_additional_line_km: float | None = None
+    cost_rates: dict[str, float] | None = None
+    economic_params: dict[str, float] | None = None
     km_per_pad_autoroad: float | None = None
     km_per_pad_oil_pipeline: float | None = None
     km_per_pad_gas_pipeline: float | None = None
@@ -320,11 +374,17 @@ class POIUpdate(BaseModel):
     threshold_gtes_km: float | None = None
     threshold_substation_km: float | None = None
     threshold_refinery_km: float | None = None
+    threshold_ground_pumping_station_km: float | None = None
+    threshold_sand_quarry_km: float | None = None
     max_total_line_autoroad_km: float | None = None
     max_total_line_oil_pipeline_km: float | None = None
     max_total_line_gas_pipeline_km: float | None = None
     max_total_line_water_pipeline_km: float | None = None
     max_total_line_power_line_km: float | None = None
+    max_total_line_methanol_pipeline_km: float | None = None
+    max_total_line_additional_line_km: float | None = None
+    cost_rates: dict[str, float] | None = None
+    economic_params: dict[str, float] | None = None
     km_per_pad_autoroad: float | None = None
     km_per_pad_oil_pipeline: float | None = None
     km_per_pad_gas_pipeline: float | None = None

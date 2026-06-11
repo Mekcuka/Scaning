@@ -91,6 +91,10 @@ jobs:
           if [ -d ../../autoroad-network-planner ]; then PLANNER=../../autoroad-network-planner; fi
           if [ -d ../../../autoroad-network-planner ]; then PLANNER=../../../autoroad-network-planner; fi
           if [ -n "$PLANNER" ]; then pip install -e "${PLANNER}[steinerpy]"; fi
+          EARTHWORK=""
+          if [ -d ../../pad-earthwork-planner ]; then EARTHWORK=../../pad-earthwork-planner; fi
+          if [ -d ../../../pad-earthwork-planner ]; then EARTHWORK=../../../pad-earthwork-planner; fi
+          if [ -n "$EARTHWORK" ]; then pip install -e "${EARTHWORK}"; fi
           pip install -r requirements.txt -r requirements-dev.txt
 
       - name: Bootstrap PostgreSQL schema
@@ -143,6 +147,10 @@ jobs:
           if [ -d ../../autoroad-network-planner ]; then PLANNER=../../autoroad-network-planner; fi
           if [ -d ../../../autoroad-network-planner ]; then PLANNER=../../../autoroad-network-planner; fi
           if [ -n "$PLANNER" ]; then pip install -e "${PLANNER}[steinerpy]"; fi
+          EARTHWORK=""
+          if [ -d ../../pad-earthwork-planner ]; then EARTHWORK=../../pad-earthwork-planner; fi
+          if [ -d ../../../pad-earthwork-planner ]; then EARTHWORK=../../../pad-earthwork-planner; fi
+          if [ -n "$EARTHWORK" ]; then pip install -e "${EARTHWORK}"; fi
           pip install -r requirements.txt -r requirements-dev.txt
 
       - name: Start API

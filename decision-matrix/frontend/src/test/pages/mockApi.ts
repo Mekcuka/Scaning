@@ -70,6 +70,7 @@ export function createDefaultApiMocks(): ApiMockOverrides {
     getDistanceDefaults: vi.fn().mockResolvedValue({}),
     getPoiAnalysis: vi.fn().mockResolvedValue(makeAnalysisResponse()),
     analyzeAllPois: vi.fn().mockResolvedValue(makeAnalysisResult()),
+    analyzePoi: vi.fn().mockResolvedValue(makeAnalysisResponse()),
     createPoi: vi.fn().mockImplementation((_pid: string, data: { name?: string }) =>
       Promise.resolve({ ...samplePois[0], ...data, id: 'poi-new' }),
     ),

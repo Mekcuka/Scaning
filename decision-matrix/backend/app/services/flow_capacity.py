@@ -35,7 +35,7 @@ PIPELINE_CAPACITY_THOUSAND_PER_YEAR: dict[FluidKind, float] = {
     "gas": 2000.0,
 }
 
-# Доля фаз после сепарации (нефтяной куст), доли от дебита жидкости
+# Доля нефти в скважинной жидкости (для оценки жидкости на сепараторе; дебит POI — нефть)
 OIL_PHASE_SHARE = 0.85
 DEFAULT_SEPARATION_PERCENT = 85.0
 DEFAULT_GAS_FACTOR = 120.0  # м³/т — газовый фактор попутного газа (нефтяной POI)
@@ -48,6 +48,21 @@ def resolve_separation_share(percent: float | None) -> float:
     if p <= 0 or p > 100:
         return OIL_PHASE_SHARE
     return p / 100
+
+
+def liquid_from_oil_thousand_t_per_year(oil: float, separation_share: float) -> float | None:
+    """Скважинная жидкость по дебиту нефти и доле нефти в жидкости."""
+    if oil <= 0 or separation_share <= 0 or separation_share > 1:
+        return None
+    return round(oil / separation_share, 1)
+
+
+def produced_water_from_oil_thousand_t_per_year(oil: float, separation_share: float) -> float:
+    """Попутная вода после сепарации (жидкость − нефть)."""
+    liquid = liquid_from_oil_thousand_t_per_year(oil, separation_share)
+    if liquid is None:
+        return 0.0
+    return round(max(0.0, liquid - oil), 1)
 
 # Ветки «Нефть / Вода / Газ» — фазовые метки, без пропускной способности
 NO_CAPACITY_KINDS = frozenset({"fluid_branch"})
@@ -139,12 +154,16 @@ def _branch_capacity(
     fluid: FluidKind,
     separation_share: float | None = None,
 ) -> tuple[float | None, str]:
-    share = separation_share if separation_share is not None else OIL_PHASE_SHARE
     if fluid == "oil":
         if poi.fluid_type != "oil" or production <= 0:
             return (None, "thousand_t_per_year")
-        return (round(production * share, 1), "thousand_t_per_year")
+        return (round(production, 1), "thousand_t_per_year")
     if fluid == "water":
+        if poi.fluid_type != "oil" or production <= 0:
+            return (None, "thousand_t_per_year")
+        if separation_share is not None:
+            share = separation_share if separation_share > 0 else OIL_PHASE_SHARE
+            return (produced_water_from_oil_thousand_t_per_year(production, share), "thousand_t_per_year")
         if water <= 0:
             return (None, "thousand_t_per_year")
         return (round(water, 1), "thousand_t_per_year")
@@ -154,7 +173,7 @@ def _branch_capacity(
         if production <= 0:
             return (None, "thousand_m3_per_year")
         gf = resolve_gas_factor(poi)
-        return (round(production * share * gf / 1000, 1), "thousand_m3_per_year")
+        return (round(production * gf / 1000, 1), "thousand_m3_per_year")
     return (None, "thousand_t_per_year")
 
 

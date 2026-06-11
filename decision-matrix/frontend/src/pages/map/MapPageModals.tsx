@@ -22,11 +22,7 @@ export type MapPageModalsProps = {
   candidateSubtype: string | null;
   candidateParamType: 'external' | 'external_linear';
   onCloseCandidates: () => void;
-  overrideMut: UseMutationResult<
-    unknown,
-    Error,
-    Candidate | { subtype: string; force_construction: boolean; param_type: 'external' | 'external_linear' }
-  >;
+  overrideMut: UseMutationResult<unknown, Error, Candidate>;
 };
 
 export function MapPageModals({

@@ -5,6 +5,12 @@ import { useAppStore, useAuthStore } from '../store';
 
 const ROLES: UserRole[] = ['admin', 'analyst', 'data_manager', 'viewer'];
 
+function formatAdminDateTime(iso: string | null | undefined): string {
+  if (!iso) return '—';
+  const date = new Date(iso);
+  return Number.isNaN(date.getTime()) ? '—' : date.toLocaleString('ru-RU');
+}
+
 export function AdminUsersPage() {
   const queryClient = useQueryClient();
   const currentUser = useAuthStore((s) => s.user);
@@ -59,14 +65,16 @@ export function AdminUsersPage() {
         {isLoading ? (
           <p style={{ color: 'var(--text-muted)' }}>Загрузка...</p>
         ) : (
-          <table className="w-full text-sm">
+          <table className="admin-users-table w-full text-sm">
             <thead>
               <tr className="border-b" style={{ borderColor: 'var(--border)' }}>
                 <th className="text-left py-2 px-2">Email</th>
                 <th className="text-left py-2 px-2">Имя</th>
-                <th className="text-right py-2 px-2">Проектов</th>
-                <th className="text-left py-2 px-2">Роль</th>
-                <th className="text-left py-2 px-2">Статус</th>
+                <th className="text-left py-2 px-2 admin-users-table__col-date">Зарегистрирован</th>
+                <th className="text-left py-2 px-2 admin-users-table__col-date">Последний вход</th>
+                <th className="text-right py-2 px-2 admin-users-table__col-fit">Проектов</th>
+                <th className="text-left py-2 px-2 admin-users-table__col-fit">Роль</th>
+                <th className="text-left py-2 px-2 admin-users-table__col-fit">Статус</th>
               </tr>
             </thead>
             <tbody>
@@ -74,12 +82,14 @@ export function AdminUsersPage() {
                 <tr key={u.id} className="border-b" style={{ borderColor: 'var(--border)' }}>
                   <td className="py-2 px-2">{u.email}</td>
                   <td className="py-2 px-2">{u.username}</td>
-                  <td className="py-2 px-2 text-right tabular font-medium">
+                  <td className="py-2 px-2 admin-users-table__col-date">{formatAdminDateTime(u.created_at)}</td>
+                  <td className="py-2 px-2 admin-users-table__col-date">{formatAdminDateTime(u.last_login_at)}</td>
+                  <td className="py-2 px-2 text-right tabular font-medium admin-users-table__col-fit">
                     {u.project_count}
                   </td>
-                  <td className="py-2 px-2">
+                  <td className="py-2 px-2 admin-users-table__col-fit">
                     <select
-                      className="input input-sm"
+                      className="input input-sm input--fit"
                       value={u.role}
                       onChange={(e) =>
                         updateMutation.mutate({ id: u.id, role: e.target.value })
@@ -92,7 +102,7 @@ export function AdminUsersPage() {
                       ))}
                     </select>
                   </td>
-                  <td className="py-2 px-2">
+                  <td className="py-2 px-2 admin-users-table__col-fit">
                     <label className="flex items-center gap-2">
                       <input
                         type="checkbox"

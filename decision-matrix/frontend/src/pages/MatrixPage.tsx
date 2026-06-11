@@ -8,7 +8,11 @@ import {
   type POI,
 } from '../lib/api';
 import { analyzeAllPoisAndWait } from '../lib/runApiJob';
-import { buildMatrixRowsByPois, resolvePoiColumnAnalysis } from '../lib/matrixData';
+import {
+  buildMatrixRowsByPois,
+  engineeringAppliesToFluid,
+  resolvePoiColumnAnalysis,
+} from '../lib/matrixData';
 import { engineeringOptionsForKey, type EngineeringParamKey } from '../lib/poiParams';
 import { useSyncAssistantUiContext } from '../lib/assistant/assistantContext';
 import { useActiveProject } from '../hooks/useActiveProject';
@@ -18,6 +22,7 @@ import { usePermissions } from '../hooks/usePermissions';
 import { queryKeys } from '../lib/queryKeys';
 import { AppSelect } from '../components/AppSelect';
 import { MatrixCardsPanel } from '../components/matrix/MatrixCardsPanel';
+import { getMatrixSectionOrder } from '../lib/matrixCardView';
 import { useIsMobile } from '../hooks/useMediaQuery';
 
 function initialMatrixViewMode(isMobile: boolean): 'table' | 'cards' {
@@ -30,7 +35,6 @@ export function MatrixPage() {
   const [viewMode, setViewMode] = useState<'table' | 'cards'>(() => initialMatrixViewMode(isMobile));
   const [viewModeTouched, setViewModeTouched] = useState(false);
   const [selectedCol, setSelectedCol] = useState(0);
-  const [showOnlyExceeded, setShowOnlyExceeded] = useState(false);
   const { projectId } = useActiveProject();
   const queryClient = useQueryClient();
   const pushToast = useAppStore((s) => s.pushToast);
@@ -64,22 +68,14 @@ export function MatrixPage() {
     return map;
   }, [pois, analysisQueries]);
 
-  const displayedPois = useMemo(() => {
-    if (!showOnlyExceeded) return pois;
-    return pois.filter((poi) => {
-      const rows = analysisByPoiId[poi.id]?.rows ?? [];
-      return rows.some((r) => r.status === 'exceeds_limit');
-    });
-  }, [pois, showOnlyExceeded, analysisByPoiId]);
-
   const columnAnalysis = useMemo(
-    () => displayedPois.map((poi) => analysisByPoiId[poi.id] ?? { rows: [], total_cost_mln: null }),
-    [displayedPois, analysisByPoiId]
+    () => pois.map((poi) => analysisByPoiId[poi.id] ?? { rows: [], total_cost_mln: null }),
+    [pois, analysisByPoiId]
   );
 
   const { rows: matrixRows, columnNames, poisByColumn } = useMemo(
-    () => buildMatrixRowsByPois(displayedPois, columnAnalysis),
-    [displayedPois, columnAnalysis]
+    () => buildMatrixRowsByPois(pois, columnAnalysis),
+    [pois, columnAnalysis]
   );
 
   const safeSelectedCol = Math.min(selectedCol, Math.max(0, columnNames.length - 1));
@@ -89,16 +85,7 @@ export function MatrixPage() {
     selectedPoiName: selectedMatrixPoi?.name ?? null,
   });
 
-  const sections = useMemo(() => {
-    const seen = new Set<string>();
-    return matrixRows.reduce<string[]>((acc, r) => {
-      if (!seen.has(r.section)) {
-        seen.add(r.section);
-        acc.push(r.section);
-      }
-      return acc;
-    }, []);
-  }, [matrixRows]);
+  const sections = useMemo(() => getMatrixSectionOrder(matrixRows), [matrixRows]);
 
   const colCount = columnNames.length + 1;
 
@@ -187,16 +174,6 @@ export function MatrixPage() {
           )}
           <button
             type="button"
-            className={`btn ${showOnlyExceeded ? 'btn-primary' : 'btn-secondary'}`}
-            onClick={() => {
-              setShowOnlyExceeded((v) => !v);
-              setSelectedCol(0);
-            }}
-          >
-            Только с превышениями
-          </button>
-          <button
-            type="button"
             className={`btn ${viewMode === 'table' ? 'btn-primary' : 'btn-secondary'}`}
             onClick={() => {
               setViewModeTouched(true);
@@ -242,14 +219,7 @@ export function MatrixPage() {
                   </tr>
                 </thead>
                 <tbody>
-                  {displayedPois.length === 0 ? (
-                    <tr>
-                      <td colSpan={colCount} className="text-center py-6" style={{ color: 'var(--text-muted)' }}>
-                        Нет POI с превышениями лимитов
-                      </td>
-                    </tr>
-                  ) : (
-                    sections.map((section) => (
+                  {sections.map((section) => (
                       <Fragment key={section}>
                         <tr>
                           <td colSpan={colCount} className="font-semibold bg-gray-50 text-xs uppercase tracking-wide">
@@ -264,6 +234,10 @@ export function MatrixPage() {
                               {row.cells.map((cell, i) => {
                                 const poi = poisByColumn[i];
                                 const engKey = row.engineeringKey;
+                                const engEditable =
+                                  engKey &&
+                                  poi &&
+                                  engineeringAppliesToFluid(engKey, poi.fluid_type);
 
                                 return (
                                   <td
@@ -271,11 +245,11 @@ export function MatrixPage() {
                                     className={`${row.total ? 'font-bold' : ''} ${
                                       cell.status === 'exceeds_limit' ? 'text-red-600' : ''
                                     } ${safeSelectedCol === i ? 'bg-blue-50/50' : ''} ${
-                                      engKey && poi ? 'matrix-eng-cell' : ''
+                                      engEditable ? 'matrix-eng-cell' : ''
                                     }`}
-                                    onClick={engKey && poi ? (e) => e.stopPropagation() : undefined}
+                                    onClick={engEditable ? (e) => e.stopPropagation() : undefined}
                                   >
-                                    {engKey && poi ? (
+                                    {engEditable ? (
                                       <AppSelect
                                         variant="compact"
                                         className="matrix-eng-select"
@@ -309,14 +283,9 @@ export function MatrixPage() {
                             </tr>
                           ))}
                       </Fragment>
-                    ))
-                  )}
+                    ))}
                 </tbody>
               </table>
-            </div>
-          ) : displayedPois.length === 0 ? (
-            <div className="card text-sm" style={{ color: 'var(--text-muted)' }}>
-              Нет POI с превышениями лимитов
             </div>
           ) : (
             <MatrixCardsPanel

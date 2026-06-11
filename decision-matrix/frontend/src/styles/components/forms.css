@@ -103,3 +103,9 @@ select.input.input-sm {
   width: auto;
 }
 
+.input--fit,
+select.input.input--fit {
+  width: auto;
+  max-width: none;
+}
+

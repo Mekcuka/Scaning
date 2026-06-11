@@ -63,16 +63,15 @@ const maxInternalRows = (): DistanceParameterRow[] =>
     id: `max_total_line_${subtype}_km`,
     distanceKey: `max_total_line_${subtype}_km` as keyof DistanceDefaults,
     label: SUBTYPE_LABELS[subtype] || subtype,
-    defaultValue: subtype === 'autoroad' ? 50 : subtype === 'oil_pipeline' ? 40 : 30,
+    defaultValue:
+      subtype === 'autoroad'
+        ? 50
+        : subtype === 'oil_pipeline' || subtype === 'gas_pipeline'
+          ? 40
+          : 30,
   }));
 
 const maxExternalLinearRows = (): DistanceParameterRow[] => [
-  {
-    id: 'max_total_line_gas_pipeline_km',
-    distanceKey: 'max_total_line_gas_pipeline_km',
-    label: SUBTYPE_LABELS.gas_pipeline,
-    defaultValue: 40,
-  },
   {
     id: 'max_total_line_methanol_pipeline_km',
     distanceKey: 'max_total_line_methanol_pipeline_km',
@@ -183,7 +182,7 @@ export const CAPEX_RATE_GROUPS: ParameterGroup[] = [
   },
 ];
 
-export const OPEX_PARAMETER_GROUPS: ParameterGroup[] = [
+export const REVENUE_PARAMETER_GROUPS: ParameterGroup[] = [
   {
     id: 'product_prices',
     label: 'Цены продукции',
@@ -193,6 +192,9 @@ export const OPEX_PARAMETER_GROUPS: ParameterGroup[] = [
       { id: 'gas_price_thousand_rub_per_m3', label: 'Газ', defaultValue: 8 },
     ],
   },
+];
+
+export const OPEX_PARAMETER_GROUPS: ParameterGroup[] = [
   {
     id: 'opex_pipelines',
     label: 'OPEX трубопроводов',
@@ -249,7 +251,7 @@ export function buildDefaultRatesFromCatalog(): Record<string, number> {
 
 export function buildDefaultEconomicParamsFromCatalog(): Record<string, number> {
   const params: Record<string, number> = {};
-  for (const group of OPEX_PARAMETER_GROUPS) {
+  for (const group of [...REVENUE_PARAMETER_GROUPS, ...OPEX_PARAMETER_GROUPS]) {
     for (const row of group.rows) {
       params[row.id] = row.defaultValue;
     }
@@ -265,6 +267,41 @@ export function buildDefaultDistanceDefaults(): DistanceDefaults {
     }
   }
   return out;
+}
+
+const POI_DISTANCE_KEYS = DISTANCE_PARAMETER_GROUPS.flatMap((g) =>
+  g.rows.map((r) => r.distanceKey),
+) as (keyof DistanceDefaults)[];
+
+type PoiDistanceSource = Partial<Record<keyof DistanceDefaults, number | null | undefined>>;
+
+/** Effective distance settings for a POI (POI overrides fall back to project template). */
+export function effectiveDistanceDefaults(
+  poi: PoiDistanceSource | null | undefined,
+  projectDefaults: DistanceDefaults,
+): DistanceDefaults {
+  const out = { ...projectDefaults };
+  if (!poi) return out;
+  for (const key of POI_DISTANCE_KEYS) {
+    const value = poi[key];
+    if (value != null) {
+      out[key] = value;
+    }
+  }
+  return out;
+}
+
+export function sparseNumericOverrides(
+  effective: Record<string, number>,
+  projectEffective: Record<string, number>,
+): Record<string, number> | null {
+  const overrides: Record<string, number> = {};
+  for (const [key, value] of Object.entries(effective)) {
+    if (projectEffective[key] !== value) {
+      overrides[key] = value;
+    }
+  }
+  return Object.keys(overrides).length > 0 ? overrides : null;
 }
 
 /** @deprecated use CAPEX_RATE_GROUPS */

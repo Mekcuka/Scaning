@@ -7,6 +7,7 @@ export const MANIFEST_ANALYSIS_EXTERNAL_LINEAR = manifest.linear.analysis_extern
 export const MANIFEST_POINT_MAP = manifest.point.map as readonly string[];
 export const MANIFEST_ANALYSIS_EXTERNAL_POINT = manifest.point.analysis_external as readonly string[];
 export const MANIFEST_MATRIX_POINT_EXCLUDE = manifest.matrix.point_exclude as readonly string[];
+export const MANIFEST_MATRIX_LINEAR_EXCLUDE = manifest.matrix.linear_exclude as readonly string[];
 export const MANIFEST_MATRIX_INTERNAL_EXTRA_ROWS = manifest.matrix.internal_extra_rows as readonly string[];
 
 export const MANIFEST_GKS_CLUSTER = manifest.clusters.gks as readonly string[];

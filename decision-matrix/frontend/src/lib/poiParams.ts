@@ -297,9 +297,15 @@ export function formValuesToPoiCreatePayload(values: PoiFormValues) {
   };
 }
 
+/** Скважины: ceil(добыча / дебит на скв.), минимум 1 при добыче > 0. */
+export function calcWellsTotal(volume: number, perWell: number): number {
+  if (volume <= 0 || perWell <= 0) return 0;
+  return Math.max(1, Math.ceil(volume / perWell));
+}
+
 export function calcPadsPreview(volume: number, perWell: number, wellsPerPad: number) {
-  const wells = perWell > 0 ? volume / perWell : 0;
-  const pads = wellsPerPad > 0 ? Math.ceil(wells / wellsPerPad) : 0;
+  const wells = calcWellsTotal(volume, perWell);
+  const pads = wellsPerPad > 0 && wells > 0 ? Math.ceil(wells / wellsPerPad) : 0;
   return { wells, pads };
 }
 
@@ -320,10 +326,18 @@ export function fluidTypeLabel(fluidType: string | null | undefined): 'Нефт�
   return fluidType === 'gas' ? 'Газ' : 'Нефть';
 }
 
+export const POI_OIL_VOLUME_UNIT = 'тыс. т/год';
+export const POI_GAS_VOLUME_UNIT = 'млн.м³/год';
+export const POI_WATER_VOLUME_UNIT = 'тыс. т/год';
+
+export function poiProductionVolumeUnit(fluidType: 'oil' | 'gas' | string | null | undefined): string {
+  return fluidType === 'gas' ? POI_GAS_VOLUME_UNIT : POI_OIL_VOLUME_UNIT;
+}
+
 export function plannedProductionLabel(
   poi: Pick<POI, 'planned_production_volume' | 'fluid_type'>,
 ): string | undefined {
   const volume = poi.planned_production_volume;
   if (volume == null || Number(volume) <= 0) return undefined;
-  return `${volume} тыс. т/год`;
+  return `${volume} ${poiProductionVolumeUnit(poi.fluid_type)}`;
 }

@@ -110,13 +110,26 @@ export function nodePersistsThroughputCapacity(kind: string): boolean {
   return nodeHasThroughputCapacity(kind) && kind !== 'poi';
 }
 
-/** Доля нефтяной фазы после сепарации по умолчанию, %. */
+/** Доля нефти в скважинной жидкости по умолчанию, %. */
 export const DEFAULT_SEPARATION_PERCENT = 85;
 
 export function resolveSeparationShare(percent: number | null | undefined): number {
   const p = percent ?? DEFAULT_SEPARATION_PERCENT;
   if (p <= 0 || p > 100) return DEFAULT_SEPARATION_PERCENT / 100;
   return p / 100;
+}
+
+/** Скважинная жидкость по дебиту нефти и доле нефти в жидкости. */
+export function liquidFromOilThousandTPerYear(oil: number, separationShare: number): number | null {
+  if (oil <= 0 || separationShare <= 0 || separationShare > 1) return null;
+  return Math.round((oil / separationShare) * 10) / 10;
+}
+
+/** Попутная вода после сепарации (жидкость − нефть). */
+export function producedWaterFromOilThousandTPerYear(oil: number, separationShare: number): number {
+  const liquid = liquidFromOilThousandTPerYear(oil, separationShare);
+  if (liquid == null) return 0;
+  return Math.round(Math.max(0, liquid - oil) * 10) / 10;
 }
 
 export function parseSeparationPercentInput(raw: string): number | null {

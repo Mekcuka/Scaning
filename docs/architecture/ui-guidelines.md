@@ -153,11 +153,13 @@
 | Токены / тема | `src/styles/tokens.css` |
 | Reset, body | `src/styles/base.css` |
 | Shell | `src/styles/layout/` |
-| Кнопки, формы, модалки | `src/styles/components/` |
+| Кнопки, формы | `src/styles/components/` |
+| Модалка, flow overlays, toast | `src/styles/components/app-modal/` (см. `styles/README.md` § app-modal) |
 | Экран / фича | `src/styles/features/<feature>.css` |
+| Карта 2D/3D | `src/styles/features/map/` — по префиксу класса (см. [`styles/README.md`](../../decision-matrix/frontend/src/styles/README.md) § map) |
 | Глобальный responsive | `src/styles/responsive/` (порядок в `cascade-order.md`) |
 
-Точка входа: [`index.css`](../../decision-matrix/frontend/src/index.css) — только `@import "tailwindcss"` и цепочка импортов. Порядок: `tokens` → `base` → `components` → `features` → поздний `responsive`. См. [`styles/README.md`](../../decision-matrix/frontend/src/styles/README.md).
+Точка входа: [`index.css`](../../decision-matrix/frontend/src/index.css) — только `@import "tailwindcss"` и цепочка импортов (манифест: [`scripts/css-segments.mjs`](../../decision-matrix/frontend/scripts/css-segments.mjs)). Порядок: `tokens` → `base` → `components` → `features` → поздний `responsive`. См. [`styles/README.md`](../../decision-matrix/frontend/src/styles/README.md).
 
 ---
 

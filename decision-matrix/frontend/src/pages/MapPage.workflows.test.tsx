@@ -133,8 +133,7 @@ describe('MapPage workflow coverage', () => {
     }
     await userEvent.click(screen.getByRole('button', { name: 'Закрыть панель слоёв' }));
 
-    const analyzeButtons = screen.getAllByRole('button', { name: /анализ/i });
-    await userEvent.click(analyzeButtons[0]!);
+    await userEvent.click(screen.getByRole('button', { name: /Все точки/i }));
     await waitFor(() => expect(api.analyzeAllPois).toHaveBeenCalled());
 
     await userEvent.click(screen.getByRole('button', { name: /линейка/i }));

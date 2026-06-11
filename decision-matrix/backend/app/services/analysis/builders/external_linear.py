@@ -38,6 +38,31 @@ class ExternalLinearBuilder:
                     statuses.append(str(item["status"]))
                 continue
 
+            active = ctx.subtype_status.get(subtype, "active") != "not_required"
+            if not active:
+                rows.append(
+                    PoiInfrastructureAnalysis(
+                        poi_id=ctx.poi.id,
+                        param_type="external_linear",
+                        subtype=subtype,
+                        distance_km=0,
+                        distance_source="geodesic",
+                        distance_status="not_required",
+                        max_allowed_distance_km=limit,
+                    )
+                )
+                items.append(
+                    {
+                        "subtype": subtype,
+                        "param_type": "external_linear",
+                        "status": "not_required",
+                        "distance_km": 0,
+                        "limit_km": limit,
+                        "cost_mln": 0,
+                    }
+                )
+                continue
+
             nearest = await ctx.spatial.find_nearest_external_linear(
                 ctx.db, ctx.project_id, ctx.poi, subtype
             )

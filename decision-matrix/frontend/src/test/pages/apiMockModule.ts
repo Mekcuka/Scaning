@@ -43,6 +43,7 @@ function createDefaultPorts(mockedApi: Record<string, unknown>) {
     },
     defaultMapAnalysisApi: {
       getPoiAnalysis: mockedApi.getPoiAnalysis,
+      analyzePoi: mockedApi.analyzePoi,
       overrideAnalysis: mockedApi.overrideAnalysis,
       getCandidates: mockedApi.getCandidates,
     },

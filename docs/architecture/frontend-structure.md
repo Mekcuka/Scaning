@@ -22,7 +22,7 @@
 | `lib/sandLogisticsResult.ts` | ~868 | **1** | Barrel; код в `sandLogisticsResult/*` |
 | `components/FlowSchematicEditor.tsx` | ~851 | **1** | Barrel; UI в `flowSchematicEditor/*` |
 | `hooks/useMapPageOrchestrator.ts` | ~882 | **1** | Barrel; код в `mapPageOrchestrator/*` |
-| `src/index.css` | ~9170 | **~26** | Только `@import "tailwindcss"` + цепочка `styles/*` |
+| `src/index.css` | ~9170 | **~38** | `@import "tailwindcss"` + **35** сегментов `styles/*` (манифест `scripts/css-segments.mjs`) |
 
 ---
 
@@ -34,8 +34,8 @@
 |---------|------------|---------|
 | `tokens.css`, `base.css` | Переменные, reset, body | `:root`, `[data-theme="dark"]` |
 | `layout/` | Shell | `.app-shell`, `.app-content` |
-| `components/` | Примитивы | `.btn`, `.form-group`, `app-select`, `app-modal` |
-| `features/` | Экраны и фичи | `map-core`, `import-3d`, `parameters`, `flow-schematic` |
+| `components/` | Примитивы | `.btn`, `.form-group`, `app-select`, `app-modal/` (core, flow-overlays, sand-logistics, overlays) |
+| `features/` | Экраны и фичи | `map/` (11 файлов), `import-3d`, `parameters`, `flow-schematic` |
 | `responsive/` | Глобальный mobile | `mobile-global.css` **до** one-pager/import-3d в цепочке |
 
 Проверка: `npm run verify:css`. Правила добавления стилей — [ui-guidelines.md](ui-guidelines.md) §6, [styles/README.md](../../decision-matrix/frontend/src/styles/README.md).
@@ -308,7 +308,7 @@ components/flowSchematicEditor/
 | Задача | Файлы |
 |--------|-------|
 | Новый UI / стили экрана | [ui-guidelines.md](ui-guidelines.md), `styles/features/<feature>.css`, `panelUi.tsx`, `AppSelect`, `AppModal` |
-| Правка глобального CSS | `styles/cascade-order.md`, `npm run verify:css` — не менять порядок `@import` без проверки |
+| Правка глобального CSS | `scripts/css-segments.mjs`, `styles/cascade-order.md`, `npm run verify:css` — не менять порядок `@import` без проверки |
 | Новый инструмент на карте | `MapPageToolbar` draw group, `MapPage` drawMode state, `MapView` types |
 | Поведение OL (click, drag) | `mapView/setupMapClickHandlers.ts`, `setupModifyHandlers.ts` |
 | Синхронизация props → слои | `mapView/useMapViewDataSync.ts`, `useMapViewOverlays.ts` |
@@ -327,5 +327,5 @@ components/flowSchematicEditor/
 
 ## Оставшиеся кандидаты на дробление
 
-Основной план рефакторинга карты (июнь 2026) выполнен. `useMapPageMapActions.ts` разбит на `mapPageOrchestrator/actions/*` (фаза 3 ✅). **CSS:** монолит `index.css` → `styles/` (23 файла, каскад 1:1). Import — `pages/import/*`, `pages/import3d/*`; **Export** — `pages/ExportPage.tsx`, `pages/export/*`, `lib/projectExport/*`. Опционально: `buildMapPageSections.ts`. План — [solid-refactoring-plan.md](../planning/solid-refactoring-plan.md). Границы — [module-boundaries.md](module-boundaries.md).
+Основной план рефакторинга карты (июнь 2026) выполнен. `useMapPageMapActions.ts` разбит на `mapPageOrchestrator/actions/*` (фаза 3 ✅). **CSS:** монолит `index.css` → `styles/` (35 файлов, каскад 1:1); карта — `features/map/` (фаза 2); модалка/flow — `components/app-modal/` (фаза 3). Import — `pages/import/*`, `pages/import3d/*`; **Export** — `pages/ExportPage.tsx`, `pages/export/*`, `lib/projectExport/*`. Опционально: `buildMapPageSections.ts`. План — [solid-refactoring-plan.md](../planning/solid-refactoring-plan.md). Границы — [module-boundaries.md](module-boundaries.md).
 

@@ -8,8 +8,11 @@ export function buildHeaderSection(
   return {
     projectId: projectId ?? null,
     poisCount: data.pois.length,
+    selectedPoiId: data.selectedPoi?.id ?? null,
+    selectedPoiName: data.selectedPoi?.name ?? null,
     canWriteProject,
-    analyzePending: actions.analyzeMut.isPending,
-    onAnalyze: () => actions.analyzeMut.mutate(),
+    analyzePending: actions.analyzePending,
+    onAnalyzeAll: () => actions.analyzeAllMut.mutate(),
+    onAnalyzeSelected: () => actions.analyzeSelectedMut.mutate(),
   };
 }

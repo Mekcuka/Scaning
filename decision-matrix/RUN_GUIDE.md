@@ -18,7 +18,7 @@ npm --version
 
 ## 2) Быстрый запуск (рекомендуется, SQLite)
 
-Команды для **Windows PowerShell**. Корень репозитория: `C:\Users\user\Documents\Cursore` (рядом с `autoroad-network-planner/`).
+Команды для **Windows PowerShell**. Корень репозитория: `C:\Users\user\Documents\Cursore` (рядом с `autoroad-network-planner/` и `pad-earthwork-planner/`).
 
 ### Шаг 1. Запуск backend (первый раз — venv и зависимости)
 
@@ -28,6 +28,7 @@ python -m venv venv
 .\venv\Scripts\Activate.ps1
 python -m pip install -r C:\Users\user\Documents\Cursore\decision-matrix\backend\requirements.txt
 python -m pip install -e C:\Users\user\Documents\Cursore\autoroad-network-planner[steinerpy]
+python -m pip install -e C:\Users\user\Documents\Cursore\pad-earthwork-planner
 python C:\Users\user\Documents\Cursore\decision-matrix\backend\run_local.py
 ```
 
@@ -39,6 +40,7 @@ python -m pip -V
 ```
 
 Что делает `run_local.py`:
+- при отсутствии пакета устанавливает `pad-earthwork-planner` (editable)
 - создаёт/инициализирует SQLite БД `backend/data/sppr.db`
 - выполняет сидирование демо-данными
 - запускает API на `http://127.0.0.1:8000`
@@ -159,6 +161,7 @@ python -m venv venv
 .\venv\Scripts\Activate.ps1
 python -m pip install -r C:\Users\user\Documents\Cursore\decision-matrix\backend\requirements.txt
 python -m pip install -e C:\Users\user\Documents\Cursore\autoroad-network-planner[steinerpy]
+python -m pip install -e C:\Users\user\Documents\Cursore\pad-earthwork-planner
 python C:\Users\user\Documents\Cursore\decision-matrix\backend\seed.py
 uvicorn app.main:app --reload --host 127.0.0.1 --port 8000
 ```
@@ -284,6 +287,17 @@ npm run dev
   python -m pip install -e C:\Users\user\Documents\Cursore\autoroad-network-planner[steinerpy]
   python C:\Users\user\Documents\Cursore\decision-matrix\backend\run_local.py
   ```
+
+- **Земляные работы куста / ModuleNotFoundError: pad_earthwork** (при расчёте)  
+  Backend стартует без пакета; ошибка возможна только при **Рассчитать** в карточке куста:
+
+  ```powershell
+  cd C:\Users\user\Documents\Cursore\decision-matrix\backend
+  .\venv\Scripts\Activate.ps1
+  python -m pip install -e C:\Users\user\Documents\Cursore\pad-earthwork-planner
+  ```
+
+  Или перезапустите `run_local.py` — скрипт установит пакет сам. Отдельный микросервис: `cd pad-earthwork-planner && python run_server.py` (порт 8081). Подробнее: [docs/features/pad-earthwork.md](../docs/features/pad-earthwork.md).
 
 - **«Построить сеть» / Not Found** или **Method Not Allowed** на `/admin/assistant/llm-config`  
   Часто на порту `8000` висит **старый** uvicorn (без новых маршрутов). Предпочтительно запускать **`run_local.py`** — он освобождает порт и при занятости `8000` пишет актуальный порт в `backend/.dev-port` (например `8001`). Vite proxy читает этот файл на каждый запрос; если frontend уже был запущен до смены порта — перезапустите `npm run dev`.

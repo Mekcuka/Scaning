@@ -10,6 +10,7 @@ export type AdminUserRow = {
   role: string;
   is_active: boolean;
   created_at: string;
+  last_login_at: string | null;
   project_count: number;
 };
 
@@ -265,6 +266,7 @@ export const adminApi = {
         role: string;
         is_active: boolean;
         created_at: string;
+        last_login_at: string | null;
         project_count?: number;
       }>
     >('/admin/users');

@@ -53,8 +53,10 @@ def get_distance_maps(
         "power_line": poi.max_total_line_power_line_km or (defaults.max_total_line_power_line_km if defaults else 30),
     }
     _external_linear_limit_km = {
-        "methanol_pipeline": defaults.max_total_line_methanol_pipeline_km if defaults else 40.0,
-        "additional_line": defaults.max_total_line_additional_line_km if defaults else 50.0,
+        "methanol_pipeline": poi.max_total_line_methanol_pipeline_km
+        or (defaults.max_total_line_methanol_pipeline_km if defaults else 40.0),
+        "additional_line": poi.max_total_line_additional_line_km
+        or (defaults.max_total_line_additional_line_km if defaults else 50.0),
     }
     for subtype in EXTERNAL_LINEAR_SUBTYPES:
         if subtype not in max_line_map:
@@ -65,12 +67,39 @@ def get_distance_maps(
         "gtes": poi.threshold_gtes_km or (defaults.threshold_gtes_km if defaults else 60),
         "substation": poi.threshold_substation_km or (defaults.threshold_substation_km if defaults else 25),
         "refinery": poi.threshold_refinery_km or (defaults.threshold_refinery_km if defaults else 100),
-        "ground_pumping_station": (
-            defaults.threshold_ground_pumping_station_km if defaults else 50.0
-        ),
-        "sand_quarry": defaults.threshold_sand_quarry_km if defaults else 50.0,
+        "ground_pumping_station": poi.threshold_ground_pumping_station_km
+        or (defaults.threshold_ground_pumping_station_km if defaults else 50.0),
+        "sand_quarry": poi.threshold_sand_quarry_km
+        or (defaults.threshold_sand_quarry_km if defaults else 50.0),
     }
     return km_per_pad_map, max_line_map, threshold_map
+
+
+def resolve_distance_defaults(
+    poi: PointOfInterest, defaults: ProjectDistanceDefaults | None
+) -> dict[str, float]:
+    """Effective distance settings for a POI (merged with project template)."""
+    km_per_pad_map, max_line_map, threshold_map = get_distance_maps(poi, defaults)
+    return {
+        "threshold_gas_processing_km": threshold_map["gas_processing"],
+        "threshold_gtes_km": threshold_map["gtes"],
+        "threshold_substation_km": threshold_map["substation"],
+        "threshold_refinery_km": threshold_map["refinery"],
+        "threshold_ground_pumping_station_km": threshold_map["ground_pumping_station"],
+        "threshold_sand_quarry_km": threshold_map["sand_quarry"],
+        "max_total_line_autoroad_km": max_line_map["autoroad"],
+        "max_total_line_oil_pipeline_km": max_line_map["oil_pipeline"],
+        "max_total_line_gas_pipeline_km": max_line_map["gas_pipeline"],
+        "max_total_line_water_pipeline_km": max_line_map["water_pipeline"],
+        "max_total_line_power_line_km": max_line_map["power_line"],
+        "max_total_line_methanol_pipeline_km": max_line_map["methanol_pipeline"],
+        "max_total_line_additional_line_km": max_line_map["additional_line"],
+        "km_per_pad_autoroad": km_per_pad_map["autoroad"],
+        "km_per_pad_oil_pipeline": km_per_pad_map["oil_pipeline"],
+        "km_per_pad_gas_pipeline": km_per_pad_map["gas_pipeline"],
+        "km_per_pad_water_pipeline": km_per_pad_map["water_pipeline"],
+        "km_per_pad_power_line": km_per_pad_map["power_line"],
+    }
 
 
 def subtype_cost_thousand(

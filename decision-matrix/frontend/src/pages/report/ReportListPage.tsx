@@ -20,7 +20,7 @@ export function ReportListPage() {
       <div className="page-toolbar">
         <div className="page-title-block">
           <h1 className="page-title">Отчёты</h1>
-          <p className="page-subtitle">Одностраничники для руководства (FR-11)</p>
+          <p className="page-subtitle">Одностраничники для руководства</p>
         </div>
         {projectId && canWriteProject && (
           <div className="page-toolbar-actions">

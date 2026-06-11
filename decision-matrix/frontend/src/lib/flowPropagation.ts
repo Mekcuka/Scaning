@@ -1,5 +1,9 @@
 import type { CapacityUnit, FlowSchematicEdgeDto, FlowSchematicNodeDto, FluidKind } from './flowSchematic';
-import { resolveSeparationShare } from './flowSchematic';
+import {
+  liquidFromOilThousandTPerYear,
+  producedWaterFromOilThousandTPerYear,
+  resolveSeparationShare,
+} from './flowSchematic';
 
 const DEFAULT_GAS_FACTOR = 120;
 const FLOW_EPS = 1e-6;
@@ -22,18 +26,26 @@ export interface NodeFlowState {
   overCapacity: boolean;
 }
 
+/** planned_production_volume на нефтяной POI — дебит нефти (тыс. т/год), не жидкости. */
 function branchFlowFromPoi(
   poi: PoiFlowContext,
   fluid: FluidKind,
-  separationShare: number
+  separationShare: number | null
 ): { flow: number | null; unit: CapacityUnit } {
   const production = poi.planned_production_volume || 0;
   const water = poi.water_injection_volume || 0;
   if (fluid === 'oil') {
     if (poi.fluid_type !== 'oil' || production <= 0) return { flow: null, unit: 'thousand_t_per_year' };
-    return { flow: Math.round(production * separationShare * 10) / 10, unit: 'thousand_t_per_year' };
+    return { flow: Math.round(production * 10) / 10, unit: 'thousand_t_per_year' };
   }
   if (fluid === 'water') {
+    if (poi.fluid_type !== 'oil' || production <= 0) return { flow: null, unit: 'thousand_t_per_year' };
+    if (separationShare != null) {
+      return {
+        flow: producedWaterFromOilThousandTPerYear(production, separationShare),
+        unit: 'thousand_t_per_year',
+      };
+    }
     if (water <= 0) return { flow: null, unit: 'thousand_t_per_year' };
     return { flow: water, unit: 'thousand_t_per_year' };
   }
@@ -47,7 +59,7 @@ function branchFlowFromPoi(
     if (production <= 0) return { flow: null, unit: 'thousand_m3_per_year' };
     const gf = resolveGasFactor(poi);
     return {
-      flow: Math.round(((production * separationShare * gf) / 1000) * 10) / 10,
+      flow: Math.round(((production * gf) / 1000) * 10) / 10,
       unit: 'thousand_m3_per_year',
     };
   }
@@ -73,8 +85,9 @@ function flowAfterSeparator(
   separationShare: number
 ): { flow: number; unit: CapacityUnit } {
   if (edgeFluid === 'oil' || edgeFluid === 'water' || edgeFluid === 'gas') {
-    const bf = branchFlowFromPoi(poi, edgeFluid, separationShare);
+    const bf = branchFlowFromPoi(poi, edgeFluid as FluidKind, separationShare);
     if (bf.flow != null) return { flow: bf.flow, unit: bf.unit };
+    if (edgeFluid === 'water') return { flow: 0, unit: 'thousand_t_per_year' };
   }
   return { flow: fallbackFlow, unit: fallbackUnit };
 }
@@ -130,9 +143,15 @@ export function propagateFlows(
 
     for (const { edgeId, target: tgtId, fluid: edgeFluid } of outAdj.get(curId) ?? []) {
       if (!nodeById.has(tgtId)) continue;
+      const tgtNode = nodeById.get(tgtId);
       let nextFlow: number;
       let nextUnit: CapacityUnit;
-      if (curKind === 'separator') {
+      if (curKind === 'poi' && tgtNode?.kind === 'separator' && poi.fluid_type === 'oil') {
+        const share = resolveSeparationShare(tgtNode.separation_percent);
+        const liquid = liquidFromOilThousandTPerYear(curFlow, share);
+        nextFlow = liquid ?? curFlow;
+        nextUnit = curUnit;
+      } else if (curKind === 'separator') {
         const share = resolveSeparationShare(curNode?.separation_percent);
         const n = flowAfterSeparator(poi, edgeFluid, curFlow, curUnit, share);
         nextFlow = n.flow;

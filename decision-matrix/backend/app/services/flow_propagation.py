@@ -5,7 +5,12 @@ from __future__ import annotations
 from typing import Any
 
 from app.models import PointOfInterest
-from app.services.flow_capacity import NO_CAPACITY_KINDS, _branch_capacity, resolve_separation_share
+from app.services.flow_capacity import (
+    NO_CAPACITY_KINDS,
+    _branch_capacity,
+    liquid_from_oil_thousand_t_per_year,
+    resolve_separation_share,
+)
 
 FLOW_EPS = 1e-6
 
@@ -62,6 +67,8 @@ def _flow_after_separator(
         bf, bu = _branch_flow_from_poi(poi, edge_fluid, separation_share=separation_share)
         if bf is not None:
             return bf, bu
+        if edge_fluid == "water":
+            return 0.0, "thousand_t_per_year"
     return fallback_flow, fallback_unit
 
 
@@ -103,13 +110,18 @@ def propagate_flows(
         for tgt_id, edge_fluid in out_adj.get(cur_id, []):
             if tgt_id not in node_by_id:
                 continue
-            if cur_kind == "separator":
+            tgt_node = node_by_id[tgt_id]
+            if cur_kind == "poi" and tgt_node.get("kind") == "separator" and poi.fluid_type == "oil":
+                share = resolve_separation_share(tgt_node.get("separation_percent"))
+                liquid = liquid_from_oil_thousand_t_per_year(cur_flow, share)
+                next_flow = liquid if liquid is not None else cur_flow
+                next_unit = cur_unit
+            elif cur_kind == "separator":
                 share = resolve_separation_share(cur_node.get("separation_percent"))
                 next_flow, next_unit = _flow_after_separator(
                     poi, edge_fluid, cur_flow, cur_unit, separation_share=share
                 )
             else:
-                tgt_node = node_by_id[tgt_id]
                 next_flow, next_unit = _outgoing_flow(
                     poi, tgt_node, cur_flow, cur_unit, edge_fluid
                 )

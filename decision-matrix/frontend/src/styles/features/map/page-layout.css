@@ -1,0 +1,89 @@
+/* Map page — fills main column below app header (like sidebar h-screen chain) */
+.map-page {
+  flex: 1;
+  min-height: 0;
+}
+
+.map-page .page-header {
+  margin-bottom: 12px;
+}
+
+.map-page-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+}
+
+.map-page-header h1 {
+  margin: 0;
+}
+
+.map-analyze-label-short {
+  display: none;
+}
+
+.map-analyze-split {
+  display: inline-flex;
+  align-items: stretch;
+  flex-shrink: 0;
+  max-width: min(100%, 26rem);
+}
+
+.map-analyze-split__segment {
+  flex: 1 1 50%;
+  min-width: 0;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.35rem;
+  padding-left: 0.75rem;
+  padding-right: 0.75rem;
+  white-space: nowrap;
+}
+
+.map-analyze-split__segment--left {
+  border-top-right-radius: 0;
+  border-bottom-right-radius: 0;
+  border-right: 1px solid color-mix(in srgb, var(--primary-fg, #fff) 25%, transparent);
+}
+
+.map-analyze-split__segment--right {
+  border-top-left-radius: 0;
+  border-bottom-left-radius: 0;
+}
+
+.map-analyze-split__icon {
+  flex-shrink: 0;
+}
+
+.map-page-card {
+  padding: 0;
+  overflow: hidden;
+  margin-bottom: 0;
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+}
+
+.map-layout {
+  display: grid;
+  grid-template-columns: 280px 1fr;
+  flex: 1;
+  min-height: 0;
+  border-top: 1px solid var(--border);
+}
+
+.map-canvas-wrap .ol-viewport {
+  height: 100% !important;
+  width: 100%;
+}
+
+.map-sidebar-panel {
+  border-right: 1px solid var(--border);
+  overflow-y: auto;
+  padding: 0;
+  background: var(--surface);
+}
+

@@ -75,13 +75,13 @@ export function PoiParamsForm({
             <PoiThresholdGrid
               {...sectionProps}
               fields={THRESHOLD_FIELDS}
-              intro="Пустое поле — значение проекта по умолчанию (FR-4.2.6, FR-4.2.9)"
+              intro="Пустое поле — значение проекта по умолчанию"
             />
           ) : (
             <PoiThresholdAccordion
               {...sectionProps}
               fields={THRESHOLD_FIELDS}
-              intro="Пустое поле — значение проекта по умолчанию (FR-4.2.6, FR-4.2.9)"
+              intro="Пустое поле — значение проекта по умолчанию"
             />
           ),
         )}
@@ -93,13 +93,13 @@ export function PoiParamsForm({
             <PoiThresholdGrid
               {...sectionProps}
               fields={KM_PER_PAD_FIELDS.map((f) => ({ ...f, label: `${f.label}, км/КП` }))}
-              intro="Нормы км/КП для расчёта internal linear (FR-4.2.12, FR-5.3.4)"
+              intro="Нормы км/КП для расчёта internal linear"
             />
           ) : (
             <PoiThresholdAccordion
               {...sectionProps}
               fields={KM_PER_PAD_FIELDS.map((f) => ({ ...f, label: `${f.label}, км/КП` }))}
-              intro="Нормы км/КП для расчёта internal linear (FR-4.2.12, FR-5.3.4)"
+              intro="Нормы км/КП для расчёта internal linear"
             />
           ),
         )}
@@ -111,13 +111,13 @@ export function PoiParamsForm({
             <PoiThresholdGrid
               {...sectionProps}
               fields={MAX_TOTAL_LINE_FIELDS.map((f) => ({ ...f, label: `${f.label}, км` }))}
-              intro="Макс. суммарная длина internal linear (FR-4.2.13)"
+              intro="Макс. суммарная длина internal linear"
             />
           ) : (
             <PoiThresholdAccordion
               {...sectionProps}
               fields={MAX_TOTAL_LINE_FIELDS.map((f) => ({ ...f, label: `${f.label}, км` }))}
-              intro="Макс. суммарная длина internal linear (FR-4.2.13)"
+              intro="Макс. суммарная длина internal linear"
             />
           ),
         )}

@@ -13,6 +13,8 @@ COPY requirements.txt ./requirements.txt
 RUN pip install --no-cache-dir -r requirements.txt
 COPY network-planner-vendor ./network-planner-vendor
 RUN pip install --no-cache-dir -e "./network-planner-vendor[steinerpy]"
+COPY pad-earthwork-vendor ./pad-earthwork-vendor
+RUN pip install --no-cache-dir -e "./pad-earthwork-vendor"
 
 
 FROM python:3.12-slim AS runtime

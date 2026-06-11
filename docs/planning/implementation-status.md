@@ -64,6 +64,7 @@
 | Граф сети | `api/v1/graph.py`, `graph_builder.py` | ✅ (визуализация/PFD; якорь `network_node` в анализе POI — post-MVP) |
 | Схема потоков | `api/v1/flow.py`, `fluid_flow_schematic.py`, `flow_schematic_merge.py` | ✅ |
 | Песок / логистика | `api/v1/sand_logistics.py`, `sand_logistics.py`, `sand_logistics_store.py` | ✅ (результат в БД; схема: timeline, полная топология на любом годе, layout/slice, адаптивные отступы) |
+| Земляные работы куста | `pad-earthwork-planner` + BFF; UI: поля + **Схема…** (SVG: прямоугольник/полигон, подписи длин, PATCH sketch) — [pad-earthwork.md](../features/pad-earthwork.md) | ✅ MVP (flat + plan sketch); DEM/profile — 501 |
 | Экономика потоков | `economic_flow_schematic.py`, `economic_rates.py` | ✅ |
 | Автосеть автодорог | `network-planner` + `planner_adapter.py`: Steiner tree, post-processing, preview overlay; BFF request/compute/apply | ✅ |
 | Autoroad Network Service (HTTP :8080) | `autoroad-network-planner` microservice / legacy `services/autoroad-network/` | ⬜ опционально (`AUTOROAD_NETWORK_INPROCESS=false`) |
@@ -104,7 +105,7 @@
 
 **Загрузка объектов на `/map`:** гибрид полного кэша + bbox при просмотре (порог 80 объектов, буфер 12%, без лишних `GET` при мелком пане); синхронизация full+bbox кэшей при CRUD/геометрии (`mapQueries.ts`); API [`bbox_filter.py`](../../decision-matrix/backend/app/geo/bbox_filter.py). **Плавность 2D:** rAF на `pointermove`, spatial hit-test (`mapHitTest.ts`), точечный hover, `React.memo(MapView)`, idle-sync слоя при ≥150 объектах, LOD линий по умолчанию 1:500 000 — §6.1.2 [map-objects-and-spatial-calculations.md](../features/map-objects-and-spatial-calculations.md). **Drag точек в editMode:** `updateWhileInteracting` + [`mapFeatureGeometrySync.ts`](../../decision-matrix/frontend/src/lib/mapFeatureGeometrySync.ts).
 
-**Рефакторинг frontend (июнь 2026):** монолиты разбиты без смены публичных импортов — `MapPage` ~3836→**~35** (`sections` из `useMapPageOrchestrator`), `MapView` ~2227→~58, `ObjectDetailPanel` ~1163→~168, `FlowSchematicEditor` / `SandLogisticsSubnetPanel` / `SandLogisticsTables` → barrels, `useMapPageOrchestrator` → `mapPageOrchestrator/*`, `useObjectDetailPanel` → sub-hooks, `setupModifyHandlers` / `setupTranslateHandlers` → submodules. **CSS:** `index.css` ~9170 строк → `src/styles/` (23 файла, порядок каскада в `cascade-order.md`, проверка `npm run verify:css`). **UI guidelines** + Cursor rule `.cursor/rules/ui-guidelines.mdc`. Детали: [frontend-structure.md](../architecture/frontend-structure.md), [ui-guidelines.md](../architecture/ui-guidelines.md). Тесты: **581/581** Vitest, **16** E2E.
+**Рефакторинг frontend (июнь 2026):** монолиты разбиты без смены публичных импортов — `MapPage` ~3836→**~35** (`sections` из `useMapPageOrchestrator`), `MapView` ~2227→~58, `ObjectDetailPanel` ~1163→~168, `FlowSchematicEditor` / `SandLogisticsSubnetPanel` / `SandLogisticsTables` → barrels, `useMapPageOrchestrator` → `mapPageOrchestrator/*`, `useObjectDetailPanel` → sub-hooks, `setupModifyHandlers` / `setupTranslateHandlers` → submodules. **CSS:** `index.css` ~9170 строк → `src/styles/` (35 файлов; `features/map/`, `components/app-modal/`; манифест `css-segments.mjs`, `npm run verify:css`). **UI guidelines** + Cursor rule `.cursor/rules/ui-guidelines.mdc`. Детали: [frontend-structure.md](../architecture/frontend-structure.md), [ui-guidelines.md](../architecture/ui-guidelines.md). Тесты: **581/581** Vitest, **16** E2E.
 
 ---
 
@@ -160,13 +161,13 @@
 
 Базовый URL: `/api/v1`. Полный список — Swagger `/api/v1/docs` и [decision-matrix/README.md](../../decision-matrix/README.md).
 
-Группы: `auth`, `admin`, `admin/jobs` (list, health, cancel), `projects`, `projects/{id}/pois`, `projects/{id}/infrastructure/*`, `projects/{id}/map3d-custom-models` (upload / list / PATCH / assign + bulk apply / apply-preview / file), `projects/{id}/pois/{id}/analysis`, `projects/{id}/import/*`, `import/logs`, `projects/{id}/one-pagers`, `projects/{id}/flow-schematic`, `projects/{id}/infrastructure/networks`, `projects/{id}/import_connections`, `projects/{id}/sand-logistics` (GET result, POST analyze).
+Группы: `auth`, `admin`, `admin/jobs` (list, health, cancel), `projects`, `projects/{id}/pois`, `projects/{id}/infrastructure/*` (в т.ч. `.../objects/{id}/pad-earthwork/compute|last|params|sketch`), `projects/{id}/map3d-custom-models` (upload / list / PATCH / assign + bulk apply / apply-preview / file), `projects/{id}/pois/{id}/analysis`, `projects/{id}/import/*`, `import/logs`, `projects/{id}/one-pagers`, `projects/{id}/flow-schematic`, `projects/{id}/infrastructure/networks`, `projects/{id}/import_connections`, `projects/{id}/sand-logistics` (GET result, POST analyze), `projects/{id}/pad-earthwork/dem` (501, фаза 2).
 
 ---
 
 ## Тестирование и CI
 
-- Backend: `tests/test_autoroad_network_plan.py` (MST Steiner, `total_new_km` vs legacy chain), `tests/test_autoroad_connect.py`; `test_road_graph.py` (`geodesic_midpoint`).
+- Backend: `tests/test_autoroad_network_plan.py` (MST Steiner, `total_new_km` vs legacy chain), `tests/test_autoroad_connect.py`; `test_road_graph.py` (`geodesic_midpoint`); `tests/test_pad_earthwork_api.py` (compute/last/params, `oil_pad` only).
 - Frontend: `AdminJobsPage.test.tsx` (журнал, пагинация, «Отменить» только для активных задач); `mapFeatureGeometrySync.test.ts` (drag точки/линии, methanol_facility); `npm run verify:css` (каскад после split CSS).
 - **E2E (Playwright, 16):** login, projects, parameters, flows, import, **matrix**, **report**, **import-3d**, map (2D, draw autoroad, detail save, ruler), flows-logistics (analyze, timeline). Инфра: `e2e/helpers.ts`, `VITE_E2E_MAP_HOOK` / `__dmOlMap`, автоочистка [`cleanup_e2e_data.py`](../../decision-matrix/backend/scripts/cleanup_e2e_data.py) через `globalTeardown`. Подробнее: [testing-strategy.md](../testing/testing-strategy.md).
 - GitHub Actions: [`.github/workflows/ci.yml`](../../.github/workflows/ci.yml) — lint, unit, coverage gates, job `E2E (Playwright)`.
@@ -184,5 +185,6 @@
 | 3D-карта | [map-3d-features.md](../features/map-3d-features.md) |
 | Объекты карты | [map-objects-and-spatial-calculations.md](../features/map-objects-and-spatial-calculations.md) |
 | Импорт Искра | [spark-import-mapping.md](../features/spark-import-mapping.md) |
+| Земляные работы куста | [pad-earthwork.md](../features/pad-earthwork.md) |
 | План (исторический) | [development-plan.md](development-plan.md) |
 | План развития | [system-evolution-plan.md](system-evolution-plan.md) |

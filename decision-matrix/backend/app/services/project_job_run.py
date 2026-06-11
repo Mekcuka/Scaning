@@ -17,6 +17,7 @@ from app.services.project_jobs import (
     JOB_STATUS_RUNNING,
     JOB_TYPE_AUTOROAD_CONNECT,
     JOB_TYPE_IMPORT_FILE,
+    JOB_TYPE_PAD_EARTHWORK_COMPUTE,
     JOB_TYPE_POI_ANALYZE_ALL,
     JOB_TYPE_SAND_LOGISTICS_ANALYZE,
     mark_job_completed,
@@ -105,6 +106,24 @@ async def _run_poi_analyze_all(db: AsyncSession, job: ProjectJob) -> dict[str, A
     return await run_project_pois_analysis(db, job.project_id)
 
 
+async def _run_pad_earthwork_compute(db: AsyncSession, job: ProjectJob) -> dict[str, Any]:
+    from uuid import UUID
+
+    from app.api.v1.map_deps import get_infra_object
+    from app.services.pad_earthwork.schemas import PadEarthworkComputeRequest
+    from app.services.pad_earthwork.service import compute_pad_earthwork_for_object
+
+    object_id = UUID(job.payload["object_id"])
+    obj = await get_infra_object(object_id, job.project_id, db)
+    body = PadEarthworkComputeRequest.model_validate(
+        {k: v for k, v in (job.payload or {}).items() if k != "object_id"}
+    )
+    result, props = await compute_pad_earthwork_for_object(obj, body)
+    obj.properties = props
+    await db.flush()
+    return result.model_dump(mode="json")
+
+
 async def execute_project_job(job_id: UUID) -> None:
     async with async_session() as db:
         job = await db.get(ProjectJob, job_id)
@@ -130,6 +149,8 @@ async def execute_project_job(job_id: UUID) -> None:
                 result = await _run_sand_logistics(db, job)
             elif job.job_type == JOB_TYPE_POI_ANALYZE_ALL:
                 result = await _run_poi_analyze_all(db, job)
+            elif job.job_type == JOB_TYPE_PAD_EARTHWORK_COMPUTE:
+                result = await _run_pad_earthwork_compute(db, job)
             else:
                 raise ValueError(f"Unsupported job_type: {job.job_type}")
 

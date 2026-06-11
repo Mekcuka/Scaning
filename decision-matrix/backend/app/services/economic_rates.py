@@ -56,3 +56,31 @@ OPEX_EQUIPMENT_KEYS = {
 REVENUE_TERMINAL_SUBTYPES = frozenset(
     {"refinery", "oil_pumping_station", "gas_processing", "gtes", "gpes", "vies"}
 )
+
+
+def merge_economic_params(stored: dict[str, float] | None) -> dict[str, float]:
+    merged = dict(DEFAULT_ECONOMIC_PARAMS)
+    if stored:
+        merged.update(stored)
+    return merged
+
+
+def resolve_economic_params(
+    project_stored: dict[str, float] | None,
+    poi_stored: dict[str, float] | None,
+) -> dict[str, float]:
+    merged = merge_economic_params(project_stored)
+    if poi_stored:
+        merged.update(poi_stored)
+    return merged
+
+
+def sparse_economic_overrides(
+    effective: dict[str, float],
+    project_effective: dict[str, float],
+) -> dict[str, float] | None:
+    overrides: dict[str, float] = {}
+    for key, value in effective.items():
+        if project_effective.get(key) != value:
+            overrides[key] = value
+    return overrides or None

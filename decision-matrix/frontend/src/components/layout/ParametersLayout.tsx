@@ -14,7 +14,7 @@ export function ParametersLayout() {
       <header className="parameters-layout__head">
         <h1 className="parameters-layout__title">Параметры</h1>
         <p className="parameters-layout__subtitle">
-          Пропускная способность, объёмы песка, даты ввода и ставки проекта
+          Пропускная способность, объёмы песка, даты ввода и ставки по POI
         </p>
       </header>
       <nav className="parameters-subnav" aria-label="Разделы параметров">

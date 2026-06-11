@@ -55,6 +55,37 @@ def merge_project_cost_rates(stored: dict[str, float] | None) -> dict[str, float
     return merged
 
 
+def _apply_rate_overrides(base: dict[str, float], overrides: dict[str, float] | None) -> dict[str, float]:
+    if not overrides:
+        return base
+    merged = dict(base)
+    for key, value in overrides.items():
+        if key in DEFAULT_COST_RATES and value == 0:
+            continue
+        merged[key] = value
+    return merged
+
+
+def resolve_cost_rates(
+    project_stored: dict[str, float] | None,
+    poi_stored: dict[str, float] | None,
+) -> dict[str, float]:
+    """Merge system defaults → project → POI sparse overrides."""
+    return _apply_rate_overrides(merge_project_cost_rates(project_stored), poi_stored)
+
+
+def sparse_rate_overrides(
+    effective: dict[str, float],
+    project_effective: dict[str, float],
+) -> dict[str, float] | None:
+    """Keys where POI effective values differ from project template."""
+    overrides: dict[str, float] = {}
+    for key, value in effective.items():
+        if project_effective.get(key) != value:
+            overrides[key] = value
+    return overrides or None
+
+
 OIL_PREP_RATE_MAP = {
     "mkos": "eq_mkos",
     "bmupn": "eq_bmupn",

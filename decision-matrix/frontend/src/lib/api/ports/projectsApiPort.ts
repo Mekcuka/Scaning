@@ -21,6 +21,12 @@ export type ProjectsRatesApiPort = Pick<
   | 'updateEconomicParams'
   | 'getDistanceDefaults'
   | 'updateDistanceDefaults'
+  | 'getPoiRates'
+  | 'updatePoiRates'
+  | 'getPoiEconomicParams'
+  | 'updatePoiEconomicParams'
+  | 'getPoiDistanceSettings'
+  | 'updatePoiDistanceSettings'
 >;
 
 /** POI create/update/delete on the map. */

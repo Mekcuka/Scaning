@@ -1,4 +1,4 @@
-import { useEffect, useMemo } from 'react';
+import { useCallback, useEffect, useMemo } from 'react';
 import { keepPreviousData, useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import type { MapFocusTarget, ThresholdCircle } from '../components/MapView';
 import {
@@ -123,7 +123,47 @@ export function useMapAnalysis({
     }));
   }, [selectedPoi, radiusVisible, distanceDefaults]);
 
-  const analyzeMut = useMutation({
+  const focusMapOnPoiAnalysis = useCallback(
+    (poiForFocus: POI, normalized: PoiAnalysisResponse | null) => {
+      if (!projectId || !normalized) return;
+      const rawRows = normalized.rows ?? normalized.analysis ?? [];
+      const infra =
+        queryClient.getQueryData<InfraObject[]>(['infra', projectId]) ?? infraObjects;
+      const layerList = queryClient.getQueryData<typeof layers>(['layers', projectId]) ?? layers;
+      const visibleIds = new Set((layerList ?? []).filter((l) => l.is_visible).map((l) => l.id));
+      const onMap = infra.filter((o) => visibleIds.has(o.layer_id));
+      const aligned = alignAnalysisRowsToMapObjects(rawRows, onMap);
+      const focus = buildAnalysisResultMapFocus(
+        { lon: poiForFocus.lon, lat: poiForFocus.lat },
+        aligned,
+      );
+      if (focus) setMapFocus({ ...focus, nonce: Date.now() });
+    },
+    [projectId, queryClient, infraObjects, layers, setMapFocus],
+  );
+
+  const applyAnalysisToCacheAndFocus = useCallback(
+    async (poiForFocus: POI, normalized: PoiAnalysisResponse) => {
+      if (!projectId) return;
+      queryClient.setQueryData(['analysis', projectId, poiForFocus.id], normalized);
+      focusMapOnPoiAnalysis(poiForFocus, normalized);
+      await queryClient.invalidateQueries({ queryKey: ['infra', projectId] });
+      await queryClient.invalidateQueries({ queryKey: ['layers', projectId] });
+    },
+    [projectId, queryClient, focusMapOnPoiAnalysis],
+  );
+
+  const onAnalyzeError = useCallback(
+    (err: unknown) => {
+      pushToast(
+        'error',
+        err instanceof Error ? err.message : 'Не удалось выполнить анализ окружения',
+      );
+    },
+    [pushToast],
+  );
+
+  const analyzeAllMut = useMutation({
     mutationFn: () => {
       if (!projectId) {
         return Promise.reject(new Error('Выберите проект'));
@@ -152,20 +192,7 @@ export function useMapAnalysis({
             projectId,
             poiForFocus.id,
           ]) ?? null;
-        const rawRows = normalized?.rows ?? normalized?.analysis ?? [];
-        const infra =
-          queryClient.getQueryData<InfraObject[]>(['infra', projectId]) ?? infraObjects;
-        const layerList = queryClient.getQueryData<typeof layers>(['layers', projectId]) ?? layers;
-        const visibleIds = new Set(
-          (layerList ?? []).filter((l) => l.is_visible).map((l) => l.id),
-        );
-        const onMap = infra.filter((o) => visibleIds.has(o.layer_id));
-        const aligned = alignAnalysisRowsToMapObjects(rawRows, onMap);
-        const focus = buildAnalysisResultMapFocus(
-          { lon: poiForFocus.lon, lat: poiForFocus.lat },
-          aligned,
-        );
-        if (focus) setMapFocus({ ...focus, nonce: Date.now() });
+        focusMapOnPoiAnalysis(poiForFocus, normalized);
       }
       pushToast(
         'success',
@@ -176,32 +203,41 @@ export function useMapAnalysis({
       await queryClient.invalidateQueries({ queryKey: ['infra', projectId] });
       await queryClient.invalidateQueries({ queryKey: ['layers', projectId] });
     },
-    onError: (err) => {
-      pushToast(
-        'error',
-        err instanceof Error ? err.message : 'Не удалось выполнить анализ окружения',
-      );
-    },
+    onError: onAnalyzeError,
   });
 
-  const overrideMut = useMutation({
-    mutationFn: (
-      payload:
-        | Candidate
-        | { subtype: string; force_construction: boolean; param_type: 'external' | 'external_linear' },
-    ) => {
-      if ('force_construction' in payload) {
-        return analysisApi.overrideAnalysis(projectId!, selectedPoi!.id, payload.subtype, {
-          force_construction: payload.force_construction,
-          param_type: payload.param_type,
-        });
+  const analyzeSelectedMut = useMutation({
+    mutationFn: async () => {
+      if (!projectId) {
+        throw new Error('Выберите проект');
       }
-      return analysisApi.overrideAnalysis(projectId!, selectedPoi!.id, candidateSubtype!, {
+      if (!selectedPoi) {
+        throw new Error('Выберите точку интереса на карте');
+      }
+      const raw = await analysisApi.analyzePoi(projectId, selectedPoi.id);
+      return { poi: selectedPoi, normalized: normalizePoiAnalysisResponse(raw) };
+    },
+    onMutate: async () => {
+      if (projectId) {
+        await queryClient.cancelQueries({ queryKey: ['analysis', projectId, selectedPoi?.id] });
+      }
+    },
+    onSuccess: async ({ poi, normalized }) => {
+      await applyAnalysisToCacheAndFocus(poi, normalized);
+      pushToast('success', `Анализ выполнен для «${poi.name}»`);
+    },
+    onError: onAnalyzeError,
+  });
+
+  const analyzePending = analyzeAllMut.isPending || analyzeSelectedMut.isPending;
+
+  const overrideMut = useMutation({
+    mutationFn: (payload: Candidate) =>
+      analysisApi.overrideAnalysis(projectId!, selectedPoi!.id, candidateSubtype!, {
         nearest_object_id: payload.object_id ?? undefined,
         nearest_node_id: payload.nearest_node_id ?? undefined,
         param_type: candidateParamType,
-      });
-    },
+      }),
     onSuccess: (data) => {
       setCandidateSubtype(null);
       setCandidateParamType('external');
@@ -223,7 +259,11 @@ export function useMapAnalysis({
     connectionLines,
     thresholdCircles,
     thresholdKm,
-    analyzeMut,
+    analyzeAllMut,
+    analyzeSelectedMut,
+    analyzePending,
+    /** @deprecated use analyzeAllMut */
+    analyzeMut: analyzeAllMut,
     overrideMut,
   };
 }

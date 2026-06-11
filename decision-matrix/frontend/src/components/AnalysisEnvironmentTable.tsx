@@ -22,20 +22,13 @@ type PickCandidateHandler = (
   paramType: 'external' | 'external_linear'
 ) => void;
 
-type ToggleConstructionHandler = (
-  subtype: string,
-  force: boolean,
-  paramType: 'external' | 'external_linear'
-) => void;
-
 type Props = {
   rows: AnalysisRow[];
   compact?: boolean;
-  /** Map sidebar: only external objects (FR-6.1.1). Project page: all sections. */
+  /** Map sidebar: only external objects. Project page: all sections. */
   sections?: AnalysisSections;
   readOnly?: boolean;
   onPickCandidate?: PickCandidateHandler;
-  onToggleConstruction?: ToggleConstructionHandler;
   /** Pan map to nearest object / anchor when clicking the object name cell. */
   onFocusObject?: (row: AnalysisRow) => void;
 };
@@ -54,7 +47,6 @@ function ExternalObjectsTable({
   compact,
   cellPad,
   onPickCandidate,
-  onToggleConstruction,
   onFocusObject,
   readOnly = false,
   paramType,
@@ -65,37 +57,24 @@ function ExternalObjectsTable({
   cellPad: string;
   readOnly?: boolean;
   onPickCandidate?: PickCandidateHandler;
-  onToggleConstruction?: ToggleConstructionHandler;
   onFocusObject?: (row: AnalysisRow) => void;
   paramType: 'external' | 'external_linear';
 }) {
+  const showActions = !readOnly && !!onPickCandidate;
+
   const renderActions = (row: AnalysisRow) => {
-    if (readOnly) return null;
+    if (!showActions) return null;
     if (row.status === 'not_required' || row.param_type === 'internal') return null;
     if (row.param_type !== paramType) return null;
     return (
-      <div className="flex flex-col gap-0.5 items-end">
-        {onPickCandidate && (
-          <button
-            type="button"
-            className="text-blue-600 hover:underline whitespace-nowrap"
-            style={{ fontSize: compact ? '10px' : '12px' }}
-            onClick={() => onPickCandidate(row.subtype, paramType)}
-          >
-            Другой
-          </button>
-        )}
-        {onToggleConstruction && (
-          <button
-            type="button"
-            className="text-blue-600 hover:underline whitespace-nowrap"
-            style={{ fontSize: compact ? '10px' : '12px' }}
-            onClick={() => onToggleConstruction(row.subtype, !row.force_construction, paramType)}
-          >
-            {row.force_construction ? 'Снять стр.' : 'Своё стр.'}
-          </button>
-        )}
-      </div>
+      <button
+        type="button"
+        className="text-blue-600 hover:underline whitespace-nowrap"
+        style={{ fontSize: compact ? '10px' : '12px' }}
+        onClick={() => onPickCandidate!(row.subtype, paramType)}
+      >
+        Другой
+      </button>
     );
   };
 
@@ -117,7 +96,7 @@ function ExternalObjectsTable({
               <th>Лимит</th>
               <th>Статус</th>
               <th className="text-right">млн ₽</th>
-              <th></th>
+              {showActions ? <th></th> : null}
             </tr>
           </thead>
           <tbody>
@@ -150,7 +129,7 @@ function ExternalObjectsTable({
                   <StatusBadge status={row.status} />
                 </td>
                 <td className="text-right tabular-nums">{rowCostMln(row) ?? '—'}</td>
-                <td>{renderActions(row)}</td>
+                {showActions ? <td>{renderActions(row)}</td> : null}
               </tr>
             ))}
           </tbody>
@@ -166,7 +145,6 @@ export function AnalysisEnvironmentTable({
   sections = 'all',
   readOnly = false,
   onPickCandidate,
-  onToggleConstruction,
   onFocusObject,
 }: Props) {
   const { internal, externalLinear, external, pads } = groupAnalysisRows(rows);
@@ -239,7 +217,6 @@ export function AnalysisEnvironmentTable({
           readOnly={readOnly}
           paramType="external_linear"
           onPickCandidate={onPickCandidate}
-          onToggleConstruction={onToggleConstruction}
           onFocusObject={onFocusObject}
         />
       )}
@@ -253,7 +230,6 @@ export function AnalysisEnvironmentTable({
           readOnly={readOnly}
           paramType="external"
           onPickCandidate={onPickCandidate}
-          onToggleConstruction={onToggleConstruction}
           onFocusObject={onFocusObject}
         />
       )}

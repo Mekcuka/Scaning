@@ -109,3 +109,14 @@ table.data-table {
   font-size: 0.875rem;
 }
 
+.admin-users-table .admin-users-table__col-fit {
+  width: 1%;
+  white-space: nowrap;
+}
+
+.admin-users-table .admin-users-table__col-date {
+  width: 1%;
+  white-space: nowrap;
+  font-variant-numeric: tabular-nums;
+}
+

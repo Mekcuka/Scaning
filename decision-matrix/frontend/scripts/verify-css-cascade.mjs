@@ -4,37 +4,12 @@
 import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { SEGMENTS } from './css-segments.mjs';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const srcDir = path.resolve(__dirname, '../src');
 const snapshotPath = path.join(srcDir, 'styles', '.snapshot-monolith.css');
 const indexPath = path.join(srcDir, 'index.css');
-
-const SEGMENTS = [
-  'styles/tokens.css',
-  'styles/base.css',
-  'styles/layout/app-shell.css',
-  'styles/components/buttons.css',
-  'styles/components/forms.css',
-  'styles/components/cards-tables.css',
-  'styles/features/matrix.css',
-  'styles/features/map-core.css',
-  'styles/features/map-tools.css',
-  'styles/components/app-select.css',
-  'styles/features/rates.css',
-  'styles/features/parameters.css',
-  'styles/features/dashboard.css',
-  'styles/features/flow-schematic.css',
-  'styles/features/task-log.css',
-  'styles/components/page-chrome.css',
-  'styles/components/app-modal.css',
-  'styles/responsive/projects-table.css',
-  'styles/responsive/mobile-global.css',
-  'styles/features/one-pager.css',
-  'styles/features/import-3d.css',
-  'styles/features/export.css',
-  'styles/features/admin-assistant.css',
-];
 
 function read(file) {
   return fs.readFileSync(file, 'utf8').replace(/\r\n/g, '\n');
