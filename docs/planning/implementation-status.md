@@ -64,7 +64,7 @@
 | Граф сети | `api/v1/graph.py`, `graph_builder.py` | ✅ (визуализация/PFD; якорь `network_node` в анализе POI — post-MVP) |
 | Схема потоков | `api/v1/flow.py`, `fluid_flow_schematic.py`, `flow_schematic_merge.py` | ✅ |
 | Песок / логистика | `api/v1/sand_logistics.py`, `sand_logistics.py`, `sand_logistics_store.py` | ✅ (результат в БД; схема: timeline, полная топология на любом годе, layout/slice, адаптивные отступы) |
-| Земляные работы куста | `pad-earthwork-planner` + BFF; UI: поля + **Схема…** (SVG: прямоугольник/полигон, подписи длин, PATCH sketch) — [pad-earthwork.md](../features/pad-earthwork.md) | ✅ MVP (flat + plan sketch); DEM/profile — 501 |
+| Земляные работы куста | `pad-earthwork-planner` + BFF; UI: поля L/W/H/НДС, **Схема…** (план + **профиль** + **3D preview** + **обволование** вариант A), DEM, сохранение `wells_local` — [pad-earthwork.md](../features/pad-earthwork.md) | ✅ flat + plan + profile + envelope + DEM + 3D preview |
 | Экономика потоков | `economic_flow_schematic.py`, `economic_rates.py` | ✅ |
 | Автосеть автодорог | `network-planner` + `planner_adapter.py`: Steiner tree, post-processing, preview overlay; BFF request/compute/apply | ✅ |
 | Autoroad Network Service (HTTP :8080) | `autoroad-network-planner` microservice / legacy `services/autoroad-network/` | ⬜ опционально (`AUTOROAD_NETWORK_INPROCESS=false`) |
@@ -161,13 +161,13 @@
 
 Базовый URL: `/api/v1`. Полный список — Swagger `/api/v1/docs` и [decision-matrix/README.md](../../decision-matrix/README.md).
 
-Группы: `auth`, `admin`, `admin/jobs` (list, health, cancel), `projects`, `projects/{id}/pois`, `projects/{id}/infrastructure/*` (в т.ч. `.../objects/{id}/pad-earthwork/compute|last|params|sketch`), `projects/{id}/map3d-custom-models` (upload / list / PATCH / assign + bulk apply / apply-preview / file), `projects/{id}/pois/{id}/analysis`, `projects/{id}/import/*`, `import/logs`, `projects/{id}/one-pagers`, `projects/{id}/flow-schematic`, `projects/{id}/infrastructure/networks`, `projects/{id}/import_connections`, `projects/{id}/sand-logistics` (GET result, POST analyze), `projects/{id}/pad-earthwork/dem` (501, фаза 2).
+Группы: `auth`, `admin`, `admin/jobs` (list, health, cancel), `projects`, `projects/{id}/pois`, `projects/{id}/infrastructure/*` (в т.ч. `.../objects/{id}/pad-earthwork/compute|last|params|sketch|sketch/generate|dem/fetch`), `projects/{id}/map3d-custom-models` (upload / list / PATCH / assign + bulk apply / apply-preview / file), `projects/{id}/pois/{id}/analysis`, `projects/{id}/import/*`, `import/logs`, `projects/{id}/one-pagers`, `projects/{id}/flow-schematic`, `projects/{id}/infrastructure/networks`, `projects/{id}/import_connections`, `projects/{id}/sand-logistics` (GET result, POST analyze), `projects/{id}/pad-earthwork/dem` (501 upload stub).
 
 ---
 
 ## Тестирование и CI
 
-- Backend: `tests/test_autoroad_network_plan.py` (MST Steiner, `total_new_km` vs legacy chain), `tests/test_autoroad_connect.py`; `test_road_graph.py` (`geodesic_midpoint`); `tests/test_pad_earthwork_api.py` (compute/last/params, `oil_pad` only).
+- Backend: `tests/test_autoroad_network_plan.py` (MST Steiner, `total_new_km` vs legacy chain), `tests/test_autoroad_connect.py`; `test_road_graph.py` (`geodesic_midpoint`); `tests/test_pad_earthwork_api.py` (compute/last/params/sketch/generate, `oil_pad` only); `pad-earthwork-planner/tests/test_well_layout.py`.
 - Frontend: `AdminJobsPage.test.tsx` (журнал, пагинация, «Отменить» только для активных задач); `mapFeatureGeometrySync.test.ts` (drag точки/линии, methanol_facility); `npm run verify:css` (каскад после split CSS).
 - **E2E (Playwright, 16):** login, projects, parameters, flows, import, **matrix**, **report**, **import-3d**, map (2D, draw autoroad, detail save, ruler), flows-logistics (analyze, timeline). Инфра: `e2e/helpers.ts`, `VITE_E2E_MAP_HOOK` / `__dmOlMap`, автоочистка [`cleanup_e2e_data.py`](../../decision-matrix/backend/scripts/cleanup_e2e_data.py) через `globalTeardown`. Подробнее: [testing-strategy.md](../testing/testing-strategy.md).
 - GitHub Actions: [`.github/workflows/ci.yml`](../../.github/workflows/ci.yml) — lint, unit, coverage gates, job `E2E (Playwright)`.

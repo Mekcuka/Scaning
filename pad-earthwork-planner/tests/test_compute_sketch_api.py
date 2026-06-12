@@ -93,7 +93,7 @@ def test_sketch_preview_polygon():
     assert len(body["footprint_corners_local"]) == 3
 
 
-def test_profile_sketch_returns_501():
+def test_profile_sketch_preview_ok():
     res = client.post(
         "/v1/sketch/preview",
         json={
@@ -101,8 +101,39 @@ def test_profile_sketch_returns_501():
                 "kind": "profile",
                 "width_m": 10,
                 "design_elevation_m": 100,
-                "chainage_points": [{"chainage_m": 0, "elevation_m": 98}],
+                "chainage_points": [
+                    {"chainage_m": 0, "elevation_m": 98},
+                    {"chainage_m": 20, "elevation_m": 99},
+                ],
             }
         },
     )
-    assert res.status_code == 501
+    assert res.status_code == 200
+    body = res.json()
+    assert body["length_m"] == 20
+    assert body["width_m"] == 10
+
+
+def test_profile_compute_via_request_profile_field():
+    res = client.post(
+        "/v1/compute",
+        json={
+            "object_id": "test-obj",
+            "subtype": "oil_pad",
+            "center": {"lon": 37.6, "lat": 55.75},
+            "params": {"height_m": 2, "reference_elevation_m": 150},
+            "profile": {
+                "kind": "profile",
+                "width_m": 10,
+                "design_elevation_m": 152,
+                "chainage_points": [
+                    {"chainage_m": 0, "elevation_m": 150},
+                    {"chainage_m": 10, "elevation_m": 150},
+                ],
+            },
+        },
+    )
+    assert res.status_code == 200
+    body = res.json()
+    assert body["volumes"]["fill_m3"] == 200.0
+    assert body["design"]["top_elevation_m"] == 152

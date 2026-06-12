@@ -27,6 +27,22 @@ interface InfraDetailLogisticsTabProps {
   infraObjectId: string | null;
   sandLogistics: SandLogisticsResult | undefined;
   quarryVolumeWarning: boolean | '' | 0;
+  padMarginLeftM: string;
+  setPadMarginLeftM: (value: string) => void;
+  padMarginBottomM: string;
+  setPadMarginBottomM: (value: string) => void;
+  padMarginTopM: string;
+  setPadMarginTopM: (value: string) => void;
+  padMarginEndM: string;
+  setPadMarginEndM: (value: string) => void;
+  padWellCount: string;
+  setPadWellCount: (value: string) => void;
+  padWellsPerGroup: string;
+  setPadWellsPerGroup: (value: string) => void;
+  padWellSpacingM: string;
+  setPadWellSpacingM: (value: string) => void;
+  padGroupSpacingM: string;
+  setPadGroupSpacingM: (value: string) => void;
 }
 
 export function InfraDetailLogisticsTab({
@@ -49,6 +65,22 @@ export function InfraDetailLogisticsTab({
   infraObjectId,
   sandLogistics,
   quarryVolumeWarning,
+  padMarginLeftM,
+  setPadMarginLeftM,
+  padMarginBottomM,
+  setPadMarginBottomM,
+  padMarginTopM,
+  setPadMarginTopM,
+  padMarginEndM,
+  setPadMarginEndM,
+  padWellCount,
+  setPadWellCount,
+  padWellsPerGroup,
+  setPadWellsPerGroup,
+  padWellSpacingM,
+  setPadWellSpacingM,
+  padGroupSpacingM,
+  setPadGroupSpacingM,
 }: InfraDetailLogisticsTabProps) {
   return (
     <>
@@ -58,6 +90,22 @@ export function InfraDetailLogisticsTab({
           infraObject={infraObject}
           readOnly={readOnly}
           setSandDemandM3={setSandDemandM3}
+          padMarginLeftM={padMarginLeftM}
+          setPadMarginLeftM={setPadMarginLeftM}
+          padMarginBottomM={padMarginBottomM}
+          setPadMarginBottomM={setPadMarginBottomM}
+          padMarginTopM={padMarginTopM}
+          setPadMarginTopM={setPadMarginTopM}
+          padMarginEndM={padMarginEndM}
+          setPadMarginEndM={setPadMarginEndM}
+          padWellCount={padWellCount}
+          setPadWellCount={setPadWellCount}
+          padWellsPerGroup={padWellsPerGroup}
+          setPadWellsPerGroup={setPadWellsPerGroup}
+          padWellSpacingM={padWellSpacingM}
+          setPadWellSpacingM={setPadWellSpacingM}
+          padGroupSpacingM={padGroupSpacingM}
+          setPadGroupSpacingM={setPadGroupSpacingM}
         />
       )}
       {(showSandQuarryFields || showSandDemandField) && (

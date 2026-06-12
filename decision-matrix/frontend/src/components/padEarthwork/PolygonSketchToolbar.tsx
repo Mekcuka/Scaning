@@ -1,5 +1,6 @@
 import { Eraser, Maximize2, MousePointer2, PenLine, Plus, Ruler, ZoomIn, ZoomOut } from 'lucide-react';
 import type { PolygonEditTool } from '../../lib/padEarthworkSketch';
+import { DemOverlayToolbarControls } from './DemOverlayToolbarControls';
 
 interface PolygonSketchToolbarProps {
   tool: PolygonEditTool;
@@ -15,6 +16,11 @@ interface PolygonSketchToolbarProps {
   onZoomOut: () => void;
   onFitView: () => void;
   readOnly?: boolean;
+  showDemOverlay?: boolean;
+  onShowDemOverlayChange?: (value: boolean) => void;
+  demAvailable?: boolean;
+  onFetchDem?: () => void;
+  fetchDemPending?: boolean;
 }
 
 const TOOLS: { id: PolygonEditTool; label: string; icon: typeof PenLine }[] = [
@@ -38,6 +44,11 @@ export function PolygonSketchToolbar({
   onZoomOut,
   onFitView,
   readOnly = false,
+  showDemOverlay = false,
+  onShowDemOverlayChange,
+  demAvailable = false,
+  onFetchDem,
+  fetchDemPending = false,
 }: PolygonSketchToolbarProps) {
   return (
     <div className="pad-earthwork-sketch-toolbar" role="toolbar" aria-label="Инструменты полигона">
@@ -106,6 +117,16 @@ export function PolygonSketchToolbar({
           <Maximize2 size={16} aria-hidden />
         </button>
       </div>
+      {onShowDemOverlayChange && (
+        <DemOverlayToolbarControls
+          showDemOverlay={showDemOverlay}
+          onShowDemOverlayChange={onShowDemOverlayChange}
+          demAvailable={demAvailable}
+          onFetchDem={onFetchDem}
+          fetchDemPending={fetchDemPending}
+          readOnly={readOnly}
+        />
+      )}
       <span className="pad-earthwork-sketch-toolbar__meta">
         {vertexCount} верш.
         {!closed && ' · мин. 3 для расчёта'}

@@ -5,7 +5,7 @@ from __future__ import annotations
 from datetime import datetime
 from typing import Annotated, Literal
 
-from pydantic import BaseModel, Field, field_validator
+from pydantic import BaseModel, Field, model_validator
 
 
 class LonLatIn(BaseModel):
@@ -83,6 +83,31 @@ class SketchPreviewResponseOut(BaseModel):
     footprint_corners_local: list[LocalCornerOut]
 
 
+class PadLayoutMarginsIn(BaseModel):
+    left_m: float = Field(default=27.0, ge=0, le=500)
+    bottom_m: float = Field(default=43.0, ge=0, le=500)
+    top_m: float = Field(default=15.0, ge=0, le=500)
+    end_m: float = Field(default=70.0, ge=0, le=500)
+
+
+class WellLayoutGenerateRequestIn(BaseModel):
+    well_count: int | None = Field(default=None, ge=1, le=64)
+    wells_per_group: int | None = Field(default=None, ge=1, le=64)
+    well_spacing_m: float | None = Field(default=None, gt=0, le=500)
+    group_spacing_m: float | None = Field(default=None, ge=0, le=500)
+    margins: PadLayoutMarginsIn | None = None
+    rotation_deg: float | None = Field(default=None, ge=0, le=360)
+
+
+class WellLayoutGenerateResponseOut(BaseModel):
+    sketch: PlanPolygonSketchIn
+    wells_local: list[PlanVertexIn]
+    length_m: float
+    width_m: float
+    rotation_deg: float
+    footprint_area_m2: float
+
+
 class TerrainFlatIn(BaseModel):
     mode: Literal["flat"] = "flat"
 
@@ -92,14 +117,82 @@ class TerrainDemIn(BaseModel):
     dem_asset_id: str | None = None
 
 
+class PadDemStatusOut(BaseModel):
+    asset_id: str | None = None
+    source: str | None = None
+    fetched_at: datetime | None = None
+
+
+class PadDemFetchResponseOut(BaseModel):
+    dem_asset_id: str
+    source: str
+    fetched_at: datetime
+    bbox: list[float] = Field(..., min_length=4, max_length=4)
+    reference_elevation_m: float
+
+
+class PadDemPreviewBoundsOut(BaseModel):
+    min_east_m: float
+    max_east_m: float
+    min_north_m: float
+    max_north_m: float
+
+
+class PadDemPreviewResponseOut(BaseModel):
+    bounds: PadDemPreviewBoundsOut
+    cols: int = Field(..., ge=1, le=128)
+    rows: int = Field(..., ge=1, le=128)
+    cell_size_m: float = Field(..., gt=0)
+    elev_min: float
+    elev_max: float
+    design_elevation_m: float
+    elevations: list[float | None]
+    cut_fill: list[int | None]
+
+    @model_validator(mode="after")
+    def _grid_lengths(self) -> PadDemPreviewResponseOut:
+        expected = self.cols * self.rows
+        if len(self.elevations) != expected:
+            raise ValueError("elevations length must equal cols * rows")
+        if len(self.cut_fill) != expected:
+            raise ValueError("cut_fill length must equal cols * rows")
+        return self
+
+
+class PadDemPreviewRequest(BaseModel):
+    """Same shape as compute body for sketch + height reference."""
+
+    params: PadParamsIn | PadHeightReferenceIn | None = None
+    sketch: SketchIn | None = None
+
+
 TerrainIn = Annotated[TerrainFlatIn | TerrainDemIn, Field(discriminator="mode")]
 
 
 class PadEarthworkComputeRequest(BaseModel):
     params: PadParamsIn | PadHeightReferenceIn | None = None
-    sketch: SketchIn | None = None
+    sketch: PlanRectangleSketchIn | PlanPolygonSketchIn | None = None
+    profile: ProfileSketchIn | None = None
     envelope: EnvelopeWrapIn | None = None
     terrain: TerrainIn | None = None
+
+
+class PadEarthworkProfileSaveRequest(BaseModel):
+    profile: ProfileSketchIn
+    params: PadHeightReferenceIn | None = None
+    envelope: EnvelopeWrapIn | None = None
+
+
+class PadDemProfileSampleRequest(BaseModel):
+    params: PadParamsIn | PadHeightReferenceIn | None = None
+    step_m: float = Field(default=1.0, gt=0, le=50)
+
+
+class PadDemProfileSampleResponse(BaseModel):
+    chainage_points: list[ProfileChainagePointIn]
+    length_m: float
+    rotation_deg: float
+    design_elevation_m: float
 
 
 class PadEarthworkParamsPatch(BaseModel):
@@ -111,9 +204,11 @@ class PadEarthworkParamsPatch(BaseModel):
 
 
 class PadEarthworkSketchSaveRequest(BaseModel):
-    sketch: SketchIn
+    sketch: PlanRectangleSketchIn | PlanPolygonSketchIn
     params: PadHeightReferenceIn | None = None
     envelope: EnvelopeWrapIn | None = None
+    wells_local: list[PlanVertexIn] | None = None
+    rotation_deg: float | None = Field(default=None, ge=0, le=360)
 
 
 class VolumesOut(BaseModel):
@@ -148,7 +243,11 @@ class PadEarthworkComputeResponse(BaseModel):
 
 class PadEarthworkLastResponse(BaseModel):
     params: PadParamsIn | None = None
-    sketch: PlanRectangleSketchIn | PlanPolygonSketchIn | ProfileSketchIn | None = None
+    sketch: PlanRectangleSketchIn | PlanPolygonSketchIn | None = None
+    profile: ProfileSketchIn | None = None
+    wells_local: list[PlanVertexIn] = Field(default_factory=list)
     envelope: EnvelopeWrapIn | None = None
     sketch_saved_at: datetime | None = None
+    profile_saved_at: datetime | None = None
+    dem: PadDemStatusOut | None = None
     result: PadEarthworkComputeResponse | None = None

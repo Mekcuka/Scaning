@@ -9,17 +9,23 @@ flowchart LR
   Client -->|HTTP :8081| Uvicorn
   Uvicorn --> FastAPI
   FastAPI --> Compute[compute.py]
+  FastAPI --> WellLayout[well_layout.py]
   Compute --> Flat[volume_flat]
   Compute --> Footprint[footprint]
   Compute --> Mesh[mesh GLB]
+  WellLayout --> Polygon[plan_polygon sketch]
 ```
 
 | Модуль | Назначение |
 |--------|------------|
 | `schemas.py` | Pydantic request/response |
-| `footprint.py` | Прямоугольник в ENU (центр lon/lat, `rotation_deg`) |
-| `volume_flat.py` | MVP: `fill = L×W×H`, `cut = 0` |
-| `volume_grid.py` | Фаза 2: cut/fill по сетке (unit-тесты) |
+| `footprint.py` | Прямоугольник / полигон в ENU (якорь `lon/lat`) |
+| `well_layout.py` | Автогенерация контура по скважинам и отступам |
+| `volume_flat.py` | MVP: `fill = L×W×H` или площадь×H, `cut = 0` |
+| `volume_plan.py` | Площадь/ bbox для plan sketch |
+| `envelope.py` | Обволование в `compute`: усечённая пирамида (legacy; UI — вариант A, см. [pad-earthwork.md](../../docs/features/pad-earthwork.md) § Модель обволования) |
+| `volume_grid.py` | Cut/fill по сетке (unit-тесты) |
+| `dem_volume.py` | DEM: sampling GeoTIFF + cut/fill в footprint |
 | `mesh.py` | Экспорт box mesh как base64 GLB |
 
 ## Эндпоинты
@@ -28,9 +34,30 @@ flowchart LR
 |----------|------|----------|
 | `GET /health` | 200 | Liveness |
 | `GET /ready` | 200 | Readiness |
-| `POST /v1/compute` | 200 / 501 | Расчёт (`terrain.mode=flat` / `dem` → 501) |
+| `POST /v1/compute` | 200 / 501 | Расчёт (`terrain.mode=flat` или `dem` с `dem_file_path`) |
+| `POST /v1/sketch/preview` | 200 / 501 | Превью плана: площадь, углы в локальной ENU |
+| `POST /v1/sketch/generate-from-wells` | 200 / 400 | Автогенерация `plan_polygon` + `wells_local` |
 
 OpenAPI: `http://localhost:8081/docs`
+
+### `POST /v1/sketch/generate-from-wells`
+
+```json
+{
+  "well_count": 12,
+  "wells_per_group": 1,
+  "well_spacing_m": 9,
+  "group_spacing_m": 9,
+  "margins": { "left_m": 27, "bottom_m": 43, "top_m": 15, "end_m": 70 },
+  "rotation_deg": 90
+}
+```
+
+При пустом теле `{}` backend подставляет defaults (см. таблицу в [pad-earthwork.md](../../docs/features/pad-earthwork.md)) или значения из `properties` объекта куста.
+
+Ответ: `sketch` (`plan_polygon`), `wells_local`, `length_m`, `width_m`, `rotation_deg`, `footprint_area_m2`. Для стандартных defaults: 12 скважин, `length_m ≈ 196`, `width_m ≈ 58`.
+
+Скважины — один ряд вдоль локальной оси East; первая скважина в `(0, 0)`.
 
 ## Быстрый старт (Docker Compose)
 
@@ -67,14 +94,16 @@ python run_server.py
 
 | Режим | Переменная | Поведение |
 |-------|------------|-----------|
-| In-process (default) | `PAD_EARTHWORK_INPROCESS=true` | `planner_bridge` импортирует пакет при первом `compute` |
-| HTTP | `PAD_EARTHWORK_SERVICE_URL=http://127.0.0.1:8081` | BFF вызывает `POST /v1/compute` |
+| In-process (default) | `PAD_EARTHWORK_INPROCESS=true` | `planner_bridge` импортирует пакет при первом вызове |
+| HTTP | `PAD_EARTHWORK_SERVICE_URL=http://127.0.0.1:8081` | BFF вызывает эндпоинты planner |
 
 В Docker-образе API пакет vendored как `decision-matrix/backend/pad-earthwork-vendor` (CI: `cp -r pad-earthwork-planner ...`).
 
-Монолит **стартует без пакета**; расчёт куста требует установленный `pad-earthwork-planner` или HTTP-сервис на `:8081`.
+Монолит **стартует без пакета**; расчёт и автогенерация требуют установленный `pad-earthwork-planner` или HTTP-сервис на `:8081`.
 
-## Пример запроса
+BFF-обёртка автогенерации: `POST /api/v1/projects/{id}/infrastructure/objects/{object_id}/pad-earthwork/sketch/generate` — см. [pad-earthwork.md](../../docs/features/pad-earthwork.md).
+
+## Пример запроса compute
 
 ```json
 {
@@ -93,3 +122,9 @@ python run_server.py
 ```
 
 Ответ: `volumes.fill_m3 = 24000`, `volumes.cut_m3 = 0`, `mesh.format = "glb"`.
+
+## Тесты
+
+```bash
+pytest tests/test_well_layout.py tests/test_compute_sketch_api.py -q
+```

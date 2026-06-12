@@ -8,9 +8,15 @@ from typing import TYPE_CHECKING, Any
 from app.geo.sand_properties import parse_nonneg_float
 from app.services.pad_earthwork.properties import (
     PAD_CUT_VOLUME_M3,
+    PAD_DEM_ASSET_ID,
+    PAD_DEM_FETCHED_AT,
+    PAD_DEM_SOURCE,
     PAD_EARTHWORK_COMPUTED_AT,
+    PAD_EARTHWORK_PROFILE_JSON,
+    PAD_EARTHWORK_PROFILE_SAVED_AT,
     PAD_EARTHWORK_SKETCH_JSON,
     PAD_EARTHWORK_SKETCH_SAVED_AT,
+    PAD_WELLS_LOCAL_JSON,
     PAD_ENVELOPE_ENABLED,
     PAD_ENVELOPE_WRAP_WIDTH_M,
     PAD_FILL_VOLUME_M3,
@@ -19,18 +25,21 @@ from app.services.pad_earthwork.properties import (
     PAD_REFERENCE_ELEVATION_M,
     PAD_ROTATION_DEG,
     PAD_WIDTH_M,
+    DEFAULT_NDS_DEG,
 )
 from app.services.pad_earthwork.schemas import (
     DesignOut,
     EnvelopeWrapIn,
     FootprintCornerOut,
     MeshOut,
+    PadDemStatusOut,
     PadEarthworkComputeResponse,
     PadEarthworkLastResponse,
     PadEarthworkParamsPatch,
     PadParamsIn,
     PlanPolygonSketchIn,
     PlanRectangleSketchIn,
+    PlanVertexIn,
     ProfileSketchIn,
     SketchIn,
     VolumesOut,
@@ -42,6 +51,18 @@ if TYPE_CHECKING:
 
 def _read_float(props: dict[str, Any], key: str) -> float | None:
     return parse_nonneg_float(props.get(key))
+
+
+def read_nds_deg(props: dict[str, Any] | None) -> float:
+    """НДС (азимут ряда скважин), 0…360°. По умолчанию 90° если свойство не задано."""
+    p = props or {}
+    rot_raw = p.get(PAD_ROTATION_DEG)
+    if rot_raw is None:
+        return DEFAULT_NDS_DEG
+    try:
+        return max(0.0, min(360.0, float(rot_raw)))
+    except (TypeError, ValueError):
+        return DEFAULT_NDS_DEG
 
 
 def read_pad_params(props: dict[str, Any] | None) -> PadParamsIn | None:
@@ -56,16 +77,11 @@ def read_pad_params(props: dict[str, Any] | None) -> PadParamsIn | None:
         reference = float(ref) if ref is not None else 0.0
     except (TypeError, ValueError):
         reference = 0.0
-    rot_raw = p.get(PAD_ROTATION_DEG)
-    try:
-        rotation = float(rot_raw) if rot_raw is not None else 0.0
-    except (TypeError, ValueError):
-        rotation = 0.0
     return PadParamsIn(
         length_m=length,
         width_m=width,
         height_m=height,
-        rotation_deg=rotation,
+        rotation_deg=read_nds_deg(p),
         reference_elevation_m=reference,
     )
 
@@ -94,8 +110,26 @@ def merge_pad_params_patch(
     return out
 
 
-def read_sketch(props: dict[str, Any] | None) -> PlanRectangleSketchIn | PlanPolygonSketchIn | ProfileSketchIn | None:
-    raw = (props or {}).get(PAD_EARTHWORK_SKETCH_JSON)
+def _migrate_legacy_profile_from_sketch(props: dict[str, Any]) -> tuple[dict[str, Any], ProfileSketchIn | None]:
+    """Move profile stored in sketch_json to profile_json (on-read migration)."""
+    raw_sketch = props.get(PAD_EARTHWORK_SKETCH_JSON)
+    if not isinstance(raw_sketch, dict) or raw_sketch.get("kind") != "profile":
+        return props, None
+    if props.get(PAD_EARTHWORK_PROFILE_JSON):
+        return props, None
+    profile = ProfileSketchIn.model_validate(raw_sketch)
+    out = dict(props)
+    out[PAD_EARTHWORK_PROFILE_JSON] = profile.model_dump(mode="json")
+    out.pop(PAD_EARTHWORK_SKETCH_JSON, None)
+    return out, profile
+
+
+def read_sketch(
+    props: dict[str, Any] | None,
+) -> PlanRectangleSketchIn | PlanPolygonSketchIn | None:
+    p = props or {}
+    migrated, _legacy_profile = _migrate_legacy_profile_from_sketch(p)
+    raw = migrated.get(PAD_EARTHWORK_SKETCH_JSON)
     if not isinstance(raw, dict):
         return None
     kind = raw.get("kind")
@@ -103,9 +137,25 @@ def read_sketch(props: dict[str, Any] | None) -> PlanRectangleSketchIn | PlanPol
         return PlanRectangleSketchIn.model_validate(raw)
     if kind == "plan_polygon":
         return PlanPolygonSketchIn.model_validate(raw)
-    if kind == "profile":
-        return ProfileSketchIn.model_validate(raw)
     return None
+
+
+def read_profile(props: dict[str, Any] | None) -> ProfileSketchIn | None:
+    p = props or {}
+    migrated, legacy_profile = _migrate_legacy_profile_from_sketch(p)
+    raw = migrated.get(PAD_EARTHWORK_PROFILE_JSON)
+    if isinstance(raw, dict):
+        return ProfileSketchIn.model_validate(raw)
+    return legacy_profile
+
+
+def store_profile(props: dict[str, Any] | None, profile: ProfileSketchIn | None) -> dict[str, Any]:
+    out = dict(props or {})
+    if profile is None:
+        out.pop(PAD_EARTHWORK_PROFILE_JSON, None)
+        return out
+    out[PAD_EARTHWORK_PROFILE_JSON] = profile.model_dump(mode="json")
+    return out
 
 
 def store_sketch(props: dict[str, Any] | None, sketch: SketchIn | None) -> dict[str, Any]:
@@ -114,6 +164,33 @@ def store_sketch(props: dict[str, Any] | None, sketch: SketchIn | None) -> dict[
         out.pop(PAD_EARTHWORK_SKETCH_JSON, None)
         return out
     out[PAD_EARTHWORK_SKETCH_JSON] = sketch.model_dump(mode="json")
+    return out
+
+
+def read_wells_local(props: dict[str, Any] | None) -> list[PlanVertexIn]:
+    raw = (props or {}).get(PAD_WELLS_LOCAL_JSON)
+    if not isinstance(raw, list):
+        return []
+    wells: list[PlanVertexIn] = []
+    for item in raw:
+        if not isinstance(item, dict):
+            continue
+        try:
+            wells.append(PlanVertexIn.model_validate(item))
+        except ValueError:
+            continue
+    return wells
+
+
+def store_wells_local(
+    props: dict[str, Any] | None,
+    wells: list[PlanVertexIn] | None,
+) -> dict[str, Any]:
+    out = dict(props or {})
+    if not wells:
+        out.pop(PAD_WELLS_LOCAL_JSON, None)
+        return out
+    out[PAD_WELLS_LOCAL_JSON] = [w.model_dump(mode="json") for w in wells]
     return out
 
 
@@ -133,6 +210,16 @@ def read_envelope(props: dict[str, Any] | None) -> EnvelopeWrapIn | None:
     if not enabled:
         return EnvelopeWrapIn(enabled=False, wrap_width_m=wrap)
     return EnvelopeWrapIn(enabled=True, wrap_width_m=wrap)
+
+
+def read_profile_saved_at(props: dict[str, Any] | None) -> datetime | None:
+    raw = (props or {}).get(PAD_EARTHWORK_PROFILE_SAVED_AT)
+    if not isinstance(raw, str):
+        return None
+    try:
+        return datetime.fromisoformat(raw.replace("Z", "+00:00"))
+    except ValueError:
+        return None
 
 
 def read_sketch_saved_at(props: dict[str, Any] | None) -> datetime | None:
@@ -201,12 +288,36 @@ def read_last_response(props: dict[str, Any] | None) -> PadEarthworkComputeRespo
     )
 
 
+def read_dem_status(props: dict[str, Any] | None) -> PadDemStatusOut | None:
+    p = props or {}
+    asset_id = p.get(PAD_DEM_ASSET_ID)
+    if not isinstance(asset_id, str) or not asset_id.strip():
+        return None
+    fetched_at = None
+    raw_fetched = p.get(PAD_DEM_FETCHED_AT)
+    if isinstance(raw_fetched, str):
+        try:
+            fetched_at = datetime.fromisoformat(raw_fetched.replace("Z", "+00:00"))
+        except ValueError:
+            fetched_at = None
+    source = p.get(PAD_DEM_SOURCE)
+    return PadDemStatusOut(
+        asset_id=asset_id.strip(),
+        source=str(source) if isinstance(source, str) else None,
+        fetched_at=fetched_at,
+    )
+
+
 def build_last_response(props: dict[str, Any] | None) -> PadEarthworkLastResponse:
     return PadEarthworkLastResponse(
         params=read_pad_params(props),
         sketch=read_sketch(props),
+        profile=read_profile(props),
+        wells_local=read_wells_local(props),
         envelope=read_envelope(props),
         sketch_saved_at=read_sketch_saved_at(props),
+        profile_saved_at=read_profile_saved_at(props),
+        dem=read_dem_status(props),
         result=read_last_response(props),
     )
 

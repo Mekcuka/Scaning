@@ -142,6 +142,22 @@ export function ObjectDetailPanel({
                 infraObjectId={panel.infraObjectId}
                 sandLogistics={panel.sandLogistics ?? undefined}
                 quarryVolumeWarning={panel.quarryVolumeWarning}
+                padMarginLeftM={panel.padMarginLeftM}
+                setPadMarginLeftM={panel.setPadMarginLeftM}
+                padMarginBottomM={panel.padMarginBottomM}
+                setPadMarginBottomM={panel.setPadMarginBottomM}
+                padMarginTopM={panel.padMarginTopM}
+                setPadMarginTopM={panel.setPadMarginTopM}
+                padMarginEndM={panel.padMarginEndM}
+                setPadMarginEndM={panel.setPadMarginEndM}
+                padWellCount={panel.padWellCount}
+                setPadWellCount={panel.setPadWellCount}
+                padWellsPerGroup={panel.padWellsPerGroup}
+                setPadWellsPerGroup={panel.setPadWellsPerGroup}
+                padWellSpacingM={panel.padWellSpacingM}
+                setPadWellSpacingM={panel.setPadWellSpacingM}
+                padGroupSpacingM={panel.padGroupSpacingM}
+                setPadGroupSpacingM={panel.setPadGroupSpacingM}
               />
             )}
 

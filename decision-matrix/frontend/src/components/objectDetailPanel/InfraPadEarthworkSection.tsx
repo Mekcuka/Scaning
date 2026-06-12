@@ -1,12 +1,11 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { padEarthworkApi, type PadEarthworkComputeResult } from '../../lib/api/padEarthworkApi';
-import { padParamsFromObject, envelopeFromObject, hasSavedPadSketch, sketchSavedAtFromObject } from '../../lib/infraPadEarthwork';
-import { parseSketchFromLast } from '../../lib/padEarthworkSketch';
+import { padParamsFromObject, envelopeFromObject, hasSavedPadSketch, sketchSavedAtFromObject, clampNdsDeg, DEFAULT_PAD_NDS_DEG, resolveGeneratorNdsDeg, readDemStatusFromProperties } from '../../lib/infraPadEarthwork';
+import type { PadTerrainMode } from '../../lib/api/padEarthworkApi';
+import { parseSketchFromLast, parseProfileFromLast, parseWellsLocalFromLast } from '../../lib/padEarthworkSketch';
 import type { InfraObject } from '../../lib/api';
-import {
-  PadEarthworkSketchModal,
-} from '../padEarthwork/PadEarthworkSketchModal';
+import { PadEarthworkSketchModal } from '../padEarthwork/PadEarthworkSketchModal';
 import { FieldLabel, PanelSection } from './panelUi';
 
 interface InfraPadEarthworkSectionProps {
@@ -14,6 +13,22 @@ interface InfraPadEarthworkSectionProps {
   infraObject: InfraObject;
   readOnly: boolean;
   setSandDemandM3: (value: string) => void;
+  padMarginLeftM: string;
+  setPadMarginLeftM: (value: string) => void;
+  padMarginBottomM: string;
+  setPadMarginBottomM: (value: string) => void;
+  padMarginTopM: string;
+  setPadMarginTopM: (value: string) => void;
+  padMarginEndM: string;
+  setPadMarginEndM: (value: string) => void;
+  padWellCount: string;
+  setPadWellCount: (value: string) => void;
+  padWellsPerGroup: string;
+  setPadWellsPerGroup: (value: string) => void;
+  padWellSpacingM: string;
+  setPadWellSpacingM: (value: string) => void;
+  padGroupSpacingM: string;
+  setPadGroupSpacingM: (value: string) => void;
 }
 
 function parsePositive(raw: string): number | null {
@@ -23,11 +38,46 @@ function parsePositive(raw: string): number | null {
   return Number.isFinite(n) && n > 0 ? n : null;
 }
 
+function formatPadDemError(message: string): string {
+  if (message.includes('dem_api_key_invalid_format')) {
+    return 'Неверный формат API-ключа OpenTopography: нужна 32-символьная hex-строка из myOpenTopo (не UUID).';
+  }
+  if (message.includes('dem_api_key_invalid') || message.includes('dem_api_key_unauthorized')) {
+    return 'API-ключ OpenTopography отклонён. Проверьте OPENTOPOGRAPHY_API_KEY в backend/.env и перезапустите сервер.';
+  }
+  if (message.includes('dem_api_not_configured')) {
+    return 'DEM не настроен: задайте OPENTOPOGRAPHY_API_KEY в backend/.env.';
+  }
+  if (message.includes('dem_bbox_too_small') || message.includes('dem_fetch_bad_request')) {
+    return 'Не удалось загрузить DEM: слишком маленькая область запроса. Попробуйте увеличить габариты площадки.';
+  }
+  if (message.includes('dem_rate_limit_exceeded')) {
+    return 'Превышен лимит запросов OpenTopography. Попробуйте позже.';
+  }
+  return message || 'Ошибка загрузки DEM';
+}
+
 export function InfraPadEarthworkSection({
   projectId,
   infraObject,
   readOnly,
   setSandDemandM3,
+  padMarginLeftM,
+  setPadMarginLeftM,
+  padMarginBottomM,
+  setPadMarginBottomM,
+  padMarginTopM,
+  setPadMarginTopM,
+  padMarginEndM,
+  setPadMarginEndM,
+  padWellCount,
+  setPadWellCount,
+  padWellsPerGroup,
+  setPadWellsPerGroup,
+  padWellSpacingM,
+  setPadWellSpacingM,
+  padGroupSpacingM,
+  setPadGroupSpacingM,
 }: InfraPadEarthworkSectionProps) {
   const queryClient = useQueryClient();
   const initial = padParamsFromObject(infraObject);
@@ -39,6 +89,7 @@ export function InfraPadEarthworkSection({
   const [result, setResult] = useState<PadEarthworkComputeResult | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [sketchOpen, setSketchOpen] = useState(false);
+  const [terrainMode, setTerrainMode] = useState<'flat' | 'dem'>('flat');
 
   const { data: last } = useQuery({
     queryKey: ['padEarthworkLast', projectId, infraObject.id],
@@ -46,26 +97,60 @@ export function InfraPadEarthworkSection({
     enabled: Boolean(projectId && infraObject.id),
   });
 
+  const savedSketch = useMemo(
+    () => parseSketchFromLast(last?.sketch ?? null),
+    [last?.sketch],
+  );
+  const savedProfile = useMemo(
+    () => parseProfileFromLast(last?.profile ?? null),
+    [last?.profile],
+  );
+
+  const savedWellsLocal = useMemo(
+    () =>
+      parseWellsLocalFromLast(
+        last?.wells_local ?? (infraObject.properties as Record<string, unknown> | undefined)?.pad_wells_local_json,
+      ),
+    [last?.wells_local, infraObject.properties],
+  );
+
+  const savedEnvelope = useMemo(
+    () => last?.envelope ?? envelopeFromObject(infraObject.properties),
+    [last?.envelope, infraObject.properties],
+  );
+
+  const demStatus = useMemo(
+    () => last?.dem ?? readDemStatusFromProperties(infraObject.properties as Record<string, unknown> | undefined),
+    [last?.dem, infraObject.properties],
+  );
+
   useEffect(() => {
+    if (sketchOpen) return;
     const p = padParamsFromObject(infraObject);
     setLengthM(p.lengthM);
     setWidthM(p.widthM);
     setHeightM(p.heightM);
     setRotationDeg(p.rotationDeg);
     setReferenceElevationM(p.referenceElevationM);
-  }, [infraObject.id, infraObject.properties]);
+  }, [infraObject.id, infraObject.properties, sketchOpen]);
 
   useEffect(() => {
+    if (sketchOpen) return;
     if (last?.params) {
       const p = last.params;
       setLengthM(String(p.length_m));
       setWidthM(String(p.width_m));
       setHeightM(String(p.height_m));
-      setRotationDeg(String(p.rotation_deg ?? 0));
+      setRotationDeg(
+        resolveGeneratorNdsDeg(
+          String(p.rotation_deg ?? DEFAULT_PAD_NDS_DEG),
+          (savedWellsLocal.length > 0),
+        ),
+      );
       setReferenceElevationM(String(p.reference_elevation_m));
     }
     if (last?.result) setResult(last.result);
-  }, [last]);
+  }, [last, sketchOpen, savedWellsLocal.length]);
 
   const buildParams = useCallback(() => {
     const length = parsePositive(lengthM);
@@ -74,7 +159,7 @@ export function InfraPadEarthworkSection({
     const refRaw = referenceElevationM.trim().replace(',', '.');
     const ref = refRaw === '' ? 0 : Number(refRaw);
     const rotRaw = rotationDeg.trim().replace(',', '.');
-    const rotation = rotRaw === '' ? 0 : Number(rotRaw);
+    const rotation = rotRaw === '' ? DEFAULT_PAD_NDS_DEG : Number(rotRaw);
     if (length == null || width == null || height == null || !Number.isFinite(ref)) {
       return null;
     }
@@ -82,36 +167,52 @@ export function InfraPadEarthworkSection({
       length_m: length,
       width_m: width,
       height_m: height,
-      rotation_deg: Number.isFinite(rotation) ? rotation : 0,
+      rotation_deg: Number.isFinite(rotation) ? clampNdsDeg(rotation) : DEFAULT_PAD_NDS_DEG,
       reference_elevation_m: ref,
     };
   }, [lengthM, widthM, heightM, referenceElevationM, rotationDeg]);
+
+  const buildTerrain = useCallback((): PadTerrainMode => {
+    if (terrainMode === 'dem') {
+      return { mode: 'dem', dem_asset_id: demStatus?.asset_id ?? undefined };
+    }
+    return { mode: 'flat' };
+  }, [terrainMode, demStatus?.asset_id]);
+
+  const fetchDemMutation = useMutation({
+    mutationFn: async () => {
+      const params = buildParams();
+      if (!params) throw new Error('Укажите длину, ширину, высоту и опорную отметку');
+      return padEarthworkApi.fetchDem(projectId, infraObject.id, { params });
+    },
+    onSuccess: (data) => {
+      setError(null);
+      setReferenceElevationM(String(data.reference_elevation_m));
+      void queryClient.invalidateQueries({ queryKey: ['padEarthworkLast', projectId, infraObject.id] });
+      void queryClient.invalidateQueries({ queryKey: ['infra', projectId] });
+    },
+    onError: (err: Error) => setError(formatPadDemError(err.message)),
+  });
 
   const computeMutation = useMutation({
     mutationFn: async () => {
       const params = buildParams();
       if (!params) throw new Error('Укажите длину, ширину, высоту и опорную отметку');
-      return padEarthworkApi.compute(projectId, infraObject.id, { params });
+      return padEarthworkApi.compute(projectId, infraObject.id, {
+        params,
+        terrain: buildTerrain(),
+      });
     },
     onSuccess: (data) => {
       setResult(data);
       setError(null);
       void queryClient.invalidateQueries({ queryKey: ['padEarthworkLast', projectId, infraObject.id] });
+      void queryClient.invalidateQueries({ queryKey: ['infra', projectId] });
     },
-    onError: (err: Error) => setError(err.message || 'Ошибка расчёта'),
+    onError: (err: Error) => setError(formatPadDemError(err.message) || 'Ошибка расчёта'),
   });
 
   const fillM3 = result?.volumes.fill_m3;
-
-  const savedSketch = useMemo(
-    () => parseSketchFromLast(last?.sketch ?? null),
-    [last?.sketch],
-  );
-
-  const savedEnvelope = useMemo(
-    () => last?.envelope ?? envelopeFromObject(infraObject.properties),
-    [last?.envelope, infraObject.properties],
-  );
 
   const sketchSavedAt = last?.sketch_saved_at ?? sketchSavedAtFromObject(infraObject.properties);
   const hasSavedSketch = Boolean(savedSketch) || hasSavedPadSketch(infraObject.properties);
@@ -122,10 +223,18 @@ export function InfraPadEarthworkSection({
     return Number.isNaN(d.getTime()) ? null : d.toLocaleString('ru-RU');
   };
 
+  const demStatusLabel = (() => {
+    if (!demStatus?.asset_id) return 'DEM не загружен';
+    const when = formatSavedAt(demStatus.fetched_at);
+    const source = demStatus.source?.replace('opentopography:', '') ?? 'COP30';
+    return when ? `DEM загружен · ${source} · ${when}` : `DEM загружен · ${source}`;
+  })();
+
   return (
     <PanelSection title="Площадка / земляные работы" card>
       <p className="object-detail-panel__hint text-xs">
-        Упрощённый расчёт на плоской опорной отметке (без DEM). Footprint строится от центра точки.
+        Расчёт объёмов отсыпки и выемки. Параметры скважин и автогенерация контура — в модалке «Схема…»
+        → режим «Генератор».
       </p>
       {hasSavedSketch && (
         <p className="object-detail-panel__hint text-xs">
@@ -188,17 +297,50 @@ export function InfraPadEarthworkSection({
         </label>
       </div>
       <label className="object-detail-panel__field">
-        <FieldLabel>Поворот, °</FieldLabel>
+        <FieldLabel>НДС, °</FieldLabel>
         <input
           className="input object-detail-panel__input"
           type="number"
-          step="any"
+          min={0}
+          max={360}
+          step={1}
           value={rotationDeg}
           readOnly={readOnly}
           disabled={readOnly}
           onChange={(e) => setRotationDeg(e.target.value)}
+          onBlur={() =>
+            setRotationDeg(
+              String(clampNdsDeg(Number(rotationDeg.replace(',', '.')) || DEFAULT_PAD_NDS_DEG)),
+            )
+          }
         />
       </label>
+      <fieldset className="object-detail-panel__field" disabled={readOnly}>
+        <FieldLabel>Рельеф</FieldLabel>
+        <div className="object-detail-panel__actions-row">
+          <label className="object-detail-panel__inline-check">
+            <input
+              type="radio"
+              name={`pad-terrain-${infraObject.id}`}
+              checked={terrainMode === 'flat'}
+              onChange={() => setTerrainMode('flat')}
+            />
+            Плоская отметка
+          </label>
+          <label className="object-detail-panel__inline-check">
+            <input
+              type="radio"
+              name={`pad-terrain-${infraObject.id}`}
+              checked={terrainMode === 'dem'}
+              onChange={() => setTerrainMode('dem')}
+            />
+            DEM (OpenTopography)
+          </label>
+        </div>
+        {terrainMode === 'dem' && (
+          <p className="object-detail-panel__hint text-xs">{demStatusLabel}</p>
+        )}
+      </fieldset>
       {!readOnly && (
         <div className="object-detail-panel__actions-row">
           <button
@@ -208,10 +350,20 @@ export function InfraPadEarthworkSection({
           >
             Схема…
           </button>
+          {terrainMode === 'dem' && (
+            <button
+              type="button"
+              className="btn btn-secondary btn-sm"
+              disabled={fetchDemMutation.isPending || computeMutation.isPending}
+              onClick={() => fetchDemMutation.mutate()}
+            >
+              {fetchDemMutation.isPending ? 'Загрузка DEM…' : 'Загрузить DEM'}
+            </button>
+          )}
           <button
             type="button"
             className="btn btn-secondary btn-sm"
-            disabled={computeMutation.isPending}
+            disabled={computeMutation.isPending || fetchDemMutation.isPending}
             onClick={() => computeMutation.mutate()}
           >
             {computeMutation.isPending ? 'Расчёт…' : 'Рассчитать'}
@@ -232,7 +384,7 @@ export function InfraPadEarthworkSection({
         <div className="object-detail-panel__subsection text-sm">
           <p>
             Отсыпка: <strong>{result.volumes.fill_m3.toLocaleString('ru-RU')}</strong> м³ · Выемка:{' '}
-            <strong>{result.volumes.cut_m3.toLocaleString('ru-RU')}</strong> м³
+            <strong>{result.volumes.cut_m3.toLocaleString('ru-RU')}</strong> m³
           </p>
           <p className="object-detail-panel__hint text-xs">
             Площадь пятна: {result.design.footprint_area_m2.toLocaleString('ru-RU')} м² · Верх площадки:{' '}
@@ -252,7 +404,26 @@ export function InfraPadEarthworkSection({
           rotationDeg={rotationDeg}
           referenceElevationM={referenceElevationM}
           initialSketch={savedSketch}
+          initialProfile={savedProfile}
+          initialWellsLocal={savedWellsLocal}
           initialEnvelope={savedEnvelope}
+          padWellCount={padWellCount}
+          setPadWellCount={setPadWellCount}
+          padWellsPerGroup={padWellsPerGroup}
+          setPadWellsPerGroup={setPadWellsPerGroup}
+          padWellSpacingM={padWellSpacingM}
+          setPadWellSpacingM={setPadWellSpacingM}
+          padGroupSpacingM={padGroupSpacingM}
+          setPadGroupSpacingM={setPadGroupSpacingM}
+          padMarginLeftM={padMarginLeftM}
+          setPadMarginLeftM={setPadMarginLeftM}
+          padMarginBottomM={padMarginBottomM}
+          setPadMarginBottomM={setPadMarginBottomM}
+          padMarginTopM={padMarginTopM}
+          setPadMarginTopM={setPadMarginTopM}
+          padMarginEndM={padMarginEndM}
+          setPadMarginEndM={setPadMarginEndM}
+          setRotationDeg={setRotationDeg}
           onClose={() => setSketchOpen(false)}
           onApplyToFields={(fields) => {
             setLengthM(fields.lengthM);
@@ -276,6 +447,8 @@ export function InfraPadEarthworkSection({
             void queryClient.invalidateQueries({ queryKey: ['infra', projectId] });
           }}
           onApplySandDemand={(fill) => setSandDemandM3(String(fill))}
+          demStatus={demStatus}
+          terrainMode={terrainMode}
         />
       )}
     </PanelSection>

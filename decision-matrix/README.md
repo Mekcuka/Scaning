@@ -223,6 +223,9 @@ POST     .../sand-logistics/analyze
 POST     .../infrastructure/objects/:id/pad-earthwork/compute
 GET      .../infrastructure/objects/:id/pad-earthwork/last
 PATCH    .../infrastructure/objects/:id/pad-earthwork/params
+PATCH    .../infrastructure/objects/:id/pad-earthwork/sketch
+POST     .../infrastructure/objects/:id/pad-earthwork/sketch/generate
+POST     .../pad-earthwork/sketch/preview
 GET/POST/PUT/DELETE .../one-pagers
 POST     .../one-pagers/:opId/export/pptx
 ```

@@ -31,6 +31,14 @@ export function useObjectDetailFormState(
   const [render3dVisible, setRender3dVisible] = useState(true);
   const [render3dStyle, setRender3dStyle] = useState('');
   const [render3dModelId, setRender3dModelId] = useState('');
+  const [padWellCount, setPadWellCount] = useState('');
+  const [padWellsPerGroup, setPadWellsPerGroup] = useState('');
+  const [padWellSpacingM, setPadWellSpacingM] = useState('');
+  const [padGroupSpacingM, setPadGroupSpacingM] = useState('');
+  const [padMarginLeftM, setPadMarginLeftM] = useState('');
+  const [padMarginBottomM, setPadMarginBottomM] = useState('');
+  const [padMarginTopM, setPadMarginTopM] = useState('');
+  const [padMarginEndM, setPadMarginEndM] = useState('');
   const [infraTab, setInfraTab] = useState<InfraDetailTab>('main');
   const [poiTab, setPoiTab] = useState<PoiDetailTab>('basic');
   const selectionKeyRef = useRef('');
@@ -40,13 +48,16 @@ export function useObjectDetailFormState(
       const key = `poi:${selection.poi.id}`;
       const isNewSelection = selectionKeyRef.current !== key;
       selectionKeyRef.current = key;
-      setPoiForm(createPoiFormFromSelection(selection.poi));
-      if (isNewSelection) setPoiTab('basic');
+      if (isNewSelection) {
+        setPoiForm(createPoiFormFromSelection(selection.poi));
+        setPoiTab('basic');
+      }
       return;
     }
     const key = `infra:${selection.object.id}`;
     const isNewSelection = selectionKeyRef.current !== key;
     selectionKeyRef.current = key;
+    if (!isNewSelection) return;
     const draft = createInfraFormDraftFromObject(selection.object, map3dCustomModels);
     setName(draft.name);
     setDescription(draft.description);
@@ -68,10 +79,16 @@ export function useObjectDetailFormState(
     setRender3dVisible(draft.render3dVisible);
     setRender3dStyle(draft.render3dStyle);
     setRender3dModelId(draft.render3dModelId);
-    if (isNewSelection) {
-      setInfraTab(draft.infraTab);
-      setPoiTab(draft.poiTab);
-    }
+    setPadWellCount(draft.padWellCount);
+    setPadWellsPerGroup(draft.padWellsPerGroup);
+    setPadWellSpacingM(draft.padWellSpacingM);
+    setPadGroupSpacingM(draft.padGroupSpacingM);
+    setPadMarginLeftM(draft.padMarginLeftM);
+    setPadMarginBottomM(draft.padMarginBottomM);
+    setPadMarginTopM(draft.padMarginTopM);
+    setPadMarginEndM(draft.padMarginEndM);
+    setInfraTab(draft.infraTab);
+    setPoiTab(draft.poiTab);
   }, [selection, map3dCustomModels]);
 
   return {
@@ -115,6 +132,22 @@ export function useObjectDetailFormState(
     setRender3dStyle,
     render3dModelId,
     setRender3dModelId,
+    padWellCount,
+    setPadWellCount,
+    padWellsPerGroup,
+    setPadWellsPerGroup,
+    padWellSpacingM,
+    setPadWellSpacingM,
+    padGroupSpacingM,
+    setPadGroupSpacingM,
+    padMarginLeftM,
+    setPadMarginLeftM,
+    padMarginBottomM,
+    setPadMarginBottomM,
+    padMarginTopM,
+    setPadMarginTopM,
+    padMarginEndM,
+    setPadMarginEndM,
     infraTab,
     setInfraTab,
     poiTab,

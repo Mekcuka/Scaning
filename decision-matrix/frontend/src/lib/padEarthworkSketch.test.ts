@@ -29,6 +29,8 @@ import {
   sketchFromRotationDrag,
   sketchToApiPayload,
   snapMeters,
+  generatePadFromWells,
+  computeWellPositionsEastM,
 } from './padEarthworkSketch';
 
 describe('padEarthworkSketch', () => {
@@ -207,11 +209,11 @@ describe('padEarthworkSketch', () => {
     expect(vol).toBeCloseTo(290 + 2 / 3, 5);
   });
 
-  it('estimates envelope fill volume', () => {
+  it('estimates envelope berm ring volume', () => {
     const rect = createDefaultPlanSketch(10, 10, 0);
     const vol = estimateEnvelopeFillM3(rect, 2, 2);
     expect(vol).not.toBeNull();
-    expect(vol!).toBeGreaterThan(200);
+    expect(vol!).toBeCloseTo(35.555, 1);
   });
 
   it('keeps frozen view half-extent during drag', () => {
@@ -219,5 +221,39 @@ describe('padEarthworkSketch', () => {
     expect(computeStableViewHalfExtent(100, 100, 2)).toBe(50);
     expect(computeStableViewHalfExtent(200, 100, 1)).toBe(100);
     expect(computeStableViewHalfExtent(200, null, 1)).toBe(200);
+  });
+
+  it('computes well positions for two groups', () => {
+    expect(computeWellPositionsEastM(8, 4, 30, 10)).toEqual([
+      0, 30, 60, 90, 100, 130, 160, 190,
+    ]);
+  });
+
+  it('generates pad polygon from wells', () => {
+    const result = generatePadFromWells({
+      wellCount: 4,
+      wellsPerGroup: 4,
+      wellSpacingM: 30,
+      groupSpacingM: 10,
+      margins: { leftM: 20, bottomM: 15, topM: 15, endM: 20 },
+    });
+    expect(result.sketch.kind).toBe('plan_polygon');
+    expect(result.lengthM).toBe(130);
+    expect(result.widthM).toBe(30);
+    expect(result.wellsLocal).toHaveLength(4);
+    expect(result.wellsLocal[0]).toEqual({ east_m: 0, north_m: 0 });
+  });
+
+  it('NDS 180° orients well row south (top to bottom on plan)', () => {
+    const result = generatePadFromWells({
+      wellCount: 2,
+      wellsPerGroup: 2,
+      wellSpacingM: 50,
+      groupSpacingM: 0,
+      margins: { leftM: 10, bottomM: 10, topM: 10, endM: 10 },
+      rotationDeg: 180,
+    });
+    expect(result.wellsLocal[1]?.north_m).toBeLessThan(0);
+    expect(result.wellsLocal[1]?.east_m).toBeCloseTo(0, 0);
   });
 });

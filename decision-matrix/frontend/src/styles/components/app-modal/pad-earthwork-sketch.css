@@ -58,6 +58,7 @@
 
 .pad-earthwork-sketch-modal__shape-toggle {
   display: flex;
+  flex-wrap: wrap;
   gap: 8px;
   margin-bottom: 10px;
 }
@@ -66,7 +67,7 @@
   display: inline-flex;
   align-items: center;
   gap: 6px;
-  padding: 8px 14px;
+  padding: 8px 12px;
   border-radius: 8px;
   border: 1px solid var(--border);
   background: var(--surface-elevated);
@@ -74,6 +75,130 @@
   font-weight: 500;
   cursor: pointer;
   transition: border-color 0.15s, background 0.15s;
+}
+
+.pad-earthwork-sketch-modal__layout--generator {
+  grid-template-columns: 1fr minmax(272px, 300px);
+}
+
+.pad-earthwork-sketch-modal__layout--generator .pad-earthwork-sketch-modal__sidebar {
+  max-height: min(520px, calc(100vh - 220px));
+  overflow-y: auto;
+  padding-right: 4px;
+}
+
+.pad-earthwork-sketch-modal__generator-panel {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding-bottom: 12px;
+  border-bottom: 1px solid var(--border);
+}
+
+.pad-earthwork-sketch-modal__generator-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.pad-earthwork-sketch-modal__generator-status {
+  font-size: 0.6875rem;
+  font-weight: 500;
+  padding: 2px 8px;
+  border-radius: 999px;
+  border: 1px solid var(--border);
+  color: var(--text-muted);
+  white-space: nowrap;
+}
+
+.pad-earthwork-sketch-modal__generator-status--ready {
+  border-color: color-mix(in srgb, var(--primary) 35%, var(--border));
+  background: color-mix(in srgb, var(--primary) 10%, transparent);
+  color: var(--primary);
+}
+
+.pad-earthwork-sketch-modal__generator-status--empty {
+  background: var(--surface-elevated);
+}
+
+.pad-earthwork-sketch-modal__generator-hint {
+  margin: 0;
+  font-size: 0.6875rem;
+  line-height: 1.45;
+  color: var(--text-muted);
+}
+
+.pad-earthwork-sketch-modal__generator-block {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.pad-earthwork-sketch-modal__generator-block-title {
+  margin: 0;
+  font-size: 0.6875rem;
+  font-weight: 600;
+  color: var(--text-muted);
+  letter-spacing: 0.02em;
+}
+
+.pad-earthwork-sketch-modal__generator-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 6px;
+}
+
+.pad-earthwork-sketch-modal__generator-field {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  min-width: 0;
+}
+
+.pad-earthwork-sketch-modal__generator-label {
+  font-size: 0.6875rem;
+  font-weight: 500;
+  color: var(--text-muted);
+  line-height: 1.2;
+}
+
+.pad-earthwork-sketch-modal__generator-input {
+  width: 100%;
+  min-height: 30px;
+  padding: 4px 8px;
+  font-size: 0.8125rem;
+}
+
+.pad-earthwork-sketch-modal__generator-field-hint {
+  font-size: 0.625rem;
+  line-height: 1.35;
+  color: var(--text-muted);
+}
+
+.pad-earthwork-sketch-modal__generator-estimate {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding: 8px 10px;
+  border-radius: 8px;
+  border: 1px solid color-mix(in srgb, var(--primary) 25%, var(--border));
+  background: color-mix(in srgb, var(--primary) 6%, var(--surface-elevated));
+  font-size: 0.6875rem;
+  color: var(--text-muted);
+}
+
+.pad-earthwork-sketch-modal__generator-estimate strong {
+  font-size: 0.8125rem;
+  color: var(--text);
+  font-weight: 600;
+}
+
+.pad-earthwork-sketch-modal__generator-btn {
+  width: 100%;
+  justify-content: center;
+  gap: 6px;
+  min-height: 36px;
 }
 
 .pad-earthwork-sketch-modal__shape-btn--active {
@@ -321,7 +446,105 @@
 }
 
 /* Canvas */
+.pad-earthwork-sketch-editor {
+  position: relative;
+}
+
+.pad-earthwork-sketch-editor__canvas-stack {
+  position: relative;
+}
+
+.pad-earthwork-sketch-editor__canvas-stack--panning {
+  cursor: grabbing;
+}
+
+.pad-earthwork-sketch-editor__canvas-stack--panning .pad-earthwork-sketch-editor__svg {
+  cursor: grabbing;
+}
+
+.pad-earthwork-sketch-editor__dem-wrap {
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+  border-radius: 10px;
+  overflow: hidden;
+  pointer-events: none;
+}
+
+.pad-earthwork-sketch-editor__dem-canvas {
+  display: block;
+  width: 100%;
+  height: 100%;
+}
+
+.pad-earthwork-sketch-editor__dem-loading {
+  position: absolute;
+  left: 10px;
+  bottom: 10px;
+  padding: 4px 8px;
+  border-radius: 6px;
+  background: color-mix(in srgb, var(--bg) 88%, transparent);
+  color: var(--text-muted);
+}
+
+.pad-earthwork-sketch-editor__dem-legend {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.pad-earthwork-sketch-editor__dem-gradient-bar {
+  height: 10px;
+  border-radius: 5px;
+  overflow: hidden;
+  border: 1px solid color-mix(in srgb, var(--border) 80%, transparent);
+}
+
+.pad-earthwork-sketch-editor__dem-gradient-fill {
+  width: 100%;
+  height: 100%;
+}
+
+.pad-earthwork-sketch-editor__dem-gradient-labels {
+  display: flex;
+  justify-content: space-between;
+  color: var(--text-muted);
+  line-height: 1.2;
+}
+
+.pad-earthwork-sketch-editor__dem-legend-swatches {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.pad-earthwork-sketch-editor__dem-swatch {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 0.75rem;
+  color: var(--text-muted);
+}
+
+.pad-earthwork-sketch-editor__dem-swatch::before {
+  content: '';
+  width: 14px;
+  height: 14px;
+  border-radius: 3px;
+  border: 1px solid color-mix(in srgb, var(--border) 70%, transparent);
+}
+
+.pad-earthwork-sketch-editor__dem-swatch--fill::before {
+  background: rgba(59, 130, 246, 0.45);
+}
+
+.pad-earthwork-sketch-editor__dem-swatch--cut::before {
+  background: rgba(249, 115, 22, 0.45);
+}
+
 .pad-earthwork-sketch-editor__svg {
+  position: relative;
+  z-index: 1;
   width: 100%;
   min-height: 320px;
   max-height: min(52vh, 480px);
@@ -330,6 +553,15 @@
   border: 1px solid var(--border);
   touch-action: none;
   user-select: none;
+}
+
+.pad-earthwork-sketch-editor__svg--dem {
+  background: transparent;
+}
+
+.pad-earthwork-sketch-editor__svg--dem .pad-earthwork-sketch-editor__footprint,
+.pad-earthwork-sketch-editor__svg--dem .pad-earthwork-sketch-editor__footprint--polygon {
+  fill: color-mix(in srgb, var(--primary) 12%, transparent);
 }
 
 .pad-earthwork-sketch-editor__svg--crosshair {
@@ -352,11 +584,29 @@
   cursor: move;
 }
 
-.pad-earthwork-sketch-editor__footprint--envelope {
-  fill: color-mix(in srgb, var(--warning, #d97706) 8%, transparent);
+.pad-earthwork-sketch-editor__footprint--envelope-ring {
+  fill: color-mix(in srgb, var(--warning, #d97706) 10%, transparent);
   stroke: color-mix(in srgb, var(--warning, #d97706) 70%, var(--text-muted));
   stroke-width: 0.3;
   stroke-dasharray: 1.2 0.6;
+  vector-effect: non-scaling-stroke;
+  pointer-events: none;
+}
+
+.pad-earthwork-sketch-editor__footprint--envelope-outer-crest {
+  fill: none;
+  stroke: color-mix(in srgb, var(--warning, #d97706) 55%, var(--text-muted));
+  stroke-width: 0.28;
+  stroke-dasharray: 0.6 0.4;
+  vector-effect: non-scaling-stroke;
+  pointer-events: none;
+}
+
+.pad-earthwork-sketch-editor__footprint--envelope-inner-crest {
+  fill: none;
+  stroke: color-mix(in srgb, var(--warning, #d97706) 90%, var(--text-muted));
+  stroke-width: 0.35;
+  stroke-dasharray: 0.8 0.5;
   vector-effect: non-scaling-stroke;
   pointer-events: none;
 }
@@ -444,6 +694,21 @@
   vector-effect: non-scaling-stroke;
 }
 
+.pad-earthwork-sketch-editor__well {
+  fill: var(--warning, #d97706);
+  stroke: var(--bg);
+  stroke-width: 0.2;
+  vector-effect: non-scaling-stroke;
+  pointer-events: none;
+}
+
+.pad-earthwork-sketch-editor__well-label {
+  fill: var(--text);
+  text-anchor: middle;
+  pointer-events: none;
+  font-weight: 600;
+}
+
 .pad-earthwork-sketch-editor__handle {
   stroke: var(--bg);
   stroke-width: 0.25;
@@ -506,3 +771,478 @@
 .app-modal-overlay--pad-earthwork-sketch .app-modal-panel--lg {
   max-width: min(960px, 96vw);
 }
+
+.profile-sketch-editor__grid {
+  stroke: color-mix(in srgb, var(--border) 70%, transparent);
+  stroke-width: 0.08;
+  vector-effect: non-scaling-stroke;
+}
+
+.profile-sketch-editor__terrain {
+  stroke: color-mix(in srgb, var(--warning, #b45309) 85%, var(--text));
+  stroke-width: 0.35;
+  vector-effect: non-scaling-stroke;
+}
+
+.profile-sketch-editor__design-line {
+  stroke: var(--primary);
+  stroke-width: 0.45;
+  vector-effect: non-scaling-stroke;
+  cursor: ns-resize;
+}
+
+.profile-sketch-editor__reference-line {
+  stroke: color-mix(in srgb, var(--text-muted, #64748b) 70%, var(--text));
+  stroke-width: 0.35;
+  stroke-dasharray: 1.2 0.8;
+  vector-effect: non-scaling-stroke;
+}
+
+.profile-sketch-editor__envelope {
+  stroke: color-mix(in srgb, var(--warning, #b45309) 90%, var(--text));
+  stroke-width: 0.5;
+  vector-effect: non-scaling-stroke;
+  fill: none;
+}
+
+.profile-sketch-editor__envelope-body {
+  fill: color-mix(in srgb, var(--warning, #b45309) 12%, transparent);
+  stroke: color-mix(in srgb, var(--warning, #b45309) 90%, var(--text));
+  stroke-width: 0.5;
+  vector-effect: non-scaling-stroke;
+}
+
+.profile-sketch-editor__fill {
+  fill: color-mix(in srgb, var(--success, #16a34a) 35%, transparent);
+  stroke: none;
+}
+
+.profile-sketch-editor__cut {
+  fill: color-mix(in srgb, var(--danger, #dc2626) 30%, transparent);
+  stroke: none;
+}
+
+.profile-sketch-editor__vertex {
+  fill: var(--surface);
+  stroke: color-mix(in srgb, var(--warning, #b45309) 85%, var(--text));
+  stroke-width: 0.25;
+  vector-effect: non-scaling-stroke;
+  cursor: grab;
+}
+
+.profile-sketch-editor__vertex--selected {
+  fill: color-mix(in srgb, var(--primary) 25%, var(--surface));
+  stroke: var(--primary);
+  stroke-width: 0.35;
+}
+
+.profile-sketch-editor__axis-label {
+  fill: var(--text-muted);
+  font-size: 2.5px;
+  pointer-events: none;
+}
+
+/* Profile tab UX */
+.pad-earthwork-sketch-modal__layout--profile {
+  grid-template-columns: 1fr minmax(220px, 260px);
+}
+
+.profile-sketch-toolbar__btn--primary {
+  border-color: color-mix(in srgb, var(--primary) 45%, var(--border));
+  background: color-mix(in srgb, var(--primary) 14%, var(--surface-elevated));
+  color: var(--primary);
+  font-weight: 600;
+}
+
+.profile-sketch-toolbar__btn--primary:hover:not(:disabled) {
+  background: color-mix(in srgb, var(--primary) 22%, var(--surface-elevated));
+}
+
+.profile-sketch-callout {
+  margin: 0 0 10px;
+  padding: 10px 12px;
+  border-radius: 8px;
+  border: 1px solid color-mix(in srgb, var(--warning, #d97706) 35%, var(--border));
+  background: color-mix(in srgb, var(--warning, #d97706) 8%, var(--surface-elevated));
+}
+
+.profile-sketch-callout__text {
+  font-size: 0.8125rem;
+  line-height: 1.45;
+  color: var(--text);
+}
+
+.profile-sketch-editor {
+  position: relative;
+}
+
+.profile-sketch-editor--panning,
+.pad-earthwork-sketch-editor--panning {
+  cursor: grabbing;
+}
+
+.profile-sketch-editor--panning .profile-sketch-editor__svg,
+.pad-earthwork-sketch-editor--panning .profile-sketch-editor__svg {
+  cursor: grabbing;
+}
+
+.profile-sketch-editor__svg {
+  background: linear-gradient(
+    180deg,
+    color-mix(in srgb, var(--border) 12%, var(--bg)) 0%,
+    color-mix(in srgb, var(--border) 22%, var(--bg)) 100%
+  );
+}
+
+.profile-sketch-editor__plot-bg {
+  fill: color-mix(in srgb, var(--surface-elevated) 92%, var(--bg));
+}
+
+.profile-sketch-editor__empty {
+  position: absolute;
+  inset: 0;
+  z-index: 2;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  padding: 24px;
+  text-align: center;
+  border-radius: 10px;
+  background: color-mix(in srgb, var(--bg) 72%, transparent);
+  backdrop-filter: blur(2px);
+  pointer-events: none;
+}
+
+.profile-sketch-editor__empty-btn {
+  pointer-events: auto;
+  margin-top: 4px;
+}
+
+.profile-sketch-editor__empty-title {
+  margin: 0;
+  font-size: 0.9375rem;
+  font-weight: 600;
+}
+
+.profile-sketch-editor__empty-text {
+  margin: 0;
+  max-width: 280px;
+  font-size: 0.8125rem;
+  color: var(--text-muted);
+  line-height: 1.45;
+}
+
+.profile-sketch-editor__axis {
+  stroke: color-mix(in srgb, var(--text-muted) 55%, var(--border));
+  stroke-width: 0.12;
+  vector-effect: non-scaling-stroke;
+}
+
+.profile-sketch-editor__tick {
+  stroke: color-mix(in srgb, var(--text-muted) 45%, var(--border));
+  stroke-width: 0.1;
+  vector-effect: non-scaling-stroke;
+}
+
+.profile-sketch-editor__tick-label {
+  fill: var(--text-muted);
+  font-size: 2.2px;
+  pointer-events: none;
+}
+
+.profile-sketch-editor__tick-label--chainage {
+  text-anchor: middle;
+}
+
+.profile-sketch-editor__tick-label--elevation {
+  text-anchor: end;
+  dominant-baseline: middle;
+}
+
+.profile-sketch-editor__axis-title {
+  fill: var(--text-muted);
+  font-size: 2.6px;
+  font-weight: 600;
+  text-anchor: middle;
+  pointer-events: none;
+}
+
+.profile-sketch-editor__axis-title--vertical {
+  text-anchor: middle;
+}
+
+.profile-sketch-editor__design-badge {
+  fill: color-mix(in srgb, var(--primary) 18%, var(--surface));
+  stroke: color-mix(in srgb, var(--primary) 40%, transparent);
+  stroke-width: 0.08;
+}
+
+.profile-sketch-editor__design-label {
+  fill: var(--primary);
+  font-size: 2px;
+  font-weight: 600;
+  text-anchor: middle;
+}
+
+.profile-sketch-editor__design-handle {
+  fill: var(--surface);
+  stroke: var(--primary);
+  stroke-width: 0.25;
+  vector-effect: non-scaling-stroke;
+  cursor: ns-resize;
+}
+
+.profile-sketch-editor__vertex-hit {
+  fill: transparent;
+  stroke: none;
+  cursor: grab;
+}
+
+.profile-sketch-editor__vertex--hover {
+  stroke-width: 0.32;
+}
+
+.profile-sketch-editor__tooltip-bg {
+  fill: color-mix(in srgb, var(--bg) 88%, transparent);
+  stroke: var(--border);
+  stroke-width: 0.08;
+}
+
+.profile-sketch-editor__tooltip-text {
+  fill: var(--text);
+  font-size: 2px;
+  font-weight: 500;
+}
+
+.profile-sketch-editor__meta {
+  fill: var(--text-muted);
+  font-size: 2.2px;
+  text-anchor: end;
+  pointer-events: none;
+}
+
+.profile-sketch-legend__swatches {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px 12px;
+}
+
+.profile-sketch-legend__swatch {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 0.75rem;
+  color: var(--text-muted);
+}
+
+.profile-sketch-legend__swatch::before {
+  content: '';
+  width: 14px;
+  height: 10px;
+  border-radius: 3px;
+  flex-shrink: 0;
+}
+
+.profile-sketch-legend__swatch--terrain::before {
+  background: transparent;
+  border: 2px solid color-mix(in srgb, var(--warning, #b45309) 85%, var(--text));
+}
+
+.profile-sketch-legend__swatch--design::before {
+  background: transparent;
+  border: 2px solid var(--primary);
+}
+
+.profile-sketch-legend__swatch--envelope::before {
+  background: transparent;
+  border: 2px solid color-mix(in srgb, var(--warning, #b45309) 90%, var(--text));
+  border-style: dashed;
+}
+
+.profile-sketch-legend__swatch--fill::before {
+  background: color-mix(in srgb, var(--success, #16a34a) 45%, transparent);
+  border: 1px solid color-mix(in srgb, var(--success, #16a34a) 60%, var(--border));
+}
+
+.profile-sketch-legend__swatch--cut::before {
+  background: color-mix(in srgb, var(--danger, #dc2626) 40%, transparent);
+  border: 1px solid color-mix(in srgb, var(--danger, #dc2626) 55%, var(--border));
+}
+
+.profile-sketch-legend__hint {
+  margin: 8px 0 0;
+  line-height: 1.45;
+}
+
+.profile-sketch-point-card__coords {
+  margin: 0 0 4px;
+  font-size: 0.8125rem;
+}
+
+.profile-sketch-unsaved {
+  color: var(--primary);
+  font-weight: 500;
+}
+
+/* 3D scene tab */
+.pad-earthwork-sketch-modal__layout--scene3d {
+  grid-template-columns: 1fr minmax(220px, 260px);
+  min-height: 360px;
+}
+
+.pad-earthwork-scene3d {
+  display: flex;
+  flex-direction: column;
+  min-height: 320px;
+  flex: 1;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  overflow: hidden;
+  background: var(--surface-elevated);
+}
+
+.pad-earthwork-scene3d__callout {
+  margin: 0;
+  padding: 8px 12px;
+  font-size: 0.8125rem;
+  line-height: 1.4;
+  border-bottom: 1px solid color-mix(in srgb, var(--warning, #d97706) 30%, var(--border));
+  background: color-mix(in srgb, var(--warning, #d97706) 8%, var(--surface-elevated));
+  color: var(--text);
+}
+
+.pad-earthwork-scene3d__canvas-wrap {
+  flex: 1;
+  min-height: 280px;
+  position: relative;
+}
+
+.pad-earthwork-scene3d__canvas {
+  display: block;
+  width: 100%;
+  height: 100%;
+  min-height: 280px;
+}
+
+.pad-scene3d-toolbar {
+  margin-bottom: 10px;
+  flex-wrap: wrap;
+}
+
+.pad-scene3d-toolbar__hint {
+  flex-basis: 100%;
+  margin-top: 2px;
+  font-size: 0.75rem;
+  color: var(--text-muted);
+}
+
+.pad-scene3d-legend {
+  margin-top: 4px;
+}
+
+.pad-scene3d-legend__title {
+  margin: 0 0 8px;
+  font-size: 0.8125rem;
+  font-weight: 600;
+}
+
+.pad-scene3d-legend__list {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  font-size: 0.8125rem;
+  line-height: 1.5;
+}
+
+.pad-scene3d-legend__list li {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 6px;
+}
+
+.pad-scene3d-legend__swatch {
+  flex-shrink: 0;
+  width: 14px;
+  height: 14px;
+  border-radius: 3px;
+  border: 1px solid var(--border);
+}
+
+.pad-scene3d-legend__swatch--terrain {
+  background: linear-gradient(135deg, #184ea3, #9acd32, #f5f2eb);
+}
+
+.pad-scene3d-legend__swatch--terrain.pad-scene3d-legend__swatch--muted {
+  background: #8fa882;
+}
+
+.pad-scene3d-legend__swatch--pad {
+  background: color-mix(in srgb, #3b82f6 55%, transparent);
+  border-color: #1d4ed8;
+}
+
+.pad-scene3d-legend__swatch--envelope {
+  background: linear-gradient(135deg, #d97706 45%, transparent 55%);
+  border: 1px solid #b45309;
+}
+
+.envelope-plan-legend {
+  margin-top: 4px;
+}
+
+.envelope-plan-legend__title {
+  margin: 0 0 8px;
+  font-size: 0.8125rem;
+  font-weight: 600;
+}
+
+.envelope-plan-legend__list {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  font-size: 0.8125rem;
+  line-height: 1.5;
+}
+
+.envelope-plan-legend__list li {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 6px;
+}
+
+.envelope-plan-legend__swatch {
+  flex-shrink: 0;
+  width: 14px;
+  height: 14px;
+  border-radius: 3px;
+  border: 1px solid var(--border);
+}
+
+.envelope-plan-legend__swatch--pad {
+  background: color-mix(in srgb, #3b82f6 55%, transparent);
+  border-color: #1d4ed8;
+}
+
+.envelope-plan-legend__swatch--ring {
+  background: color-mix(in srgb, var(--warning, #d97706) 18%, transparent);
+}
+
+.envelope-plan-legend__swatch--outer-crest {
+  background: transparent;
+  border: 2px dashed color-mix(in srgb, var(--warning, #d97706) 55%, var(--text-muted));
+}
+
+.envelope-plan-legend__swatch--inner-crest {
+  background: transparent;
+  border: 2px dashed color-mix(in srgb, var(--warning, #d97706) 90%, var(--text-muted));
+}
+
+.pad-earthwork-sketch-modal__stats-hint {
+  grid-column: 1 / -1;
+  margin: 0;
+}
+

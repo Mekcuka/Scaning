@@ -27,6 +27,7 @@ class TerrainFlat(BaseModel):
 class TerrainDem(BaseModel):
     mode: Literal["dem"] = "dem"
     dem_asset_id: str | None = None
+    dem_file_path: str | None = None
 
 
 TerrainInput = Annotated[TerrainFlat | TerrainDem, Field(discriminator="mode")]
@@ -84,7 +85,8 @@ class ComputeRequest(BaseModel):
     subtype: Literal["oil_pad", "gas_pad"]
     center: LonLat
     params: PadParams | PadHeightReference | None = None
-    sketch: SketchInput | None = None
+    sketch: PlanRectangleSketch | PlanPolygonSketch | None = None
+    profile: ProfileSketch | None = None
     envelope: EnvelopeWrap | None = None
     terrain: TerrainInput = Field(default_factory=TerrainFlat)
 
@@ -97,16 +99,20 @@ class ComputeRequest(BaseModel):
 
     @model_validator(mode="after")
     def require_params_or_sketch(self) -> ComputeRequest:
-        if self.sketch is None and self.params is None:
-            raise ValueError("params or sketch is required")
+        if self.sketch is None and self.profile is None and self.params is None:
+            raise ValueError("params, sketch, or profile is required")
         if self.sketch is not None and self.params is None:
             raise ValueError("params with height_m and reference_elevation_m required when sketch is set")
+        if self.profile is not None and self.params is None:
+            raise ValueError("params required when profile is set")
         if isinstance(self.sketch, (PlanRectangleSketch, PlanPolygonSketch)) and not isinstance(
             self.params, (PadParams, PadHeightReference)
         ):
             raise ValueError("invalid params for plan sketch")
-        if self.sketch is None and not isinstance(self.params, PadParams):
-            raise ValueError("full params required when sketch is omitted")
+        if self.profile is not None and not isinstance(self.params, (PadParams, PadHeightReference)):
+            raise ValueError("invalid params for profile")
+        if self.sketch is None and self.profile is None and not isinstance(self.params, PadParams):
+            raise ValueError("full params required when sketch and profile are omitted")
         return self
 
 
@@ -125,6 +131,31 @@ class SketchPreviewResponse(BaseModel):
     rotation_deg: float
     footprint_area_m2: float
     footprint_corners_local: list[LocalCornerOut]
+
+
+class PadLayoutMarginsIn(BaseModel):
+    left_m: float = Field(default=27.0, ge=0, le=500)
+    bottom_m: float = Field(default=43.0, ge=0, le=500)
+    top_m: float = Field(default=15.0, ge=0, le=500)
+    end_m: float = Field(default=70.0, ge=0, le=500)
+
+
+class WellLayoutGenerateRequest(BaseModel):
+    well_count: int = Field(..., ge=1, le=64)
+    wells_per_group: int = Field(..., ge=1, le=64)
+    well_spacing_m: float = Field(..., gt=0, le=500)
+    group_spacing_m: float = Field(default=0.0, ge=0, le=500)
+    margins: PadLayoutMarginsIn = Field(default_factory=PadLayoutMarginsIn)
+    rotation_deg: float = Field(default=90.0, ge=0, le=360)
+
+
+class WellLayoutGenerateResponse(BaseModel):
+    sketch: PlanPolygonSketch
+    wells_local: list[PlanVertex]
+    length_m: float
+    width_m: float
+    rotation_deg: float
+    footprint_area_m2: float
 
 
 class VolumesOut(BaseModel):

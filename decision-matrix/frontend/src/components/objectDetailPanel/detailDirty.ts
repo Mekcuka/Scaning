@@ -8,6 +8,7 @@ import {
   type SandVolumeInputMode,
 } from '../../lib/infraSandVolumes';
 import { objectShowsEntryDate, readEntryDateIso } from '../../lib/infraEntryDate';
+import { padWellFieldsDirty, pointShowsPadWellFields } from '../../lib/infraPadWells';
 import {
   RENDER_3D_MODEL_ID_KEY,
   RENDER_3D_STYLE_KEY,
@@ -38,6 +39,14 @@ export type InfraDirtyDraft = {
   render3dVisible: boolean;
   render3dStyle: string;
   render3dModelId: string;
+  padWellCount: string;
+  padWellsPerGroup: string;
+  padWellSpacingM: string;
+  padGroupSpacingM: string;
+  padMarginLeftM: string;
+  padMarginBottomM: string;
+  padMarginTopM: string;
+  padMarginEndM: string;
 };
 
 function sandFieldsDirty(
@@ -99,6 +108,10 @@ export function computeInfraIsDirty(
     pointShowsThroughputCapacity(infraObject.subtype) &&
     !isLine &&
     draft.capacityValue !== capacityDraftFromObject(infraObject);
+  const padWellDirty =
+    pointShowsPadWellFields(infraObject.subtype) &&
+    !isLine &&
+    padWellFieldsDirty(infraObject.properties, draft);
   const r3Dirty = render3dFieldsDirty(infraObject, draft, map3dCustomModels);
   return (
     draft.name !== infraObject.name ||
@@ -110,6 +123,7 @@ export function computeInfraIsDirty(
     sandDirty ||
     entryDirty ||
     capacityDirty ||
+    padWellDirty ||
     r3Dirty
   );
 }
@@ -135,13 +149,21 @@ export function computeInfraTabDirty(
     entryDirty ||
     (pointShowsThroughputCapacity(infraObject.subtype) &&
       !isLine &&
-      draft.capacityValue !== capacityDraftFromObject(infraObject));
+      draft.capacityValue !== capacityDraftFromObject(infraObject)) ||
+    (pointShowsPadWellFields(infraObject.subtype) &&
+      !isLine &&
+      padWellFieldsDirty(infraObject.properties, draft));
 
   switch (tab) {
     case 'main':
       return mainDirty;
     case 'logistics':
-      return sandDirty;
+      return (
+        sandDirty ||
+        (pointShowsPadWellFields(infraObject.subtype) &&
+          !isLine &&
+          padWellFieldsDirty(infraObject.properties, draft))
+      );
     case 'extra':
       return render3dFieldsDirty(infraObject, draft, map3dCustomModels);
     default:

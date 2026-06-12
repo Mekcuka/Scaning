@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from pad_earthwork.dem_volume import compute_volumes_dem
 from pad_earthwork.design_surface import design_surface_summary
 from pad_earthwork.envelope import (
     compute_envelope_volumes,
@@ -13,6 +14,7 @@ from pad_earthwork.mesh import box_mesh_glb_base64
 from pad_earthwork.schemas import (
     ComputeRequest,
     ComputeResponse,
+    DesignOut,
     EnvelopeWrap,
     FootprintCornerOut,
     LocalCornerOut,
@@ -37,7 +39,12 @@ from pad_earthwork.volume_plan import (
     polygon_footprint_area_m2,
     polygon_vertices_local_m,
 )
-from pad_earthwork.volume_profile import ProfileNotSupportedError
+from pad_earthwork.volume_profile import (
+    compute_volumes_profile,
+    compute_volumes_profile_with_envelope,
+    derive_params_from_profile,
+    profile_length_m,
+)
 
 
 class DemNotSupportedError(Exception):
@@ -45,8 +52,27 @@ class DemNotSupportedError(Exception):
 
 
 def _resolve_pad_params(req: ComputeRequest) -> PadParams:
-    if isinstance(req.sketch, ProfileSketch):
-        raise ProfileNotSupportedError("profile_not_supported")
+    if req.profile is not None:
+        p = req.params
+        height_m: float
+        reference_elevation_m: float
+        rotation_deg: float
+        if isinstance(p, PadParams):
+            height_m = p.height_m
+            reference_elevation_m = p.reference_elevation_m
+            rotation_deg = p.rotation_deg
+        elif isinstance(p, PadHeightReference):
+            height_m = p.height_m
+            reference_elevation_m = p.reference_elevation_m
+            rotation_deg = 0.0
+        else:
+            raise ValueError("params required with profile")
+        return derive_params_from_profile(
+            req.profile,
+            rotation_deg=rotation_deg,
+            height_m=height_m,
+            reference_elevation_m=reference_elevation_m,
+        )
     if isinstance(req.sketch, PlanRectangleSketch):
         p = req.params
         if isinstance(p, PadParams):
@@ -112,10 +138,122 @@ def _top_vertices_from_request(req: ComputeRequest, params: PadParams) -> list:
     ]
 
 
+def _local_vertices_from_request(req: ComputeRequest, params: PadParams) -> list[tuple[float, float]]:
+    vertices = _top_vertices_from_request(req, params)
+    return [(v.east_m, v.north_m) for v in vertices]
+
+
+def _footprint_corners_from_request(
+    req: ComputeRequest,
+    params: PadParams,
+) -> list[tuple[float, float]]:
+    if isinstance(req.sketch, PlanPolygonSketch):
+        return footprint_polygon_lonlat(
+            req.center.lon,
+            req.center.lat,
+            polygon_vertices_local_m(req.sketch),
+        )
+    if isinstance(req.sketch, PlanRectangleSketch):
+        return footprint_corners_lonlat(
+            req.center.lon,
+            req.center.lat,
+            req.sketch.length_m,
+            req.sketch.width_m,
+            req.sketch.rotation_deg,
+        )
+    return footprint_corners_lonlat(
+        req.center.lon,
+        req.center.lat,
+        params.length_m,
+        params.width_m,
+        params.rotation_deg,
+    )
+
+
+def _compute_dem_response(req: ComputeRequest, params: PadParams) -> ComputeResponse:
+    if not isinstance(req.terrain, TerrainDem) or not req.terrain.dem_file_path:
+        raise DemNotSupportedError("dem_not_available")
+
+    warnings: list[str] = []
+    if _envelope_active(req) is not None:
+        warnings.append("envelope_ignored_with_dem")
+
+    local_vertices = _local_vertices_from_request(req, params)
+    fill_m3, cut_m3, footprint_area, dem_warnings = compute_volumes_dem(
+        req.terrain.dem_file_path,
+        req.center.lon,
+        req.center.lat,
+        local_vertices,
+        reference_elevation_m=params.reference_elevation_m,
+        height_m=params.height_m,
+    )
+    warnings.extend(dem_warnings)
+    corners = _footprint_corners_from_request(req, params)
+    if isinstance(req.sketch, PlanPolygonSketch):
+        warnings.append("polygon_mesh_is_bbox_approximation")
+
+    design = design_surface_summary(params, footprint_area_m2=footprint_area)
+    mesh_b64 = box_mesh_glb_base64(params.length_m, params.width_m, params.height_m)
+    return ComputeResponse(
+        volumes=VolumesOut(
+            fill_m3=round(fill_m3, 3),
+            cut_m3=round(cut_m3, 3),
+            net_fill_m3=round(fill_m3 - cut_m3, 3),
+        ),
+        design=design,
+        footprint_corners=[FootprintCornerOut(lon=c[0], lat=c[1]) for c in corners],
+        mesh=MeshOut(format="glb", base64=mesh_b64),
+        warnings=warnings,
+    )
+
+
+def _compute_profile_response(req: ComputeRequest, params: PadParams) -> ComputeResponse:
+    assert req.profile is not None
+    warnings: list[str] = []
+    envelope = _envelope_active(req)
+    if isinstance(req.terrain, TerrainDem):
+        warnings.append("profile_volumes_use_chainage_terrain")
+
+    if envelope is not None:
+        fill_m3, cut_m3, footprint_area, profile_warnings = compute_volumes_profile_with_envelope(
+            req.profile,
+            envelope,
+            params.height_m,
+        )
+    else:
+        fill_m3, cut_m3, footprint_area, profile_warnings = compute_volumes_profile(req.profile)
+    warnings.extend(profile_warnings)
+
+    corners = _footprint_corners_from_request(req, params)
+    design = DesignOut(
+        top_elevation_m=req.profile.design_elevation_m,
+        footprint_area_m2=footprint_area,
+    )
+    mesh_b64 = box_mesh_glb_base64(params.length_m, params.width_m, params.height_m)
+    return ComputeResponse(
+        volumes=VolumesOut(
+            fill_m3=round(fill_m3, 3),
+            cut_m3=round(cut_m3, 3),
+            net_fill_m3=round(fill_m3 - cut_m3, 3),
+        ),
+        design=design,
+        footprint_corners=[FootprintCornerOut(lon=c[0], lat=c[1]) for c in corners],
+        mesh=MeshOut(format="glb", base64=mesh_b64),
+        warnings=warnings,
+    )
+
+
 def preview_sketch(body: SketchPreviewRequest) -> SketchPreviewResponse:
     sketch = body.sketch
     if isinstance(sketch, ProfileSketch):
-        raise ProfileNotSupportedError("profile_not_supported")
+        length_m = max(1.0, profile_length_m(sketch.chainage_points))
+        return SketchPreviewResponse(
+            length_m=length_m,
+            width_m=sketch.width_m,
+            rotation_deg=0.0,
+            footprint_area_m2=length_m * sketch.width_m,
+            footprint_corners_local=[],
+        )
     if isinstance(sketch, PlanRectangleSketch):
         corners = plan_corners_local_m(sketch)
         return SketchPreviewResponse(
@@ -143,13 +281,15 @@ def preview_sketch(body: SketchPreviewRequest) -> SketchPreviewResponse:
 
 
 def compute_pad_earthwork(req: ComputeRequest) -> ComputeResponse:
-    warnings: list[str] = []
-    if isinstance(req.terrain, TerrainDem):
-        if not req.terrain.dem_asset_id:
-            raise DemNotSupportedError("dem_not_supported")
-        warnings.append("dem_grid_not_implemented")
-        raise DemNotSupportedError("dem_not_supported")
+    if req.profile is not None:
+        params = _resolve_pad_params(req)
+        return _compute_profile_response(req, params)
 
+    if isinstance(req.terrain, TerrainDem):
+        params = _resolve_pad_params(req)
+        return _compute_dem_response(req, params)
+
+    warnings: list[str] = []
     params = _resolve_pad_params(req)
     envelope = _envelope_active(req)
     footprint_area = params.length_m * params.width_m

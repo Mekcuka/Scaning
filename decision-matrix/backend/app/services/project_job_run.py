@@ -111,14 +111,23 @@ async def _run_pad_earthwork_compute(db: AsyncSession, job: ProjectJob) -> dict[
 
     from app.api.v1.map_deps import get_infra_object
     from app.services.pad_earthwork.schemas import PadEarthworkComputeRequest
-    from app.services.pad_earthwork.service import compute_pad_earthwork_for_object
+    from app.services.pad_earthwork.service import (
+        compute_pad_earthwork_for_object,
+        persist_dem_properties_for_compute,
+    )
 
     object_id = UUID(job.payload["object_id"])
     obj = await get_infra_object(object_id, job.project_id, db)
     body = PadEarthworkComputeRequest.model_validate(
         {k: v for k, v in (job.payload or {}).items() if k != "object_id"}
     )
-    result, props = await compute_pad_earthwork_for_object(obj, body)
+    dem_patch = await persist_dem_properties_for_compute(job.project_id, obj, body)
+    if dem_patch:
+        props = dict(obj.properties or {})
+        props.update(dem_patch)
+        obj.properties = props
+        await db.flush()
+    result, props = await compute_pad_earthwork_for_object(obj, body, project_id=job.project_id)
     obj.properties = props
     await db.flush()
     return result.model_dump(mode="json")

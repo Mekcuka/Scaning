@@ -15,6 +15,11 @@ import {
 } from '../../lib/infraSandVolumes';
 import { mergeEntryDate, objectShowsEntryDate } from '../../lib/infraEntryDate';
 import {
+  mergePadWellParams,
+  padWellFieldsFromForm,
+  pointShowsPadWellFields,
+} from '../../lib/infraPadWells';
+import {
   DEFAULT_RENDER_3D_SCALE,
   MAX_RENDER_3D_SCALE,
   MIN_RENDER_3D_SCALE,
@@ -46,6 +51,14 @@ export type InfraSaveDraft = {
   render3dVisible: boolean;
   render3dStyle: string;
   render3dModelId: string;
+  padWellCount: string;
+  padWellsPerGroup: string;
+  padWellSpacingM: string;
+  padGroupSpacingM: string;
+  padMarginLeftM: string;
+  padMarginBottomM: string;
+  padMarginTopM: string;
+  padMarginEndM: string;
 };
 
 export function buildInfraSavePayload(
@@ -72,6 +85,14 @@ export function buildInfraSavePayload(
     render3dVisible,
     render3dStyle,
     render3dModelId,
+    padWellCount,
+    padWellsPerGroup,
+    padWellSpacingM,
+    padGroupSpacingM,
+    padMarginLeftM,
+    padMarginBottomM,
+    padMarginTopM,
+    padMarginEndM,
   } = draft;
 
   const payload: Record<string, unknown> = {
@@ -96,6 +117,21 @@ export function buildInfraSavePayload(
   if (pointShowsThroughputCapacity(subtype) && !isLineSubtype(subtype)) {
     const capacity = capacityValue === '' ? null : capacityValue;
     props = mergeThroughputCapacity(props, capacity, defaultCapacityUnitForSubtype(subtype));
+  }
+  if (pointShowsPadWellFields(subtype) && !isLineSubtype(subtype)) {
+    props = mergePadWellParams(
+      props,
+      padWellFieldsFromForm({
+        padWellCount,
+        padWellsPerGroup,
+        padWellSpacingM,
+        padGroupSpacingM,
+        padMarginLeftM,
+        padMarginBottomM,
+        padMarginTopM,
+        padMarginEndM,
+      }),
+    );
   }
   const h = render3dHeight.trim() ? parseFloat(render3dHeight) : null;
   const b = render3dBase.trim() ? parseFloat(render3dBase) : null;

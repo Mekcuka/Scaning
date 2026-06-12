@@ -38,7 +38,7 @@ def test_compute_flat():
     assert body["mesh"]["base64"]
 
 
-def test_compute_dem_returns_501():
-    body = {**BASE_BODY, "terrain": {"mode": "dem"}}
+def test_compute_dem_returns_501_without_file_path():
+    body = {**BASE_BODY, "terrain": {"mode": "dem", "dem_asset_id": "missing"}}
     res = client.post("/v1/compute", json=body)
     assert res.status_code == 501

@@ -10,6 +10,7 @@ import {
   ZoomOut,
 } from 'lucide-react';
 import type { PlanEditTool } from '../../lib/padEarthworkSketch';
+import { DemOverlayToolbarControls } from './DemOverlayToolbarControls';
 
 interface PlanSketchToolbarProps {
   tool: PlanEditTool;
@@ -25,6 +26,11 @@ interface PlanSketchToolbarProps {
   onZoomOut: () => void;
   onFitView: () => void;
   readOnly?: boolean;
+  showDemOverlay?: boolean;
+  onShowDemOverlayChange?: (value: boolean) => void;
+  demAvailable?: boolean;
+  onFetchDem?: () => void;
+  fetchDemPending?: boolean;
 }
 
 const TOOLS: { id: PlanEditTool; label: string; icon: typeof BoxSelect }[] = [
@@ -47,6 +53,11 @@ export function PlanSketchToolbar({
   onZoomOut,
   onFitView,
   readOnly = false,
+  showDemOverlay = false,
+  onShowDemOverlayChange,
+  demAvailable = false,
+  onFetchDem,
+  fetchDemPending = false,
 }: PlanSketchToolbarProps) {
   return (
     <div className="pad-earthwork-sketch-toolbar" role="toolbar" aria-label="Инструменты схемы">
@@ -129,6 +140,16 @@ export function PlanSketchToolbar({
           <Maximize2 size={16} aria-hidden />
         </button>
       </div>
+      {onShowDemOverlayChange && (
+        <DemOverlayToolbarControls
+          showDemOverlay={showDemOverlay}
+          onShowDemOverlayChange={onShowDemOverlayChange}
+          demAvailable={demAvailable}
+          onFetchDem={onFetchDem}
+          fetchDemPending={fetchDemPending}
+          readOnly={readOnly}
+        />
+      )}
     </div>
   );
 }

@@ -11,6 +11,7 @@ import {
   type SandVolumeInputMode,
 } from '../../lib/infraSandVolumes';
 import { objectShowsEntryDate, readEntryDateIso } from '../../lib/infraEntryDate';
+import { padWellFormStringsFromObject } from '../../lib/infraPadWells';
 import {
   RENDER_3D_MODEL_ID_KEY,
   RENDER_3D_STYLE_KEY,
@@ -40,6 +41,14 @@ export type InfraFormDraft = {
   render3dVisible: boolean;
   render3dStyle: string;
   render3dModelId: string;
+  padWellCount: string;
+  padWellsPerGroup: string;
+  padWellSpacingM: string;
+  padGroupSpacingM: string;
+  padMarginLeftM: string;
+  padMarginBottomM: string;
+  padMarginTopM: string;
+  padMarginEndM: string;
   infraTab: InfraDetailTab;
   poiTab: PoiDetailTab;
 };
@@ -94,6 +103,7 @@ export function createInfraFormDraftFromObject(
     render3dVisible: r3.visible,
     render3dStyle: typeof style === 'string' ? style : '',
     render3dModelId: render3dModelSelectValue(o.subtype, map3dCustomModels, rawMid),
+    ...padWellFormStringsFromObject(o.properties),
     infraTab: 'main',
     poiTab: 'basic',
   };

@@ -1,5 +1,7 @@
 /** Pad earthwork plan sketch types and helpers. */
 
+import { DEFAULT_PAD_NDS_DEG, ndsDegToMathRotationDeg } from './infraPadEarthwork';
+
 export type PlanVertex = {
   east_m: number;
   north_m: number;
@@ -19,7 +21,7 @@ export type PlanPolygonSketch = {
 
 export type PlanShapeSketch = PlanRectangleSketch | PlanPolygonSketch;
 
-export type ShapeMode = 'rectangle' | 'polygon';
+export type ShapeMode = 'rectangle' | 'polygon' | 'generator';
 
 export type ProfileSketch = {
   kind: 'profile';
@@ -306,7 +308,25 @@ export function parseSketchFromLast(raw: unknown): PlanShapeSketch | null {
   return createDefaultPlanSketch(length, width, parseRotation(String(o.rotation_deg ?? 0)));
 }
 
-export function shapeModeFromSketch(sketch: PlanShapeSketch | null | undefined): ShapeMode {
+export function parseWellsLocalFromLast(raw: unknown): PlanVertex[] {
+  if (!Array.isArray(raw)) return [];
+  const wells: PlanVertex[] = [];
+  for (const item of raw) {
+    if (!item || typeof item !== 'object') continue;
+    const v = item as Record<string, unknown>;
+    const east = Number(v.east_m);
+    const north = Number(v.north_m);
+    if (!Number.isFinite(east) || !Number.isFinite(north)) continue;
+    wells.push({ east_m: east, north_m: north });
+  }
+  return wells;
+}
+
+export function shapeModeFromSketch(
+  sketch: PlanShapeSketch | null | undefined,
+  wellsLocal?: PlanVertex[],
+): ShapeMode {
+  if (wellsLocal?.length) return 'generator';
   if (sketch && isPlanPolygon(sketch)) return 'polygon';
   return 'rectangle';
 }
@@ -812,11 +832,13 @@ function edgeOutwardNormal(dx: number, dy: number): { x: number; y: number } {
   return { x: dy / len, y: -dx / len };
 }
 
-/** Outward offset polygon (CCW vertices). Miter with bevel clamp on sharp angles. */
+/** Outward offset polygon (CCW vertices). Miter with bevel clamp on sharp angles. Negative distance = inward. */
 export function offsetPolygonOutward(vertices: PlanVertex[], distance: number): PlanVertex[] {
   const n = vertices.length;
-  if (n < 3 || distance <= 0) return vertices.map((v) => ({ ...v }));
-  const maxMiter = distance * 4;
+  if (n < 3 || distance === 0) return vertices.map((v) => ({ ...v }));
+  const dist = Math.abs(distance);
+  const sign = distance < 0 ? -1 : 1;
+  const maxMiter = dist * 4;
   const out: PlanVertex[] = [];
   for (let i = 0; i < n; i += 1) {
     const prev = vertices[(i - 1 + n) % n];
@@ -834,24 +856,30 @@ export function offsetPolygonOutward(vertices: PlanVertex[], distance: number): 
     let ox: number;
     let oy: number;
     if (bl < 1e-9) {
-      ox = n1.x * distance;
-      oy = n1.y * distance;
+      ox = n1.x * dist;
+      oy = n1.y * dist;
     } else {
       bx /= bl;
       by /= bl;
       const dot = n1.x * bx + n1.y * by;
-      const scale = Math.abs(dot) > 1e-6 ? distance / dot : distance;
+      const scale = Math.abs(dot) > 1e-6 ? dist / dot : dist;
       if (!Number.isFinite(scale) || scale < 0 || scale > maxMiter) {
-        ox = n1.x * distance;
-        oy = n1.y * distance;
+        ox = n1.x * dist;
+        oy = n1.y * dist;
       } else {
         ox = bx * scale;
         oy = by * scale;
       }
     }
-    out.push(clampVertex({ east_m: curr.east_m + ox, north_m: curr.north_m + oy }));
+    out.push(
+      clampVertex({ east_m: curr.east_m + sign * ox, north_m: curr.north_m + sign * oy }),
+    );
   }
   return out;
+}
+
+export function offsetPolygonInward(vertices: PlanVertex[], distance: number): PlanVertex[] {
+  return offsetPolygonOutward(vertices, -distance);
 }
 
 export function envelopeFillVolumeM3(areaTop: number, areaBottom: number, heightM: number): number {
@@ -865,11 +893,46 @@ export function estimateEnvelopeFillM3(
   wrapWidthM: number,
 ): number | null {
   if (!Number.isFinite(heightM) || heightM <= 0 || wrapWidthM <= 0) return null;
-  const topVerts = shapeVerticesForEnvelope(sketch);
-  if (topVerts.length < 3) return null;
-  const areaTop = polygonAreaM2(topVerts);
-  const areaBottom = polygonAreaM2(offsetPolygonOutward(topVerts, wrapWidthM));
-  return envelopeFillVolumeM3(areaTop, areaBottom, heightM);
+  const vol = estimateEnvelopeBermRingVolumeM3(sketch, wrapWidthM);
+  return vol > 0 ? vol : null;
+}
+
+/** Crest cap width TW between outer and inner crest (symmetric isosceles trapezoid). */
+export function envelopeBermCrestCapWidthM(wrapWidthM: number): number {
+  return wrapWidthM / 3;
+}
+
+/** 1:1 slope rise H = (W − TW) / 2 for both berm faces. */
+export function envelopeBermSlopeHeightM(wrapWidthM: number): number {
+  if (wrapWidthM <= 0) return 0;
+  const tw = envelopeBermCrestCapWidthM(wrapWidthM);
+  return (wrapWidthM - tw) / 2;
+}
+
+/** Trapezoid cross-section area of berm strip (per meter of edge). */
+export function envelopeBermCrossSectionAreaM2(wrapWidthM: number): number {
+  const h = envelopeBermSlopeHeightM(wrapWidthM);
+  const tw = envelopeBermCrestCapWidthM(wrapWidthM);
+  if (h <= 0 || wrapWidthM <= 0) return 0;
+  return (h * (wrapWidthM + tw)) / 2;
+}
+
+/** Berm ring volume: perimeter × trapezoid cross-section (variant A). */
+export function estimateEnvelopeBermRingVolumeM3(
+  sketch: PlanShapeSketch,
+  wrapWidthM: number,
+): number {
+  const verts = shapeVerticesForEnvelope(sketch);
+  if (verts.length < 3 || wrapWidthM <= 0) return 0;
+  return polygonPerimeterM(verts) * envelopeBermCrossSectionAreaM2(wrapWidthM);
+}
+
+export function planVerticesCentroid(vertices: PlanVertex[]): PlanVertex {
+  if (vertices.length === 0) return { east_m: 0, north_m: 0 };
+  return {
+    east_m: vertices.reduce((sum, v) => sum + v.east_m, 0) / vertices.length,
+    north_m: vertices.reduce((sum, v) => sum + v.north_m, 0) / vertices.length,
+  };
 }
 
 export function envelopeOuterVertices(sketch: PlanShapeSketch, wrapWidthM: number): PlanVertex[] {
@@ -878,11 +941,238 @@ export function envelopeOuterVertices(sketch: PlanShapeSketch, wrapWidthM: numbe
   return offsetPolygonOutward(topVerts, wrapWidthM);
 }
 
-function shapeVerticesForEnvelope(sketch: PlanShapeSketch): PlanVertex[] {
+/** Outer edge of berm sole — coincides with pad top footprint. */
+export function envelopeBermSoleOuterVertices(sketch: PlanShapeSketch): PlanVertex[] {
+  return shapeVerticesForEnvelope(sketch);
+}
+
+/** Inner edge of berm sole — inset W from pad edge on pad top. */
+export function envelopeBermSoleInnerVertices(
+  sketch: PlanShapeSketch,
+  wrapWidthM: number,
+): PlanVertex[] {
+  const outer = envelopeBermSoleOuterVertices(sketch);
+  if (outer.length < 3 || wrapWidthM <= 0) return outer;
+  return offsetPolygonInward(outer, wrapWidthM);
+}
+
+/** Outer crest line at inset H = (W − TW) / 2 from pad edge (1:1 from boundary). */
+export function envelopeBermCrestOuterVertices(
+  sketch: PlanShapeSketch,
+  wrapWidthM: number,
+): PlanVertex[] {
+  const outer = envelopeBermSoleOuterVertices(sketch);
+  if (outer.length < 3 || wrapWidthM <= 0) return outer;
+  return offsetPolygonInward(outer, envelopeBermSlopeHeightM(wrapWidthM));
+}
+
+/** Inner crest line at inset (W + TW) / 2 — symmetric 1:1 from sole inner edge. */
+export function envelopeBermCrestInnerVertices(
+  sketch: PlanShapeSketch,
+  wrapWidthM: number,
+): PlanVertex[] {
+  const outer = envelopeBermSoleOuterVertices(sketch);
+  if (outer.length < 3 || wrapWidthM <= 0) return outer;
+  const tw = envelopeBermCrestCapWidthM(wrapWidthM);
+  return offsetPolygonInward(outer, (wrapWidthM + tw) / 2);
+}
+
+export function shapeVerticesForEnvelope(sketch: PlanShapeSketch): PlanVertex[] {
   if (isPlanPolygon(sketch)) return sketch.vertices;
   return localPlanCorners(sketch).map((c) => ({ east_m: c.east_m, north_m: c.north_m }));
 }
 
 export function isPolygonSketchClosed(sketch: PlanPolygonSketch): boolean {
   return sketch.vertices.length >= MIN_POLYGON_VERTICES;
+}
+
+export type PadLayoutMarginsInput = {
+  leftM: number;
+  bottomM: number;
+  topM: number;
+  endM: number;
+};
+
+export type PadWellLayoutInput = {
+  wellCount: number;
+  wellsPerGroup: number;
+  wellSpacingM: number;
+  groupSpacingM: number;
+  margins: PadLayoutMarginsInput;
+  rotationDeg?: number;
+};
+
+export type PadWellLayoutResult = {
+  sketch: PlanPolygonSketch;
+  wellsLocal: PlanVertex[];
+  lengthM: number;
+  widthM: number;
+  rotationDeg: number;
+  footprintAreaM2: number;
+};
+
+export class PadWellLayoutError extends Error {
+  constructor(message: string) {
+    super(message);
+    this.name = 'PadWellLayoutError';
+  }
+}
+
+export function computeWellPositionsEastM(
+  wellCount: number,
+  wellsPerGroup: number,
+  wellSpacingM: number,
+  groupSpacingM: number,
+): number[] {
+  if (wellCount < 1) throw new PadWellLayoutError('well_count must be at least 1');
+  const positions = [0];
+  for (let i = 1; i < wellCount; i += 1) {
+    if (i % wellsPerGroup !== 0) {
+      positions.push(positions[i - 1]! + wellSpacingM);
+    } else {
+      positions.push(positions[i - 1]! + groupSpacingM);
+    }
+  }
+  return positions;
+}
+
+function rotatePlanPoint(eastM: number, northM: number, rotationDeg: number): PlanVertex {
+  const rad = (rotationDeg * Math.PI) / 180;
+  const cos = Math.cos(rad);
+  const sin = Math.sin(rad);
+  return {
+    east_m: eastM * cos - northM * sin,
+    north_m: eastM * sin + northM * cos,
+  };
+}
+
+export function parseProfileFromLast(raw: unknown): ProfileSketch | null {
+  if (!raw || typeof raw !== 'object') return null;
+  const o = raw as Record<string, unknown>;
+  if (o.kind !== 'profile') return null;
+  const width = Number(o.width_m);
+  const design = Number(o.design_elevation_m);
+  if (!Number.isFinite(width) || width <= 0 || !Number.isFinite(design)) return null;
+  const rawPoints = o.chainage_points;
+  const chainage_points: { chainage_m: number; elevation_m: number }[] = [];
+  if (Array.isArray(rawPoints)) {
+    for (const item of rawPoints) {
+      if (!item || typeof item !== 'object') continue;
+      const p = item as Record<string, unknown>;
+      const chainage = Number(p.chainage_m);
+      const elevation = Number(p.elevation_m);
+      if (!Number.isFinite(chainage) || !Number.isFinite(elevation)) continue;
+      chainage_points.push({ chainage_m: chainage, elevation_m: elevation });
+    }
+  }
+  return {
+    kind: 'profile',
+    width_m: Math.min(500, Math.max(1, width)),
+    design_elevation_m: design,
+    chainage_points: sortChainagePoints(chainage_points),
+  };
+}
+
+export function defaultProfileSketch(
+  lengthM: number,
+  widthM: number,
+  referenceElevationM: number,
+  heightM: number,
+): ProfileSketch {
+  const length = Math.max(1, lengthM);
+  const design = referenceElevationM + heightM;
+  return {
+    kind: 'profile',
+    width_m: Math.min(500, Math.max(1, widthM)),
+    design_elevation_m: design,
+    chainage_points: [
+      { chainage_m: 0, elevation_m: referenceElevationM },
+      { chainage_m: length, elevation_m: referenceElevationM },
+    ],
+  };
+}
+
+export function sortChainagePoints(
+  points: { chainage_m: number; elevation_m: number }[],
+): { chainage_m: number; elevation_m: number }[] {
+  return [...points].sort((a, b) => a.chainage_m - b.chainage_m);
+}
+
+export function profileLengthM(points: { chainage_m: number; elevation_m: number }[]): number {
+  if (points.length === 0) return 0;
+  const chainages = points.map((p) => p.chainage_m);
+  return Math.max(...chainages) - Math.min(...chainages);
+}
+
+export function profileToApiPayload(sketch: ProfileSketch): ProfileSketch {
+  return {
+    kind: 'profile',
+    width_m: Math.min(500, Math.max(1, sketch.width_m)),
+    design_elevation_m: sketch.design_elevation_m,
+    chainage_points: sortChainagePoints(sketch.chainage_points).map((p) => ({
+      chainage_m: Math.round(p.chainage_m * 1000) / 1000,
+      elevation_m: Math.round(p.elevation_m * 1000) / 1000,
+    })),
+  };
+}
+
+export function estimateProfileVolumes(sketch: ProfileSketch): {
+  fill_m3: number;
+  cut_m3: number;
+} {
+  const points = sortChainagePoints(sketch.chainage_points);
+  if (points.length < 2) return { fill_m3: 0, cut_m3: 0 };
+  const design = sketch.design_elevation_m;
+  const width = sketch.width_m;
+  let fill = 0;
+  let cut = 0;
+  for (let i = 0; i < points.length - 1; i += 1) {
+    const s0 = points[i].chainage_m;
+    const z0 = points[i].elevation_m;
+    const s1 = points[i + 1].chainage_m;
+    const z1 = points[i + 1].elevation_m;
+    const ds = s1 - s0;
+    if (ds <= 0) continue;
+    const dz0 = design - z0;
+    const dz1 = design - z1;
+    fill += (width * ds * (Math.max(dz0, 0) + Math.max(dz1, 0))) / 2;
+    cut += (width * ds * (Math.max(-dz0, 0) + Math.max(-dz1, 0))) / 2;
+  }
+  return { fill_m3: fill, cut_m3: cut };
+}
+
+export function generatePadFromWells(input: PadWellLayoutInput): PadWellLayoutResult {
+  const ndsDeg = input.rotationDeg ?? DEFAULT_PAD_NDS_DEG;
+  const rotationDeg = ndsDegToMathRotationDeg(ndsDeg);
+  const positions = computeWellPositionsEastM(
+    input.wellCount,
+    input.wellsPerGroup,
+    input.wellSpacingM,
+    input.groupSpacingM,
+  );
+  const lastEast = positions[positions.length - 1]!;
+  const { leftM, bottomM, topM, endM } = input.margins;
+  const lengthM = leftM + lastEast + endM;
+  const widthM = bottomM + topM;
+  if (lengthM <= 0 || widthM <= 0 || lengthM > MAX_LENGTH || widthM > MAX_WIDTH) {
+    throw new PadWellLayoutError('pad dimensions exceed limits');
+  }
+
+  const rawCorners: PlanVertex[] = [
+    { east_m: -leftM, north_m: -bottomM },
+    { east_m: lastEast + endM, north_m: -bottomM },
+    { east_m: lastEast + endM, north_m: topM },
+    { east_m: -leftM, north_m: topM },
+  ];
+  const vertices = rawCorners.map((v) => rotatePlanPoint(v.east_m, v.north_m, rotationDeg));
+  const wellsLocal = positions.map((east) => rotatePlanPoint(east, 0, rotationDeg));
+  const sketch: PlanPolygonSketch = { kind: 'plan_polygon', vertices };
+  return {
+    sketch,
+    wellsLocal,
+    lengthM,
+    widthM,
+    rotationDeg: ndsDeg,
+    footprintAreaM2: polygonFootprintAreaM2(sketch),
+  };
 }

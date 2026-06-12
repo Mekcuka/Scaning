@@ -8,11 +8,22 @@ import {
   sketchFromCornerDrag,
   sketchFromEdgeDrag,
   sketchFromRotationDrag,
-  envelopeOuterVertices,
+  envelopeBermCrestInnerVertices,
+  envelopeBermCrestOuterVertices,
+  envelopeBermSoleInnerVertices,
   type EnvelopeWrapParams,
   type PlanEditTool,
   type PlanRectangleSketch,
 } from '../../lib/padEarthworkSketch';
+import {
+  buildPlanSketchViewBox,
+  planSketchGridLines,
+  type PlanSketchPan,
+} from '../../lib/planSketchViewport';
+import { DemPlanBackground } from './DemPlanBackground';
+import type { PadDemPreview } from '../../lib/padEarthworkDemPreview';
+import { envelopePlanInnerCrestSvgPath, envelopePlanRingSvgPath } from '../../lib/envelopePlan';
+import { usePlanSketchViewport } from './usePlanSketchViewport';
 
 const VIEW_PAD = 1.35;
 
@@ -23,10 +34,16 @@ interface PlanRectangleEditorProps {
   snapEnabled?: boolean;
   lockAspect?: boolean;
   zoom?: number;
+  onZoomChange?: (zoom: number) => void;
+  viewPan?: PlanSketchPan;
+  onViewPanChange?: (pan: PlanSketchPan) => void;
   fitViewNonce?: number;
   readOnly?: boolean;
   envelope?: EnvelopeWrapParams | null;
   showEdgeLengths?: boolean;
+  showDemOverlay?: boolean;
+  demPreview?: PadDemPreview | null;
+  demPreviewLoading?: boolean;
 }
 
 type DragKind = { type: 'corner'; index: number } | { type: 'edge'; index: number } | { type: 'rotate' };
@@ -38,13 +55,20 @@ export function PlanRectangleEditor({
   snapEnabled = true,
   lockAspect = false,
   zoom = 1,
+  onZoomChange,
+  viewPan = { east_m: 0, north_m: 0 },
+  onViewPanChange,
   fitViewNonce = 0,
   readOnly = false,
   envelope = null,
   showEdgeLengths = true,
+  showDemOverlay = false,
+  demPreview = null,
+  demPreviewLoading = false,
 }: PlanRectangleEditorProps) {
   const svgRef = useRef<SVGSVGElement>(null);
   const editorRef = useRef<HTMLDivElement>(null);
+  const canvasStackRef = useRef<HTMLDivElement>(null);
   const frozenHalfExtentRef = useRef<number | null>(null);
   const [drag, setDrag] = useState<DragKind | null>(null);
   const [stableHalfExtent, setStableHalfExtent] = useState(
@@ -58,43 +82,75 @@ export function PlanRectangleEditor({
     drag ? frozenHalfExtentRef.current : null,
     zoom,
   );
-  const viewBox = `${-viewHalf} ${-viewHalf} ${viewHalf * 2} ${viewHalf * 2}`;
+  const viewBox = buildPlanSketchViewBox(viewPan.east_m, viewPan.north_m, viewHalf);
+  const visibleMinEast = viewPan.east_m - viewHalf;
+  const visibleMaxEast = viewPan.east_m + viewHalf;
+  const visibleMinNorth = viewPan.north_m - viewHalf;
+  const visibleMaxNorth = viewPan.north_m + viewHalf;
+
+  const handlePanChange = useCallback(
+    (pan: PlanSketchPan) => {
+      onViewPanChange?.(pan);
+    },
+    [onViewPanChange],
+  );
+
+  const handleZoomChange = useCallback(
+    (nextZoom: number) => {
+      onZoomChange?.(nextZoom);
+    },
+    [onZoomChange],
+  );
+
+  const { isPanning, onPanPointerDown, onPanPointerMove, onPanPointerUp, onPanPointerCancel } =
+    usePlanSketchViewport({
+      containerRef: canvasStackRef,
+      svgRef,
+      zoom,
+      onZoomChange: handleZoomChange,
+      pan: viewPan,
+      onPanChange: handlePanChange,
+      viewHalf,
+    });
 
   const corners = useMemo(() => localPlanCorners(sketch), [sketch]);
   const edgeMids = useMemo(() => localPlanEdgeMidpoints(sketch), [sketch]);
   const rotHandle = useMemo(() => rotationHandlePosition(sketch), [sketch]);
   const polygonPoints = corners.map((c) => `${c.east_m},${-c.north_m}`).join(' ');
-  const outerVertices =
+  const padVerts = corners.map((c) => ({ east_m: c.east_m, north_m: c.north_m }));
+  const bermInnerVerts =
     envelope?.enabled && envelope.wrap_width_m > 0
-      ? envelopeOuterVertices(sketch, envelope.wrap_width_m)
+      ? envelopeBermSoleInnerVertices(sketch, envelope.wrap_width_m)
       : null;
-  const outerPoints = outerVertices?.map((v) => `${v.east_m},${-v.north_m}`).join(' ') ?? '';
+  const bermInnerCrestVerts =
+    envelope?.enabled && envelope.wrap_width_m > 0
+      ? envelopeBermCrestInnerVertices(sketch, envelope.wrap_width_m)
+      : null;
+  const bermOuterCrestVerts =
+    envelope?.enabled && envelope.wrap_width_m > 0
+      ? envelopeBermCrestOuterVertices(sketch, envelope.wrap_width_m)
+      : null;
+  const envelopeRingPath =
+    bermInnerVerts && bermInnerVerts.length >= 3
+      ? envelopePlanRingSvgPath(bermInnerVerts, padVerts)
+      : '';
+  const innerCrestPath =
+    bermInnerCrestVerts && bermInnerCrestVerts.length >= 3
+      ? envelopePlanInnerCrestSvgPath(bermInnerCrestVerts)
+      : '';
+  const outerCrestPath =
+    bermOuterCrestVerts && bermOuterCrestVerts.length >= 3
+      ? envelopePlanInnerCrestSvgPath(bermOuterCrestVerts)
+      : '';
 
   useEffect(() => {
     setStableHalfExtent(Math.max(sketch.length_m, sketch.width_m, 10) * VIEW_PAD);
   }, [fitViewNonce]);
 
-  useEffect(() => {
-    const el = editorRef.current;
-    if (!el) return;
-    const blockWheel = (e: WheelEvent) => {
-      e.preventDefault();
-      e.stopPropagation();
-    };
-    el.addEventListener('wheel', blockWheel, { passive: false });
-    return () => el.removeEventListener('wheel', blockWheel);
-  }, []);
-
-  const gridLines = useMemo(() => {
-    if (!snapEnabled) return [];
-    const step = SNAP_STEP_M;
-    const lines: { x1: number; y1: number; x2: number; y2: number }[] = [];
-    for (let v = -viewHalf; v <= viewHalf; v += step) {
-      lines.push({ x1: -viewHalf, y1: -v, x2: viewHalf, y2: -v });
-      lines.push({ x1: v, y1: -viewHalf, x2: v, y2: viewHalf });
-    }
-    return lines;
-  }, [snapEnabled, viewHalf]);
+  const gridLines = useMemo(
+    () => planSketchGridLines(viewPan.east_m, viewPan.north_m, viewHalf, snapStep),
+    [snapEnabled, viewHalf, viewPan.east_m, viewPan.north_m, snapStep],
+  );
 
   const clientToLocal = useCallback((clientX: number, clientY: number) => {
     const svg = svgRef.current;
@@ -156,9 +212,25 @@ export function PlanRectangleEditor({
 
   return (
     <div ref={editorRef} className="pad-earthwork-sketch-editor">
-      <svg
-        ref={svgRef}
-        className="pad-earthwork-sketch-editor__svg"
+      <div
+        ref={canvasStackRef}
+        className={`pad-earthwork-sketch-editor__canvas-stack${isPanning ? ' pad-earthwork-sketch-editor__canvas-stack--panning' : ''}`}
+        onPointerDown={onPanPointerDown}
+        onPointerMove={onPanPointerMove}
+        onPointerUp={onPanPointerUp}
+        onPointerCancel={onPanPointerCancel}
+      >
+        {showDemOverlay && (
+          <DemPlanBackground
+            preview={demPreview}
+            viewHalf={viewHalf}
+            pan={viewPan}
+            loading={demPreviewLoading}
+          />
+        )}
+        <svg
+          ref={svgRef}
+          className={`pad-earthwork-sketch-editor__svg${showDemOverlay ? ' pad-earthwork-sketch-editor__svg--dem' : ''}`}
         viewBox={viewBox}
         onPointerMove={onPointerMove}
         onPointerUp={onPointerUp}
@@ -176,8 +248,20 @@ export function PlanRectangleEditor({
             className="pad-earthwork-sketch-editor__grid"
           />
         ))}
-        <line x1={-viewHalf} y1={0} x2={viewHalf} y2={0} className="pad-earthwork-sketch-editor__axis" />
-        <line x1={0} y1={-viewHalf} x2={0} y2={viewHalf} className="pad-earthwork-sketch-editor__axis" />
+        <line
+          x1={visibleMinEast}
+          y1={0}
+          x2={visibleMaxEast}
+          y2={0}
+          className="pad-earthwork-sketch-editor__axis"
+        />
+        <line
+          x1={0}
+          y1={-visibleMaxNorth}
+          x2={0}
+          y2={-visibleMinNorth}
+          className="pad-earthwork-sketch-editor__axis"
+        />
         <line
           x1={0}
           y1={0}
@@ -187,10 +271,23 @@ export function PlanRectangleEditor({
           markerEnd="url(#pad-north-arrow)"
         />
         <polygon points={polygonPoints} className="pad-earthwork-sketch-editor__footprint" />
-        {outerVertices && outerPoints && (
-          <polygon
-            points={outerPoints}
-            className="pad-earthwork-sketch-editor__footprint pad-earthwork-sketch-editor__footprint--envelope"
+        {envelopeRingPath && (
+          <path
+            d={envelopeRingPath}
+            fillRule="evenodd"
+            className="pad-earthwork-sketch-editor__footprint--envelope-ring"
+          />
+        )}
+        {outerCrestPath && (
+          <path
+            d={outerCrestPath}
+            className="pad-earthwork-sketch-editor__footprint--envelope-outer-crest"
+          />
+        )}
+        {innerCrestPath && (
+          <path
+            d={innerCrestPath}
+            className="pad-earthwork-sketch-editor__footprint--envelope-inner-crest"
           />
         )}
         <circle cx={0} cy={0} r={handleRadius * 0.45} className="pad-earthwork-sketch-editor__center" />
@@ -269,11 +366,15 @@ export function PlanRectangleEditor({
           </marker>
         </defs>
       </svg>
+      </div>
       <p className="pad-earthwork-sketch-editor__hint text-xs">
         {tool === 'corners' && 'Перетащите углы. Центр — точка куста на карте.'}
         {tool === 'edges' && 'Перетащите середину стороны для изменения длины или ширины.'}
         {tool === 'rotate' && 'Перетащите маркер поворота вокруг центра.'}
         {snapEnabled && ' Привязка к сетке 1 м.'}
+        {' Колёсико — масштаб; средняя кнопка или Space+перетаскивание — перемещение.'}
+        {envelopeRingPath &&
+          ' Оранжевое кольцо — подошва забора (W) на верху насыпи; пунктир — внешняя и внутренняя бровка.'}
       </p>
     </div>
   );

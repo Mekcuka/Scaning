@@ -4,7 +4,9 @@ import {
   computeStableViewHalfExtent,
   resolvePlanAxisDrag,
   EDGE_HIT_PX,
-  envelopeOuterVertices,
+  envelopeBermCrestInnerVertices,
+  envelopeBermCrestOuterVertices,
+  envelopeBermSoleInnerVertices,
   insertPolygonVertexOnEdge,
   isPolygonSketchClosed,
   metersPerScreenPixel,
@@ -23,8 +25,18 @@ import {
   type EnvelopeWrapParams,
   type PlanAxisConstraint,
   type PlanPolygonSketch,
+  type PlanVertex,
   type PolygonEditTool,
 } from '../../lib/padEarthworkSketch';
+import {
+  buildPlanSketchViewBox,
+  planSketchGridLines,
+  type PlanSketchPan,
+} from '../../lib/planSketchViewport';
+import { DemPlanBackground } from './DemPlanBackground';
+import { envelopePlanInnerCrestSvgPath, envelopePlanRingSvgPath } from '../../lib/envelopePlan';
+import type { PadDemPreview } from '../../lib/padEarthworkDemPreview';
+import { usePlanSketchViewport } from './usePlanSketchViewport';
 
 interface PlanPolygonEditorProps {
   sketch: PlanPolygonSketch;
@@ -32,10 +44,17 @@ interface PlanPolygonEditorProps {
   tool?: PolygonEditTool;
   snapEnabled?: boolean;
   zoom?: number;
+  onZoomChange?: (zoom: number) => void;
+  viewPan?: PlanSketchPan;
+  onViewPanChange?: (pan: PlanSketchPan) => void;
   fitViewNonce?: number;
   readOnly?: boolean;
   envelope?: EnvelopeWrapParams | null;
   showEdgeLengths?: boolean;
+  wellsLocal?: PlanVertex[];
+  showDemOverlay?: boolean;
+  demPreview?: PadDemPreview | null;
+  demPreviewLoading?: boolean;
 }
 
 type DragState =
@@ -60,13 +79,21 @@ export function PlanPolygonEditor({
   tool = 'vertices',
   snapEnabled = true,
   zoom = 1,
+  onZoomChange,
+  viewPan = { east_m: 0, north_m: 0 },
+  onViewPanChange,
   fitViewNonce = 0,
   readOnly = false,
   envelope = null,
   showEdgeLengths = false,
+  wellsLocal = [],
+  showDemOverlay = false,
+  demPreview = null,
+  demPreviewLoading = false,
 }: PlanPolygonEditorProps) {
   const svgRef = useRef<SVGSVGElement>(null);
   const editorRef = useRef<HTMLDivElement>(null);
+  const canvasStackRef = useRef<HTMLDivElement>(null);
   const frozenHalfExtentRef = useRef<number | null>(null);
   const axisConstraintRef = useRef<PlanAxisConstraint | null>(null);
   const [drag, setDrag] = useState<DragState | null>(null);
@@ -81,18 +108,62 @@ export function PlanPolygonEditor({
     drag ? frozenHalfExtentRef.current : null,
     zoom,
   );
-  const viewBox = `${-viewHalf} ${-viewHalf} ${viewHalf * 2} ${viewHalf * 2}`;
+  const viewBox = buildPlanSketchViewBox(viewPan.east_m, viewPan.north_m, viewHalf);
+  const visibleMinEast = viewPan.east_m - viewHalf;
+  const visibleMaxEast = viewPan.east_m + viewHalf;
+  const visibleMinNorth = viewPan.north_m - viewHalf;
+  const visibleMaxNorth = viewPan.north_m + viewHalf;
+
+  const handlePanChange = useCallback(
+    (pan: PlanSketchPan) => {
+      onViewPanChange?.(pan);
+    },
+    [onViewPanChange],
+  );
+
+  const handleZoomChange = useCallback(
+    (nextZoom: number) => {
+      onZoomChange?.(nextZoom);
+    },
+    [onZoomChange],
+  );
+
+  const { isPanning, onPanPointerDown, onPanPointerMove, onPanPointerUp, onPanPointerCancel } =
+    usePlanSketchViewport({
+      containerRef: canvasStackRef,
+      svgRef,
+      zoom,
+      onZoomChange: handleZoomChange,
+      pan: viewPan,
+      onPanChange: handlePanChange,
+      viewHalf,
+    });
+
+  const polygonPoints = sketch.vertices.map((v) => `${v.east_m},${-v.north_m}`).join(' ');
   const closed = isPolygonSketchClosed(sketch);
   const area = closed ? polygonFootprintAreaM2(sketch) : 0;
   const perimeter = sketch.vertices.length >= 2 ? polygonPerimeterM(sketch.vertices) : 0;
 
-  const outerVertices =
+  const bermInnerVerts =
     envelope?.enabled && closed && envelope.wrap_width_m > 0
-      ? envelopeOuterVertices(sketch, envelope.wrap_width_m)
+      ? envelopeBermSoleInnerVertices(sketch, envelope.wrap_width_m)
       : null;
-  const outerPoints = outerVertices?.map((v) => `${v.east_m},${-v.north_m}`).join(' ') ?? '';
-
-  const polygonPoints = sketch.vertices.map((v) => `${v.east_m},${-v.north_m}`).join(' ');
+  const bermInnerCrestVerts =
+    envelope?.enabled && closed && envelope.wrap_width_m > 0
+      ? envelopeBermCrestInnerVertices(sketch, envelope.wrap_width_m)
+      : null;
+  const bermOuterCrestVerts =
+    envelope?.enabled && closed && envelope.wrap_width_m > 0
+      ? envelopeBermCrestOuterVertices(sketch, envelope.wrap_width_m)
+      : null;
+  const envelopeRingPath =
+    bermInnerVerts && closed
+      ? envelopePlanRingSvgPath(bermInnerVerts, sketch.vertices)
+      : '';
+  const innerCrestPath =
+    bermInnerCrestVerts && closed ? envelopePlanInnerCrestSvgPath(bermInnerCrestVerts) : '';
+  const outerCrestPath =
+    bermOuterCrestVerts && closed ? envelopePlanInnerCrestSvgPath(bermOuterCrestVerts) : '';
   const previewPoints =
     cursor && sketch.vertices.length > 0 && tool === 'draw'
       ? [...sketch.vertices.map((v) => `${v.east_m},${-v.north_m}`), `${cursor.east_m},${-cursor.north_m}`].join(' ')
@@ -102,27 +173,10 @@ export function PlanPolygonEditor({
     setStableHalfExtent(polygonViewBboxHalfExtent(sketch) * VIEW_PAD_CONSTANT);
   }, [fitViewNonce]);
 
-  useEffect(() => {
-    const el = editorRef.current;
-    if (!el) return;
-    const blockWheel = (e: WheelEvent) => {
-      e.preventDefault();
-      e.stopPropagation();
-    };
-    el.addEventListener('wheel', blockWheel, { passive: false });
-    return () => el.removeEventListener('wheel', blockWheel);
-  }, []);
-
-  const gridLines = useMemo(() => {
-    if (!snapEnabled) return [];
-    const step = SNAP_STEP_M;
-    const lines: { x1: number; y1: number; x2: number; y2: number }[] = [];
-    for (let v = -viewHalf; v <= viewHalf; v += step) {
-      lines.push({ x1: -viewHalf, y1: -v, x2: viewHalf, y2: -v });
-      lines.push({ x1: v, y1: -viewHalf, x2: v, y2: viewHalf });
-    }
-    return lines;
-  }, [snapEnabled, viewHalf]);
+  const gridLines = useMemo(
+    () => planSketchGridLines(viewPan.east_m, viewPan.north_m, viewHalf, snapStep),
+    [snapEnabled, viewHalf, viewPan.east_m, viewPan.north_m, snapStep],
+  );
 
   const handleRadius = Math.max(2.5, stableHalfExtent * 0.026);
   const dimFont = Math.max(2.5, stableHalfExtent * 0.03);
@@ -283,9 +337,25 @@ export function PlanPolygonEditor({
 
   return (
     <div ref={editorRef} className="pad-earthwork-sketch-editor">
-      <svg
-        ref={svgRef}
-        className={`pad-earthwork-sketch-editor__svg${tool === 'draw' ? ' pad-earthwork-sketch-editor__svg--crosshair' : ''}${tool === 'erase' ? ' pad-earthwork-sketch-editor__svg--erase' : ''}${tool === 'insert' ? ' pad-earthwork-sketch-editor__svg--insert' : ''}${tool === 'vertices' ? ' pad-earthwork-sketch-editor__svg--vertices' : ''}`}
+      <div
+        ref={canvasStackRef}
+        className={`pad-earthwork-sketch-editor__canvas-stack${isPanning ? ' pad-earthwork-sketch-editor__canvas-stack--panning' : ''}`}
+        onPointerDown={onPanPointerDown}
+        onPointerMove={onPanPointerMove}
+        onPointerUp={onPanPointerUp}
+        onPointerCancel={onPanPointerCancel}
+      >
+        {showDemOverlay && (
+          <DemPlanBackground
+            preview={demPreview}
+            viewHalf={viewHalf}
+            pan={viewPan}
+            loading={demPreviewLoading}
+          />
+        )}
+        <svg
+          ref={svgRef}
+          className={`pad-earthwork-sketch-editor__svg${tool === 'draw' ? ' pad-earthwork-sketch-editor__svg--crosshair' : ''}${tool === 'erase' ? ' pad-earthwork-sketch-editor__svg--erase' : ''}${tool === 'insert' ? ' pad-earthwork-sketch-editor__svg--insert' : ''}${tool === 'vertices' ? ' pad-earthwork-sketch-editor__svg--vertices' : ''}${showDemOverlay ? ' pad-earthwork-sketch-editor__svg--dem' : ''}`}
         viewBox={viewBox}
         onClick={onCanvasClick}
         onPointerMove={onPointerMove}
@@ -307,8 +377,20 @@ export function PlanPolygonEditor({
             className="pad-earthwork-sketch-editor__grid"
           />
         ))}
-        <line x1={-viewHalf} y1={0} x2={viewHalf} y2={0} className="pad-earthwork-sketch-editor__axis" />
-        <line x1={0} y1={-viewHalf} x2={0} y2={viewHalf} className="pad-earthwork-sketch-editor__axis" />
+        <line
+          x1={visibleMinEast}
+          y1={0}
+          x2={visibleMaxEast}
+          y2={0}
+          className="pad-earthwork-sketch-editor__axis"
+        />
+        <line
+          x1={0}
+          y1={-visibleMaxNorth}
+          x2={0}
+          y2={-visibleMinNorth}
+          className="pad-earthwork-sketch-editor__axis"
+        />
         <line
           x1={0}
           y1={0}
@@ -318,10 +400,23 @@ export function PlanPolygonEditor({
           markerEnd="url(#pad-polygon-north-arrow)"
         />
 
-        {outerVertices && outerPoints && (
-          <polygon
-            points={outerPoints}
-            className="pad-earthwork-sketch-editor__footprint pad-earthwork-sketch-editor__footprint--envelope"
+        {envelopeRingPath && (
+          <path
+            d={envelopeRingPath}
+            fillRule="evenodd"
+            className="pad-earthwork-sketch-editor__footprint--envelope-ring"
+          />
+        )}
+        {outerCrestPath && (
+          <path
+            d={outerCrestPath}
+            className="pad-earthwork-sketch-editor__footprint--envelope-outer-crest"
+          />
+        )}
+        {innerCrestPath && (
+          <path
+            d={innerCrestPath}
+            className="pad-earthwork-sketch-editor__footprint--envelope-inner-crest"
           />
         )}
 
@@ -389,6 +484,25 @@ export function PlanPolygonEditor({
 
         <circle cx={0} cy={0} r={handleRadius * 0.45} className="pad-earthwork-sketch-editor__center" />
 
+        {wellsLocal.map((well, i) => (
+          <g key={`well-${i}`}>
+            <circle
+              cx={well.east_m}
+              cy={-well.north_m}
+              r={handleRadius * 0.75}
+              className="pad-earthwork-sketch-editor__well"
+            />
+            <text
+              x={well.east_m}
+              y={-well.north_m + dimFont * 0.35}
+              className="pad-earthwork-sketch-editor__well-label"
+              style={{ fontSize: dimFont * 0.75 }}
+            >
+              {i + 1}
+            </text>
+          </g>
+        ))}
+
         {sketch.vertices.map((v, i) => (
           <g key={`v-${i}`}>
             <circle
@@ -440,12 +554,17 @@ export function PlanPolygonEditor({
           </marker>
         </defs>
       </svg>
+      </div>
       <p className="pad-earthwork-sketch-editor__hint text-xs">
         {hint}
         {snapEnabled && ' Привязка к сетке 1 м.'}
+        {' Колёсико — масштаб; средняя кнопка или Space+перетаскивание — перемещение.'}
         {closed && perimeter > 0 && ` Периметр: ${perimeter.toLocaleString('ru-RU', { maximumFractionDigits: 0 })} м.`}
-        {outerVertices && ' Внешний контур — обволакивание.'}
+        {envelopeRingPath &&
+          ' Оранжевое кольцо — подошва забора (W) на верху насыпи; пунктир — внешняя и внутренняя бровка.'}
       </p>
     </div>
   );
 }
+
+export default PlanPolygonEditor;
