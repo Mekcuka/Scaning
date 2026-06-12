@@ -6,28 +6,23 @@ import {
   padEarthworkApi,
   type PadDemStatus,
   type PadEarthworkComputeResult,
+  type PadTerrainMode,
 } from '../../lib/api/padEarthworkApi';
 import {
   createDefaultPlanSketch,
   createDefaultPolygonSketch,
   createEmptyPolygonSketch,
   DEFAULT_ENVELOPE_WRAP_WIDTH_M,
-  defaultProfileSketch,
   estimateEnvelopeFillM3,
   estimateFillM3,
-  estimateProfileVolumes,
   isPlanPolygon,
   isPlanRectangle,
   isPolygonSketchClosed,
   PAD_SIZE_PRESETS,
   planFromFormFields,
-  parseSketchFromLast,
-  parseProfileFromLast,
   polygonBoundingBox,
   polygonPerimeterM,
   polygonToRectangle,
-  profileLengthM,
-  profileToApiPayload,
   rectangleToPolygon,
   shapeVerticesForEnvelope,
   sketchFootprintAreaM2,
@@ -38,7 +33,6 @@ import {
   type PlanShapeSketch,
   type PlanVertex,
   type PolygonEditTool,
-  type ProfileSketch,
   type ShapeMode,
 } from '../../lib/padEarthworkSketch';
 import {
@@ -53,26 +47,17 @@ import {
   DEFAULT_PAD_WELL_SPACING_M,
 } from '../../lib/infraPadWells';
 import { clampNdsDeg, DEFAULT_PAD_NDS_DEG, parseNdsDeg, resolveGeneratorNdsDeg } from '../../lib/infraPadEarthwork';
-import { formatChainageM, formatProfileElevationM } from '../../lib/profileSketchAxes';
 import { clampPlanSketchZoom, type PlanSketchPan } from '../../lib/planSketchViewport';
-import type { ProfileSketchPan } from '../../lib/profileSketchViewport';
 import { DimensionStepper } from './DimensionStepper';
+import { ReferenceElevationDemMinButton } from './ReferenceElevationDemMinButton';
 import { PlanGeneratorPanel } from './PlanGeneratorPanel';
 import PlanPolygonEditor from './PlanPolygonEditor';
 import { PlanRectangleEditor } from './PlanRectangleEditor';
 import { PlanSketchToolbar } from './PlanSketchToolbar';
 import { PlanViewToolbar } from './PlanViewToolbar';
 import { PolygonSketchToolbar } from './PolygonSketchToolbar';
-import { estimateProfileEnvelopeVolumes } from '../../lib/profileEnvelope';
 import { EnvelopeSection } from './EnvelopeSection';
 import { EnvelopePlanLegend } from './EnvelopePlanLegend';
-import { ProfileEditor } from './ProfileEditor';
-import { ProfileLegend } from './ProfileLegend';
-import {
-  ProfileSketchToolbar,
-  profileToolbarZoomIn,
-  profileToolbarZoomOut,
-} from './ProfileSketchToolbar';
 import { DemPlanLegend } from './DemPlanLegend';
 import { formatElevationM } from '../../lib/padEarthworkDemPreview';
 import { PadEarthworkScene3D, type PadEarthworkScene3DHandle } from './PadEarthworkScene3D';
@@ -89,7 +74,6 @@ export interface PadEarthworkSketchModalProps {
   rotationDeg: string;
   referenceElevationM: string;
   initialSketch?: PlanShapeSketch | null;
-  initialProfile?: ProfileSketch | null;
   initialWellsLocal?: PlanVertex[];
   initialEnvelope?: { enabled: boolean; wrap_width_m: number } | null;
   padWellCount?: string;
@@ -124,7 +108,7 @@ export interface PadEarthworkSketchModalProps {
   terrainMode?: 'flat' | 'dem';
 }
 
-type TabId = 'plan' | 'profile' | 'scene3d';
+type TabId = 'plan' | 'scene3d';
 
 type GeneratorFields = {
   padWellCount: string;
@@ -182,7 +166,6 @@ export function PadEarthworkSketchModal({
   rotationDeg,
   referenceElevationM,
   initialSketch,
-  initialProfile,
   initialWellsLocal,
   initialEnvelope,
   padWellCount = String(DEFAULT_PAD_WELL_COUNT),
@@ -227,6 +210,7 @@ export function PadEarthworkSketchModal({
   const [localHeight, setLocalHeight] = useState(heightM);
   const [localRef, setLocalRef] = useState(referenceElevationM);
   const [result, setResult] = useState<PadEarthworkComputeResult | null>(null);
+  const [sandDemandApplied, setSandDemandApplied] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [sketchDirty, setSketchDirty] = useState(false);
   const [saveMessage, setSaveMessage] = useState<string | null>(null);
@@ -256,25 +240,16 @@ export function PadEarthworkSketchModal({
     () => terrainMode === 'dem' && Boolean(demStatus?.asset_id),
   );
   const [debouncedPreviewKey, setDebouncedPreviewKey] = useState('');
-  const [profileSketch, setProfileSketch] = useState<ProfileSketch>(() => {
-    if (initialProfile) return initialProfile;
-    const len = Number(lengthM.replace(',', '.')) || 120;
-    const wid = Number(widthM.replace(',', '.')) || 80;
-    const ref = referenceElevationM.trim() === '' ? 0 : Number(referenceElevationM.replace(',', '.'));
-    const h = Number(heightM.replace(',', '.')) || 2;
-    return defaultProfileSketch(len, wid, Number.isFinite(ref) ? ref : 0, h);
-  });
-  const [profileDirty, setProfileDirty] = useState(false);
-  const [profileZoom, setProfileZoom] = useState(1);
-  const [profilePan, setProfilePan] = useState<ProfileSketchPan>({ chainage_m: 60, elevation_m: 0 });
-  const [profileFitNonce, setProfileFitNonce] = useState(0);
-  const [profileSelectedIndex, setProfileSelectedIndex] = useState<number | null>(null);
   const scene3dRef = useRef<PadEarthworkScene3DHandle>(null);
   const [scene3dZoomPercent, setScene3dZoomPercent] = useState(100);
 
   useEffect(() => {
     if (demStatus?.asset_id) setLocalDemAssetId(demStatus.asset_id);
   }, [demStatus?.asset_id]);
+
+  useEffect(() => {
+    setSandDemandApplied(false);
+  }, [result?.volumes.fill_m3]);
 
   const demAvailable = Boolean(localDemAssetId);
   const heightRefForPreview = parseHeightRef(localHeight, localRef);
@@ -360,86 +335,6 @@ export function PadEarthworkSketchModal({
   const demPreviewLoading =
     (tab === 'scene3d' || showDemOverlay) &&
     (demPreviewQuery.isFetching || debouncedPreviewKey !== previewRequestKey);
-
-  useEffect(() => {
-    if (initialProfile) {
-      setProfileSketch(initialProfile);
-      setProfileDirty(false);
-    }
-  }, [initialProfile]);
-
-  const updateProfileSketch = useCallback((next: ProfileSketch | ((prev: ProfileSketch) => ProfileSketch)) => {
-    setProfileDirty(true);
-    setSaveMessage(null);
-    setProfileSketch(next);
-  }, []);
-
-  const sampleDemProfileMutation = useMutation({
-    mutationFn: async () => {
-      const params = heightRefForPreview;
-      if (!params) throw new Error('Укажите высоту насыпи и опорную отметку');
-      return padEarthworkApi.sampleDemProfile(projectId, objectId, { params, step_m: 1 });
-    },
-    onSuccess: (data) => {
-      updateProfileSketch((prev) => ({
-        ...prev,
-        chainage_points: data.chainage_points,
-        design_elevation_m: data.design_elevation_m,
-      }));
-      setError(null);
-    },
-    onError: (err: Error) => setError(err.message || 'Ошибка съёмки профиля DEM'),
-  });
-
-  const profileSaveMutation = useMutation({
-    mutationFn: async () => {
-      const heightRef = parseHeightRef(localHeight, localRef);
-      if (!heightRef) throw new Error('Укажите высоту насыпи и опорную отметку');
-      if (profileSketch.chainage_points.length < 2) {
-        throw new Error('Добавьте минимум 2 точки рельефа');
-      }
-      return padEarthworkApi.saveProfile(projectId, objectId, {
-        profile: profileToApiPayload(profileSketch),
-        params: heightRef,
-        envelope: envelopeEnabled
-          ? { enabled: true, wrap_width_m: wrapWidthM }
-          : { enabled: false, wrap_width_m: wrapWidthM },
-      });
-    },
-    onSuccess: () => {
-      setProfileDirty(false);
-      setSaveMessage('Профиль сохранён. Объёмы обновляются только по кнопке «Рассчитать».');
-      setError(null);
-      void queryClient.invalidateQueries({ queryKey: ['padEarthworkLast', projectId, objectId] });
-      void queryClient.invalidateQueries({ queryKey: ['infra', projectId] });
-      onSaveSuccess?.();
-    },
-    onError: (err: Error) => setError(err.message || 'Ошибка сохранения профиля'),
-  });
-
-  const profileComputeMutation = useMutation({
-    mutationFn: async () => {
-      const heightRef = parseHeightRef(localHeight, localRef);
-      if (!heightRef) throw new Error('Укажите высоту насыпи и опорную отметку');
-      if (profileSketch.chainage_points.length < 2) {
-        throw new Error('Добавьте минимум 2 точки рельефа');
-      }
-      return padEarthworkApi.compute(projectId, objectId, {
-        profile: profileToApiPayload(profileSketch),
-        params: heightRef,
-        envelope: envelopeEnabled
-          ? { enabled: true, wrap_width_m: wrapWidthM }
-          : undefined,
-        terrain: terrainMode === 'dem' && localDemAssetId ? { mode: 'dem', dem_asset_id: localDemAssetId } : { mode: 'flat' },
-      });
-    },
-    onSuccess: (data) => {
-      setResult(data);
-      setError(null);
-      onComputeSuccess(data);
-    },
-    onError: (err: Error) => setError(err.message || 'Ошибка расчёта'),
-  });
 
   const patchGeneratorField = useCallback(
     <K extends keyof GeneratorFields>(key: K, value: GeneratorFields[K]) => {
@@ -544,6 +439,13 @@ export function PadEarthworkSketchModal({
     });
   }, [sketch, rectangleSketch, generatorFields.rotationDeg, localHeight, localRef, onApplyToFields]);
 
+  const buildTerrain = useCallback((): PadTerrainMode => {
+    if (localDemAssetId) {
+      return { mode: 'dem', dem_asset_id: localDemAssetId };
+    }
+    return { mode: 'flat' };
+  }, [localDemAssetId]);
+
   const computeMutation = useMutation({
     mutationFn: async () => {
       const heightRef = parseHeightRef(localHeight, localRef);
@@ -557,6 +459,7 @@ export function PadEarthworkSketchModal({
         envelope: envelopeEnabled
           ? { enabled: true, wrap_width_m: wrapWidthM }
           : undefined,
+        terrain: buildTerrain(),
       });
     },
     onSuccess: (data) => {
@@ -723,17 +626,13 @@ export function PadEarthworkSketchModal({
   };
 
   const fillM3 = result?.volumes.fill_m3;
+
   const areaTop = sketchFootprintAreaM2(sketch);
   const heightNum = Number(localHeight.replace(',', '.'));
   const polygonClosed = isPlanPolygon(sketch) && isPolygonSketchClosed(sketch);
   const canCompute = shapeMode === 'rectangle' || polygonClosed;
-  const canProfileCompute = profileSketch.chainage_points.length >= 2;
-  const profileEnvelopeActive = envelopeEnabled && wrapWidthM > 0;
-  const profileEstimated = profileEnvelopeActive
-    ? estimateProfileEnvelopeVolumes(profileSketch, heightNum, wrapWidthM)
-    : estimateProfileVolumes(profileSketch);
   const envelopeParams =
-    profileEnvelopeActive ? { enabled: true as const, wrap_width_m: wrapWidthM } : null;
+    envelopeEnabled && wrapWidthM > 0 ? { enabled: true as const, wrap_width_m: wrapWidthM } : null;
   const envelopeActive = envelopeParams != null && canCompute;
   const bermPerimeterM = envelopeActive
     ? polygonPerimeterM(shapeVerticesForEnvelope(sketch))
@@ -742,19 +641,13 @@ export function PadEarthworkSketchModal({
     ? estimateEnvelopeFillM3(sketch, heightNum, wrapWidthM)
     : estimateFillM3(sketch, heightNum);
 
-  const profileLength = profileLengthM(profileSketch.chainage_points);
-  const selectedProfilePoint =
-    profileSelectedIndex != null ? profileSketch.chainage_points[profileSelectedIndex] : null;
-
   return (
     <AppModal
       title="Схема площадки"
       subtitle={
-        tab === 'profile'
-          ? 'Профиль — поперечник вдоль центральной линии площадки (L × НДС из плана)'
-          : tab === 'scene3d'
-            ? 'Объём — площадка на рельефе DEM'
-            : 'План (вид сверху) — прямоугольник или произвольный контур'
+        tab === 'scene3d'
+          ? 'Объём — площадка на рельефе DEM'
+          : 'План (вид сверху) — прямоугольник или произвольный контур'
       }
       onClose={onClose}
       size="lg"
@@ -771,46 +664,32 @@ export function PadEarthworkSketchModal({
             <button
               type="button"
               className="btn btn-secondary"
-              disabled={
-                tab === 'profile'
-                  ? profileSaveMutation.isPending ||
-                    profileComputeMutation.isPending ||
-                    !canProfileCompute
-                  : saveMutation.isPending || computeMutation.isPending || !canCompute
-              }
-              onClick={() =>
-                tab === 'profile' ? profileSaveMutation.mutate() : saveMutation.mutate()
-              }
+              disabled={saveMutation.isPending || computeMutation.isPending || !canCompute}
+              onClick={() => saveMutation.mutate()}
             >
-              {(tab === 'profile' ? profileSaveMutation.isPending : saveMutation.isPending)
-                ? 'Сохранение…'
-                : 'Сохранить'}
+              {saveMutation.isPending ? 'Сохранение…' : 'Сохранить'}
             </button>
             <button
               type="button"
               className="btn btn-primary"
-              disabled={
-                tab === 'profile'
-                  ? profileComputeMutation.isPending ||
-                    profileSaveMutation.isPending ||
-                    !canProfileCompute
-                  : computeMutation.isPending || saveMutation.isPending || !canCompute
-              }
-              onClick={() =>
-                tab === 'profile' ? profileComputeMutation.mutate() : computeMutation.mutate()
-              }
+              disabled={computeMutation.isPending || saveMutation.isPending || !canCompute}
+              onClick={() => computeMutation.mutate()}
             >
-              {(tab === 'profile' ? profileComputeMutation.isPending : computeMutation.isPending)
-                ? 'Расчёт…'
-                : 'Рассчитать'}
+              {computeMutation.isPending ? 'Расчёт…' : 'Рассчитать'}
             </button>
             {fillM3 != null && (
               <button
                 type="button"
                 className="btn btn-secondary"
-                onClick={() => onApplySandDemand(fillM3)}
+                disabled={sandDemandApplied}
+                onClick={() => {
+                  onApplySandDemand(fillM3);
+                  setSandDemandApplied(true);
+                }}
               >
-                Применить {fillM3.toLocaleString('ru-RU')} м³ к песку
+                {sandDemandApplied
+                  ? 'Принято'
+                  : `Применить ${fillM3.toLocaleString('ru-RU')} м³ к песку`}
               </button>
             )}
           </div>
@@ -831,15 +710,6 @@ export function PadEarthworkSketchModal({
             onClick={() => setTab('plan')}
           >
             План
-          </button>
-          <button
-            type="button"
-            role="tab"
-            aria-selected={tab === 'profile'}
-            className={`pad-earthwork-sketch-modal__tab${tab === 'profile' ? ' pad-earthwork-sketch-modal__tab--active' : ''}`}
-            onClick={() => setTab('profile')}
-          >
-            Профиль
           </button>
           <button
             type="button"
@@ -1117,7 +987,7 @@ export function PadEarthworkSketchModal({
                   </div>
                   {envelopeActive && bermPerimeterM != null && (
                     <div className="pad-earthwork-sketch-modal__stat-card">
-                      <span className="pad-earthwork-sketch-modal__stat-label">Периметр забора</span>
+                      <span className="pad-earthwork-sketch-modal__stat-label">Периметр обваловки</span>
                       <strong>
                         {bermPerimeterM.toLocaleString('ru-RU', { maximumFractionDigits: 1 })} м
                       </strong>
@@ -1131,7 +1001,7 @@ export function PadEarthworkSketchModal({
                   {estimatedFill != null && canCompute && (
                     <div className="pad-earthwork-sketch-modal__stat-card pad-earthwork-sketch-modal__stat-card--accent">
                       <span className="pad-earthwork-sketch-modal__stat-label">
-                        {envelopeActive ? 'Оценка отсыпки (забор)' : 'Оценка отсыпки'}
+                        {envelopeActive ? 'Оценка отсыпки (обваловка)' : 'Оценка отсыпки'}
                       </span>
                       <strong>{estimatedFill.toLocaleString('ru-RU')} м³</strong>
                     </div>
@@ -1243,7 +1113,30 @@ export function PadEarthworkSketchModal({
                     min={-500}
                     max={5000}
                     readOnly={readOnly}
-                    onChange={(n) => setLocalRef(n.toFixed(2))}
+                    onChange={(n) => {
+                      setLocalRef(n.toFixed(2));
+                      setResult(null);
+                    }}
+                    trailingAction={
+                      <ReferenceElevationDemMinButton
+                        projectId={projectId}
+                        objectId={objectId}
+                        sketch={sketchToApiPayload(sketch)}
+                        params={heightRefForPreview}
+                        demAvailable={demAvailable}
+                        readOnly={readOnly}
+                        preview={
+                          demPreviewData && debouncedPreviewKey === previewRequestKey
+                            ? demPreviewData
+                            : null
+                        }
+                        onApply={(n) => {
+                          setLocalRef(n.toFixed(2));
+                          setResult(null);
+                        }}
+                        onError={(msg) => setError(msg)}
+                      />
+                    }
                   />
                 </div>
 
@@ -1257,12 +1150,16 @@ export function PadEarthworkSketchModal({
                       Выемка: <strong>{result.volumes.cut_m3.toLocaleString('ru-RU')}</strong> м³
                     </p>
                     <p className="object-detail-panel__hint text-xs">
+                      Отсыпка и выемка считаются независимо: изъятый грунт не идёт в насыпь.
+                    </p>
+                    <p className="object-detail-panel__hint text-xs">
                       Верх площадки: {result.design.top_elevation_m} м
+                      {demAvailable ? ' · по DEM' : ' · плоская опорная'}
                     </p>
                     {result.warnings?.includes('envelope_volume_is_truncated_pyramid_approximation') && (
                       <p className="object-detail-panel__hint text-xs">
                         Серверный объём — упрощённая усечённая пирамида (legacy planner). Оценка
-                        забора в sidebar — кольцо по периметру (вариант A).
+                        обваловки в sidebar — кольцо по периметру (вариант A).
                       </p>
                     )}
                     {result.warnings?.includes('polygon_mesh_is_bbox_approximation') && (
@@ -1277,205 +1174,6 @@ export function PadEarthworkSketchModal({
                 )}
                 {saveMessage && (
                   <p className="object-detail-panel__hint text-xs">{saveMessage}</p>
-                )}
-              </aside>
-            </div>
-          </>
-        )}
-
-        {tab === 'profile' && (
-          <>
-            <ProfileSketchToolbar
-              zoom={profileZoom}
-              onZoomIn={() => setProfileZoom((z) => profileToolbarZoomIn(z))}
-              onZoomOut={() => setProfileZoom((z) => profileToolbarZoomOut(z))}
-              onFitView={() => {
-                setProfileZoom(1);
-                setProfileFitNonce((n) => n + 1);
-              }}
-              onSampleDem={() => sampleDemProfileMutation.mutate()}
-              sampleDemPending={sampleDemProfileMutation.isPending}
-              demAvailable={demAvailable}
-              pointCount={profileSketch.chainage_points.length}
-              profileLengthM={profileLength}
-              onAddPoint={() => {
-                const len = profileLength || Number(lengthM) || 120;
-                const mid = len / 2;
-                const ref = Number(localRef.replace(',', '.')) || 0;
-                updateProfileSketch((prev) => ({
-                  ...prev,
-                  chainage_points: [
-                    ...prev.chainage_points,
-                    { chainage_m: mid, elevation_m: ref },
-                  ],
-                }));
-              }}
-              onDeleteSelected={() => {
-                if (profileSelectedIndex == null || profileSketch.chainage_points.length <= 2) return;
-                updateProfileSketch((prev) => ({
-                  ...prev,
-                  chainage_points: prev.chainage_points.filter((_, i) => i !== profileSelectedIndex),
-                }));
-                setProfileSelectedIndex(null);
-              }}
-              canDelete={
-                profileSelectedIndex != null && profileSketch.chainage_points.length > 2
-              }
-              readOnly={readOnly}
-            />
-
-            {!demAvailable && (
-              <div className="profile-sketch-callout" role="status">
-                <span className="profile-sketch-callout__text">
-                  DEM не загружен — на вкладке «План» нажмите «Загрузить DEM», затем вернитесь сюда для
-                  автосъёмки профиля.
-                </span>
-              </div>
-            )}
-
-            <div className="pad-earthwork-sketch-modal__layout pad-earthwork-sketch-modal__layout--profile">
-              <div className="pad-earthwork-sketch-modal__canvas-col">
-                <ProfileEditor
-                  sketch={profileSketch}
-                  onChange={updateProfileSketch}
-                  readOnly={readOnly}
-                  zoom={profileZoom}
-                  onZoomChange={setProfileZoom}
-                  pan={profilePan}
-                  onPanChange={setProfilePan}
-                  fitViewNonce={profileFitNonce}
-                  selectedIndex={profileSelectedIndex}
-                  onSelectIndex={setProfileSelectedIndex}
-                  onSampleDem={() => sampleDemProfileMutation.mutate()}
-                  sampleDemPending={sampleDemProfileMutation.isPending}
-                  demAvailable={demAvailable}
-                  envelope={envelopeParams}
-                  referenceElevationM={Number(localRef.replace(',', '.')) || 0}
-                  heightM={heightNum}
-                />
-              </div>
-
-              <aside className="pad-earthwork-sketch-modal__sidebar">
-                <div className="pad-earthwork-sketch-modal__stats">
-                  <div className="pad-earthwork-sketch-modal__stat-card">
-                    <span className="pad-earthwork-sketch-modal__stat-label">Длина профиля</span>
-                    <strong>{profileLength.toFixed(1)} м</strong>
-                  </div>
-                  <div className="pad-earthwork-sketch-modal__stat-card">
-                    <span className="pad-earthwork-sketch-modal__stat-label">Точек рельефа</span>
-                    <strong>{profileSketch.chainage_points.length}</strong>
-                  </div>
-                  {canProfileCompute && (
-                    <>
-                      <div className="pad-earthwork-sketch-modal__stat-card pad-earthwork-sketch-modal__stat-card--accent">
-                        <span className="pad-earthwork-sketch-modal__stat-label">
-                          {profileEnvelopeActive ? 'Оценка отсыпки (с забором)' : 'Оценка отсыпки'}
-                        </span>
-                        <strong>{profileEstimated.fill_m3.toFixed(1)} м³</strong>
-                      </div>
-                      <div className="pad-earthwork-sketch-modal__stat-card">
-                        <span className="pad-earthwork-sketch-modal__stat-label">Оценка выемки</span>
-                        <strong>{profileEstimated.cut_m3.toFixed(1)} м³</strong>
-                      </div>
-                    </>
-                  )}
-                </div>
-
-                <div className="pad-earthwork-sketch-modal__section">
-                  <h3 className="pad-earthwork-sketch-modal__section-title">Параметры</h3>
-                  <DimensionStepper
-                    label="Ширина полосы"
-                    value={profileSketch.width_m}
-                    step={1}
-                    min={1}
-                    max={500}
-                    readOnly={readOnly}
-                    onChange={(n) => updateProfileSketch((prev) => ({ ...prev, width_m: n }))}
-                  />
-                  <DimensionStepper
-                    label="Проектная отметка"
-                    value={profileSketch.design_elevation_m}
-                    step={0.1}
-                    min={-500}
-                    max={5000}
-                    readOnly={readOnly}
-                    onChange={(n) =>
-                      updateProfileSketch((prev) => ({ ...prev, design_elevation_m: n }))
-                    }
-                  />
-                </div>
-
-                <EnvelopeSection
-                  envelopeEnabled={envelopeEnabled}
-                  onEnvelopeEnabledChange={setEnvelopeEnabled}
-                  wrapWidthM={wrapWidthM}
-                  onWrapWidthMChange={setWrapWidthM}
-                  readOnly={readOnly}
-                  disabled={!canProfileCompute}
-                  snapEnabled={snapEnabled}
-                />
-
-                {selectedProfilePoint && (
-                  <div className="pad-earthwork-sketch-modal__section profile-sketch-point-card">
-                    <h3 className="pad-earthwork-sketch-modal__section-title">Выбранная точка</h3>
-                    <p className="profile-sketch-point-card__coords">
-                      Пикетаж{' '}
-                      <strong>{formatChainageM(selectedProfilePoint.chainage_m)} м</strong>
-                    </p>
-                    <p className="profile-sketch-point-card__coords">
-                      Отметка{' '}
-                      <strong>{formatProfileElevationM(selectedProfilePoint.elevation_m)} м</strong>
-                    </p>
-                    <p className="object-detail-panel__hint text-xs">
-                      Δ к проекту:{' '}
-                      {formatProfileElevationM(
-                        profileSketch.design_elevation_m - selectedProfilePoint.elevation_m,
-                      )}{' '}
-                      м
-                    </p>
-                  </div>
-                )}
-
-                <div className="pad-earthwork-sketch-modal__section">
-                  <h3 className="pad-earthwork-sketch-modal__section-title">Обозначения</h3>
-                  <ProfileLegend envelopeActive={profileEnvelopeActive} />
-                </div>
-
-                {result && (
-                  <div className="pad-earthwork-sketch-modal__section pad-earthwork-sketch-modal__result">
-                    <h3 className="pad-earthwork-sketch-modal__section-title">Результат расчёта</h3>
-                    <p>
-                      Отсыпка: <strong>{result.volumes.fill_m3.toLocaleString('ru-RU')}</strong> м³
-                    </p>
-                    <p>
-                      Выемка: <strong>{result.volumes.cut_m3.toLocaleString('ru-RU')}</strong> м³
-                    </p>
-                    <p className="object-detail-panel__hint text-xs">
-                      Проектная отметка: {result.design.top_elevation_m} м
-                    </p>
-                    {result.warnings?.includes('profile_envelope_side_wrap_approximation') && (
-                      <p className="object-detail-panel__hint text-xs">
-                        Серверный объём обволования — упрощённая формула W×H×(L+B). Оценка в sidebar —
-                        2×(L+B)×S (вариант A).
-                      </p>
-                    )}
-                    {result.warnings?.includes('profile_volumes_use_chainage_terrain') && (
-                      <p className="object-detail-panel__hint text-xs">
-                        Объём по точкам профиля, не по 2D-сетке DEM.
-                      </p>
-                    )}
-                  </div>
-                )}
-                {error && (
-                  <p className="object-detail-panel__hint text-red-600 text-xs">{error}</p>
-                )}
-                {saveMessage && (
-                  <p className="object-detail-panel__hint text-xs">{saveMessage}</p>
-                )}
-                {profileDirty && !readOnly && (
-                  <p className="object-detail-panel__hint text-xs profile-sketch-unsaved">
-                    Есть несохранённые изменения профиля
-                  </p>
                 )}
               </aside>
             </div>
@@ -1578,7 +1276,7 @@ export function PadEarthworkSketchModal({
                   </div>
                 )}
                 {sketchDirty && !readOnly && (
-                  <p className="object-detail-panel__hint text-xs profile-sketch-unsaved">
+                  <p className="object-detail-panel__hint text-xs pad-earthwork-sketch-modal__unsaved-hint">
                     Есть несохранённые изменения плана
                   </p>
                 )}

@@ -15,6 +15,7 @@ import {
   pointShowsThroughputCapacity,
 } from '../../lib/infraCapacity';
 import { isPadSubtype } from '../../lib/infraPadEarthwork';
+import { pointShowsPadWellFields } from '../../lib/infraPadWells';
 import {
   isSandQuarrySubtype,
   pointShowsSandDemand,
@@ -111,6 +112,8 @@ export function useObjectDetailInfraDerived(params: {
     selection.kind === 'infra' && pointShowsSandDemand(form.subtype) && !isLine;
   const showPadEarthworkSection =
     selection.kind === 'infra' && isPadSubtype(form.subtype) && !isLine;
+  const showPadWellCountField =
+    selection.kind === 'infra' && pointShowsPadWellFields(form.subtype) && !isLine;
 
   const { projectId: mapProjectId } = useActiveProject();
   const resolvedMapProjectId = mapProjectId ?? null;
@@ -175,6 +178,7 @@ export function useObjectDetailInfraDerived(params: {
     showSandQuarryFields,
     showSandDemandField,
     showPadEarthworkSection,
+    showPadWellCountField,
     sandLogistics,
     infraObjectId,
     showEntryDateField,

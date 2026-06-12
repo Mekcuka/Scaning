@@ -358,6 +358,18 @@
   min-width: 0;
 }
 
+.object-detail-panel__field-control--ref-dem-min {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  min-width: 0;
+}
+
+.object-detail-panel__field-control--ref-dem-min .object-detail-panel__input {
+  flex: 1;
+  min-width: 0;
+}
+
 .object-detail-panel__pair-grid-row .app-select,
 .object-detail-panel__pair-grid-row .object-detail-panel__input,
 .object-detail-panel__pair-grid-row .object-detail-panel__value {

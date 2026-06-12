@@ -114,7 +114,8 @@ def test_dem_compute_with_mock_opentopography(client: TestClient, tmp_path: Path
     assert res.status_code == 200, res.text
     data = res.json()
     assert data["volumes"]["cut_m3"] > 0
-    assert data["volumes"]["fill_m3"] == 0.0
+    assert data["volumes"]["fill_m3"] == pytest.approx(200.0)
+    assert data["volumes"]["net_fill_m3"] == pytest.approx(200.0)
 
     last = client.get(
         f"/api/v1/projects/{pid}/infrastructure/objects/{oid}/pad-earthwork/last",
@@ -486,101 +487,3 @@ def test_patch_sketch_saves_without_recompute(client: TestClient):
     assert last_body["envelope"]["wrap_width_m"] == 3
     assert last_body["sketch_saved_at"] is not None
     assert last_body["result"]["volumes"]["fill_m3"] == fill_before
-
-
-def test_profile_save_and_compute(client: TestClient):
-    pid, headers, oid = _seed_oil_pad(client)
-    client.patch(
-        f"/api/v1/projects/{pid}/infrastructure/objects/{oid}/pad-earthwork/params",
-        json={
-            "length_m": 100,
-            "width_m": 40,
-            "height_m": 2,
-            "rotation_deg": 90,
-            "reference_elevation_m": 150,
-        },
-        headers=headers,
-    )
-    profile = {
-        "kind": "profile",
-        "width_m": 40,
-        "design_elevation_m": 152,
-        "chainage_points": [
-            {"chainage_m": 0, "elevation_m": 150},
-            {"chainage_m": 100, "elevation_m": 151},
-        ],
-    }
-    save_res = client.patch(
-        f"/api/v1/projects/{pid}/infrastructure/objects/{oid}/pad-earthwork/profile",
-        json={"profile": profile, "params": {"height_m": 2, "reference_elevation_m": 150}},
-        headers=headers,
-    )
-    assert save_res.status_code == 200, save_res.text
-    props = save_res.json()["properties"]
-    assert props["pad_earthwork_profile_json"]["kind"] == "profile"
-    assert props.get("pad_earthwork_profile_saved_at")
-
-    compute_res = client.post(
-        f"/api/v1/projects/{pid}/infrastructure/objects/{oid}/pad-earthwork/compute",
-        json={"profile": profile, "params": {"height_m": 2, "reference_elevation_m": 150}},
-        headers=headers,
-    )
-    assert compute_res.status_code == 200, compute_res.text
-    body = compute_res.json()
-    assert body["volumes"]["fill_m3"] > 0
-    assert body["design"]["top_elevation_m"] == 152
-
-    last = client.get(
-        f"/api/v1/projects/{pid}/infrastructure/objects/{oid}/pad-earthwork/last",
-        headers=headers,
-    )
-    assert last.status_code == 200
-    last_body = last.json()
-    assert last_body["profile"]["kind"] == "profile"
-    assert last_body["profile_saved_at"] is not None
-
-
-def test_profile_compute_with_envelope(client: TestClient):
-    pid, headers, oid = _seed_oil_pad(client)
-    client.patch(
-        f"/api/v1/projects/{pid}/infrastructure/objects/{oid}/pad-earthwork/params",
-        json={
-            "length_m": 100,
-            "width_m": 40,
-            "height_m": 2,
-            "rotation_deg": 90,
-            "reference_elevation_m": 150,
-        },
-        headers=headers,
-    )
-    profile = {
-        "kind": "profile",
-        "width_m": 40,
-        "design_elevation_m": 152,
-        "chainage_points": [
-            {"chainage_m": 0, "elevation_m": 150},
-            {"chainage_m": 100, "elevation_m": 150},
-        ],
-    }
-    without = client.post(
-        f"/api/v1/projects/{pid}/infrastructure/objects/{oid}/pad-earthwork/compute",
-        json={"profile": profile, "params": {"height_m": 2, "reference_elevation_m": 150}},
-        headers=headers,
-    )
-    assert without.status_code == 200, without.text
-    fill_without = without.json()["volumes"]["fill_m3"]
-
-    with_env = client.post(
-        f"/api/v1/projects/{pid}/infrastructure/objects/{oid}/pad-earthwork/compute",
-        json={
-            "profile": profile,
-            "params": {"height_m": 2, "reference_elevation_m": 150},
-            "envelope": {"enabled": True, "wrap_width_m": 3},
-        },
-        headers=headers,
-    )
-    assert with_env.status_code == 200, with_env.text
-    body = with_env.json()
-    assert body["volumes"]["fill_m3"] == fill_without + 840.0
-    assert "envelope_ignored_with_profile" not in body.get("warnings", [])
-    assert "profile_envelope_side_wrap_approximation" in body.get("warnings", [])

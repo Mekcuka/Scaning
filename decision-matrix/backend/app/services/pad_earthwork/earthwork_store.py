@@ -12,8 +12,6 @@ from app.services.pad_earthwork.properties import (
     PAD_DEM_FETCHED_AT,
     PAD_DEM_SOURCE,
     PAD_EARTHWORK_COMPUTED_AT,
-    PAD_EARTHWORK_PROFILE_JSON,
-    PAD_EARTHWORK_PROFILE_SAVED_AT,
     PAD_EARTHWORK_SKETCH_JSON,
     PAD_EARTHWORK_SKETCH_SAVED_AT,
     PAD_WELLS_LOCAL_JSON,
@@ -40,7 +38,6 @@ from app.services.pad_earthwork.schemas import (
     PlanPolygonSketchIn,
     PlanRectangleSketchIn,
     PlanVertexIn,
-    ProfileSketchIn,
     SketchIn,
     VolumesOut,
 )
@@ -110,26 +107,11 @@ def merge_pad_params_patch(
     return out
 
 
-def _migrate_legacy_profile_from_sketch(props: dict[str, Any]) -> tuple[dict[str, Any], ProfileSketchIn | None]:
-    """Move profile stored in sketch_json to profile_json (on-read migration)."""
-    raw_sketch = props.get(PAD_EARTHWORK_SKETCH_JSON)
-    if not isinstance(raw_sketch, dict) or raw_sketch.get("kind") != "profile":
-        return props, None
-    if props.get(PAD_EARTHWORK_PROFILE_JSON):
-        return props, None
-    profile = ProfileSketchIn.model_validate(raw_sketch)
-    out = dict(props)
-    out[PAD_EARTHWORK_PROFILE_JSON] = profile.model_dump(mode="json")
-    out.pop(PAD_EARTHWORK_SKETCH_JSON, None)
-    return out, profile
-
-
 def read_sketch(
     props: dict[str, Any] | None,
 ) -> PlanRectangleSketchIn | PlanPolygonSketchIn | None:
     p = props or {}
-    migrated, _legacy_profile = _migrate_legacy_profile_from_sketch(p)
-    raw = migrated.get(PAD_EARTHWORK_SKETCH_JSON)
+    raw = p.get(PAD_EARTHWORK_SKETCH_JSON)
     if not isinstance(raw, dict):
         return None
     kind = raw.get("kind")
@@ -140,25 +122,10 @@ def read_sketch(
     return None
 
 
-def read_profile(props: dict[str, Any] | None) -> ProfileSketchIn | None:
-    p = props or {}
-    migrated, legacy_profile = _migrate_legacy_profile_from_sketch(p)
-    raw = migrated.get(PAD_EARTHWORK_PROFILE_JSON)
-    if isinstance(raw, dict):
-        return ProfileSketchIn.model_validate(raw)
-    return legacy_profile
-
-
-def store_profile(props: dict[str, Any] | None, profile: ProfileSketchIn | None) -> dict[str, Any]:
-    out = dict(props or {})
-    if profile is None:
-        out.pop(PAD_EARTHWORK_PROFILE_JSON, None)
-        return out
-    out[PAD_EARTHWORK_PROFILE_JSON] = profile.model_dump(mode="json")
-    return out
-
-
-def store_sketch(props: dict[str, Any] | None, sketch: SketchIn | None) -> dict[str, Any]:
+def store_sketch(
+    props: dict[str, Any] | None,
+    sketch: PlanRectangleSketchIn | PlanPolygonSketchIn | SketchIn | None,
+) -> dict[str, Any]:
     out = dict(props or {})
     if sketch is None:
         out.pop(PAD_EARTHWORK_SKETCH_JSON, None)
@@ -210,16 +177,6 @@ def read_envelope(props: dict[str, Any] | None) -> EnvelopeWrapIn | None:
     if not enabled:
         return EnvelopeWrapIn(enabled=False, wrap_width_m=wrap)
     return EnvelopeWrapIn(enabled=True, wrap_width_m=wrap)
-
-
-def read_profile_saved_at(props: dict[str, Any] | None) -> datetime | None:
-    raw = (props or {}).get(PAD_EARTHWORK_PROFILE_SAVED_AT)
-    if not isinstance(raw, str):
-        return None
-    try:
-        return datetime.fromisoformat(raw.replace("Z", "+00:00"))
-    except ValueError:
-        return None
 
 
 def read_sketch_saved_at(props: dict[str, Any] | None) -> datetime | None:
@@ -276,7 +233,7 @@ def read_last_response(props: dict[str, Any] | None) -> PadEarthworkComputeRespo
         top = params.reference_elevation_m + params.height_m
         area = params.length_m * params.width_m
     return PadEarthworkComputeResponse(
-        volumes=VolumesOut(fill_m3=fill, cut_m3=cut, net_fill_m3=fill - cut),
+        volumes=VolumesOut(fill_m3=fill, cut_m3=cut, net_fill_m3=fill),
         design=DesignOut(
             top_elevation_m=top if top is not None else 0.0,
             footprint_area_m2=area if area is not None else 0.0,
@@ -312,11 +269,9 @@ def build_last_response(props: dict[str, Any] | None) -> PadEarthworkLastRespons
     return PadEarthworkLastResponse(
         params=read_pad_params(props),
         sketch=read_sketch(props),
-        profile=read_profile(props),
         wells_local=read_wells_local(props),
         envelope=read_envelope(props),
         sketch_saved_at=read_sketch_saved_at(props),
-        profile_saved_at=read_profile_saved_at(props),
         dem=read_dem_status(props),
         result=read_last_response(props),
     )

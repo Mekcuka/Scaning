@@ -21,11 +21,8 @@ export function DemPlanLegend({ preview }: DemPlanLegendProps) {
         Верх площадки: {formatElevationM(preview.design_elevation_m)}
       </p>
       <div className="pad-earthwork-sketch-editor__dem-legend-swatches">
-        <span className="pad-earthwork-sketch-editor__dem-swatch pad-earthwork-sketch-editor__dem-swatch--fill">
-          Насыпь
-        </span>
         <span className="pad-earthwork-sketch-editor__dem-swatch pad-earthwork-sketch-editor__dem-swatch--cut">
-          Выемка
+          Выемка (рельеф выше опорной)
         </span>
       </div>
     </div>

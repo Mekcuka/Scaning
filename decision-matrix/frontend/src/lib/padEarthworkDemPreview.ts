@@ -14,6 +14,7 @@ export type PadDemPreview = {
   cell_size_m: number;
   elev_min: number;
   elev_max: number;
+  footprint_elev_min?: number;
   design_elevation_m: number;
   elevations: (number | null)[];
   cut_fill: (number | null)[];
@@ -225,6 +226,59 @@ export function renderDemPreviewOnCanvas(
   }
 }
 
+function sampleDemPreviewElevationAt(
+  preview: PadDemPreview,
+  eastM: number,
+  northM: number,
+): number | null {
+  const { bounds, cols, rows, cell_size_m: cellSize, elevations } = preview;
+  if (cols < 2 || rows < 2 || cellSize <= 0) return null;
+
+  const colF = (eastM - bounds.min_east_m) / cellSize;
+  const rowF = (northM - bounds.min_north_m) / cellSize;
+  if (colF < 0 || rowF < 0 || colF > cols - 1 || rowF > rows - 1) return null;
+
+  const c0 = Math.floor(colF);
+  const r0 = Math.floor(rowF);
+  const c1 = Math.min(cols - 1, c0 + 1);
+  const r1 = Math.min(rows - 1, r0 + 1);
+  const tx = colF - c0;
+  const ty = rowF - r0;
+
+  const sample = (c: number, r: number): number | null => {
+    const v = elevations[r * cols + c];
+    return v != null && Number.isFinite(v) ? v : null;
+  };
+
+  const z00 = sample(c0, r0);
+  const z10 = sample(c1, r0);
+  const z01 = sample(c0, r1);
+  const z11 = sample(c1, r1);
+  const samples = [z00, z10, z01, z11].filter((v): v is number => v != null);
+  if (samples.length === 0) return null;
+  if (samples.length < 4) {
+    return samples.reduce((a, b) => a + b, 0) / samples.length;
+  }
+  const z0 = z00! * (1 - tx) + z10! * tx;
+  const z1 = z01! * (1 - tx) + z11! * tx;
+  return z0 * (1 - ty) + z1 * ty;
+}
+
 export function formatElevationM(value: number): string {
   return `${value.toFixed(1)} м`;
+}
+
+/** Minimum terrain elevation inside pad footprint (m AMSL). */
+export function footprintMinElevationM(preview: PadDemPreview): number | null {
+  if (preview.footprint_elev_min != null && Number.isFinite(preview.footprint_elev_min)) {
+    return preview.footprint_elev_min;
+  }
+  let min: number | null = null;
+  for (let i = 0; i < preview.elevations.length; i += 1) {
+    if (preview.cut_fill[i] == null) continue;
+    const elev = preview.elevations[i];
+    if (elev == null || !Number.isFinite(elev)) continue;
+    min = min == null ? elev : Math.min(min, elev);
+  }
+  return min;
 }

@@ -33,12 +33,6 @@ def dem_not_supported_error() -> type[Exception]:
     return compute_mod.DemNotSupportedError
 
 
-def profile_not_supported_error() -> type[Exception]:
-    from pad_earthwork.volume_profile import ProfileNotSupportedError
-
-    return ProfileNotSupportedError
-
-
 def preview_sketch_request(body: object) -> object:
     compute_mod, schemas_mod = _planner_modules()
     req = schemas_mod.SketchPreviewRequest.model_validate(body)

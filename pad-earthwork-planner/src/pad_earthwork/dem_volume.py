@@ -71,7 +71,12 @@ def compute_volumes_dem(
     height_m: float,
     cell_size_m: float = 1.0,
 ) -> tuple[float, float, float, list[str]]:
-    """Return fill_m3, cut_m3, footprint_area_m2, warnings."""
+    """Return fill_m3, cut_m3, footprint_area_m2, warnings.
+
+    Cut: excavation where terrain exceeds pad bottom (reference_elevation_m).
+    Fill is not derived from DEM (always 0 here); pad fill = footprint × height
+    is computed in compute.py — imported sand is independent of cut.
+    """
     from pad_earthwork.gdal_proj import configure_rasterio_proj
 
     configure_rasterio_proj()
@@ -86,7 +91,7 @@ def compute_volumes_dem(
     cols = max(1, int(math.ceil((max_e - min_e) / cell)))
     rows = max(1, int(math.ceil((max_n - min_n) / cell)))
     cell_area = cell * cell
-    design_elev = reference_elevation_m + height_m
+    bottom_elev = reference_elevation_m
 
     fill_m3 = 0.0
     cut_m3 = 0.0
@@ -115,11 +120,8 @@ def compute_volumes_dem(
                     continue
                 terrain_samples.append(elev)
                 footprint_cells += 1
-                delta = design_elev - elev
-                if delta > 0:
-                    fill_m3 += delta * cell_area
-                elif delta < 0:
-                    cut_m3 += (-delta) * cell_area
+                if elev > bottom_elev:
+                    cut_m3 += (elev - bottom_elev) * cell_area
 
     if skipped_nodata:
         warnings.append("dem_nodata_cells_skipped")

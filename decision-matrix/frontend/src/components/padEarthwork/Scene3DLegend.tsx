@@ -25,7 +25,7 @@ export function Scene3DLegend({ demActive, envelopeActive }: Scene3DLegendProps)
               className="pad-scene3d-legend__swatch pad-scene3d-legend__swatch--envelope"
               aria-hidden
             />
-            Обволование — кольцо-забор на верху насыпи (откосы 1:1, бровка на H = (W−TW)/2)
+            Обваловка — кольцо на верху насыпи (откосы 1:1, бровка на H = (W−TW)/2)
           </li>
         )}
       </ul>

@@ -24,8 +24,8 @@ flowchart LR
 | `volume_flat.py` | MVP: `fill = L×W×H` или площадь×H, `cut = 0` |
 | `volume_plan.py` | Площадь/ bbox для plan sketch |
 | `envelope.py` | Обволование в `compute`: усечённая пирамида (legacy; UI — вариант A, см. [pad-earthwork.md](../../docs/features/pad-earthwork.md) § Модель обволования) |
-| `volume_grid.py` | Cut/fill по сетке (unit-тесты) |
-| `dem_volume.py` | DEM: sampling GeoTIFF + cut/fill в footprint |
+| `volume_grid.py` | Cut/fill по сетке относительно design surface (unit-тесты; не используется в DEM pipeline) |
+| `dem_volume.py` | DEM: выемка = грунт выше `reference_elevation_m` в footprint; fill из DEM не считается |
 | `mesh.py` | Экспорт box mesh как base64 GLB |
 
 ## Эндпоинты
@@ -121,7 +121,17 @@ BFF-обёртка автогенерации: `POST /api/v1/projects/{id}/infra
 }
 ```
 
-Ответ: `volumes.fill_m3 = 24000`, `volumes.cut_m3 = 0`, `mesh.format = "glb"`.
+Ответ (flat): `volumes.fill_m3 = 24000`, `volumes.cut_m3 = 0`, `volumes.net_fill_m3 = 24000`, `mesh.format = "glb"`.
+
+### Режим DEM
+
+При `terrain.mode = dem` и `dem_file_path`:
+
+- `fill_m3 = footprint_area × height_m` (призма, песок завозится);
+- `cut_m3` — сумма `(Z_terrain − reference_elevation_m) × cell_area` по ячейкам внутри контура, где `Z_terrain > reference`;
+- `net_fill_m3 = fill_m3` (выемка не вычитается).
+
+Подробнее: [pad-earthwork.md](../../docs/features/pad-earthwork.md) § Модель объёмов.
 
 ## Тесты
 

@@ -19,13 +19,10 @@ from app.services.pad_earthwork.schemas import (
     PadDemFetchResponseOut,
     PadDemPreviewRequest,
     PadDemPreviewResponseOut,
-    PadDemProfileSampleRequest,
-    PadDemProfileSampleResponse,
     PadEarthworkComputeRequest,
     PadEarthworkComputeResponse,
     PadEarthworkLastResponse,
     PadEarthworkParamsPatch,
-    PadEarthworkProfileSaveRequest,
     PadEarthworkSketchSaveRequest,
     SketchPreviewRequestIn,
     SketchPreviewResponseOut,
@@ -39,11 +36,9 @@ from app.services.pad_earthwork.service import (
     generate_pad_sketch_from_wells,
     persist_dem_properties_for_compute,
     preview_pad_sketch,
-    save_pad_profile_for_object,
     save_pad_sketch_for_object,
 )
 from app.services.pad_earthwork.dem_preview import build_dem_preview_for_object
-from app.services.pad_earthwork.dem_profile_sample import build_dem_profile_sample_for_object
 from app.services.project_access import resolve_project
 from app.services.project_jobs import JOB_TYPE_PAD_EARTHWORK_COMPUTE, ActiveProjectJobError
 from app.services.serializers import infra_to_response
@@ -120,23 +115,6 @@ async def post_pad_earthwork_dem_preview(
         else None
     )
     return build_dem_preview_for_object(project_id, obj, compute_body)
-
-
-@pad_earthwork_router.post(
-    "/projects/{project_id}/infrastructure/objects/{object_id}/pad-earthwork/dem/profile/sample",
-    response_model=PadDemProfileSampleResponse,
-)
-async def post_pad_earthwork_dem_profile_sample(
-    project_id: UUID,
-    object_id: UUID,
-    body: PadDemProfileSampleRequest | None = None,
-    user: User = Depends(get_current_user),
-    db: AsyncSession = Depends(get_db),
-):
-    await resolve_project(project_id, user, db, min_access=AccessLevel.read, write_scope=WriteScope.infra)
-    obj = await get_infra_object(object_id, project_id, db)
-    assert_pad_object(obj)
-    return build_dem_profile_sample_for_object(project_id, obj, body)
 
 
 @pad_earthwork_router.post(
@@ -272,34 +250,6 @@ async def patch_pad_earthwork_sketch(
     obj = await get_infra_object(object_id, project_id, db)
     assert_pad_object(obj)
     props = save_pad_sketch_for_object(obj, body)
-    updated = await update_infra_object_record(
-        db,
-        project=project,
-        project_id=project_id,
-        user=user,
-        obj=obj,
-        data=InfraObjectUpdate(properties=props),
-    )
-    await db.commit()
-    await db.refresh(updated)
-    return infra_to_response(updated)
-
-
-@pad_earthwork_router.patch(
-    "/projects/{project_id}/infrastructure/objects/{object_id}/pad-earthwork/profile",
-    response_model=InfraObjectResponse,
-)
-async def patch_pad_earthwork_profile(
-    project_id: UUID,
-    object_id: UUID,
-    body: PadEarthworkProfileSaveRequest,
-    user: User = Depends(get_current_user),
-    db: AsyncSession = Depends(get_db),
-):
-    project = await require_infra_write(project_id, user, db)
-    obj = await get_infra_object(object_id, project_id, db)
-    assert_pad_object(obj)
-    props = save_pad_profile_for_object(obj, body)
     updated = await update_infra_object_record(
         db,
         project=project,

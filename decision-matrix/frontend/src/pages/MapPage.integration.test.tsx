@@ -46,6 +46,14 @@ vi.mock('../components/DevPortBanner', () => ({
   DevPortBanner: () => null,
 }));
 
+const analyzeAllPoisAndWaitMock = vi.hoisted(() => vi.fn());
+
+vi.mock('../lib/runApiJob', () => ({
+  analyzeAllPoisAndWait: analyzeAllPoisAndWaitMock,
+  unwrapApiJobResponse: vi.fn(async (_projectId: string, response: unknown) => response),
+  analyzeSandLogisticsAndWait: vi.fn(),
+}));
+
 vi.mock('../lib/api', async (importOriginal) => {
   const { createApiMock } = await import('../test/pages/apiMockModule');
   return createApiMock(importOriginal);
@@ -107,7 +115,7 @@ describe('MapPage integration', () => {
     await enableEdit();
     await userEvent.click(screen.getByRole('button', { name: 'Точка интереса (POI)' }));
     await userEvent.click(screen.getByRole('button', { name: /Все точки/i }));
-    await waitFor(() => expect(api.analyzeAllPois).toHaveBeenCalled());
+    await waitFor(() => expect(analyzeAllPoisAndWaitMock).toHaveBeenCalledWith('p1'));
     await userEvent.click(screen.getByRole('button', { name: 'Карта 3D' }));
     await waitFor(() => expect(screen.getByTestId('mock-map-3d')).toBeInTheDocument());
     await userEvent.click(screen.getByRole('button', { name: 'Карта 2D' }));

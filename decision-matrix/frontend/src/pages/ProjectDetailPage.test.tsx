@@ -9,6 +9,14 @@ import { makeProject } from '../test/fixtures/projects';
 import { samplePois } from '../test/fixtures/map';
 import { api } from '../lib/api';
 
+const analyzeAllPoisAndWaitMock = vi.hoisted(() => vi.fn());
+
+vi.mock('../lib/runApiJob', () => ({
+  analyzeAllPoisAndWait: analyzeAllPoisAndWaitMock,
+  unwrapApiJobResponse: vi.fn(async (_projectId: string, response: unknown) => response),
+  analyzeSandLogisticsAndWait: vi.fn(),
+}));
+
 vi.mock('../lib/api', async (importOriginal) => {
   const { createApiMock } = await import('../test/pages/apiMockModule');
   return createApiMock(importOriginal);
@@ -66,7 +74,7 @@ describe('ProjectDetailPage', () => {
   });
 
   it('runs analyze all pois from toolbar', async () => {
-    vi.mocked(api.analyzeAllPois).mockResolvedValue({
+    analyzeAllPoisAndWaitMock.mockResolvedValue({
       analyzed_count: 1,
       results: [{ poi_id: 'poi-1', rows: [], computed_at: '2024-01-01' }],
     } as never);
@@ -75,7 +83,7 @@ describe('ProjectDetailPage', () => {
 
     const toolbarBtn = screen.getByRole('button', { name: /анализ \(2\)/i });
     await userEvent.click(toolbarBtn);
-    expect(api.analyzeAllPois).toHaveBeenCalled();
+    await waitFor(() => expect(analyzeAllPoisAndWaitMock).toHaveBeenCalledWith('p1'));
   });
 
   it('shows empty state with link to map when no pois', async () => {

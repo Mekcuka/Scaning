@@ -176,6 +176,7 @@ def build_dem_preview_for_object(
     elevations: list[float | None] = []
     cut_fill: list[int | None] = []
     elev_samples: list[float] = []
+    footprint_elev_samples: list[float] = []
 
     with rasterio.open(dem_path) as dataset:
         nodata = dataset.nodata
@@ -201,16 +202,16 @@ def build_dem_preview_for_object(
                 if elev is None:
                     cut_fill.append(None)
                     continue
-                delta = design_elevation_m - elev
-                if delta > CUT_FILL_EPS_M:
-                    cut_fill.append(1)
-                elif delta < -CUT_FILL_EPS_M:
+                footprint_elev_samples.append(elev)
+                if elev > params_in.reference_elevation_m + CUT_FILL_EPS_M:
                     cut_fill.append(-1)
                 else:
                     cut_fill.append(0)
 
     if not elev_samples:
         raise HTTPException(status_code=502, detail="dem_preview_no_data")
+    if not footprint_elev_samples:
+        raise HTTPException(status_code=502, detail="dem_preview_no_footprint_data")
 
     return PadDemPreviewResponseOut(
         bounds=PadDemPreviewBoundsOut(
@@ -224,6 +225,7 @@ def build_dem_preview_for_object(
         cell_size_m=cell_size,
         elev_min=min(elev_samples),
         elev_max=max(elev_samples),
+        footprint_elev_min=round(min(footprint_elev_samples), 2),
         design_elevation_m=design_elevation_m,
         elevations=elevations,
         cut_fill=cut_fill,

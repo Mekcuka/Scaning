@@ -5,11 +5,11 @@ export function EnvelopePlanLegend() {
       <ul className="envelope-plan-legend__list">
         <li>
           <span className="envelope-plan-legend__swatch envelope-plan-legend__swatch--pad" aria-hidden />
-          Контур площадки — внешний край подошвы забора
+          Контур площадки — внешний край подошвы обваловки
         </li>
         <li>
           <span className="envelope-plan-legend__swatch envelope-plan-legend__swatch--ring" aria-hidden />
-          Кольцо — подошва забора (ширина W на верху насыпи)
+          Кольцо — подошва обваловки (ширина W на верху насыпи)
         </li>
         <li>
           <span
@@ -27,7 +27,7 @@ export function EnvelopePlanLegend() {
         </li>
       </ul>
       <p className="object-detail-panel__hint text-xs">
-        Забор на верху насыпи: откосы 1:1, TW = W/3, высота бровки H = (W−TW)/2.
+        Обваловка на верху насыпи: откосы 1:1, TW = W/3, высота бровки H = (W−TW)/2.
       </p>
     </div>
   );

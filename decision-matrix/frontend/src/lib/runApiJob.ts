@@ -1,10 +1,8 @@
-import {
-  defaultAnalysisBatchApi,
-  defaultProjectJobsApi,
-  defaultSandLogisticsApi,
-  type AnalysisBatchApiPort,
-  type ProjectJobCreateResponse,
-  type ProjectJobsApiPort,
+import * as apiPorts from './api';
+import type {
+  AnalysisBatchApiPort,
+  ProjectJobCreateResponse,
+  ProjectJobsApiPort,
 } from './api';
 import { isProjectJobCreateResponse, pollProjectJobUntilDone } from './pollProjectJob';
 
@@ -12,12 +10,13 @@ import { isProjectJobCreateResponse, pollProjectJobUntilDone } from './pollProje
 export async function unwrapApiJobResponse<T>(
   projectId: string,
   response: T | ProjectJobCreateResponse,
-  jobsApi: ProjectJobsApiPort = defaultProjectJobsApi,
+  jobsApi?: ProjectJobsApiPort,
 ): Promise<T> {
   if (!isProjectJobCreateResponse(response)) {
     return response;
   }
-  const job = await pollProjectJobUntilDone(projectId, response.job_id, { jobsApi });
+  const resolvedJobsApi = jobsApi ?? apiPorts.defaultProjectJobsApi;
+  const job = await pollProjectJobUntilDone(projectId, response.job_id, { jobsApi: resolvedJobsApi });
   return job.result as T;
 }
 
@@ -28,20 +27,20 @@ export async function analyzeAllPoisAndWait(
     jobsApi?: ProjectJobsApiPort;
   },
 ) {
-  const analysisApi = options?.analysisApi ?? defaultAnalysisBatchApi;
-  const jobsApi = options?.jobsApi ?? defaultProjectJobsApi;
+  const analysisApi = options?.analysisApi ?? apiPorts.defaultAnalysisBatchApi;
+  const jobsApi = options?.jobsApi ?? apiPorts.defaultProjectJobsApi;
   const res = await analysisApi.analyzeAllPois(projectId);
   return unwrapApiJobResponse<import('./api').ProjectAnalysisBatchResult>(projectId, res, jobsApi);
 }
 
 export async function analyzeSandLogisticsAndWait(
   projectId: string,
-  options?: Parameters<typeof defaultSandLogisticsApi.analyzeSandLogistics>[1],
+  options?: Parameters<typeof apiPorts.defaultSandLogisticsApi.analyzeSandLogistics>[1],
 ) {
-  const res = await defaultSandLogisticsApi.analyzeSandLogistics(projectId, options);
+  const res = await apiPorts.defaultSandLogisticsApi.analyzeSandLogistics(projectId, options);
   if (isProjectJobCreateResponse(res)) {
     await pollProjectJobUntilDone(projectId, res.job_id);
-    const stored = await defaultSandLogisticsApi.getSandLogisticsResult(projectId);
+    const stored = await apiPorts.defaultSandLogisticsApi.getSandLogisticsResult(projectId);
     if (!stored) throw new Error('Результат логистики песка не найден после расчёта');
     return stored;
   }

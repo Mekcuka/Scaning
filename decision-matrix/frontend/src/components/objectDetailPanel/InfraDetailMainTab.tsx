@@ -25,6 +25,9 @@ interface InfraDetailMainTabProps {
   capacityValue: number | '';
   setCapacityValue: (value: number | '') => void;
   throughputCapacity: { value: number | null; unit: InfraCapacityUnit; isStored: boolean } | null;
+  showPadWellCountField: boolean;
+  padWellCount: string;
+  setPadWellCount: (value: string) => void;
   saving?: boolean;
   isLine: boolean;
   lineLengthLabel: string | null;
@@ -65,6 +68,9 @@ export function InfraDetailMainTab({
   capacityValue,
   setCapacityValue,
   throughputCapacity,
+  showPadWellCountField,
+  padWellCount,
+  setPadWellCount,
   saving,
   isLine,
   lineLengthLabel,
@@ -80,10 +86,13 @@ export function InfraDetailMainTab({
   const selectedLayerLabel = layers.find((l) => l.id === layerId)?.name;
   const showLayerSourceHint =
     Boolean(layerName) && layerName !== name && layerName !== selectedLayerLabel;
-  const showParamsSection = showEntryDateField || showThroughputCapacity;
+  const showParamsSection =
+    showEntryDateField || showThroughputCapacity || showPadWellCountField;
 
   const classificationTwoColumns = layers.length > 0;
-  const operationsTwoColumns = showEntryDateField && showThroughputCapacity;
+  const operationsFieldCount =
+    Number(showEntryDateField) + Number(showThroughputCapacity) + Number(showPadWellCountField);
+  const operationsTwoColumns = operationsFieldCount >= 2;
 
   const capacityHint = [
     capacityUnitLabel(capacityUnit),
@@ -158,6 +167,7 @@ export function InfraDetailMainTab({
             <div className="object-detail-panel__pair-grid-row">
               {showEntryDateField && <FieldLabel>Дата ввода</FieldLabel>}
               {showThroughputCapacity && <FieldLabel>Пропускная способность</FieldLabel>}
+              {showPadWellCountField && <FieldLabel>Количество скв., шт</FieldLabel>}
             </div>
             <div className="object-detail-panel__pair-grid-row">
               {showEntryDateField && (
@@ -199,15 +209,42 @@ export function InfraDetailMainTab({
                   )}
                 </div>
               )}
-            </div>
-            <div className="object-detail-panel__pair-grid-row object-detail-panel__pair-grid-row--hints">
-              {showEntryDateField && (
-                <p className="object-detail-panel__hint">{'\u00a0'}</p>
+              {showPadWellCountField && (
+                <div className="object-detail-panel__field-control">
+                  {readOnly ? (
+                    <ReadOnlyValue placeholder="Не задано">
+                      {padWellCount.trim() !== ''
+                        ? Number(padWellCount).toLocaleString('ru-RU')
+                        : null}
+                    </ReadOnlyValue>
+                  ) : (
+                    <DeferredNumberInput
+                      min={1}
+                      max={64}
+                      integer
+                      className="input object-detail-panel__input"
+                      placeholder="Не задано"
+                      value={padWellCount}
+                      disabled={saving}
+                      onCommit={(v) =>
+                        setPadWellCount(v === '' ? '' : String(typeof v === 'number' ? v : Number(v)))
+                      }
+                    />
+                  )}
+                </div>
               )}
-              {showThroughputCapacity && (
+            </div>
+            {showThroughputCapacity && (
+              <div className="object-detail-panel__pair-grid-row object-detail-panel__pair-grid-row--hints">
+                {showEntryDateField && (
+                  <p className="object-detail-panel__hint">{'\u00a0'}</p>
+                )}
                 <p className="object-detail-panel__hint">{capacityHint || '\u00a0'}</p>
-              )}
-            </div>
+                {showPadWellCountField && (
+                  <p className="object-detail-panel__hint">{'\u00a0'}</p>
+                )}
+              </div>
+            )}
           </div>
         </PanelSection>
       )}

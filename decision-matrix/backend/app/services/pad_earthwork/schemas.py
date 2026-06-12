@@ -48,20 +48,8 @@ class PlanPolygonSketchIn(BaseModel):
     vertices: list[PlanVertexIn] = Field(..., min_length=3, max_length=64)
 
 
-class ProfileChainagePointIn(BaseModel):
-    chainage_m: float
-    elevation_m: float
-
-
-class ProfileSketchIn(BaseModel):
-    kind: Literal["profile"] = "profile"
-    width_m: float = Field(..., gt=0, le=500)
-    chainage_points: list[ProfileChainagePointIn] = Field(default_factory=list)
-    design_elevation_m: float = Field(..., ge=-500, le=5000)
-
-
 SketchIn = Annotated[
-    PlanRectangleSketchIn | PlanPolygonSketchIn | ProfileSketchIn,
+    PlanRectangleSketchIn | PlanPolygonSketchIn,
     Field(discriminator="kind"),
 ]
 
@@ -145,6 +133,7 @@ class PadDemPreviewResponseOut(BaseModel):
     cell_size_m: float = Field(..., gt=0)
     elev_min: float
     elev_max: float
+    footprint_elev_min: float
     design_elevation_m: float
     elevations: list[float | None]
     cut_fill: list[int | None]
@@ -172,27 +161,8 @@ TerrainIn = Annotated[TerrainFlatIn | TerrainDemIn, Field(discriminator="mode")]
 class PadEarthworkComputeRequest(BaseModel):
     params: PadParamsIn | PadHeightReferenceIn | None = None
     sketch: PlanRectangleSketchIn | PlanPolygonSketchIn | None = None
-    profile: ProfileSketchIn | None = None
     envelope: EnvelopeWrapIn | None = None
     terrain: TerrainIn | None = None
-
-
-class PadEarthworkProfileSaveRequest(BaseModel):
-    profile: ProfileSketchIn
-    params: PadHeightReferenceIn | None = None
-    envelope: EnvelopeWrapIn | None = None
-
-
-class PadDemProfileSampleRequest(BaseModel):
-    params: PadParamsIn | PadHeightReferenceIn | None = None
-    step_m: float = Field(default=1.0, gt=0, le=50)
-
-
-class PadDemProfileSampleResponse(BaseModel):
-    chainage_points: list[ProfileChainagePointIn]
-    length_m: float
-    rotation_deg: float
-    design_elevation_m: float
 
 
 class PadEarthworkParamsPatch(BaseModel):
@@ -244,10 +214,8 @@ class PadEarthworkComputeResponse(BaseModel):
 class PadEarthworkLastResponse(BaseModel):
     params: PadParamsIn | None = None
     sketch: PlanRectangleSketchIn | PlanPolygonSketchIn | None = None
-    profile: ProfileSketchIn | None = None
     wells_local: list[PlanVertexIn] = Field(default_factory=list)
     envelope: EnvelopeWrapIn | None = None
     sketch_saved_at: datetime | None = None
-    profile_saved_at: datetime | None = None
     dem: PadDemStatusOut | None = None
     result: PadEarthworkComputeResponse | None = None

@@ -35,7 +35,7 @@ def _write_geotiff(path: Path, west: float, south: float, east: float, north: fl
 pytest.importorskip("rasterio")
 
 
-def test_compute_volumes_dem_cut_when_terrain_above_design(tmp_path: Path):
+def test_compute_volumes_dem_cut_when_terrain_above_reference(tmp_path: Path):
     dem_path = tmp_path / "dem.tif"
     west, south, east, north = 37.61, 55.75, 37.63, 55.77
     _write_geotiff(dem_path, west, south, east, north, elevation=105.0)
@@ -55,7 +55,7 @@ def test_compute_volumes_dem_cut_when_terrain_above_design(tmp_path: Path):
     assert "dem_nodata_cells_skipped" not in warnings
 
 
-def test_compute_volumes_dem_fill_when_terrain_below_design(tmp_path: Path):
+def test_compute_volumes_dem_no_cut_when_terrain_below_reference(tmp_path: Path):
     dem_path = tmp_path / "dem.tif"
     west, south, east, north = 37.61, 55.75, 37.63, 55.77
     _write_geotiff(dem_path, west, south, east, north, elevation=98.0)
@@ -69,7 +69,7 @@ def test_compute_volumes_dem_fill_when_terrain_below_design(tmp_path: Path):
         height_m=2.0,
         cell_size_m=1.0,
     )
-    assert fill > 0
+    assert fill == 0.0
     assert cut == 0.0
     assert area > 0
 
@@ -93,4 +93,5 @@ def test_compute_api_dem_mode(tmp_path: Path):
     )
     resp = compute_pad_earthwork(req)
     assert resp.volumes.cut_m3 > 0
-    assert resp.volumes.fill_m3 == 0.0
+    assert resp.volumes.fill_m3 == pytest.approx(200.0)
+    assert resp.volumes.net_fill_m3 == pytest.approx(200.0)

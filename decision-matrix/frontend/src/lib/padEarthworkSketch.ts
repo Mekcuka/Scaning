@@ -23,14 +23,7 @@ export type PlanShapeSketch = PlanRectangleSketch | PlanPolygonSketch;
 
 export type ShapeMode = 'rectangle' | 'polygon' | 'generator';
 
-export type ProfileSketch = {
-  kind: 'profile';
-  width_m: number;
-  chainage_points: { chainage_m: number; elevation_m: number }[];
-  design_elevation_m: number;
-};
-
-export type PadEarthworkSketch = PlanRectangleSketch | PlanPolygonSketch | ProfileSketch;
+export type PadEarthworkSketch = PlanShapeSketch;
 
 export type SketchPreview = {
   length_m: number;
@@ -1044,101 +1037,6 @@ function rotatePlanPoint(eastM: number, northM: number, rotationDeg: number): Pl
     east_m: eastM * cos - northM * sin,
     north_m: eastM * sin + northM * cos,
   };
-}
-
-export function parseProfileFromLast(raw: unknown): ProfileSketch | null {
-  if (!raw || typeof raw !== 'object') return null;
-  const o = raw as Record<string, unknown>;
-  if (o.kind !== 'profile') return null;
-  const width = Number(o.width_m);
-  const design = Number(o.design_elevation_m);
-  if (!Number.isFinite(width) || width <= 0 || !Number.isFinite(design)) return null;
-  const rawPoints = o.chainage_points;
-  const chainage_points: { chainage_m: number; elevation_m: number }[] = [];
-  if (Array.isArray(rawPoints)) {
-    for (const item of rawPoints) {
-      if (!item || typeof item !== 'object') continue;
-      const p = item as Record<string, unknown>;
-      const chainage = Number(p.chainage_m);
-      const elevation = Number(p.elevation_m);
-      if (!Number.isFinite(chainage) || !Number.isFinite(elevation)) continue;
-      chainage_points.push({ chainage_m: chainage, elevation_m: elevation });
-    }
-  }
-  return {
-    kind: 'profile',
-    width_m: Math.min(500, Math.max(1, width)),
-    design_elevation_m: design,
-    chainage_points: sortChainagePoints(chainage_points),
-  };
-}
-
-export function defaultProfileSketch(
-  lengthM: number,
-  widthM: number,
-  referenceElevationM: number,
-  heightM: number,
-): ProfileSketch {
-  const length = Math.max(1, lengthM);
-  const design = referenceElevationM + heightM;
-  return {
-    kind: 'profile',
-    width_m: Math.min(500, Math.max(1, widthM)),
-    design_elevation_m: design,
-    chainage_points: [
-      { chainage_m: 0, elevation_m: referenceElevationM },
-      { chainage_m: length, elevation_m: referenceElevationM },
-    ],
-  };
-}
-
-export function sortChainagePoints(
-  points: { chainage_m: number; elevation_m: number }[],
-): { chainage_m: number; elevation_m: number }[] {
-  return [...points].sort((a, b) => a.chainage_m - b.chainage_m);
-}
-
-export function profileLengthM(points: { chainage_m: number; elevation_m: number }[]): number {
-  if (points.length === 0) return 0;
-  const chainages = points.map((p) => p.chainage_m);
-  return Math.max(...chainages) - Math.min(...chainages);
-}
-
-export function profileToApiPayload(sketch: ProfileSketch): ProfileSketch {
-  return {
-    kind: 'profile',
-    width_m: Math.min(500, Math.max(1, sketch.width_m)),
-    design_elevation_m: sketch.design_elevation_m,
-    chainage_points: sortChainagePoints(sketch.chainage_points).map((p) => ({
-      chainage_m: Math.round(p.chainage_m * 1000) / 1000,
-      elevation_m: Math.round(p.elevation_m * 1000) / 1000,
-    })),
-  };
-}
-
-export function estimateProfileVolumes(sketch: ProfileSketch): {
-  fill_m3: number;
-  cut_m3: number;
-} {
-  const points = sortChainagePoints(sketch.chainage_points);
-  if (points.length < 2) return { fill_m3: 0, cut_m3: 0 };
-  const design = sketch.design_elevation_m;
-  const width = sketch.width_m;
-  let fill = 0;
-  let cut = 0;
-  for (let i = 0; i < points.length - 1; i += 1) {
-    const s0 = points[i].chainage_m;
-    const z0 = points[i].elevation_m;
-    const s1 = points[i + 1].chainage_m;
-    const z1 = points[i + 1].elevation_m;
-    const ds = s1 - s0;
-    if (ds <= 0) continue;
-    const dz0 = design - z0;
-    const dz1 = design - z1;
-    fill += (width * ds * (Math.max(dz0, 0) + Math.max(dz1, 0))) / 2;
-    cut += (width * ds * (Math.max(-dz0, 0) + Math.max(-dz1, 0))) / 2;
-  }
-  return { fill_m3: fill, cut_m3: cut };
 }
 
 export function generatePadFromWells(input: PadWellLayoutInput): PadWellLayoutResult {

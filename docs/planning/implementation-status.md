@@ -64,7 +64,7 @@
 | Граф сети | `api/v1/graph.py`, `graph_builder.py` | ✅ (визуализация/PFD; якорь `network_node` в анализе POI — post-MVP) |
 | Схема потоков | `api/v1/flow.py`, `fluid_flow_schematic.py`, `flow_schematic_merge.py` | ✅ |
 | Песок / логистика | `api/v1/sand_logistics.py`, `sand_logistics.py`, `sand_logistics_store.py` | ✅ (результат в БД; схема: timeline, полная топология на любом годе, layout/slice, адаптивные отступы) |
-| Земляные работы куста | `pad-earthwork-planner` + BFF; UI: поля L/W/H/НДС, **Схема…** (план + **профиль** + **3D preview** + **обволование** вариант A), DEM, сохранение `wells_local` — [pad-earthwork.md](../features/pad-earthwork.md) | ✅ flat + plan + profile + envelope + DEM + 3D preview |
+| Земляные работы куста | `pad-earthwork-planner` + BFF; UI: поля L/W/H/НДС, **Схема…** (план + **3D** + **обваловка**), DEM, раздельные отсыпка/выемка — [pad-earthwork.md](../features/pad-earthwork.md) | ✅ flat + plan + envelope + DEM + 3D preview |
 | Экономика потоков | `economic_flow_schematic.py`, `economic_rates.py` | ✅ |
 | Автосеть автодорог | `network-planner` + `planner_adapter.py`: Steiner tree, post-processing, preview overlay; BFF request/compute/apply | ✅ |
 | Autoroad Network Service (HTTP :8080) | `autoroad-network-planner` microservice / legacy `services/autoroad-network/` | ⬜ опционально (`AUTOROAD_NETWORK_INPROCESS=false`) |

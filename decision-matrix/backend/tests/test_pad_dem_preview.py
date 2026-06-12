@@ -44,7 +44,37 @@ class _FakeObj:
         self.properties: dict = {}
 
 
-def test_build_dem_preview_cut_and_fill(tmp_path: Path, monkeypatch):
+def test_build_dem_preview_cut_zones_above_reference(tmp_path: Path, monkeypatch):
+    from app.core.config import settings
+
+    monkeypatch.setattr(settings, "PAD_DEM_DATA_ROOT", str(tmp_path / "pad_dem"))
+    dem_path = tmp_path / "pad_dem" / "proj" / "dem.tif"
+    _make_dem_geotiff_file(dem_path, elevation=105.0)
+
+    obj = _FakeObj()
+    body = PadEarthworkComputeRequest(
+        params=PadParamsIn(
+            length_m=20,
+            width_m=20,
+            height_m=2,
+            rotation_deg=0,
+            reference_elevation_m=100,
+        ),
+    )
+
+    with patch(
+        "app.services.pad_earthwork.dem_preview.ensure_dem_for_object",
+        return_value=("asset-1", dem_path, {}),
+    ):
+        preview = build_dem_preview_for_object(uuid4(), obj, body, dem_path=dem_path)
+
+    assert preview.design_elevation_m == pytest.approx(102.0)
+    assert preview.footprint_elev_min == pytest.approx(105.0)
+    assert -1 in preview.cut_fill
+    assert 1 not in preview.cut_fill
+
+
+def test_build_dem_preview_no_cut_at_reference(tmp_path: Path, monkeypatch):
     from app.core.config import settings
 
     monkeypatch.setattr(settings, "PAD_DEM_DATA_ROOT", str(tmp_path / "pad_dem"))
@@ -75,7 +105,10 @@ def test_build_dem_preview_cut_and_fill(tmp_path: Path, monkeypatch):
     assert preview.design_elevation_m == pytest.approx(102.0)
     assert preview.elev_min == pytest.approx(100.0)
     assert preview.elev_max == pytest.approx(100.0)
-    assert 1 in preview.cut_fill
+    assert preview.footprint_elev_min == pytest.approx(100.0)
+    assert -1 not in preview.cut_fill
+    assert 1 not in preview.cut_fill
+    assert 0 in preview.cut_fill
     assert preview.bounds.max_east_m > preview.bounds.min_east_m
 
 
@@ -123,6 +156,7 @@ def test_build_dem_preview_api(client, tmp_path: Path, monkeypatch):
     assert res.status_code == 200, res.text
     data = res.json()
     assert data["design_elevation_m"] == pytest.approx(110.0)
+    assert "footprint_elev_min" in data
     assert data["cols"] <= 128
     assert data["rows"] <= 128
     assert len(data["elevations"]) == data["cols"] * data["rows"]

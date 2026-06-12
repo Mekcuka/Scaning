@@ -29,7 +29,7 @@ export function EnvelopeSection({
           disabled={readOnly || disabled}
           onChange={(e) => onEnvelopeEnabledChange(e.target.checked)}
         />
-        <span>Включить песчаный забор по контуру верха насыпи</span>
+        <span>Включить песчаную обваловку по контуру верха насыпи</span>
       </label>
       {envelopeEnabled && (
         <>
@@ -44,7 +44,7 @@ export function EnvelopeSection({
           />
           <p className="object-detail-panel__hint text-xs">
             Кольцо на проектной отметке: подошва W, откосы 1:1, бровка на H = (W−TW)/2, TW = W/3.
-            Оценка объёма забора: периметр × H × (W+TW)/2. «Рассчитать» — упрощённая формула planner
+            Оценка объёма обваловки: периметр × H × (W+TW)/2. «Рассчитать» — упрощённая формула planner
             (см. предупреждение в результате).
           </p>
         </>

@@ -164,11 +164,22 @@ export async function createApiMock(
     ...createDefaultApiMocks(),
     ...overrides,
   };
+  const analysisApiMock = {
+    ...actual.analysisApi,
+    getPoiAnalysis: mockedApi.getPoiAnalysis,
+    analyzePoi: mockedApi.analyzePoi,
+    analyzeAllPois: mockedApi.analyzeAllPois,
+    overrideAnalysis: mockedApi.overrideAnalysis,
+    getCandidates: mockedApi.getCandidates,
+  };
   return {
     ...actual,
     api: mockedApi,
+    analysisApi: analysisApiMock,
     loadLlmLocalPresets: actual.loadLlmLocalPresets ?? (() => []),
     saveLlmLocalPreset: actual.saveLlmLocalPreset ?? (() => undefined),
     ...createDefaultPorts(mockedApi),
+    defaultAnalysisBatchApi: analysisApiMock,
+    defaultMapAnalysisApi: analysisApiMock,
   };
 }

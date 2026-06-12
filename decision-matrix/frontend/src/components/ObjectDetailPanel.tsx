@@ -107,6 +107,9 @@ export function ObjectDetailPanel({
                 capacityValue={panel.capacityValue}
                 setCapacityValue={panel.setCapacityValue}
                 throughputCapacity={panel.throughputCapacity}
+                showPadWellCountField={panel.showPadWellCountField}
+                padWellCount={panel.padWellCount}
+                setPadWellCount={panel.setPadWellCount}
                 saving={saving}
                 isLine={panel.isLine}
                 lineLengthLabel={panel.lineLengthLabel}

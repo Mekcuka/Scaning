@@ -179,7 +179,7 @@ def _compute_dem_response(req: ComputeRequest, params: PadParams) -> ComputeResp
         warnings.append("envelope_ignored_with_dem")
 
     local_vertices = _local_vertices_from_request(req, params)
-    fill_m3, cut_m3, footprint_area, dem_warnings = compute_volumes_dem(
+    _dem_fill, cut_m3, _footprint_area_grid, dem_warnings = compute_volumes_dem(
         req.terrain.dem_file_path,
         req.center.lon,
         req.center.lat,
@@ -190,15 +190,21 @@ def _compute_dem_response(req: ComputeRequest, params: PadParams) -> ComputeResp
     warnings.extend(dem_warnings)
     corners = _footprint_corners_from_request(req, params)
     if isinstance(req.sketch, PlanPolygonSketch):
+        footprint_area = polygon_footprint_area_m2(req.sketch.vertices)
         warnings.append("polygon_mesh_is_bbox_approximation")
+    elif isinstance(req.sketch, PlanRectangleSketch):
+        footprint_area = plan_footprint_area_m2(req.sketch)
+    else:
+        footprint_area = params.length_m * params.width_m
 
+    fill_m3 = footprint_area * params.height_m
     design = design_surface_summary(params, footprint_area_m2=footprint_area)
     mesh_b64 = box_mesh_glb_base64(params.length_m, params.width_m, params.height_m)
     return ComputeResponse(
         volumes=VolumesOut(
             fill_m3=round(fill_m3, 3),
             cut_m3=round(cut_m3, 3),
-            net_fill_m3=round(fill_m3 - cut_m3, 3),
+            net_fill_m3=round(fill_m3, 3),
         ),
         design=design,
         footprint_corners=[FootprintCornerOut(lon=c[0], lat=c[1]) for c in corners],
@@ -234,7 +240,7 @@ def _compute_profile_response(req: ComputeRequest, params: PadParams) -> Compute
         volumes=VolumesOut(
             fill_m3=round(fill_m3, 3),
             cut_m3=round(cut_m3, 3),
-            net_fill_m3=round(fill_m3 - cut_m3, 3),
+            net_fill_m3=round(fill_m3, 3),
         ),
         design=design,
         footprint_corners=[FootprintCornerOut(lon=c[0], lat=c[1]) for c in corners],
@@ -335,7 +341,7 @@ def compute_pad_earthwork(req: ComputeRequest) -> ComputeResponse:
         volumes=VolumesOut(
             fill_m3=round(fill_m3, 3),
             cut_m3=round(cut_m3, 3),
-            net_fill_m3=round(fill_m3 - cut_m3, 3),
+            net_fill_m3=round(fill_m3, 3),
         ),
         design=design,
         footprint_corners=[FootprintCornerOut(lon=c[0], lat=c[1]) for c in corners],

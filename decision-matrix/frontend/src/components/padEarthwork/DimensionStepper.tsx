@@ -1,4 +1,5 @@
 import { Minus, Plus } from 'lucide-react';
+import type { ReactNode } from 'react';
 import { FieldLabel } from '../objectDetailPanel/panelUi';
 
 function roundToDecimals(n: number, decimals: number): number {
@@ -17,6 +18,7 @@ interface DimensionStepperProps {
   decimals?: number;
   readOnly?: boolean;
   onChange: (value: number) => void;
+  trailingAction?: ReactNode;
 }
 
 export function DimensionStepper({
@@ -29,6 +31,7 @@ export function DimensionStepper({
   decimals = 2,
   readOnly = false,
   onChange,
+  trailingAction,
 }: DimensionStepperProps) {
   const clamp = (n: number) => roundToDecimals(Math.min(max, Math.max(min, n)), decimals);
   const displayValue = roundToDecimals(value, decimals);
@@ -71,6 +74,7 @@ export function DimensionStepper({
         >
           <Plus size={14} />
         </button>
+        {trailingAction}
       </div>
     </div>
   );

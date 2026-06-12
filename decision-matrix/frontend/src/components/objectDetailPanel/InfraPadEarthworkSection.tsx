@@ -1,11 +1,12 @@
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { padEarthworkApi, type PadEarthworkComputeResult } from '../../lib/api/padEarthworkApi';
 import { padParamsFromObject, envelopeFromObject, hasSavedPadSketch, sketchSavedAtFromObject, clampNdsDeg, DEFAULT_PAD_NDS_DEG, resolveGeneratorNdsDeg, readDemStatusFromProperties } from '../../lib/infraPadEarthwork';
 import type { PadTerrainMode } from '../../lib/api/padEarthworkApi';
-import { parseSketchFromLast, parseProfileFromLast, parseWellsLocalFromLast } from '../../lib/padEarthworkSketch';
+import { parseSketchFromLast, parseWellsLocalFromLast, planFromFormFields } from '../../lib/padEarthworkSketch';
 import type { InfraObject } from '../../lib/api';
 import { PadEarthworkSketchModal } from '../padEarthwork/PadEarthworkSketchModal';
+import { ReferenceElevationDemMinButton } from '../padEarthwork/ReferenceElevationDemMinButton';
 import { FieldLabel, PanelSection } from './panelUi';
 
 interface InfraPadEarthworkSectionProps {
@@ -101,11 +102,6 @@ export function InfraPadEarthworkSection({
     () => parseSketchFromLast(last?.sketch ?? null),
     [last?.sketch],
   );
-  const savedProfile = useMemo(
-    () => parseProfileFromLast(last?.profile ?? null),
-    [last?.profile],
-  );
-
   const savedWellsLocal = useMemo(
     () =>
       parseWellsLocalFromLast(
@@ -152,6 +148,24 @@ export function InfraPadEarthworkSection({
     if (last?.result) setResult(last.result);
   }, [last, sketchOpen, savedWellsLocal.length]);
 
+  const skipPadWellParamsReset = useRef(true);
+  useEffect(() => {
+    if (skipPadWellParamsReset.current) {
+      skipPadWellParamsReset.current = false;
+      return;
+    }
+    setResult(null);
+  }, [
+    padWellCount,
+    padWellsPerGroup,
+    padWellSpacingM,
+    padGroupSpacingM,
+    padMarginLeftM,
+    padMarginBottomM,
+    padMarginTopM,
+    padMarginEndM,
+  ]);
+
   const buildParams = useCallback(() => {
     const length = parsePositive(lengthM);
     const width = parsePositive(widthM);
@@ -178,6 +192,17 @@ export function InfraPadEarthworkSection({
     }
     return { mode: 'flat' };
   }, [terrainMode, demStatus?.asset_id]);
+
+  const demAvailable = Boolean(demStatus?.asset_id);
+  const demSketch = useMemo(
+    () => savedSketch ?? planFromFormFields(lengthM, widthM, rotationDeg),
+    [savedSketch, lengthM, widthM, rotationDeg],
+  );
+  const demPreviewParams = useMemo(() => {
+    const p = buildParams();
+    if (!p) return null;
+    return { height_m: p.height_m, reference_elevation_m: p.reference_elevation_m };
+  }, [buildParams]);
 
   const fetchDemMutation = useMutation({
     mutationFn: async () => {
@@ -285,15 +310,30 @@ export function InfraPadEarthworkSection({
         </label>
         <label className="object-detail-panel__field">
           <FieldLabel>Опорная отметка, м</FieldLabel>
-          <input
-            className="input object-detail-panel__input"
-            type="number"
-            step="any"
-            value={referenceElevationM}
-            readOnly={readOnly}
-            disabled={readOnly}
-            onChange={(e) => setReferenceElevationM(e.target.value)}
-          />
+          <div className="object-detail-panel__field-control object-detail-panel__field-control--ref-dem-min">
+            <input
+              className="input object-detail-panel__input"
+              type="number"
+              step="any"
+              value={referenceElevationM}
+              readOnly={readOnly}
+              disabled={readOnly}
+              onChange={(e) => setReferenceElevationM(e.target.value)}
+            />
+            <ReferenceElevationDemMinButton
+              projectId={projectId}
+              objectId={infraObject.id}
+              sketch={demSketch}
+              params={demPreviewParams}
+              demAvailable={demAvailable}
+              readOnly={readOnly}
+              onApply={(n) => {
+                setReferenceElevationM(String(n.toFixed(2)));
+                setResult(null);
+              }}
+              onError={(msg) => setError(msg)}
+            />
+          </div>
         </label>
       </div>
       <label className="object-detail-panel__field">
@@ -386,8 +426,11 @@ export function InfraPadEarthworkSection({
             Отсыпка: <strong>{result.volumes.fill_m3.toLocaleString('ru-RU')}</strong> м³ · Выемка:{' '}
             <strong>{result.volumes.cut_m3.toLocaleString('ru-RU')}</strong> m³
           </p>
-          <p className="object-detail-panel__hint text-xs">
-            Площадь пятна: {result.design.footprint_area_m2.toLocaleString('ru-RU')} м² · Верх площадки:{' '}
+                    <p className="object-detail-panel__hint text-xs">
+                      Отсыпка и выемка считаются независимо: изъятый грунт не идёт в насыпь.
+                    </p>
+                    <p className="object-detail-panel__hint text-xs">
+                      Площадь пятна: {result.design.footprint_area_m2.toLocaleString('ru-RU')} м² · Верх площадки:{' '}
             {result.design.top_elevation_m} m
           </p>
         </div>
@@ -404,7 +447,6 @@ export function InfraPadEarthworkSection({
           rotationDeg={rotationDeg}
           referenceElevationM={referenceElevationM}
           initialSketch={savedSketch}
-          initialProfile={savedProfile}
           initialWellsLocal={savedWellsLocal}
           initialEnvelope={savedEnvelope}
           padWellCount={padWellCount}

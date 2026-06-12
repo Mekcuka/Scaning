@@ -19,11 +19,9 @@ from app.services.pad_earthwork.earthwork_store import (
     planner_response_to_bff,
     read_nds_deg,
     read_pad_params,
-    read_profile,
     read_sketch,
     store_compute_result,
     store_envelope,
-    store_profile,
     store_sketch,
     store_wells_local,
 )
@@ -35,7 +33,6 @@ from app.services.pad_earthwork.planner_bridge import (
 from app.services.pad_earthwork.properties import (
     PAD_DEM_FETCHED_AT,
     PAD_DEM_SOURCE,
-    PAD_EARTHWORK_PROFILE_SAVED_AT,
     PAD_EARTHWORK_SKETCH_SAVED_AT,
     PAD_HEIGHT_M,
     PAD_LENGTH_M,
@@ -50,13 +47,11 @@ from app.services.pad_earthwork.schemas import (
     PadEarthworkComputeRequest,
     PadEarthworkComputeResponse,
     PadEarthworkParamsPatch,
-    PadEarthworkProfileSaveRequest,
     PadEarthworkSketchSaveRequest,
     PadHeightReferenceIn,
     PadParamsIn,
     PlanPolygonSketchIn,
     PlanRectangleSketchIn,
-    ProfileSketchIn,
     SketchPreviewRequestIn,
     SketchPreviewResponseOut,
     TerrainDemIn,
@@ -74,39 +69,6 @@ def assert_pad_object(obj: InfrastructureObject) -> None:
         )
 
 
-def _profile_to_planner(profile: ProfileSketchIn) -> Any:
-    return planner_schemas().ProfileSketch.model_validate(profile.model_dump())
-
-
-def _resolve_profile_params(
-    obj: InfrastructureObject,
-    body: PadEarthworkComputeRequest | None,
-    profile: ProfileSketchIn,
-) -> PadParamsIn:
-    base = resolve_compute_params(obj, body if body and not body.profile else None)
-    height: float | None = None
-    reference: float | None = None
-    if body and body.params is not None:
-        if isinstance(body.params, PadHeightReferenceIn):
-            height = body.params.height_m
-            reference = body.params.reference_elevation_m
-        elif isinstance(body.params, PadParamsIn):
-            height = body.params.height_m
-            reference = body.params.reference_elevation_m
-    if height is None or reference is None:
-        height = base.height_m
-        reference = base.reference_elevation_m
-    from pad_earthwork.volume_profile import profile_length_m
-
-    planner_profile = _profile_to_planner(profile)
-    length_m = max(1.0, profile_length_m(planner_profile.chainage_points))
-    return PadParamsIn(
-        length_m=min(500.0, length_m),
-        width_m=profile.width_m,
-        height_m=height,
-        rotation_deg=base.rotation_deg,
-        reference_elevation_m=reference,
-    )
 def _sketch_to_planner(sketch: PlanRectangleSketchIn | PlanPolygonSketchIn) -> Any:
     schemas = planner_schemas()
     if isinstance(sketch, PlanRectangleSketchIn):
@@ -250,8 +212,6 @@ def resolve_compute_params(
     obj: InfrastructureObject,
     body: PadEarthworkComputeRequest | None,
 ) -> PadParamsIn:
-    if body and body.profile is not None:
-        return _resolve_profile_params(obj, body, body.profile)
     if body and body.sketch is not None:
         return _params_from_sketch_and_body(body.sketch, body, obj)
     if body and body.params is not None and isinstance(body.params, PadParamsIn):
@@ -268,18 +228,7 @@ def resolve_compute_params(
 def _planner_params_arg(
     body: PadEarthworkComputeRequest | None,
     params_in: PadParamsIn,
-    *,
-    profile_mode: bool = False,
 ) -> Any:
-    if profile_mode or (body and body.profile is not None):
-        if body and body.params is not None:
-            if isinstance(body.params, PadHeightReferenceIn):
-                return _height_ref_to_planner(body.params)
-            return _params_to_planner(body.params)
-        return planner_schemas().PadHeightReference(
-            height_m=params_in.height_m,
-            reference_elevation_m=params_in.reference_elevation_m,
-        )
     if body and body.sketch is not None:
         if body.params is not None:
             if isinstance(body.params, PadHeightReferenceIn):
@@ -362,9 +311,6 @@ async def compute_pad_earthwork_for_object(
     project_id: UUID | None = None,
 ) -> tuple[PadEarthworkComputeResponse, dict[str, Any]]:
     assert_pad_object(obj)
-    profile_arg = None
-    if body and body.profile is not None:
-        profile_arg = _profile_to_planner(body.profile)
     params_in = resolve_compute_params(obj, body)
     schemas = planner_schemas()
     sketch_arg = _sketch_to_planner(body.sketch) if body and body.sketch else None
@@ -377,7 +323,7 @@ async def compute_pad_earthwork_for_object(
         envelope_arg = schemas.EnvelopeWrap.model_validate(body.envelope.model_dump())
 
     dem_updates: dict[str, Any] = {}
-    if _is_dem_mode(body) and profile_arg is None:
+    if _is_dem_mode(body):
         if project_id is None:
             raise HTTPException(status_code=500, detail="project_id required for dem compute")
         terrain, dem_updates = _prepare_dem_terrain(project_id, obj, body, params_in)
@@ -388,9 +334,8 @@ async def compute_pad_earthwork_for_object(
         object_id=str(obj.id),
         subtype=obj.subtype,  # type: ignore[arg-type]
         center=schemas.LonLat(lon=float(obj.longitude), lat=float(obj.latitude)),
-        params=_planner_params_arg(body, params_in, profile_mode=profile_arg is not None),
+        params=_planner_params_arg(body, params_in),
         sketch=sketch_arg,
-        profile=profile_arg,
         envelope=envelope_arg,
         terrain=terrain,
     )
@@ -409,11 +354,9 @@ async def compute_pad_earthwork_for_object(
     props[PAD_REFERENCE_ELEVATION_M] = params_in.reference_elevation_m
     if body and body.sketch is not None:
         props = store_sketch(props, body.sketch)
-    if body and body.profile is not None:
-        props = store_profile(props, body.profile)
     if body and body.envelope is not None:
         props = store_envelope(props, body.envelope)
-    elif body and body.envelope is None and profile_arg is None:
+    elif body and body.envelope is None:
         props = store_envelope(props, None)
     props.update(dem_updates)
     props = store_compute_result(props, raw)
@@ -446,26 +389,6 @@ def save_pad_sketch_for_object(
     else:
         props = store_envelope(props, None)
     props[PAD_EARTHWORK_SKETCH_SAVED_AT] = datetime.now(UTC).isoformat()
-    return props
-
-
-def save_pad_profile_for_object(
-    obj: InfrastructureObject,
-    body: PadEarthworkProfileSaveRequest,
-) -> dict[str, Any]:
-    assert_pad_object(obj)
-    fake_body = PadEarthworkComputeRequest(params=body.params, profile=body.profile)
-    params_in = _resolve_profile_params(obj, fake_body, body.profile)
-    props = dict(obj.properties or {})
-    props[PAD_LENGTH_M] = params_in.length_m
-    props[PAD_WIDTH_M] = params_in.width_m
-    props[PAD_HEIGHT_M] = params_in.height_m
-    props[PAD_ROTATION_DEG] = params_in.rotation_deg
-    props[PAD_REFERENCE_ELEVATION_M] = params_in.reference_elevation_m
-    props = store_profile(props, body.profile)
-    if body.envelope is not None:
-        props = store_envelope(props, body.envelope)
-    props[PAD_EARTHWORK_PROFILE_SAVED_AT] = datetime.now(UTC).isoformat()
     return props
 
 

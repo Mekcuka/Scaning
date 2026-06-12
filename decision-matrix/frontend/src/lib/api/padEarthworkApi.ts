@@ -35,13 +35,6 @@ export type PlanPolygonSketch = {
 
 export type PlanShapeSketch = PlanRectangleSketch | PlanPolygonSketch;
 
-export type ProfileSketch = {
-  kind: 'profile';
-  width_m: number;
-  chainage_points: { chainage_m: number; elevation_m: number }[];
-  design_elevation_m: number;
-};
-
 export type PadTerrainMode = { mode: 'flat' } | { mode: 'dem'; dem_asset_id?: string };
 
 export type PadEarthworkVolumes = {
@@ -103,6 +96,7 @@ export type PadDemPreview = {
   cell_size_m: number;
   elev_min: number;
   elev_max: number;
+  footprint_elev_min: number;
   design_elevation_m: number;
   elevations: (number | null)[];
   cut_fill: (number | null)[];
@@ -111,20 +105,11 @@ export type PadDemPreview = {
 export type PadEarthworkLast = {
   params: PadEarthworkParams | null;
   sketch?: PlanShapeSketch | null;
-  profile?: ProfileSketch | null;
   wells_local?: PlanVertex[];
   envelope?: EnvelopeWrap | null;
   sketch_saved_at?: string | null;
-  profile_saved_at?: string | null;
   dem?: PadDemStatus | null;
   result: PadEarthworkComputeResult | null;
-};
-
-export type PadDemProfileSample = {
-  chainage_points: { chainage_m: number; elevation_m: number }[];
-  length_m: number;
-  rotation_deg: number;
-  design_elevation_m: number;
 };
 
 export type WellLayoutGenerateResult = {
@@ -157,7 +142,6 @@ export const padEarthworkApi = {
     body?: {
       params?: PadEarthworkParams | PadHeightReference;
       sketch?: PlanShapeSketch;
-      profile?: ProfileSketch;
       envelope?: EnvelopeWrap | null;
       terrain?: PadTerrainMode;
     },
@@ -169,7 +153,6 @@ export const padEarthworkApi = {
         body: JSON.stringify({
           params: body?.params,
           sketch: body?.sketch,
-          profile: body?.profile,
           envelope: body?.envelope ?? undefined,
           terrain: body?.terrain ?? { mode: 'flat' },
         }),
@@ -243,37 +226,6 @@ export const padEarthworkApi = {
           wells_local: body.wells_local?.length ? body.wells_local : undefined,
           rotation_deg: body.rotation_deg,
         }),
-      },
-    ),
-  saveProfile: (
-    projectId: string,
-    objectId: string,
-    body: {
-      profile: ProfileSketch;
-      params?: PadHeightReference;
-      envelope?: EnvelopeWrap | null;
-    },
-  ) =>
-    request<InfraObject>(
-      `/projects/${projectId}/infrastructure/objects/${objectId}/pad-earthwork/profile`,
-      {
-        method: 'PATCH',
-        body: JSON.stringify(body),
-      },
-    ),
-  sampleDemProfile: (
-    projectId: string,
-    objectId: string,
-    body?: {
-      params?: PadEarthworkParams | PadHeightReference;
-      step_m?: number;
-    },
-  ) =>
-    request<PadDemProfileSample>(
-      `/projects/${projectId}/infrastructure/objects/${objectId}/pad-earthwork/dem/profile/sample`,
-      {
-        method: 'POST',
-        body: JSON.stringify(body ?? {}),
       },
     ),
   generateSketch: (projectId: string, objectId: string, body?: WellLayoutGenerateBody) =>

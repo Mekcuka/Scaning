@@ -2,9 +2,11 @@ import { describe, expect, it } from 'vitest';
 import {
   computeHillshade,
   elevationRgb,
+  footprintMinElevationM,
   formatElevationM,
   gradientRgbAt,
   normalizeElevation,
+  type PadDemPreview,
 } from './padEarthworkDemPreview';
 
 describe('padEarthworkDemPreview', () => {
@@ -40,5 +42,36 @@ describe('padEarthworkDemPreview', () => {
 
   it('formatElevationM renders meters', () => {
     expect(formatElevationM(203.4)).toBe('203.4 м');
+  });
+
+  it('footprintMinElevationM prefers footprint_elev_min field', () => {
+    const preview = {
+      cols: 2,
+      rows: 2,
+      cell_size_m: 1,
+      bounds: { min_east_m: 0, max_east_m: 2, min_north_m: 0, max_north_m: 2 },
+      elev_min: 90,
+      elev_max: 110,
+      footprint_elev_min: 95.5,
+      design_elevation_m: 100,
+      elevations: [90, 100, 110, 95],
+      cut_fill: [null, 1, null, 0],
+    } satisfies PadDemPreview;
+    expect(footprintMinElevationM(preview)).toBe(95.5);
+  });
+
+  it('footprintMinElevationM falls back to min inside cut_fill footprint', () => {
+    const preview = {
+      cols: 2,
+      rows: 2,
+      cell_size_m: 1,
+      bounds: { min_east_m: 0, max_east_m: 2, min_north_m: 0, max_north_m: 2 },
+      elev_min: 90,
+      elev_max: 110,
+      design_elevation_m: 100,
+      elevations: [90, 100, 110, 92],
+      cut_fill: [null, 1, null, -1],
+    } satisfies PadDemPreview;
+    expect(footprintMinElevationM(preview)).toBe(92);
   });
 });

@@ -261,7 +261,7 @@ Geodesic-расстояние от POI до Point-объекта. Таблица
 
 | id | Статус | Тип | Ключ `properties` | UI | Примечание |
 |----|--------|-----|-------------------|-----|------------|
-| `pad_well_count` | mvp | integer | `pad_well_count` | Модалка **Схема…** → **Генератор** | Количество скважин; default 12 |
+| `pad_well_count` | mvp | integer | `pad_well_count` | **Эксплуатация** (главная вкладка) и модалка **Схема…** → **Генератор** | Количество скважин; default 12 |
 | `pad_wells_per_group` | mvp | integer | `pad_wells_per_group` | то же | Скважин в группе; default 1 |
 | `pad_well_spacing_m` | mvp | number | `pad_well_spacing_m` | то же | Шаг в группе, м; default 9 |
 | `pad_well_group_spacing_m` | mvp | number | `pad_well_group_spacing_m` | то же | Шаг между группами, м; default 9 |
@@ -272,7 +272,7 @@ Geodesic-расстояние от POI до Point-объекта. Таблица
 | `pad_rotation_deg` | mvp | number | `pad_rotation_deg` | **Логистика** (карточка) и **Генератор** (модалка) | НДС, ° (0…360, default 90); см. [pad-earthwork.md](../features/pad-earthwork.md) |
 | `pad_wells_local_json` | mvp | json array | `pad_wells_local_json` | — (сохраняется PATCH `sketch`) | `[{east_m, north_m}, …]` — маркеры скважин на схеме |
 | `pad_length_m`, `pad_width_m`, `pad_height_m` | mvp | number | см. ключи | **Логистика** | Габариты площадки |
-| `pad_earthwork_sketch_json`, `pad_*_volume_*`, envelope | mvp | mixed | см. [pad-earthwork.md](../features/pad-earthwork.md) § Модель обволования | **Логистика** / модалка | Схема, кэш объёмов, обволование (W — ширина подошвы забора) |
+| `pad_earthwork_sketch_json`, `pad_*_volume_*`, envelope | mvp | mixed | см. [pad-earthwork.md](../features/pad-earthwork.md) § Модель объёмов | **Логистика** / модалка | Схема, кэш объёмов; отсыпка и выемка независимы; обваловка (W — ширина подошвы) |
 
 Значения `infra_object_geometry_type`: `point` (`ST_Point`), `linestring` (`ST_LineString` / `ST_MultiLineString`). Соответствие подтипу — [map-objects-and-spatial-calculations.md](../features/map-objects-and-spatial-calculations.md) §1.4.
 

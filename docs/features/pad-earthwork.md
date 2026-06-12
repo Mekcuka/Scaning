@@ -23,18 +23,76 @@ flowchart LR
 |----------|----------|
 | `GET /health` | Liveness |
 | `GET /ready` | Readiness |
-| `POST /v1/compute` | Расчёт объёмов: `terrain.mode=flat` (`fill_m3 = L×W×H`, `cut_m3 = 0`) или `terrain.mode=dem` (сетка cut/fill по GeoTIFF) |
+| `POST /v1/compute` | Расчёт объёмов: см. § [Модель объёмов](#модель-объёмов-отсыпка-и-выемка) |
 | `POST /v1/sketch/preview` | Превью плана: площадь, углы в локальной ENU |
 | `POST /v1/sketch/generate-from-wells` | Автогенерация `plan_polygon` по числу скважин и отступам |
 
-`terrain.mode=dem` — cut/fill по сетке 1×1 м внутри footprint; BFF загружает GeoTIFF через [OpenTopography Global DEM API](https://opentopography.org/developers) (по умолчанию `COP30`). При Redis/ARQ `compute` с DEM может вернуть **202** + job `pad_earthwork_compute`.
+`terrain.mode=dem` — выемка по сетке 1×1 м внутри footprint; отсыпка не берётся из DEM. BFF загружает GeoTIFF через [OpenTopography Global DEM API](https://opentopography.org/developers) (по умолчанию `COP30`). При Redis/ARQ `compute` с DEM может вернуть **202** + job `pad_earthwork_compute`.
+
+## Модель объёмов (отсыпка и выемка)
+
+**Отсыпка и выемка — независимые процессы.** Изъятый грунт не засчитывается в объём насыпи и не уменьшает спрос песка.
+
+| Поле API | Смысл | Режим flat | Режим DEM |
+|----------|--------|------------|-----------|
+| `fill_m3` | **Отсыпка** — объём призмы площадки (песок завозится) | `L × W × H` или `площадь_контура × H` | `площадь_контура × H` (не из DEM) |
+| `cut_m3` | **Выемка** — грунт, который нужно снять | `0` | сумма по ячейкам внутри контура |
+| `net_fill_m3` | Спрос песка для логистики | `= fill_m3` | `= fill_m3` (выемка не вычитается) |
+
+### Геометрия площадки
+
+- **Опорная отметка** (`reference_elevation_m`) — подошва призмы насыпи.
+- **Верх площадки** — `reference_elevation_m + height_m`.
+- Призма задаётся контуром плана (прямоугольник или полигон) и высотой насыпи `height_m`.
+
+### Выемка по DEM
+
+Для каждой ячейки сетки 1×1 м **внутри контура**, где отметка рельефа `Z_terrain` известна:
+
+```text
+если Z_terrain > reference_elevation_m:
+  cut_m3 += (Z_terrain − reference_elevation_m) × площадь_ячейки
+```
+
+Учитывается весь столб грунта **выше опорной отметки**, в том числе:
+
+- между опорной и верхом площадки (если рельеф в этом диапазоне);
+- **выше верха площадки** (холмы, торчащие через синюю призму на вкладке **3D**).
+
+Рельеф **ниже** опорной в выемку не входит (подсыпка всё равно считается полным объёмом призмы).
+
+Реализация: `pad-earthwork-planner/src/pad_earthwork/dem_volume.py`, ответ `POST compute` с `terrain.mode = dem`.
+
+### Отсыпка
+
+Всегда **геометрический объём насыпи**, без «добивки» рельефа до верха:
+
+- прямоугольник: `length_m × width_m × height_m`;
+- полигон: `площадь_контура × height_m` (шнурок);
+- с обволованием в `POST compute` (legacy planner) — см. § [Объём в POST compute](#объём-в-post-compute-planner-legacy).
+
+Кнопка **«Применить … м³ к песку»** / **«Применить … к спросу песка»** подставляет `fill_m3`.
+
+### 3D, план и цифры
+
+| Слой | Что показывает |
+|------|----------------|
+| Вкладка **3D** | DEM + призма площадки по опорной/верху; визуальное пересечение рельефа и призмы |
+| **Рассчитать** | `fill_m3` и `cut_m3` по правилам выше |
+| Overlay DEM на **Плане** | hillshade + **оранжевая** подсветка ячеек, где рельеф выше **опорной** (не синяя «насыпь по DEM») |
+
+После **Загрузить DEM** в модалке «Рассчитать» передаёт `terrain.mode=dem`, если DEM загружен.
+
+### Опорная отметка по минимуму DEM
+
+У поля **Опорная отметка** (карточка и модалка) — кнопка ↓: устанавливает опорную по **`footprint_elev_min`** из `POST dem/preview` (минимум рельефа внутри контура площадки). Требуется загруженный DEM.
 
 **DEM (OpenTopography):**
 
 - Env backend: `OPENTOPOGRAPHY_API_KEY`, `OPENTOPOGRAPHY_DEM_TYPE` (default `COP30`), `PAD_DEM_DATA_ROOT`, `PAD_DEM_BBOX_PADDING_M`, `PAD_DEM_MIN_BBOX_SIDE_M` (default 300 — OpenTopography требует ≥250 м на каждую сторону bbox; при повороте площадки ось-aligned bbox может быть уже footprint).
 - Кэш GeoTIFF: `data/pad_dem/{project_id}/{asset_uuid}.tif`; в properties: `pad_dem_asset_id`, `pad_dem_fetched_at`, `pad_dem_source`, `pad_dem_bbox_hash`.
 - UI карточки куста: переключатель «Плоская отметка / DEM», кнопки «Загрузить DEM» и «Рассчитать».
-- Design surface: плоская верхняя отметка `reference_elevation_m + height_m`; выемка там, где рельеф выше, отсыпка — где ниже.
+- Подробности объёмов — § [Модель объёмов](#модель-объёмов-отсыпка-и-выемка).
 - Ограничения: envelope + DEM → warning `envelope_ignored_with_dem`; ручная загрузка GeoTIFF — **501**.
 
 **Схема (sketch):**
@@ -77,9 +135,9 @@ flowchart LR
 }
 ```
 
-Параметр `wrap_width_m` = **W** — ширина подошвы песчаного «забора» на **верхней плоскости насыпи** (design elevation = `reference_elevation_m + height_m`).
+Параметр `wrap_width_m` = **W** — ширина подошвы песчаной **обваловки** на **верхней плоскости насыпи** (design elevation = `reference_elevation_m + height_m`).
 
-### Модель обволования (вариант A — кольцо-забор)
+### Модель обволования (вариант A — кольцо обваловки)
 
 В **UI** (план, профиль, 3D) и в **оценке объёма в модалке** используется симметричная **равнобедренная трапеция** в поперечнике; оба откоса **1:1**.
 
@@ -112,9 +170,7 @@ flowchart LR
 
 **3D:** кольцо на верху призмы — подошва на `reference + height_m`, бровка на `+ H` (не `+ W`).
 
-**Профиль:** на торцах — трапеция с подъёмом H; при W = 3, design = 152 м: `0,152 1,153 99,153 100,152`. Доп. объём в UI: `2 × (L + B) × S` (пример L = 100, B = 40, W = 3 → **560 м³**).
-
-**Frontend:** `padEarthworkSketch.ts` (`envelopeBerm*`, `estimateEnvelopeBermRingVolumeM3`), `profileEnvelope.ts`, `padEarthworkScene3d.ts` (`buildEnvelopeBermRing`).
+**Frontend:** `padEarthworkSketch.ts` (`envelopeBerm*`, `estimateEnvelopeBermRingVolumeM3`), `padEarthworkScene3d.ts` (`buildEnvelopeBermRing`).
 
 ### Объём в POST compute (planner, legacy)
 
@@ -124,46 +180,7 @@ flowchart LR
 - warning `envelope_volume_is_truncated_pyramid_approximation`
 - `footprint_corners` на карте — **внешний** (нижний) контур; `design.footprint_area_m2` = площадь низа
 
-Для **профиля** в planner: доп. объём `W × H_pad × (L + B)`, warning `profile_envelope_side_wrap_approximation`.
-
 > **Известное расхождение MVP:** визуализация и оценка в модалке — вариант A (кольцо на верху насыпи); сохранённый результат **Рассчитать** — формулы planner до выравнивания backend.
-
-`kind: "profile"` — поперечный профиль (этап 2, см. § Профиль).
-
-## Профиль (поперечник)
-
-План и профиль **хранятся отдельно**. Профиль задаёт линию рельефа вдоль центральной оси площадки (длина L и НДС из плана).
-
-```json
-{
-  "kind": "profile",
-  "width_m": 40,
-  "design_elevation_m": 152,
-  "chainage_points": [
-    { "chainage_m": 0, "elevation_m": 150 },
-    { "chainage_m": 100, "elevation_m": 151 }
-  ]
-}
-```
-
-- **chainage_m** — пикетаж вдоль оси, 0…L (м).
-- **design_elevation_m** — проектная горизонталь (перетаскивается в редакторе).
-- **width_m** — ширина полосы земляных работ (м).
-
-Объём по сегментам: трапец. интеграция × `width_m` между рельефом и проектной отметкой (fill/cut).
-
-При включённом **обволовании**:
-
-| Слой | Доп. объём | Примечание |
-|------|------------|------------|
-| **UI / оценка в модалке** | `2 × (L + B) × S`, S = `H × (W + TW) / 2` | Торцевые трапеции на графике; бровка на `design + H` |
-| **POST compute (planner)** | `W × H_pad × (L + B)` | warning `profile_envelope_side_wrap_approximation` |
-
-Footprint на карте — из сохранённого plan-sketch или scalar params.
-
-**DEM:** `POST …/dem/profile/sample` — съёмка высот вдоль центральной линии (шаг по умолчанию 1 м). Требует загруженный DEM (`dem/fetch`).
-
-**Ограничения MVP:** ось только по центру прямоугольника/BBox полигона; при `terrain.mode=dem` объём считается по точкам профиля (warning `profile_volumes_use_chainage_terrain`), не по 2D-сетке.
 
 ## Монолит (BFF)
 
@@ -172,14 +189,12 @@ Footprint на карте — из сохранённого plan-sketch или s
 | Метод | Путь | Описание |
 |-------|------|----------|
 | POST | `compute` | Расчёт и кэш в `properties` |
-| GET | `last` | Последние params, sketch, profile, `wells_local`, envelope, результат |
+| GET | `last` | Последние params, sketch, `wells_local`, envelope, результат |
 | PATCH | `params` | Только L/W/H/rotation/reference (без пересчёта) |
 | PATCH | `sketch` | Сохранение схемы **плана**, `wells_local`, envelope и **НДС** |
-| PATCH | `profile` | Сохранение профиля без пересчёта объёмов |
 | POST | `sketch/generate` | Автогенерация схемы по скважинам (из `properties` или тела запроса) |
 | POST | `dem/fetch` | Автозагрузка DEM по bbox footprint (OpenTopography) |
-| POST | `dem/preview` | Сетка высот DEM в локальной ENU для наложения на схему площадки |
-| POST | `dem/profile/sample` | Съёмка DEM вдоль центральной линии для редактора профиля |
+| POST | `dem/preview` | Сетка высот DEM в локальной ENU для наложения на схему; поля `elev_min`, `elev_max`, `footprint_elev_min`, `cut_fill` (выемка: рельеф выше опорной) |
 
 Дополнительно:
 
@@ -188,7 +203,7 @@ Footprint на карте — из сохранённого plan-sketch или s
 | POST | `/projects/{id}/pad-earthwork/sketch/preview` | Превью плана без привязки к объекту |
 | POST | `/projects/{id}/pad-earthwork/dem` | Ручная загрузка GeoTIFF (**501**, используйте `dem/fetch`) |
 
-`compute` принимает опциональный `sketch` (план) или `profile` — объёмы из профиля; footprint из сохранённого plan-sketch или params. `height_m` и `reference_elevation_m` из `params`.
+`compute` принимает опциональный `sketch` (план); footprint из сохранённого plan-sketch или params. `height_m` и `reference_elevation_m` из `params`.
 
 **Ключи `properties`:**
 
@@ -200,12 +215,10 @@ Footprint на карте — из сохранённого plan-sketch или s
 | `pad_fill_volume_m3`, `pad_cut_volume_m3` | Кэш последнего расчёта |
 | `pad_earthwork_computed_at` | ISO-время расчёта |
 | `pad_earthwork_sketch_json` | Последняя схема плана (`plan_rectangle` или `plan_polygon`) |
-| `pad_earthwork_profile_json` | Профиль (`kind: profile`) — chainage_points, width_m, design_elevation_m |
-| `pad_earthwork_profile_saved_at` | ISO-время последнего сохранения профиля |
 | `pad_wells_local_json` | Позиции скважин в локальной ENU `[{east_m, north_m}, …]` (сохраняются с автогенерацией) |
 | `pad_earthwork_sketch_saved_at` | ISO-время последнего сохранения схемы (без пересчёта) |
-| `pad_envelope_enabled`, `pad_envelope_wrap_width_m` | Обволование: W — ширина подошвы забора на верху насыпи |
-| `pad_well_count`, `pad_wells_per_group` | Скважины на кусте и в группе (режим «Генератор» в модалке схемы) |
+| `pad_envelope_enabled`, `pad_envelope_wrap_width_m` | Обволование: W — ширина подошвы обваловки на верху насыпи |
+| `pad_well_count`, `pad_wells_per_group` | Скважины на кусте и в группе: **Эксплуатация** (кол-во скв.) и режим «Генератор» в модалке схемы |
 | `pad_well_spacing_m`, `pad_well_group_spacing_m` | Шаг между скважинами в группе и между группами, м |
 | `pad_layout_margin_left_m` | Отступ слева от первой скважины, м |
 | `pad_layout_margin_bottom_m`, `pad_layout_margin_top_m` | Отступы вниз/вверх от линии скважин, м |
@@ -297,10 +310,9 @@ PAD_EARTHWORK_INPROCESS=true
 - **Схема…** — модальное окно с SVG-редактором (вид сверху, локальная ENU; якорь — см. таблицу выше);
   - переключатель: **Генератор** (по умолчанию) / **Произвольная** / **Прямоугольник**;
   - режим **«Генератор»** — параметры скважин, отступы, НДС и **«Сгенерировать»** (панель справа);
-- **Обволование** — toggle + ширина основания W; песчаный «забор» по контуру **верха насыпи** (подошва W на design, откосы 1:1, высота H = (W − TW)/2, TW = W/3); на плане — кольцо подошвы + две бровки; в 3D — кольцо на верху призмы; на профиле — торцевая трапеция;
-- вкладка **«3D»** — интерактивная сцена Three.js: рельеф из `POST dem/preview` (сетка ≤128×128), призма площадки по контуру плана, обволование как кольцо-забор (трапеция в поперечнике); без DEM — плоскость на опорной отметке; орбитальная камера, «Вписать»;
-- вкладка «Профиль» — поперечник вдоль центральной линии;
-- **Рассчитать** — POST `compute` (из полей или из модалки со `sketch`);
+- **Обволование** — toggle + ширина основания W; песчаная **обваловка** по контуру **верха насыпи** (подошва W на design, откосы 1:1, высота H = (W − TW)/2, TW = W/3); на плане — кольцо подошвы + две бровки; в 3D — кольцо на верху призмы;
+- вкладка **«3D»** — интерактивная сцена Three.js: рельеф из `POST dem/preview` (сетка ≤128×128), призма площадки по контуру плана, обволование; без DEM — плоскость на опорной отметке; орбитальная камера, «Вписать»;
+- **Рассчитать** — POST `compute` (из полей или из модалки со `sketch`; при загруженном DEM — `terrain.mode=dem`);
 - **Сохранить** (в модалке) — PATCH `sketch`: контур, `wells_local`, envelope и НДС в `properties`; объёмы не пересчитываются;
 - **Применить к полям** (в модалке) — синхронизация L/W/rotation в поля карточки без сохранения на сервер и **без закрытия** модалки;
 - **Применить N м³ к спросу песка** — заполняет `sand_volume_m3` в черновике (сохранение — кнопкой карточки).
@@ -316,8 +328,8 @@ PAD_EARTHWORK_INPROCESS=true
 | **Сетка 1 м** | Привязка вершин и размеров к шагу 1 м (toggle в тулбаре) |
 | **Длины** | Подписи длин сторон на рёбрах (toggle, по умолчанию вкл.; общий для прямоугольника и полигона) |
 | **Zoom / Вписать** | Масштаб холста; при перетаскивании вершин/рёбер viewport не «прыгает» (заморозка bbox) |
-| **Рельеф DEM** | Toggle: hillshade + подсветка насыпи (синий) / выемки (оранжевый) внутри контура; `POST dem/preview` (сетка ≤128×128 в локальной ENU). Если DEM не загружен — кнопка «Загрузить DEM» в тулбаре (`dem/fetch`). Легенда в sidebar: min/max рельеф, верх площадки |
-| **3D** | Обволование — кольцо-забор на верху призмы: подошва W на design, откосы 1:1, бровка на высоте H = (W−TW)/2 |
+| **Рельеф DEM** | Toggle: hillshade + **оранжевая** подсветка выемки (рельеф выше **опорной** отметки) внутри контура; `POST dem/preview`. Кнопка ↓ у опорной — минимум рельефа в контуре. Легенда: min/max рельеф, верх площадки |
+| **3D** | Обволование — кольцо на верху призмы: подошва W на design, откосы 1:1, бровка на H = (W−TW)/2 |
 | **Обволование (план)** | Кольцо подошвы (ширина W) + пунктир **внешней** и **внутренней** бровки (inset H и (W+TW)/2) |
 
 **DEM overlay:** canvas-подложка под SVG; пересчёт с debounce ~400 ms при изменении контура или высоты/отметки. Включён по умолчанию, если в карточке выбран режим DEM и `pad_dem_asset_id` задан.
@@ -346,15 +358,15 @@ PAD_EARTHWORK_INPROCESS=true
 
 Пресеты контура: «Из прямоугольника», «Очистить», сброс. Индикатор сохранённой схемы на вкладке «Логистика» (`pad_earthwork_sketch_saved_at`).
 
-**Frontend:** `components/padEarthwork/` (`PadEarthworkSketchModal`, `PadEarthworkScene3D`, `EnvelopePlanLegend`, `DemPlanBackground`, `PlanGeneratorPanel`, `PlanPolygonEditor`, `PlanRectangleEditor`, тулбары), `lib/padEarthworkSketch.ts` (контур, envelope berm, **`generatePadFromWells`**), `lib/envelopePlan.ts` (SVG кольца и бровок на плане), `lib/profileEnvelope.ts` (торцевые трапеции, объём кольца для профиля), `lib/padEarthworkDemPreview.ts` (hillshade/cut-fill), `lib/padEarthworkScene3d.ts` (terrain/pad/`buildEnvelopeBermRing`), `lib/infraPadWells.ts` (поля скважин и отступов в `properties`).
+**Frontend:** `components/padEarthwork/` (`PadEarthworkSketchModal`, `PadEarthworkScene3D`, …), `lib/padEarthworkSketch.ts`, …
 
 ## Ограничения MVP
 
 - Куст — **точка**; footprint от `lon/lat` + габариты (прямоугольник, центр) или вершины полигона (автогенерация: первая скважина).
 - **Автогенерация:** один ряд скважин; без многорядных кустов; `well_count` на объекте куста не синхронизируется с POI `wells_per_pad`.
 - Полигон: площадь по контуру; L/W в properties — охватывающий bbox для совместимости с полями формы.
-- Режим **flat**: `cut_m3 = 0`; режим **DEM**: cut/fill по OpenTopography (нужен `OPENTOPOGRAPHY_API_KEY` на backend).
-- Mesh GLB в ответе API есть; превью в UI — вкладка **3D** в модалке (призма + кольцо-забор варианта A + DEM preview, не полный GeoTIFF).
+- Режим **flat**: `cut_m3 = 0`, `fill_m3 = площадь×H`. Режим **DEM**: отсыпка = площадь×H, выемка — грунт выше опорной (OpenTopography, `OPENTOPOGRAPHY_API_KEY`).
+- Mesh GLB в ответе API есть; превью в UI — вкладка **3D** в модалке (призма + обваловка варианта A + DEM preview, не полный GeoTIFF).
 - **Обволование:** визуализация и оценка объёма в модалке — **вариант A** (кольцо на верху насыпи); `POST compute` — legacy усечённая пирамида planner (см. § Модель обволования).
 
 ## Локальный запуск
@@ -417,4 +429,4 @@ Copy-Item -Recurse C:\Users\user\Documents\Cursore\pad-earthwork-planner `
 |---------|--------|
 | Микросервис | `pad-earthwork-planner/tests/` (в т.ч. `test_well_layout.py`) |
 | Backend BFF | `decision-matrix/backend/tests/test_pad_earthwork_api.py` |
-| Frontend | `frontend/src/lib/infraPadEarthwork.test.ts`, `padEarthworkSketch.test.ts`, `envelopeBermAnalysis.test.ts`, `envelopeBermGeometry.test.ts`, `profileEnvelope.test.ts`, `padEarthworkScene3d.test.ts` (полигон, автогенерация, envelope вариант A) |
+| Frontend | `frontend/src/lib/infraPadEarthwork.test.ts`, `padEarthworkSketch.test.ts`, `envelopeBermAnalysis.test.ts`, `envelopeBermGeometry.test.ts`, `padEarthworkScene3d.test.ts` (полигон, автогенерация, envelope вариант A) |

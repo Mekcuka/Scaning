@@ -77,6 +77,14 @@ vi.mock('../components/DevPortBanner', () => ({
   DevPortBanner: () => null,
 }));
 
+const analyzeAllPoisAndWaitMock = vi.hoisted(() => vi.fn());
+
+vi.mock('../lib/runApiJob', () => ({
+  analyzeAllPoisAndWait: analyzeAllPoisAndWaitMock,
+  unwrapApiJobResponse: vi.fn(async (_projectId: string, response: unknown) => response),
+  analyzeSandLogisticsAndWait: vi.fn(),
+}));
+
 vi.mock('../lib/api', async (importOriginal) => {
   const { createApiMock } = await import('../test/pages/apiMockModule');
   return createApiMock(importOriginal);
@@ -134,7 +142,7 @@ describe('MapPage workflow coverage', () => {
     await userEvent.click(screen.getByRole('button', { name: 'Закрыть панель слоёв' }));
 
     await userEvent.click(screen.getByRole('button', { name: /Все точки/i }));
-    await waitFor(() => expect(api.analyzeAllPois).toHaveBeenCalled());
+    await waitFor(() => expect(analyzeAllPoisAndWaitMock).toHaveBeenCalledWith('p1'));
 
     await userEvent.click(screen.getByRole('button', { name: /линейка/i }));
     props().onMapClick?.(37.6, 55.75);
