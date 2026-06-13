@@ -1,5 +1,5 @@
-import { describe, expect, it, vi, beforeEach } from 'vitest';
-import { screen, waitFor } from '@testing-library/react';
+import { describe, expect, it, vi, beforeEach, afterEach } from 'vitest';
+import { screen, waitFor, cleanup } from '@testing-library/react';
 import { FlowSchematicProvider } from './flowSchematicContext';
 import { FlowLogisticsPage } from './FlowLogisticsPage';
 import { renderPage } from '../../test/pages/renderPage';
@@ -39,6 +39,10 @@ vi.mock('../../hooks/useProjectSandLogistics', () => ({
   })),
 }));
 
+vi.mock('../../components/logistics/SandLogisticsFlowSchematic', () => ({
+  SandLogisticsFlowSchematic: () => null,
+}));
+
 vi.mock('../../lib/sandLogisticsResult', async (importOriginal) => {
   const actual = await importOriginal<typeof import('../../lib/sandLogisticsResult')>();
   return {
@@ -47,12 +51,17 @@ vi.mock('../../lib/sandLogisticsResult', async (importOriginal) => {
     saveActiveSubnetIndex: vi.fn(),
     loadSandLogisticsHorizonTo: vi.fn(() => '2026-12-31'),
     loadSandLogisticsViewAsOf: vi.fn(() => '2023-12-31'),
+    prefetchSchematicSubnetsAtView: vi.fn(),
   };
 });
 
 describe('FlowLogisticsPage', () => {
   beforeEach(() => {
     vi.clearAllMocks();
+  });
+
+  afterEach(() => {
+    cleanup();
   });
 
   it('shows hint when no sand logistics result', () => {
