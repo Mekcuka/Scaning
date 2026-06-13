@@ -98,10 +98,10 @@ describe('MapPage integration', () => {
     expect(document.querySelector('.map-canvas-wrap')).toBeTruthy();
   });
 
-  it('shows banner when no project in store', async () => {
+  it('renders map shell when no project in store', async () => {
     seedAppStore({ currentProjectId: null });
     renderPage(<MapPage />);
-    expect(screen.getByText(/Выберите проект/)).toBeInTheDocument();
+    expect(screen.getByText('Карта инфраструктуры')).toBeInTheDocument();
   });
 
   async function enableEdit() {

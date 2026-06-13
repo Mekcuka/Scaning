@@ -26,9 +26,12 @@ describe('ImportPage', () => {
   it('imports csv via file input', async () => {
     const { api } = await import('../lib/api');
     renderPage(<ImportPage />);
-    const input = document.querySelector('input[type="file"]') as HTMLInputElement;
+    const input = document.querySelector(
+      'input[type="file"][accept*=".geojson"]',
+    ) as HTMLInputElement;
+    expect(input).toBeTruthy();
     const file = new File(['name,type,lat,lon\np,node,1,2'], 'test.csv', { type: 'text/csv' });
-    await userEvent.upload(input, file);
+    await userEvent.upload(input as HTMLInputElement, file);
     await waitFor(() => expect(api.importCsv).toHaveBeenCalled());
   });
 
