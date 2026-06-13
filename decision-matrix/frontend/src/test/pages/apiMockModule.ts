@@ -119,6 +119,8 @@ function createDefaultPorts(mockedApi: Record<string, unknown>) {
       updateEconomicParams: mockedApi.updateEconomicParams,
       getDistanceDefaults: mockedApi.getDistanceDefaults,
       updateDistanceDefaults: mockedApi.updateDistanceDefaults,
+      getFootprintConnectionTemplate: mockedApi.getFootprintConnectionTemplate,
+      updateFootprintConnectionTemplate: mockedApi.updateFootprintConnectionTemplate,
     },
     defaultProjectsPoiWriteApi: {
       createPoi: mockedApi.createPoi,

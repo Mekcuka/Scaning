@@ -24,6 +24,10 @@ from app.services.pad_earthwork.properties import (
     PAD_ROTATION_DEG,
     PAD_WIDTH_M,
     DEFAULT_NDS_DEG,
+    DEFAULT_PAD_HEIGHT_M,
+    DEFAULT_PAD_LENGTH_M,
+    DEFAULT_PAD_REFERENCE_ELEVATION_M,
+    DEFAULT_PAD_WIDTH_M,
 )
 from app.services.pad_earthwork.schemas import (
     DesignOut,
@@ -67,13 +71,17 @@ def read_pad_params(props: dict[str, Any] | None) -> PadParamsIn | None:
     length = _read_float(p, PAD_LENGTH_M)
     width = _read_float(p, PAD_WIDTH_M)
     height = _read_float(p, PAD_HEIGHT_M)
-    if length is None or width is None or height is None:
-        return None
+    if length is None:
+        length = DEFAULT_PAD_LENGTH_M
+    if width is None:
+        width = DEFAULT_PAD_WIDTH_M
+    if height is None:
+        height = DEFAULT_PAD_HEIGHT_M
     ref = p.get(PAD_REFERENCE_ELEVATION_M)
     try:
-        reference = float(ref) if ref is not None else 0.0
+        reference = float(ref) if ref is not None and ref != "" else DEFAULT_PAD_REFERENCE_ELEVATION_M
     except (TypeError, ValueError):
-        reference = 0.0
+        reference = DEFAULT_PAD_REFERENCE_ELEVATION_M
     return PadParamsIn(
         length_m=length,
         width_m=width,

@@ -4,8 +4,11 @@ import { getLineCoordinates, isLineSubtype } from './infraGeometry';
 /** Минимальное расстояние от конца линии, чтобы вставка не дублировала вершину (≈10 м). */
 export const LINE_SPLIT_ENDPOINT_MIN_KM = 0.01;
 
-/** Максимальное расстояние клика от линии для разрезания (≈300 м). */
-export const LINE_SPLIT_HIT_TOLERANCE_KM = 0.3;
+/** Макс. расстояние клика от линии для split (fallback по координатам, ≈80 м). */
+export const LINE_SPLIT_HIT_TOLERANCE_KM = 0.08;
+
+/** Макс. расстояние курсора от линии на экране (px) при завершении рисования / установке точки. */
+export const LINE_SPLIT_HIT_TOLERANCE_PX = 28;
 
 function haversineKm(lon1: number, lat1: number, lon2: number, lat2: number): number {
   const r = 6371.0;

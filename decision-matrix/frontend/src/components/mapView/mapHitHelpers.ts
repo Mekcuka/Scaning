@@ -1,5 +1,8 @@
 import type OlMap from 'ol/Map';
 import {
+  LINE_SPLIT_HIT_TOLERANCE_PX,
+} from '../../lib/lineSplit';
+import {
   resolveInfraLineSplitAtCoordinate,
   resolveInfraPointAtCoordinate,
 } from '../../lib/mapHitTest';
@@ -34,7 +37,7 @@ export function createMapHitHelpers(map: OlMap, refs: MapViewRefs): MapHitHelper
       lineSourceRef.current,
       coordinate,
       pixel,
-      16,
+      LINE_SPLIT_HIT_TOLERANCE_PX,
     );
   };
 

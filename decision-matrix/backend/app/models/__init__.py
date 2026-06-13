@@ -63,6 +63,9 @@ class Project(Base):
     economic_params: Mapped["ProjectEconomicParams | None"] = relationship(
         back_populates="project", uselist=False, cascade="all, delete-orphan"
     )
+    footprint_connection_template: Mapped["ProjectFootprintConnectionTemplate | None"] = relationship(
+        back_populates="project", uselist=False, cascade="all, delete-orphan"
+    )
     distance_defaults: Mapped["ProjectDistanceDefaults | None"] = relationship(
         back_populates="project", uselist=False, cascade="all, delete-orphan"
     )
@@ -122,6 +125,18 @@ class ProjectEconomicParams(Base):
     params: Mapped[dict] = mapped_column(JSON, default=dict)
 
     project: Mapped["Project"] = relationship(back_populates="economic_params")
+
+
+class ProjectFootprintConnectionTemplate(Base):
+    __tablename__ = "project_footprint_connection_templates"
+
+    id: Mapped[uuid.UUID] = mapped_column(Uuid, primary_key=True, default=uuid.uuid4)
+    project_id: Mapped[uuid.UUID] = mapped_column(
+        Uuid, ForeignKey("projects.id", ondelete="CASCADE"), unique=True
+    )
+    template: Mapped[dict] = mapped_column(JSON, default=dict)
+
+    project: Mapped["Project"] = relationship(back_populates="footprint_connection_template")
 
 
 class ProjectSandLogisticsResult(Base):
@@ -292,6 +307,41 @@ class InfrastructureObject(Base):
     )
 
     layer: Mapped["InfrastructureLayer"] = relationship(back_populates="objects")
+    pad_dem: Mapped["InfraObjectPadDem | None"] = relationship(
+        back_populates="infrastructure_object",
+        uselist=False,
+        cascade="all, delete-orphan",
+        passive_deletes=True,
+    )
+
+
+class InfraObjectPadDem(Base):
+    __tablename__ = "infra_object_pad_dem"
+
+    id: Mapped[uuid.UUID] = mapped_column(Uuid, primary_key=True, default=uuid.uuid4)
+    infrastructure_object_id: Mapped[uuid.UUID] = mapped_column(
+        Uuid,
+        ForeignKey("infrastructure_objects.id", ondelete="CASCADE"),
+        unique=True,
+        index=True,
+    )
+    project_id: Mapped[uuid.UUID] = mapped_column(
+        Uuid, ForeignKey("projects.id", ondelete="CASCADE"), index=True
+    )
+    bbox_hash: Mapped[str] = mapped_column(String(16), nullable=False)
+    bbox_west: Mapped[float] = mapped_column(Float, nullable=False)
+    bbox_south: Mapped[float] = mapped_column(Float, nullable=False)
+    bbox_east: Mapped[float] = mapped_column(Float, nullable=False)
+    bbox_north: Mapped[float] = mapped_column(Float, nullable=False)
+    source: Mapped[str] = mapped_column(String(64), nullable=False)
+    file_size_bytes: Mapped[int] = mapped_column(Integer, nullable=False)
+    fetched_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now(), onupdate=func.now()
+    )
+
+    infrastructure_object: Mapped["InfrastructureObject"] = relationship(back_populates="pad_dem")
 
 
 class PoiInfrastructureAnalysis(Base):

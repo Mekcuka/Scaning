@@ -1,10 +1,12 @@
 import { useEffect } from 'react';
 import LineString from 'ol/geom/LineString';
 import Point from 'ol/geom/Point';
+import Polygon from 'ol/geom/Polygon';
 import { fromLonLat } from 'ol/proj';
 import { normalizeInfraSubtype } from '../../lib/api';
 import type { LinePathDisplayOptions } from '../../lib/infraGeometry';
 import { lineLodForScale } from '../../lib/mapLineLod';
+import { resolveFootprintLonLat } from '../../lib/padFootprintGeo';
 import { isMapNodePointSubtype, SYNC_IDLE_INFRA_THRESHOLD, SYNC_IDLE_TIMEOUT_MS } from './constants';
 import { infraLineGeometry, syncFeaturesById } from './geometry';
 import type { MapViewRefs } from './mapViewRefs';
@@ -17,13 +19,18 @@ export function useMapViewDataSync(
     infraObjects = [],
     infraSnapPool,
     lineLodScaleThreshold,
-  }: Pick<MapViewProps, 'pois' | 'infraObjects' | 'infraSnapPool' | 'lineLodScaleThreshold'>,
+    infraSymbology = 'points',
+  }: Pick<
+    MapViewProps,
+    'pois' | 'infraObjects' | 'infraSnapPool' | 'lineLodScaleThreshold' | 'infraSymbology'
+  >,
 ): void {
   const {
     syncInfraDataToLayersRef,
     pointSourceRef,
     nodePointSourceRef,
     lineSourceRef,
+    padFootprintSourceRef,
     infraSnapPoolRef,
     infraObjectsRef,
     poisRef,
@@ -34,6 +41,8 @@ export function useMapViewDataSync(
     lineLayerRef,
     nodePointLayerRef,
     pointLayerRef,
+    padFootprintLayerRef,
+    infraSymbologyRef,
     infraIdsRef,
     editModeRef,
     suppressDataSyncRef,
@@ -55,6 +64,7 @@ export function useMapViewDataSync(
       const lineDisplayOpts: LinePathDisplayOptions = {
         snapIndex: snapIndexRef.current ?? undefined,
         lod: lineLod,
+        infraSymbology: infraSymbologyRef.current,
       };
 
       const lineItems: { id: string; geometry: LineString; attrs: Record<string, unknown> }[] = [];
@@ -100,9 +110,39 @@ export function useMapViewDataSync(
       syncFeaturesById(lines, lineItems, 'draft');
       syncFeaturesById(nodePoints, nodePointItems);
       syncFeaturesById(points, regularPointItems);
+
+      const footprints = padFootprintSourceRef.current;
+      if (infraSymbologyRef.current === 'footprints') {
+        const footprintItems: {
+          id: string;
+          geometry: Polygon;
+          attrs: Record<string, unknown>;
+        }[] = [];
+        infra.forEach((obj) => {
+          const ring = resolveFootprintLonLat(obj);
+          if (!ring) return;
+          const coords = ring.map(([lon, lat]) => fromLonLat([lon, lat]));
+          footprintItems.push({
+            id: obj.id,
+            geometry: new Polygon([coords]),
+            attrs: {
+              name: obj.name,
+              subtype: normalizeInfraSubtype(obj.subtype),
+              layer_id: obj.layer_id,
+              featureKind: 'infra',
+              footprint: true,
+            },
+          });
+        });
+        syncFeaturesById(footprints, footprintItems);
+      } else {
+        footprints.clear();
+      }
+
       lineLayerRef.current?.changed();
       nodePointLayerRef.current?.changed();
       pointLayerRef.current?.changed();
+      padFootprintLayerRef.current?.changed();
     };
 
     const nextIds = new Set(infraObjects.map((o) => o.id));
@@ -138,4 +178,11 @@ export function useMapViewDataSync(
     syncInfraDataToLayersRef.current?.();
     lineLayerRef.current?.changed();
   }, [lineLodScaleThreshold]);
+
+  useEffect(() => {
+    infraSymbologyRef.current = infraSymbology;
+    syncInfraDataToLayersRef.current?.();
+    pointLayerRef.current?.changed();
+    padFootprintLayerRef.current?.changed();
+  }, [infraSymbology]);
 }

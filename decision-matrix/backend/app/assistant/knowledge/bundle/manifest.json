@@ -1,6 +1,6 @@
 {
   "version": 1,
-  "article_count": 10,
+  "article_count": 12,
   "articles": [
     {
       "slug": "assistant-chat",
@@ -113,13 +113,15 @@
     },
     {
       "slug": "map-2d",
-      "title": "Карта 2D — объекты и слои",
-      "summary": "Панель слоёв, объекты инфраструктуры, POI, редактирование и просмотр на карте OpenLayers.",
+      "title": "Карта — режимы 2D, Площадки и 3D",
+      "summary": "Панель слоёв, объекты инфраструктуры, POI; три режима карты — иконки 2D, контуры площадок, просмотр 3D.",
       "tags": [
         "map",
         "ui",
         "layers",
-        "infrastructure"
+        "infrastructure",
+        "footprints",
+        "earthwork"
       ],
       "tab_hints": [
         "map"
@@ -131,7 +133,7 @@
         "data_manager"
       ],
       "file": "articles/map-2d.md",
-      "char_count": 1249
+      "char_count": 3109
     },
     {
       "slug": "matrix",
@@ -172,22 +174,24 @@
         "data_manager"
       ],
       "file": "articles/navigation.md",
-      "char_count": 1583
+      "char_count": 1642
     },
     {
       "slug": "pad-earthwork-volumes",
-      "title": "Земляные работы куста — отсыпка и выемка",
-      "summary": "Как считаются объёмы отсыпки и выемки для кустовой площадки, DEM, опорная отметка и кнопка «Применить к песку».",
+      "title": "Земляные работы площадки — отсыпка и выемка",
+      "summary": "Объёмы отсыпки и выемки для точечных объектов (кроме Узел), DEM, схема площадки; генератор скважин — только на кустах.",
       "tags": [
         "pad",
         "earthwork",
         "logistics",
         "dem",
-        "volumes"
+        "volumes",
+        "facility"
       ],
       "tab_hints": [
         "map",
-        "logistics"
+        "logistics",
+        "parameters"
       ],
       "roles": [
         "viewer",
@@ -196,7 +200,53 @@
         "data_manager"
       ],
       "file": "articles/pad-earthwork-volumes.md",
-      "char_count": 2944
+      "char_count": 4313
+    },
+    {
+      "slug": "parameters-earthwork",
+      "title": "Параметры — земляные работы площадки",
+      "summary": "Массовое редактирование длины, ширины, высоты насыпи, опорной отметки и поворота для точечных объектов (кроме Узел), включая карьер песка.",
+      "tags": [
+        "parameters",
+        "earthwork",
+        "pad",
+        "logistics",
+        "ui"
+      ],
+      "tab_hints": [
+        "parameters"
+      ],
+      "roles": [
+        "viewer",
+        "analyst",
+        "admin",
+        "data_manager"
+      ],
+      "file": "articles/parameters-earthwork.md",
+      "char_count": 1835
+    },
+    {
+      "slug": "parameters-footprint-connections",
+      "title": "Параметры — точки подключения линий",
+      "summary": "Шаблон подключения линейных объектов к контуру площадки по сторонам света; массовое применение на карте в режиме «Площадки».",
+      "tags": [
+        "parameters",
+        "map",
+        "footprints",
+        "earthwork",
+        "ui"
+      ],
+      "tab_hints": [
+        "parameters"
+      ],
+      "roles": [
+        "viewer",
+        "analyst",
+        "admin",
+        "data_manager"
+      ],
+      "file": "articles/parameters-footprint-connections.md",
+      "char_count": 3380
     },
     {
       "slug": "roles-rbac",

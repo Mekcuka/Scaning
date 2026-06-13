@@ -1,7 +1,6 @@
 /** Client-side map layer panel toggles (persisted per project in localStorage). */
 
 import { createDefaultSubtypeFilter } from './api';
-import { isMaptilerTerrainAvailable } from './map3d/map3dConfig';
 import {
   clampLineLodScaleThreshold,
   DEFAULT_LINE_LOD_SCALE_THRESHOLD,
@@ -44,7 +43,7 @@ const DEFAULT_OPEN_SECTIONS: MapLayerOpenSections = {
 export function defaultMapLayerPreferences(): MapLayerPreferences {
   return {
     showBasemap: true,
-    showTerrain: isMaptilerTerrainAvailable(),
+    showTerrain: false,
     showModels: true,
     showPoisOnMap: true,
     showRadii: false,
@@ -91,7 +90,7 @@ export function loadMapLayerPreferences(projectId: string | null): MapLayerPrefe
     const parsed = JSON.parse(raw) as Partial<MapLayerPreferences>;
     return {
       showBasemap: typeof parsed.showBasemap === 'boolean' ? parsed.showBasemap : defaults.showBasemap,
-      showTerrain: typeof parsed.showTerrain === 'boolean' ? parsed.showTerrain : defaults.showTerrain,
+      showTerrain: false,
       showModels: typeof parsed.showModels === 'boolean' ? parsed.showModels : defaults.showModels,
       showPoisOnMap:
         typeof parsed.showPoisOnMap === 'boolean' ? parsed.showPoisOnMap : defaults.showPoisOnMap,

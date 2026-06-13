@@ -315,3 +315,528 @@
 .eng-badge.active-gathering { background: #e0e7ff; color: #4338ca; }
 .eng-badge.active-transport { background: #d1fae5; color: #047857; }
 
+.footprint-connect-params {
+  padding: 16px;
+  margin-bottom: 16px;
+}
+
+/* Footprint connections parameters page */
+.footprint-connect-page__header {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px 16px;
+  margin-bottom: 16px;
+}
+
+.footprint-connect-page__header-main {
+  flex: 1 1 280px;
+  min-width: 0;
+}
+
+.footprint-connect-page__subtitle {
+  margin: 0 0 10px;
+  font-size: 0.875rem;
+  color: var(--text-muted);
+  line-height: 1.45;
+}
+
+.footprint-connect-stats {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+}
+
+.footprint-connect-stats__chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 4px 10px;
+  border-radius: 999px;
+  border: 1px solid var(--border);
+  background: color-mix(in srgb, var(--surface) 92%, var(--primary));
+  font-size: 0.8125rem;
+  color: var(--text-muted);
+}
+
+.footprint-connect-stats__chip strong {
+  color: var(--text);
+  font-weight: 600;
+}
+
+.footprint-connect-save-badge {
+  display: inline-flex;
+  padding: 4px 10px;
+  border-radius: 999px;
+  font-size: 0.75rem;
+  font-weight: 500;
+}
+
+.footprint-connect-save-badge--idle {
+  color: #047857;
+  background: #d1fae5;
+}
+
+.footprint-connect-save-badge--saving {
+  color: #1d4ed8;
+  background: #dbeafe;
+}
+
+.footprint-connect-save-badge--error {
+  color: #b91c1c;
+  background: #fee2e2;
+}
+
+.footprint-connect-page__grid {
+  display: grid;
+  gap: 16px;
+  align-items: start;
+}
+
+@media (min-width: 1100px) {
+  .footprint-connect-page__grid {
+    grid-template-columns: minmax(0, 1.65fr) minmax(280px, 1fr);
+  }
+}
+
+.footprint-connect-page__template {
+  padding: 16px;
+  min-width: 0;
+}
+
+.footprint-connect-section-title {
+  margin: 0 0 12px;
+  font-size: 1rem;
+  font-weight: 600;
+}
+
+.footprint-connect-line-tabs {
+  display: flex;
+  gap: 8px;
+  overflow-x: auto;
+  padding-bottom: 4px;
+  margin-bottom: 16px;
+  scrollbar-width: thin;
+}
+
+.footprint-connect-line-tab {
+  display: inline-flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 4px;
+  flex: 0 0 auto;
+  min-width: 7.5rem;
+  padding: 8px 10px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--surface);
+  color: var(--text-muted);
+  font-family: inherit;
+  font-size: 0.8125rem;
+  cursor: pointer;
+  transition:
+    border-color 0.15s ease,
+    background 0.15s ease,
+    color 0.15s ease;
+}
+
+.footprint-connect-line-tab:hover {
+  border-color: color-mix(in srgb, var(--primary) 35%, var(--border));
+  color: var(--text);
+}
+
+.footprint-connect-line-tab--active {
+  border-color: var(--primary);
+  background: color-mix(in srgb, var(--primary) 8%, var(--surface));
+  color: var(--text);
+  box-shadow: 0 0 0 1px color-mix(in srgb, var(--primary) 18%, transparent);
+}
+
+.footprint-connect-line-tab__label {
+  font-weight: 500;
+  white-space: nowrap;
+}
+
+.footprint-connect-line-tab__badge {
+  font-size: 0.6875rem;
+  font-weight: 600;
+  padding: 1px 6px;
+  border-radius: 4px;
+  border: 1px solid;
+  background: color-mix(in srgb, currentColor 8%, transparent);
+}
+
+.footprint-connect-template__editor-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  margin-bottom: 10px;
+}
+
+.footprint-connect-template__editor-title {
+  margin: 0;
+  font-size: 0.9375rem;
+  font-weight: 600;
+}
+
+.footprint-connect-compass {
+  display: grid;
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+  gap: 6px;
+  margin-bottom: 12px;
+}
+
+.footprint-connect-compass__btn {
+  padding: 8px 4px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--surface);
+  color: var(--text-muted);
+  font-family: inherit;
+  font-size: 0.8125rem;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.footprint-connect-compass__btn:hover:not(:disabled) {
+  border-color: color-mix(in srgb, var(--primary) 35%, var(--border));
+  color: var(--text);
+}
+
+.footprint-connect-compass__btn--active {
+  border-color: var(--primary);
+  background: color-mix(in srgb, var(--primary) 10%, var(--surface));
+  color: var(--text);
+}
+
+.footprint-connect-compass__btn--center {
+  font-size: 0.6875rem;
+  font-weight: 500;
+}
+
+.footprint-connect-compass__btn:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+}
+
+.footprint-connect-apply-panel {
+  padding: 16px;
+  border-color: color-mix(in srgb, var(--primary) 28%, var(--border));
+  box-shadow: 0 0 0 1px color-mix(in srgb, var(--primary) 10%, transparent);
+}
+
+@media (min-width: 1100px) {
+  .footprint-connect-apply-panel {
+    position: sticky;
+    top: 16px;
+  }
+}
+
+.footprint-connect-apply-panel__lead {
+  margin: 0 0 12px;
+  font-size: 0.8125rem;
+  color: var(--text-muted);
+  line-height: 1.45;
+}
+
+.footprint-connect-apply-panel__filter {
+  margin-bottom: 12px;
+}
+
+.footprint-connect-apply-panel__filter-hint {
+  margin: 6px 0 0;
+  font-size: 0.75rem;
+  color: var(--text-muted);
+}
+
+.footprint-connect-apply-panel__buttons {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.footprint-connect-apply-panel__buttons .btn {
+  width: 100%;
+  justify-content: center;
+}
+
+.footprint-connect-apply-panel__progress {
+  margin-top: 12px;
+}
+
+.footprint-connect-apply-panel__empty {
+  margin-top: 12px;
+}
+
+.footprint-connect-confirm__lead {
+  margin: 0 0 12px;
+}
+
+.footprint-connect-confirm__lines {
+  list-style: none;
+  margin: 0 0 12px;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.footprint-connect-confirm__line {
+  display: grid;
+  grid-template-columns: 8px 1fr auto;
+  align-items: center;
+  gap: 8px;
+  font-size: 0.8125rem;
+}
+
+.footprint-connect-confirm__dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+}
+
+.footprint-connect-confirm__line-label {
+  font-weight: 500;
+}
+
+.footprint-connect-confirm__line-value {
+  color: var(--text-muted);
+  font-variant-numeric: tabular-nums;
+}
+
+.footprint-connect-confirm__hint {
+  margin: 0;
+}
+
+.footprint-connect-template__hint {
+  margin: 0 0 12px;
+}
+
+.footprint-connect-template__body {
+  display: grid;
+  gap: 16px;
+}
+
+@media (min-width: 960px) {
+  .footprint-connect-template__body {
+    grid-template-columns: minmax(260px, 1fr) minmax(360px, 480px);
+    align-items: start;
+  }
+}
+
+.footprint-connect-template__editor {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.footprint-connect-preview {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  min-width: 0;
+}
+
+.footprint-connect-preview__title {
+  margin: 0;
+  font-size: 0.9375rem;
+  font-weight: 600;
+}
+
+.footprint-connect-preview__subtitle {
+  margin: 0;
+  font-size: 0.75rem;
+  color: var(--text-muted);
+  line-height: 1.4;
+}
+
+.footprint-connect-preview__hint {
+  margin: 0;
+  padding: 6px 10px 8px;
+  font-size: 0.6875rem;
+  line-height: 1.35;
+  color: var(--text-muted);
+  border-top: 1px solid color-mix(in srgb, var(--border) 65%, transparent);
+}
+
+.footprint-connect-preview__diagram {
+  margin-top: 0;
+}
+
+.footprint-connect-preview__svg {
+  max-height: 280px;
+}
+
+.footprint-connect-preview__edge-label {
+  fill: var(--text-muted);
+  font-size: 11px;
+  font-weight: 600;
+  user-select: none;
+}
+
+.footprint-connect-preview__marker-ring {
+  fill: none;
+  stroke-width: 1.5;
+  vector-effect: non-scaling-stroke;
+  opacity: 0.55;
+}
+
+.footprint-connect-preview__marker-ring--active {
+  opacity: 1;
+  stroke-width: 2;
+}
+
+.footprint-connect-preview__marker {
+  stroke: var(--surface);
+  stroke-width: 1.5;
+  vector-effect: non-scaling-stroke;
+  opacity: 0.85;
+}
+
+.footprint-connect-preview__marker--active {
+  opacity: 1;
+  stroke-width: 2;
+}
+
+.footprint-connect-preview__legend {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.footprint-connect-preview__legend-item {
+  display: grid;
+  grid-template-columns: 10px 1fr auto;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  padding: 6px 8px;
+  border: none;
+  border-radius: 6px;
+  background: transparent;
+  font-family: inherit;
+  font-size: 0.75rem;
+  color: var(--text-muted);
+  text-align: left;
+  cursor: pointer;
+}
+
+.footprint-connect-preview__legend-item:hover {
+  background: color-mix(in srgb, var(--primary) 5%, transparent);
+  color: var(--text);
+}
+
+.footprint-connect-preview__legend-item--active {
+  color: var(--text);
+  background: color-mix(in srgb, var(--primary) 8%, transparent);
+}
+
+.footprint-connect-preview__legend-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+
+.footprint-connect-preview__legend-label {
+  font-weight: 500;
+}
+
+.footprint-connect-preview__legend-value {
+  font-variant-numeric: tabular-nums;
+}
+
+.footprint-connect-preview__empty {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+  margin: 0;
+  padding: 16px 12px;
+  text-align: center;
+  font-size: 0.8125rem;
+  color: var(--text-muted);
+  border: 1px dashed color-mix(in srgb, var(--border) 80%, transparent);
+  border-radius: 8px;
+}
+
+.footprint-connect-preview__empty-icon {
+  opacity: 0.45;
+}
+
+.footprint-connect-preview__empty p {
+  margin: 0;
+}
+
+.footprint-connect-template__row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 12px;
+}
+
+.footprint-connect-template__t-field {
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  gap: 4px;
+  flex: 1 1 100%;
+  min-width: 12rem;
+}
+
+.footprint-connect-template__t-label {
+  font-size: 0.8125rem;
+  color: var(--text-muted);
+}
+
+.footprint-connect-template__t-input {
+  width: 5rem;
+}
+
+.footprint-connect-template__chip-dot {
+  margin-left: 2px;
+  opacity: 0.85;
+}
+
+.footprint-connect-params__apply-title {
+  margin: 0 0 8px;
+  font-size: 1rem;
+  font-weight: 600;
+}
+
+.footprint-connect-params__apply-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  gap: 16px;
+  margin: 12px 0;
+}
+
+.footprint-connect-params__filter {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  min-width: 220px;
+}
+
+.footprint-connect-params__filter-label {
+  font-size: 0.8125rem;
+  color: var(--text-muted);
+}
+
+.footprint-connect-params__buttons {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.footprint-connect-params__progress {
+  margin-top: 8px;
+}
+

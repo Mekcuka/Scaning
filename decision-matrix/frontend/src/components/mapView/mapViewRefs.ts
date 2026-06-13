@@ -41,7 +41,9 @@ export type MapViewRefs = {
   translateRef: MutableRefObject<Translate | null>;
   dragBoxRef: MutableRefObject<DragBox | null>;
   dragPanRef: MutableRefObject<DragPan | null>;
+  padFootprintSourceRef: MutableRefObject<VectorSource>;
   pointLayerRef: MutableRefObject<VectorLayer<VectorSource> | null>;
+  padFootprintLayerRef: MutableRefObject<VectorLayer<VectorSource> | null>;
   nodePointLayerRef: MutableRefObject<VectorLayer<VectorSource> | null>;
   lineLayerRef: MutableRefObject<VectorLayer<VectorSource> | null>;
   basemapLayerRef: MutableRefObject<TileLayer | null>;
@@ -68,6 +70,7 @@ export type MapViewRefs = {
   editModeRef: MutableRefObject<boolean>;
   selectModeRef: MutableRefObject<SelectMode>;
   useIconsRef: MutableRefObject<boolean>;
+  infraSymbologyRef: MutableRefObject<import('./types').InfraSymbology>;
   suppressDataSyncRef: MutableRefObject<boolean>;
   infraIdsRef: MutableRefObject<Set<string>>;
   mapZoomRef: MutableRefObject<number>;

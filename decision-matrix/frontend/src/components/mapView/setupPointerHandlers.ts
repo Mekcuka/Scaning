@@ -1,6 +1,6 @@
 import { transform } from 'ol/proj';
 import Point from 'ol/geom/Point';
-import { resolveHoverFeatureIdAtCoordinate, resolveInfraPointAtCoordinate } from '../../lib/mapHitTest';
+import { resolveHoverFeatureIdAtCoordinate, resolveInfraPointAtCoordinate, resolveFootprintHoverIdAtCoordinate } from '../../lib/mapHitTest';
 import { createPointerFrameScheduler, pointerCoordsChanged } from '../../lib/mapPointerThrottle';
 import { MAP_POINT_HIT_TOLERANCE_PX } from './constants';
 import { findSelectableLayerFeature } from './featureSelection';
@@ -29,6 +29,9 @@ export function setupPointerHandlers(
     pointSourceRef,
     nodePointSourceRef,
     lineSourceRef,
+    padFootprintSourceRef,
+    padFootprintLayerRef,
+    infraSymbologyRef,
     placementPreviewSourceRef,
     hoveredIdRef,
     drawModeRef,
@@ -65,6 +68,9 @@ export function setupPointerHandlers(
     if (prev) invalidateHover(prev);
     hoveredIdRef.current = hit;
     if (hit) invalidateHover(hit);
+    if (infraSymbologyRef.current === 'footprints') {
+      padFootprintLayerRef.current?.changed();
+    }
     if (containerRef.current) {
       const mode = drawModeRef.current;
       const inSelect = mode === 'select';
@@ -105,7 +111,7 @@ export function setupPointerHandlers(
         overPoint ? { lon: overPoint.lon, lat: overPoint.lat } : undefined,
       );
     }
-    const hit = resolveHoverFeatureIdAtCoordinate(
+    let hit = resolveHoverFeatureIdAtCoordinate(
       map,
       pointSource,
       lineSource,
@@ -113,6 +119,14 @@ export function setupPointerHandlers(
       MAP_POINT_HIT_TOLERANCE_PX,
       nodePointSource,
     );
+    if (!hit && infraSymbologyRef.current === 'footprints') {
+      hit = resolveFootprintHoverIdAtCoordinate(
+        map,
+        padFootprintSourceRef.current,
+        p.coordinate,
+        MAP_POINT_HIT_TOLERANCE_PX,
+      );
+    }
     refreshHover(hit);
   });
 

@@ -125,3 +125,39 @@ export function pointFeatureStyles(
   const base = useIcons ? pointIconStyle(subtype, iconScale) : [fallbackPointStyle(subtype, iconScale)];
   return hovered ? [softHoverRing(iconScale), ...base] : base;
 }
+
+/** Invisible hit target for earthwork points when footprint polygons are shown. */
+export function footprintModePointHitStyle(hovered: boolean): Style[] {
+  return [
+    new Style({
+      image: new CircleStyle({
+        radius: hovered ? 10 : 8,
+        fill: new Fill({ color: 'rgba(0,0,0,0.01)' }),
+        stroke: new Stroke({
+          color: hovered ? 'rgba(33, 150, 243, 0.45)' : 'rgba(0,0,0,0.01)',
+          width: hovered ? 2 : 1,
+        }),
+      }),
+    }),
+  ];
+}
+
+export function padFootprintFeatureStyles(
+  subtype: string,
+  hovered: boolean,
+  layerOpacity: number,
+): Style[] {
+  if (layerOpacity <= 0) return [new Style({})];
+  const color = MAP_SUBTYPE_COLORS[subtype] || '#666';
+  const fillAlpha = hovered ? '40' : '26';
+  const strokeWidth = hovered ? 2.5 : 2;
+  return [
+    new Style({
+      fill: new Fill({ color: `${color}${fillAlpha}` }),
+      stroke: new Stroke({
+        color: hovered ? '#2196f3' : color,
+        width: strokeWidth,
+      }),
+    }),
+  ];
+}

@@ -3,7 +3,7 @@ import Point from 'ol/geom/Point';
 import LineString from 'ol/geom/LineString';
 import { fromLonLat, transform } from 'ol/proj';
 import type Modify from 'ol/interaction/Modify';
-import { constrainLineCoordinatesOnEdit } from '../../../lib/lineEndpointRules';
+import { constrainLineCoordinatesOnEdit, normalizeLinePathEndpoints } from '../../../lib/lineEndpointRules';
 import { useAppStore } from '../../../store';
 import { lineCoordsFromGeometry } from '../geometry';
 import type { MapHitHelpers } from '../mapHitHelpers';
@@ -118,6 +118,7 @@ export function bindModifyEndHandler(
             'Конец линии возвращён к исходному точечному объекту — нельзя оставить его без привязки',
           );
         }
+
       }
       const [lon, lat] = coords[0]!;
       save = onGeometryChangeRef.current?.({ kind: 'infra', id }, lon, lat, coords);

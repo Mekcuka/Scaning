@@ -94,7 +94,7 @@ def test_dem_compute_with_mock_opentopography(client: TestClient, tmp_path: Path
     dem_bytes = _make_dem_geotiff_bytes(elevation=105.0)
 
     with patch(
-        "app.services.pad_earthwork.dem_store.fetch_opentopography_dem",
+        "app.services.pad_earthwork.pad_dem_repository.fetch_opentopography_dem",
         return_value=dem_bytes,
     ):
         pid, headers, oid = _seed_oil_pad(client)
@@ -143,7 +143,7 @@ def test_dem_compute_rotated_large_pad_expanded_bbox(client: TestClient, tmp_pat
         return dem_bytes
 
     with patch(
-        "app.services.pad_earthwork.dem_store.fetch_opentopography_dem",
+        "app.services.pad_earthwork.pad_dem_repository.fetch_opentopography_dem",
         side_effect=_capture_fetch,
     ):
         pid, headers, oid = _seed_oil_pad(client)
@@ -183,7 +183,7 @@ def test_dem_fetch_endpoint(client: TestClient, tmp_path: Path, monkeypatch):
     dem_bytes = _make_dem_geotiff_bytes()
 
     with patch(
-        "app.services.pad_earthwork.dem_store.fetch_opentopography_dem",
+        "app.services.pad_earthwork.pad_dem_repository.fetch_opentopography_dem",
         return_value=dem_bytes,
     ):
         pid, headers, oid = _seed_oil_pad(client)
@@ -242,8 +242,8 @@ def test_compute_flat_volumes(client: TestClient):
     assert last.json()["result"]["volumes"]["fill_m3"] == 24000.0
 
 
-def test_compute_rejects_non_pad(client: TestClient):
-    project, headers = create_test_project(client, name="test_pad_reject")
+def test_compute_rejects_node(client: TestClient):
+    project, headers = create_test_project(client, name="test_pad_reject_node")
     pid = project["id"]
     layer = create_test_layer(client, pid, headers)
     obj = create_test_infra_point(client, pid, layer["id"], headers, subtype="node")
@@ -257,6 +257,79 @@ def test_compute_rejects_non_pad(client: TestClient):
                 "reference_elevation_m": 0,
             }
         },
+        headers=headers,
+    )
+    assert res.status_code == 400
+
+
+def test_compute_accepts_sand_quarry(client: TestClient):
+    project, headers = create_test_project(client, name="test_pad_sand_quarry")
+    pid = project["id"]
+    layer = create_test_layer(client, pid, headers)
+    obj = create_test_infra_point(client, pid, layer["id"], headers, subtype="sand_quarry")
+    res = client.post(
+        f"/api/v1/projects/{pid}/infrastructure/objects/{obj['id']}/pad-earthwork/compute",
+        json={
+            "params": {
+                "length_m": 10,
+                "width_m": 10,
+                "height_m": 1,
+                "reference_elevation_m": 0,
+            }
+        },
+        headers=headers,
+    )
+    assert res.status_code == 200
+
+
+def test_compute_accepts_facility_point(client: TestClient):
+    project, headers = create_test_project(client, name="test_pad_substation")
+    pid = project["id"]
+    layer = create_test_layer(client, pid, headers)
+    obj = create_test_infra_point(
+        client,
+        pid,
+        layer["id"],
+        headers,
+        name="ПС-1",
+        subtype="substation",
+        lon=37.62,
+        lat=55.76,
+    )
+    res = client.post(
+        f"/api/v1/projects/{pid}/infrastructure/objects/{obj['id']}/pad-earthwork/compute",
+        json={
+            "params": {
+                "length_m": 10,
+                "width_m": 10,
+                "height_m": 1,
+                "reference_elevation_m": 0,
+            }
+        },
+        headers=headers,
+    )
+    assert res.status_code == 200, res.text
+    body = res.json()
+    assert body["volumes"]["fill_m3"] == 100.0
+    assert body["volumes"]["cut_m3"] == 0.0
+
+
+def test_sketch_generate_rejects_non_pad(client: TestClient):
+    project, headers = create_test_project(client, name="test_generate_reject")
+    pid = project["id"]
+    layer = create_test_layer(client, pid, headers)
+    obj = create_test_infra_point(
+        client,
+        pid,
+        layer["id"],
+        headers,
+        subtype="substation",
+        lon=37.62,
+        lat=55.76,
+    )
+    res = client.post(
+        f"/api/v1/projects/{pid}/infrastructure/objects/{obj['id']}/pad-earthwork/sketch/generate",
+        json={},
         headers=headers,
     )
     assert res.status_code == 400

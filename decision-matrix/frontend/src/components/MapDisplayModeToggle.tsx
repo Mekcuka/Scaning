@@ -1,3 +1,4 @@
+import { Box, Map, Shapes } from 'lucide-react';
 import type { MapDisplayMode } from '../hooks/useMapDisplayMode';
 
 type MapDisplayModeToggleProps = {
@@ -6,38 +7,41 @@ type MapDisplayModeToggleProps = {
   className?: string;
 };
 
-/** 2D | 3D map view switch (always visible at all breakpoints). */
+const MODES: {
+  value: MapDisplayMode;
+  title: string;
+  label: string;
+  Icon: typeof Map;
+}[] = [
+  { value: '2d', title: 'Карта 2D (редактирование)', label: 'Карта 2D', Icon: Map },
+  { value: 'footprints', title: 'Площадки (контуры)', label: 'Карта площадок', Icon: Shapes },
+  { value: '3d', title: 'Карта 3D (только просмотр)', label: 'Карта 3D', Icon: Box },
+];
+
+/** Icon-only 2D / footprints / 3D map view switch. */
 export function MapDisplayModeToggle({ mode, onChange, className = '' }: MapDisplayModeToggleProps) {
   return (
     <div
-      className={`map-display-mode-toggle inline-flex rounded overflow-hidden ${className}`.trim()}
+      className={`map-display-mode-toggle ${className}`.trim()}
       role="group"
       aria-label="Режим карты"
     >
-      <button
-        type="button"
-        className={`btn btn-sm map-tool-btn rounded-none border-0 ${
-          mode === '2d' ? 'btn-primary active' : 'btn-secondary'
-        }`}
-        title="Карта 2D (редактирование)"
-        aria-label="Карта 2D"
-        aria-pressed={mode === '2d'}
-        onClick={() => onChange('2d')}
-      >
-        2D
-      </button>
-      <button
-        type="button"
-        className={`btn btn-sm map-tool-btn rounded-none border-0 ${
-          mode === '3d' ? 'btn-primary active' : 'btn-secondary'
-        }`}
-        title="Карта 3D (только просмотр)"
-        aria-label="Карта 3D"
-        aria-pressed={mode === '3d'}
-        onClick={() => onChange('3d')}
-      >
-        3D
-      </button>
+      {MODES.map(({ value, title, label, Icon }) => {
+        const active = mode === value;
+        return (
+          <button
+            key={value}
+            type="button"
+            className={`map-display-mode-btn${active ? ' map-display-mode-btn--active' : ''}`}
+            title={title}
+            aria-label={label}
+            aria-pressed={active}
+            onClick={() => onChange(value)}
+          >
+            <Icon size={15} strokeWidth={1.75} className="shrink-0" aria-hidden />
+          </button>
+        );
+      })}
     </div>
   );
 }

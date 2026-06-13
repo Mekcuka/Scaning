@@ -47,6 +47,7 @@ export function useMapViewRefs(props: MapViewProps): MapViewRefs {
     onViewStateSnapshot,
     viewStateId,
     viewStateScope = null,
+    infraSymbology = 'points',
   } = props;
 
   const projectId = useAppStore((s) => s.currentProjectId);
@@ -68,6 +69,7 @@ export function useMapViewRefs(props: MapViewProps): MapViewRefs {
   const radiusSourceRef = useRef(new VectorSource());
   const placementPreviewSourceRef = useRef(new VectorSource());
   const connectionSourceRef = useRef(new VectorSource());
+  const padFootprintSourceRef = useRef(new VectorSource());
   const selectRef = useRef<Select | null>(null);
   const modifyRef = useRef<Modify | null>(null);
   const translateRef = useRef<Translate | null>(null);
@@ -76,6 +78,7 @@ export function useMapViewRefs(props: MapViewProps): MapViewRefs {
   const pointLayerRef = useRef<VectorLayer<VectorSource> | null>(null);
   const nodePointLayerRef = useRef<VectorLayer<VectorSource> | null>(null);
   const lineLayerRef = useRef<VectorLayer<VectorSource> | null>(null);
+  const padFootprintLayerRef = useRef<VectorLayer<VectorSource> | null>(null);
   const basemapLayerRef = useRef<TileLayer | null>(null);
   const hoveredIdRef = useRef<string | null>(null);
   const onMapClickRef = useRef(onMapClick);
@@ -100,6 +103,8 @@ export function useMapViewRefs(props: MapViewProps): MapViewRefs {
   const editModeRef = useRef(editMode);
   const selectModeRef = useRef(selectMode);
   const useIconsRef = useRef(useMapIcons);
+  const infraSymbologyRef = useRef(infraSymbology);
+  infraSymbologyRef.current = infraSymbology;
   const suppressDataSyncRef = useRef(false);
   const infraIdsRef = useRef<Set<string>>(new Set());
   const mapZoomRef = useRef(12);
@@ -166,6 +171,7 @@ export function useMapViewRefs(props: MapViewProps): MapViewRefs {
     radiusSourceRef,
     placementPreviewSourceRef,
     connectionSourceRef,
+    padFootprintSourceRef,
     selectRef,
     modifyRef,
     translateRef,
@@ -174,6 +180,7 @@ export function useMapViewRefs(props: MapViewProps): MapViewRefs {
     pointLayerRef,
     nodePointLayerRef,
     lineLayerRef,
+    padFootprintLayerRef,
     basemapLayerRef,
     hoveredIdRef,
     onMapClickRef,
@@ -198,6 +205,7 @@ export function useMapViewRefs(props: MapViewProps): MapViewRefs {
     editModeRef,
     selectModeRef,
     useIconsRef,
+    infraSymbologyRef,
     suppressDataSyncRef,
     infraIdsRef,
     mapZoomRef,

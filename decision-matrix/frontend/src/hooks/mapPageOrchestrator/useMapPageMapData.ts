@@ -18,6 +18,7 @@ import { useActiveProjectJob } from '../useActiveProjectJob';
 import { refreshMapQueries } from '../../lib/mapQueries';
 import { queryKeys } from '../../lib/queryKeys';
 import { useMapUndo } from '../../lib/mapUndo';
+import { drainPendingMapUndos } from '../../lib/pendingMapUndoBridge';
 import type { useMapPageEditState } from './useMapPageEditState';
 import type { useMapLayerPreferences } from '../useMapLayerPreferences';
 
@@ -179,6 +180,13 @@ export function useMapPageMapData(params: {
     invalidateMap,
     onUndoError: (msg) => pushToast('error', msg),
   });
+
+  useEffect(() => {
+    if (!effectiveProjectId) return;
+    for (const entry of drainPendingMapUndos(effectiveProjectId)) {
+      pushUndo(entry);
+    }
+  }, [effectiveProjectId, pushUndo]);
 
   useEffect(() => {
     if (!lastUndoMessage) return;

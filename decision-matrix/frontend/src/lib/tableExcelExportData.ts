@@ -7,6 +7,7 @@ import type {
 import { SUBTYPE_LABELS } from './api';
 import type { ExcelColumn } from './exportExcel';
 import { capacityUnitLabel, effectiveThroughputCapacity } from './infraCapacity';
+import { padParamsFromObject } from './infraPadEarthwork';
 import { readEntryDateIso } from './infraEntryDate';
 import { readSandDemandM3 } from './infraSandVolumes';
 import {
@@ -53,6 +54,48 @@ export function capacityTableExportColumns(): ExcelColumn<InfraObject>[] {
       value: (o) => {
         const { value } = effectiveThroughputCapacity(o.subtype, o.properties);
         return value != null ? value : '';
+      },
+    },
+  ];
+}
+
+export function earthworkTableExportColumns(): ExcelColumn<InfraObject>[] {
+  return [
+    { header: 'Объект', value: (o) => o.name },
+    { header: 'Подтип', value: (o) => SUBTYPE_LABELS[o.subtype] || o.subtype },
+    {
+      header: 'Длина, м',
+      value: (o) => {
+        const v = padParamsFromObject(o).lengthM;
+        return v ? Number(v) : '';
+      },
+    },
+    {
+      header: 'Ширина, м',
+      value: (o) => {
+        const v = padParamsFromObject(o).widthM;
+        return v ? Number(v) : '';
+      },
+    },
+    {
+      header: 'Высота насыпи, м',
+      value: (o) => {
+        const v = padParamsFromObject(o).heightM;
+        return v ? Number(v) : '';
+      },
+    },
+    {
+      header: 'Опорная отметка, м',
+      value: (o) => {
+        const v = padParamsFromObject(o).referenceElevationM;
+        return v !== '' ? Number(v) : '';
+      },
+    },
+    {
+      header: 'Поворот / НДС, °',
+      value: (o) => {
+        const v = padParamsFromObject(o).rotationDeg;
+        return v ? Number(v) : '';
       },
     },
   ];

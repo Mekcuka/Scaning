@@ -18,6 +18,12 @@ import { render3dModelSelectValue } from '../../lib/map3d/render3dModelOptions';
 import { poiToFormValues, type PoiFormValues } from '../../lib/poiParams';
 import { POI_TAB_FIELDS, type InfraDetailTab, type PoiDetailTab } from './constants';
 import { capacityDraftFromObject, pickPoiFields, sandDemandFieldsDirty } from './helpers';
+import {
+  pointFootprintLineConnectionsEqual,
+  readPointFootprintLineConnections,
+  type PointFootprintLineConnections,
+} from '../../lib/padFootprintLineAttach';
+import { isEarthworkEligibleSubtype } from '../../lib/infraPadEarthwork';
 
 export type InfraDirtyDraft = {
   name: string;
@@ -47,6 +53,7 @@ export type InfraDirtyDraft = {
   padMarginBottomM: string;
   padMarginTopM: string;
   padMarginEndM: string;
+  pointFootprintLineConnections: PointFootprintLineConnections;
 };
 
 function sandFieldsDirty(
@@ -113,6 +120,13 @@ export function computeInfraIsDirty(
     !isLine &&
     padWellFieldsDirty(infraObject.properties, draft);
   const r3Dirty = render3dFieldsDirty(infraObject, draft, map3dCustomModels);
+  const attachDirty =
+    !isLine &&
+    isEarthworkEligibleSubtype(infraObject.subtype) &&
+    !pointFootprintLineConnectionsEqual(
+      draft.pointFootprintLineConnections,
+      readPointFootprintLineConnections(infraObject.properties),
+    );
   return (
     draft.name !== infraObject.name ||
     draft.description !== origDesc ||
@@ -124,7 +138,8 @@ export function computeInfraIsDirty(
     entryDirty ||
     capacityDirty ||
     padWellDirty ||
-    r3Dirty
+    r3Dirty ||
+    attachDirty
   );
 }
 
@@ -152,7 +167,13 @@ export function computeInfraTabDirty(
       draft.capacityValue !== capacityDraftFromObject(infraObject)) ||
     (pointShowsPadWellFields(infraObject.subtype) &&
       !isLine &&
-      padWellFieldsDirty(infraObject.properties, draft));
+      padWellFieldsDirty(infraObject.properties, draft)) ||
+    (isEarthworkEligibleSubtype(infraObject.subtype) &&
+      !isLine &&
+      !pointFootprintLineConnectionsEqual(
+        draft.pointFootprintLineConnections,
+        readPointFootprintLineConnections(infraObject.properties),
+      ));
 
   switch (tab) {
     case 'main':

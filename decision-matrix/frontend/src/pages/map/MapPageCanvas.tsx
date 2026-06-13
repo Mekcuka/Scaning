@@ -11,7 +11,7 @@ import {
 import type { MapView3DHandle } from '../../components/MapView3D';
 import type { AnalysisRow, InfraLayer, InfraObject, POI } from '../../lib/api';
 import type { SavedMapViewState } from '../../lib/mapViewState';
-import type { MeasureLabel } from '../../components/mapView/types';
+import type { MeasureLabel, FootprintEdgeHighlight } from '../../components/mapView/types';
 const MapView3D = lazy(() => import('../../components/MapView3D'));
 
 type AutoroadPreviewLine = { coordinates: number[][]; kind: string };
@@ -21,6 +21,7 @@ export type MapPageCanvasProps = {
   map3dFeatureEnabled: boolean;
   map3dKeepMounted: boolean;
   mapIn3d: boolean;
+  infraSymbology: 'points' | 'footprints';
   showPoisOnMap: boolean;
   pois: POI[];
   filteredInfra: InfraObject[];
@@ -68,6 +69,7 @@ export type MapPageCanvasProps = {
   handleBatchGeometryChange: (
     items: { sel: MapFeatureSelection; lon: number; lat: number; coords?: number[][] }[],
   ) => void | Promise<void>;
+  footprintEdgeHighlight?: FootprintEdgeHighlight;
   handleMapBboxChange: (bbox: string) => void;
   lineDraft: number[][];
   lineDraftPreview: [number, number] | null;
@@ -88,6 +90,7 @@ export function MapPageCanvas({
   map3dFeatureEnabled,
   map3dKeepMounted,
   mapIn3d,
+  infraSymbology,
   showPoisOnMap,
   pois,
   filteredInfra,
@@ -124,6 +127,7 @@ export function MapPageCanvas({
   featureGroupSel,
   handleGeometryChange,
   handleBatchGeometryChange,
+  footprintEdgeHighlight,
   handleMapBboxChange,
   lineDraft,
   lineDraftPreview,
@@ -188,6 +192,7 @@ export function MapPageCanvas({
         <MapView
           viewStateId="main"
           onViewStateSnapshot={onViewStateSnapshot}
+          infraSymbology={infraSymbology}
           pois={visiblePois}
           infraObjects={filteredInfra}
           infraSnapPool={infraObjects}
@@ -238,6 +243,7 @@ export function MapPageCanvas({
               : featureGroupSel.map((s) => s.id)
           }
           onGeometryChange={mapEditEnabled ? handleGeometryChange : undefined}
+          footprintEdgeHighlight={footprintEdgeHighlight}
           onBatchGeometryChange={
             mapEditEnabled && selectMode === 'box' ? handleBatchGeometryChange : undefined
           }

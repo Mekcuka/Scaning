@@ -1,14 +1,13 @@
 import { useCallback, useEffect, useState } from 'react';
 import { isMap3dEnabled } from '../lib/map3d/map3dConfig';
 
-export type MapDisplayMode = '2d' | '3d';
+export type MapDisplayMode = '2d' | '3d' | 'footprints';
 
 const STORAGE_KEY = 'dm-map-display-mode';
 
 function loadPersistedMode(): MapDisplayMode {
   try {
     // UX: при первом открытии вкладки «Карта» всегда показываем 2D.
-    // Режим 3D не включается автоматически из прошлого значения.
     return '2d';
   } catch {
     return '2d';
@@ -22,8 +21,8 @@ export function useMapDisplayMode() {
   );
 
   useEffect(() => {
-    if (!is3dEnabled) setDisplayModeState('2d');
-  }, [is3dEnabled]);
+    if (!is3dEnabled && displayMode === '3d') setDisplayModeState('2d');
+  }, [is3dEnabled, displayMode]);
 
   const setDisplayMode = useCallback(
     (mode: MapDisplayMode) => {
@@ -39,11 +38,13 @@ export function useMapDisplayMode() {
   );
 
   const mapIn3d = is3dEnabled && displayMode === '3d';
+  const mapInFootprints = displayMode === 'footprints';
 
   return {
     is3dEnabled,
     displayMode,
     setDisplayMode,
     mapIn3d,
+    mapInFootprints,
   };
 }

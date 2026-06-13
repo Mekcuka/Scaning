@@ -1,4 +1,6 @@
+import { useEffect } from 'react';
 import { useAutoroadConnectConfirm } from '../useAutoroadConnectConfirm';
+import { useLineSplitConfirm } from '../useLineSplitConfirm';
 import { useMapDisplayMode } from '../useMapDisplayMode';
 import { useActiveProject } from '../useActiveProject';
 import { useMapLayerPreferences } from '../useMapLayerPreferences';
@@ -16,6 +18,8 @@ export function useMapPageOrchestrator() {
   const { canWriteProject, canWriteInfra } = usePermissions();
   const { requestConfirm: requestAutoroadConfirm, modal: autoroadConfirmModal } =
     useAutoroadConnectConfirm();
+  const { requestConfirm: requestLineSplitConfirm, modal: lineSplitConfirmModal } =
+    useLineSplitConfirm();
   const canEditMap = canWriteProject || canWriteInfra;
   const { projectId } = useActiveProject();
   const pushToast = useAppStore((s) => s.pushToast);
@@ -28,7 +32,6 @@ export function useMapPageOrchestrator() {
   } = useMapLayerPreferences(projectId ?? null);
   const {
     showBasemap,
-    showTerrain,
     showModels,
     showPoisOnMap,
     showRadii,
@@ -40,10 +43,18 @@ export function useMapPageOrchestrator() {
     displayMode: mapDisplayMode,
     setDisplayMode: setMapDisplayMode,
     mapIn3d,
+    mapInFootprints,
   } = useMapDisplayMode();
 
   const shell = useMapPageShellState();
   const edit = useMapPageEditState(canEditMap, canWriteProject, canWriteInfra);
+
+  useEffect(() => {
+    if (!mapInFootprints) {
+      edit.setFootprintLineConnectPickSubtype(null);
+    }
+  }, [mapInFootprints, edit.setFootprintLineConnectPickSubtype]);
+
   const data = useMapPageMapData({ projectId, edit, layerPrefs, setLayerPrefs, pushToast });
   const actions = useMapPageMapActions({
     projectId,
@@ -59,8 +70,11 @@ export function useMapPageOrchestrator() {
     mapDisplayMode,
     setMapDisplayMode,
     mapIn3d,
+    mapInFootprints,
     requestAutoroadConfirm,
     autoroadConfirmModal,
+    requestLineSplitConfirm,
+    lineSplitConfirmModal,
   });
 
   const sections = buildMapPageSections({
@@ -73,7 +87,6 @@ export function useMapPageOrchestrator() {
     patchLayerPrefs,
     setLayerOpenSections,
     showBasemap,
-    showTerrain,
     showModels,
     showPoisOnMap,
     showRadii,
@@ -82,6 +95,7 @@ export function useMapPageOrchestrator() {
     map3dFeatureEnabled,
     mapDisplayMode,
     mapIn3d,
+    mapInFootprints,
     shell,
     edit,
     data,
@@ -91,6 +105,7 @@ export function useMapPageOrchestrator() {
   return {
     projectId,
     autoroadConfirmModal,
+    lineSplitConfirmModal,
     mapCanvasRef: shell.mapCanvasRef,
     sections,
   };

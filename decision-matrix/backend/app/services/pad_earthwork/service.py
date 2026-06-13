@@ -7,12 +7,11 @@ from typing import Any
 from uuid import UUID
 
 from fastapi import HTTPException
+from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models import InfrastructureObject
-from app.services.pad_earthwork.dem_store import (
-    compute_dem_bbox,
-    ensure_dem_for_object,
-)
+from app.services.pad_earthwork.dem_store import compute_dem_bbox
+from app.services.pad_earthwork.pad_dem_repository import ensure_pad_dem
 from app.services.pad_earthwork.earthwork_adapter import get_pad_earthwork_adapter
 from app.services.pad_earthwork.earthwork_store import (
     merge_pad_params_patch,
@@ -39,7 +38,10 @@ from app.services.pad_earthwork.properties import (
     PAD_REFERENCE_ELEVATION_M,
     PAD_ROTATION_DEG,
     PAD_WIDTH_M,
+    DEFAULT_PAD_LENGTH_M,
+    DEFAULT_PAD_WIDTH_M,
 )
+from app.services.pad_earthwork.earthwork_store import _read_float
 from app.services.pad_earthwork.pad_layout_store import resolve_well_layout_request
 from app.services.pad_earthwork.schemas import (
     EnvelopeWrapIn,
@@ -58,14 +60,22 @@ from app.services.pad_earthwork.schemas import (
     WellLayoutGenerateRequestIn,
     WellLayoutGenerateResponseOut,
 )
-from app.subtype_manifest import PAD_CLUSTER_SUBTYPES
+from app.subtype_manifest import EARTHWORK_SUBTYPES, PAD_CLUSTER_SUBTYPES
+
+
+def assert_earthwork_object(obj: InfrastructureObject) -> None:
+    if obj.subtype not in EARTHWORK_SUBTYPES:
+        raise HTTPException(
+            status_code=400,
+            detail=f"Pad earthwork is not available for subtype: {obj.subtype!r}",
+        )
 
 
 def assert_pad_object(obj: InfrastructureObject) -> None:
     if obj.subtype not in PAD_CLUSTER_SUBTYPES:
         raise HTTPException(
             status_code=400,
-            detail=f"Pad earthwork is only available for subtypes: {sorted(PAD_CLUSTER_SUBTYPES)}",
+            detail=f"Pad well generator is only available for subtypes: {sorted(PAD_CLUSTER_SUBTYPES)}",
         )
 
 
@@ -117,6 +127,32 @@ def _is_dem_mode(body: PadEarthworkComputeRequest | None) -> bool:
     return bool(body and body.terrain and isinstance(body.terrain, TerrainDemIn))
 
 
+def resolve_footprint_lonlat(obj: InfrastructureObject) -> list[tuple[float, float]] | None:
+    """Footprint ring in lon/lat for map display; None if not earthwork-eligible."""
+    if obj.subtype not in EARTHWORK_SUBTYPES:
+        return None
+    from pad_earthwork.footprint import footprint_corners_lonlat, footprint_polygon_lonlat
+
+    lon = float(obj.longitude)
+    lat = float(obj.latitude)
+    props = obj.properties or {}
+    sketch = read_sketch(props)
+    if isinstance(sketch, PlanPolygonSketchIn):
+        verts = [(v.east_m, v.north_m) for v in sketch.vertices]
+        return footprint_polygon_lonlat(lon, lat, verts)
+    if isinstance(sketch, PlanRectangleSketchIn):
+        return footprint_corners_lonlat(
+            lon,
+            lat,
+            sketch.length_m,
+            sketch.width_m,
+            sketch.rotation_deg,
+        )
+    length = _read_float(props, PAD_LENGTH_M) or DEFAULT_PAD_LENGTH_M
+    width = _read_float(props, PAD_WIDTH_M) or DEFAULT_PAD_WIDTH_M
+    return footprint_corners_lonlat(lon, lat, length, width, read_nds_deg(props))
+
+
 def _footprint_corners_lonlat_for_compute(
     obj: InfrastructureObject,
     body: PadEarthworkComputeRequest | None,
@@ -148,14 +184,20 @@ def _footprint_corners_lonlat_for_compute(
     )
 
 
-def _prepare_dem_terrain(
+async def _prepare_dem_terrain(
+    db: AsyncSession,
     project_id: UUID,
     obj: InfrastructureObject,
     body: PadEarthworkComputeRequest | None,
     params_in: PadParamsIn,
 ) -> tuple[Any, dict[str, Any]]:
     corners = _footprint_corners_lonlat_for_compute(obj, body, params_in)
-    asset_id, path, updates = ensure_dem_for_object(project_id, obj, corners)
+    asset_id, path, updates = await ensure_pad_dem(
+        db,
+        project_id=project_id,
+        obj=obj,
+        footprint_corners_lonlat=corners,
+    )
     terrain = _terrain_from_request(
         body,
         dem_asset_id=asset_id,
@@ -220,7 +262,7 @@ def resolve_compute_params(
     if existing is None:
         raise HTTPException(
             status_code=400,
-            detail="Pad dimensions required: provide params or save pad_length_m, pad_width_m, pad_height_m",
+            detail="Pad height required: provide params or save pad_height_m",
         )
     return existing
 
@@ -242,14 +284,20 @@ def _planner_params_arg(
 
 
 async def fetch_dem_for_object(
+    db: AsyncSession,
     project_id: UUID,
     obj: InfrastructureObject,
     body: PadEarthworkComputeRequest | None = None,
 ) -> tuple[PadDemFetchResponseOut, dict[str, Any]]:
-    assert_pad_object(obj)
+    assert_earthwork_object(obj)
     params_in = resolve_compute_params(obj, body)
     corners = _footprint_corners_lonlat_for_compute(obj, body, params_in)
-    asset_id, path, updates = ensure_dem_for_object(project_id, obj, corners)
+    asset_id, path, updates = await ensure_pad_dem(
+        db,
+        project_id=project_id,
+        obj=obj,
+        footprint_corners_lonlat=corners,
+    )
     from app.services.pad_earthwork.dem_elevation_sample import infer_reference_elevation_from_dem
     from app.core.config import settings
     from app.services.pad_earthwork.dem_store import dem_source_label
@@ -293,6 +341,7 @@ async def fetch_dem_for_object(
 
 
 async def persist_dem_properties_for_compute(
+    db: AsyncSession,
     project_id: UUID,
     obj: InfrastructureObject,
     body: PadEarthworkComputeRequest | None,
@@ -300,17 +349,18 @@ async def persist_dem_properties_for_compute(
     """Fetch/cache DEM and return property updates (empty when cache hit with props already set)."""
     if not _is_dem_mode(body):
         return {}
-    _result, updates = await fetch_dem_for_object(project_id, obj, body)
+    _result, updates = await fetch_dem_for_object(db, project_id, obj, body)
     return updates
 
 
 async def compute_pad_earthwork_for_object(
+    db: AsyncSession,
     obj: InfrastructureObject,
     body: PadEarthworkComputeRequest | None,
     *,
     project_id: UUID | None = None,
 ) -> tuple[PadEarthworkComputeResponse, dict[str, Any]]:
-    assert_pad_object(obj)
+    assert_earthwork_object(obj)
     params_in = resolve_compute_params(obj, body)
     schemas = planner_schemas()
     sketch_arg = _sketch_to_planner(body.sketch) if body and body.sketch else None
@@ -326,13 +376,13 @@ async def compute_pad_earthwork_for_object(
     if _is_dem_mode(body):
         if project_id is None:
             raise HTTPException(status_code=500, detail="project_id required for dem compute")
-        terrain, dem_updates = _prepare_dem_terrain(project_id, obj, body, params_in)
+        terrain, dem_updates = await _prepare_dem_terrain(db, project_id, obj, body, params_in)
     else:
         terrain = _terrain_from_request(body)
 
     req = schemas.ComputeRequest(
         object_id=str(obj.id),
-        subtype=obj.subtype,  # type: ignore[arg-type]
+        subtype=obj.subtype,
         center=schemas.LonLat(lon=float(obj.longitude), lat=float(obj.latitude)),
         params=_planner_params_arg(body, params_in),
         sketch=sketch_arg,
@@ -367,7 +417,7 @@ def save_pad_sketch_for_object(
     obj: InfrastructureObject,
     body: PadEarthworkSketchSaveRequest,
 ) -> dict[str, Any]:
-    assert_pad_object(obj)
+    assert_earthwork_object(obj)
     fake_body = PadEarthworkComputeRequest(
         params=body.params,
         sketch=body.sketch,

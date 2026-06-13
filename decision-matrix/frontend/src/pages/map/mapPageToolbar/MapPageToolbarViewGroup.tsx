@@ -1,10 +1,12 @@
 import { Layers, Maximize2, Minimize2 } from 'lucide-react';
 import { MapDisplayModeToggle } from '../../../components/MapDisplayModeToggle';
 
+import type { MapDisplayMode } from '../../../hooks/useMapDisplayMode';
+
 export type MapPageToolbarViewGroupProps = {
   map3dFeatureEnabled: boolean;
-  mapDisplayMode: '2d' | '3d';
-  onDisplayModeChange: (mode: '2d' | '3d') => void;
+  mapDisplayMode: MapDisplayMode;
+  onDisplayModeChange: (mode: MapDisplayMode) => void;
   mapLayersOpen: boolean;
   onToggleLayers: () => void;
   mapFullscreen: boolean;

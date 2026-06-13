@@ -29,9 +29,10 @@ export function isMapNodePointSubtype(subtype: string): boolean {
   return subtype === MAP_NODE_POINT_SUBTYPE;
 }
 
-/** Порядок отрисовки: линии → узлы → прочие точки. */
+/** Порядок отрисовки: радиусы → контуры площадок → линии → узлы → прочие точки. */
 export const MAP_LAYER_Z = {
   radius: 1,
+  footprint: 2,
   line: 3,
   nodePoint: 4,
   point: 5,

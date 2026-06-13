@@ -147,6 +147,15 @@ class EconomicParamsResponse(BaseModel):
     params: dict[str, float]
 
 
+class FootprintConnectionTemplateUpdate(BaseModel):
+    template: dict[str, dict | None]
+
+
+class FootprintConnectionTemplateResponse(BaseModel):
+    project_id: UUID
+    template: dict[str, dict | None]
+
+
 class PoiCostRatesResponse(BaseModel):
     poi_id: UUID
     rates: dict[str, float]

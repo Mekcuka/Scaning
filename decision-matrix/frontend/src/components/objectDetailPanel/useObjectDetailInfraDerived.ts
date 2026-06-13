@@ -14,7 +14,7 @@ import {
   effectiveThroughputCapacity,
   pointShowsThroughputCapacity,
 } from '../../lib/infraCapacity';
-import { isPadSubtype } from '../../lib/infraPadEarthwork';
+import { isEarthworkEligibleSubtype } from '../../lib/infraPadEarthwork';
 import { pointShowsPadWellFields } from '../../lib/infraPadWells';
 import {
   isSandQuarrySubtype,
@@ -38,9 +38,10 @@ export function useObjectDetailInfraDerived(params: {
   selection: SelectedFeature;
   layers: InfraLayer[];
   map3dCustomModels: Map3dCustomModel[];
+  infraObjects?: InfraObject[];
   form: FormState;
 }) {
-  const { selection, layers, map3dCustomModels, form } = params;
+  const { selection, layers, map3dCustomModels, infraObjects = [], form } = params;
 
   const isPoi = selection.kind === 'poi';
   const infraObject: InfraObject | null = selection.kind === 'infra' ? selection.object : null;
@@ -74,6 +75,7 @@ export function useObjectDetailInfraDerived(params: {
       padMarginBottomM: form.padMarginBottomM,
       padMarginTopM: form.padMarginTopM,
       padMarginEndM: form.padMarginEndM,
+      pointFootprintLineConnections: form.pointFootprintLineConnections,
     }),
     [form],
   );
@@ -111,7 +113,7 @@ export function useObjectDetailInfraDerived(params: {
   const showSandDemandField =
     selection.kind === 'infra' && pointShowsSandDemand(form.subtype) && !isLine;
   const showPadEarthworkSection =
-    selection.kind === 'infra' && isPadSubtype(form.subtype) && !isLine;
+    selection.kind === 'infra' && isEarthworkEligibleSubtype(form.subtype) && !isLine;
   const showPadWellCountField =
     selection.kind === 'infra' && pointShowsPadWellFields(form.subtype) && !isLine;
 
@@ -148,6 +150,9 @@ export function useObjectDetailInfraDerived(params: {
     throughputCapacity?.unit || defaultCapacityUnitForSubtype(form.subtype);
 
   const showLogisticsTab = showSandQuarryFields || showSandDemandField || showPadEarthworkSection;
+
+  const showFootprintLineConnectionsSection =
+    selection.kind === 'infra' && isEarthworkEligibleSubtype(form.subtype) && !isLine;
 
   const displayName = isPoi
     ? (form.poiForm?.name ?? (selection.kind === 'poi' ? selection.poi.name : 'Объект'))
@@ -187,6 +192,7 @@ export function useObjectDetailInfraDerived(params: {
     isDirty,
     capacityUnit,
     showLogisticsTab,
+    showFootprintLineConnectionsSection,
     mapProjectId: resolvedMapProjectId,
     displayName,
     setDisplayName,

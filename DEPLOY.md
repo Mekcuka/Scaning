@@ -269,6 +269,21 @@ ls -la /opt/decision-matrix/shared/map3d_models/
 
 **Старые GLB** (загруженные до volume): файлы на диске могли быть потеряны при redeploy — перезагрузите через «Импорт 3D». Записи в БД без файла дают `404 Model file not found on disk`.
 
+### DEM кустовых площадок на VM (хранение)
+
+Bind-mount в `deploy/docker-compose.yml` для `api` и `worker`:
+
+```text
+/opt/decision-matrix/shared/pad_dem  →  /app/data/pad_dem
+```
+
+Метаданные — PostgreSQL `infra_object_pad_dem` (миграция **`024`**); GeoTIFF — `{project_id}/{asset_id}.tif`. Подробнее: [docs/deploy/pad-dem-storage.md](docs/deploy/pad-dem-storage.md), [pad-earthwork.md](docs/features/pad-earthwork.md) § DEM.
+
+```bash
+sudo mkdir -p /opt/decision-matrix/shared/pad_dem
+sudo chmod 755 /opt/decision-matrix/shared/pad_dem
+```
+
 ### Типичные проблемы после релиза frontend
 
 | Симптом | Действие |

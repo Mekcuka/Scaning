@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { padEarthworkApi, type PadEarthworkComputeResult } from '../../lib/api/padEarthworkApi';
-import { padParamsFromObject, envelopeFromObject, hasSavedPadSketch, sketchSavedAtFromObject, clampNdsDeg, DEFAULT_PAD_NDS_DEG, resolveGeneratorNdsDeg, readDemStatusFromProperties } from '../../lib/infraPadEarthwork';
+import { padParamsFromObject, envelopeFromObject, hasSavedPadSketch, sketchSavedAtFromObject, clampNdsDeg, DEFAULT_PAD_NDS_DEG, resolveGeneratorNdsDeg, readDemStatusFromProperties, isPadSubtype } from '../../lib/infraPadEarthwork';
 import type { PadTerrainMode } from '../../lib/api/padEarthworkApi';
 import { parseSketchFromLast, parseWellsLocalFromLast, planFromFormFields } from '../../lib/padEarthworkSketch';
 import type { InfraObject } from '../../lib/api';
@@ -248,6 +248,8 @@ export function InfraPadEarthworkSection({
     return Number.isNaN(d.getTime()) ? null : d.toLocaleString('ru-RU');
   };
 
+  const isPad = isPadSubtype(infraObject.subtype);
+
   const demStatusLabel = (() => {
     if (!demStatus?.asset_id) return 'DEM не загружен';
     const when = formatSavedAt(demStatus.fetched_at);
@@ -258,12 +260,13 @@ export function InfraPadEarthworkSection({
   return (
     <PanelSection title="Площадка / земляные работы" card>
       <p className="object-detail-panel__hint text-xs">
-        Расчёт объёмов отсыпки и выемки. Параметры скважин и автогенерация контура — в модалке «Схема…»
-        → режим «Генератор».
+        {isPad
+          ? 'Расчёт объёмов отсыпки и выемки. Параметры скважин и автогенерация контура — в модалке «Схема…» → режим «Генератор».'
+          : 'Расчёт объёмов отсыпки и выемки. Контур площадки — в модалке «Схема…» (прямоугольник или произвольный полигон).'}
       </p>
       {hasSavedSketch && (
         <p className="object-detail-panel__hint text-xs">
-          Схема сохранена для этого куста
+          Схема сохранена для этого объекта
           {formatSavedAt(sketchSavedAt) ? ` · ${formatSavedAt(sketchSavedAt)}` : ''}.
           Объёмы — по кнопке «Рассчитать».
         </p>
@@ -337,7 +340,7 @@ export function InfraPadEarthworkSection({
         </label>
       </div>
       <label className="object-detail-panel__field">
-        <FieldLabel>НДС, °</FieldLabel>
+        <FieldLabel>{isPad ? 'НДС, °' : 'Поворот, °'}</FieldLabel>
         <input
           className="input object-detail-panel__input"
           type="number"
@@ -441,6 +444,7 @@ export function InfraPadEarthworkSection({
           projectId={projectId}
           objectId={infraObject.id}
           readOnly={readOnly}
+          showGenerator={isPad}
           lengthM={lengthM}
           widthM={widthM}
           heightM={heightM}

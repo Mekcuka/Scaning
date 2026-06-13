@@ -45,6 +45,18 @@ export const projectsApi = {
       method: 'PUT',
       body: JSON.stringify({ params }),
     }),
+  getFootprintConnectionTemplate: (projectId: string) =>
+    request<{ project_id: string; template: Record<string, { cardinal: string; t?: number } | null> }>(
+      `/projects/${projectId}/footprint-connection-template`,
+    ),
+  updateFootprintConnectionTemplate: (
+    projectId: string,
+    template: Record<string, { cardinal: string; t?: number } | null>,
+  ) =>
+    request<{ project_id: string; template: Record<string, { cardinal: string; t?: number } | null> }>(
+      `/projects/${projectId}/footprint-connection-template`,
+      { method: 'PUT', body: JSON.stringify({ template }) },
+    ),
   getPoiRates: (projectId: string, poiId: string) =>
     request<{ poi_id: string; rates: Record<string, number>; overrides: Record<string, number> | null }>(
       `/projects/${projectId}/pois/${poiId}/rates`,

@@ -10,7 +10,8 @@ import { MapPageSidePanels } from './map/MapPageSidePanels';
 import { MapPageToolbar } from './map/MapPageToolbar';
 
 export function MapPage() {
-  const { projectId, autoroadConfirmModal, mapCanvasRef, sections } = useMapPageOrchestrator();
+  const { projectId, autoroadConfirmModal, lineSplitConfirmModal, mapCanvasRef, sections } =
+    useMapPageOrchestrator();
 
   return (
     <div className="map-page flex flex-1 flex-col min-h-0 overflow-hidden">
@@ -38,6 +39,7 @@ export function MapPage() {
       </div>
 
       {autoroadConfirmModal}
+      {lineSplitConfirmModal}
 
       <MapPageModals {...sections.modals} />
     </div>

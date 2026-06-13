@@ -11,6 +11,7 @@ export function createOlMap(refs: MapViewRefs, layers: MapLayers): OlMap {
   const {
     basemapLayer,
     radiusLayer,
+    padFootprintLayer,
     connectionLayer,
     lineLayer,
     nodePointLayer,
@@ -23,6 +24,7 @@ export function createOlMap(refs: MapViewRefs, layers: MapLayers): OlMap {
     layers: [
       basemapLayer,
       radiusLayer,
+      padFootprintLayer,
       connectionLayer,
       lineLayer,
       nodePointLayer,

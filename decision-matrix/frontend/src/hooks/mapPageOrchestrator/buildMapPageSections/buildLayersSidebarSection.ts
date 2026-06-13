@@ -10,7 +10,6 @@ export function buildLayersSidebarSection(
     | 'radiusVisible'
     | 'layerOpenSections'
     | 'showBasemap'
-    | 'showTerrain'
     | 'showModels'
     | 'mapIn3d'
     | 'setLayerPrefs'
@@ -27,7 +26,6 @@ export function buildLayersSidebarSection(
     radiusVisible,
     layerOpenSections,
     showBasemap,
-    showTerrain,
     showModels,
     mapIn3d,
     setLayerPrefs,
@@ -62,8 +60,6 @@ export function buildLayersSidebarSection(
     thresholdKm: actions.thresholdKm,
     showBasemap,
     onShowBasemapChange: (visible) => setLayerPrefs((p) => ({ ...p, showBasemap: visible })),
-    showTerrain,
-    onShowTerrainChange: (visible) => setLayerPrefs((p) => ({ ...p, showTerrain: visible })),
     mapIn3d,
     showModels,
     onShowModelsChange: (visible) => setLayerPrefs((p) => ({ ...p, showModels: visible })),

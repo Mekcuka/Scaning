@@ -74,11 +74,50 @@
   white-space: nowrap;
 }
 
-/* 2D|3D toggle: always visible (unlike map-layers-toggle, which is mobile-only). */
+/* 2D/3D icon toggle: always visible (unlike map-layers-toggle, which is mobile-only). */
 .map-display-mode-toggle {
   display: inline-flex;
   flex-shrink: 0;
-  align-items: stretch;
+  align-items: center;
+  gap: 2px;
+  padding: 2px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: color-mix(in srgb, var(--surface-2) 88%, var(--surface));
+}
+
+.map-display-mode-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 2rem;
+  min-height: 2rem;
+  padding: 6px 8px;
+  border: 0;
+  border-radius: 6px;
+  background: transparent;
+  color: var(--text-muted);
+  cursor: pointer;
+  transition:
+    background 0.15s ease,
+    color 0.15s ease,
+    box-shadow 0.15s ease;
+}
+
+.map-display-mode-btn:hover:not(.map-display-mode-btn--active) {
+  background: color-mix(in srgb, var(--primary) 8%, transparent);
+  color: var(--text);
+}
+
+.map-display-mode-btn:focus-visible {
+  outline: none;
+  box-shadow: 0 0 0 2px color-mix(in srgb, var(--primary) 35%, transparent);
+}
+
+.map-display-mode-btn--active {
+  background: var(--primary);
+  color: var(--primary-contrast, #fff);
+  box-shadow: 0 1px 2px color-mix(in srgb, var(--primary) 35%, transparent);
 }
 
 .map-display-mode-sep {

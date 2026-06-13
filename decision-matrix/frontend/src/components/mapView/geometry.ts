@@ -1,6 +1,7 @@
 import OlMap from 'ol/Map';
 import Point from 'ol/geom/Point';
 import LineString from 'ol/geom/LineString';
+import Polygon from 'ol/geom/Polygon';
 import { fromLonLat, transform } from 'ol/proj';
 import Feature from 'ol/Feature';
 import VectorSource from 'ol/source/Vector';
@@ -9,7 +10,7 @@ import { linePathForDisplay, type LinePathDisplayOptions } from '../../lib/infra
 import { LINE_SUBTYPE_SET } from './constants';
 import { LINE_VERTEX_HIT_TOLERANCE_PX } from './constants';
 
-export function geometrySyncKey(geometry: Point | LineString): string {
+export function geometrySyncKey(geometry: Point | LineString | Polygon): string {
   return JSON.stringify(geometry.getCoordinates());
 }
 
@@ -25,7 +26,7 @@ export function infraLineGeometry(
 
 export function syncFeaturesById(
   source: VectorSource,
-  items: { id: string; geometry: Point | LineString; attrs: Record<string, unknown> }[],
+  items: { id: string; geometry: Point | LineString | Polygon; attrs: Record<string, unknown> }[],
   skipSubtype?: string
 ) {
   const existing = new Map<string, Feature>();

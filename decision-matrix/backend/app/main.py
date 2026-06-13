@@ -25,6 +25,7 @@ from app.core.rate_limit import limiter
 from app.core.sqlite_migrate import patch_postgres_schema, patch_sqlite_schema
 from app.core.startup_checks import validate_production_settings
 from app.services.demo_users import ensure_demo_users
+import app.services.pad_earthwork.pad_dem_listeners  # noqa: F401 — register ORM listeners
 
 logger = logging.getLogger(__name__)
 BACKEND_ROOT = Path(__file__).resolve().parent.parent

@@ -2,10 +2,12 @@ import type { DrawMode, SelectMode } from '../../../components/MapView';
 import type { POI } from '../../../lib/api';
 import type { MapSearchHit } from '../../../lib/mapSearch';
 
+import type { MapDisplayMode } from '../../../hooks/useMapDisplayMode';
+
 export type MapPageToolbarProps = {
   map3dFeatureEnabled: boolean;
-  mapDisplayMode: '2d' | '3d';
-  onDisplayModeChange: (mode: '2d' | '3d') => void;
+  mapDisplayMode: MapDisplayMode;
+  onDisplayModeChange: (mode: MapDisplayMode) => void;
   mapLayersOpen: boolean;
   onToggleLayers: () => void;
   mapFullscreen: boolean;

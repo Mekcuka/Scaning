@@ -22,7 +22,7 @@ const mapCapture = vi.hoisted(() => ({
   hotkeys: null as Record<string, unknown> | null,
 }));
 
-const mapDisplayState = vi.hoisted(() => ({ mode: '2d' as '2d' | '3d' }));
+const mapDisplayState = vi.hoisted(() => ({ mode: '2d' as '2d' | '3d' | 'footprints' }));
 
 vi.mock('../components/MapView', () => ({
   MapView: (props: MockMapViewProps) => {
@@ -69,14 +69,19 @@ vi.mock('../components/CandidatesModal', () => ({
 }));
 
 vi.mock('../hooks/useMapDisplayMode', () => ({
-  useMapDisplayMode: () => ({
-    is3dEnabled: true,
-    displayMode: mapDisplayState.mode,
-    setDisplayMode: (mode: '2d' | '3d') => {
-      mapDisplayState.mode = mode;
-    },
-    mapIn3d: mapDisplayState.mode === '3d',
-  }),
+  useMapDisplayMode: () => {
+    const [displayMode, setDisplayMode] = React.useState(mapDisplayState.mode);
+    React.useEffect(() => {
+      mapDisplayState.mode = displayMode;
+    }, [displayMode]);
+    return {
+      is3dEnabled: true,
+      displayMode,
+      setDisplayMode,
+      mapIn3d: displayMode === '3d',
+      mapInFootprints: displayMode === 'footprints',
+    };
+  },
 }));
 
 vi.mock('../lib/mapViewState', () => ({
@@ -167,6 +172,22 @@ describe('MapPage mock MapView integration', () => {
       await screen.findByRole('button', { name: /включить редактирование/i }),
     );
   }
+
+  it('passes infraSymbology footprints when footprints mode is active', async () => {
+    mapDisplayState.mode = 'footprints';
+    await renderMap();
+    expect(mapProps().infraSymbology).toBe('footprints');
+    expect(screen.getByTestId('mock-map-view')).toBeInTheDocument();
+    expect(screen.queryByTestId('mock-map-3d')).not.toBeInTheDocument();
+  });
+
+  it('switches to footprints via toolbar and keeps MapView mounted', async () => {
+    await renderMap();
+    expect(mapProps().infraSymbology).toBe('points');
+    await userEvent.click(screen.getByRole('button', { name: 'Карта площадок' }));
+    await waitFor(() => expect(mapProps().infraSymbology).toBe('footprints'));
+    expect(screen.getByTestId('mock-map-view')).toBeInTheDocument();
+  });
 
   it('creates POI from map click and modal submit', async () => {
     await renderMap();

@@ -14,6 +14,8 @@ import {
   AdminUsersPage,
   DashboardPage,
   EntryDatesParametersPage,
+  EarthworkParametersPage,
+  FootprintConnectionsParametersPage,
   FlowEconomicPage,
   FlowLogisticsPage,
   FlowSchematicLayout,
@@ -58,6 +60,8 @@ function AppRoutes() {
                     <Route index element={<SectionIndexRedirect section="parameters" />} />
                     <Route path="capacity" element={<ParametersPage />} />
                     <Route path="sand" element={<SandParametersPage />} />
+                    <Route path="earthwork" element={<EarthworkParametersPage />} />
+                    <Route path="footprint-connections" element={<FootprintConnectionsParametersPage />} />
                     <Route path="entry-dates" element={<EntryDatesParametersPage />} />
                     <Route path="rates" element={<RatesPage />} />
                   </Route>

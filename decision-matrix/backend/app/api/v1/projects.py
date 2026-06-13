@@ -16,6 +16,7 @@ from app.models import (
     ProjectCostRates,
     ProjectDistanceDefaults,
     ProjectEconomicParams,
+    ProjectFootprintConnectionTemplate,
     User,
 )
 from app.models.enums import AccessLevel, UserRole
@@ -26,6 +27,8 @@ from app.schemas import (
     DistanceDefaultsUpdate,
     EconomicParamsResponse,
     EconomicParamsUpdate,
+    FootprintConnectionTemplateResponse,
+    FootprintConnectionTemplateUpdate,
     POICreate,
     POIResponse,
     ProjectCreate,
@@ -34,6 +37,7 @@ from app.schemas import (
 )
 from app.services.cost_rates import DEFAULT_COST_RATES, merge_project_cost_rates
 from app.services.economic_rates import DEFAULT_ECONOMIC_PARAMS
+from app.geo.footprint_connection_template import sanitize_footprint_connection_template
 from app.services.poi_create import create_poi_for_project
 from app.services.project_access import list_accessible_projects
 from app.services.project_delete import delete_project_cascade
@@ -191,6 +195,52 @@ async def update_economic_params(
     return EconomicParamsResponse(
         project_id=project_id, params={**DEFAULT_ECONOMIC_PARAMS, **row.params}
     )
+
+
+@projects_router.get(
+    "/projects/{project_id}/footprint-connection-template",
+    response_model=FootprintConnectionTemplateResponse,
+)
+async def get_footprint_connection_template(
+    project_id: UUID, user: User = Depends(get_current_user), db: AsyncSession = Depends(get_db)
+):
+    await get_user_project(project_id, user, db)
+    result = await db.execute(
+        select(ProjectFootprintConnectionTemplate).where(
+            ProjectFootprintConnectionTemplate.project_id == project_id
+        )
+    )
+    row = result.scalar_one_or_none()
+    template = sanitize_footprint_connection_template(row.template if row else {})
+    return FootprintConnectionTemplateResponse(project_id=project_id, template=template)
+
+
+@projects_router.put(
+    "/projects/{project_id}/footprint-connection-template",
+    response_model=FootprintConnectionTemplateResponse,
+)
+async def update_footprint_connection_template(
+    project_id: UUID,
+    data: FootprintConnectionTemplateUpdate,
+    user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    await get_user_project(project_id, user, db, min_access=AccessLevel.write)
+    cleaned = sanitize_footprint_connection_template(data.template)
+    result = await db.execute(
+        select(ProjectFootprintConnectionTemplate).where(
+            ProjectFootprintConnectionTemplate.project_id == project_id
+        )
+    )
+    row = result.scalar_one_or_none()
+    if not row:
+        row = ProjectFootprintConnectionTemplate(project_id=project_id, template=cleaned)
+        db.add(row)
+    else:
+        row.template = cleaned
+    await db.commit()
+    await db.refresh(row)
+    return FootprintConnectionTemplateResponse(project_id=project_id, template=cleaned)
 
 
 @projects_router.get("/projects/{project_id}/pois", response_model=list[POIResponse])

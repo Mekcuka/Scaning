@@ -61,6 +61,14 @@ export const SandParametersPage = lazy(() =>
 export const EntryDatesParametersPage = lazy(() =>
   import('../pages/EntryDatesParametersPage').then((m) => ({ default: m.EntryDatesParametersPage })),
 );
+export const EarthworkParametersPage = lazy(() =>
+  import('../pages/EarthworkParametersPage').then((m) => ({ default: m.EarthworkParametersPage })),
+);
+export const FootprintConnectionsParametersPage = lazy(() =>
+  import('../pages/FootprintConnectionsParametersPage').then((m) => ({
+    default: m.FootprintConnectionsParametersPage,
+  })),
+);
 export const ParametersLayout = lazy(() =>
   import('../components/layout/ParametersLayout').then((m) => ({ default: m.ParametersLayout })),
 );

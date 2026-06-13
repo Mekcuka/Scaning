@@ -15,6 +15,7 @@ from app.models import (
     PointOfInterest,
     PoiInfrastructureAnalysis,
 )
+from app.services.pad_earthwork.pad_dem_repository import delete_pad_dem_files_for_object_ids
 from app.services.graph_builder import build_network_from_lines, prune_disconnected_nodes
 
 COORD_MATCH_EPS = 1e-6
@@ -125,6 +126,8 @@ async def delete_infra_objects_batch(
             .limit(1)
         )
     ) is not None
+
+    await delete_pad_dem_files_for_object_ids(db, delete_ids)
 
     result = await db.execute(delete(InfrastructureObject).where(InfrastructureObject.id.in_(delete_ids)))
     deleted_count = result.rowcount or len(delete_ids)

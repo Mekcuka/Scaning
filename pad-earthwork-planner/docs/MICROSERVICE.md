@@ -125,6 +125,8 @@ BFF-обёртка автогенерации: `POST /api/v1/projects/{id}/infra
 
 ### Режим DEM
 
+**Загрузка и кэш DEM** — только в BFF (`dem/fetch`, `pad_dem_repository`, таблица `infra_object_pad_dem`). Planner получает уже готовый путь к GeoTIFF в `dem_file_path`; OpenTopography и volume на диске микросервис **не** обслуживает. См. [pad-dem-storage.md](../../docs/deploy/pad-dem-storage.md).
+
 При `terrain.mode = dem` и `dem_file_path`:
 
 - `fill_m3 = footprint_area × height_m` (призма, песок завозится);

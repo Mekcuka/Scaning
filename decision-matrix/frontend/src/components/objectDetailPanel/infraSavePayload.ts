@@ -1,5 +1,6 @@
 import { coordForSave, parseCoord } from '../../lib/coords';
 import type { InfraObject } from '../../lib/api';
+import { isEarthworkEligibleSubtype } from '../../lib/infraPadEarthwork';
 import { getLineCoordinates, isLineSubtype } from '../../lib/infraGeometry';
 import {
   defaultCapacityUnitForSubtype,
@@ -30,6 +31,10 @@ import {
   RENDER_3D_STYLE_KEY,
   RENDER_3D_VISIBLE_KEY,
 } from '../../lib/map3d/render3d';
+import {
+  writePointFootprintLineConnections,
+  type PointFootprintLineConnections,
+} from '../../lib/padFootprintLineAttach';
 
 export type InfraSaveDraft = {
   name: string;
@@ -59,6 +64,7 @@ export type InfraSaveDraft = {
   padMarginBottomM: string;
   padMarginTopM: string;
   padMarginEndM: string;
+  pointFootprintLineConnections: PointFootprintLineConnections;
 };
 
 export function buildInfraSavePayload(
@@ -93,6 +99,7 @@ export function buildInfraSavePayload(
     padMarginBottomM,
     padMarginTopM,
     padMarginEndM,
+    pointFootprintLineConnections,
   } = draft;
 
   const payload: Record<string, unknown> = {
@@ -162,6 +169,12 @@ export function buildInfraSavePayload(
     } else {
       props[RENDER_3D_MODEL_ID_KEY] = null;
     }
+  }
+  if (!isLineSubtype(subtype) && isEarthworkEligibleSubtype(subtype)) {
+    props = writePointFootprintLineConnections(
+      props,
+      Object.keys(pointFootprintLineConnections).length ? pointFootprintLineConnections : null,
+    );
   }
   payload.properties = props;
 

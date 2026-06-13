@@ -4,5 +4,7 @@ export const queryKeys = {
   infra: (projectId: string) => ['infra', projectId] as const,
   layers: (projectId: string) => ['layers', projectId] as const,
   pois: (projectId: string) => ['pois', projectId] as const,
+  footprintConnectionTemplate: (projectId: string) =>
+    ['footprint-connection-template', projectId] as const,
   analysis: (projectId: string, poiId: string) => ['analysis', projectId, poiId] as const,
 };

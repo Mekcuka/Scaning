@@ -40,6 +40,12 @@ export function useMapPageEditState(
   const [mapEditEnabled, setMapEditEnabled] = useState(false);
   const [mapClipboard, setMapClipboard] = useState<MapClipboardItem[] | null>(null);
   const [pasteMode, setPasteMode] = useState(false);
+  const [footprintLineConnectPickSubtype, setFootprintLineConnectPickSubtype] =
+    useState<string | null>(null);
+
+  useEffect(() => {
+    setFootprintLineConnectPickSubtype(null);
+  }, [featureSel?.id, featureSel?.kind]);
 
   useEffect(() => {
     if (!canEditMap) {
@@ -138,6 +144,8 @@ export function useMapPageEditState(
     setMapClipboard,
     pasteMode,
     setPasteMode,
+    footprintLineConnectPickSubtype,
+    setFootprintLineConnectPickSubtype,
     cancelDrawingSelection,
   };
 }

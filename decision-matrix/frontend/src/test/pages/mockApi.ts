@@ -68,6 +68,12 @@ export function createDefaultApiMocks(): ApiMockOverrides {
       objects_updated: 0,
     }),
     getDistanceDefaults: vi.fn().mockResolvedValue({}),
+    getFootprintConnectionTemplate: vi.fn().mockResolvedValue({ project_id: 'p1', template: {} }),
+    updateFootprintConnectionTemplate: vi
+      .fn()
+      .mockImplementation((_pid: string, template: Record<string, unknown>) =>
+        Promise.resolve({ project_id: _pid, template }),
+      ),
     getPoiAnalysis: vi.fn().mockResolvedValue(makeAnalysisResponse()),
     analyzeAllPois: vi.fn().mockResolvedValue(makeAnalysisResult()),
     analyzePoi: vi.fn().mockResolvedValue(makeAnalysisResponse()),

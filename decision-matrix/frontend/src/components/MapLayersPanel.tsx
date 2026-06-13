@@ -29,11 +29,6 @@ type MapLayersPanelProps = {
   thresholdKm: (subtype: string, fallback: number) => number;
   showBasemap: boolean;
   onShowBasemapChange: (visible: boolean) => void;
-  /** 3D terrain (MapTiler DEM); only when 3D mode and key present. */
-  showTerrain?: boolean;
-  onShowTerrainChange?: (visible: boolean) => void;
-  terrainToggleEnabled?: boolean;
-  terrainToggleHint?: string;
   /** Procedural 3D models (point objects). */
   showModels?: boolean;
   onShowModelsChange?: (visible: boolean) => void;
@@ -253,10 +248,6 @@ export function MapLayersPanel({
   thresholdKm,
   showBasemap,
   onShowBasemapChange,
-  showTerrain = false,
-  onShowTerrainChange,
-  terrainToggleEnabled = false,
-  terrainToggleHint,
   showModels = true,
   onShowModelsChange,
   modelsToggleEnabled = false,
@@ -319,16 +310,6 @@ export function MapLayersPanel({
         onToggle={toggleSection}
       >
         <LayerRow label="Спутник" checked={showBasemap} onChange={onShowBasemapChange} />
-        {onShowTerrainChange ? (
-          <LayerRow
-            label="Рельеф (3D)"
-            checked={showTerrain}
-            onChange={onShowTerrainChange}
-            disabled={!terrainToggleEnabled}
-            indent="indent"
-            title={terrainToggleHint}
-          />
-        ) : null}
         {onShowModelsChange ? (
           <LayerRow
             label="3D-модели объектов"

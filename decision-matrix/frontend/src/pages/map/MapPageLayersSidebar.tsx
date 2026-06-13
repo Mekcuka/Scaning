@@ -1,5 +1,4 @@
 import { MapLayersPanel } from '../../components/MapLayersPanel';
-import { isMaptilerTerrainAvailable } from '../../lib/map3d/map3dConfig';
 import type { InfraLayer } from '../../lib/api';
 import type { MapLayerOpenSections } from '../../lib/mapLayerPreferences';
 import { THRESHOLD_META } from './mapConstants';
@@ -24,8 +23,6 @@ export type MapPageLayersSidebarProps = {
   thresholdKm: (subtype: string, fallback: number) => number;
   showBasemap: boolean;
   onShowBasemapChange: (visible: boolean) => void;
-  showTerrain: boolean;
-  onShowTerrainChange: (visible: boolean) => void;
   mapIn3d: boolean;
   showModels: boolean;
   onShowModelsChange: (visible: boolean) => void;
@@ -51,8 +48,6 @@ export function MapPageLayersSidebar({
   thresholdKm,
   showBasemap,
   onShowBasemapChange,
-  showTerrain,
-  onShowTerrainChange,
   mapIn3d,
   showModels,
   onShowModelsChange,
@@ -87,18 +82,8 @@ export function MapPageLayersSidebar({
           thresholdKm={thresholdKm}
           showBasemap={showBasemap}
           onShowBasemapChange={onShowBasemapChange}
-          showTerrain={showTerrain}
-          onShowTerrainChange={onShowTerrainChange}
-          terrainToggleEnabled={mapIn3d && isMaptilerTerrainAvailable()}
-          terrainToggleHint={
-            !isMaptilerTerrainAvailable()
-              ? 'Задайте VITE_MAPTILER_KEY в frontend/.env'
-              : !mapIn3d
-                ? 'Доступно в режиме 3D'
-                : undefined
-          }
           showModels={showModels}
-          onShowModelsChange={onShowModelsChange}
+          onShowModelsChange={mapIn3d ? onShowModelsChange : undefined}
           modelsToggleEnabled={mapIn3d}
           onClose={onClose}
         />

@@ -19,11 +19,12 @@ export function setupSelectInteractions(ctx: MapSetupContext): {
 } {
   const { refs, layers, interactions } = ctx;
   const { map } = interactions;
-  const { pointLayer, nodePointLayer, lineLayer } = layers;
+  const { pointLayer, nodePointLayer, lineLayer, padFootprintLayer } = layers;
   const {
     pointSourceRef,
     nodePointSourceRef,
     lineSourceRef,
+    infraSymbologyRef,
     selectRef,
     modifyRef,
     dragBoxRef,
@@ -35,6 +36,16 @@ export function setupSelectInteractions(ctx: MapSetupContext): {
     onFeatureGroupSelectRef,
     onDragBoxPickRef,
   } = refs;
+
+  const selectableHitOptions = () =>
+    infraSymbologyRef.current === 'footprints'
+      ? {
+          padFootprintLayer,
+          pointSource: pointSourceRef.current,
+          nodePointSource: nodePointSourceRef.current,
+          lineSource: lineSourceRef.current,
+        }
+      : undefined;
 
   const select = new Select({
     condition: click,
@@ -71,6 +82,7 @@ export function setupSelectInteractions(ctx: MapSetupContext): {
         evt.pixel,
         [pointLayer, nodePointLayer, lineLayer],
         MAP_POINT_HIT_TOLERANCE_PX,
+        selectableHitOptions(),
       );
       if (!f) {
         onFeatureSelectRef.current?.(null);

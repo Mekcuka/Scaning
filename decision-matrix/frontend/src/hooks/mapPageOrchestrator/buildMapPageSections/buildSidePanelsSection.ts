@@ -4,10 +4,10 @@ import type { BuildMapPageSectionsParams } from './types';
 export function buildSidePanelsSection(
   params: Pick<
     BuildMapPageSectionsParams,
-    'canWriteProject' | 'canWriteInfra' | 'edit' | 'data' | 'actions'
+    'canWriteProject' | 'canWriteInfra' | 'mapInFootprints' | 'edit' | 'data' | 'actions'
   >,
 ): MapPageSidePanelsProps {
-  const { canWriteProject, canWriteInfra, edit, data, actions } = params;
+  const { canWriteProject, canWriteInfra, mapInFootprints, edit, data, actions } = params;
 
   return {
     drawMode: edit.drawMode,
@@ -15,6 +15,11 @@ export function buildSidePanelsSection(
     detailSelection: data.detailSelection,
     layers: data.layers,
     map3dCustomModels: data.map3dCustomModels,
+    infraObjects: data.infraObjects,
+    mapInFootprints,
+    footprintLineConnectPickSubtype: edit.footprintLineConnectPickSubtype,
+    onFootprintLineConnectPickSubtypeChange: edit.setFootprintLineConnectPickSubtype,
+    onFootprintLineConnectionsPersist: actions.handlePointFootprintLineConnectionsChange,
     saveDetailPending: actions.saveDetailMut.isPending,
     canWriteProject,
     canWriteInfra,

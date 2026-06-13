@@ -10,6 +10,7 @@ export type UseMapFooterHintParams = {
   detailSelection: SelectedFeature | null;
   selectMode: 'single' | 'box';
   featureGroupCount: number;
+  mapInFootprints?: boolean;
 };
 
 export function useMapFooterHint({
@@ -19,6 +20,7 @@ export function useMapFooterHint({
   detailSelection,
   selectMode,
   featureGroupCount,
+  mapInFootprints = false,
 }: UseMapFooterHintParams): string | null {
   return useMemo(() => {
     if (pasteMode) {
@@ -28,6 +30,9 @@ export function useMapFooterHint({
       return 'Клик по точке — добавить/убрать терминал · панель справа — предпросмотр';
     }
     if (drawMode !== 'select') return null;
+    const footprintHint = mapInFootprints
+      ? 'Контуры площадок из параметров земляных работ'
+      : null;
     if (mapEditEnabled) {
       if (
         detailSelection?.kind === 'infra' &&
@@ -43,8 +48,12 @@ export function useMapFooterHint({
           ? 'Перетащите выделение · клик в пустое — снять выделение · Ctrl+C/V/X · Del · Ctrl+Z'
           : 'Рамка — выделить объекты · Ctrl+C/V/X';
       }
+      if (footprintHint) return footprintHint;
       return 'Выберите объект или включите инструмент рисования · E — редактирование';
     }
+    if (footprintHint) {
+      return `${footprintHint} · Включите редактирование (E) для перемещения объектов`;
+    }
     return 'Включите редактирование (E) для перемещения объектов';
-  }, [drawMode, mapEditEnabled, detailSelection, selectMode, pasteMode, featureGroupCount]);
+  }, [drawMode, mapEditEnabled, detailSelection, selectMode, pasteMode, featureGroupCount, mapInFootprints]);
 }

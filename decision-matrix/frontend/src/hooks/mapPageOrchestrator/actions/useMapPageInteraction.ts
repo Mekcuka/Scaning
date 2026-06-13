@@ -9,10 +9,12 @@ import type { MapPageActionsParams } from '../mapPageActionsTypes';
 import type { useMapAutoroadActions } from './useMapAutoroadActions';
 import type { useMapDrawAndCreateActions } from './useMapDrawAndCreateActions';
 import type { useMapSelectionActions } from './useMapSelectionActions';
+import type { useLineFootprintEdgePick } from '../../useLineFootprintEdgePick';
 
 type AutoroadActions = ReturnType<typeof useMapAutoroadActions>;
 type DrawActions = ReturnType<typeof useMapDrawAndCreateActions>;
 type SelectionActions = ReturnType<typeof useMapSelectionActions>;
+type LineFootprintEdgePick = ReturnType<typeof useLineFootprintEdgePick>;
 
 export function useMapPageInteraction(
   params: MapPageActionsParams,
@@ -20,10 +22,11 @@ export function useMapPageInteraction(
     autoroad: AutoroadActions;
     draw: DrawActions;
     selection: SelectionActions;
+    lineFootprintEdgePick: LineFootprintEdgePick;
   },
 ) {
   const { projectId, canWriteProject, canWriteInfra, canEditMap, edit } = params;
-  const { autoroad, draw, selection } = slices;
+  const { autoroad, draw, selection, lineFootprintEdgePick } = slices;
   const { pois } = params.data;
   const pushToast = useAppStore((s) => s.pushToast);
   const { cursorRef } = edit;
@@ -71,19 +74,25 @@ export function useMapPageInteraction(
         );
       }
       draw.updatePointerMove(lon, lat, overPoint);
+      lineFootprintEdgePick.handlePointerMoveForEdgePick(lon, lat);
     },
-    [needsCursorStateWithDrawing, draw, edit, cursorRef],
+    [needsCursorStateWithDrawing, draw, edit, cursorRef, lineFootprintEdgePick],
   );
 
   const handlePointerLeave = useCallback(() => {
     edit.setMapPointerInside(false);
     draw.clearDrawingPreviews();
-  }, [draw, edit]);
+    lineFootprintEdgePick.clearFootprintEdgeHighlight();
+  }, [draw, edit, lineFootprintEdgePick]);
 
   const handleMapClick = useCallback(
     (lon: number, lat: number, hit?: MapClickHit) => {
       if (edit.pasteMode) {
         void selection.executePaste(lon, lat);
+        return;
+      }
+      if (edit.drawMode === 'select' && edit.footprintLineConnectPickSubtype) {
+        void lineFootprintEdgePick.handleMapClickForEdgePick(lon, lat);
         return;
       }
       if (edit.drawMode === 'autoroad_network') {
@@ -138,6 +147,7 @@ export function useMapPageInteraction(
       canWriteInfra,
       pois,
       projectId,
+      lineFootprintEdgePick,
     ],
   );
 

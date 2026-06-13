@@ -145,7 +145,7 @@ const MapView3D = forwardRef<MapView3DHandle, MapView3DProps>(function MapView3D
     infraSnapPool,
     layers,
     showBasemap = true,
-    showTerrain = true,
+    showTerrain = false,
     terrainExaggeration = DEFAULT_TERRAIN_EXAGGERATION,
     showModels = true,
     showRadii = true,

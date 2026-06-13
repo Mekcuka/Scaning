@@ -14,14 +14,7 @@ import httpx
 from fastapi import HTTPException
 
 from app.core.config import settings
-from app.models import InfrastructureObject
 from app.services.pad_earthwork.gdal_proj import configure_rasterio_proj
-from app.services.pad_earthwork.properties import (
-    PAD_DEM_ASSET_ID,
-    PAD_DEM_BBOX_HASH,
-    PAD_DEM_FETCHED_AT,
-    PAD_DEM_SOURCE,
-)
 
 OPENTOPOGRAPHY_GLOBAL_DEM_URL = "https://portal.opentopography.org/API/globaldem"
 
@@ -199,38 +192,3 @@ def store_dem_file(project_id: UUID, raw: bytes, asset_id: str | None = None) ->
 def dem_source_label(demtype: str | None = None) -> str:
     dt = (demtype or settings.OPENTOPOGRAPHY_DEM_TYPE or "COP30").strip()
     return f"opentopography:{dt}"
-
-
-def ensure_dem_for_object(
-    project_id: UUID,
-    obj: InfrastructureObject,
-    footprint_corners_lonlat: list[tuple[float, float]],
-) -> tuple[str, Path, dict[str, Any]]:
-    """Return asset_id, file path, and property updates for DEM cache."""
-    props = dict(obj.properties or {})
-    padding = float(settings.PAD_DEM_BBOX_PADDING_M)
-    bbox = compute_dem_bbox(
-        footprint_corners_lonlat,
-        padding_m=padding,
-        lat_deg=float(obj.latitude),
-    )
-    bhash = bbox_hash(bbox)
-    existing_id = props.get(PAD_DEM_ASSET_ID)
-    existing_hash = props.get(PAD_DEM_BBOX_HASH)
-    if isinstance(existing_id, str) and existing_id.strip():
-        path = dem_file_path(project_id, existing_id.strip())
-        if path.is_file() and existing_hash == bhash:
-            return existing_id.strip(), path, {}
-
-    raw = fetch_opentopography_dem(bbox)
-    validate_geotiff(raw)
-    asset_id = str(uuid.uuid4())
-    path = store_dem_file(project_id, raw, asset_id)
-    now = datetime.now(UTC).isoformat()
-    updates = {
-        PAD_DEM_ASSET_ID: asset_id,
-        PAD_DEM_BBOX_HASH: bhash,
-        PAD_DEM_FETCHED_AT: now,
-        PAD_DEM_SOURCE: dem_source_label(),
-    }
-    return asset_id, path, updates

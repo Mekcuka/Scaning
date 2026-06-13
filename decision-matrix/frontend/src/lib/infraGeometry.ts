@@ -1,11 +1,15 @@
 import { LINE_SUBTYPES, type InfraObject } from './api';
 import type { InfraPointSnapIndex } from './infraSnapIndex';
 import { normalizeLinePathEndpoints } from './lineEndpointRules';
+import { applyFootprintDisplayEndpoints } from './padFootprintLineAttach';
+import type { InfraSymbology } from '../components/mapView/types';
 
 export type LinePathDisplayOptions = {
   snapIndex?: InfraPointSnapIndex;
   /** Display-only: two snapped endpoints when zoomed out. */
   lod?: 'full' | 'endpoints';
+  /** When footprints, line ends may render on pad edges (storage stays at center). */
+  infraSymbology?: InfraSymbology;
 };
 
 export function isLineSubtype(subtype: string): boolean {
@@ -27,7 +31,7 @@ export function getLineCoordinates(obj: InfraObject): number[][] | null {
 }
 
 /**
- * Line path for map display / 3D: snap ends to nearest point objects (≤300 m).
+ * Line path for map display / 3D: snap ends to nearest point objects (exact coord match).
  * Use full project `infraObjects` as snapPool, not a search-filtered subset.
  */
 /**
@@ -41,12 +45,15 @@ export function linePathForDisplay(
 ): [number, number][] | null {
   const coords = getLineCoordinates(line);
   if (!coords || coords.length < 2) return null;
-  const path = normalizeLinePathEndpoints(
+  let path = normalizeLinePathEndpoints(
     line.subtype,
     coords.map((c) => [c[0], c[1]] as [number, number]),
     snapPool,
   );
   if (!path) return null;
+  if (options?.infraSymbology === 'footprints') {
+    path = applyFootprintDisplayEndpoints(path, line, snapPool);
+  }
   if (options?.lod === 'endpoints' && path.length > 2) {
     return [path[0]!, path[path.length - 1]!];
   }

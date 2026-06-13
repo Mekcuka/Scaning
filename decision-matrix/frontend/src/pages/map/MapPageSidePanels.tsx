@@ -8,7 +8,7 @@ import type { DrawMode, SelectMode } from '../../components/MapView';
 import type { AutoroadNetworkPickMode } from '../../lib/autoroadNetwork';
 import type { AutoroadPlannerOptions } from '../../lib/autoroadNetworkPlannerOptions';
 import type { SolverStatus } from '../../components/AutoroadNetworkParamsSection';
-import type { InfraLayer, Map3dCustomModel } from '../../lib/api';
+import type { InfraLayer, Map3dCustomModel, InfraObject } from '../../lib/api';
 
 export type MapPageSidePanelsProps = {
   drawMode: DrawMode;
@@ -16,6 +16,14 @@ export type MapPageSidePanelsProps = {
   detailSelection: SelectedFeature | null;
   layers: InfraLayer[];
   map3dCustomModels: Map3dCustomModel[];
+  infraObjects: InfraObject[];
+  mapInFootprints: boolean;
+  footprintLineConnectPickSubtype: string | null;
+  onFootprintLineConnectPickSubtypeChange: (lineSubtype: string | null) => void;
+  onFootprintLineConnectionsPersist?: (
+    pointId: string,
+    connections: import('../../lib/padFootprintLineAttach').PointFootprintLineConnections,
+  ) => void | Promise<void>;
   saveDetailPending: boolean;
   canWriteProject: boolean;
   canWriteInfra: boolean;
@@ -61,6 +69,11 @@ export function MapPageSidePanels({
   detailSelection,
   layers,
   map3dCustomModels,
+  infraObjects,
+  mapInFootprints,
+  footprintLineConnectPickSubtype,
+  onFootprintLineConnectPickSubtypeChange,
+  onFootprintLineConnectionsPersist,
   saveDetailPending,
   canWriteProject,
   canWriteInfra,
@@ -106,6 +119,11 @@ export function MapPageSidePanels({
           selection={detailSelection}
           layers={layers}
           map3dCustomModels={map3dCustomModels}
+          infraObjects={infraObjects}
+          mapInFootprints={mapInFootprints}
+          footprintLineConnectPickSubtype={footprintLineConnectPickSubtype}
+          onFootprintLineConnectPickSubtypeChange={onFootprintLineConnectPickSubtypeChange}
+          onFootprintLineConnectionsPersist={onFootprintLineConnectionsPersist}
           saving={saveDetailPending}
           readOnly={detailSelection.kind === 'poi' ? !canWriteProject : !canWriteInfra}
           onClose={onCloseDetail}

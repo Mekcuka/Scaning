@@ -12,6 +12,7 @@ import {
   defaultMapMutationsApi,
   defaultProjectsPoiWriteApi,
   projectsApi,
+  SUBTYPE_LABELS,
   type InfraLayer,
   type InfraObject,
   type MapMutationsApiPort,
@@ -24,6 +25,7 @@ import {
 } from '../lib/mapBboxUtils';
 import { refreshMapQueries } from '../lib/mapQueries';
 import { applyInfraLineSplit, resolveLineSplitCandidate } from '../lib/applyInfraLineSplit';
+import type { LineSplitConfirmRequest } from '../lib/lineSplitConfirmMessages';
 import { isLineSubtype, lineEndpointHealPayload } from '../lib/infraGeometry';
 import { infraGeometryUndo, type MapUndoEntry } from '../lib/mapUndo';
 import { mergeInfraPropertiesForSave } from '../lib/mergeInfraPropertiesForSave';
@@ -49,6 +51,7 @@ export type UseMapInfraCreateParams = {
   pushToast: (kind: 'success' | 'error' | 'info', message: string) => void;
   invalidateMap: () => void;
   lineHealSkipIdsRef: MutableRefObject<Set<string>>;
+  requestLineSplitConfirm?: (request: LineSplitConfirmRequest) => Promise<boolean>;
   mapApi?: MapMutationsApiPort;
   poiApi?: ProjectsPoiWriteApiPort;
 };
@@ -71,6 +74,7 @@ export function useMapInfraCreate({
   pushToast,
   invalidateMap,
   lineHealSkipIdsRef,
+  requestLineSplitConfirm = async () => true,
   mapApi = defaultMapMutationsApi,
   poiApi = defaultProjectsPoiWriteApi,
 }: UseMapInfraCreateParams) {
@@ -228,6 +232,14 @@ export function useMapInfraCreate({
       const splitFound = resolveLineSplitCandidate(lon, lat, pool, splitHint);
       const rLon = splitFound?.snapLon ?? lon;
       const rLat = splitFound?.snapLat ?? lat;
+      const shouldSplit =
+        splitFound != null
+          ? await requestLineSplitConfirm({
+              split: splitFound,
+              pointLabel: SUBTYPE_LABELS[subtype] ?? subtype,
+              scenario: 'point_on_line',
+            })
+          : false;
 
       try {
         await queryClient.cancelQueries({ queryKey: ['infra', projectId] });
@@ -239,7 +251,7 @@ export function useMapInfraCreate({
           properties: mergeInfraPropertiesForSave(subtype, undefined),
         });
 
-        if (splitFound) {
+        if (splitFound && shouldSplit) {
           try {
             const splitResult = await applyInfraLineSplit({
               projectId,
@@ -300,6 +312,7 @@ export function useMapInfraCreate({
       afterInfraPointCreated,
       pushUndo,
       pushToast,
+      requestLineSplitConfirm,
     ],
   );
 

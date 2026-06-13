@@ -22,10 +22,17 @@ export type MapPageActionsParams = {
   mapDisplayMode: MapDisplayMode;
   setMapDisplayMode: (mode: MapDisplayMode) => void;
   mapIn3d: boolean;
+  mapInFootprints: boolean;
   requestAutoroadConfirm: ReturnType<
     typeof import('../useAutoroadConnectConfirm').useAutoroadConnectConfirm
   >['requestConfirm'];
   autoroadConfirmModal: ReturnType<
     typeof import('../useAutoroadConnectConfirm').useAutoroadConnectConfirm
+  >['modal'];
+  requestLineSplitConfirm: ReturnType<
+    typeof import('../useLineSplitConfirm').useLineSplitConfirm
+  >['requestConfirm'];
+  lineSplitConfirmModal: ReturnType<
+    typeof import('../useLineSplitConfirm').useLineSplitConfirm
   >['modal'];
 };

@@ -10,6 +10,7 @@ from app.services.cost_rates import (
     EXTERNAL_POINT_SUBTYPES,
 )
 from app.subtype_manifest import (
+    EARTHWORK_SUBTYPES,
     EXCLUSIVE_POINT_SUBTYPES,
     FACILITY_POINT_SUBTYPES,
     GKS_CLUSTER_SUBTYPES,
@@ -56,6 +57,14 @@ def test_manifest_point_map_matches_geo_point_subtypes():
     raw = json.loads(_MANIFEST_PATH.read_text(encoding="utf-8"))
     assert POINT_MAP_SUBTYPES == tuple(raw["point"]["map"])
     assert set(geo_constants.POINT_SUBTYPES) == set(raw["point"]["map"])
+
+
+def test_earthwork_subtypes_exclude_node_only():
+    assert EARTHWORK_SUBTYPES == frozenset(POINT_MAP_SUBTYPES) - frozenset({"node"})
+    assert "oil_pad" in EARTHWORK_SUBTYPES
+    assert "substation" in EARTHWORK_SUBTYPES
+    assert "sand_quarry" in EARTHWORK_SUBTYPES
+    assert "node" not in EARTHWORK_SUBTYPES
 
 
 def test_manifest_clusters_match_geo_constants():

@@ -33,6 +33,7 @@
 | `/parameters` | Параметры (вкладки) | admin, analyst, viewer |
 | `/parameters/capacity` | Пропускная способность | ↑ |
 | `/parameters/sand` | Песок / логистика | ↑ |
+| `/parameters/earthwork` | Земляные работы (L/W/H, опорная, поворот) | ↑ |
 | `/parameters/entry-dates` | Даты ввода | ↑ |
 | `/parameters/rates` | Ставки (16 показателей) | ↑ |
 | `/flows/*` | Потоки (PFD) | admin, analyst, viewer |
@@ -64,7 +65,7 @@
 | Граф сети | `api/v1/graph.py`, `graph_builder.py` | ✅ (визуализация/PFD; якорь `network_node` в анализе POI — post-MVP) |
 | Схема потоков | `api/v1/flow.py`, `fluid_flow_schematic.py`, `flow_schematic_merge.py` | ✅ |
 | Песок / логистика | `api/v1/sand_logistics.py`, `sand_logistics.py`, `sand_logistics_store.py` | ✅ (результат в БД; схема: timeline, полная топология на любом годе, layout/slice, адаптивные отступы) |
-| Земляные работы куста | `pad-earthwork-planner` + BFF; UI: поля L/W/H/НДС, **Схема…** (план + **3D** + **обваловка**), DEM, раздельные отсыпка/выемка — [pad-earthwork.md](../features/pad-earthwork.md) | ✅ flat + plan + envelope + DEM + 3D preview |
+| Земляные работы площадки | `pad-earthwork-planner` + BFF; все точечные объекты кроме `node` (включая **карьер песка**); карта: L/W/H, **Схема…**, DEM; режим **Площадки** (контуры footprint, **точки подключения** линий); **Параметры → Земляные работы** — табличное редактирование габаритов; **Параметры → Точки подключения** — шаблон cardinal + bulk apply; **Генератор** только кусты — [pad-earthwork.md](../features/pad-earthwork.md) | ✅ flat + plan + envelope + DEM + 3D preview + footprints |
 | Экономика потоков | `economic_flow_schematic.py`, `economic_rates.py` | ✅ |
 | Автосеть автодорог | `network-planner` + `planner_adapter.py`: Steiner tree, post-processing, preview overlay; BFF request/compute/apply | ✅ |
 | Autoroad Network Service (HTTP :8080) | `autoroad-network-planner` microservice / legacy `services/autoroad-network/` | ⬜ опционально (`AUTOROAD_NETWORK_INPROCESS=false`) |
@@ -185,6 +186,6 @@
 | 3D-карта | [map-3d-features.md](../features/map-3d-features.md) |
 | Объекты карты | [map-objects-and-spatial-calculations.md](../features/map-objects-and-spatial-calculations.md) |
 | Импорт Искра | [spark-import-mapping.md](../features/spark-import-mapping.md) |
-| Земляные работы куста | [pad-earthwork.md](../features/pad-earthwork.md) |
+| Земляные работы площадки | [pad-earthwork.md](../features/pad-earthwork.md) |
 | План (исторический) | [development-plan.md](development-plan.md) |
 | План развития | [system-evolution-plan.md](system-evolution-plan.md) |

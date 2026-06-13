@@ -50,6 +50,11 @@ export type MapUndoEntry =
   | { kind: 'patch_infra_geometry'; objectId: string; before: InfraGeometryUndo; label: string }
   | { kind: 'patch_poi_geometry'; poiId: string; before: PoiGeometryUndo; label: string }
   | { kind: 'patch_infra_detail'; objectId: string; before: InfraDetailUndo; label: string }
+  | {
+      kind: 'patch_infra_detail_batch';
+      entries: { objectId: string; before: InfraDetailUndo }[];
+      label: string;
+    }
   | { kind: 'patch_poi_detail'; poiId: string; before: PoiDetailUndo; label: string }
   | { kind: 'patch_infra_batch'; entries: { objectId: string; before: InfraGeometryUndo }[]; label: string }
   | {
@@ -201,6 +206,11 @@ export async function applyMapUndo(
     case 'patch_infra_geometry':
     case 'patch_infra_detail':
       await undoApi.updateInfraObject(projectId, entry.objectId, infraUndoToPatch(entry.before));
+      return;
+    case 'patch_infra_detail_batch':
+      for (const item of entry.entries) {
+        await undoApi.updateInfraObject(projectId, item.objectId, infraUndoToPatch(item.before));
+      }
       return;
     case 'patch_infra_batch':
       for (const item of entry.entries) {

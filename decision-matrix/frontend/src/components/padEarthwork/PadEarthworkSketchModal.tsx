@@ -34,6 +34,7 @@ import {
   type PlanVertex,
   type PolygonEditTool,
   type ShapeMode,
+  resolveInitialShapeMode,
 } from '../../lib/padEarthworkSketch';
 import {
   padWellFieldsFromForm,
@@ -106,6 +107,8 @@ export interface PadEarthworkSketchModalProps {
   onApplySandDemand: (fillM3: number) => void;
   demStatus?: PadDemStatus | null;
   terrainMode?: 'flat' | 'dem';
+  /** Well-layout generator — only oil_pad / gas_pad. */
+  showGenerator?: boolean;
 }
 
 type TabId = 'plan' | 'scene3d';
@@ -192,10 +195,13 @@ export function PadEarthworkSketchModal({
   onApplySandDemand,
   demStatus = null,
   terrainMode = 'flat',
+  showGenerator = true,
 }: PadEarthworkSketchModalProps) {
   const queryClient = useQueryClient();
   const [tab, setTab] = useState<TabId>('plan');
-  const [shapeMode, setShapeMode] = useState<ShapeMode>('generator');
+  const [shapeMode, setShapeMode] = useState<ShapeMode>(() =>
+    resolveInitialShapeMode(showGenerator, initialSketch),
+  );
   const [rectTool, setRectTool] = useState<PlanEditTool>('corners');
   const [polygonTool, setPolygonTool] = useState<PolygonEditTool>('vertices');
   const [snapEnabled, setSnapEnabled] = useState(true);
@@ -218,9 +224,14 @@ export function PadEarthworkSketchModal({
   const [wrapWidthM, setWrapWidthM] = useState(
     () => initialEnvelope?.wrap_width_m ?? DEFAULT_ENVELOPE_WRAP_WIDTH_M,
   );
-  const [wellsLocal, setWellsLocal] = useState<PlanVertex[]>(() => initialWellsLocal ?? []);
+  const [wellsLocal, setWellsLocal] = useState<PlanVertex[]>(() =>
+    showGenerator ? (initialWellsLocal ?? []) : [],
+  );
   const generatorSnapshotRef = useRef<GeneratorSnapshot | null>(
-    initialSketch && isPlanPolygon(initialSketch) && (initialWellsLocal?.length ?? 0) > 0
+    showGenerator &&
+      initialSketch &&
+      isPlanPolygon(initialSketch) &&
+      (initialWellsLocal?.length ?? 0) > 0
       ? cloneGeneratorSnapshot(initialSketch, initialWellsLocal ?? [])
       : null,
   );
@@ -430,14 +441,28 @@ export function PadEarthworkSketchModal({
 
   const syncCardFields = useCallback(() => {
     const bbox = isPlanPolygon(sketch) ? polygonBoundingBox(sketch.vertices) : null;
+    const rotDeg = showGenerator
+      ? parseNdsDeg(generatorFields.rotationDeg)
+      : isPlanRectangle(sketch)
+        ? sketch.rotation_deg
+        : (bbox?.rotation_deg ?? parseNdsDeg(rotationDeg));
     onApplyToFields({
       lengthM: String(bbox?.length_m ?? rectangleSketch.length_m),
       widthM: String(bbox?.width_m ?? rectangleSketch.width_m),
-      rotationDeg: String(parseNdsDeg(generatorFields.rotationDeg)),
+      rotationDeg: String(rotDeg),
       heightM: localHeight,
       referenceElevationM: localRef,
     });
-  }, [sketch, rectangleSketch, generatorFields.rotationDeg, localHeight, localRef, onApplyToFields]);
+  }, [
+    sketch,
+    rectangleSketch,
+    showGenerator,
+    generatorFields.rotationDeg,
+    rotationDeg,
+    localHeight,
+    localRef,
+    onApplyToFields,
+  ]);
 
   const buildTerrain = useCallback((): PadTerrainMode => {
     if (localDemAssetId) {
@@ -483,8 +508,12 @@ export function PadEarthworkSketchModal({
         envelope: envelopeEnabled
           ? { enabled: true, wrap_width_m: wrapWidthM }
           : { enabled: false, wrap_width_m: wrapWidthM },
-        wells_local: wellsLocal,
-        rotation_deg: parseNdsDeg(generatorFields.rotationDeg),
+        wells_local: showGenerator && wellsLocal.length > 0 ? wellsLocal : undefined,
+        rotation_deg: showGenerator
+          ? parseNdsDeg(generatorFields.rotationDeg)
+          : isPlanRectangle(sketch)
+            ? sketch.rotation_deg
+            : parseNdsDeg(rotationDeg),
       });
     },
     onSuccess: () => {
@@ -552,8 +581,9 @@ export function PadEarthworkSketchModal({
 
   const handleShapeModeChange = (mode: ShapeMode) => {
     if (mode === shapeMode) return;
+    if (mode === 'generator' && !showGenerator) return;
 
-    if (shapeMode === 'generator' && isPlanPolygon(sketch) && wellsLocal.length > 0) {
+    if (showGenerator && shapeMode === 'generator' && isPlanPolygon(sketch) && wellsLocal.length > 0) {
       generatorSnapshotRef.current = cloneGeneratorSnapshot(polygonSketch, wellsLocal);
     }
     if (
@@ -725,15 +755,17 @@ export function PadEarthworkSketchModal({
         {tab === 'plan' && (
           <>
             <div className="pad-earthwork-sketch-modal__shape-toggle" role="group" aria-label="Тип контура">
-              <button
-                type="button"
-                className={`pad-earthwork-sketch-modal__shape-btn${shapeMode === 'generator' ? ' pad-earthwork-sketch-modal__shape-btn--active' : ''}`}
-                disabled={readOnly}
-                onClick={() => handleShapeModeChange('generator')}
-              >
-                <Sparkles size={16} aria-hidden />
-                Генератор
-              </button>
+              {showGenerator && (
+                <button
+                  type="button"
+                  className={`pad-earthwork-sketch-modal__shape-btn${shapeMode === 'generator' ? ' pad-earthwork-sketch-modal__shape-btn--active' : ''}`}
+                  disabled={readOnly}
+                  onClick={() => handleShapeModeChange('generator')}
+                >
+                  <Sparkles size={16} aria-hidden />
+                  Генератор
+                </button>
+              )}
               <button
                 type="button"
                 className={`pad-earthwork-sketch-modal__shape-btn${shapeMode === 'polygon' ? ' pad-earthwork-sketch-modal__shape-btn--active' : ''}`}
@@ -800,8 +832,12 @@ export function PadEarthworkSketchModal({
                 onFitView={handleFitView}
                 meta={
                   polygonClosed
-                    ? `${polygonSketch.vertices.length} верш. · ${wellsLocal.length} скв.`
-                    : 'Нажмите «Сгенерировать» для предпросмотра'
+                    ? showGenerator
+                      ? `${polygonSketch.vertices.length} верш. · ${wellsLocal.length} скв.`
+                      : `${polygonSketch.vertices.length} верш.`
+                    : showGenerator
+                      ? 'Нажмите «Сгенерировать» для предпросмотра'
+                      : 'Добавьте вершины контура'
                 }
                 {...demToolbarProps}
               />
@@ -932,7 +968,7 @@ export function PadEarthworkSketchModal({
                     readOnly={readOnly || shapeMode === 'generator'}
                     envelope={envelopeParams}
                     showEdgeLengths={showEdgeLengths}
-                    wellsLocal={wellsLocal}
+                    wellsLocal={showGenerator ? wellsLocal : []}
                     showDemOverlay={showDemOverlay}
                     demPreview={demPreviewData}
                     demPreviewLoading={demPreviewLoading}
@@ -941,7 +977,8 @@ export function PadEarthworkSketchModal({
               </div>
 
               <aside className="pad-earthwork-sketch-modal__sidebar">
-                {shapeMode === 'generator' &&
+                {showGenerator &&
+                  shapeMode === 'generator' &&
                   setPadWellCount &&
                   setPadWellsPerGroup &&
                   setPadWellSpacingM &&

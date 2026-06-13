@@ -82,7 +82,7 @@ class EnvelopeWrap(BaseModel):
 
 class ComputeRequest(BaseModel):
     object_id: str
-    subtype: Literal["oil_pad", "gas_pad"]
+    subtype: str
     center: LonLat
     params: PadParams | PadHeightReference | None = None
     sketch: PlanRectangleSketch | PlanPolygonSketch | None = None

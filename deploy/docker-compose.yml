@@ -40,6 +40,7 @@ services:
       - /opt/decision-matrix/shared/app.env
     volumes:
       - /opt/decision-matrix/shared/map3d_models:/app/data/map3d_models
+      - /opt/decision-matrix/shared/pad_dem:/app/data/pad_dem
     expose:
       - "8000"
     depends_on:
@@ -88,6 +89,7 @@ services:
       - /opt/decision-matrix/shared/app.env
     volumes:
       - /opt/decision-matrix/shared/map3d_models:/app/data/map3d_models
+      - /opt/decision-matrix/shared/pad_dem:/app/data/pad_dem
     command: ["arq", "app.worker.settings.WorkerSettings"]
     depends_on:
       db:

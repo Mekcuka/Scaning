@@ -1,6 +1,11 @@
 /** Pad earthwork plan sketch types and helpers. */
 
-import { DEFAULT_PAD_NDS_DEG, ndsDegToMathRotationDeg } from './infraPadEarthwork';
+import {
+  DEFAULT_PAD_LENGTH_M,
+  DEFAULT_PAD_NDS_DEG,
+  DEFAULT_PAD_WIDTH_M,
+  ndsDegToMathRotationDeg,
+} from './infraPadEarthwork';
 
 export type PlanVertex = {
   east_m: number;
@@ -33,8 +38,8 @@ export type SketchPreview = {
   footprint_corners_local: { east_m: number; north_m: number }[];
 };
 
-export const DEFAULT_PLAN_LENGTH_M = 120;
-export const DEFAULT_PLAN_WIDTH_M = 80;
+export const DEFAULT_PLAN_LENGTH_M = DEFAULT_PAD_LENGTH_M;
+export const DEFAULT_PLAN_WIDTH_M = DEFAULT_PAD_WIDTH_M;
 export const SNAP_STEP_M = 1;
 
 export const PAD_SIZE_PRESETS: { label: string; length_m: number; width_m: number }[] = [
@@ -61,6 +66,17 @@ export function isPlanPolygon(sketch: PlanShapeSketch): sketch is PlanPolygonSke
 
 export function isPlanRectangle(sketch: PlanShapeSketch): sketch is PlanRectangleSketch {
   return sketch.kind === 'plan_rectangle';
+}
+
+/** Initial shape tab when opening sketch modal (generator only for oil/gas pads). */
+export function resolveInitialShapeMode(
+  showGenerator: boolean,
+  initialSketch: PlanShapeSketch | null | undefined,
+): ShapeMode {
+  if (showGenerator) return 'generator';
+  if (initialSketch && isPlanPolygon(initialSketch)) return 'polygon';
+  if (initialSketch && isPlanRectangle(initialSketch)) return 'rectangle';
+  return 'rectangle';
 }
 
 export function estimateFillM3(sketch: PlanShapeSketch, heightM: number): number | null {

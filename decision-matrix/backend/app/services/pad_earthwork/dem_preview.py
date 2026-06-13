@@ -8,10 +8,12 @@ from typing import Any
 from uuid import UUID
 
 from fastapi import HTTPException
+from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.config import settings
 from app.models import InfrastructureObject
-from app.services.pad_earthwork.dem_store import compute_dem_bbox, ensure_dem_for_object
+from app.services.pad_earthwork.dem_store import compute_dem_bbox
+from app.services.pad_earthwork.pad_dem_repository import ensure_pad_dem
 from app.services.pad_earthwork.gdal_proj import configure_rasterio_proj
 from app.services.pad_earthwork.schemas import (
     PadDemPreviewBoundsOut,
@@ -138,7 +140,8 @@ def _grid_dimensions(min_e: float, max_e: float, min_n: float, max_n: float) -> 
     return cols, rows, cell_size
 
 
-def build_dem_preview_for_object(
+async def build_dem_preview_for_object(
+    db: AsyncSession,
     project_id: UUID,
     obj: InfrastructureObject,
     body: PadEarthworkComputeRequest | None,
@@ -162,7 +165,12 @@ def build_dem_preview_for_object(
     min_east, max_east, min_north, max_north = _dem_bbox_local_bounds(bbox, center_lon, center_lat)
 
     if dem_path is None:
-        _asset_id, path, _updates = ensure_dem_for_object(project_id, obj, corners_lonlat)
+        _asset_id, path, _updates = await ensure_pad_dem(
+            db,
+            project_id=project_id,
+            obj=obj,
+            footprint_corners_lonlat=corners_lonlat,
+        )
         dem_path = path
     if not dem_path.is_file():
         raise HTTPException(status_code=404, detail="dem_not_loaded")

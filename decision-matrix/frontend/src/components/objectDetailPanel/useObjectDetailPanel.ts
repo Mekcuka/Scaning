@@ -15,13 +15,21 @@ export function useObjectDetailPanel({
   selection,
   layers,
   map3dCustomModels = [],
+  infraObjects = [],
   onSave,
   onClose,
   readOnly = false,
   saving: _saving,
 }: Pick<
   ObjectDetailPanelProps,
-  'selection' | 'layers' | 'map3dCustomModels' | 'onSave' | 'onClose' | 'readOnly' | 'saving'
+  | 'selection'
+  | 'layers'
+  | 'map3dCustomModels'
+  | 'infraObjects'
+  | 'onSave'
+  | 'onClose'
+  | 'readOnly'
+  | 'saving'
 >) {
   const pushToast = useAppStore((s) => s.pushToast);
   const form = useObjectDetailFormState(selection, map3dCustomModels);
@@ -34,7 +42,7 @@ export function useObjectDetailPanel({
     retry: false,
   });
 
-  const derived = useObjectDetailInfraDerived({ selection, layers, map3dCustomModels, form });
+  const derived = useObjectDetailInfraDerived({ selection, layers, map3dCustomModels, infraObjects, form });
 
   const handleSave = useCallback(() => {
     buildDetailPanelSaveHandler({

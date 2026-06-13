@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import asyncio
 from pathlib import Path
 from unittest.mock import patch
 from uuid import uuid4
@@ -62,11 +63,9 @@ def test_build_dem_preview_cut_zones_above_reference(tmp_path: Path, monkeypatch
         ),
     )
 
-    with patch(
-        "app.services.pad_earthwork.dem_preview.ensure_dem_for_object",
-        return_value=("asset-1", dem_path, {}),
-    ):
-        preview = build_dem_preview_for_object(uuid4(), obj, body, dem_path=dem_path)
+    preview = asyncio.run(
+        build_dem_preview_for_object(None, uuid4(), obj, body, dem_path=dem_path)  # type: ignore[arg-type]
+    )
 
     assert preview.design_elevation_m == pytest.approx(102.0)
     assert preview.footprint_elev_min == pytest.approx(105.0)
@@ -92,11 +91,9 @@ def test_build_dem_preview_no_cut_at_reference(tmp_path: Path, monkeypatch):
         ),
     )
 
-    with patch(
-        "app.services.pad_earthwork.dem_preview.ensure_dem_for_object",
-        return_value=("asset-1", dem_path, {}),
-    ):
-        preview = build_dem_preview_for_object(uuid4(), obj, body, dem_path=dem_path)
+    preview = asyncio.run(
+        build_dem_preview_for_object(None, uuid4(), obj, body, dem_path=dem_path)  # type: ignore[arg-type]
+    )
 
     assert preview.cols >= 1
     assert preview.rows >= 1
@@ -123,7 +120,7 @@ def test_build_dem_preview_api(client, tmp_path: Path, monkeypatch):
 
     dem_bytes = _make_dem_geotiff_bytes(elevation=110.0)
     with patch(
-        "app.services.pad_earthwork.dem_store.fetch_opentopography_dem",
+        "app.services.pad_earthwork.pad_dem_repository.fetch_opentopography_dem",
         return_value=dem_bytes,
     ):
         pid, headers, oid = _seed_oil_pad(client)

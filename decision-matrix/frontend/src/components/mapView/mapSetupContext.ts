@@ -12,6 +12,7 @@ export type MapLayers = {
   lineLayer: VectorLayer;
   nodePointLayer: VectorLayer;
   pointLayer: VectorLayer;
+  padFootprintLayer: VectorLayer;
   radiusLayer: VectorLayer;
   placementPreviewLayer: VectorLayer;
   connectionLayer: VectorLayer;

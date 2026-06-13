@@ -9,6 +9,7 @@ import {
   type MapMutationsApiPort,
 } from '../lib/api';
 import { applyInfraLineSplit, resolveLineSplitCandidate, type LineSplitHint } from '../lib/applyInfraLineSplit';
+import type { LineSplitConfirmRequest } from '../lib/lineSplitConfirmMessages';
 import { normalizeLinePathEndpoints } from '../lib/lineEndpointRules';
 import {
   isLineEndpointSnapped,
@@ -25,6 +26,7 @@ export type UseMapLineDrawingParams = {
   drawMode: DrawMode;
   infraSubtype: string;
   infraObjects: InfraObject[];
+  mapInFootprints?: boolean;
   canWriteInfra: boolean;
   createInfraMut: UseMutationResult<InfraObject, Error, InfraObjectCreate, unknown>;
   pushToast: (kind: 'success' | 'error' | 'info', message: string) => void;
@@ -32,6 +34,7 @@ export type UseMapLineDrawingParams = {
   upsertInfraInCache: (created: InfraObject) => void;
   nextAutoName: (subtype: string) => string;
   setFeatureSel: (sel: MapFeatureSelection | null) => void;
+  requestLineSplitConfirm?: (request: LineSplitConfirmRequest) => Promise<boolean>;
   mapApi?: MapMutationsApiPort;
 };
 
@@ -40,6 +43,7 @@ export function useMapLineDrawing({
   drawMode,
   infraSubtype,
   infraObjects,
+  mapInFootprints = false,
   canWriteInfra,
   createInfraMut,
   pushToast,
@@ -47,10 +51,12 @@ export function useMapLineDrawing({
   upsertInfraInCache,
   nextAutoName,
   setFeatureSel,
+  requestLineSplitConfirm = async () => true,
   mapApi = defaultMapMutationsApi,
 }: UseMapLineDrawingParams) {
   const queryClient = useQueryClient();
   const [lineDraft, setLineDraft] = useState<number[][]>([]);
+  const lineDraftStartClickRef = useRef<[number, number] | null>(null);
   const [lineDraftPreview, setLineDraftPreview] = useState<[number, number] | null>(null);
   const [rulerPoints, setRulerPoints] = useState<number[][]>([]);
   const [rulerPreview, setRulerPreview] = useState<[number, number] | null>(null);
@@ -87,6 +93,7 @@ export function useMapLineDrawing({
   const clearLineDraft = useCallback(() => {
     setLineDraft([]);
     setLineDraftPreview(null);
+    lineDraftStartClickRef.current = null;
   }, []);
 
   const clearRulerState = useCallback(() => {
@@ -182,6 +189,7 @@ export function useMapLineDrawing({
           return;
         }
         setLineDraft([snapped]);
+        lineDraftStartClickRef.current = [lon, lat];
       } else {
         setLineDraft((prev) => [...prev, [lon, lat]]);
       }
@@ -237,6 +245,14 @@ export function useMapLineDrawing({
               : null;
           const rLon = splitFound?.snapLon ?? resolved.lon;
           const rLat = splitFound?.snapLat ?? resolved.lat;
+          const shouldSplit =
+            splitFound != null
+              ? await requestLineSplitConfirm({
+                  split: splitFound,
+                  pointLabel: 'Узел',
+                  scenario: 'line_finish',
+                })
+              : false;
           try {
             const node = await mapApi.createInfraObject(projectId, {
               name: nextAutoName('node'),
@@ -249,7 +265,7 @@ export function useMapLineDrawing({
             draft[index] = [node.lon, node.lat];
             if (kind === 'finish') lineSnapFinishId = node.id;
 
-            if (splitFound) {
+            if (splitFound && shouldSplit) {
               try {
                 const splitResult = await applyInfraLineSplit({
                   mapApi,
@@ -336,6 +352,7 @@ export function useMapLineDrawing({
       projectId,
       infraSubtype,
       infraObjects,
+      mapInFootprints,
       nextAutoName,
       pushToast,
       pushUndo,
@@ -344,6 +361,7 @@ export function useMapLineDrawing({
       createInfraMut,
       setFeatureSel,
       clearLineDraft,
+      requestLineSplitConfirm,
     ],
   );
 

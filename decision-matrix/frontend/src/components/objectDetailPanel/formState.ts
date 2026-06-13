@@ -20,6 +20,10 @@ import {
 import { render3dModelSelectValue } from '../../lib/map3d/render3dModelOptions';
 import type { InfraDetailTab, PoiDetailTab } from './constants';
 import { capacityDraftFromObject } from './helpers';
+import {
+  readPointFootprintLineConnections,
+  type PointFootprintLineConnections,
+} from '../../lib/padFootprintLineAttach';
 
 export type InfraFormDraft = {
   name: string;
@@ -49,6 +53,7 @@ export type InfraFormDraft = {
   padMarginBottomM: string;
   padMarginTopM: string;
   padMarginEndM: string;
+  pointFootprintLineConnections: PointFootprintLineConnections;
   infraTab: InfraDetailTab;
   poiTab: PoiDetailTab;
 };
@@ -104,6 +109,7 @@ export function createInfraFormDraftFromObject(
     render3dStyle: typeof style === 'string' ? style : '',
     render3dModelId: render3dModelSelectValue(o.subtype, map3dCustomModels, rawMid),
     ...padWellFormStringsFromObject(o.properties),
+    pointFootprintLineConnections: readPointFootprintLineConnections(o.properties),
     infraTab: 'main',
     poiTab: 'basic',
   };

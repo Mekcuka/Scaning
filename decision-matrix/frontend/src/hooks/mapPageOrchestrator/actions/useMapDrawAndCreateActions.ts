@@ -37,6 +37,7 @@ export function useMapDrawAndCreateActions(params: MapPageActionsParams) {
     pushToast,
     invalidateMap,
     lineHealSkipIdsRef: edit.lineHealSkipIdsRef,
+    requestLineSplitConfirm: params.requestLineSplitConfirm,
   });
 
   const draw = useMapLineDrawing({
@@ -44,6 +45,7 @@ export function useMapDrawAndCreateActions(params: MapPageActionsParams) {
     drawMode: edit.drawMode,
     infraSubtype: edit.infraForm.subtype,
     infraObjects,
+    mapInFootprints: params.mapInFootprints,
     canWriteInfra,
     createInfraMut,
     pushToast,
@@ -51,6 +53,7 @@ export function useMapDrawAndCreateActions(params: MapPageActionsParams) {
     upsertInfraInCache,
     nextAutoName,
     setFeatureSel: edit.setFeatureSel,
+    requestLineSplitConfirm: params.requestLineSplitConfirm,
   });
 
   clearLineDraftRef.current = draw.clearLineDraft;

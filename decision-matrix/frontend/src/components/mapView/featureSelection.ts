@@ -38,7 +38,41 @@ export function resolveSelectableFeatureAtPixel(
   pixel: number[],
   layers: VectorLayer[],
   hitTolerancePx: number,
+  options?: {
+    padFootprintLayer?: VectorLayer | null;
+    pointSource?: VectorSource;
+    nodePointSource?: VectorSource;
+    lineSource?: VectorSource;
+  },
 ): Feature | undefined {
+  if (options?.padFootprintLayer && options.pointSource) {
+    let footprintHit: Feature | undefined;
+    map.forEachFeatureAtPixel(
+      pixel,
+      (feature, layer) => {
+        if (layer !== options.padFootprintLayer) return false;
+        const f = feature as Feature;
+        if (!f.get('footprint') || !f.get('id')) return false;
+        footprintHit = f;
+        return true;
+      },
+      {
+        hitTolerance: hitTolerancePx,
+        layerFilter: (layer) => layer === options.padFootprintLayer,
+      },
+    );
+    if (footprintHit) {
+      const id = footprintHit.get('id') as string;
+      const pointFeature = findSelectableLayerFeature(
+        options.pointSource,
+        options.lineSource ?? options.pointSource,
+        id,
+        options.nodePointSource,
+      );
+      if (pointFeature) return pointFeature;
+    }
+  }
+
   const layerSet = new Set(layers);
   let found: Feature | undefined;
   map.forEachFeatureAtPixel(

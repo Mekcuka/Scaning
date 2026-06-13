@@ -5,6 +5,7 @@ import { DEFAULT_RENDER_3D_SCALE } from '../../lib/map3d/render3d';
 import type { SandVolumeInputMode } from '../../lib/infraSandVolumes';
 import type { InfraDetailTab, PoiDetailTab } from './constants';
 import { createInfraFormDraftFromObject, createPoiFormFromSelection } from './formState';
+import { readPointFootprintLineConnections } from '../../lib/padFootprintLineAttach';
 import type { SelectedFeature } from './types';
 
 export function useObjectDetailFormState(
@@ -39,6 +40,9 @@ export function useObjectDetailFormState(
   const [padMarginBottomM, setPadMarginBottomM] = useState('');
   const [padMarginTopM, setPadMarginTopM] = useState('');
   const [padMarginEndM, setPadMarginEndM] = useState('');
+  const [pointFootprintLineConnections, setPointFootprintLineConnections] = useState<
+    import('../../lib/padFootprintLineAttach').PointFootprintLineConnections
+  >({});
   const [infraTab, setInfraTab] = useState<InfraDetailTab>('main');
   const [poiTab, setPoiTab] = useState<PoiDetailTab>('basic');
   const selectionKeyRef = useRef('');
@@ -87,9 +91,21 @@ export function useObjectDetailFormState(
     setPadMarginBottomM(draft.padMarginBottomM);
     setPadMarginTopM(draft.padMarginTopM);
     setPadMarginEndM(draft.padMarginEndM);
+    setPointFootprintLineConnections(draft.pointFootprintLineConnections);
     setInfraTab(draft.infraTab);
     setPoiTab(draft.poiTab);
   }, [selection, map3dCustomModels]);
+
+  useEffect(() => {
+    if (selection.kind !== 'infra') return;
+    setPointFootprintLineConnections(readPointFootprintLineConnections(selection.object.properties));
+  }, [
+    selection.kind,
+    selection.kind === 'infra' ? selection.object.id : null,
+    selection.kind === 'infra'
+      ? JSON.stringify(selection.object.properties?.footprint_line_connections ?? null)
+      : null,
+  ]);
 
   return {
     name,
@@ -148,6 +164,8 @@ export function useObjectDetailFormState(
     setPadMarginTopM,
     padMarginEndM,
     setPadMarginEndM,
+    pointFootprintLineConnections,
+    setPointFootprintLineConnections,
     infraTab,
     setInfraTab,
     poiTab,

@@ -5,9 +5,9 @@ import type { MapPageLayersSidebarProps } from '../../../pages/map/MapPageLayers
 import type { MapPageModalsProps } from '../../../pages/map/MapPageModals';
 import type { MapPageSidePanelsProps } from '../../../pages/map/MapPageSidePanels';
 import type { MapPageToolbarProps } from '../../../pages/map/mapPageToolbar/types';
+import type { MapDisplayMode } from '../../useMapDisplayMode';
 import type { useMapLayerPreferences } from '../../useMapLayerPreferences';
 import type { useMapPageEditState } from '../useMapPageEditState';
-import type { useMapPageMapActions } from '../useMapPageMapActions';
 import type { useMapPageMapData } from '../useMapPageMapData';
 import type { useMapPageShellState } from '../useMapPageShellState';
 
@@ -36,14 +36,14 @@ export type BuildMapPageSectionsParams = {
   patchLayerPrefs: ReturnType<typeof useMapLayerPreferences>['patchPrefs'];
   setLayerOpenSections: ReturnType<typeof useMapLayerPreferences>['setOpenSections'];
   showBasemap: boolean;
-  showTerrain: boolean;
   showModels: boolean;
   showPoisOnMap: boolean;
   showRadii: boolean;
   radiusVisible: ReturnType<typeof useMapLayerPreferences>['prefs']['radiusVisible'];
   layerOpenSections: ReturnType<typeof useMapLayerPreferences>['prefs']['openSections'];
   map3dFeatureEnabled: boolean;
-  mapDisplayMode: '2d' | '3d';
+  mapDisplayMode: MapDisplayMode;
+  mapInFootprints: boolean;
   mapIn3d: boolean;
   shell: ShellState;
   edit: EditState;

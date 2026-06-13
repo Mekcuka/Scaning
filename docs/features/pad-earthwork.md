@@ -1,12 +1,14 @@
-# Земляные работы кустовой площадки
+# Земляные работы площадки
 
-MVP-расчёт объёмов выемки/отсыпки для объектов `oil_pad` и `gas_pad` на плоской опорной отметке или по DEM (OpenTopography).
+MVP-расчёт объёмов выемки/отсыпки для **точечных** объектов инфраструктуры (все подтипы `point.map`, кроме `node`) на плоской опорной отметке или по DEM (OpenTopography).
+
+**Генератор скважин** (автоконтур по ряду скважин) — только `oil_pad` / `gas_pad`. Остальные объекты: схема «Произвольная» / «Прямоугольник» в модалке «Схема…».
 
 ## Архитектура
 
 ```mermaid
 flowchart LR
-  UI[Карточка куста] --> BFF[pad_earthwork API]
+  UI[Карточка точечного объекта] --> BFF[pad_earthwork API]
   BFF --> Bridge[planner_bridge]
   Bridge -->|in-process| Planner[pad-earthwork-planner]
   Bridge -->|HTTP optional| Planner
@@ -90,8 +92,8 @@ flowchart LR
 **DEM (OpenTopography):**
 
 - Env backend: `OPENTOPOGRAPHY_API_KEY`, `OPENTOPOGRAPHY_DEM_TYPE` (default `COP30`), `PAD_DEM_DATA_ROOT`, `PAD_DEM_BBOX_PADDING_M`, `PAD_DEM_MIN_BBOX_SIDE_M` (default 300 — OpenTopography требует ≥250 м на каждую сторону bbox; при повороте площадки ось-aligned bbox может быть уже footprint).
-- Кэш GeoTIFF: `data/pad_dem/{project_id}/{asset_uuid}.tif`; в properties: `pad_dem_asset_id`, `pad_dem_fetched_at`, `pad_dem_source`, `pad_dem_bbox_hash`.
-- UI карточки куста: переключатель «Плоская отметка / DEM», кнопки «Загрузить DEM» и «Рассчитать».
+- Кэш GeoTIFF: `{PAD_DEM_DATA_ROOT}/{project_id}/{id}.tif`; метаданные — таблица **`infra_object_pad_dem`** (1:1 с объектом); в properties дублируются `pad_dem_*`. При смене bbox — перезапись файла; legacy adoption из старых `properties`. См. § [Хранение DEM](#хранение-dem) и [pad-dem-storage.md](../deploy/pad-dem-storage.md).
+- UI карточки (вкладка **Логистика**): переключатель «Плоская отметка / DEM», кнопки «Загрузить DEM» и «Рассчитать». Доступно для `EARTHWORK_SUBTYPES` = все `point.map` кроме `node`.
 - Подробности объёмов — § [Модель объёмов](#модель-объёмов-отсыпка-и-выемка).
 - Ограничения: envelope + DEM → warning `envelope_ignored_with_dem`; ручная загрузка GeoTIFF — **501**.
 
@@ -124,6 +126,67 @@ flowchart LR
 ```
 
 Для полигона: `fill_m3 = площадь_контура × H` (формула шнурка), `footprint_corners` — вершины контура; mesh GLB — упрощённый bounding box (`polygon_mesh_is_bbox_approximation`).
+
+## Режим «Площадки» на карте
+
+На `/map` третий режим отображения (**Площадки**, иконка контуров рядом с 2D/3D):
+
+- Движок — **OpenLayers** (как 2D), не MapLibre 3D.
+- Для объектов из `EARTHWORK_SUBTYPES` (все `point.map`, кроме `node`) вместо иконки рисуется **полигон footprint**:
+  - если есть `pad_earthwork_sketch_json` — контур из схемы (ENU → lon/lat);
+  - иначе — прямоугольник по `pad_length_m` × `pad_width_m` и `pad_rotation_deg` (по умолчанию **120×80 м**, NDS **90°**).
+- Линии, POI и **узлы** отображаются как в 2D; **карьер песка** и прочие earthwork-точки — полигоном footprint.
+- Выбор и перемещение якоря объекта работают как в 2D (клик по полигону выбирает точечный объект).
+- Геометрия на клиенте: `frontend/src/lib/padFootprintGeo.ts` (`resolveFootprintLonLat`); на backend — `resolve_footprint_lonlat` в `app/services/pad_earthwork/service.py`.
+
+### Привязка линий к ребру контура (display-only)
+
+В режиме **«Площадки»** концы линий, topologically привязанные к earthwork-точке (центр в `coordinates[]`), могут **визуально** сходиться к выбранному ребру footprint. В БД и в режиме **2D** координаты концов остаются в **центре** точки.
+
+Настройка хранится на **точечном объекте** (площадке) в `properties.footprint_line_connections` — для каждого типа линейного объекта отдельная точка на периметре:
+
+```json
+{
+  "oil_pipeline": { "edge_index": 2, "t": 0.5 },
+  "gas_pipeline": { "edge_index": 0, "t": 0.5 },
+  "power_line": { "edge_index": 1 }
+}
+```
+
+- `edge_index` — ребро замкнутого кольца из `resolveFootprintLonLat` (0…N−1). **Зависит от поворота** (`pad_rotation_deg` / схема): для прямоугольника 120×80 м и NDS 180° восток — это `edge_index: 3`, а `0` — север. В UI подписи «Север (1)», «Восток (4)» и т.д.
+- `t` — позиция вдоль ребра 0…1 (по умолчанию 0.5).
+- Только earthwork-eligible точки (как контуры); **узлы** и прочие подтипы — без attach.
+- Legacy `properties.line_footprint_attach` на линиях по-прежнему учитывается при отображении, если на точке нет записи для подтипа линии.
+
+**UX (карточка объекта):** **точечный** earthwork-объект, вкладка «Основное», **только** при режиме «Площадки»: переключатель типа линии, мини-схема контура, кнопки **С/З/В/Ю** и **Центр**, поле `t`; **«Применить шаблон проекта»** (merge в `footprint_line_connections` с учётом поворота объекта); клик по ребру на схеме/карте. Компонент `PointFootprintLineConnectionsSection.tsx`; модуль `frontend/src/lib/padFootprintLineAttach.ts`; валидация PATCH — `app/geo/point_footprint_line_connect.py` (точки), `app/geo/line_footprint_attach.py` (legacy на линиях).
+
+**UX (Параметры → Точки подключения,** `/parameters/footprint-connections`):
+
+| Зона | Содержимое |
+|------|------------|
+| Шапка | Подзаголовок, чипы «типов задано / N», «объектов на карте», бейдж сохранения, **Открыть карту** |
+| Шаблон (слева) | Вкладки типов линий с бейджем стороны; compass **С/З/В/Ю** + **Центр**; select и `t`; **Сбросить**; интерактивная **схема** (прямоугольник 120×80, легенда переключает активный тип) |
+| Применить (справа, sticky ≥1100px) | Фильтр подтипа с счётчиками; **Применить ко всем** / **Применить к подтипу**; модальное подтверждение (`FootprintTemplateApplyConfirmModal`); progress bar; **Отменить последнее (N)** |
+
+Страница: `FootprintConnectionsParametersPage.tsx`; стили — `parameters.css` (BEM `footprint-connect-*`). Пользовательская wiki: [parameters-footprint-connections.md](../wiki/articles/parameters-footprint-connections.md).
+
+**Шаблон проекта** — cardinal на тип линии (не `edge_index`):
+
+```json
+{
+  "oil_pipeline": { "cardinal": "north", "t": 0.5 },
+  "autoroad": { "cardinal": "east", "t": 0.25 },
+  "gas_pipeline": null
+}
+```
+
+- `null` — **центр** площадки (явное отключение attach для типа в шаблоне).
+- Отсутствие ключа — тип не задан в шаблоне (при merge не перезаписывает объект).
+- При **apply** `connectionsFromCardinalTemplate` переводит cardinal → `edge_index` по повороту каждого объекта (`pad_rotation_deg` / контур схемы).
+
+**Хранение шаблона:** таблица `project_footprint_connection_templates` (миграция `025`); API `GET/PUT /api/v1/projects/{project_id}/footprint-connection-template`; sanitize — `app/geo/footprint_connection_template.py`. Hook `useProjectFootprintConnectionTemplate`: debounced PUT; `localStorage` (`footprintConnectionTemplateStorage.ts`) — кэш и однократная миграция local → server при пустом remote.
+
+**Массовое применение:** PATCH `properties.footprint_line_connections` по объектам (`applyFootprintTemplateToObject`, mode `merge`); undo — `patch_infra_detail_batch` в `mapUndo.ts`, очередь `pendingMapUndoBridge.ts` для Ctrl+Z на карте; кнопка **Отменить последнее** на странице параметров.
 
 **Обволование** (опционально в `compute` и в модалке «Схема…»):
 
@@ -202,6 +265,8 @@ flowchart LR
 |-------|------|----------|
 | POST | `/projects/{id}/pad-earthwork/sketch/preview` | Превью плана без привязки к объекту |
 | POST | `/projects/{id}/pad-earthwork/dem` | Ручная загрузка GeoTIFF (**501**, используйте `dem/fetch`) |
+| GET | `/projects/{id}/footprint-connection-template` | Шаблон точек подключения (cardinal по типам линий) |
+| PUT | `/projects/{id}/footprint-connection-template` | Сохранение шаблона (`{ "template": { … } }`) |
 
 `compute` принимает опциональный `sketch` (план); footprint из сохранённого plan-sketch или params. `height_m` и `reference_elevation_m` из `params`.
 
@@ -209,7 +274,8 @@ flowchart LR
 
 | Ключ | Назначение |
 |------|------------|
-| `pad_length_m`, `pad_width_m`, `pad_height_m` | Габариты площадки, м |
+| `pad_length_m`, `pad_width_m`, `pad_height_m` | Габариты площадки, м; default **120×80×1** (L/W/H) если не заданы |
+| `pad_reference_elevation_m` | Опорная отметка подошвы, м; default **0** |
 | `pad_rotation_deg` | **НДС** — азимут ряда скважин, 0…360° (см. § Автогенерация); для прямоугольника в редакторе — поворот footprint |
 | `pad_reference_elevation_m` | Опорная отметка рельефа, м |
 | `pad_fill_volume_m3`, `pad_cut_volume_m3` | Кэш последнего расчёта |
@@ -223,9 +289,11 @@ flowchart LR
 | `pad_layout_margin_left_m` | Отступ слева от первой скважины, м |
 | `pad_layout_margin_bottom_m`, `pad_layout_margin_top_m` | Отступы вниз/вверх от линии скважин, м |
 | `pad_layout_margin_end_m` | Отступ справа от последней скважины, м |
-| `pad_dem_asset_id` | UUID файла DEM на диске |
+| `pad_dem_asset_id` | UUID записи DEM (совпадает с `infra_object_pad_dem.id`); путь файла — `{project_id}/{id}.tif` |
 | `pad_dem_fetched_at` | ISO-время последней загрузки DEM |
 | `pad_dem_source` | Источник, напр. `opentopography:COP30` |
+| `pad_dem_bbox_hash` | SHA-256 bbox запроса (кэш: повторный fetch при том же hash не качает DEM) |
+| `footprint_line_connections` | JSON: подтип линии → `{ "edge_index", "t" }` или `null` (центр); display-only в режиме «Площадки»; см. § «Привязка линий» |
 
 **Стандартные значения генератора** (если ключи не заданы на объекте):
 
@@ -246,7 +314,32 @@ flowchart LR
 ```env
 PAD_EARTHWORK_INPROCESS=true
 # PAD_EARTHWORK_SERVICE_URL=http://127.0.0.1:8081
+# OPENTOPOGRAPHY_API_KEY=...
+# OPENTOPOGRAPHY_DEM_TYPE=COP30
+# PAD_DEM_DATA_ROOT=./data/pad_dem
 ```
+
+### Хранение DEM
+
+Источник истины — PostgreSQL (`infra_object_pad_dem`, миграция `024`), GeoTIFF на диске — бинарное содержимое.
+
+| Поле / путь | Назначение |
+|-------------|------------|
+| `infrastructure_object_id` | UNIQUE — одна DEM на объект куста |
+| `id` (UUID) | Имя файла `{project_id}/{id}.tif` |
+| `bbox_hash` | Кэш OpenTopography: тот же hash → без повторной загрузки |
+| `source`, `fetched_at` | Метаданные источника |
+| `PAD_DEM_DATA_ROOT` | Корень каталога (Docker: volume `pad_dem_data` → `/app/data/pad_dem`) |
+
+**Жизненный цикл:**
+
+1. `POST …/dem/fetch` или `compute` с `terrain.mode=dem` → `ensure_pad_dem(db)` в `pad_dem_repository.py`.
+2. Нет строки или другой `bbox_hash` → запрос OpenTopography, INSERT или UPDATE строки, запись/перезапись `.tif`.
+3. Тот же `bbox_hash` → чтение существующего файла.
+4. Удаление объекта инфраструктуры → `DELETE` строки (CASCADE) + явное удаление файла в `infra_delete.py` (bulk delete не вызывает ORM-listeners).
+5. Старые объекты только с `pad_dem_asset_id` в `properties` — **legacy adoption** при первом обращении (строка в БД, при смене bbox — удаление legacy-файла по старому UUID).
+
+Полная инструкция деплоя volume и бэкапа: [pad-dem-storage.md](../deploy/pad-dem-storage.md).
 
 Импорт пакета **ленивый** (`planner_bridge.py`): API стартует без установленного `pad-earthwork-planner`; ошибка — только при вызове `compute`, если пакет недоступен.
 
@@ -304,7 +397,17 @@ PAD_EARTHWORK_INPROCESS=true
 
 **Модуль planner:** `well_layout.py` — `compute_well_positions_east_m`, `generate_pad_polygon_from_wells`.
 
-Вкладка **«Логистика»** карточки `oil_pad` / `gas_pad`:
+Вкладка **«Логистика»** карточки точечного объекта (кроме **Узел**):
+
+- **Кусты** (`oil_pad`, `gas_pad`): полный блок + режим **Генератор** в «Схема…».
+- **Карьер песка** (`sand_quarry`): тот же блок земляных работ (L/W/H, схема, DEM, объёмы); отдельно — блок **Песок** (начальный/текущий объём карьера).
+- **Прочие точечные** (ГКС, ПС, ДНС, …): тот же блок (схема, DEM, объёмы, песок); в «Схема…» только **Произвольная** / **Прямоугольник**.
+
+### Параметры (массовое редактирование)
+
+Маршрут **Параметры → Земляные работы** (`/parameters/earthwork`): таблица по всем earthwork-eligible объектам проекта. Редактируются `pad_length_m`, `pad_width_m`, `pad_height_m`, `pad_reference_elevation_m`, `pad_rotation_deg` (сохранение при blur/Enter через `PATCH …/pad-earthwork/params`; Excel export). Схема контура, DEM и пересчёт объёмов — только на карте (вкладка **Логистика**). Пользовательская wiki: [parameters-earthwork.md](../wiki/articles/parameters-earthwork.md).
+
+Маршрут **Параметры → Точки подключения** (`/parameters/footprint-connections`): шаблон cardinal + массовое применение `footprint_line_connections` (см. § «Привязка линий»). Wiki: [parameters-footprint-connections.md](../wiki/articles/parameters-footprint-connections.md).
 
 - поля L×W×H, опорная отметка, **НДС, °** (на карточке — тот же смысл, что в генераторе);
 - **Схема…** — модальное окно с SVG-редактором (вид сверху, локальная ENU; якорь — см. таблицу выше);

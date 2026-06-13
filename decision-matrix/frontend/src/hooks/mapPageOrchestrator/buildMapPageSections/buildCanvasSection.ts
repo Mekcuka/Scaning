@@ -7,9 +7,9 @@ export function buildCanvasSection(
     | 'projectId'
     | 'map3dFeatureEnabled'
     | 'mapIn3d'
+    | 'mapInFootprints'
     | 'showPoisOnMap'
     | 'showBasemap'
-    | 'showTerrain'
     | 'showModels'
     | 'showRadii'
     | 'layerPrefs'
@@ -23,9 +23,9 @@ export function buildCanvasSection(
     projectId,
     map3dFeatureEnabled,
     mapIn3d,
+    mapInFootprints,
     showPoisOnMap,
     showBasemap,
-    showTerrain,
     showModels,
     showRadii,
     layerPrefs,
@@ -40,12 +40,13 @@ export function buildCanvasSection(
     map3dFeatureEnabled,
     map3dKeepMounted: actions.map3dKeepMounted,
     mapIn3d,
+    infraSymbology: mapInFootprints ? 'footprints' : 'points',
     showPoisOnMap,
     pois: data.pois,
     filteredInfra: data.filteredInfra,
     infraObjects: data.infraObjects,
     showBasemap,
-    showTerrain,
+    showTerrain: false,
     showModels,
     connectionLines: actions.connectionLines,
     selectedPoi: data.selectedPoi,
@@ -76,6 +77,7 @@ export function buildCanvasSection(
     featureGroupSel: edit.featureGroupSel,
     handleGeometryChange: actions.handleGeometryChange,
     handleBatchGeometryChange: actions.handleBatchGeometryChange,
+    footprintEdgeHighlight: actions.footprintEdgeHighlight,
     handleMapBboxChange: data.handleMapBboxChange,
     lineDraft: actions.lineDraft,
     lineDraftPreview: actions.lineDraftPreview,

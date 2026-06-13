@@ -63,6 +63,9 @@ NODE_CLUSTER_SUBTYPES = _frozenset(["clusters", "node"])
 PAD_CLUSTER_SUBTYPES = _frozenset(["clusters", "pad"])
 GTES_CLUSTER_SUBTYPES = _frozenset(["clusters", "gtes"])
 
+# Point map subtypes eligible for pad earthwork (sketch, DEM, volumes) — excludes node and sand quarry.
+EARTHWORK_SUBTYPES = frozenset(POINT_MAP_SUBTYPES) - frozenset({"node"})
+
 IMMUTABLE_POINT_SUBTYPES = _frozenset(["point_policies", "immutable"])
 EXCLUSIVE_POINT_SUBTYPES = _frozenset(["point_policies", "exclusive"])
 FACILITY_POINT_SUBTYPES = _frozenset(["point_policies", "facility"])

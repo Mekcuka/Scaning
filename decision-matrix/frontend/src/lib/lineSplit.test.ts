@@ -73,7 +73,7 @@ describe('splitLineCoordinatesAt', () => {
 
 describe('findLineSplitAtPoint', () => {
   it('finds nearest line within tolerance', () => {
-    const found = findLineSplitAtPoint([37.605, 55.7525], [line({})], 0.3);
+    const found = findLineSplitAtPoint([37.605, 55.7525], [line({})], 0.08);
     expect(found?.line.id).toBe('line-1');
   });
 

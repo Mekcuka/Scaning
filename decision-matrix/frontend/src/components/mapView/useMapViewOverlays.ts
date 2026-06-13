@@ -7,6 +7,8 @@ import { circular as circularPolygon } from 'ol/geom/Polygon';
 import Overlay from 'ol/Overlay';
 import { fromLonLat } from 'ol/proj';
 import { isValidAnalysisAnchor } from '../../lib/analysisDisplay';
+import { resolveFootprintLonLat } from '../../lib/padFootprintGeo';
+import { lonLatOnFootprintEdge } from '../../lib/padFootprintLineAttach';
 import type { MapViewRefs } from './mapViewRefs';
 import type { MapViewProps } from './types';
 
@@ -28,6 +30,8 @@ export function useMapViewOverlays(
     placementPreview = null,
     clipboardPreviewPoints = [],
     mapFocus = null,
+    footprintEdgeHighlight = null,
+    infraObjects = [],
   }: Pick<
     MapViewProps,
     | 'draftLine'
@@ -45,6 +49,8 @@ export function useMapViewOverlays(
     | 'placementPreview'
     | 'clipboardPreviewPoints'
     | 'mapFocus'
+    | 'footprintEdgeHighlight'
+    | 'infraObjects'
   >,
 ): void {
   const { mapRef, cursorMeasureOverlayRef, anchorMeasureOverlaysRef } = refs;
@@ -60,7 +66,8 @@ export function useMapViewOverlays(
         f.get('subtype') === 'draft-preview' ||
         f.get('subtype') === 'draft-point' ||
         f.get('subtype') === 'autoroad-plan-link' ||
-        f.get('subtype') === 'autoroad-plan-connector'
+        f.get('subtype') === 'autoroad-plan-connector' ||
+        f.get('subtype') === 'footprint-edge-highlight'
       )
       .forEach((f) => lines.removeFeature(f));
 
@@ -287,4 +294,27 @@ export function useMapViewOverlays(
       duration: 450,
     });
   }, [mapFocus?.nonce]);
+
+  useEffect(() => {
+    if (refs.suppressDataSyncRef.current) return;
+    const lines = refs.lineSourceRef.current;
+    lines
+      .getFeatures()
+      .filter((f) => f.get('subtype') === 'footprint-edge-highlight')
+      .forEach((f) => lines.removeFeature(f));
+    if (!footprintEdgeHighlight) return;
+    const point = infraObjects.find((o) => o.id === footprintEdgeHighlight.pointId);
+    const ring = point ? resolveFootprintLonLat(point) : null;
+    if (!ring) return;
+    const a = lonLatOnFootprintEdge(ring, footprintEdgeHighlight.edgeIndex, 0);
+    const b = lonLatOnFootprintEdge(ring, footprintEdgeHighlight.edgeIndex, 1);
+    if (!a || !b) return;
+    lines.addFeature(
+      new Feature({
+        geometry: new LineString([fromLonLat(a), fromLonLat(b)]),
+        subtype: 'footprint-edge-highlight',
+      }),
+    );
+    refs.lineLayerRef.current?.changed();
+  }, [footprintEdgeHighlight, infraObjects]);
 }

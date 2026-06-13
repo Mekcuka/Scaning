@@ -1,6 +1,8 @@
 import { describe, expect, it } from 'vitest';
 import type { InfraObject } from './api';
 import { lineEndpointHealPayload, linePathForDisplay } from './infraGeometry';
+import { resolveFootprintLonLat } from './padFootprintGeo';
+import { lonLatOnFootprintEdge } from './padFootprintLineAttach';
 
 const node = (lon: number, lat: number): InfraObject =>
   ({
@@ -49,6 +51,30 @@ describe('linePathForDisplay', () => {
     expect(path).toHaveLength(2);
     expect(path![0]).toEqual([37.6, 55.75]);
     expect(path![1]).toEqual([37.7, 55.85]);
+  });
+
+  it('footprints symbology applies edge attach for display', () => {
+    const pad = {
+      id: 'pad-1',
+      subtype: 'oil_pad',
+      lon: 37.6,
+      lat: 55.75,
+      properties: { pad_length_m: 120, pad_width_m: 80 },
+    } as InfraObject;
+    const ring = resolveFootprintLonLat(pad)!;
+    const edgePt = lonLatOnFootprintEdge(ring, 2, 0.5)!;
+    const l = powerLine([
+      [pad.lon, pad.lat],
+      [37.65, 55.76],
+    ]);
+    l.properties = {
+      line_footprint_attach: { start: { point_id: 'pad-1', edge_index: 2, t: 0.5 } },
+    };
+    const path = linePathForDisplay(l, [pad], { infraSymbology: 'footprints' });
+    expect(path![0]![0]).toBeCloseTo(edgePt[0], 9);
+    expect(path![0]![1]).toBeCloseTo(edgePt[1], 9);
+    const centerPath = linePathForDisplay(l, [pad]);
+    expect(centerPath![0]).toEqual([pad.lon, pad.lat]);
   });
 });
 

@@ -18,7 +18,7 @@ export function setupMapClickHandlers(
 ): void {
   const { refs, layers, interactions } = ctx;
   const { map, select } = interactions;
-  const { pointLayer, nodePointLayer, lineLayer } = layers;
+  const { pointLayer, nodePointLayer, lineLayer, padFootprintLayer } = layers;
   const {
     drawModeRef,
     pasteModeRef,
@@ -32,6 +32,10 @@ export function setupMapClickHandlers(
     onFinishMeasureRef,
     onFinishLineRef,
     onGeometryChangeRef,
+    infraSymbologyRef,
+    pointSourceRef,
+    nodePointSourceRef,
+    lineSourceRef,
   } = refs;
   const { resolveInfraPointAtPixel, resolveInfraLineSplitAtPixel } = hitHelpers;
   const { tryFinishLineAtPointer } = drawHandlers;
@@ -63,15 +67,27 @@ export function setupMapClickHandlers(
       return;
     }
     if (selectModeRef.current === 'box') {
+      const footprintLayers =
+        infraSymbologyRef.current === 'footprints' ? [padFootprintLayer] : [];
+      const selectableLayers = [...footprintLayers, pointLayer, nodePointLayer, lineLayer];
       const hit = map.forEachFeatureAtPixel(
         evt.pixel,
         (feat, layer) => {
-          if (layer !== pointLayer && layer !== nodePointLayer && layer !== lineLayer) return undefined;
+          if (!selectableLayers.includes(layer as typeof pointLayer)) return undefined;
+          if (layer === padFootprintLayer) {
+            const id = (feat as Feature).get('id') as string;
+            if (!id) return undefined;
+            return (
+              pointSourceRef.current.getFeatures().find((f) => f.get('id') === id) ??
+              nodePointSourceRef.current.getFeatures().find((f) => f.get('id') === id) ??
+              feat
+            );
+          }
           return resolveFeatureSelection(feat as Feature) ? feat : undefined;
         },
         {
           hitTolerance: MAP_POINT_HIT_TOLERANCE_PX,
-          layerFilter: (l) => l === pointLayer || l === nodePointLayer || l === lineLayer,
+          layerFilter: (l) => selectableLayers.includes(l as typeof pointLayer),
         },
       );
       if (!hit) {

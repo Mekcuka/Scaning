@@ -4,6 +4,7 @@ import Point from 'ol/geom/Point';
 import LineString from 'ol/geom/LineString';
 import { Circle as CircleStyle, Fill, Stroke, Style, Text } from 'ol/style';
 import { MAP_SUBTYPE_COLORS } from '../../lib/mapIcons';
+import { isEarthworkEligibleSubtype } from '../../lib/infraPadEarthwork';
 import { LINE_SUBTYPE_SET, MAP_LAYER_Z, MAP_VECTOR_RENDER_BUFFER } from './constants';
 import { createBasemapLayer } from './basemap';
 import type { MapLayers } from './mapSetupContext';
@@ -15,10 +16,12 @@ import {
   lineStyleForStatus,
   placementPreviewStyles,
   pointFeatureStyles,
+  footprintModePointHitStyle,
+  padFootprintFeatureStyles,
 } from './styles';
 
 function createInfraPointLayerStyle(refs: MapViewRefs) {
-  const { layersRef, hoveredIdRef, useIconsRef } = refs;
+  const { layersRef, hoveredIdRef, useIconsRef, infraSymbologyRef } = refs;
   return (feature: FeatureLike) => {
     const subtype = feature.get('subtype') as string;
     const id = feature.get('id') as string;
@@ -28,7 +31,27 @@ function createInfraPointLayerStyle(refs: MapViewRefs) {
     const scale = op < 0.5 ? 0.85 : 1;
     if (op <= 0) return new Style({});
     const hovered = !!id && hoveredIdRef.current === id;
+    if (
+      infraSymbologyRef.current === 'footprints' &&
+      isEarthworkEligibleSubtype(subtype)
+    ) {
+      return footprintModePointHitStyle(hovered);
+    }
     return pointFeatureStyles(subtype, scale, hovered, useIconsRef.current);
+  };
+}
+
+function createPadFootprintLayerStyle(refs: MapViewRefs) {
+  const { layersRef, hoveredIdRef, infraSymbologyRef } = refs;
+  return (feature: FeatureLike) => {
+    if (infraSymbologyRef.current !== 'footprints') return new Style({});
+    const subtype = feature.get('subtype') as string;
+    const id = feature.get('id') as string;
+    const layerId = feature.get('layer_id') as string | undefined;
+    const opacityByLayer = layerOpacityMap(layersRef.current);
+    const op = layerId ? opacityByLayer[layerId] ?? 1 : 1;
+    const hovered = !!id && hoveredIdRef.current === id;
+    return padFootprintFeatureStyles(subtype, hovered, op);
   };
 }
 
@@ -41,7 +64,9 @@ export function createMapLayers(refs: MapViewRefs, showBasemap: boolean): MapLay
     radiusSourceRef,
     placementPreviewSourceRef,
     connectionSourceRef,
+    padFootprintSourceRef,
     pointLayerRef,
+    padFootprintLayerRef,
     nodePointLayerRef,
     lineLayerRef,
     basemapLayerRef,
@@ -50,6 +75,17 @@ export function createMapLayers(refs: MapViewRefs, showBasemap: boolean): MapLay
   } = refs;
 
   const pointStyle = createInfraPointLayerStyle(refs);
+  const footprintStyle = createPadFootprintLayerStyle(refs);
+
+  const padFootprintLayer = new VectorLayer({
+    source: padFootprintSourceRef.current,
+    zIndex: MAP_LAYER_Z.footprint,
+    renderBuffer: MAP_VECTOR_RENDER_BUFFER,
+    updateWhileAnimating: false,
+    updateWhileInteracting: false,
+    style: footprintStyle,
+  });
+  padFootprintLayerRef.current = padFootprintLayer;
 
   const lineLayer = new VectorLayer({
     source: lineSourceRef.current,
@@ -91,6 +127,11 @@ export function createMapLayers(refs: MapViewRefs, showBasemap: boolean): MapLay
       if (subtype === 'autoroad-plan-connector') {
         return new Style({
           stroke: new Stroke({ color: '#e65100', width: 2.5, lineDash: [6, 6] }),
+        });
+      }
+      if (subtype === 'footprint-edge-highlight') {
+        return new Style({
+          stroke: new Stroke({ color: '#ff9800', width: 5 }),
         });
       }
       const id = feature.get('id') as string;
@@ -187,6 +228,7 @@ export function createMapLayers(refs: MapViewRefs, showBasemap: boolean): MapLay
     lineLayer,
     nodePointLayer,
     pointLayer,
+    padFootprintLayer,
     radiusLayer,
     placementPreviewLayer,
     connectionLayer,

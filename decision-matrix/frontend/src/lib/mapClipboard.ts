@@ -12,6 +12,10 @@ import type { MapFeatureSelection } from '../components/MapView';
 import { isLineSubtype } from './infraGeometry';
 import { lineEndpointAttachmentsFromObject } from './lineEndpointRules';
 import {
+  readLineFootprintAttach,
+  writeLineFootprintAttach,
+} from './padFootprintLineAttach';
+import {
   infraDetailUndo,
   poiDetailUndo,
   type InfraDetailUndo,
@@ -279,8 +283,30 @@ export function remapLineEndpointsForPaste(
     if (pt) line_snap_finish_object_id = pt.id;
   }
 
+  let snap = lineSnap;
+  const attach = readLineFootprintAttach(lineSnap.properties);
+  if (attach.start || attach.finish) {
+    const nextAttach = { ...attach };
+    let changed = false;
+    for (const key of ['start', 'finish'] as const) {
+      const ep = attach[key];
+      if (!ep) continue;
+      const twin = sourceIdToCreated.get(ep.point_id);
+      if (twin && twin.id !== ep.point_id) {
+        nextAttach[key] = { ...ep, point_id: twin.id };
+        changed = true;
+      }
+    }
+    if (changed) {
+      snap = {
+        ...lineSnap,
+        properties: writeLineFootprintAttach({ ...(lineSnap.properties ?? {}) }, nextAttach),
+      };
+    }
+  }
+
   return {
-    snap: lineSnap,
+    snap,
     ...(line_snap_start_object_id ? { line_snap_start_object_id } : {}),
     ...(line_snap_finish_object_id ? { line_snap_finish_object_id } : {}),
   };

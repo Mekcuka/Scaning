@@ -21,6 +21,8 @@ const ALLOWED_PATHS: Record<NavSection, readonly string[]> = {
   parameters: [
     '/parameters/capacity',
     '/parameters/sand',
+    '/parameters/earthwork',
+    '/parameters/footprint-connections',
     '/parameters/entry-dates',
     '/parameters/rates',
   ],

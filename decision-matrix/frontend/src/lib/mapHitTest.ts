@@ -6,7 +6,11 @@ import Point from 'ol/geom/Point';
 import VectorSource from 'ol/source/Vector';
 import { fromLonLat, transform } from 'ol/proj';
 import { LINE_SUBTYPES } from './api';
-import { closestPointOnPolyline } from './lineSplit';
+import {
+  closestPointOnPolyline,
+  LINE_SPLIT_HIT_TOLERANCE_KM,
+  LINE_SPLIT_HIT_TOLERANCE_PX,
+} from './lineSplit';
 
 const LINE_SUBTYPE_SET = new Set<string>(LINE_SUBTYPES as readonly string[]);
 
@@ -117,6 +121,23 @@ function closestLineDist2(inner: Feature, coordinate: Coordinate): number | null
   return dx * dx + dy * dy;
 }
 
+/** Footprint polygon hover when point icons are hidden. */
+export function resolveFootprintHoverIdAtCoordinate(
+  map: OlMap,
+  footprintSource: VectorSource,
+  coordinate: Coordinate,
+  hitTolerancePx = 8,
+): string | null {
+  const extent = extentAroundCoordinate(map, coordinate, hitTolerancePx);
+  let bestId: string | null = null;
+  footprintSource.forEachFeatureIntersectingExtent(extent, (feat) => {
+    if (!feat.get('footprint')) return;
+    const id = feat.get('id') as string | undefined;
+    if (id) bestId = id;
+  });
+  return bestId;
+}
+
 /** Точки (кроме узлов) → узлы → линии. */
 export function resolveHoverFeatureIdAtCoordinate(
   map: OlMap,
@@ -174,7 +195,7 @@ export function resolveInfraLineSplitAtCoordinate(
   lineSource: VectorSource,
   coordinate: Coordinate,
   _pixel: number[],
-  hitTolerancePx = 16,
+  hitTolerancePx = LINE_SPLIT_HIT_TOLERANCE_PX,
 ): {
   lineId: string;
   lon: number;
@@ -213,7 +234,7 @@ export function resolveInfraLineSplitAtCoordinate(
     .getCoordinates()
     .map((c: Coordinate) => transform(c, 'EPSG:3857', 'EPSG:4326') as [number, number]);
   const closest = closestPointOnPolyline([clickLon, clickLat], coords);
-  if (!closest) return null;
+  if (!closest || closest.distanceKm > LINE_SPLIT_HIT_TOLERANCE_KM) return null;
 
   return {
     lineId,

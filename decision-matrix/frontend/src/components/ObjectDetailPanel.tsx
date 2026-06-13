@@ -9,12 +9,23 @@ import { ObjectDetailPanelFooter } from './objectDetailPanel/ObjectDetailPanelFo
 import { InfraDetailMainTab } from './objectDetailPanel/InfraDetailMainTab';
 import { InfraDetailLogisticsTab } from './objectDetailPanel/InfraDetailLogisticsTab';
 import { InfraDetailExtraTab } from './objectDetailPanel/InfraDetailExtraTab';
+import {
+  PointFootprintLineConnectionsSection,
+  PointFootprintLineConnectPickControls,
+} from './objectDetailPanel/PointFootprintLineConnectionsSection';
 import type { ObjectDetailPanelProps } from './objectDetailPanel/types';
+import type { PointFootprintLineConnections } from '../lib/padFootprintLineAttach';
+import { useProjectFootprintConnectionTemplate } from '../hooks/useProjectFootprintConnectionTemplate';
 
 export function ObjectDetailPanel({
   selection,
   layers,
   map3dCustomModels = [],
+  infraObjects = [],
+  mapInFootprints = false,
+  footprintLineConnectPickSubtype = null,
+  onFootprintLineConnectPickSubtypeChange,
+  onFootprintLineConnectionsPersist,
   onSave,
   onDelete,
   onClose,
@@ -28,11 +39,21 @@ export function ObjectDetailPanel({
     selection,
     layers,
     map3dCustomModels,
+    infraObjects,
     onSave,
     onClose,
     readOnly,
     saving,
   });
+  const { template: projectFootprintTemplate, isLoading: projectTemplateLoading } =
+    useProjectFootprintConnectionTemplate(panel.mapProjectId);
+
+  const handleFootprintLineConnectionsChange = (next: PointFootprintLineConnections) => {
+    panel.setPointFootprintLineConnections(next);
+    if (panel.infraObject && onFootprintLineConnectionsPersist) {
+      void onFootprintLineConnectionsPersist(panel.infraObject.id, next);
+    }
+  };
 
   return (
     <div
@@ -123,6 +144,29 @@ export function ObjectDetailPanel({
                 setDescription={panel.setDescription}
               />
             )}
+            {panel.infraTab === 'main' &&
+              mapInFootprints &&
+              panel.showFootprintLineConnectionsSection &&
+              panel.infraObject && (
+                <>
+                  <PointFootprintLineConnectionsSection
+                    readOnly={readOnly}
+                    point={panel.infraObject}
+                    connections={panel.pointFootprintLineConnections}
+                    onConnectionsChange={handleFootprintLineConnectionsChange}
+                    mapInFootprints={mapInFootprints}
+                    projectTemplate={projectFootprintTemplate}
+                    templateLoading={projectTemplateLoading}
+                  />
+                  <PointFootprintLineConnectPickControls
+                    pickLineSubtype={footprintLineConnectPickSubtype}
+                    onPickLineSubtypeChange={onFootprintLineConnectPickSubtypeChange ?? (() => {})}
+                    readOnly={readOnly}
+                    mapInFootprints={mapInFootprints}
+                    showSection={panel.showFootprintLineConnectionsSection}
+                  />
+                </>
+              )}
 
             {panel.infraTab === 'logistics' && (
               <InfraDetailLogisticsTab

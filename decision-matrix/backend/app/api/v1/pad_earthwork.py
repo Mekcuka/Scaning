@@ -1,4 +1,4 @@
-"""Pad earthwork BFF for oil_pad / gas_pad objects."""
+"""Pad earthwork BFF for point infrastructure objects (except node)."""
 
 from uuid import UUID
 
@@ -30,6 +30,7 @@ from app.services.pad_earthwork.schemas import (
     WellLayoutGenerateResponseOut,
 )
 from app.services.pad_earthwork.service import (
+    assert_earthwork_object,
     assert_pad_object,
     compute_pad_earthwork_for_object,
     fetch_dem_for_object,
@@ -84,8 +85,8 @@ async def post_pad_earthwork_dem_fetch(
 ):
     await resolve_project(project_id, user, db, min_access=AccessLevel.write, write_scope=WriteScope.infra)
     obj = await get_infra_object(object_id, project_id, db)
-    assert_pad_object(obj)
-    result, props_updates = await fetch_dem_for_object(project_id, obj, body)
+    assert_earthwork_object(obj)
+    result, props_updates = await fetch_dem_for_object(db, project_id, obj, body)
     if props_updates:
         props = dict(obj.properties or {})
         props.update(props_updates)
@@ -108,13 +109,13 @@ async def post_pad_earthwork_dem_preview(
 ):
     await resolve_project(project_id, user, db, min_access=AccessLevel.read, write_scope=WriteScope.infra)
     obj = await get_infra_object(object_id, project_id, db)
-    assert_pad_object(obj)
+    assert_earthwork_object(obj)
     compute_body = (
         PadEarthworkComputeRequest.model_validate(body.model_dump())
         if body is not None
         else None
     )
-    return build_dem_preview_for_object(project_id, obj, compute_body)
+    return await build_dem_preview_for_object(db, project_id, obj, compute_body)
 
 
 @pad_earthwork_router.post(
@@ -130,7 +131,7 @@ async def post_pad_earthwork_compute(
 ):
     await resolve_project(project_id, user, db, min_access=AccessLevel.write, write_scope=WriteScope.infra)
     obj = await get_infra_object(object_id, project_id, db)
-    assert_pad_object(obj)
+    assert_earthwork_object(obj)
 
     terrain_mode = body.terrain.mode if body and body.terrain else "flat"
     if terrain_mode == "dem" and jobs_async_enabled():
@@ -157,7 +158,7 @@ async def post_pad_earthwork_compute(
         resp = ProjectJobCreateResponse(job_id=job.id, job_type=job.job_type, status=job.status)
         return JSONResponse(status_code=202, content=resp.model_dump(mode="json"))
 
-    dem_patch = await persist_dem_properties_for_compute(project_id, obj, body)
+    dem_patch = await persist_dem_properties_for_compute(db, project_id, obj, body)
     if dem_patch:
         props = dict(obj.properties or {})
         props.update(dem_patch)
@@ -165,7 +166,7 @@ async def post_pad_earthwork_compute(
         await db.commit()
         await db.refresh(obj)
 
-    result, props = await compute_pad_earthwork_for_object(obj, body, project_id=project_id)
+    result, props = await compute_pad_earthwork_for_object(db, obj, body, project_id=project_id)
     obj.properties = props
     await db.commit()
     await db.refresh(obj)
@@ -184,7 +185,7 @@ async def get_pad_earthwork_last(
 ):
     await resolve_project(project_id, user, db, min_access=AccessLevel.read, write_scope=WriteScope.infra)
     obj = await get_infra_object(object_id, project_id, db)
-    assert_pad_object(obj)
+    assert_earthwork_object(obj)
     return build_last_response(obj.properties)
 
 
@@ -201,7 +202,7 @@ async def patch_pad_earthwork_params(
 ):
     project = await require_infra_write(project_id, user, db)
     obj = await get_infra_object(object_id, project_id, db)
-    assert_pad_object(obj)
+    assert_earthwork_object(obj)
     props_patch = pad_params_patch_delta(body)
     if not props_patch:
         raise HTTPException(status_code=400, detail="No pad params provided")
@@ -248,7 +249,7 @@ async def patch_pad_earthwork_sketch(
 ):
     project = await require_infra_write(project_id, user, db)
     obj = await get_infra_object(object_id, project_id, db)
-    assert_pad_object(obj)
+    assert_earthwork_object(obj)
     props = save_pad_sketch_for_object(obj, body)
     updated = await update_infra_object_record(
         db,

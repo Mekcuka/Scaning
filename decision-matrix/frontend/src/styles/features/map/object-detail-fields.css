@@ -131,3 +131,114 @@
   width: 100%;
 }
 
+.footprint-perimeter-picker {
+  margin-top: 4px;
+  border: 1px solid var(--odp-control-border);
+  border-radius: var(--odp-control-radius);
+  background: color-mix(in srgb, var(--surface-2) 55%, var(--odp-control-bg));
+  overflow: hidden;
+}
+
+.footprint-perimeter-picker__svg {
+  display: block;
+  width: 100%;
+  aspect-ratio: 1 / 1;
+  max-height: 200px;
+  height: auto;
+  cursor: crosshair;
+  touch-action: none;
+}
+
+.footprint-perimeter-picker__svg--readonly {
+  cursor: default;
+}
+
+.footprint-perimeter-picker__fill {
+  fill: color-mix(in srgb, var(--primary) 14%, transparent);
+  stroke: none;
+}
+
+.footprint-perimeter-picker__stroke {
+  stroke: color-mix(in srgb, var(--primary) 72%, var(--text-muted));
+  stroke-width: 1.5;
+  vector-effect: non-scaling-stroke;
+}
+
+.footprint-perimeter-picker__hover-edge {
+  stroke: var(--primary);
+  stroke-width: 4;
+  stroke-linecap: round;
+  vector-effect: non-scaling-stroke;
+  opacity: 0.85;
+}
+
+.footprint-perimeter-picker__center {
+  fill: color-mix(in srgb, var(--text-muted) 35%, transparent);
+  stroke: color-mix(in srgb, var(--text-muted) 55%, transparent);
+  stroke-width: 1;
+  vector-effect: non-scaling-stroke;
+}
+
+.footprint-perimeter-picker__marker-ring {
+  fill: none;
+  stroke: color-mix(in srgb, var(--primary) 45%, transparent);
+  stroke-width: 1.5;
+  vector-effect: non-scaling-stroke;
+}
+
+.footprint-perimeter-picker__marker {
+  fill: var(--primary);
+  stroke: var(--surface);
+  stroke-width: 1.5;
+  vector-effect: non-scaling-stroke;
+}
+
+.footprint-perimeter-picker__edge-hit {
+  fill: none;
+  stroke: transparent;
+  stroke-width: 22;
+  vector-effect: non-scaling-stroke;
+  cursor: crosshair;
+  pointer-events: stroke;
+}
+
+.footprint-perimeter-picker__perimeter-hit {
+  fill: none;
+  stroke: transparent;
+  stroke-width: 24;
+  vector-effect: non-scaling-stroke;
+  cursor: crosshair;
+  pointer-events: stroke;
+}
+
+.footprint-perimeter-picker__hint {
+  margin: 0;
+  padding: 6px 10px 8px;
+  font-size: 0.6875rem;
+  line-height: 1.35;
+  border-top: 1px solid color-mix(in srgb, var(--odp-control-border) 65%, transparent);
+}
+
+.footprint-line-connect__subtype-row {
+  flex-wrap: wrap;
+  gap: 4px;
+}
+
+.footprint-line-connect__subtype-row .btn-sm {
+  flex: 1 1 auto;
+  min-width: 0;
+  padding-inline: 6px;
+  font-size: 0.6875rem;
+}
+
+.footprint-line-connect__template-row {
+  margin-bottom: 8px;
+}
+
+.footprint-line-connect__side-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 12px;
+}
+

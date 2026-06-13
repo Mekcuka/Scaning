@@ -3,6 +3,11 @@ import type { MapViewStateId } from '../../lib/mapViewState';
 import type { InfraLayer } from '../../lib/api';
 import { findLineEndpointAttachment } from '../../lib/lineEndpointRules';
 
+export type FootprintEdgeHighlight = {
+  pointId: string;
+  edgeIndex: number;
+} | null;
+
 export interface ThresholdCircle {
   key: string;
   km: number;
@@ -39,6 +44,8 @@ export type MapClickHit = {
   overLine?: { lineId: string; lon: number; lat: number; segmentIndex: number };
 };
 
+export type InfraSymbology = 'points' | 'footprints';
+
 export interface MapViewProps {
   pois?: POI[];
   infraObjects?: InfraObject[];
@@ -46,6 +53,8 @@ export interface MapViewProps {
   infraSnapPool?: InfraObject[];
   /** When false, Esri tile underlay is hidden (vectors/radii remain). */
   showBasemap?: boolean;
+  /** Point icons vs pad footprint polygons for earthwork-eligible infra. */
+  infraSymbology?: InfraSymbology;
   drawMode?: DrawMode;
   selectMode?: SelectMode;
   onMapClick?: (lon: number, lat: number, hit?: MapClickHit) => void;
@@ -64,6 +73,8 @@ export interface MapViewProps {
   dragBoxPick?: boolean;
   onDragBoxPick?: (sels: MapFeatureSelection[]) => void;
   onGeometryChange?: (sel: MapFeatureSelection, lon: number, lat: number, coords?: number[][]) => void;
+  /** Hover highlight while picking footprint edge on point object. */
+  footprintEdgeHighlight?: FootprintEdgeHighlight;
   /** Group move in box-select mode (Translate interaction). */
   onBatchGeometryChange?: (
     items: { sel: MapFeatureSelection; lon: number; lat: number; coords?: number[][] }[],
