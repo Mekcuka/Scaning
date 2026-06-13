@@ -8,7 +8,8 @@ from uuid import UUID
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.geo.constants import AUTOROAD_NETWORK_EXCLUDED_TERMINAL_SUBTYPES, LINE_SUBTYPES, SUBTYPE_LABELS
+from app.geo.constants import LINE_SUBTYPES, SUBTYPE_LABELS
+from app.subtype_manifest import BOTTOMHOLE_CLUSTER_SUBTYPES
 from app.geo.coord_equal import coords_equal
 from app.models import InfrastructureLayer, InfrastructureObject
 
@@ -169,7 +170,7 @@ def _filter_autoroad_snap_candidates(
     if line_subtype.lower().strip() != "autoroad":
         return candidates
     return [
-        o for o in candidates if (o.subtype or "") not in AUTOROAD_NETWORK_EXCLUDED_TERMINAL_SUBTYPES
+        o for o in candidates if (o.subtype or "") not in BOTTOMHOLE_CLUSTER_SUBTYPES
     ]
 
 

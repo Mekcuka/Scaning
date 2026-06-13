@@ -7,6 +7,7 @@ import pytest
 from app.models import InfrastructureObject
 from app.services.line_endpoint_rules import (
     LineEndpointRuleError,
+    _filter_autoroad_snap_candidates,
     snap_line_endpoint_coords,
     snap_line_endpoint_coords_preserve,
 )
@@ -113,3 +114,14 @@ def test_forced_start_snap_ignores_closer_neighbor():
     assert lat == pad.latitude
     assert end_lon == far_finish.longitude
     assert end_lat == far_finish.latitude
+
+
+def test_autoroad_snap_excludes_bottomholes_but_keeps_nodes():
+    pad = _point_obj(37.6, 55.75)
+    node = _point_obj(37.7, 55.85, subtype="node")
+    bottomhole = _point_obj(37.65, 55.8, subtype="well_bottomhole_nnb")
+    filtered = _filter_autoroad_snap_candidates("autoroad", [pad, node, bottomhole])
+    subtypes = {o.subtype for o in filtered}
+    assert "node" in subtypes
+    assert "oil_pad" in subtypes
+    assert "well_bottomhole_nnb" not in subtypes
