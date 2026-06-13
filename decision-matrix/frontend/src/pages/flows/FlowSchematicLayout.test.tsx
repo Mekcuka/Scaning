@@ -1,4 +1,5 @@
-import { describe, expect, it, vi, beforeEach } from 'vitest';
+import { describe, expect, it, vi, beforeEach, afterEach } from 'vitest';
+import { cleanup } from '@testing-library/react';
 import { screen, waitFor } from '@testing-library/react';
 import { Routes, Route } from 'react-router-dom';
 import { FlowSchematicLayout } from './FlowSchematicLayout';
@@ -16,6 +17,10 @@ vi.mock('../../components/FlowSchematicEditor', () => ({
 }));
 
 describe('FlowSchematicLayout', () => {
+  afterEach(() => {
+    cleanup();
+  });
+
   beforeEach(() => {
     seedAppStore({ currentProjectId: 'p1' });
     vi.mocked(api.getFlowSchematic).mockResolvedValue({

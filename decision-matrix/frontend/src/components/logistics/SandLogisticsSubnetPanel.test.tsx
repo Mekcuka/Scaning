@@ -34,8 +34,9 @@ function makeFlowCtx(): FlowSchematicContextValue {
 describe('SandLogisticsSubnetPanel', () => {
   const result = complexSandLogisticsResult();
 
-  afterEach(() => {
+  afterEach(async () => {
     cleanup();
+    await new Promise((resolve) => setTimeout(resolve, 0));
   });
 
   it('renders main subnet with schematic and tables', () => {
