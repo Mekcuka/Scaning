@@ -17,6 +17,7 @@ from app.geo.validation import category_for_subtype, validate_subtype_geometry
 from app.models import InfrastructureObject
 from app.schemas import InfraObjectCreate
 from app.services.graph_builder import build_network_from_lines
+from app.services.line_endpoint_rules import LineEndpointRuleError, snap_line_endpoints_to_point_objects
 from app.services.well_trajectory.bottomhole_properties import apply_bottomhole_defaults, is_bottomhole_subtype
 from app.services.well_trajectory.bottomhole_validation import validate_bottomhole_object
 
