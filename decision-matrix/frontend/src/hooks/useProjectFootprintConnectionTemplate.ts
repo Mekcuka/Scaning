@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { api } from '../lib/api';
 import type { FootprintLineConnectionTemplate } from '../lib/padFootprintLineAttach';
@@ -53,6 +53,8 @@ export function useProjectFootprintConnectionTemplate(projectId: string | null |
     }
   }, [projectId, query.isLoading, query.isError, query.data, queryClient]);
 
+  const [lastSavedAt, setLastSavedAt] = useState<number | null>(null);
+
   const saveMut = useMutation({
     mutationFn: async (template: FootprintLineConnectionTemplate) => {
       if (!projectId) throw new Error('Проект не выбран');
@@ -63,6 +65,7 @@ export function useProjectFootprintConnectionTemplate(projectId: string | null |
       if (!projectId) return;
       queryClient.setQueryData(queryKeys.footprintConnectionTemplate(projectId), template);
       saveFootprintConnectionTemplate(projectId, template);
+      setLastSavedAt(Date.now());
     },
   });
 
@@ -102,7 +105,7 @@ export function useProjectFootprintConnectionTemplate(projectId: string | null |
     isLoading: query.isLoading,
     isSaving: saveMut.isPending,
     saveError: saveMut.error instanceof Error ? saveMut.error.message : null,
-    lastSavedAt: saveMut.isSuccess && !saveMut.isPending ? Date.now() : null,
+    lastSavedAt,
     persistTemplate,
     persistTemplateDebounced,
   };

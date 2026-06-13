@@ -3,7 +3,7 @@
 from alembic import op
 import sqlalchemy as sa
 
-revision = "025_project_footprint_connection_template"
+revision = "025_footprint_conn_tpl"
 down_revision = "024_infra_object_pad_dem"
 branch_labels = None
 depends_on = None
