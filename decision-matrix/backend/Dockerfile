@@ -15,6 +15,8 @@ COPY network-planner-vendor ./network-planner-vendor
 RUN pip install --no-cache-dir -e "./network-planner-vendor[steinerpy]"
 COPY pad-earthwork-vendor ./pad-earthwork-vendor
 RUN pip install --no-cache-dir -e "./pad-earthwork-vendor"
+COPY well-trajectory-vendor ./well-trajectory-vendor
+RUN pip install --no-cache-dir -e "./well-trajectory-vendor"
 
 
 FROM python:3.12-slim AS runtime

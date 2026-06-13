@@ -19,6 +19,7 @@ import type { SelectedFeature } from './types';
 export function useObjectDetailPanelTabs(params: {
   readOnly: boolean;
   showLogisticsTab: boolean;
+  showTrajectoriesTab: boolean;
   infraTab: InfraDetailTab;
   setInfraTab: (tab: InfraDetailTab) => void;
   poiTab: PoiDetailTab;
@@ -33,6 +34,7 @@ export function useObjectDetailPanelTabs(params: {
   const {
     readOnly,
     showLogisticsTab,
+    showTrajectoriesTab,
     infraTab,
     setInfraTab,
     isPoi,
@@ -51,9 +53,12 @@ export function useObjectDetailPanelTabs(params: {
     if (showLogisticsTab) {
       tabs.push({ id: 'logistics', label: 'Логистика', icon: INFRA_TAB_ICONS.logistics });
     }
+    if (showTrajectoriesTab) {
+      tabs.push({ id: 'trajectories', label: 'Траектории', icon: INFRA_TAB_ICONS.trajectories });
+    }
     tabs.push({ id: 'extra', label: '3D', icon: INFRA_TAB_ICONS.extra });
     return tabs;
-  }, [showLogisticsTab]);
+  }, [showLogisticsTab, showTrajectoriesTab]);
 
   useEffect(() => {
     if (!infraTabs.some((t) => t.id === infraTab)) {

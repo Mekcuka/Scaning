@@ -16,6 +16,7 @@ import {
   Download,
   Menu,
   SlidersHorizontal,
+  Layers,
 } from 'lucide-react';
 import { useAuthStore, useAppStore } from '../../store';
 import { usePermissions } from '../../hooks/usePermissions';
@@ -46,6 +47,13 @@ const NAV: NavItem[] = [
   { to: '/', permissionPath: '/', icon: LayoutDashboard, label: 'Дашборд', end: true },
   { to: '/projects', permissionPath: '/projects', icon: FolderOpen, label: 'Проекты', end: true },
   { to: '/map', permissionPath: '/map', icon: Map, label: 'Карта', end: true },
+  {
+    to: '/pad-clustering',
+    permissionPath: '/pad-clustering',
+    icon: Layers,
+    label: 'Кустование',
+    end: true,
+  },
   {
     section: 'parameters',
     permissionPath: '/parameters',
@@ -83,6 +91,8 @@ export function AppLayout() {
   const [navOpen, setNavOpen] = useState(false);
 
   const isMapPage = pathname === '/map';
+  const isPadClusteringPage = pathname === '/pad-clustering';
+  const isFullHeightPage = isMapPage || isPadClusteringPage;
 
   useEffect(() => {
     setNavOpen(false);
@@ -212,7 +222,7 @@ export function AppLayout() {
         <ReadOnlyBanner />
         <main
           className={
-            isMapPage
+            isFullHeightPage
               ? 'app-main app-main--map flex flex-1 min-h-0 flex-col overflow-hidden p-6'
               : 'app-main flex-1 min-h-0 overflow-y-auto overflow-x-hidden p-6'
           }

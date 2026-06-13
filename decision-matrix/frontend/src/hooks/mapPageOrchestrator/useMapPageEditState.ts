@@ -36,6 +36,7 @@ export function useMapPageEditState(
   );
   const [pointMenuOpen, setPointMenuOpen] = useState(false);
   const [lineMenuOpen, setLineMenuOpen] = useState(false);
+  const [bottomholeMenuOpen, setBottomholeMenuOpen] = useState(false);
   const [mapFocus, setMapFocus] = useState<MapFocusTarget | null>(null);
   const [mapEditEnabled, setMapEditEnabled] = useState(false);
   const [mapClipboard, setMapClipboard] = useState<MapClipboardItem[] | null>(null);
@@ -60,7 +61,12 @@ export function useMapPageEditState(
     if (!canWriteProject && drawMode === 'poi') setDrawMode('select');
     if (
       !canWriteInfra &&
-      (drawMode === 'point' || drawMode === 'line' || drawMode === 'autoroad_network')
+      (drawMode === 'point' ||
+        drawMode === 'line' ||
+        drawMode === 'autoroad_network' ||
+        drawMode === 'pad_placement' ||
+        drawMode === 'bottomhole_nnb' ||
+        drawMode === 'bottomhole_gs')
     ) {
       setDrawMode('select');
     }
@@ -86,7 +92,9 @@ export function useMapPageEditState(
     setFeatureSel(null);
     setFeatureGroupSel([]);
     setPasteMode(false);
-    setDrawMode((m) => (m === 'ruler' ? m : 'select'));
+    setDrawMode((m) =>
+      m === 'ruler' || m === 'bottomhole_nnb' || m === 'bottomhole_gs' ? m : 'select',
+    );
     clearLineDraftRef.current();
     setPointMenuOpen(false);
     setLineMenuOpen(false);
@@ -97,6 +105,7 @@ export function useMapPageEditState(
     clearLineDraftRef.current();
     setPointMenuOpen(false);
     setLineMenuOpen(false);
+    setBottomholeMenuOpen(false);
   }, []);
 
   return {
@@ -146,6 +155,8 @@ export function useMapPageEditState(
     setPasteMode,
     footprintLineConnectPickSubtype,
     setFootprintLineConnectPickSubtype,
+    bottomholeMenuOpen,
+    setBottomholeMenuOpen,
     cancelDrawingSelection,
   };
 }

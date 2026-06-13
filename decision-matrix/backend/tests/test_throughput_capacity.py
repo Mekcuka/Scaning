@@ -13,6 +13,15 @@ def test_skips_excluded_subtypes():
     assert apply_default_throughput_capacity("node", {}) == {}
 
 
+def test_skips_well_bottomhole_subtypes():
+    for subtype in (
+        "well_bottomhole_nnb",
+        "well_bottomhole_gs_heel",
+        "well_bottomhole_gs_toe",
+    ):
+        assert apply_default_throughput_capacity(subtype, {}) == {}
+
+
 def test_does_not_override_existing():
     props = apply_default_throughput_capacity(
         "gas_processing",

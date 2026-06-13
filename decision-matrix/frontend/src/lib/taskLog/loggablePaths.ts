@@ -10,6 +10,7 @@ export function shouldLogHttpPath(path: string, method: string): boolean {
   const m = method.toUpperCase();
   if (m !== 'POST' && m !== 'PUT' && m !== 'PATCH') return false;
   if (/\/autoroad-network\//.test(path)) return true;
+  if (/\/pad-placement\//.test(path)) return true;
   if (/\/infrastructure\/autoroad-connect/.test(path)) return true;
   if (/\/sand-logistics\/analyze/.test(path)) return true;
   if (/\/pois\/analyze-all/.test(path)) return true;

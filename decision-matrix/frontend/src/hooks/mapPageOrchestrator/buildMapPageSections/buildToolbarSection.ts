@@ -73,6 +73,8 @@ export function buildToolbarSection(
     onPointMenuOpenChange: edit.setPointMenuOpen,
     lineMenuOpen: edit.lineMenuOpen,
     onLineMenuOpenChange: edit.setLineMenuOpen,
+    bottomholeMenuOpen: edit.bottomholeMenuOpen,
+    onBottomholeMenuOpenChange: edit.setBottomholeMenuOpen,
     onClearLineDraft: actions.clearLineDraft,
     onClearRuler: actions.clearRulerState,
     drawActionsVisible: actions.drawActionsVisible,

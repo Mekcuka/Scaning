@@ -70,6 +70,8 @@ export function useMapViewRefs(props: MapViewProps): MapViewRefs {
   const placementPreviewSourceRef = useRef(new VectorSource());
   const connectionSourceRef = useRef(new VectorSource());
   const padFootprintSourceRef = useRef(new VectorSource());
+  const wellTrajectoryPlanSourceRef = useRef(new VectorSource());
+  const wellTrajectoryBottomholeSourceRef = useRef(new VectorSource());
   const selectRef = useRef<Select | null>(null);
   const modifyRef = useRef<Modify | null>(null);
   const translateRef = useRef<Translate | null>(null);
@@ -79,6 +81,8 @@ export function useMapViewRefs(props: MapViewProps): MapViewRefs {
   const nodePointLayerRef = useRef<VectorLayer<VectorSource> | null>(null);
   const lineLayerRef = useRef<VectorLayer<VectorSource> | null>(null);
   const padFootprintLayerRef = useRef<VectorLayer<VectorSource> | null>(null);
+  const wellTrajectoryPlanLayerRef = useRef<VectorLayer<VectorSource> | null>(null);
+  const wellTrajectoryBottomholeLayerRef = useRef<VectorLayer<VectorSource> | null>(null);
   const basemapLayerRef = useRef<TileLayer | null>(null);
   const hoveredIdRef = useRef<string | null>(null);
   const onMapClickRef = useRef(onMapClick);
@@ -172,6 +176,8 @@ export function useMapViewRefs(props: MapViewProps): MapViewRefs {
     placementPreviewSourceRef,
     connectionSourceRef,
     padFootprintSourceRef,
+    wellTrajectoryPlanSourceRef,
+    wellTrajectoryBottomholeSourceRef,
     selectRef,
     modifyRef,
     translateRef,
@@ -181,6 +187,8 @@ export function useMapViewRefs(props: MapViewProps): MapViewRefs {
     nodePointLayerRef,
     lineLayerRef,
     padFootprintLayerRef,
+    wellTrajectoryPlanLayerRef,
+    wellTrajectoryBottomholeLayerRef,
     basemapLayerRef,
     hoveredIdRef,
     onMapClickRef,

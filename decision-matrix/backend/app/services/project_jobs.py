@@ -26,6 +26,10 @@ JOB_TYPE_IMPORT_FILE = "import_file"
 JOB_TYPE_SAND_LOGISTICS_ANALYZE = "sand_logistics_analyze"
 JOB_TYPE_POI_ANALYZE_ALL = "poi_analyze_all"
 JOB_TYPE_PAD_EARTHWORK_COMPUTE = "pad_earthwork_compute"
+JOB_TYPE_WELL_TRAJECTORY_COMPUTE = "well_trajectory_compute"
+JOB_TYPE_WELL_TRAJECTORY_IMPORT = "well_trajectory_import"
+JOB_TYPE_PAD_PLACEMENT_COMPUTE = "pad_placement_compute"
+JOB_TYPE_PAD_PLACEMENT_APPLY = "pad_placement_apply"
 
 ALLOWED_JOB_TYPES = frozenset(
     {
@@ -34,6 +38,10 @@ ALLOWED_JOB_TYPES = frozenset(
         JOB_TYPE_SAND_LOGISTICS_ANALYZE,
         JOB_TYPE_POI_ANALYZE_ALL,
         JOB_TYPE_PAD_EARTHWORK_COMPUTE,
+        JOB_TYPE_WELL_TRAJECTORY_COMPUTE,
+        JOB_TYPE_WELL_TRAJECTORY_IMPORT,
+        JOB_TYPE_PAD_PLACEMENT_COMPUTE,
+        JOB_TYPE_PAD_PLACEMENT_APPLY,
     }
 )
 

@@ -58,7 +58,11 @@ export function useMapViewInteractionState(
     dragBoxRef.current?.setActive(boxDrawing && !pasteActive);
     dragPanRef.current?.setActive(pasteActive || !boxDrawing || (isBox && hasGroupSelection));
     if (containerRef.current) {
-      const isPointPlace = drawMode === 'point' || drawMode === 'poi';
+      const isPointPlace =
+        drawMode === 'point' ||
+        drawMode === 'poi' ||
+        drawMode === 'bottomhole_nnb' ||
+        drawMode === 'bottomhole_gs';
       const cursor = pasteActive || isRuler || isPointPlace || boxDrawing
         ? 'crosshair'
         : canTranslate

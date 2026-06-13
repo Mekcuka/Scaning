@@ -20,6 +20,7 @@ export {
   ANALYSIS_EXTERNAL_LINEAR_SUBTYPES,
   ANALYSIS_EXTERNAL_POINT_SUBTYPES,
   ANALYSIS_LINE_SUBTYPES,
+  BOTTOMHOLE_CLUSTER_SUBTYPES,
   GKS_CLUSTER_SUBTYPES,
   GTES_CLUSTER_SUBTYPES,
   LEGACY_SUBTYPE_ALIASES,
@@ -73,6 +74,25 @@ export const PIPELINE_LAYER_VISIBILITY_GROUPS: LayerVisibilityGroup[] = [
 
 export const PIPELINE_LAYER_SUBTYPES = PIPELINE_LAYER_VISIBILITY_GROUPS.flatMap((g) => g.subtypes);
 
+/** Забои на карте — отдельная категория в панели «Слои». */
+export const BOTTOMHOLE_LAYER_VISIBILITY_GROUPS: LayerVisibilityGroup[] = [
+  { id: 'well_bottomhole_nnb', label: SUBTYPE_LABELS.well_bottomhole_nnb, subtypes: ['well_bottomhole_nnb'] },
+  {
+    id: 'well_bottomhole_gs_heel',
+    label: SUBTYPE_LABELS.well_bottomhole_gs_heel,
+    subtypes: ['well_bottomhole_gs_heel'],
+  },
+  {
+    id: 'well_bottomhole_gs_toe',
+    label: SUBTYPE_LABELS.well_bottomhole_gs_toe,
+    subtypes: ['well_bottomhole_gs_toe'],
+  },
+];
+
+export const BOTTOMHOLE_LAYER_SUBTYPES = BOTTOMHOLE_LAYER_VISIBILITY_GROUPS.flatMap((g) => g.subtypes);
+
+const BOTTOMHOLE_SUBTYPE_SET = new Set<string>(BOTTOMHOLE_LAYER_SUBTYPES);
+
 /** Sidebar «Слои» → «Объекты»: each map subtype belongs to exactly one group. */
 export const LAYER_VISIBILITY_GROUPS: LayerVisibilityGroup[] = [
   // Точечные объекты
@@ -95,6 +115,8 @@ export const LAYER_VISIBILITY_GROUPS: LayerVisibilityGroup[] = [
   { id: 'additional_facility', label: 'Доп. объекты', subtypes: ['additional_facility'] },
   { id: 'methanol_facility', label: 'Объект метанола', subtypes: ['methanol_facility'] },
   { id: 'nodes', label: 'Узлы', subtypes: NODE_CLUSTER_SUBTYPES },
+  // Забои (отдельная категория в UI)
+  ...BOTTOMHOLE_LAYER_VISIBILITY_GROUPS,
   // Линейные объекты
   { id: 'roads', label: 'Дороги', subtypes: ['autoroad'] },
   ...PIPELINE_LAYER_VISIBILITY_GROUPS,
@@ -109,7 +131,7 @@ export function layerGroupKind(group: LayerVisibilityGroup): 'point' | 'line' {
 }
 
 export const POINT_LAYER_VISIBILITY_GROUPS = LAYER_VISIBILITY_GROUPS.filter(
-  (g) => layerGroupKind(g) === 'point',
+  (g) => layerGroupKind(g) === 'point' && !g.subtypes.some((s) => BOTTOMHOLE_SUBTYPE_SET.has(s)),
 );
 
 export const LINE_LAYER_VISIBILITY_GROUPS = LAYER_VISIBILITY_GROUPS.filter(
@@ -147,6 +169,9 @@ export const LINE_LAYER_UI_ENTRIES: LayerVisibilityUiEntry[] = [
 export const POINT_LAYER_UI_ENTRIES: LayerVisibilityUiEntry[] = POINT_LAYER_VISIBILITY_GROUPS.map(
   (group) => ({ kind: 'group', group }),
 );
+
+export const BOTTOMHOLE_LAYER_UI_ENTRIES: LayerVisibilityUiEntry[] =
+  BOTTOMHOLE_LAYER_VISIBILITY_GROUPS.map((group) => ({ kind: 'group', group }));
 
 const GKS_CLUSTER_SET = new Set<string>(GKS_CLUSTER_SUBTYPES);
 const NODE_CLUSTER_SET = new Set<string>(NODE_CLUSTER_SUBTYPES);

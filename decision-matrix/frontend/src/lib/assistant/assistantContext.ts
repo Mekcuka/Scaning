@@ -7,6 +7,7 @@ import type { ChatRequest } from './types';
 
 export function deriveActiveTab(pathname: string): string | null {
   if (pathname === '/map') return 'map';
+  if (pathname === '/pad-clustering') return 'pad-clustering';
   if (pathname === '/matrix') return 'matrix';
   if (pathname === '/projects' || pathname === '/') return null;
   if (pathname.startsWith('/projects/')) return 'project-detail';

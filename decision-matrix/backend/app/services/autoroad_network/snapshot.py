@@ -8,9 +8,9 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.geo.constants import (
+    AUTOROAD_NETWORK_EXCLUDED_TERMINAL_SUBTYPES,
     LINE_SUBTYPES,
     MAX_AUTOROAD_NETWORK_OBJECTS,
-    NODE_CLUSTER_SUBTYPES,
     POINT_SUBTYPES,
     SUBTYPE_LABELS,
 )
@@ -80,7 +80,7 @@ async def build_plan_request(
             continue
         if obj.subtype in LINE_SUBTYPES or obj.subtype not in POINT_SUBTYPES:
             continue
-        if obj.subtype in NODE_CLUSTER_SUBTYPES:
+        if obj.subtype in AUTOROAD_NETWORK_EXCLUDED_TERMINAL_SUBTYPES:
             continue
         lon = float(obj.longitude)
         lat = float(obj.latitude)

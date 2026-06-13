@@ -54,6 +54,8 @@ pre-commit install
 
 See [docs/architecture/module-boundaries.md](docs/architecture/module-boundaries.md) and [docs/planning/solid-refactoring-plan.md](docs/planning/solid-refactoring-plan.md).
 
+Microservices in the monorepo follow the same in-process vendor + optional HTTP pattern: `pad-earthwork-planner/`, `autoroad-network-planner/`, `well-trajectory-planner/` (в планах — см. [docs/features/well-trajectory.md](docs/features/well-trajectory.md)).
+
 - New or substantially extended files should stay **≤ 300–400 lines**; split into a separate module otherwise.
 - One PR = one structural goal; do not mix refactoring with feature work.
 - Preserve public barrel imports (`lib/api`, `useMapPageOrchestrator`, etc.) when splitting files.

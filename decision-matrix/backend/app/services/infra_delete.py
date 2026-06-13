@@ -17,6 +17,8 @@ from app.models import (
 )
 from app.services.pad_earthwork.pad_dem_repository import delete_pad_dem_files_for_object_ids
 from app.services.graph_builder import build_network_from_lines, prune_disconnected_nodes
+from app.services.well_trajectory.bottomhole_properties import is_bottomhole_subtype, read_linked_pad_id
+from app.services.well_trajectory.service import resync_pads_after_bottomhole_deletes
 
 COORD_MATCH_EPS = 1e-6
 
@@ -92,6 +94,16 @@ async def delete_infra_objects_batch(
 
     delete_ids = await resolve_infra_delete_ids(db, project_id, object_ids)
 
+    objs = (
+        await db.execute(select(InfrastructureObject).where(InfrastructureObject.id.in_(delete_ids)))
+    ).scalars().all()
+    pad_ids_to_resync: set[UUID] = set()
+    for obj in objs:
+        if is_bottomhole_subtype(obj.subtype or ""):
+            linked_pad = read_linked_pad_id(obj.properties or {})
+            if linked_pad is not None:
+                pad_ids_to_resync.add(linked_pad)
+
     await db.execute(
         update(PoiInfrastructureAnalysis)
         .where(PoiInfrastructureAnalysis.nearest_object_id.in_(delete_ids))
@@ -131,6 +143,9 @@ async def delete_infra_objects_batch(
 
     result = await db.execute(delete(InfrastructureObject).where(InfrastructureObject.id.in_(delete_ids)))
     deleted_count = result.rowcount or len(delete_ids)
+
+    if pad_ids_to_resync:
+        await resync_pads_after_bottomhole_deletes(db, project_id, pad_ids_to_resync)
 
     await db.flush()
     for network_id in network_ids:

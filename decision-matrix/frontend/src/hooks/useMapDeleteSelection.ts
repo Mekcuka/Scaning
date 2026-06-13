@@ -126,6 +126,7 @@ export function useMapDeleteSelection({
       await queryClient.cancelQueries({ queryKey: ['infra', projectId] });
       await queryClient.invalidateQueries({ queryKey: ['infra', projectId] });
       await queryClient.invalidateQueries({ queryKey: ['analysis', projectId] });
+      await queryClient.invalidateQueries({ queryKey: ['wellTrajectoryProjectGeoJson', projectId] });
     },
   });
 
@@ -246,6 +247,7 @@ export function useMapDeleteSelection({
       await queryClient.invalidateQueries({ queryKey: ['pois', projectId] });
       await queryClient.invalidateQueries({ queryKey: ['infra', projectId] });
       await queryClient.invalidateQueries({ queryKey: ['analysis', projectId] });
+      await queryClient.invalidateQueries({ queryKey: ['wellTrajectoryProjectGeoJson', projectId] });
     },
   });
 

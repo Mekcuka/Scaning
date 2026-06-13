@@ -40,3 +40,21 @@ summary: Краткое описание в 1–2 предложения для 
 ## Runtime bundle
 
 Статьи копируются в `decision-matrix/backend/app/assistant/knowledge/bundle/` (коммитится в репозиторий).
+
+## Каталог статей (`articles/`)
+
+| Slug | Файл | Тема |
+|------|------|------|
+| `navigation` | [navigation.md](articles/navigation.md) | Навигация по приложению |
+| `map-2d` | [map-2d.md](articles/map-2d.md) | Карта 2D |
+| `matrix` | [matrix.md](articles/matrix.md) | Матрица сравнения |
+| `pad-earthwork-volumes` | [pad-earthwork-volumes.md](articles/pad-earthwork-volumes.md) | Земляные работы площадки |
+| `pad-placement-optimization` | [pad-placement-optimization.md](articles/pad-placement-optimization.md) | **Оптимизация размещения кустов** (✅) |
+| `parameters-earthwork` | [parameters-earthwork.md](articles/parameters-earthwork.md) | Параметры → Земляные работы |
+| `parameters-footprint-connections` | [parameters-footprint-connections.md](articles/parameters-footprint-connections.md) | Точки подключения |
+| `flows-overview` | [flows-overview.md](articles/flows-overview.md) | Схемы потоков |
+| `import-spark` | [import-spark.md](articles/import-spark.md) | Импорт Искра |
+| `import-3d` | [import-3d.md](articles/import-3d.md) | Импорт 3D |
+| `background-jobs` | [background-jobs.md](articles/background-jobs.md) | Фоновые задачи |
+| `assistant-chat` | [assistant-chat.md](articles/assistant-chat.md) | AI-помощник |
+| `roles-rbac` | [roles-rbac.md](articles/roles-rbac.md) | Роли и доступ |

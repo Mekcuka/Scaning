@@ -16,6 +16,7 @@ from app.api.v1.import_connections import connections_router
 from app.api.v1.jobs import jobs_router
 from app.api.v1.map import map_router
 from app.api.v1.one_pagers import one_pagers_router
+from app.api.v1.pad_placement import pad_placement_router
 from app.api.v1.projects import projects_router
 from app.api.v1.sand_logistics import sand_logistics_router
 
@@ -29,6 +30,7 @@ router.include_router(analysis_router)
 router.include_router(one_pagers_router)
 router.include_router(map_router)
 router.include_router(autoroad_network_router)
+router.include_router(pad_placement_router)
 router.include_router(graph_router)
 router.include_router(flow_router)
 router.include_router(connections_router)

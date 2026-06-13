@@ -14,6 +14,8 @@ import {
 } from '../../lib/padEarthworkScene3d';
 import {
   orbitScene3dCamera,
+  shouldSyncPlanCamera,
+  syncTopDownPlanCamera,
   scene3dCameraZoomPercent,
   scene3dToolbarZoomIn,
   scene3dToolbarZoomOut,
@@ -68,6 +70,7 @@ export const PadEarthworkScene3D = forwardRef<PadEarthworkScene3DHandle, PadEart
     const pendingAutoFrameRef = useRef(true);
     const userOrbitRef = useRef(false);
     const baselineDistanceRef = useRef<number | null>(null);
+    const cameraPresetRef = useRef<Scene3dCameraPreset | null>(null);
     const onCameraStateChangeRef = useRef(onCameraStateChange);
     const sceneRef = useRef<{
       scene: THREE.Scene;
@@ -122,6 +125,7 @@ export const PadEarthworkScene3D = forwardRef<PadEarthworkScene3DHandle, PadEart
     }, [emitCameraState]);
 
     const fitView = useCallback(() => {
+      cameraPresetRef.current = null;
       withRoot((ctx, root) => {
         const distance = frameSceneInView(ctx.camera, ctx.controls, root);
         if (distance != null) baselineDistanceRef.current = distance;
@@ -139,6 +143,7 @@ export const PadEarthworkScene3D = forwardRef<PadEarthworkScene3DHandle, PadEart
 
     const setCameraPreset = useCallback(
       (preset: Scene3dCameraPreset) => {
+        cameraPresetRef.current = preset;
         withRoot((ctx, root) => {
           const distance = setScene3dCameraPreset(ctx.camera, ctx.controls, root, preset);
           if (distance != null) baselineDistanceRef.current = distance;
@@ -240,6 +245,9 @@ export const PadEarthworkScene3D = forwardRef<PadEarthworkScene3DHandle, PadEart
       const tick = () => {
         raf = requestAnimationFrame(tick);
         controls.update();
+        if (shouldSyncPlanCamera(camera, controls.target, cameraPresetRef.current)) {
+          syncTopDownPlanCamera(camera, controls.target);
+        }
         renderer.render(scene, camera);
       };
       tick();

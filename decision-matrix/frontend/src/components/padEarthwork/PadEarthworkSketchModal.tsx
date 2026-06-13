@@ -48,6 +48,8 @@ import {
   DEFAULT_PAD_WELL_SPACING_M,
 } from '../../lib/infraPadWells';
 import { clampNdsDeg, DEFAULT_PAD_NDS_DEG, parseNdsDeg, resolveGeneratorNdsDeg } from '../../lib/infraPadEarthwork';
+import { maybeRegenerateTrajectoriesAfterLayoutChange } from '../../lib/wellTrajectoryLayoutRegenerate';
+import { wellTrajectoryQueryKeys } from '../../hooks/useWellTrajectoryGeoJson';
 import { clampPlanSketchZoom, type PlanSketchPan } from '../../lib/planSketchViewport';
 import { DimensionStepper } from './DimensionStepper';
 import { ReferenceElevationDemMinButton } from './ReferenceElevationDemMinButton';
@@ -235,6 +237,9 @@ export function PadEarthworkSketchModal({
       ? cloneGeneratorSnapshot(initialSketch, initialWellsLocal ?? [])
       : null,
   );
+  const baselineWellsRef = useRef<PlanVertex[]>(
+    (initialWellsLocal ?? []).map((w) => ({ east_m: w.east_m, north_m: w.north_m })),
+  );
   const [generatorFields, setGeneratorFields] = useState<GeneratorFields>(() => ({
     padWellCount,
     padWellsPerGroup,
@@ -420,6 +425,10 @@ export function PadEarthworkSketchModal({
 
   useEffect(() => {
     setWellsLocal(initialWellsLocal ?? []);
+    baselineWellsRef.current = (initialWellsLocal ?? []).map((w) => ({
+      east_m: w.east_m,
+      north_m: w.north_m,
+    }));
   }, [initialWellsLocal]);
 
   useEffect(() => {
@@ -497,12 +506,17 @@ export function PadEarthworkSketchModal({
 
   const saveMutation = useMutation({
     mutationFn: async () => {
+      const previousWells = baselineWellsRef.current.map((w) => ({ ...w }));
       const heightRef = parseHeightRef(localHeight, localRef);
       if (!heightRef) throw new Error('Укажите высоту насыпи и опорную отметку');
       if (isPlanPolygon(sketch) && !isPolygonSketchClosed(sketch)) {
         throw new Error('Добавьте минимум 3 вершины для сохранения полигона');
       }
-      return padEarthworkApi.saveSketch(projectId, objectId, {
+      const nextWells =
+        showGenerator && wellsLocal.length > 0
+          ? wellsLocal.map((w) => ({ east_m: w.east_m, north_m: w.north_m }))
+          : [];
+      await padEarthworkApi.saveSketch(projectId, objectId, {
         sketch: sketchToApiPayload(sketch),
         params: heightRef,
         envelope: envelopeEnabled
@@ -515,14 +529,33 @@ export function PadEarthworkSketchModal({
             ? sketch.rotation_deg
             : parseNdsDeg(rotationDeg),
       });
+      return { previousWells, nextWells };
     },
-    onSuccess: () => {
+    onSuccess: async ({ previousWells, nextWells }) => {
       setSketchDirty(false);
       setSaveMessage('Схема сохранена. Объёмы обновляются только по кнопке «Рассчитать».');
       setError(null);
       syncCardFields();
       void queryClient.invalidateQueries({ queryKey: ['padEarthworkLast', projectId, objectId] });
       void queryClient.invalidateQueries({ queryKey: ['infra', projectId] });
+      if (nextWells.length > 0) {
+        const regenerated = await maybeRegenerateTrajectoriesAfterLayoutChange({
+          projectId,
+          padId: objectId,
+          previousWells,
+          nextWells,
+        });
+        if (regenerated) {
+          void queryClient.invalidateQueries({
+            queryKey: wellTrajectoryQueryKeys.last(projectId, objectId),
+          });
+          void queryClient.invalidateQueries({
+            queryKey: wellTrajectoryQueryKeys.geoJson(projectId, objectId),
+          });
+          void queryClient.invalidateQueries({ queryKey: ['wellTrajectoryProjectGeoJson', projectId] });
+        }
+        baselineWellsRef.current = nextWells;
+      }
       onSaveSuccess?.();
     },
     onError: (err: Error) => setError(err.message || 'Ошибка сохранения'),

@@ -9,7 +9,7 @@ from uuid import UUID
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.geo.constants import MAX_AUTOROAD_NETWORK_OBJECTS
+from app.geo.constants import AUTOROAD_NETWORK_EXCLUDED_TERMINAL_SUBTYPES, MAX_AUTOROAD_NETWORK_OBJECTS
 from app.models import InfrastructureLayer, InfrastructureObject
 from app.schemas import InfraObjectCreate
 from app.services.graph_builder import build_network_from_lines
@@ -154,7 +154,6 @@ async def build_autoroad_connect_plan(
     *,
     full_network_rebuild: bool = False,
 ) -> AutoroadConnectPlan:
-    from app.geo.constants import NODE_CLUSTER_SUBTYPES
     from app.services.autoroad_network.bridge import plan_response_to_connect_plan
     from app.services.autoroad_network.client import compute_network_plan
     from app.services.autoroad_network.snapshot import build_plan_request
@@ -177,7 +176,7 @@ async def build_autoroad_connect_plan(
     )
     rows = (await db.execute(points_q)).scalars().all()
     for obj in rows:
-        if obj.subtype in NODE_CLUSTER_SUBTYPES:
+        if obj.subtype in AUTOROAD_NETWORK_EXCLUDED_TERMINAL_SUBTYPES:
             plan.warnings.append(f"excluded_terminal_subtype:{obj.subtype}")
             return plan
 

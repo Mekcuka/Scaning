@@ -1,4 +1,5 @@
 import type { AnalysisRow, InfraObject, POI } from '../../lib/api';
+import type { WellTrajectoryGeoJsonFeature } from '../../lib/api/wellTrajectoryApi';
 import type { MapViewStateId } from '../../lib/mapViewState';
 import type { InfraLayer } from '../../lib/api';
 import { findLineEndpointAttachment } from '../../lib/lineEndpointRules';
@@ -15,7 +16,16 @@ export interface ThresholdCircle {
   visible: boolean;
 }
 
-export type DrawMode = 'select' | 'poi' | 'point' | 'line' | 'ruler' | 'autoroad_network';
+export type DrawMode =
+  | 'select'
+  | 'poi'
+  | 'point'
+  | 'line'
+  | 'ruler'
+  | 'autoroad_network'
+  | 'pad_placement'
+  | 'bottomhole_nnb'
+  | 'bottomhole_gs';
 
 export type SelectMode = 'single' | 'box';
 
@@ -94,6 +104,14 @@ export interface MapViewProps {
   draftLinePreview?: [number, number] | null;
   /** Autoroad network plan overlay (before apply). */
   autoroadPlanPreviewLines?: { coordinates: number[][]; kind: string }[];
+  /** Pad placement variant preview (GeoJSON-derived). */
+  padPlacementPreviewFeatures?: {
+    coordinates: number[] | number[][] | number[][][];
+    geometryType: string;
+    kind: string;
+  }[];
+  /** Preview GS horizontal section while placing toe after heel. */
+  gsBottomholePreviewLines?: { coordinates: number[][] }[];
   /** Active measure polyline (lon/lat vertices). */
   measureLine?: number[][];
   measurePreview?: [number, number] | null;
@@ -123,6 +141,10 @@ export interface MapViewProps {
   viewStateScope?: string | null;
   /** When false, do not restore or save pan/zoom (report preview always fits via mapFocus). */
   persistViewState?: boolean;
+  /** Well trajectory GeoJSON features (project-wide). */
+  wellTrajectoryFeatures?: WellTrajectoryGeoJsonFeature[];
+  showWellTrajectories?: boolean;
+  showWellBottomholes?: boolean;
   /** Latest 2D center/zoom (e.g. for 2D→3D camera sync). */
   onViewStateSnapshot?: (state: { centerLon: number; centerLat: number; zoom: number }) => void;
 }

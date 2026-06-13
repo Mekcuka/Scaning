@@ -14,6 +14,7 @@ export const MANIFEST_GKS_CLUSTER = manifest.clusters.gks as readonly string[];
 export const MANIFEST_NODE_CLUSTER = manifest.clusters.node as readonly string[];
 export const MANIFEST_PAD_CLUSTER = manifest.clusters.pad as readonly string[];
 export const MANIFEST_GTES_CLUSTER = manifest.clusters.gtes as readonly string[];
+export const MANIFEST_BOTTOMHOLE_CLUSTER = manifest.clusters.bottomhole as readonly string[];
 
 export const MANIFEST_LEGACY_ALIASES = manifest.legacy_aliases as Readonly<Record<string, string>>;
 
@@ -48,5 +49,6 @@ export const GKS_CLUSTER_SUBTYPES = [...MANIFEST_GKS_CLUSTER] as const;
 export const NODE_CLUSTER_SUBTYPES = [...MANIFEST_NODE_CLUSTER] as const;
 export const PAD_CLUSTER_SUBTYPES = [...MANIFEST_PAD_CLUSTER] as const;
 export const GTES_CLUSTER_SUBTYPES = [...MANIFEST_GTES_CLUSTER] as const;
+export const BOTTOMHOLE_CLUSTER_SUBTYPES = [...MANIFEST_BOTTOMHOLE_CLUSTER] as const;
 
 export const LEGACY_SUBTYPE_ALIASES = { ...MANIFEST_LEGACY_ALIASES };

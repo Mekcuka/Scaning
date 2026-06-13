@@ -51,6 +51,8 @@ export function MapPageToolbar(props: MapPageToolbarProps) {
     onPointMenuOpenChange,
     lineMenuOpen,
     onLineMenuOpenChange,
+    bottomholeMenuOpen,
+    onBottomholeMenuOpenChange,
     onClearLineDraft,
     onClearRuler,
     drawActionsVisible,
@@ -122,6 +124,8 @@ export function MapPageToolbar(props: MapPageToolbarProps) {
         onPointMenuOpenChange={onPointMenuOpenChange}
         lineMenuOpen={lineMenuOpen}
         onLineMenuOpenChange={onLineMenuOpenChange}
+        bottomholeMenuOpen={bottomholeMenuOpen}
+        onBottomholeMenuOpenChange={onBottomholeMenuOpenChange}
         onClearLineDraft={onClearLineDraft}
         onClearRuler={onClearRuler}
       />

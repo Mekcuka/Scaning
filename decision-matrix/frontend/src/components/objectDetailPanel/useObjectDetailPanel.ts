@@ -79,6 +79,7 @@ export function useObjectDetailPanel({
   const tabs = useObjectDetailPanelTabs({
     readOnly,
     showLogisticsTab: derived.showLogisticsTab,
+    showTrajectoriesTab: derived.showTrajectoriesSection,
     infraTab: form.infraTab,
     setInfraTab: form.setInfraTab,
     poiTab: form.poiTab,

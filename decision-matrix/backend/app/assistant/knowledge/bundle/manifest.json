@@ -1,6 +1,6 @@
 {
   "version": 1,
-  "article_count": 12,
+  "article_count": 13,
   "articles": [
     {
       "slug": "assistant-chat",
@@ -201,6 +201,30 @@
       ],
       "file": "articles/pad-earthwork-volumes.md",
       "char_count": 4313
+    },
+    {
+      "slug": "pad-placement-optimization",
+      "title": "Оптимизация размещения кустов с карты",
+      "summary": "Подбор числа и места новых кустов по забоям на карте — меньше площадок и меньше суммарная глубина стволов (TVD). Запуск с карты, предпросмотр, применение.",
+      "tags": [
+        "map",
+        "pad",
+        "clustering",
+        "bottomhole",
+        "trajectory",
+        "optimization"
+      ],
+      "tab_hints": [
+        "map",
+        "pad-clustering"
+      ],
+      "roles": [
+        "analyst",
+        "admin",
+        "data_manager"
+      ],
+      "file": "articles/pad-placement-optimization.md",
+      "char_count": 3285
     },
     {
       "slug": "parameters-earthwork",

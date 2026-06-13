@@ -1,4 +1,7 @@
-export function parseMapBbox(bbox: string): [number, number, number, number] | null {
+export function parseMapBbox(
+  bbox: string | null | undefined,
+): [number, number, number, number] | null {
+  if (!bbox) return null;
   const parts = bbox.split(',').map((x) => Number(x.trim()));
   if (parts.length !== 4 || parts.some((n) => !Number.isFinite(n))) return null;
   return parts as [number, number, number, number];

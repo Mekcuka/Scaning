@@ -17,6 +17,9 @@ export const AdminLayout = lazy(() =>
 );
 export const DashboardPage = lazy(() => import('../pages/DashboardPage').then((m) => ({ default: m.DashboardPage })));
 export const MapPage = lazy(() => import('../pages/MapPage').then((m) => ({ default: m.MapPage })));
+export const PadClusteringPage = lazy(() =>
+  import('../pages/padClustering/PadClusteringPage').then((m) => ({ default: m.PadClusteringPage })),
+);
 export const ImportPage = lazy(() => import('../pages/ImportPage').then((m) => ({ default: m.ImportPage })));
 export const ExportPage = lazy(() => import('../pages/ExportPage').then((m) => ({ default: m.ExportPage })));
 export const Import3DPage = lazy(() =>

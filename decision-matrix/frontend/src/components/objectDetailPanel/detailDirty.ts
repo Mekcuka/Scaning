@@ -54,6 +54,7 @@ export type InfraDirtyDraft = {
   padMarginTopM: string;
   padMarginEndM: string;
   pointFootprintLineConnections: PointFootprintLineConnections;
+  bottomholePropsPatch: Record<string, unknown>;
 };
 
 function sandFieldsDirty(
@@ -127,6 +128,9 @@ export function computeInfraIsDirty(
       draft.pointFootprintLineConnections,
       readPointFootprintLineConnections(infraObject.properties),
     );
+  const bottomholeDirty = Object.entries(draft.bottomholePropsPatch).some(
+    ([key, value]) => (infraObject.properties?.[key] ?? undefined) !== value,
+  );
   return (
     draft.name !== infraObject.name ||
     draft.description !== origDesc ||
@@ -139,7 +143,8 @@ export function computeInfraIsDirty(
     capacityDirty ||
     padWellDirty ||
     r3Dirty ||
-    attachDirty
+    attachDirty ||
+    bottomholeDirty
   );
 }
 
@@ -173,7 +178,10 @@ export function computeInfraTabDirty(
       !pointFootprintLineConnectionsEqual(
         draft.pointFootprintLineConnections,
         readPointFootprintLineConnections(infraObject.properties),
-      ));
+      )) ||
+    Object.entries(draft.bottomholePropsPatch).some(
+      ([key, value]) => (infraObject.properties?.[key] ?? undefined) !== value,
+    );
 
   switch (tab) {
     case 'main':
@@ -187,6 +195,8 @@ export function computeInfraTabDirty(
       );
     case 'extra':
       return render3dFieldsDirty(infraObject, draft, map3dCustomModels);
+    case 'trajectories':
+      return false;
     default:
       return false;
   }

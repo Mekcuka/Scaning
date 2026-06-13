@@ -12,6 +12,7 @@
 @import "./styles/features/map/canvas.css";
 @import "./styles/features/map/group-panel.css";
 @import "./styles/features/map/autoroad-panel.css";
+@import "./styles/features/map/pad-placement-panel.css";
 @import "./styles/features/map/object-detail-shell.css";
 @import "./styles/features/map/sand-haul-leg-tables.css";
 @import "./styles/features/map/object-detail-fields.css";

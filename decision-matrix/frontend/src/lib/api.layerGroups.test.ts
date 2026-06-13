@@ -1,6 +1,8 @@
 import { describe, expect, it } from 'vitest';
 import {
   ALL_MAP_SUBTYPES,
+  BOTTOMHOLE_LAYER_SUBTYPES,
+  BOTTOMHOLE_LAYER_VISIBILITY_GROUPS,
   LAYER_VISIBILITY_GROUPS,
   LINE_LAYER_UI_ENTRIES,
   LINE_LAYER_VISIBILITY_GROUPS,
@@ -24,12 +26,20 @@ describe('LAYER_VISIBILITY_GROUPS', () => {
     expect(seen.size).toBe(ALL_MAP_SUBTYPES.length);
   });
 
-  it('splits groups into point and line categories without overlap', () => {
-    expect(POINT_LAYER_VISIBILITY_GROUPS.length + LINE_LAYER_VISIBILITY_GROUPS.length).toBe(
-      LAYER_VISIBILITY_GROUPS.length,
-    );
+  it('splits groups into point, bottomhole and line categories without overlap', () => {
+    expect(
+      POINT_LAYER_VISIBILITY_GROUPS.length +
+        BOTTOMHOLE_LAYER_VISIBILITY_GROUPS.length +
+        LINE_LAYER_VISIBILITY_GROUPS.length,
+    ).toBe(LAYER_VISIBILITY_GROUPS.length);
     for (const group of POINT_LAYER_VISIBILITY_GROUPS) {
       expect(layerGroupKind(group)).toBe('point');
+    }
+    for (const group of BOTTOMHOLE_LAYER_VISIBILITY_GROUPS) {
+      expect(layerGroupKind(group)).toBe('point');
+      for (const st of group.subtypes) {
+        expect(BOTTOMHOLE_LAYER_SUBTYPES).toContain(st);
+      }
     }
     for (const group of LINE_LAYER_VISIBILITY_GROUPS) {
       expect(layerGroupKind(group)).toBe('line');

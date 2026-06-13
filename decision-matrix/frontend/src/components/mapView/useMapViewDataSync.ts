@@ -4,6 +4,7 @@ import Point from 'ol/geom/Point';
 import Polygon from 'ol/geom/Polygon';
 import { fromLonLat } from 'ol/proj';
 import { normalizeInfraSubtype } from '../../lib/api';
+import { buildGsBottomholeConnectors } from '../../lib/wellBottomholeProperties';
 import type { LinePathDisplayOptions } from '../../lib/infraGeometry';
 import { lineLodForScale } from '../../lib/mapLineLod';
 import { resolveFootprintLonLat } from '../../lib/padFootprintGeo';
@@ -96,6 +97,19 @@ export function useMapViewDataSync(
           attrs: { name: poi.name, subtype: 'poi', featureKind: 'poi' },
         });
       });
+
+      for (const conn of buildGsBottomholeConnectors(infra)) {
+        lineItems.push({
+          id: conn.id,
+          geometry: new LineString(conn.coordinates.map((c) => fromLonLat([c[0], c[1]]))),
+          attrs: {
+            subtype: 'gs-bottomhole-connector',
+            featureKind: 'derived',
+            heel_id: conn.heelId,
+            toe_id: conn.toeId,
+          },
+        });
+      }
 
       const nodePointItems: typeof pointItems = [];
       const regularPointItems: typeof pointItems = [];

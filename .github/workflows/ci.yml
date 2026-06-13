@@ -95,6 +95,10 @@ jobs:
           if [ -d ../../pad-earthwork-planner ]; then EARTHWORK=../../pad-earthwork-planner; fi
           if [ -d ../../../pad-earthwork-planner ]; then EARTHWORK=../../../pad-earthwork-planner; fi
           if [ -n "$EARTHWORK" ]; then pip install -e "${EARTHWORK}"; fi
+          TRAJECTORY=""
+          if [ -d ../../well-trajectory-planner ]; then TRAJECTORY=../../well-trajectory-planner; fi
+          if [ -d ../../../well-trajectory-planner ]; then TRAJECTORY=../../../well-trajectory-planner; fi
+          if [ -n "$TRAJECTORY" ]; then pip install -e "${TRAJECTORY}"; fi
           pip install -r requirements.txt -r requirements-dev.txt
 
       - name: Bootstrap PostgreSQL schema
@@ -151,6 +155,10 @@ jobs:
           if [ -d ../../pad-earthwork-planner ]; then EARTHWORK=../../pad-earthwork-planner; fi
           if [ -d ../../../pad-earthwork-planner ]; then EARTHWORK=../../../pad-earthwork-planner; fi
           if [ -n "$EARTHWORK" ]; then pip install -e "${EARTHWORK}"; fi
+          TRAJECTORY=""
+          if [ -d ../../well-trajectory-planner ]; then TRAJECTORY=../../well-trajectory-planner; fi
+          if [ -d ../../../well-trajectory-planner ]; then TRAJECTORY=../../../well-trajectory-planner; fi
+          if [ -n "$TRAJECTORY" ]; then pip install -e "${TRAJECTORY}"; fi
           pip install -r requirements.txt -r requirements-dev.txt
 
       - name: Start API

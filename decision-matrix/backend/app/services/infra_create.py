@@ -17,7 +17,8 @@ from app.geo.validation import category_for_subtype, validate_subtype_geometry
 from app.models import InfrastructureObject
 from app.schemas import InfraObjectCreate
 from app.services.graph_builder import build_network_from_lines
-from app.services.line_endpoint_rules import LineEndpointRuleError, snap_line_endpoints_to_point_objects
+from app.services.well_trajectory.bottomhole_properties import apply_bottomhole_defaults, is_bottomhole_subtype
+from app.services.well_trajectory.bottomhole_validation import validate_bottomhole_object
 
 
 async def create_infra_object_record(
@@ -57,6 +58,15 @@ async def create_infra_object_record(
     )
     if data.description:
         props["description"] = data.description
+
+    if is_bottomhole_subtype(subtype):
+        props = apply_bottomhole_defaults(subtype, props)
+        await validate_bottomhole_object(
+            db,
+            project_id=project_id,
+            subtype=subtype,
+            properties=props,
+        )
 
     end_lon, end_lat = data.end_lon, data.end_lat
     if data.coordinates and len(data.coordinates) >= 2:

@@ -3,12 +3,31 @@
 import type { InfraObject } from './api';
 import { isInService, readEntryDateIso } from './infraEntryDate';
 import { isLineSubtype } from './infraGeometry';
+import { isBottomholeSubtype } from './wellBottomholeProperties';
 
 export const SAND_VOLUME_INITIAL_M3 = 'sand_volume_initial_m3';
 export const SAND_VOLUME_CURRENT_M3 = 'sand_volume_current_m3';
 export const SAND_VOLUME_DEMAND_M3 = 'sand_volume_m3';
 export const SAND_VOLUME_BY_YEAR = 'sand_volume_by_year';
 export const SAND_VOLUME_MODE = 'sand_volume_mode';
+
+export const SAND_PROPERTY_KEYS = [
+  SAND_VOLUME_INITIAL_M3,
+  SAND_VOLUME_CURRENT_M3,
+  SAND_VOLUME_DEMAND_M3,
+  SAND_VOLUME_BY_YEAR,
+  SAND_VOLUME_MODE,
+] as const;
+
+export function stripSandVolumeProperties(
+  properties: Record<string, unknown> | null | undefined,
+): Record<string, unknown> {
+  const next = { ...(properties ?? {}) };
+  for (const key of SAND_PROPERTY_KEYS) {
+    delete next[key];
+  }
+  return next;
+}
 
 export type SandVolumeInputMode = 'single' | 'yearly';
 
@@ -37,6 +56,7 @@ export function isSandQuarrySubtype(subtype: string): boolean {
 /** Точечные объекты с полем «Объём песка (спрос)» на вкладке Параметры. */
 export function pointShowsSandDemand(subtype: string): boolean {
   if (isLineSubtype(subtype)) return false;
+  if (isBottomholeSubtype(subtype)) return false;
   return isSandConsumerSubtype(subtype);
 }
 
@@ -302,6 +322,9 @@ export function withDefaultSandProperties(
   subtype: string,
   properties?: Record<string, unknown> | null
 ): Record<string, unknown> {
+  if (isBottomholeSubtype(subtype)) {
+    return stripSandVolumeProperties(properties);
+  }
   const defaults = defaultSandPropertiesForSubtype(subtype);
   if (!defaults) return { ...(properties ?? {}) };
   return { ...defaults, ...(properties ?? {}) };

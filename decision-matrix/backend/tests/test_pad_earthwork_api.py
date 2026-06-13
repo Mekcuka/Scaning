@@ -560,3 +560,29 @@ def test_patch_sketch_saves_without_recompute(client: TestClient):
     assert last_body["envelope"]["wrap_width_m"] == 3
     assert last_body["sketch_saved_at"] is not None
     assert last_body["result"]["volumes"]["fill_m3"] == fill_before
+
+
+def test_sketch_save_envelope_disabled_zero_wrap(client: TestClient):
+    pid, headers, oid = _seed_oil_pad(client)
+    polygon_sketch = {
+        "kind": "plan_polygon",
+        "vertices": [
+            {"east_m": -30, "north_m": -20},
+            {"east_m": 30, "north_m": -20},
+            {"east_m": 30, "north_m": 20},
+            {"east_m": -30, "north_m": 20},
+        ],
+    }
+    save_res = client.patch(
+        f"/api/v1/projects/{pid}/infrastructure/objects/{oid}/pad-earthwork/sketch",
+        json={
+            "sketch": polygon_sketch,
+            "params": {"height_m": 2.5, "reference_elevation_m": 150},
+            "envelope": {"enabled": False, "wrap_width_m": 0},
+        },
+        headers=headers,
+    )
+    assert save_res.status_code == 200, save_res.text
+    props = save_res.json()["properties"]
+    assert props["pad_envelope_enabled"] is False
+    assert props["pad_envelope_wrap_width_m"] == 3

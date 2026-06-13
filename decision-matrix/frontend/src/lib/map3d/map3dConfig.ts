@@ -45,6 +45,7 @@ export const MAP3D_SOURCE_IDS = {
   analysisLines: 'dm-analysis-lines',
   analysisLabels: 'dm-analysis-labels',
   infraLineLabels: 'dm-infra-line-labels',
+  wellTrajectories: 'dm-well-trajectories',
 } as const;
 
 export const MAP3D_TERRAIN_TOAST_KEY = 'dm-map3d-terrain-toast-shown';
@@ -63,6 +64,7 @@ export const MAP3D_LAYER_IDS = {
   analysisLines: 'dm-analysis-lines',
   analysisLabels: 'dm-analysis-labels',
   infraLineLabels: 'dm-infra-line-labels',
+  wellTrajectories: 'dm-well-trajectories',
 } as const;
 
 export const MAP3D_ICON_PREFIX = 'dm-icon-';

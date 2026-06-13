@@ -188,6 +188,7 @@ jobs:
           cp -r decision-matrix/shared decision-matrix/backend/shared
           cp -r autoroad-network-planner decision-matrix/backend/network-planner-vendor
           cp -r pad-earthwork-planner decision-matrix/backend/pad-earthwork-vendor
+          cp -r well-trajectory-planner decision-matrix/backend/well-trajectory-vendor
 
       - name: Build and push backend image
         uses: docker/build-push-action@v6

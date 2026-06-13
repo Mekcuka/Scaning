@@ -5,6 +5,7 @@ import type { MapPageLayersSidebarProps } from '../../../pages/map/MapPageLayers
 import type { MapPageModalsProps } from '../../../pages/map/MapPageModals';
 import type { MapPageSidePanelsProps } from '../../../pages/map/MapPageSidePanels';
 import type { MapPageToolbarProps } from '../../../pages/map/mapPageToolbar/types';
+import type { WellTrajectoryGeoJsonFeature } from '../../../lib/api/wellTrajectoryApi';
 import type { MapDisplayMode } from '../../useMapDisplayMode';
 import type { useMapLayerPreferences } from '../../useMapLayerPreferences';
 import type { useMapPageEditState } from '../useMapPageEditState';
@@ -49,4 +50,5 @@ export type BuildMapPageSectionsParams = {
   edit: EditState;
   data: MapData;
   actions: MapActions;
+  wellTrajectoryFeatures: WellTrajectoryGeoJsonFeature[];
 };

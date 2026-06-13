@@ -12,8 +12,10 @@ import {
   mergeQuarryVolumes,
   mergeSandVolumeForSave,
   pointShowsSandDemand,
+  stripSandVolumeProperties,
   type SandVolumeInputMode,
 } from '../../lib/infraSandVolumes';
+import { isBottomholeSubtype } from '../../lib/wellBottomholeProperties';
 import { mergeEntryDate, objectShowsEntryDate } from '../../lib/infraEntryDate';
 import {
   mergePadWellParams,
@@ -65,6 +67,7 @@ export type InfraSaveDraft = {
   padMarginTopM: string;
   padMarginEndM: string;
   pointFootprintLineConnections: PointFootprintLineConnections;
+  bottomholePropsPatch: Record<string, unknown>;
 };
 
 export function buildInfraSavePayload(
@@ -100,6 +103,7 @@ export function buildInfraSavePayload(
     padMarginTopM,
     padMarginEndM,
     pointFootprintLineConnections,
+    bottomholePropsPatch,
   } = draft;
 
   const payload: Record<string, unknown> = {
@@ -175,6 +179,12 @@ export function buildInfraSavePayload(
       props,
       Object.keys(pointFootprintLineConnections).length ? pointFootprintLineConnections : null,
     );
+  }
+  if (Object.keys(bottomholePropsPatch).length > 0) {
+    props = { ...props, ...bottomholePropsPatch };
+  }
+  if (isBottomholeSubtype(subtype)) {
+    props = stripSandVolumeProperties(props);
   }
   payload.properties = props;
 

@@ -7,32 +7,42 @@ import { useAppStore } from '../../../store';
 import { submitPoiCreate } from '../submitPoi';
 import type { MapPageActionsParams } from '../mapPageActionsTypes';
 import type { useMapAutoroadActions } from './useMapAutoroadActions';
+import type { useMapPadPlacementActions } from './useMapPadPlacementActions';
 import type { useMapDrawAndCreateActions } from './useMapDrawAndCreateActions';
 import type { useMapSelectionActions } from './useMapSelectionActions';
 import type { useLineFootprintEdgePick } from '../../useLineFootprintEdgePick';
+import type { useBottomholeDraw } from '../../useBottomholeDraw';
 
 type AutoroadActions = ReturnType<typeof useMapAutoroadActions>;
+type PadPlacementActions = ReturnType<typeof useMapPadPlacementActions>;
 type DrawActions = ReturnType<typeof useMapDrawAndCreateActions>;
 type SelectionActions = ReturnType<typeof useMapSelectionActions>;
 type LineFootprintEdgePick = ReturnType<typeof useLineFootprintEdgePick>;
+type BottomholeDraw = ReturnType<typeof useBottomholeDraw>;
 
 export function useMapPageInteraction(
   params: MapPageActionsParams,
   slices: {
     autoroad: AutoroadActions;
+    padPlacement: PadPlacementActions;
     draw: DrawActions;
     selection: SelectionActions;
     lineFootprintEdgePick: LineFootprintEdgePick;
+    bottomholeDraw: BottomholeDraw;
   },
 ) {
   const { projectId, canWriteProject, canWriteInfra, canEditMap, edit } = params;
-  const { autoroad, draw, selection, lineFootprintEdgePick } = slices;
+  const { autoroad, padPlacement, draw, selection, lineFootprintEdgePick, bottomholeDraw } = slices;
   const { pois } = params.data;
   const pushToast = useAppStore((s) => s.pushToast);
   const { cursorRef } = edit;
 
   const needsCursorState =
-    edit.pasteMode || edit.drawMode === 'point' || edit.drawMode === 'poi';
+    edit.pasteMode ||
+    edit.drawMode === 'point' ||
+    edit.drawMode === 'poi' ||
+    edit.drawMode === 'bottomhole_nnb' ||
+    edit.drawMode === 'bottomhole_gs';
   const needsCursorStateWithDrawing = needsCursorState || draw.needsDrawCursor;
 
   const handleMapEscape = useCallback(() => {
@@ -57,12 +67,18 @@ export function useMapPageInteraction(
       edit.setSearchOpen(false);
       return;
     }
+    if (bottomholeDraw.isBottomholeDrawActive) {
+      bottomholeDraw.cancelBottomholeDraw();
+      edit.setDrawMode('select');
+      edit.setBottomholeMenuOpen(false);
+      return;
+    }
     const drawingActive =
       edit.drawMode !== 'select' || edit.pointMenuOpen || edit.lineMenuOpen;
     if (drawingActive) {
       edit.cancelDrawingSelection();
     }
-  }, [edit, selection.deleteConfirm, selection.setDeleteConfirm]);
+  }, [edit, selection.deleteConfirm, selection.setDeleteConfirm, bottomholeDraw]);
 
   const handlePointerMove = useCallback(
     (lon: number, lat: number, overPoint?: { lon: number; lat: number }) => {
@@ -95,8 +111,17 @@ export function useMapPageInteraction(
         void lineFootprintEdgePick.handleMapClickForEdgePick(lon, lat);
         return;
       }
+      if (edit.drawMode === 'bottomhole_nnb' || edit.drawMode === 'bottomhole_gs') {
+        if (!canWriteInfra) return;
+        void bottomholeDraw.handleMapClickForBottomholeDraw(lon, lat);
+        return;
+      }
       if (edit.drawMode === 'autoroad_network') {
         autoroad.handleMapClick(hit);
+        return;
+      }
+      if (edit.drawMode === 'pad_placement') {
+        padPlacement.handlePadPlacementMapClick(lon, lat, hit);
         return;
       }
       if (edit.drawMode === 'ruler') {
@@ -142,12 +167,14 @@ export function useMapPageInteraction(
       edit,
       selection,
       autoroad,
+      padPlacement,
       draw,
       canWriteProject,
       canWriteInfra,
       pois,
       projectId,
       lineFootprintEdgePick,
+      bottomholeDraw,
     ],
   );
 

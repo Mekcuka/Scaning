@@ -28,6 +28,9 @@ class Settings(BaseSettings):
     AUTOROAD_NETWORK_INPROCESS: bool = True
     PAD_EARTHWORK_SERVICE_URL: str = ""
     PAD_EARTHWORK_INPROCESS: bool = True
+    WELL_TRAJECTORY_SERVICE_URL: str = ""
+    WELL_TRAJECTORY_INPROCESS: bool = True
+    WELL_TRAJECTORY_IMPORT_ASYNC_THRESHOLD: int = 20
     AUTOROAD_NETWORK_SOLVER: str = "geosteiner"
     GEOSTEINER_BIN_DIR: str = ""
     ASSISTANT_MCP_ENABLED: bool = True

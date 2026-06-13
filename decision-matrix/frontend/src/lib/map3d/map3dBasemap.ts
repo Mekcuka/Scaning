@@ -23,6 +23,7 @@ export function createMap3dBaseStyle(options?: Map3dBaseStyleOptions): StyleSpec
       [MAP3D_SOURCE_IDS.analysisLines]: { type: 'geojson', data: EMPTY_FC },
       [MAP3D_SOURCE_IDS.analysisLabels]: { type: 'geojson', data: EMPTY_FC },
       [MAP3D_SOURCE_IDS.infraLineLabels]: { type: 'geojson', data: EMPTY_FC },
+      [MAP3D_SOURCE_IDS.wellTrajectories]: { type: 'geojson', data: EMPTY_FC },
     };
   const layers: StyleSpecification['layers'] = [];
 

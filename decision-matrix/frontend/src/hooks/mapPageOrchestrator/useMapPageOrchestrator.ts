@@ -11,6 +11,7 @@ import { useMapPageShellState } from './useMapPageShellState';
 import { useMapPageMapData } from './useMapPageMapData';
 import { useMapPageMapActions } from './useMapPageMapActions';
 import { buildMapPageSections } from './buildMapPageSections/index';
+import { useWellTrajectoryProjectGeoJson } from '../useWellTrajectoryGeoJson';
 
 export type { MapPageSections } from './buildMapPageSections/index';
 
@@ -38,6 +39,12 @@ export function useMapPageOrchestrator() {
     radiusVisible,
     openSections: layerOpenSections,
   } = layerPrefs;
+  const wellTrajLayersEnabled =
+    layerPrefs.showWellTrajectories || layerPrefs.showWellBottomholes || layerPrefs.showWellTrajectories3d;
+  const { data: wellTrajectoryGeoJson } = useWellTrajectoryProjectGeoJson(
+    projectId ?? null,
+    wellTrajLayersEnabled,
+  );
   const {
     is3dEnabled: map3dFeatureEnabled,
     displayMode: mapDisplayMode,
@@ -100,6 +107,7 @@ export function useMapPageOrchestrator() {
     edit,
     data,
     actions,
+    wellTrajectoryFeatures: wellTrajectoryGeoJson?.features ?? [],
   });
 
   return {

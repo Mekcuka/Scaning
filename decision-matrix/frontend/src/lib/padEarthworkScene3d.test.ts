@@ -9,10 +9,16 @@ import {
   envelopeSideTriangleCount,
   fillTerrainElevations,
   padFootprintVertices,
+  planEastToSceneX,
   terrainGridIndexCount,
   terrainGridVertexCount,
 } from './padEarthworkScene3d';
-import type { PlanRectangleSketch } from './padEarthworkSketch';
+import {
+  generatePadFromWells,
+  localPlanCorners,
+  type PlanRectangleSketch,
+} from './padEarthworkSketch';
+import { syncTopDownPlanCamera } from './padEarthworkScene3dCamera';
 
 const rectangleSketch: PlanRectangleSketch = {
   kind: 'plan_rectangle',
@@ -189,17 +195,158 @@ describe('padEarthworkScene3d', () => {
     expect(outwardSides).toBeGreaterThan(0);
   });
 
+  function padTopFaceCorners(group: THREE.Group, refM: number, heightM: number) {
+    const topY = refM + heightM;
+    const unique = new Map<string, { x: number; z: number }>();
+    group.traverse((obj) => {
+      if (!(obj instanceof THREE.Mesh)) return;
+      const pos = (obj.geometry as THREE.BufferGeometry).getAttribute('position') as THREE.BufferAttribute;
+      for (let i = 0; i < pos.count; i += 1) {
+        const v = new THREE.Vector3(pos.getX(i), pos.getY(i), pos.getZ(i));
+        obj.localToWorld(v);
+        if (Math.abs(v.y - topY) > 0.05) continue;
+        const key = `${v.x.toFixed(3)},${v.z.toFixed(3)}`;
+        unique.set(key, { x: v.x, z: v.z });
+      }
+    });
+    return [...unique.values()];
+  }
+
+  function expectFootprintMatch(
+    group: THREE.Group,
+    expected: { east_m: number; north_m: number }[],
+    refM: number,
+    heightM: number,
+  ) {
+    const top = padTopFaceCorners(group, refM, heightM);
+    expect(top.length).toBeGreaterThanOrEqual(expected.length);
+    for (const corner of expected) {
+      const hit = top.some(
+        (p) => Math.abs(p.x - planEastToSceneX(corner.east_m)) < 0.05 && Math.abs(p.z - corner.north_m) < 0.05,
+      );
+      expect(hit, `missing corner east=${corner.east_m} north=${corner.north_m}`).toBe(true);
+    }
+  }
+
+  it('buildPadMesh polygon top face matches footprint vertices (ENU)', () => {
+    const generated = generatePadFromWells({
+      wellCount: 4,
+      wellsPerGroup: 4,
+      wellSpacingM: 30,
+      groupSpacingM: 10,
+      margins: { leftM: 20, bottomM: 15, topM: 15, endM: 20 },
+    });
+    const refM = 200;
+    const heightM = 2;
+    const group = buildPadMesh(generated.sketch, refM, heightM);
+    expectFootprintMatch(group, padFootprintVertices(generated.sketch), refM, heightM);
+  });
+
+  it('buildPadMesh rectangle top face matches localPlanCorners (ENU)', () => {
+    const refM = 200;
+    const heightM = 2;
+    const group = buildPadMesh(rectangleSketch, refM, heightM);
+    expectFootprintMatch(group, localPlanCorners(rectangleSketch), refM, heightM);
+  });
+
+  it('buildPadMesh rectangle at rotation 0 matches localPlanCorners', () => {
+    const sketch: PlanRectangleSketch = {
+      kind: 'plan_rectangle',
+      length_m: 120,
+      width_m: 80,
+      rotation_deg: 0,
+    };
+    const refM = 200;
+    const heightM = 2;
+    const group = buildPadMesh(sketch, refM, heightM);
+    expectFootprintMatch(group, localPlanCorners(sketch), refM, heightM);
+  });
+
+  it('buildPadMesh aligns with layout wells for clustering defaults', () => {
+    const generated = generatePadFromWells({
+      wellCount: 12,
+      wellsPerGroup: 1,
+      wellSpacingM: 9,
+      groupSpacingM: 9,
+      margins: { leftM: 27, bottomM: 43, topM: 15, endM: 70 },
+      rotationDeg: 90,
+    });
+    const refM = 200;
+    const heightM = 2;
+    const group = buildPadMesh(generated.sketch, refM, heightM);
+    expectFootprintMatch(group, padFootprintVertices(generated.sketch), refM, heightM);
+  });
+
   it('buildEnvelopeBermRing stays within pad footprint horizontally', () => {
     const group = buildEnvelopeBermRing(rectangleSketch, 3, 200, 2)!;
     const padVerts = padFootprintVertices(rectangleSketch);
     const padBox = new THREE.Box3();
     for (const v of padVerts) {
-      padBox.expandByPoint(new THREE.Vector3(v.east_m, 0, v.north_m));
+      padBox.expandByPoint(new THREE.Vector3(planEastToSceneX(v.east_m), 0, v.north_m));
     }
     const bermBox = new THREE.Box3().setFromObject(group);
     expect(bermBox.min.x).toBeGreaterThanOrEqual(padBox.min.x - 0.01);
     expect(bermBox.max.x).toBeLessThanOrEqual(padBox.max.x + 0.01);
     expect(bermBox.min.z).toBeGreaterThanOrEqual(padBox.min.z - 0.01);
     expect(bermBox.max.z).toBeLessThanOrEqual(padBox.max.z + 0.01);
+  });
+
+  it('clustering defaults: well row is nearer north edge than south in plan camera', () => {
+    const generated = generatePadFromWells({
+      wellCount: 12,
+      wellsPerGroup: 1,
+      wellSpacingM: 9,
+      groupSpacingM: 9,
+      margins: { leftM: 27, bottomM: 43, topM: 15, endM: 70 },
+      rotationDeg: 90,
+    });
+    const verts = padFootprintVertices(generated.sketch);
+    const maxN = Math.max(...verts.map((v) => v.north_m));
+    const minN = Math.min(...verts.map((v) => v.north_m));
+    const wellN = generated.wellsLocal[0]!.north_m;
+    expect(maxN - wellN).toBeLessThan(wellN - minN);
+
+    const camera = new THREE.PerspectiveCamera(50, 1, 0.1, 2000);
+    camera.position.set(0, 150, 0);
+    syncTopDownPlanCamera(camera, new THREE.Vector3(0, 0, 0));
+    camera.updateMatrixWorld(true);
+    const northEdge = new THREE.Vector3(0, 0, maxN);
+    const southEdge = new THREE.Vector3(0, 0, minN);
+    const wellPt = new THREE.Vector3(planEastToSceneX(generated.wellsLocal[0]!.east_m), 0, wellN);
+    northEdge.project(camera);
+    southEdge.project(camera);
+    wellPt.project(camera);
+    expect(northEdge.y).toBeGreaterThan(southEdge.y);
+    expect(wellPt.y).toBeGreaterThan(southEdge.y);
+    expect(northEdge.y).toBeGreaterThan(wellPt.y);
+  });
+
+  it('plan camera: increasing plan east appears rightward on screen (scene X = −east)', () => {
+    const generated = generatePadFromWells({
+      wellCount: 12,
+      wellsPerGroup: 1,
+      wellSpacingM: 9,
+      groupSpacingM: 9,
+      margins: { leftM: 27, bottomM: 43, topM: 15, endM: 70 },
+      rotationDeg: 90,
+    });
+    const camera = new THREE.PerspectiveCamera(50, 1, 0.1, 2000);
+    camera.position.set(0, 150, 0);
+    syncTopDownPlanCamera(camera, new THREE.Vector3(0, 0, 0));
+    camera.updateMatrixWorld(true);
+    const first = new THREE.Vector3(
+      planEastToSceneX(generated.wellsLocal[0]!.east_m),
+      0,
+      generated.wellsLocal[0]!.north_m,
+    );
+    const last = new THREE.Vector3(
+      planEastToSceneX(generated.wellsLocal[11]!.east_m),
+      0,
+      generated.wellsLocal[11]!.north_m,
+    );
+    first.project(camera);
+    last.project(camera);
+    expect(last.x).toBeGreaterThan(first.x);
+    expect(generated.wellsLocal[11]!.east_m).toBeGreaterThan(generated.wellsLocal[0]!.east_m);
   });
 });

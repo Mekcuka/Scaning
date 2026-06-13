@@ -28,6 +28,9 @@ THROUGHPUT_CAPACITY_EXCLUDED_SUBTYPES = frozenset({
     "vies",
     "gtes",
     "gpes",
+    "well_bottomhole_nnb",
+    "well_bottomhole_gs_heel",
+    "well_bottomhole_gs_toe",
 })
 
 

@@ -1,6 +1,8 @@
 import { useMemo, useState, type ReactNode } from 'react';
 import { ChevronDown, ChevronRight, X } from 'lucide-react';
 import {
+  BOTTOMHOLE_LAYER_SUBTYPES,
+  BOTTOMHOLE_LAYER_UI_ENTRIES,
   LAYER_VISIBILITY_GROUPS,
   LINE_LAYER_UI_ENTRIES,
   POINT_LAYER_UI_ENTRIES,
@@ -33,6 +35,12 @@ type MapLayersPanelProps = {
   showModels?: boolean;
   onShowModelsChange?: (visible: boolean) => void;
   modelsToggleEnabled?: boolean;
+  showWellTrajectories?: boolean;
+  onShowWellTrajectoriesChange?: (visible: boolean) => void;
+  showWellBottomholes?: boolean;
+  onShowWellBottomholesChange?: (visible: boolean) => void;
+  showWellTrajectories3d?: boolean;
+  onShowWellTrajectories3dChange?: (visible: boolean) => void;
   /** When true, layer visibility toggles are disabled (persisted server-side). */
   layerVisibilityReadOnly?: boolean;
   /** Persisted accordion state (optional controlled mode). */
@@ -106,6 +114,37 @@ function LayerGroupRow({
         onChange={(next) => onGroupVisibility(group.subtypes, next)}
       />
     </label>
+  );
+}
+
+function OverlayCategorySection({
+  title,
+  children,
+  onShowAll,
+  onHideAll,
+}: {
+  title: string;
+  children: ReactNode;
+  onShowAll?: () => void;
+  onHideAll?: () => void;
+}) {
+  return (
+    <div className="map-layers-category">
+      <div className="map-layers-category-head">
+        <span className="map-layers-category-title">{title}</span>
+        {onShowAll && onHideAll ? (
+          <div className="map-layers-pill-group" role="group">
+            <button type="button" className="map-layers-pill" onClick={onShowAll}>
+              Все
+            </button>
+            <button type="button" className="map-layers-pill" onClick={onHideAll}>
+              Скрыть
+            </button>
+          </div>
+        ) : null}
+      </div>
+      {children}
+    </div>
   );
 }
 
@@ -251,6 +290,12 @@ export function MapLayersPanel({
   showModels = true,
   onShowModelsChange,
   modelsToggleEnabled = false,
+  showWellTrajectories = true,
+  onShowWellTrajectoriesChange,
+  showWellBottomholes = true,
+  onShowWellBottomholesChange,
+  showWellTrajectories3d = true,
+  onShowWellTrajectories3dChange,
   layerVisibilityReadOnly = false,
   openSections: openSectionsProp,
   onOpenSectionsChange,
@@ -347,6 +392,54 @@ export function MapLayersPanel({
           isGroupVisible={isGroupVisible}
           onGroupVisibility={onGroupVisibility}
         />
+
+        <ObjectCategorySection
+          title="Забои"
+          entries={BOTTOMHOLE_LAYER_UI_ENTRIES}
+          subtypes={BOTTOMHOLE_LAYER_SUBTYPES}
+          isGroupVisible={isGroupVisible}
+          onGroupVisibility={onGroupVisibility}
+        />
+        {onShowWellBottomholesChange ? (
+          <LayerRow
+            label="Цели забоев (расчёт)"
+            checked={showWellBottomholes}
+            onChange={onShowWellBottomholesChange}
+            indent="indent"
+            title="Маркеры TD из траекторий на кустах"
+          />
+        ) : null}
+
+        {(onShowWellTrajectoriesChange || onShowWellTrajectories3dChange) && (
+          <OverlayCategorySection
+            title="Траектории"
+            onShowAll={() => {
+              onShowWellTrajectoriesChange?.(true);
+              if (modelsToggleEnabled) onShowWellTrajectories3dChange?.(true);
+            }}
+            onHideAll={() => {
+              onShowWellTrajectoriesChange?.(false);
+              onShowWellTrajectories3dChange?.(false);
+            }}
+          >
+            {onShowWellTrajectoriesChange ? (
+              <LayerRow
+                label="План (2D)"
+                checked={showWellTrajectories}
+                onChange={onShowWellTrajectoriesChange}
+                indent="indent"
+              />
+            ) : null}
+            {onShowWellTrajectories3dChange && modelsToggleEnabled ? (
+              <LayerRow
+                label="3D"
+                checked={showWellTrajectories3d}
+                onChange={onShowWellTrajectories3dChange}
+                indent="indent"
+              />
+            ) : null}
+          </OverlayCategorySection>
+        )}
 
         <div className="map-layers-poi-block">
           <LayerRow

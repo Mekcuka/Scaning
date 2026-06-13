@@ -65,6 +65,8 @@ export const PAD_EARTHWORK_SKETCH_JSON = 'pad_earthwork_sketch_json';
 export const PAD_ENVELOPE_ENABLED = 'pad_envelope_enabled';
 export const PAD_ENVELOPE_WRAP_WIDTH_M = 'pad_envelope_wrap_width_m';
 
+export const DEFAULT_PAD_ENVELOPE_WRAP_WIDTH_M = 3;
+
 const PAD_SUBTYPES = new Set(['oil_pad', 'gas_pad']);
 const EARTHWORK_EXCLUDED = new Set(['node']);
 
@@ -233,6 +235,18 @@ export function withDefaultPadEarthworkDimensions(
   return out;
 }
 
+/** API требует wrap_width_m > 0 даже при enabled=false (хранится как черновик ширины). */
+export function normalizeEnvelopeWrapWidthM(raw: number): number {
+  return Number.isFinite(raw) && raw > 0 ? raw : DEFAULT_PAD_ENVELOPE_WRAP_WIDTH_M;
+}
+
+export function envelopeWrapForApi(
+  enabled: boolean,
+  wrapWidthM: number,
+): { enabled: boolean; wrap_width_m: number } {
+  return { enabled, wrap_width_m: normalizeEnvelopeWrapWidthM(wrapWidthM) };
+}
+
 export function envelopeFromObject(
   props: Record<string, unknown> | null | undefined,
 ): { enabled: boolean; wrap_width_m: number } | null {
@@ -242,8 +256,10 @@ export function envelopeFromObject(
   const enabled = Boolean(enabledRaw);
   const wrapRaw = p[PAD_ENVELOPE_WRAP_WIDTH_M];
   const wrap =
-    wrapRaw != null && Number.isFinite(Number(wrapRaw)) ? Number(wrapRaw) : 3;
-  return { enabled, wrap_width_m: wrap };
+    wrapRaw != null && Number.isFinite(Number(wrapRaw))
+      ? Number(wrapRaw)
+      : DEFAULT_PAD_ENVELOPE_WRAP_WIDTH_M;
+  return { enabled, wrap_width_m: normalizeEnvelopeWrapWidthM(wrap) };
 }
 
 export function sketchSavedAtFromObject(

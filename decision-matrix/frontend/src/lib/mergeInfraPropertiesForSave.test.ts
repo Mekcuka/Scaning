@@ -8,6 +8,34 @@ describe('mergeInfraPropertiesForSave', () => {
     expect(props.throughput_capacity_annual).toBeUndefined();
   });
 
+  it('does not set throughput for well bottomhole subtypes', () => {
+    for (const subtype of [
+      'well_bottomhole_nnb',
+      'well_bottomhole_gs_heel',
+      'well_bottomhole_gs_toe',
+    ]) {
+      const props = mergeInfraPropertiesForSave(subtype, {});
+      expect(props.throughput_capacity_annual).toBeUndefined();
+    }
+  });
+
+  it('does not set sand volume keys for well bottomhole subtypes', () => {
+    for (const subtype of [
+      'well_bottomhole_nnb',
+      'well_bottomhole_gs_heel',
+      'well_bottomhole_gs_toe',
+    ]) {
+      const props = mergeInfraPropertiesForSave(subtype, {
+        sand_volume_m3: 1000,
+        sand_volume_mode: 'single',
+        well_bottomhole_tvd_m: 1500,
+      });
+      expect(props.sand_volume_m3).toBeUndefined();
+      expect(props.sand_volume_mode).toBeUndefined();
+      expect(props.well_bottomhole_tvd_m).toBe(1500);
+    }
+  });
+
   it('sets default pad length and width for earthwork-eligible subtypes', () => {
     const props = mergeInfraPropertiesForSave('substation', {});
     expect(props[PAD_LENGTH_M]).toBe(120);

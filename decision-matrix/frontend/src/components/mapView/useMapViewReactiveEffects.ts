@@ -7,6 +7,9 @@ import { useMapViewOverlays } from './useMapViewOverlays';
 import { useMapViewSelectionSync } from './useMapViewSelectionSync';
 import { useMapViewViewState } from './useMapViewViewState';
 
+import { useMapViewWellTrajectorySync } from './useMapViewWellTrajectorySync';
+import { useMapViewPadPlacementSync } from './useMapViewPadPlacementSync';
+
 export function useMapViewReactiveEffects(refs: MapViewRefs, props: MapViewProps): void {
   const projectId = useAppStore((s) => s.currentProjectId);
 
@@ -20,5 +23,11 @@ export function useMapViewReactiveEffects(refs: MapViewRefs, props: MapViewProps
   useMapViewInteractionState(refs, props);
   useMapViewSelectionSync(refs, props);
   useMapViewDataSync(refs, props);
+  useMapViewWellTrajectorySync(refs, {
+    features: props.wellTrajectoryFeatures ?? [],
+    showWellTrajectories: props.showWellTrajectories ?? false,
+    showWellBottomholes: props.showWellBottomholes ?? false,
+  });
+  useMapViewPadPlacementSync(refs, props.padPlacementPreviewFeatures);
   useMapViewOverlays(refs, props);
 }

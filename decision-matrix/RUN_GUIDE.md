@@ -29,6 +29,8 @@ python -m venv venv
 python -m pip install -r C:\Users\user\Documents\Cursore\decision-matrix\backend\requirements.txt
 python -m pip install -e C:\Users\user\Documents\Cursore\autoroad-network-planner[steinerpy]
 python -m pip install -e C:\Users\user\Documents\Cursore\pad-earthwork-planner
+python -m pip install -e C:\Users\user\Documents\Cursore\well-trajectory-planner
+python -m pip install -e C:\Users\user\Documents\Cursore\well-trajectory-planner
 python C:\Users\user\Documents\Cursore\decision-matrix\backend\run_local.py
 ```
 
@@ -40,7 +42,7 @@ python -m pip -V
 ```
 
 Что делает `run_local.py`:
-- при отсутствии пакета устанавливает `pad-earthwork-planner` (editable)
+- при отсутствии пакета устанавливает `pad-earthwork-planner` и `well-trajectory-planner` (editable)
 - создаёт/инициализирует SQLite БД `backend/data/sppr.db`
 - выполняет сидирование демо-данными
 - запускает API на `http://127.0.0.1:8000`
@@ -162,6 +164,7 @@ python -m venv venv
 python -m pip install -r C:\Users\user\Documents\Cursore\decision-matrix\backend\requirements.txt
 python -m pip install -e C:\Users\user\Documents\Cursore\autoroad-network-planner[steinerpy]
 python -m pip install -e C:\Users\user\Documents\Cursore\pad-earthwork-planner
+python -m pip install -e C:\Users\user\Documents\Cursore\well-trajectory-planner
 python C:\Users\user\Documents\Cursore\decision-matrix\backend\seed.py
 uvicorn app.main:app --reload --host 127.0.0.1 --port 8000
 ```
@@ -295,6 +298,7 @@ npm run dev
   cd C:\Users\user\Documents\Cursore\decision-matrix\backend
   .\venv\Scripts\Activate.ps1
   python -m pip install -e C:\Users\user\Documents\Cursore\pad-earthwork-planner
+python -m pip install -e C:\Users\user\Documents\Cursore\well-trajectory-planner
   ```
 
   Или перезапустите `run_local.py` — скрипт установит пакет сам. Отдельный микросервис: `cd pad-earthwork-planner && python run_server.py` (порт 8081). Подробнее: [docs/features/pad-earthwork.md](../docs/features/pad-earthwork.md).

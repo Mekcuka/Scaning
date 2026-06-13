@@ -65,8 +65,12 @@ export function createMapLayers(refs: MapViewRefs, showBasemap: boolean): MapLay
     placementPreviewSourceRef,
     connectionSourceRef,
     padFootprintSourceRef,
+    wellTrajectoryPlanSourceRef,
+    wellTrajectoryBottomholeSourceRef,
     pointLayerRef,
     padFootprintLayerRef,
+    wellTrajectoryPlanLayerRef,
+    wellTrajectoryBottomholeLayerRef,
     nodePointLayerRef,
     lineLayerRef,
     basemapLayerRef,
@@ -86,6 +90,36 @@ export function createMapLayers(refs: MapViewRefs, showBasemap: boolean): MapLay
     style: footprintStyle,
   });
   padFootprintLayerRef.current = padFootprintLayer;
+
+  const wellTrajectoryPlanLayer = new VectorLayer({
+    source: wellTrajectoryPlanSourceRef.current,
+    zIndex: MAP_LAYER_Z.wellTrajectoryPlan,
+    renderBuffer: MAP_VECTOR_RENDER_BUFFER,
+    updateWhileAnimating: false,
+    updateWhileInteracting: false,
+    style: () =>
+      new Style({
+        stroke: new Stroke({ color: '#1565c0', width: 2.5, lineDash: [8, 6] }),
+      }),
+  });
+  wellTrajectoryPlanLayerRef.current = wellTrajectoryPlanLayer;
+
+  const wellTrajectoryBottomholeLayer = new VectorLayer({
+    source: wellTrajectoryBottomholeSourceRef.current,
+    zIndex: MAP_LAYER_Z.wellTrajectoryBottomhole,
+    renderBuffer: MAP_VECTOR_RENDER_BUFFER,
+    updateWhileAnimating: false,
+    updateWhileInteracting: false,
+    style: () =>
+      new Style({
+        image: new CircleStyle({
+          radius: 7,
+          fill: new Fill({ color: '#c62828' }),
+          stroke: new Stroke({ color: '#ffffff', width: 2 }),
+        }),
+      }),
+  });
+  wellTrajectoryBottomholeLayerRef.current = wellTrajectoryBottomholeLayer;
 
   const lineLayer = new VectorLayer({
     source: lineSourceRef.current,
@@ -132,6 +166,44 @@ export function createMapLayers(refs: MapViewRefs, showBasemap: boolean): MapLay
       if (subtype === 'footprint-edge-highlight') {
         return new Style({
           stroke: new Stroke({ color: '#ff9800', width: 5 }),
+        });
+      }
+      if (subtype === 'gs-bottomhole-connector' || subtype === 'gs-bottomhole-connector-preview') {
+        return new Style({
+          stroke: new Stroke({
+            color: '#2e7d32',
+            width: subtype === 'gs-bottomhole-connector-preview' ? 2.5 : 3,
+            lineDash: subtype === 'gs-bottomhole-connector-preview' ? [8, 6] : undefined,
+          }),
+        });
+      }
+      if (subtype === 'pad-placement-pad_footprint_preview') {
+        return new Style({
+          fill: new Fill({ color: 'rgba(46, 125, 50, 0.18)' }),
+          stroke: new Stroke({ color: '#2e7d32', width: 2.5, lineDash: [8, 6] }),
+        });
+      }
+      if (subtype === 'pad-placement-trajectory_plan_preview') {
+        return new Style({
+          stroke: new Stroke({ color: '#1565c0', width: 2, lineDash: [6, 4] }),
+        });
+      }
+      if (subtype === 'pad-placement-wellhead_preview') {
+        return new Style({
+          image: new CircleStyle({
+            radius: 6,
+            fill: new Fill({ color: '#2e7d32' }),
+            stroke: new Stroke({ color: '#fff', width: 2 }),
+          }),
+        });
+      }
+      if (subtype === 'pad-placement-bottomhole_td_preview') {
+        return new Style({
+          image: new CircleStyle({
+            radius: 5,
+            fill: new Fill({ color: '#c62828' }),
+            stroke: new Stroke({ color: '#fff', width: 1.5 }),
+          }),
         });
       }
       const id = feature.get('id') as string;
@@ -229,6 +301,8 @@ export function createMapLayers(refs: MapViewRefs, showBasemap: boolean): MapLay
     nodePointLayer,
     pointLayer,
     padFootprintLayer,
+    wellTrajectoryPlanLayer,
+    wellTrajectoryBottomholeLayer,
     radiusLayer,
     placementPreviewLayer,
     connectionLayer,

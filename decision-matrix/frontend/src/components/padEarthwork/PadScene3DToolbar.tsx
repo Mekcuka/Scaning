@@ -15,6 +15,7 @@ import type { Scene3dCameraPreset } from '../../lib/padEarthworkScene3dCamera';
 
 export type PadScene3DToolbarProps = {
   zoomPercent: number;
+  activePreset?: Scene3dCameraPreset | null;
   onZoomIn: () => void;
   onZoomOut: () => void;
   onFitView: () => void;
@@ -23,6 +24,8 @@ export type PadScene3DToolbarProps = {
   onOrbitRight: () => void;
   onTiltUp: () => void;
   onTiltDown: () => void;
+  /** Подсказка по управлению мышью (в overlay лучше скрыть) */
+  showHint?: boolean;
 };
 
 const PRESET_ICONS: Record<Scene3dCameraPreset, ReactNode> = {
@@ -41,6 +44,7 @@ const PRESET_BUTTONS: { preset: Scene3dCameraPreset; label: string; title: strin
 
 export function PadScene3DToolbar({
   zoomPercent,
+  activePreset = null,
   onZoomIn,
   onZoomOut,
   onFitView,
@@ -49,6 +53,7 @@ export function PadScene3DToolbar({
   onOrbitRight,
   onTiltUp,
   onTiltDown,
+  showHint = true,
 }: PadScene3DToolbarProps) {
   return (
     <div
@@ -61,8 +66,11 @@ export function PadScene3DToolbar({
           <button
             key={preset}
             type="button"
-            className="pad-earthwork-sketch-toolbar__btn"
+            className={`pad-earthwork-sketch-toolbar__btn${
+              activePreset === preset ? ' pad-earthwork-sketch-toolbar__btn--active' : ''
+            }`}
             title={title}
+            aria-pressed={activePreset === preset}
             onClick={() => onCameraPreset(preset)}
           >
             {PRESET_ICONS[preset]}
@@ -138,9 +146,11 @@ export function PadScene3DToolbar({
         </button>
       </div>
 
-      <span className="pad-earthwork-sketch-toolbar__meta pad-scene3d-toolbar__hint">
-        Колёсико — зум · ЛКМ — вращение · ПКМ — сдвиг
-      </span>
+      {showHint ? (
+        <span className="pad-earthwork-sketch-toolbar__meta pad-scene3d-toolbar__hint">
+          Колёсико — зум · ЛКМ — вращение · ПКМ — сдвиг
+        </span>
+      ) : null}
     </div>
   );
 }

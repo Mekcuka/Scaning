@@ -4,9 +4,11 @@ import {
   demandIncrementForYear,
   effectiveSandDemandM3,
   mergeSandVolumeForSave,
+  pointShowsSandDemand,
   readSandVolumeByYear,
   readSandVolumeInputMode,
   sandDemandPlanTotalM3,
+  stripSandVolumeProperties,
 } from './infraSandVolumes';
 
 describe('effectiveSandDemandM3', () => {
@@ -103,5 +105,25 @@ describe('effectiveSandDemandM3', () => {
     ] as never);
     expect(bounds.horizonFrom).toBe('2022-03-01');
     expect(bounds.horizonTo).toBe('2027-12-31');
+  });
+
+  it('pointShowsSandDemand excludes well bottomholes', () => {
+    expect(pointShowsSandDemand('well_bottomhole_nnb')).toBe(false);
+    expect(pointShowsSandDemand('well_bottomhole_gs_heel')).toBe(false);
+    expect(pointShowsSandDemand('well_bottomhole_gs_toe')).toBe(false);
+    expect(pointShowsSandDemand('oil_pad')).toBe(true);
+  });
+
+  it('stripSandVolumeProperties removes sand keys', () => {
+    const cleaned = stripSandVolumeProperties({
+      sand_volume_m3: 1000,
+      sand_volume_mode: 'single',
+      sand_volume_by_year: { '2025': 100 },
+      well_bottomhole_tvd_m: 1500,
+    });
+    expect(cleaned.sand_volume_m3).toBeUndefined();
+    expect(cleaned.sand_volume_mode).toBeUndefined();
+    expect(cleaned.sand_volume_by_year).toBeUndefined();
+    expect(cleaned.well_bottomhole_tvd_m).toBe(1500);
   });
 });

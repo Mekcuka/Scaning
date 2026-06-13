@@ -1,4 +1,4 @@
-/** Three.js scene builders for pad earthwork 3D preview (ENU: X=east, Y=up, Z=north). */
+/** Three.js scene builders for pad earthwork 3D preview. Plan ENU → scene: X=−east, Y=up, Z=north. */
 
 import * as THREE from 'three';
 import {
@@ -14,7 +14,6 @@ import {
   envelopeBermSlopeHeightM,
   envelopeOuterVertices,
   isPlanPolygon,
-  isPlanRectangle,
   localPlanCorners,
   offsetPolygonInward,
   planVerticesCentroid,
@@ -24,6 +23,19 @@ import {
 import { frameScene3dCamera } from './padEarthworkScene3dCamera';
 
 export type Scene3dBounds = PadDemPreviewBounds;
+
+/** Plan east (right on 2D sketch) → scene X (matches top-down view with north-up camera). */
+export function planEastToSceneX(eastM: number): number {
+  return -eastM;
+}
+
+export function planNorthToSceneZ(northM: number): number {
+  return northM;
+}
+
+export function planEnuToSceneXyz(eastM: number, y: number, northM: number): [number, number, number] {
+  return [planEastToSceneX(eastM), y, planNorthToSceneZ(northM)];
+}
 
 export function fillTerrainElevations(
   elevations: (number | null)[],
@@ -97,7 +109,7 @@ export function buildTerrainMesh(preview: PadDemPreview): THREE.Mesh {
       const east = bounds.min_east_m + c * cell_size_m;
       const north = bounds.min_north_m + r * cell_size_m;
       const elev = filled[i]!;
-      positions.push(east, elev, north);
+      positions.push(planEastToSceneX(east), elev, north);
       const [red, green, blue] = elevationRgb(elev, elev_min, elev_max);
       colors.push(red / 255, green / 255, blue / 255);
     }
@@ -136,8 +148,12 @@ export type BuildPadMeshOptions = {
 
 type Vec3 = [number, number, number];
 
+function planOutwardToScene(outEast: number, outNorth: number): Vec3 {
+  return [-outEast, 0, outNorth];
+}
+
 function toVec3(v: PlanVertex, y: number): Vec3 {
-  return [v.east_m, y, v.north_m];
+  return planEnuToSceneXyz(v.east_m, y, v.north_m);
 }
 
 function triNormal(a: Vec3, b: Vec3, c: Vec3): Vec3 {
@@ -201,14 +217,16 @@ function pushOrientedTriangle(
   }
 }
 
-function buildPadGeometryWithBermGap(
+function buildPadSolidGeometry(
   outerVerts: PlanVertex[],
   referenceM: number,
   heightM: number,
-  bermWrapWidthM: number,
+  topCapInsetM = 0,
 ): THREE.BufferGeometry | null {
-  const topVerts = offsetPolygonInward(outerVerts, bermWrapWidthM);
-  if (outerVerts.length < 3 || topVerts.length < 3) return null;
+  if (outerVerts.length < 3) return null;
+  const topVerts =
+    topCapInsetM > 0 ? offsetPolygonInward(outerVerts, topCapInsetM) : outerVerts;
+  if (topVerts.length < 3) return null;
 
   const baseY = referenceM + heightM;
   const centroid = planVerticesCentroid(outerVerts);
@@ -223,11 +241,10 @@ function buildPadGeometryWithBermGap(
     const v1 = outerVerts[j]!;
     const edgeMidEast = (v0.east_m + v1.east_m) / 2;
     const edgeMidNorth = (v0.north_m + v1.north_m) / 2;
-    const outward: Vec3 = [
+    const outward = planOutwardToScene(
       edgeMidEast - centroid.east_m,
-      0,
       edgeMidNorth - centroid.north_m,
-    ];
+    );
     const bot0 = toVec3(v0, referenceM);
     const bot1 = toVec3(v1, referenceM);
     const top1 = toVec3(v1, baseY);
@@ -264,6 +281,15 @@ function buildPadGeometryWithBermGap(
   return geometry;
 }
 
+function buildPadGeometryWithBermGap(
+  outerVerts: PlanVertex[],
+  referenceM: number,
+  heightM: number,
+  bermWrapWidthM: number,
+): THREE.BufferGeometry | null {
+  return buildPadSolidGeometry(outerVerts, referenceM, heightM, bermWrapWidthM);
+}
+
 export function buildPadMesh(
   sketch: PlanShapeSketch,
   referenceM: number,
@@ -296,32 +322,10 @@ export function buildPadMesh(
     }
   }
 
-  if (isPlanRectangle(sketch)) {
-    const geometry = new THREE.BoxGeometry(sketch.length_m, heightM, sketch.width_m);
-    const mesh = new THREE.Mesh(geometry, fillMat);
-    mesh.rotation.y = (sketch.rotation_deg * Math.PI) / 180;
-    mesh.position.y = referenceM + heightM / 2;
-    group.add(mesh);
-
-    const edges = new THREE.LineSegments(new THREE.EdgesGeometry(geometry), edgeMat);
-    edges.rotation.copy(mesh.rotation);
-    edges.position.copy(mesh.position);
-    group.add(edges);
-    return group;
-  }
-
   if (outerVerts.length < 3) return group;
 
-  const shape = new THREE.Shape();
-  outerVerts.forEach((v, index) => {
-    if (index === 0) shape.moveTo(v.east_m, -v.north_m);
-    else shape.lineTo(v.east_m, -v.north_m);
-  });
-  shape.closePath();
-
-  const geometry = new THREE.ExtrudeGeometry(shape, { depth: heightM, bevelEnabled: false });
-  geometry.rotateX(-Math.PI / 2);
-  geometry.translate(0, referenceM, 0);
+  const geometry = buildPadSolidGeometry(outerVerts, referenceM, heightM);
+  if (!geometry) return group;
 
   const mesh = new THREE.Mesh(geometry, fillMat);
   group.add(mesh);
@@ -405,7 +409,7 @@ export function buildEnvelopeBermRing(
     const edgeMidEast = (in0.east_m + in1.east_m) / 2;
     const edgeMidNorth = (in0.north_m + in1.north_m) / 2;
     const toCentroid: Vec3 = [
-      centroid.east_m - edgeMidEast,
+      planEastToSceneX(centroid.east_m) - planEastToSceneX(edgeMidEast),
       0,
       centroid.north_m - edgeMidNorth,
     ];
@@ -467,7 +471,7 @@ export function buildFlatGroundPlane(bounds: Scene3dBounds, referenceM: number):
   });
   const mesh = new THREE.Mesh(geometry, material);
   mesh.rotation.x = -Math.PI / 2;
-  mesh.position.set(cx, referenceM, cz);
+  mesh.position.set(planEastToSceneX(cx), referenceM, cz);
   return mesh;
 }
 

@@ -7,6 +7,11 @@ JOB_TYPE_LABELS: dict[str, str] = {
     "poi_analyze_all": "Анализ окружения",
     "autoroad_connect": "Автодороги / сеть",
     "import_file": "Импорт файла",
+    "pad_earthwork_compute": "Земляные работы куста",
+    "well_trajectory_compute": "Anti-collision (SF)",
+    "well_trajectory_import": "Импорт инклинометрии",
+    "pad_placement_compute": "Оптимизация кустов",
+    "pad_placement_apply": "Применение кустов",
 }
 
 JOB_STATUS_LABELS: dict[str, str] = {

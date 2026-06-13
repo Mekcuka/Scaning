@@ -15,6 +15,16 @@ SAND_VOLUME_MODE = "sand_volume_mode"
 SAND_QUARRY_SUBTYPE = "sand_quarry"
 NODE_SUBTYPE = "node"
 
+SAND_PROPERTY_KEYS = frozenset(
+    {
+        SAND_VOLUME_INITIAL_M3,
+        SAND_VOLUME_CURRENT_M3,
+        SAND_VOLUME_DEMAND_M3,
+        SAND_VOLUME_BY_YEAR,
+        SAND_VOLUME_MODE,
+    }
+)
+
 # Point subtypes excluded from sand demand
 SAND_DEMAND_EXCLUDED_SUBTYPES = frozenset({NODE_SUBTYPE, SAND_QUARRY_SUBTYPE})
 
@@ -153,16 +163,32 @@ def effective_sand_demand_m3(
     return 0.0, round(fallback, 2), {}
 
 
+def strip_sand_volume_properties(properties: dict | None) -> dict:
+    """Remove sand logistics keys (e.g. well bottomholes must not carry sand demand)."""
+    props = dict(properties or {})
+    for key in SAND_PROPERTY_KEYS:
+        props.pop(key, None)
+    return props
+
+
 def is_sand_consumer_subtype(subtype: str) -> bool:
-    return subtype not in SAND_DEMAND_EXCLUDED_SUBTYPES
+    from app.services.well_trajectory.bottomhole_properties import is_bottomhole_subtype
+
+    st = subtype.strip().lower()
+    if is_bottomhole_subtype(st):
+        return False
+    return st not in SAND_DEMAND_EXCLUDED_SUBTYPES
 
 
 def apply_default_sand_volumes(subtype: str, properties: dict | None) -> dict:
     """Fill sand volume properties on new point objects when keys are absent."""
     from app.geo.constants import LINE_SUBTYPES
+    from app.services.well_trajectory.bottomhole_properties import is_bottomhole_subtype
 
     props = dict(properties or {})
     st = subtype.strip().lower()
+    if is_bottomhole_subtype(st):
+        return strip_sand_volume_properties(props)
     if st in LINE_SUBTYPES:
         return props
     if st == SAND_QUARRY_SUBTYPE:

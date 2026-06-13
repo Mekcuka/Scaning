@@ -8,7 +8,7 @@ from uuid import UUID
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.geo.constants import NODE_CLUSTER_SUBTYPES
+from app.geo.constants import AUTOROAD_NETWORK_EXCLUDED_TERMINAL_SUBTYPES
 from app.models import InfrastructureLayer, InfrastructureObject
 from app.services.autoroad_connect import (
     MAX_CONNECT_OBJECTS,
@@ -51,7 +51,7 @@ async def build_request_snapshot(
         )
     ).scalars().all()
     for obj in rows:
-        if obj.subtype in NODE_CLUSTER_SUBTYPES:
+        if obj.subtype in AUTOROAD_NETWORK_EXCLUDED_TERMINAL_SUBTYPES:
             raise ValueError(f"excluded_terminal_subtype:{obj.subtype}")
 
     req = await build_plan_request(

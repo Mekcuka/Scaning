@@ -7,6 +7,34 @@ import type { InfraDetailTab, PoiDetailTab } from './constants';
 import { createInfraFormDraftFromObject, createPoiFormFromSelection } from './formState';
 import { readPointFootprintLineConnections } from '../../lib/padFootprintLineAttach';
 import type { SelectedFeature } from './types';
+import {
+  WELL_BOTTOMHOLE_GS_HEEL_ID,
+  WELL_BOTTOMHOLE_LINKED_PAD_ID,
+  WELL_BOTTOMHOLE_TARGET_AZI,
+  WELL_BOTTOMHOLE_TARGET_INC,
+  WELL_BOTTOMHOLE_TVD_M,
+  WELL_BOTTOMHOLE_WELL_INDEX,
+} from '../../lib/wellBottomholeProperties';
+
+const BOTTOMHOLE_PROP_KEYS = [
+  WELL_BOTTOMHOLE_LINKED_PAD_ID,
+  WELL_BOTTOMHOLE_WELL_INDEX,
+  WELL_BOTTOMHOLE_TVD_M,
+  WELL_BOTTOMHOLE_TARGET_INC,
+  WELL_BOTTOMHOLE_TARGET_AZI,
+  WELL_BOTTOMHOLE_GS_HEEL_ID,
+] as const;
+
+export function pickBottomholePropsPatch(
+  props: Record<string, unknown> | null | undefined,
+): Record<string, unknown> {
+  const out: Record<string, unknown> = {};
+  if (!props) return out;
+  for (const key of BOTTOMHOLE_PROP_KEYS) {
+    if (props[key] !== undefined) out[key] = props[key];
+  }
+  return out;
+}
 
 export function useObjectDetailFormState(
   selection: SelectedFeature,
@@ -45,6 +73,7 @@ export function useObjectDetailFormState(
   >({});
   const [infraTab, setInfraTab] = useState<InfraDetailTab>('main');
   const [poiTab, setPoiTab] = useState<PoiDetailTab>('basic');
+  const [bottomholePropsPatch, setBottomholePropsPatch] = useState<Record<string, unknown>>({});
   const selectionKeyRef = useRef('');
 
   useEffect(() => {
@@ -92,6 +121,7 @@ export function useObjectDetailFormState(
     setPadMarginTopM(draft.padMarginTopM);
     setPadMarginEndM(draft.padMarginEndM);
     setPointFootprintLineConnections(draft.pointFootprintLineConnections);
+    setBottomholePropsPatch({});
     setInfraTab(draft.infraTab);
     setPoiTab(draft.poiTab);
   }, [selection, map3dCustomModels]);
@@ -170,5 +200,7 @@ export function useObjectDetailFormState(
     setInfraTab,
     poiTab,
     setPoiTab,
+    bottomholePropsPatch,
+    setBottomholePropsPatch,
   };
 }

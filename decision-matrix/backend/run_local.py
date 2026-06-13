@@ -153,9 +153,34 @@ def ensure_pad_earthwork_planner() -> None:
     )
 
 
+def ensure_well_trajectory_planner() -> None:
+    """Install well-trajectory-planner from monorepo sibling if missing."""
+    try:
+        import well_trajectory  # noqa: F401
+        return
+    except ImportError:
+        pass
+    planner_dir = BACKEND_DIR.parent.parent / "well-trajectory-planner"
+    if not planner_dir.is_dir():
+        print(
+            "WARNING: well-trajectory-planner not installed and not found at",
+            planner_dir,
+            "— well trajectory will return 503 until you run:",
+            "pip install -e ../../../well-trajectory-planner",
+        )
+        return
+    print("Installing well-trajectory-planner (editable)...")
+    subprocess.run(
+        [sys.executable, "-m", "pip", "install", "-e", str(planner_dir)],
+        cwd=BACKEND_DIR,
+        check=True,
+    )
+
+
 def main():
     sys.path.insert(0, str(BACKEND_DIR))
     ensure_pad_earthwork_planner()
+    ensure_well_trajectory_planner()
     print("Initializing SQLite database...")
     asyncio.run(init_db())
     print("Seeding demo data...")

@@ -28,7 +28,15 @@ class PadHeightReferenceIn(BaseModel):
 
 class EnvelopeWrapIn(BaseModel):
     enabled: bool = True
-    wrap_width_m: float = Field(..., gt=0, le=100)
+    wrap_width_m: float = Field(default=3.0, ge=0, le=100)
+
+    @model_validator(mode="after")
+    def _validate_wrap_width(self) -> EnvelopeWrapIn:
+        if self.enabled and self.wrap_width_m <= 0:
+            raise ValueError("wrap_width_m must be greater than 0 when envelope is enabled")
+        if self.wrap_width_m <= 0:
+            return self.model_copy(update={"wrap_width_m": 3.0})
+        return self
 
 
 class PlanRectangleSketchIn(BaseModel):

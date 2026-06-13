@@ -12,6 +12,9 @@ export const THROUGHPUT_CAPACITY_EXCLUDED_SUBTYPES = new Set([
   'vies',
   'gtes',
   'gpes',
+  'well_bottomhole_nnb',
+  'well_bottomhole_gs_heel',
+  'well_bottomhole_gs_toe',
 ]);
 
 export type InfraCapacityUnit = 'thousand_t_per_year' | 'thousand_m3_per_year';

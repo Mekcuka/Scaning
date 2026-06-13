@@ -52,6 +52,7 @@ export function setupMapClickHandlers(
       const overPoint =
         mode === 'line' ||
         mode === 'autoroad_network' ||
+        mode === 'pad_placement' ||
         (mode === 'point' && !overLine)
           ? resolveInfraPointAtPixel(evt.pixel) ?? undefined
           : undefined;

@@ -125,3 +125,13 @@ def test_manifest_labels_and_categories_cover_map_subtypes():
     assert SUBTYPE_CATEGORY == categories
     assert geo_constants.SUBTYPE_LABELS == SUBTYPE_LABELS
     assert geo_constants.SUBTYPE_CATEGORY == SUBTYPE_CATEGORY
+
+
+def test_well_bottomhole_subtypes_are_map_points():
+    from app.geo.validation import validate_subtype_geometry
+
+    raw = json.loads(_MANIFEST_PATH.read_text(encoding="utf-8"))
+    bottomholes = raw["clusters"]["bottomhole"]
+    assert set(bottomholes).issubset(set(raw["point"]["map"]))
+    for subtype in bottomholes:
+        validate_subtype_geometry(subtype)

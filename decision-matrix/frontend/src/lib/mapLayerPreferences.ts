@@ -24,6 +24,12 @@ export type MapLayerPreferences = {
   openSections: MapLayerOpenSections;
   /** Simplify lines to 2 points when map scale 1:N is at or above this N. */
   lineLodScaleThreshold: number;
+  /** Horizontal plan projection of well trajectories (2D map). */
+  showWellTrajectories: boolean;
+  /** Bottomhole target markers on 2D map. */
+  showWellBottomholes: boolean;
+  /** 3D trajectory lines (MapLibre). */
+  showWellTrajectories3d: boolean;
 };
 
 const DEFAULT_RADIUS_VISIBLE: Record<string, boolean> = {
@@ -51,6 +57,9 @@ export function defaultMapLayerPreferences(): MapLayerPreferences {
     subtypeFilter: createDefaultSubtypeFilter(),
     openSections: { ...DEFAULT_OPEN_SECTIONS },
     lineLodScaleThreshold: DEFAULT_LINE_LOD_SCALE_THRESHOLD,
+    showWellTrajectories: true,
+    showWellBottomholes: true,
+    showWellTrajectories3d: true,
   };
 }
 
@@ -102,6 +111,18 @@ export function loadMapLayerPreferences(projectId: string | null): MapLayerPrefe
         typeof parsed.lineLodScaleThreshold === 'number'
           ? clampLineLodScaleThreshold(parsed.lineLodScaleThreshold)
           : defaults.lineLodScaleThreshold,
+      showWellTrajectories:
+        typeof parsed.showWellTrajectories === 'boolean'
+          ? parsed.showWellTrajectories
+          : defaults.showWellTrajectories,
+      showWellBottomholes:
+        typeof parsed.showWellBottomholes === 'boolean'
+          ? parsed.showWellBottomholes
+          : defaults.showWellBottomholes,
+      showWellTrajectories3d:
+        typeof parsed.showWellTrajectories3d === 'boolean'
+          ? parsed.showWellTrajectories3d
+          : defaults.showWellTrajectories3d,
     };
   } catch {
     return defaults;

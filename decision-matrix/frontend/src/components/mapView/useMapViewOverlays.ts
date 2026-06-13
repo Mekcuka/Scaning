@@ -23,6 +23,7 @@ export function useMapViewOverlays(
     measureCursorLabel = null,
     measureAnchorLabels = [],
     autoroadPlanPreviewLines = [],
+    gsBottomholePreviewLines = [],
     connectionLines = [],
     selectedPoi = null,
     thresholdCircles = [],
@@ -42,6 +43,7 @@ export function useMapViewOverlays(
     | 'measureCursorLabel'
     | 'measureAnchorLabels'
     | 'autoroadPlanPreviewLines'
+    | 'gsBottomholePreviewLines'
     | 'connectionLines'
     | 'selectedPoi'
     | 'thresholdCircles'
@@ -67,6 +69,7 @@ export function useMapViewOverlays(
         f.get('subtype') === 'draft-point' ||
         f.get('subtype') === 'autoroad-plan-link' ||
         f.get('subtype') === 'autoroad-plan-connector' ||
+        f.get('subtype') === 'gs-bottomhole-connector-preview' ||
         f.get('subtype') === 'footprint-edge-highlight'
       )
       .forEach((f) => lines.removeFeature(f));
@@ -144,6 +147,17 @@ export function useMapViewOverlays(
         }),
       );
     });
+
+    gsBottomholePreviewLines.forEach((pl, i) => {
+      if (pl.coordinates.length < 2) return;
+      lines.addFeature(
+        new Feature({
+          geometry: new LineString(pl.coordinates.map((c) => fromLonLat([c[0], c[1]]))),
+          subtype: 'gs-bottomhole-connector-preview',
+          id: `gs-bottomhole-preview-${i}`,
+        }),
+      );
+    });
   }, [
     draftLine,
     draftLinePreview,
@@ -151,6 +165,7 @@ export function useMapViewOverlays(
     measurePreview,
     measureCompletedLines,
     autoroadPlanPreviewLines,
+    gsBottomholePreviewLines,
   ]);
 
   useEffect(() => {

@@ -26,6 +26,7 @@ import {
   Import3DPage,
   LoginPage,
   MapPage,
+  PadClusteringPage,
   MatrixPage,
   ParametersLayout,
   ParametersPage,
@@ -56,6 +57,7 @@ function AppRoutes() {
                 <Route element={<AppLayout />}>
                   <Route path="/" element={<DashboardPage />} />
                   <Route path="/map" element={<MapPage />} />
+                  <Route path="/pad-clustering" element={<PadClusteringPage />} />
                   <Route path="/parameters" element={<ParametersLayout />}>
                     <Route index element={<SectionIndexRedirect section="parameters" />} />
                     <Route path="capacity" element={<ParametersPage />} />

@@ -316,9 +316,54 @@ export function useMapInfraCreate({
     ],
   );
 
+  const placeBottomholeAt = useCallback(
+    async (
+      subtype: string,
+      lon: number,
+      lat: number,
+      properties: Record<string, unknown>,
+    ): Promise<InfraObject | null> => {
+      if (!projectId || !canWriteInfra) return null;
+      try {
+        await queryClient.cancelQueries({ queryKey: ['infra', projectId] });
+        const created = await mapApi.createInfraObject(projectId, {
+          name: nextAutoName(subtype),
+          subtype,
+          lon,
+          lat,
+          properties: mergeInfraPropertiesForSave(subtype, properties),
+        });
+        await afterInfraPointCreated(created);
+        pushUndo({
+          kind: 'create_infra',
+          objectId: created.id,
+          label: `создание «${created.name}»`,
+        });
+        void invalidateMap();
+        return created;
+      } catch (err) {
+        pushToast('error', err instanceof Error ? err.message : 'Не удалось сохранить забой');
+        void refreshMapQueries(queryClient, projectId);
+        return null;
+      }
+    },
+    [
+      projectId,
+      canWriteInfra,
+      queryClient,
+      nextAutoName,
+      afterInfraPointCreated,
+      pushUndo,
+      pushToast,
+      invalidateMap,
+      mapApi,
+    ],
+  );
+
   return {
     createPoiMut,
     createInfraMut,
     placeInfraPointAt,
+    placeBottomholeAt,
   };
 }

@@ -26,6 +26,12 @@ export type MapPageLayersSidebarProps = {
   mapIn3d: boolean;
   showModels: boolean;
   onShowModelsChange: (visible: boolean) => void;
+  showWellTrajectories: boolean;
+  onShowWellTrajectoriesChange: (visible: boolean) => void;
+  showWellBottomholes: boolean;
+  onShowWellBottomholesChange: (visible: boolean) => void;
+  showWellTrajectories3d: boolean;
+  onShowWellTrajectories3dChange: (visible: boolean) => void;
 };
 
 export function MapPageLayersSidebar({
@@ -51,6 +57,12 @@ export function MapPageLayersSidebar({
   mapIn3d,
   showModels,
   onShowModelsChange,
+  showWellTrajectories,
+  onShowWellTrajectoriesChange,
+  showWellBottomholes,
+  onShowWellBottomholesChange,
+  showWellTrajectories3d,
+  onShowWellTrajectories3dChange,
 }: MapPageLayersSidebarProps) {
   return (
     <>
@@ -85,6 +97,12 @@ export function MapPageLayersSidebar({
           showModels={showModels}
           onShowModelsChange={mapIn3d ? onShowModelsChange : undefined}
           modelsToggleEnabled={mapIn3d}
+          showWellTrajectories={showWellTrajectories}
+          onShowWellTrajectoriesChange={onShowWellTrajectoriesChange}
+          showWellBottomholes={showWellBottomholes}
+          onShowWellBottomholesChange={onShowWellBottomholesChange}
+          showWellTrajectories3d={showWellTrajectories3d}
+          onShowWellTrajectories3dChange={mapIn3d ? onShowWellTrajectories3dChange : undefined}
           onClose={onClose}
         />
       </aside>

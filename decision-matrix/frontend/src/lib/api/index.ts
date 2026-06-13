@@ -30,5 +30,6 @@ export { networkApi } from './networkApi';
 export { onePagerApi } from './onePagerApi';
 export { projectsApi } from './projectsApi';
 export { sandLogisticsApi } from './sandLogisticsApi';
+export { padPlacementApi } from './padPlacementApi';
 export * from './ports';
 export { api } from './apiClient';

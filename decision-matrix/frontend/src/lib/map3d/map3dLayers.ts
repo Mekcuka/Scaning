@@ -91,6 +91,32 @@ export function addMap3dVectorLayers(map: MapLibreMap): void {
   });
 
   map.addLayer({
+    id: MAP3D_LAYER_IDS.wellTrajectories,
+    type: 'line',
+    source: MAP3D_SOURCE_IDS.wellTrajectories,
+    paint: {
+      'line-color': [
+        'case',
+        [
+          'all',
+          ['has', 'min_sf'],
+          ['<', ['get', 'min_sf'], ['coalesce', ['get', 'sf_warning_threshold'], 1]],
+        ],
+        '#c62828',
+        ['has', 'min_sf'],
+        '#2e7d32',
+        '#1565c0',
+      ],
+      'line-width': 3,
+      'line-opacity': 0.85,
+    },
+    layout: {
+      'line-cap': 'round',
+      'line-join': 'round',
+    },
+  });
+
+  map.addLayer({
     id: MAP3D_LAYER_IDS.analysisLabels,
     type: 'symbol',
     source: MAP3D_SOURCE_IDS.analysisLabels,

@@ -33,7 +33,9 @@ export function isMapNodePointSubtype(subtype: string): boolean {
 export const MAP_LAYER_Z = {
   radius: 1,
   footprint: 2,
+  wellTrajectoryPlan: 2.5,
   line: 3,
+  wellTrajectoryBottomhole: 3.5,
   nodePoint: 4,
   point: 5,
   connection: 6,

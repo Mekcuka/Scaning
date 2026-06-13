@@ -14,13 +14,14 @@ import {
   effectiveThroughputCapacity,
   pointShowsThroughputCapacity,
 } from '../../lib/infraCapacity';
-import { isEarthworkEligibleSubtype } from '../../lib/infraPadEarthwork';
+import { isEarthworkEligibleSubtype, isPadSubtype } from '../../lib/infraPadEarthwork';
 import { pointShowsPadWellFields } from '../../lib/infraPadWells';
 import {
   isSandQuarrySubtype,
   pointShowsSandDemand,
 } from '../../lib/infraSandVolumes';
 import { objectShowsEntryDate } from '../../lib/infraEntryDate';
+import { isBottomholeSubtype } from '../../lib/wellBottomholeProperties';
 import { buildRender3dModelOptions } from '../../lib/map3d/render3dModelOptions';
 import { useProjectSandLogistics } from '../../hooks/useProjectSandLogistics';
 import { useActiveProject } from '../../hooks/useActiveProject';
@@ -76,6 +77,7 @@ export function useObjectDetailInfraDerived(params: {
       padMarginTopM: form.padMarginTopM,
       padMarginEndM: form.padMarginEndM,
       pointFootprintLineConnections: form.pointFootprintLineConnections,
+      bottomholePropsPatch: form.bottomholePropsPatch,
     }),
     [form],
   );
@@ -113,7 +115,12 @@ export function useObjectDetailInfraDerived(params: {
   const showSandDemandField =
     selection.kind === 'infra' && pointShowsSandDemand(form.subtype) && !isLine;
   const showPadEarthworkSection =
-    selection.kind === 'infra' && isEarthworkEligibleSubtype(form.subtype) && !isLine;
+    selection.kind === 'infra' &&
+    isEarthworkEligibleSubtype(form.subtype) &&
+    !isBottomholeSubtype(form.subtype) &&
+    !isLine;
+  const showTrajectoriesSection =
+    selection.kind === 'infra' && isPadSubtype(form.subtype) && !isLine;
   const showPadWellCountField =
     selection.kind === 'infra' && pointShowsPadWellFields(form.subtype) && !isLine;
 
@@ -152,7 +159,10 @@ export function useObjectDetailInfraDerived(params: {
   const showLogisticsTab = showSandQuarryFields || showSandDemandField || showPadEarthworkSection;
 
   const showFootprintLineConnectionsSection =
-    selection.kind === 'infra' && isEarthworkEligibleSubtype(form.subtype) && !isLine;
+    selection.kind === 'infra' &&
+    isEarthworkEligibleSubtype(form.subtype) &&
+    !isBottomholeSubtype(form.subtype) &&
+    !isLine;
 
   const displayName = isPoi
     ? (form.poiForm?.name ?? (selection.kind === 'poi' ? selection.poi.name : 'Объект'))
@@ -183,6 +193,7 @@ export function useObjectDetailInfraDerived(params: {
     showSandQuarryFields,
     showSandDemandField,
     showPadEarthworkSection,
+    showTrajectoriesSection,
     showPadWellCountField,
     sandLogistics,
     infraObjectId,

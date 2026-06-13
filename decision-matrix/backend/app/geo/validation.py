@@ -8,15 +8,15 @@ from app.geo.constants import (
     IE_DERIVED_POINT_SUBTYPES,
     IMMUTABLE_POINT_SUBTYPES,
     IMPORT_ONLY_POINT_SUBTYPES,
-    LINE_SUBTYPES,
     NODE_CLUSTER_SUBTYPES,
     PAD_CLUSTER_SUBTYPES,
+    BOTTOMHOLE_CLUSTER_SUBTYPES,
     NODE_DERIVED_POINT_SUBTYPES,
     PAD_DERIVED_POINT_SUBTYPES,
-    POINT_SUBTYPES,
     SPARK_EXCLUSIVE_POINT_SUBTYPES,
     SUBTYPE_LABELS,
 )
+from app.subtype_manifest import load_infrastructure_subtypes_manifest
 
 
 def validate_subtype_geometry(
@@ -25,11 +25,14 @@ def validate_subtype_geometry(
     has_line_endpoints: bool = False,
     coordinate_count: int = 1,
 ) -> None:
+    manifest = load_infrastructure_subtypes_manifest()
+    point_subtypes = frozenset(manifest["point"]["map"])
+    line_subtypes = frozenset(manifest["linear"]["all"])
     st = subtype.lower().strip()
-    if st in POINT_SUBTYPES:
+    if st in point_subtypes:
         if has_line_endpoints or coordinate_count > 1:
             raise ValueError(f"Subtype {st} requires point geometry (lat/lon only)")
-    elif st in LINE_SUBTYPES:
+    elif st in line_subtypes:
         if coordinate_count < 2 and not has_line_endpoints:
             raise ValueError(f"Subtype {st} requires line geometry (start/end or coordinates)")
     else:
@@ -93,6 +96,11 @@ def validate_subtype_change(current: str, new: str) -> None:
             "Для кустов допустима смена только между подтипами "
             "«Нефтяной куст» и «Газовый куст»."
         )
+    if cur in BOTTOMHOLE_CLUSTER_SUBTYPES and nxt not in BOTTOMHOLE_CLUSTER_SUBTYPES:
+        raise ValueError(
+            "Для забоев допустима смена только между подтипами "
+            "«Забой (ННБ)», «ГС — heel» и «ГС — toe»."
+        )
     if nxt in IE_DERIVED_POINT_SUBTYPES and cur not in GTES_CLUSTER_SUBTYPES:
         label = SUBTYPE_LABELS.get(nxt, nxt)
         raise ValueError(
@@ -119,9 +127,8 @@ def validate_subtype_change(current: str, new: str) -> None:
 
 
 def category_for_subtype(subtype: str) -> str:
-    from app.geo.constants import SUBTYPE_CATEGORY
-
+    categories = load_infrastructure_subtypes_manifest()["categories"]
     st = subtype.lower().strip()
-    if st not in SUBTYPE_CATEGORY:
+    if st not in categories:
         raise ValueError(f"Unknown subtype: {subtype}")
-    return SUBTYPE_CATEGORY[st]
+    return categories[st]

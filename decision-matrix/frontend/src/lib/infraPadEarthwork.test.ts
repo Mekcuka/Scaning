@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import {
   envelopeFromObject,
+  envelopeWrapForApi,
   hasSavedPadSketch,
   isEarthworkEligibleSubtype,
   isPadSubtype,
@@ -60,6 +61,15 @@ describe('infraPadEarthwork', () => {
       enabled: false,
       wrap_width_m: 2,
     });
+    expect(envelopeFromObject({ pad_envelope_enabled: false, pad_envelope_wrap_width_m: 0 })).toEqual({
+      enabled: false,
+      wrap_width_m: 3,
+    });
+  });
+
+  it('builds envelope payload for API with positive wrap width', () => {
+    expect(envelopeWrapForApi(false, 0)).toEqual({ enabled: false, wrap_width_m: 3 });
+    expect(envelopeWrapForApi(true, 5)).toEqual({ enabled: true, wrap_width_m: 5 });
   });
 
   it('detects saved sketch json', () => {

@@ -2,10 +2,13 @@ import { describe, expect, it } from 'vitest';
 import * as THREE from 'three';
 import {
   frameScene3dCamera,
+  isPlanViewCamera,
   orbitScene3dCamera,
   scene3dCameraZoomPercent,
   scene3dToolbarZoomIn,
   scene3dToolbarZoomOut,
+  shouldSyncPlanCamera,
+  syncTopDownPlanCamera,
   zoomScene3dCamera,
 } from './padEarthworkScene3dCamera';
 
@@ -72,5 +75,42 @@ describe('padEarthworkScene3dCamera', () => {
     orbitScene3dCamera(camera, controls, Math.PI / 2);
     expect(Math.abs(camera.position.x - before)).toBeGreaterThan(1);
     expect(camera.position.distanceTo(controls.target)).toBeCloseTo(53.85, 0);
+  });
+
+  it('top preset aligns north (+Z) with camera up for plan view', () => {
+    const root = new THREE.Group();
+    root.add(new THREE.Mesh(new THREE.BoxGeometry(40, 4, 30)));
+    const camera = new THREE.PerspectiveCamera(42, 1.6, 0.1, 800);
+    const controls = {
+      target: new THREE.Vector3(0, 0, 0),
+      minDistance: 1,
+      maxDistance: 500,
+      update: () => {},
+    };
+    frameScene3dCamera(camera, controls, root, 1.35, 'top');
+    expect(camera.up.z).toBeCloseTo(1, 5);
+    expect(camera.up.y).toBeCloseTo(0, 5);
+    const lookDir = controls.target.clone().sub(camera.position).normalize();
+    expect(Math.abs(lookDir.y)).toBeGreaterThan(0.95);
+  });
+
+  it('syncTopDownPlanCamera maps north (+Z) above south on screen', () => {
+    const camera = new THREE.PerspectiveCamera(50, 1, 0.1, 2000);
+    camera.position.set(0, 120, 0);
+    syncTopDownPlanCamera(camera, new THREE.Vector3(0, 0, 0));
+    const north = new THREE.Vector3(0, 0, 15);
+    const south = new THREE.Vector3(0, 0, -43);
+    north.project(camera);
+    south.project(camera);
+    expect(north.y).toBeGreaterThan(south.y);
+  });
+
+  it('isPlanViewCamera detects near-vertical views', () => {
+    const camera = new THREE.PerspectiveCamera(50, 1, 0.1, 2000);
+    const target = new THREE.Vector3(0, 0, 0);
+    camera.position.set(0, 100, 0);
+    expect(isPlanViewCamera(camera, target)).toBe(true);
+    camera.position.set(80, 60, 80);
+    expect(isPlanViewCamera(camera, target)).toBe(false);
   });
 });

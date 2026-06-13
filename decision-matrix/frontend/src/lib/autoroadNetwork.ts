@@ -1,12 +1,14 @@
-/** Terminals for autoroad network build (exclude node cluster). */
+/** Terminals for autoroad network build (exclude nodes/junctions + well bottomholes). */
 
 import { LINE_SUBTYPES, type InfraObject } from './api';
+import { BOTTOMHOLE_CLUSTER_SUBTYPES } from './api/infrastructureSubtypesManifest';
 import { parseMapBbox } from './mapBboxUtils';
 
 export const AUTOROAD_NETWORK_EXCLUDED_SUBTYPES = [
   'node',
   'methanol_joint',
   'power_line_node',
+  ...BOTTOMHOLE_CLUSTER_SUBTYPES,
 ] as const;
 
 export type AutoroadNetworkPickMode = 'click' | 'box';

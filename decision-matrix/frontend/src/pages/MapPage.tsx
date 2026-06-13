@@ -1,7 +1,6 @@
 import { DevPortBanner } from '../components/DevPortBanner';
 import { useMapPageOrchestrator } from '../hooks/useMapPageOrchestrator';
 import { MapPageCanvas } from './map/MapPageCanvas';
-import { MapPageEmptyProject } from './map/MapPageEmptyProject';
 import { MapPageFooter } from './map/MapPageFooter';
 import { MapPageHeader } from './map/MapPageHeader';
 import { MapPageLayersSidebar } from './map/MapPageLayersSidebar';
@@ -10,7 +9,7 @@ import { MapPageSidePanels } from './map/MapPageSidePanels';
 import { MapPageToolbar } from './map/MapPageToolbar';
 
 export function MapPage() {
-  const { projectId, autoroadConfirmModal, lineSplitConfirmModal, mapCanvasRef, sections } =
+  const { autoroadConfirmModal, lineSplitConfirmModal, mapCanvasRef, sections } =
     useMapPageOrchestrator();
 
   return (
@@ -18,8 +17,6 @@ export function MapPage() {
       <MapPageHeader {...sections.header} />
 
       <DevPortBanner />
-
-      {!projectId && <MapPageEmptyProject />}
 
       <div className="card map-page-card flex flex-1 flex-col min-h-0 overflow-hidden">
         <MapPageToolbar {...sections.toolbar} />

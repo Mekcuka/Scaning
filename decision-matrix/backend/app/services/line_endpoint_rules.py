@@ -8,7 +8,7 @@ from uuid import UUID
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.geo.constants import LINE_SUBTYPES, SUBTYPE_LABELS
+from app.geo.constants import AUTOROAD_NETWORK_EXCLUDED_TERMINAL_SUBTYPES, LINE_SUBTYPES, SUBTYPE_LABELS
 from app.geo.coord_equal import coords_equal
 from app.models import InfrastructureLayer, InfrastructureObject
 
@@ -162,6 +162,17 @@ def snap_line_endpoint_coords_preserve(
     return out_lon, out_lat, out_end_lon, out_end_lat, out_coords
 
 
+def _filter_autoroad_snap_candidates(
+    line_subtype: str,
+    candidates: list[InfrastructureObject],
+) -> list[InfrastructureObject]:
+    if line_subtype.lower().strip() != "autoroad":
+        return candidates
+    return [
+        o for o in candidates if (o.subtype or "") not in AUTOROAD_NETWORK_EXCLUDED_TERMINAL_SUBTYPES
+    ]
+
+
 async def snap_line_endpoints_to_point_objects(
     db: AsyncSession,
     *,
@@ -179,7 +190,10 @@ async def snap_line_endpoints_to_point_objects(
     snap_object_cache: dict[UUID, InfrastructureObject] | None = None,
 ) -> tuple[float, float, float | None, float | None, list[list[float]] | None]:
     """Validate exact coords then return coordinates equal to attached point objects."""
-    candidates = await _point_candidates(db, project_id=project_id, exclude_object_id=exclude_object_id)
+    candidates = _filter_autoroad_snap_candidates(
+        line_subtype,
+        await _point_candidates(db, project_id=project_id, exclude_object_id=exclude_object_id),
+    )
     by_id = {o.id: o for o in candidates}
     if snap_object_cache:
         by_id.update(snap_object_cache)
@@ -251,7 +265,10 @@ async def validate_line_endpoint_matrix(
         lon=lon, lat=lat, end_lon=end_lon, end_lat=end_lat, coordinates=coordinates
     )
 
-    candidates = await _point_candidates(db, project_id=project_id, exclude_object_id=exclude_object_id)
+    candidates = _filter_autoroad_snap_candidates(
+        subtype,
+        await _point_candidates(db, project_id=project_id, exclude_object_id=exclude_object_id),
+    )
     if not candidates:
         raise LineEndpointRuleError(
             f"Для {_label(subtype)} нужны точечные опорные объекты. Добавьте минимум один объект."

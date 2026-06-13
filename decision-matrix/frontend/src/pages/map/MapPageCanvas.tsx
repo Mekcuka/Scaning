@@ -83,6 +83,19 @@ export type MapPageCanvasProps = {
   lineLodScaleThreshold: number;
   onViewStateSnapshot: (state: SavedMapViewState) => void;
   onViewChange: (view: { scaleLabel: string; scaleDenominator: number }) => void;
+  wellTrajectoryFeatures: import('../../lib/api/wellTrajectoryApi').WellTrajectoryGeoJsonFeature[];
+  showWellTrajectories: boolean;
+  showWellBottomholes: boolean;
+  showWellTrajectories3d: boolean;
+  isBottomholeDrawActive: boolean;
+  gsHeelDraft: { lon: number; lat: number } | null;
+  padPlacementPreviewFeatures: {
+    coordinates: number[] | number[][] | number[][][];
+    geometryType: string;
+    kind: string;
+  }[];
+  padPlacementBottomholeIds: string[];
+  handlePadPlacementDragBoxPick: (selections: MapFeatureSelection[]) => void;
 };
 
 export function MapPageCanvas({
@@ -141,8 +154,28 @@ export function MapPageCanvas({
   lineLodScaleThreshold,
   onViewStateSnapshot,
   onViewChange,
+  wellTrajectoryFeatures,
+  showWellTrajectories,
+  showWellBottomholes,
+  showWellTrajectories3d,
+  isBottomholeDrawActive,
+  gsHeelDraft,
+  padPlacementPreviewFeatures,
+  padPlacementBottomholeIds,
+  handlePadPlacementDragBoxPick,
 }: MapPageCanvasProps) {
   const visiblePois = showPoisOnMap ? pois : [];
+  const gsBottomholePreviewLines =
+    drawMode === 'bottomhole_gs' && gsHeelDraft && cursor
+      ? [
+          {
+            coordinates: [
+              [gsHeelDraft.lon, gsHeelDraft.lat],
+              [cursor.lon, cursor.lat],
+            ],
+          },
+        ]
+      : [];
 
   return (
     <>
@@ -183,6 +216,8 @@ export function MapPageCanvas({
               showRadii={showRadii}
               layers={layers}
               mapFocus={mapFocus}
+              wellTrajectoryFeatures={wellTrajectoryFeatures}
+              showWellTrajectories3d={showWellTrajectories3d}
               height="100%"
             />
           </Suspense>
@@ -202,8 +237,10 @@ export function MapPageCanvas({
           editMode={mapEditEnabled}
           onMapClick={
             pasteMode ||
+            isBottomholeDrawActive ||
             drawMode === 'ruler' ||
             drawMode === 'autoroad_network' ||
+            drawMode === 'pad_placement' ||
             (projectId && drawMode !== 'select')
               ? handleMapClick
               : undefined
@@ -220,9 +257,17 @@ export function MapPageCanvas({
             !pasteMode && mapPointerInside && cursor
               ? drawMode === 'point'
                 ? { subtype: infraFormSubtype, lon: cursor.lon, lat: cursor.lat }
-                : drawMode === 'poi'
-                  ? { subtype: 'poi', lon: cursor.lon, lat: cursor.lat }
-                  : null
+                : drawMode === 'bottomhole_nnb'
+                  ? { subtype: 'well_bottomhole_nnb', lon: cursor.lon, lat: cursor.lat }
+                  : drawMode === 'bottomhole_gs'
+                    ? {
+                        subtype: gsHeelDraft ? 'well_bottomhole_gs_toe' : 'well_bottomhole_gs_heel',
+                        lon: cursor.lon,
+                        lat: cursor.lat,
+                      }
+                    : drawMode === 'poi'
+                      ? { subtype: 'poi', lon: cursor.lon, lat: cursor.lat }
+                      : null
               : null
           }
           clipboardPreviewPoints={clipboardPreviewPoints}
@@ -233,14 +278,23 @@ export function MapPageCanvas({
           onFeatureGroupSelect={
             drawMode === 'select' && selectMode === 'box' ? setFeatureGroupSel : undefined
           }
-          dragBoxPick={drawMode === 'autoroad_network' && autoroadNetworkPickMode === 'box'}
+          dragBoxPick={
+            (drawMode === 'autoroad_network' && autoroadNetworkPickMode === 'box') ||
+            drawMode === 'pad_placement'
+          }
           onDragBoxPick={
-            drawMode === 'autoroad_network' ? handleAutoroadNetworkDragBoxPick : undefined
+            drawMode === 'autoroad_network'
+              ? handleAutoroadNetworkDragBoxPick
+              : drawMode === 'pad_placement'
+                ? handlePadPlacementDragBoxPick
+                : undefined
           }
           selectedFeatureIds={
             drawMode === 'autoroad_network'
               ? autoroadNetworkTerminalIds
-              : featureGroupSel.map((s) => s.id)
+              : drawMode === 'pad_placement'
+                ? padPlacementBottomholeIds
+                : featureGroupSel.map((s) => s.id)
           }
           onGeometryChange={mapEditEnabled ? handleGeometryChange : undefined}
           footprintEdgeHighlight={footprintEdgeHighlight}
@@ -254,7 +308,9 @@ export function MapPageCanvas({
           thresholdCircles={thresholdCircles}
           draftLine={lineDraft}
           draftLinePreview={lineDraftPreview}
+          gsBottomholePreviewLines={gsBottomholePreviewLines}
           autoroadPlanPreviewLines={autoroadPlanPreviewLines}
+          padPlacementPreviewFeatures={padPlacementPreviewFeatures}
           measureLine={rulerPoints}
           measurePreview={rulerPreview}
           measureCompletedLines={rulerCompleted}
@@ -266,6 +322,9 @@ export function MapPageCanvas({
           mapFocus={mapFocus}
           onFitView={handleFitMapView}
           lineLodScaleThreshold={lineLodScaleThreshold}
+          wellTrajectoryFeatures={wellTrajectoryFeatures}
+          showWellTrajectories={showWellTrajectories}
+          showWellBottomholes={showWellBottomholes}
           onViewChange={onViewChange}
         />
       )}

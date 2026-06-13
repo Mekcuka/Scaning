@@ -11,25 +11,30 @@ _BACKEND_ROOT = Path(__file__).resolve().parents[1]
 
 
 def _resolve_manifest_path() -> Path:
-    """Docker (/app/shared) and monorepo (decision-matrix/shared) layouts."""
+    """Monorepo canonical path first, then Docker layout (backend/shared at /app/shared)."""
     for candidate in (
-        _BACKEND_ROOT / "shared" / "infrastructure_subtypes.json",
         _BACKEND_ROOT.parent / "shared" / "infrastructure_subtypes.json",
+        _BACKEND_ROOT / "shared" / "infrastructure_subtypes.json",
     ):
         if candidate.is_file():
             return candidate
     raise FileNotFoundError(
-        "infrastructure_subtypes.json not found; expected backend/shared or decision-matrix/shared"
+        "infrastructure_subtypes.json not found; expected decision-matrix/shared or backend/shared"
     )
 
 
 _MANIFEST_PATH = _resolve_manifest_path()
 
 
-@lru_cache(maxsize=1)
-def load_infrastructure_subtypes_manifest() -> dict[str, Any]:
-    with _MANIFEST_PATH.open(encoding="utf-8") as handle:
+@lru_cache(maxsize=4)
+def _load_manifest_cached(path: str, mtime_ns: int) -> dict[str, Any]:
+    with Path(path).open(encoding="utf-8") as handle:
         return json.load(handle)
+
+
+def load_infrastructure_subtypes_manifest() -> dict[str, Any]:
+    stat = _MANIFEST_PATH.stat()
+    return _load_manifest_cached(str(_MANIFEST_PATH), stat.st_mtime_ns)
 
 
 def _tuple(key_path: list[str]) -> tuple[str, ...]:
@@ -62,6 +67,7 @@ GKS_CLUSTER_SUBTYPES = _frozenset(["clusters", "gks"])
 NODE_CLUSTER_SUBTYPES = _frozenset(["clusters", "node"])
 PAD_CLUSTER_SUBTYPES = _frozenset(["clusters", "pad"])
 GTES_CLUSTER_SUBTYPES = _frozenset(["clusters", "gtes"])
+BOTTOMHOLE_CLUSTER_SUBTYPES = _frozenset(["clusters", "bottomhole"])
 
 # Point map subtypes eligible for pad earthwork (sketch, DEM, volumes) — excludes node and sand quarry.
 EARTHWORK_SUBTYPES = frozenset(POINT_MAP_SUBTYPES) - frozenset({"node"})

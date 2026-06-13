@@ -13,6 +13,7 @@ export function buildCanvasSection(
     | 'showModels'
     | 'showRadii'
     | 'layerPrefs'
+    | 'wellTrajectoryFeatures'
     | 'shell'
     | 'edit'
     | 'data'
@@ -29,6 +30,7 @@ export function buildCanvasSection(
     showModels,
     showRadii,
     layerPrefs,
+    wellTrajectoryFeatures,
     shell,
     edit,
     data,
@@ -82,6 +84,9 @@ export function buildCanvasSection(
     lineDraft: actions.lineDraft,
     lineDraftPreview: actions.lineDraftPreview,
     autoroadPlanPreviewLines: actions.autoroadPlanPreviewLines,
+    padPlacementPreviewFeatures: actions.padPlacementPreviewFeatures,
+    padPlacementBottomholeIds: actions.padPlacementBottomholeIds,
+    handlePadPlacementDragBoxPick: actions.handlePadPlacementDragBoxPick,
     rulerPoints: actions.rulerPoints,
     rulerPreview: actions.rulerPreview,
     rulerCompleted: actions.rulerCompleted,
@@ -89,6 +94,12 @@ export function buildCanvasSection(
     measureAnchorLabels: actions.measureAnchorLabels,
     handleFitMapView: data.handleFitMapView,
     lineLodScaleThreshold: layerPrefs.lineLodScaleThreshold,
+    wellTrajectoryFeatures,
+    showWellTrajectories: layerPrefs.showWellTrajectories,
+    showWellBottomholes: layerPrefs.showWellBottomholes,
+    showWellTrajectories3d: layerPrefs.showWellTrajectories3d,
+    isBottomholeDrawActive: actions.isBottomholeDrawActive,
+    gsHeelDraft: actions.gsHeelDraft,
     onViewStateSnapshot: (s) => {
       shell.last2dViewRef.current = s;
     },

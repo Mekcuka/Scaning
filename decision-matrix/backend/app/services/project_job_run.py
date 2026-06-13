@@ -20,6 +20,10 @@ from app.services.project_jobs import (
     JOB_TYPE_PAD_EARTHWORK_COMPUTE,
     JOB_TYPE_POI_ANALYZE_ALL,
     JOB_TYPE_SAND_LOGISTICS_ANALYZE,
+    JOB_TYPE_WELL_TRAJECTORY_COMPUTE,
+    JOB_TYPE_WELL_TRAJECTORY_IMPORT,
+    JOB_TYPE_PAD_PLACEMENT_COMPUTE,
+    JOB_TYPE_PAD_PLACEMENT_APPLY,
     mark_job_completed,
     mark_job_failed,
     mark_job_running,
@@ -138,6 +142,92 @@ async def _run_pad_earthwork_compute(db: AsyncSession, job: ProjectJob) -> dict[
     return result.model_dump(mode="json")
 
 
+async def _run_well_trajectory_compute(db: AsyncSession, job: ProjectJob) -> dict[str, Any]:
+    from uuid import UUID
+
+    from app.services.well_trajectory.clearance_service import (
+        fetch_project_pads,
+        run_clearance_for_pad,
+        run_clearance_for_project,
+    )
+
+    raw_object_id = (job.payload or {}).get("object_id")
+    if raw_object_id:
+        pad_id = UUID(str(raw_object_id))
+        result = await run_clearance_for_pad(db, job.project_id, pad_id)
+        pad = next((p for p in await fetch_project_pads(db, job.project_id) if p.id == pad_id), None)
+        if pad is not None:
+            await db.flush()
+    else:
+        pads = await fetch_project_pads(db, job.project_id)
+        result = await run_clearance_for_project(db, job.project_id)
+        await db.flush()
+    return result.model_dump(mode="json")
+
+
+async def _run_well_trajectory_import(db: AsyncSession, job: ProjectJob) -> dict[str, Any]:
+    import base64
+
+    from app.api.v1.map_deps import get_infra_object
+    from app.services.well_trajectory.import_service import ImportOptions, commit_import
+    from app.services.well_trajectory.trajectory_store import (
+        store_clearance_results,
+        store_computed_at,
+        store_trajectories_json,
+    )
+
+    pad_id = UUID(job.payload["pad_id"])
+    fmt = str(job.payload.get("format", "csv"))
+    raw_options = job.payload.get("options") or {}
+    options = ImportOptions(
+        step_m=raw_options.get("step_m"),
+        interpolate=bool(raw_options.get("interpolate", True)),
+        match_mode=raw_options.get("match_mode") or "name",
+    )
+    content_b64 = job.payload.get("content_b64", "")
+    file_bytes = base64.b64decode(content_b64.encode("ascii"))
+    content: bytes | str = (
+        file_bytes.decode("utf-8", errors="replace") if fmt == "csv" else file_bytes
+    )
+
+    obj = await get_infra_object(pad_id, job.project_id, db)
+    result = commit_import(obj, format=fmt, content=content, options=options)  # type: ignore[arg-type]
+    props = store_trajectories_json(obj.properties, result.trajectories)
+    props = store_computed_at(props)
+    props = store_clearance_results(props, pairs=[], computed_at=result.computed_at)
+    obj.properties = props
+    await db.flush()
+    return {
+        "imported_count": result.imported_count,
+        "computed_at": result.computed_at,
+        "warnings": result.warnings,
+    }
+
+
+async def _run_pad_placement_compute(db: AsyncSession, job: ProjectJob) -> dict[str, Any]:
+    from app.services.pad_placement.compute import run_compute
+    from app.services.pad_placement.schemas import PadPlacementComputeRequest
+
+    payload = job.payload or {}
+    request_id = UUID(str(payload["request_id"]))
+    body = PadPlacementComputeRequest.model_validate(payload["compute_request"])
+    result = await run_compute(db, job.project_id, body, request_id=request_id)
+    return result.model_dump(mode="json")
+
+
+async def _run_pad_placement_apply(db: AsyncSession, job: ProjectJob) -> dict[str, Any]:
+    from app.services.pad_placement.apply import apply_variant
+
+    payload = job.payload or {}
+    result = await apply_variant(
+        db,
+        job.project_id,
+        request_id=UUID(str(payload["request_id"])),
+        variant_index=int(payload["variant_index"]),
+    )
+    return result.model_dump(mode="json")
+
+
 async def execute_project_job(job_id: UUID) -> None:
     async with async_session() as db:
         job = await db.get(ProjectJob, job_id)
@@ -165,6 +255,14 @@ async def execute_project_job(job_id: UUID) -> None:
                 result = await _run_poi_analyze_all(db, job)
             elif job.job_type == JOB_TYPE_PAD_EARTHWORK_COMPUTE:
                 result = await _run_pad_earthwork_compute(db, job)
+            elif job.job_type == JOB_TYPE_WELL_TRAJECTORY_COMPUTE:
+                result = await _run_well_trajectory_compute(db, job)
+            elif job.job_type == JOB_TYPE_WELL_TRAJECTORY_IMPORT:
+                result = await _run_well_trajectory_import(db, job)
+            elif job.job_type == JOB_TYPE_PAD_PLACEMENT_COMPUTE:
+                result = await _run_pad_placement_compute(db, job)
+            elif job.job_type == JOB_TYPE_PAD_PLACEMENT_APPLY:
+                result = await _run_pad_placement_apply(db, job)
             else:
                 raise ValueError(f"Unsupported job_type: {job.job_type}")
 

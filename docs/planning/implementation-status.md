@@ -1,7 +1,7 @@
 # Статус реализации приложения
 
 > **Назначение:** единая точка согласования документации `docs/` с кодом `decision-matrix/`.  
-> **Дата:** май 2026. При изменении продукта обновляйте этот файл и [consistency-review.md](consistency-review.md).
+> **Дата:** июнь 2026. **Траектории:** M1 ✅, M2 ✅, M3 ✅. При изменении продукта обновляйте этот файл и [consistency-review.md](consistency-review.md).
 
 ## Область
 
@@ -29,7 +29,8 @@
 |---------|--------|------|
 | `/` | Дашборд | все |
 | `/projects` | Проекты | admin, analyst, viewer |
-| `/map` | Карта | все |
+| `/map` | Карта (+ слой траекторий GeoJSON) | все |
+| `/pad-clustering` | Кустование (раскладка, траектории, 3D) | admin, analyst, data_manager, viewer |
 | `/parameters` | Параметры (вкладки) | admin, analyst, viewer |
 | `/parameters/capacity` | Пропускная способность | ↑ |
 | `/parameters/sand` | Песок / логистика | ↑ |
@@ -66,6 +67,8 @@
 | Схема потоков | `api/v1/flow.py`, `fluid_flow_schematic.py`, `flow_schematic_merge.py` | ✅ |
 | Песок / логистика | `api/v1/sand_logistics.py`, `sand_logistics.py`, `sand_logistics_store.py` | ✅ (результат в БД; схема: timeline, полная топология на любом годе, layout/slice, адаптивные отступы) |
 | Земляные работы площадки | `pad-earthwork-planner` + BFF; все точечные объекты кроме `node` (включая **карьер песка**); карта: L/W/H, **Схема…**, DEM; режим **Площадки** (контуры footprint, **точки подключения** линий); **Параметры → Земляные работы** — табличное редактирование габаритов; **Параметры → Точки подключения** — шаблон cardinal + bulk apply; **Генератор** только кусты — [pad-earthwork.md](../features/pad-earthwork.md) | ✅ flat + plan + envelope + DEM + 3D preview + footprints |
+| Траектории скважин (3D) | `well-trajectory-planner` (welleng) + BFF — [well-trajectory.md](../features/well-trajectory.md), [план реализации](well-trajectory-implementation-plan.md), [оценка приложения](well-trajectory-app-assessment.md) | ✅ **M1 ✅, M2 ✅, M3 ✅, M4a ✅** — BFF, «Кустование», забои, GeoJSON 2D/3D, anti-collision SF, **импорт CSV / `.wbp` на `/import`**, E2E smoke; WITSML 4b — в планах |
+| Оптимизация размещения кустов | BFF `pad-placement/*`, `services/pad_placement/` (`placement_optimize.py` — M2+ перебор центра по Σ MD); jobs `pad_placement_compute` / `apply` — [pad-placement-optimization.md](../features/pad-placement-optimization.md), [plan](pad-placement-optimization-plan.md) | ✅ **M1–M5 + M2+** |
 | Экономика потоков | `economic_flow_schematic.py`, `economic_rates.py` | ✅ |
 | Автосеть автодорог | `network-planner` + `planner_adapter.py`: Steiner tree, post-processing, preview overlay; BFF request/compute/apply | ✅ |
 | Autoroad Network Service (HTTP :8080) | `autoroad-network-planner` microservice / legacy `services/autoroad-network/` | ⬜ опционально (`AUTOROAD_NETWORK_INPROCESS=false`) |
@@ -75,6 +78,7 @@
 | AI Assistant (фаза 10) | product wiki: `docs/wiki/`, bundle, `search_wiki` tools, MCP `wiki://*`, chat chips — [assistant.md §19](../architecture/assistant.md) | ✅ |
 | AI Assistant (roadmap) | фаза 7.3 (context fallback), 7.4 (остальные status hints), 8.2 (история чата в БД), 10.2 (wiki RAG) — [assistant.md](../architecture/assistant.md) | planned |
 | UI «Построить сеть» | `MapPage` drawMode `autoroad_network`, `AutoroadNetworkPanel` (массовый выбор, параметры), `AutoroadNetworkParamsSection` | ✅ |
+| UI «Оптимизация кустов» | `MapPage` drawMode `pad_placement`, `PadPlacementPanel` (+ «Расширенные»: center optimize), preview GeoJSON, async compute, apply → новые кусты | ✅ |
 
 **БД:** SQLite (`run_local.py`) или PostgreSQL + PostGIS (`DATABASE_URL` в `.env`). Geodesic: PostGIS `geography` или haversine fallback.
 
@@ -87,7 +91,9 @@
 | `/login`, `/register` | `LoginPage`, `RegisterPage` | ✅ |
 | `/` | `DashboardPage` | ✅ |
 | `/projects`, `/projects/:id` | `ProjectsPage`, `ProjectDetailPage` | ✅ |
-| `/map` | `MapPage` + `MapView` (2D) / `MapView3D` | ✅ |
+| `/map` | `MapPage` + `MapView` (2D) / `MapView3D` (+ слой траекторий GeoJSON) | ✅ |
+| `/pad-clustering` | `PadClusteringPage` — куст, траектории, 3D | ✅ |
+| `/map` (режим «Оптимизация кустов») | planned — `PadPlacementPanel`, overlay вариантов | ⬜ |
 | `/parameters/*` | `ParametersPage`, `SandParametersPage`, … | ✅ |
 | `/matrix` | `MatrixPage` | ✅ |
 | `/report/*` | `ReportListPage`, `ReportEditorPage`, … | ✅ |
@@ -162,13 +168,13 @@
 
 Базовый URL: `/api/v1`. Полный список — Swagger `/api/v1/docs` и [decision-matrix/README.md](../../decision-matrix/README.md).
 
-Группы: `auth`, `admin`, `admin/jobs` (list, health, cancel), `projects`, `projects/{id}/pois`, `projects/{id}/infrastructure/*` (в т.ч. `.../objects/{id}/pad-earthwork/compute|last|params|sketch|sketch/generate|dem/fetch`), `projects/{id}/map3d-custom-models` (upload / list / PATCH / assign + bulk apply / apply-preview / file), `projects/{id}/pois/{id}/analysis`, `projects/{id}/import/*`, `import/logs`, `projects/{id}/one-pagers`, `projects/{id}/flow-schematic`, `projects/{id}/infrastructure/networks`, `projects/{id}/import_connections`, `projects/{id}/sand-logistics` (GET result, POST analyze), `projects/{id}/pad-earthwork/dem` (501 upload stub).
+Группы: `auth`, `admin`, `admin/jobs` (list, health, cancel), `projects`, `projects/{id}/pois`, `projects/{id}/infrastructure/*` (в т.ч. `.../objects/{id}/pad-earthwork/compute|last|params|sketch|sketch/generate|dem/fetch`, **`.../well-trajectory/*`** incl. **`POST .../import/csv|wbp|witsml`**, **`POST .../import/preview`**, **`POST .../clearance`**, **`GET projects/{id}/well-trajectory/geojson`**, **`POST projects/{id}/well-trajectory/clearance`**), `projects/{id}/map3d-custom-models` (upload / list / PATCH / assign + bulk apply / apply-preview / file), `projects/{id}/pois/{id}/analysis`, `projects/{id}/import/*`, `import/logs`, `projects/{id}/one-pagers`, `projects/{id}/flow-schematic`, `projects/{id}/infrastructure/networks`, `projects/{id}/import_connections`, `projects/{id}/sand-logistics` (GET result, POST analyze), `projects/{id}/pad-earthwork/dem` (501 upload stub).
 
 ---
 
 ## Тестирование и CI
 
-- Backend: `tests/test_autoroad_network_plan.py` (MST Steiner, `total_new_km` vs legacy chain), `tests/test_autoroad_connect.py`; `test_road_graph.py` (`geodesic_midpoint`); `tests/test_pad_earthwork_api.py` (compute/last/params/sketch/generate, `oil_pad` only); `pad-earthwork-planner/tests/test_well_layout.py`.
+- Backend: `tests/test_autoroad_network_plan.py` (MST Steiner, `total_new_km` vs legacy chain), `tests/test_autoroad_connect.py`; `test_road_graph.py` (`geodesic_midpoint`); `tests/test_pad_earthwork_api.py` (compute/last/params/sketch/generate, `oil_pad` only); `tests/test_well_trajectory_api.py`, `tests/test_well_trajectory_import.py`, `tests/test_well_trajectory_clearance_coords.py`, `tests/test_well_bottomhole_sync.py`; `pad-earthwork-planner/tests/test_well_layout.py`; `well-trajectory-planner/tests/` (incl. `test_clearance.py`, `test_import_csv.py`, `test_import_wbp.py`).
 - Frontend: `AdminJobsPage.test.tsx` (журнал, пагинация, «Отменить» только для активных задач); `mapFeatureGeometrySync.test.ts` (drag точки/линии, methanol_facility); `npm run verify:css` (каскад после split CSS).
 - **E2E (Playwright, 16):** login, projects, parameters, flows, import, **matrix**, **report**, **import-3d**, map (2D, draw autoroad, detail save, ruler), flows-logistics (analyze, timeline). Инфра: `e2e/helpers.ts`, `VITE_E2E_MAP_HOOK` / `__dmOlMap`, автоочистка [`cleanup_e2e_data.py`](../../decision-matrix/backend/scripts/cleanup_e2e_data.py) через `globalTeardown`. Подробнее: [testing-strategy.md](../testing/testing-strategy.md).
 - GitHub Actions: [`.github/workflows/ci.yml`](../../.github/workflows/ci.yml) — lint, unit, coverage gates, job `E2E (Playwright)`.
@@ -187,5 +193,7 @@
 | Объекты карты | [map-objects-and-spatial-calculations.md](../features/map-objects-and-spatial-calculations.md) |
 | Импорт Искра | [spark-import-mapping.md](../features/spark-import-mapping.md) |
 | Земляные работы площадки | [pad-earthwork.md](../features/pad-earthwork.md) |
+| Траектории скважин (M1 ✅, M2 ✅, M3 ✅) | [well-trajectory.md](../features/well-trajectory.md), [план реализации](well-trajectory-implementation-plan.md), [roadmap](well-trajectory-roadmap.md) |
+| Оптимизация размещения кустов | [pad-placement-optimization.md](../features/pad-placement-optimization.md), [plan](pad-placement-optimization-plan.md), [data model](pad-placement-optimization-data-model.md) | ✅ M1–M5 + M2+ |
 | План (исторический) | [development-plan.md](development-plan.md) |
 | План развития | [system-evolution-plan.md](system-evolution-plan.md) |

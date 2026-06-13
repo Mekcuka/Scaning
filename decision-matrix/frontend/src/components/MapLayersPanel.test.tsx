@@ -27,6 +27,21 @@ describe('MapLayersPanel', () => {
     expect(screen.queryByText('3D-модели объектов')).not.toBeInTheDocument();
   });
 
+  it('shows bottomhole and trajectory categories when handlers provided', () => {
+    render(
+      <MapLayersPanel
+        {...baseProps}
+        openSections={{ basemap: false, objects: true, sources: false, radii: false }}
+        onShowWellTrajectoriesChange={vi.fn()}
+        onShowWellBottomholesChange={vi.fn()}
+      />,
+    );
+    expect(screen.getByText('Забои')).toBeInTheDocument();
+    expect(screen.getByText('Забой (ННБ)')).toBeInTheDocument();
+    expect(screen.getByText('Траектории')).toBeInTheDocument();
+    expect(screen.getByText('План (2D)')).toBeInTheDocument();
+  });
+
   it('shows 3D models toggle when handler provided', () => {
     render(
       <MapLayersPanel

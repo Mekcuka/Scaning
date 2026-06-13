@@ -46,6 +46,8 @@ export type MapPageToolbarProps = {
   onPointMenuOpenChange: (open: boolean) => void;
   lineMenuOpen: boolean;
   onLineMenuOpenChange: (open: boolean) => void;
+  bottomholeMenuOpen: boolean;
+  onBottomholeMenuOpenChange: (open: boolean) => void;
   onClearLineDraft: () => void;
   onClearRuler: () => void;
   drawActionsVisible: boolean;

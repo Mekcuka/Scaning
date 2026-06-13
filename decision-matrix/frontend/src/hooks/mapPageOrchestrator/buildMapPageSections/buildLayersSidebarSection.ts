@@ -63,5 +63,14 @@ export function buildLayersSidebarSection(
     mapIn3d,
     showModels,
     onShowModelsChange: (visible) => setLayerPrefs((p) => ({ ...p, showModels: visible })),
+    showWellTrajectories: params.layerPrefs.showWellTrajectories,
+    onShowWellTrajectoriesChange: (visible) =>
+      setLayerPrefs((p) => ({ ...p, showWellTrajectories: visible })),
+    showWellBottomholes: params.layerPrefs.showWellBottomholes,
+    onShowWellBottomholesChange: (visible) =>
+      setLayerPrefs((p) => ({ ...p, showWellBottomholes: visible })),
+    showWellTrajectories3d: params.layerPrefs.showWellTrajectories3d,
+    onShowWellTrajectories3dChange: (visible) =>
+      setLayerPrefs((p) => ({ ...p, showWellTrajectories3d: visible })),
   };
 }

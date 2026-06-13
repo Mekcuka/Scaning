@@ -1,4 +1,5 @@
 import { AutoroadNetworkPanel } from '../../components/AutoroadNetworkPanel';
+import { PadPlacementPanel } from '../../components/mapView/PadPlacementPanel';
 import type { AutoroadSubtypeBulkOption } from '../../components/AutoroadNetworkPanel';
 import { MapGroupSelectionPanel } from '../../components/MapGroupSelectionPanel';
 import type { MapGroupSelectionItem } from '../../components/MapGroupSelectionPanel';
@@ -8,6 +9,10 @@ import type { DrawMode, SelectMode } from '../../components/MapView';
 import type { AutoroadNetworkPickMode } from '../../lib/autoroadNetwork';
 import type { AutoroadPlannerOptions } from '../../lib/autoroadNetworkPlannerOptions';
 import type { SolverStatus } from '../../components/AutoroadNetworkParamsSection';
+import type {
+  PadPlacementComputeResponse,
+  PadPlacementParams,
+} from '../../lib/padPlacementTypes';
 import type { InfraLayer, Map3dCustomModel, InfraObject } from '../../lib/api';
 
 export type MapPageSidePanelsProps = {
@@ -61,6 +66,24 @@ export type MapPageSidePanelsProps = {
   canPasteMapClipboard: boolean;
   canDeleteCurrentSelection: boolean;
   deleteGroupPending: boolean;
+  padPlacementDetails: MapGroupSelectionItem[];
+  padPlacementVisibleEligibleCount: number;
+  padPlacementParams: PadPlacementParams;
+  setPadPlacementParams: (next: PadPlacementParams) => void;
+  padPlacementSubtype: 'oil_pad' | 'gas_pad';
+  setPadPlacementSubtype: (v: 'oil_pad' | 'gas_pad') => void;
+  padPlacementComputeResult: PadPlacementComputeResponse | null;
+  padPlacementSelectedVariant: number | null;
+  setPadPlacementSelectedVariant: (index: number) => void;
+  onPadPlacementCompute: () => void;
+  onPadPlacementApply: () => void;
+  padPlacementComputePending: boolean;
+  padPlacementApplyPending: boolean;
+  canPadPlacementCompute: boolean;
+  padPlacementDisabledHint: string | null | undefined;
+  onClearPadPlacementBottomholes: () => void;
+  onRemovePadPlacementItem: (id: string) => void;
+  onAddVisiblePadPlacementBottomholes: () => void;
 };
 
 export function MapPageSidePanels({
@@ -111,6 +134,24 @@ export function MapPageSidePanels({
   canPasteMapClipboard,
   canDeleteCurrentSelection,
   deleteGroupPending,
+  padPlacementDetails,
+  padPlacementVisibleEligibleCount,
+  padPlacementParams,
+  setPadPlacementParams,
+  padPlacementSubtype,
+  setPadPlacementSubtype,
+  padPlacementComputeResult,
+  padPlacementSelectedVariant,
+  setPadPlacementSelectedVariant,
+  onPadPlacementCompute,
+  onPadPlacementApply,
+  padPlacementComputePending,
+  padPlacementApplyPending,
+  canPadPlacementCompute,
+  padPlacementDisabledHint,
+  onClearPadPlacementBottomholes,
+  onRemovePadPlacementItem,
+  onAddVisiblePadPlacementBottomholes,
 }: MapPageSidePanelsProps) {
   return (
     <>
@@ -154,6 +195,30 @@ export function MapPageSidePanels({
           onPlannerOptionsChange={onAutoroadPlannerOptionsChange}
           solverStatus={solverStatus}
           solverStatusLoading={solverStatusLoading}
+        />
+      )}
+
+      {drawMode === 'pad_placement' && (
+        <PadPlacementPanel
+          items={padPlacementDetails}
+          visibleEligibleCount={padPlacementVisibleEligibleCount}
+          params={padPlacementParams}
+          onParamsChange={setPadPlacementParams}
+          subtype={padPlacementSubtype}
+          onSubtypeChange={setPadPlacementSubtype}
+          computeResult={padPlacementComputeResult}
+          selectedVariantIndex={padPlacementSelectedVariant}
+          onSelectVariant={setPadPlacementSelectedVariant}
+          onClose={onCloseAutoroad}
+          onClear={onClearPadPlacementBottomholes}
+          onRemoveItem={onRemovePadPlacementItem}
+          onAddVisible={onAddVisiblePadPlacementBottomholes}
+          onCompute={onPadPlacementCompute}
+          onApply={onPadPlacementApply}
+          canCompute={canPadPlacementCompute}
+          disabledHint={padPlacementDisabledHint}
+          computePending={padPlacementComputePending}
+          applyPending={padPlacementApplyPending}
         />
       )}
 

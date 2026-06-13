@@ -77,6 +77,43 @@ export function applyScene3dCameraDistanceLimits(
   return distance;
 }
 
+export function applyScene3dCameraUp(
+  camera: THREE.PerspectiveCamera,
+  preset: Scene3dCameraPreset | null,
+): void {
+  if (preset === 'top') {
+    camera.up.set(0, 0, 1);
+  } else {
+    camera.up.set(0, 1, 0);
+  }
+}
+
+/** True when the camera looks nearly straight down/up (plan-like orbit). */
+export function isPlanViewCamera(camera: THREE.PerspectiveCamera, target: THREE.Vector3): boolean {
+  const dx = camera.position.x - target.x;
+  const dy = camera.position.y - target.y;
+  const dz = camera.position.z - target.z;
+  const horiz = Math.hypot(dx, dz);
+  return Math.abs(dy) > Math.max(horiz * 1.8, 4);
+}
+
+/** Lock north (+Z) to screen up — matches 2D sketch (SVG y = −north). */
+export function syncTopDownPlanCamera(
+  camera: THREE.PerspectiveCamera,
+  target: THREE.Vector3,
+): void {
+  camera.up.set(0, 0, 1);
+  camera.lookAt(target);
+}
+
+export function shouldSyncPlanCamera(
+  camera: THREE.PerspectiveCamera,
+  target: THREE.Vector3,
+  preset: Scene3dCameraPreset | null,
+): boolean {
+  return preset === 'top' || isPlanViewCamera(camera, target);
+}
+
 export function frameScene3dCamera(
   camera: THREE.PerspectiveCamera,
   controls: Scene3dOrbitControlsLike,
@@ -91,9 +128,16 @@ export function frameScene3dCamera(
   applyScene3dCameraDistanceLimits(camera, controls, distance);
 
   const dir = PRESET_DIRS[preset].clone().normalize();
+  applyScene3dCameraUp(camera, preset);
   camera.position.copy(bounds.center).add(dir.multiplyScalar(distance));
   controls.target.copy(bounds.center);
+  if (preset === 'top') {
+    syncTopDownPlanCamera(camera, controls.target);
+  }
   controls.update();
+  if (preset === 'top') {
+    syncTopDownPlanCamera(camera, controls.target);
+  }
   return distance;
 }
 

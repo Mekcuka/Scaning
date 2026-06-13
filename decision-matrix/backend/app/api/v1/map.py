@@ -8,6 +8,7 @@ from app.api.v1.map_layers import layers_router
 from app.api.v1.map_objects import objects_router
 from app.api.v1.map_poi import poi_router
 from app.api.v1.pad_earthwork import pad_earthwork_router
+from app.api.v1.well_trajectory import well_trajectory_router
 
 # Backward-compatible re-exports
 from app.api.v1.map_deps import (  # noqa: F401
@@ -42,3 +43,4 @@ map_router.include_router(poi_router)
 map_router.include_router(import_router)
 map_router.include_router(map3d_custom_models_router)
 map_router.include_router(pad_earthwork_router)
+map_router.include_router(well_trajectory_router)

@@ -9,6 +9,8 @@ import { ObjectDetailPanelFooter } from './objectDetailPanel/ObjectDetailPanelFo
 import { InfraDetailMainTab } from './objectDetailPanel/InfraDetailMainTab';
 import { InfraDetailLogisticsTab } from './objectDetailPanel/InfraDetailLogisticsTab';
 import { InfraDetailExtraTab } from './objectDetailPanel/InfraDetailExtraTab';
+import { InfraDetailTrajectoriesTab } from './objectDetailPanel/InfraDetailTrajectoriesTab';
+import { InfraBottomholeDetailSection } from './objectDetailPanel/InfraBottomholeDetailSection';
 import {
   PointFootprintLineConnectionsSection,
   PointFootprintLineConnectPickControls,
@@ -16,6 +18,7 @@ import {
 import type { ObjectDetailPanelProps } from './objectDetailPanel/types';
 import type { PointFootprintLineConnections } from '../lib/padFootprintLineAttach';
 import { useProjectFootprintConnectionTemplate } from '../hooks/useProjectFootprintConnectionTemplate';
+import { isBottomholeSubtype } from '../lib/wellBottomholeProperties';
 
 export function ObjectDetailPanel({
   selection,
@@ -145,6 +148,28 @@ export function ObjectDetailPanel({
               />
             )}
             {panel.infraTab === 'main' &&
+              panel.infraObject &&
+              panel.mapProjectId &&
+              isBottomholeSubtype(panel.infraObject.subtype) && (
+                <InfraBottomholeDetailSection
+                  projectId={panel.mapProjectId}
+                  infraObject={{
+                    ...panel.infraObject,
+                    properties: {
+                      ...(panel.infraObject.properties ?? {}),
+                      ...panel.bottomholePropsPatch,
+                    },
+                  }}
+                  padOptions={infraObjects.filter(
+                    (o) => o.subtype === 'oil_pad' || o.subtype === 'gas_pad',
+                  )}
+                  readOnly={readOnly}
+                  onPropertiesChange={(patch) =>
+                    panel.setBottomholePropsPatch((prev) => ({ ...prev, ...patch }))
+                  }
+                />
+              )}
+            {panel.infraTab === 'main' &&
               mapInFootprints &&
               panel.showFootprintLineConnectionsSection &&
               panel.infraObject && (
@@ -205,6 +230,16 @@ export function ObjectDetailPanel({
                 setPadWellSpacingM={panel.setPadWellSpacingM}
                 padGroupSpacingM={panel.padGroupSpacingM}
                 setPadGroupSpacingM={panel.setPadGroupSpacingM}
+              />
+            )}
+
+            {panel.infraTab === 'trajectories' && (
+              <InfraDetailTrajectoriesTab
+                showTrajectoriesSection={panel.showTrajectoriesSection}
+                projectId={panel.mapProjectId}
+                infraObject={panel.infraObject}
+                infraObjects={infraObjects}
+                readOnly={readOnly}
               />
             )}
 

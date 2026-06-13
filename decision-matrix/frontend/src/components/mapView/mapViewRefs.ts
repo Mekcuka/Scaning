@@ -42,8 +42,12 @@ export type MapViewRefs = {
   dragBoxRef: MutableRefObject<DragBox | null>;
   dragPanRef: MutableRefObject<DragPan | null>;
   padFootprintSourceRef: MutableRefObject<VectorSource>;
+  wellTrajectoryPlanSourceRef: MutableRefObject<VectorSource>;
+  wellTrajectoryBottomholeSourceRef: MutableRefObject<VectorSource>;
   pointLayerRef: MutableRefObject<VectorLayer<VectorSource> | null>;
   padFootprintLayerRef: MutableRefObject<VectorLayer<VectorSource> | null>;
+  wellTrajectoryPlanLayerRef: MutableRefObject<VectorLayer<VectorSource> | null>;
+  wellTrajectoryBottomholeLayerRef: MutableRefObject<VectorLayer<VectorSource> | null>;
   nodePointLayerRef: MutableRefObject<VectorLayer<VectorSource> | null>;
   lineLayerRef: MutableRefObject<VectorLayer<VectorSource> | null>;
   basemapLayerRef: MutableRefObject<TileLayer | null>;

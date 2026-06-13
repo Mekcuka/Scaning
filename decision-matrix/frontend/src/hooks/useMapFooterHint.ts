@@ -29,6 +29,9 @@ export function useMapFooterHint({
     if (drawMode === 'autoroad_network') {
       return 'Клик по точке — добавить/убрать терминал · панель справа — предпросмотр';
     }
+    if (drawMode === 'pad_placement') {
+      return 'Клик или рамка — выбрать забои · панель справа — расчёт и применение';
+    }
     if (drawMode !== 'select') return null;
     const footprintHint = mapInFootprints
       ? 'Контуры площадок из параметров земляных работ'

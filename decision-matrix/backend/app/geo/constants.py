@@ -6,6 +6,7 @@ from app.subtype_manifest import (
     FACILITY_POINT_SUBTYPES,
     GKS_CLUSTER_SUBTYPES,
     GTES_CLUSTER_SUBTYPES,
+    BOTTOMHOLE_CLUSTER_SUBTYPES,
     IE_DERIVED_POINT_SUBTYPES,
     IMMUTABLE_POINT_SUBTYPES,
     IMPORT_ONLY_POINT_SUBTYPES,
@@ -49,3 +50,11 @@ TERMINAL_EXCLUSION_RADIUS_KM = 0.2
 
 # Max point objects per autoroad connect / network build request.
 MAX_AUTOROAD_NETWORK_OBJECTS = 200
+
+# Terminals excluded from autoroad network planner (nodes/junctions + well bottomholes).
+AUTOROAD_NETWORK_EXCLUDED_TERMINAL_SUBTYPES = NODE_CLUSTER_SUBTYPES | BOTTOMHOLE_CLUSTER_SUBTYPES
+
+
+def is_autoroad_network_terminal_subtype(subtype: str) -> bool:
+    st = subtype.lower().strip()
+    return st not in AUTOROAD_NETWORK_EXCLUDED_TERMINAL_SUBTYPES

@@ -51,6 +51,10 @@ import {
   type MapViewStateId,
   type SavedMapViewState,
 } from '../lib/mapViewState';
+import {
+  wellTrajectories3dGeoJson,
+  setMap3dWellTrajectoriesVisibility,
+} from '../lib/map3d/wellTrajectories3d';
 import { useAppStore } from '../store';
 import type { MapFeatureSelection, MapFocusTarget, ThresholdCircle } from './MapView';
 
@@ -75,6 +79,9 @@ export interface MapView3DProps {
   /** Procedural 3D models for point objects (Three.js custom layer). */
   showModels?: boolean;
   showRadii?: boolean;
+  /** 3D well trajectory lines from project GeoJSON. */
+  wellTrajectoryFeatures?: import('../lib/api/wellTrajectoryApi').WellTrajectoryGeoJsonFeature[];
+  showWellTrajectories3d?: boolean;
   connectionLines?: AnalysisRow[];
   selectedPoi?: POI | null;
   thresholdCircles?: ThresholdCircle[];
@@ -149,6 +156,8 @@ const MapView3D = forwardRef<MapView3DHandle, MapView3DProps>(function MapView3D
     terrainExaggeration = DEFAULT_TERRAIN_EXAGGERATION,
     showModels = true,
     showRadii = true,
+    wellTrajectoryFeatures = [],
+    showWellTrajectories3d = true,
     connectionLines = [],
     selectedPoi = null,
     thresholdCircles = [],
@@ -440,6 +449,8 @@ const MapView3D = forwardRef<MapView3DHandle, MapView3DProps>(function MapView3D
       setSource(MAP3D_SOURCE_IDS.analysisLines, bundle.analysisLines);
       setSource(MAP3D_SOURCE_IDS.analysisLabels, bundle.analysisLabels);
       setSource(MAP3D_SOURCE_IDS.infraLineLabels, bundle.infraLineLabels);
+      setSource(MAP3D_SOURCE_IDS.wellTrajectories, wellTrajectories3dGeoJson(wellTrajectoryFeatures));
+      setMap3dWellTrajectoriesVisibility(map, showWellTrajectories3d);
 
       const prev = prevSelectedRef.current;
       if (prev !== selectedFeatureId) {
@@ -461,6 +472,8 @@ const MapView3D = forwardRef<MapView3DHandle, MapView3DProps>(function MapView3D
     showRadii,
     selectedFeatureId,
     showModels,
+    wellTrajectoryFeatures,
+    showWellTrajectories3d,
   ]);
 
   useEffect(() => {

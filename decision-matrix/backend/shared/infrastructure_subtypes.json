@@ -49,7 +49,10 @@
       "methanol_joint",
       "power_line_node",
       "offplot",
-      "additional_facility"
+      "additional_facility",
+      "well_bottomhole_nnb",
+      "well_bottomhole_gs_heel",
+      "well_bottomhole_gs_toe"
     ],
     "analysis_external": [
       "gas_processing",
@@ -73,7 +76,10 @@
       "sand_quarry",
       "offplot",
       "additional_facility",
-      "methanol_facility"
+      "methanol_facility",
+      "well_bottomhole_nnb",
+      "well_bottomhole_gs_heel",
+      "well_bottomhole_gs_toe"
     ],
     "facility": ["refinery", "oil_pumping_station"],
     "import_only": [
@@ -93,14 +99,28 @@
     "gks": ["gas_processing", "ukg", "tsg"],
     "node": ["node", "methanol_joint", "power_line_node"],
     "pad": ["oil_pad", "gas_pad"],
-    "gtes": ["gtes", "gpes", "vies"]
+    "gtes": ["gtes", "gpes", "vies"],
+    "bottomhole": [
+      "well_bottomhole_nnb",
+      "well_bottomhole_gs_heel",
+      "well_bottomhole_gs_toe"
+    ]
   },
   "legacy_aliases": {
     "pad": "oil_pad",
     "delivery_acceptance_point": "refinery"
   },
   "matrix": {
-    "point_exclude": ["node", "oil_pad", "gas_pad", "methanol_joint", "power_line_node"],
+    "point_exclude": [
+      "node",
+      "oil_pad",
+      "gas_pad",
+      "methanol_joint",
+      "power_line_node",
+      "well_bottomhole_nnb",
+      "well_bottomhole_gs_heel",
+      "well_bottomhole_gs_toe"
+    ],
     "linear_exclude": ["additional_line"],
     "internal_extra_rows": ["pads"]
   },
@@ -132,7 +152,10 @@
     "methanol_joint": "Узел метанола",
     "power_line_node": "Узел ЛЭП",
     "additional_facility": "Доп. объект",
-    "offplot": "ВО"
+    "offplot": "ВО",
+    "well_bottomhole_nnb": "Забой (ННБ)",
+    "well_bottomhole_gs_heel": "ГС — heel",
+    "well_bottomhole_gs_toe": "ГС — toe"
   },
   "categories": {
     "autoroad": "road",
@@ -162,7 +185,10 @@
     "methanol_joint": "network",
     "power_line_node": "electricity",
     "offplot": "area_facility",
-    "additional_facility": "area_facility"
+    "additional_facility": "area_facility",
+    "well_bottomhole_nnb": "well",
+    "well_bottomhole_gs_heel": "well",
+    "well_bottomhole_gs_toe": "well"
   },
   "point_menu_labels": {
     "gtes": "ИЭ",

@@ -20,6 +20,28 @@ export function buildPlanSketchViewBox(panEast: number, panNorth: number, viewHa
   return `${minX} ${minY} ${size} ${size}`;
 }
 
+/** Fit viewBox for read-only plan preview (north up, same as sketch editors). */
+export function planSketchViewBoxForPoints(
+  points: { east_m: number; north_m: number }[],
+  padM = 14,
+): string {
+  if (points.length === 0) return buildPlanSketchViewBox(0, 0, 40);
+  let minE = points[0]!.east_m;
+  let maxE = minE;
+  let minN = points[0]!.north_m;
+  let maxN = minN;
+  for (const p of points) {
+    minE = Math.min(minE, p.east_m);
+    maxE = Math.max(maxE, p.east_m);
+    minN = Math.min(minN, p.north_m);
+    maxN = Math.max(maxN, p.north_m);
+  }
+  const cx = (minE + maxE) / 2;
+  const cy = (minN + maxN) / 2;
+  const half = Math.max(maxE - minE, maxN - minN) / 2 + padM;
+  return buildPlanSketchViewBox(cx, cy, Math.max(half, 24));
+}
+
 export function planSketchGridLines(
   panEast: number,
   panNorth: number,

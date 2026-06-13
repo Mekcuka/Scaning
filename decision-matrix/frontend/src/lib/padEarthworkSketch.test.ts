@@ -31,6 +31,9 @@ import {
   snapMeters,
   generatePadFromWells,
   computeWellPositionsEastM,
+  tryLayoutPreviewFromWellForm,
+  enuToRowLocal,
+  validateGeneratedWellLayout,
 } from './padEarthworkSketch';
 
 describe('padEarthworkSketch', () => {
@@ -244,6 +247,35 @@ describe('padEarthworkSketch', () => {
     expect(result.wellsLocal[0]).toEqual({ east_m: 0, north_m: 0 });
   });
 
+  it('tryLayoutPreviewFromWellForm matches clustering sidebar defaults', () => {
+    const preview = tryLayoutPreviewFromWellForm({
+      padWellCount: '12',
+      padWellsPerGroup: '1',
+      padWellSpacingM: '9',
+      padGroupSpacingM: '9',
+      padMarginLeftM: '27',
+      padMarginBottomM: '43',
+      padMarginTopM: '15',
+      padMarginEndM: '70',
+      rotationDeg: '90',
+    });
+    expect(preview).not.toBeNull();
+    expect(preview!.lengthM).toBe(196);
+    expect(preview!.widthM).toBe(58);
+    expect(preview!.wellsLocal).toHaveLength(12);
+    const verts = preview!.sketch.vertices;
+    const minE = Math.min(...verts.map((v) => v.east_m));
+    const maxE = Math.max(...verts.map((v) => v.east_m));
+    const minN = Math.min(...verts.map((v) => v.north_m));
+    const maxN = Math.max(...verts.map((v) => v.north_m));
+    expect(minE).toBeCloseTo(-27, 0);
+    expect(maxE).toBeCloseTo(169, 0);
+    expect(minN).toBeCloseTo(-43, 0);
+    expect(maxN).toBeCloseTo(15, 0);
+    expect(preview!.wellsLocal[0]!.east_m - minE).toBeCloseTo(27, 0);
+    expect(maxE - preview!.wellsLocal[11]!.east_m).toBeCloseTo(70, 0);
+  });
+
   it('NDS 180° orients well row south (top to bottom on plan)', () => {
     const result = generatePadFromWells({
       wellCount: 2,
@@ -255,5 +287,35 @@ describe('padEarthworkSketch', () => {
     });
     expect(result.wellsLocal[1]?.north_m).toBeLessThan(0);
     expect(result.wellsLocal[1]?.east_m).toBeCloseTo(0, 0);
+    expect(validateGeneratedWellLayout(result, {
+      wellCount: 2,
+      wellsPerGroup: 2,
+      wellSpacingM: 50,
+      groupSpacingM: 0,
+      margins: { leftM: 10, bottomM: 10, topM: 10, endM: 10 },
+      rotationDeg: 180,
+    })).toBe(true);
+  });
+
+  it('validateGeneratedWellLayout for clustering sidebar at NDS 180°', () => {
+    const input = {
+      wellCount: 12,
+      wellsPerGroup: 1,
+      wellSpacingM: 9,
+      groupSpacingM: 9,
+      margins: { leftM: 27, bottomM: 43, topM: 15, endM: 70 },
+      rotationDeg: 180,
+    };
+    const result = generatePadFromWells(input);
+    expect(validateGeneratedWellLayout(result, input)).toBe(true);
+    const first = enuToRowLocal(result.wellsLocal[0]!.east_m, result.wellsLocal[0]!.north_m, 180);
+    const last = enuToRowLocal(
+      result.wellsLocal[11]!.east_m,
+      result.wellsLocal[11]!.north_m,
+      180,
+    );
+    expect(first.east_m).toBeCloseTo(0, 1);
+    expect(last.east_m).toBeCloseTo(99, 1);
+    expect(last.east_m - first.east_m).toBeCloseTo(99, 1);
   });
 });

@@ -13,6 +13,8 @@ export type MapLayers = {
   nodePointLayer: VectorLayer;
   pointLayer: VectorLayer;
   padFootprintLayer: VectorLayer;
+  wellTrajectoryPlanLayer: VectorLayer;
+  wellTrajectoryBottomholeLayer: VectorLayer;
   radiusLayer: VectorLayer;
   placementPreviewLayer: VectorLayer;
   connectionLayer: VectorLayer;

@@ -1,10 +1,13 @@
 import { ImportConnectionsSection } from './import/ImportConnectionsSection';
 import { ImportFilesSection } from './import/ImportFilesSection';
 import { ImportHistorySection } from './import/ImportHistorySection';
+import { ImportWellSurveysSection } from './import/ImportWellSurveysSection';
 import { useImportPageWorkflow } from './import/useImportPageWorkflow';
+import { useImportWellSurveysWorkflow } from './import/useImportWellSurveysWorkflow';
 
 export function ImportPage() {
   const workflow = useImportPageWorkflow();
+  const surveyWorkflow = useImportWellSurveysWorkflow();
 
   return (
     <div>
@@ -41,6 +44,25 @@ export function ImportPage() {
           </div>
         </div>
       )}
+
+      <ImportWellSurveysSection
+        readOnly={surveyWorkflow.readOnly}
+        hasProjects={surveyWorkflow.hasProjects}
+        padOptions={surveyWorkflow.padOptions}
+        padId={surveyWorkflow.padId}
+        setPadId={surveyWorkflow.setPadId}
+        fileInputRef={surveyWorkflow.fileInputRef}
+        preview={surveyWorkflow.preview}
+        format={surveyWorkflow.format}
+        useAsync={surveyWorkflow.useAsync}
+        setUseAsync={surveyWorkflow.setUseAsync}
+        interpolate={surveyWorkflow.interpolate}
+        setInterpolate={surveyWorkflow.setInterpolate}
+        busy={surveyWorkflow.busy}
+        asyncThreshold={surveyWorkflow.asyncThreshold}
+        onFile={surveyWorkflow.onFile}
+        onCommit={surveyWorkflow.onCommit}
+      />
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 mb-6">
         <ImportConnectionsSection
