@@ -5,6 +5,7 @@ import { buildMap3dGeoJson } from './map3d/geoJson';
 import { buildMap3dLineInstances } from './map3d/map3dLineInstances';
 import { buildMap3dPowerLineInstances } from './map3d/map3dPowerLineInstances';
 import { buildNormalizedLinePath3d } from './map3d/map3dLinePathBuild';
+import { isBottomholeSubtype } from './wellBottomholeProperties';
 
 function fakeMap(): import('maplibre-gl').Map {
   return { getTerrain: () => null } as import('maplibre-gl').Map;
@@ -66,6 +67,11 @@ function expectSamePathEverywhere(
     });
     expect(pl).toHaveLength(1);
     expect(linePathsEqual(path2d, pl[0]!.path)).toBe(true);
+  } else if (isBottomholeSubtype(obj.subtype)) {
+    // Legacy GS line — rendered via bottomhole 3D layer, not tube instances.
+    expect(buildMap3dLineInstances(fakeMap(), { infraObjects: filtered, snapPool: pool })).toHaveLength(
+      0,
+    );
   } else {
     const tubes = buildMap3dLineInstances(fakeMap(), {
       infraObjects: filtered,

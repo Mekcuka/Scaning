@@ -7,6 +7,10 @@ vi.mock('../hooks/usePermissions', () => ({
   usePermissions: () => ({ hasRole: () => false }),
 }));
 
+vi.mock('./layout/LegacyProjectRedirect', () => ({
+  LegacyProjectRedirect: () => <div>Home</div>,
+}));
+
 vi.mock('../store', () => ({
   useAppStore: (selector: (s: { pushToast: () => void }) => unknown) =>
     selector({ pushToast: vi.fn() }),

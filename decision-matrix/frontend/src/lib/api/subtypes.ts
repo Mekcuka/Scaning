@@ -80,7 +80,7 @@ export const BOTTOMHOLE_LAYER_VISIBILITY_GROUPS: LayerVisibilityGroup[] = [
   {
     id: 'well_bottomhole_gs',
     label: SUBTYPE_LABELS.well_bottomhole_gs ?? 'ГС',
-    subtypes: ['well_bottomhole_gs', 'well_bottomhole_gs_heel', 'well_bottomhole_gs_toe'],
+    subtypes: ['well_bottomhole_gs_heel', 'well_bottomhole_gs_toe'],
   },
 ];
 
@@ -159,6 +159,7 @@ export const LINE_LAYER_UI_ENTRIES: LayerVisibilityUiEntry[] = [
     subtypes: PIPELINE_LAYER_SUBTYPES,
   },
   { kind: 'group', group: lineVisibilityGroup('power_line') },
+  { kind: 'group', group: lineVisibilityGroup('well_bottomhole_gs_line') },
   { kind: 'group', group: lineVisibilityGroup('additional_linear') },
 ];
 

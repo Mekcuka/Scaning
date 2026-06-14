@@ -1,6 +1,7 @@
 import { describe, expect, it, vi } from 'vitest';
 import type { InfraObject } from '../api';
 import { LINE_SUBTYPES } from '../api';
+import { isBottomholeSubtype } from '../wellBottomholeProperties';
 import { buildMap3dLineInstances } from './map3dLineInstances';
 import { buildMap3dPowerLineInstances } from './map3dPowerLineInstances';
 import {
@@ -69,7 +70,7 @@ describe('3D line builders use normalized paths for all subtypes', () => {
   const pad = point('pad-1', 'oil_pad', 37.6, 55.75);
   const substation = point('ps-1', 'substation', 37.7, 55.85);
 
-  const tubeSubtypes = LINE_SUBTYPES.filter((s) => s !== 'power_line');
+  const tubeSubtypes = LINE_SUBTYPES.filter((s) => s !== 'power_line' && !isBottomholeSubtype(s));
 
   it.each(tubeSubtypes)('tube %s endpoints match point objects', (subtype) => {
     const l = line(`line-${subtype}`, subtype, [
