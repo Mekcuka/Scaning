@@ -74,17 +74,18 @@ export function useMapViewSelectionSync(
       }
     }
     collection.clear();
+    const matchesSelection = (f: Feature) => {
+      const sel = resolveFeatureSelection(f);
+      return sel != null && targetIds.has(sel.id);
+    };
     refs.nodePointSourceRef.current.getFeatures().forEach((f) => {
-      const id = f.get('id') as string;
-      if (targetIds.has(id) && f.get('subtype') !== 'draft') collection.push(f);
+      if (f.get('subtype') !== 'draft' && matchesSelection(f)) collection.push(f);
     });
     refs.pointSourceRef.current.getFeatures().forEach((f) => {
-      const id = f.get('id') as string;
-      if (targetIds.has(id) && f.get('subtype') !== 'draft') collection.push(f);
+      if (f.get('subtype') !== 'draft' && matchesSelection(f)) collection.push(f);
     });
     refs.lineSourceRef.current.getFeatures().forEach((f) => {
-      const id = f.get('id') as string;
-      if (targetIds.has(id) && f.get('subtype') !== 'draft') collection.push(f);
+      if (f.get('subtype') !== 'draft' && matchesSelection(f)) collection.push(f);
     });
   }, [selectedFeatureIds, selectMode, editMode, pois, infraObjects]);
 
@@ -95,9 +96,10 @@ export function useMapViewSelectionSync(
     const selected = select.getFeatures();
     const stale: Feature[] = [];
     selected.forEach((f) => {
-      if (f.get('featureKind') === 'infra' && !infraIds.has(f.get('id') as string)) {
-        stale.push(f);
-      }
+      if (f.get('featureKind') !== 'infra') return;
+      const featureInfraId =
+        (f.get('infra_object_id') as string | undefined) ?? (f.get('id') as string);
+      if (!infraIds.has(featureInfraId)) stale.push(f);
     });
     stale.forEach((f) => selected.remove(f));
   }, [infraObjects]);

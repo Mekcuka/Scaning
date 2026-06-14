@@ -11,7 +11,9 @@
 | Навигация (Параметры, Потоки, ставки внутри Параметров) | Согласовано (май 2026) |
 | OpenLayers / Lucide | Согласовано |
 | Импорт отдельно от карты | Согласовано |
-| Экспорт инфраструктуры (`/export`) | Согласовано (июнь 2026, [project-export.md](../features/project-export.md)) |
+| Экспорт инфраструктуры (`/data/export`) | Согласовано (июнь 2026, [project-export.md](../features/project-export.md)) |
+| Импорт: карточки как экспорт, раздел «Данные» | Согласовано (июнь 2026, [project-import.md](../features/project-import.md)) |
+| Глобальный заголовок страницы в `app-header` | Согласовано (июнь 2026, [ui-guidelines.md](../architecture/ui-guidelines.md)) |
 | Селектор проекта | На страницах (Экспорт и др.); в шапке нет (июнь 2026) |
 | 16 ставок, тыс. ₽ | Согласовано |
 | 9 подтипов vs анализ на карте | Согласовано |
@@ -73,7 +75,7 @@
 | Решение | Где зафиксировано |
 |---------|-------------------|
 | Единый статус реализации | [implementation-status.md](implementation-status.md) |
-| Меню UI: Параметры вместо отдельных «Ставки»; `/flows`, `/import` | implementation-status, FR-12.2.2 (примечание) |
+| Меню UI: Параметры вместо отдельных «Ставки»; `/flows`; группа **«Данные»** `/data/*` | implementation-status, FR-12.2.2 (примечание) |
 | 2D basemap: Esri satellite; OSM 2D — gap | implementation-status, FR-2.1.2 |
 | Async import без Celery | implementation-status, development-plan неделя 4 |
 | Расширенные подтипы карты vs 9 строк матрицы | map-objects §1.4, implementation-status |

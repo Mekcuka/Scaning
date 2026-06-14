@@ -65,23 +65,43 @@ export const NAV_VISIBILITY: Record<string, UserRole[]> = {
   '/flows': ['admin', 'analyst', 'viewer'],
   '/matrix': ['admin', 'analyst', 'viewer'],
   '/report': ['admin', 'analyst', 'viewer'],
+  '/data/import': ['admin', 'analyst', 'data_manager'],
+  '/data/export': ['admin', 'analyst', 'data_manager', 'viewer'],
   '/import': ['admin', 'analyst', 'data_manager'],
   '/export': ['admin', 'analyst', 'data_manager', 'viewer'],
   '/admin': ['admin'],
 };
+
+function normalizeNavPath(path: string): string {
+  if (path === '/import') return '/data/import';
+  if (path === '/export') return '/data/export';
+  if (path === '/import-3d') return '/data/import-3d';
+  return path;
+}
 
 export function canSeeNav(
   role: string | undefined | null,
   path: string,
   ctx?: { userId?: string | null; activeProject?: { owner_user_id?: string | null } | null },
 ): boolean {
-  if (path === '/import-3d') {
+  const normalized = normalizeNavPath(path);
+
+  if (normalized === '/data/import-3d') {
     return (
       canUploadMap3dCustomModel(role) ||
       canAssignMap3dCustomModel(role, ctx?.userId, ctx?.activeProject)
     );
   }
-  const allowed = NAV_VISIBILITY[path];
+
+  if (normalized === '/data') {
+    return (
+      canSeeNav(role, '/data/import', ctx) ||
+      canSeeNav(role, '/data/export', ctx) ||
+      canSeeNav(role, '/data/import-3d', ctx)
+    );
+  }
+
+  const allowed = NAV_VISIBILITY[normalized];
   if (!allowed) return true;
   return hasRole(role, ...allowed);
 }

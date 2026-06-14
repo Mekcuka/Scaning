@@ -1,8 +1,10 @@
 import { Navigate, Link } from 'react-router-dom';
+import { ProjectLink } from '../components/ProjectLink';
 import { Box, FileBox, Info, Map as MapIcon, Upload } from 'lucide-react';
 import { Import3dPreview } from '../components/map3d/Import3dPreview';
 import { AppSelect } from '../components/AppSelect';
 import { SUBTYPE_LABELS } from '../lib/api';
+import { usePageHeader } from '../components/layout/pageHeaderContext';
 import { GlbUploadZone } from './import3d/GlbUploadZone';
 import { Import3dPanel } from './import3d/Import3dPanel';
 import { map3dModelLabel, ModelsList } from './import3d/ModelsList';
@@ -11,8 +13,16 @@ import { useImport3dWorkflow } from './import3d/useImport3dWorkflow';
 export function Import3DPage() {
   const w = useImport3dWorkflow();
 
+  usePageHeader(
+    {
+      title: 'Импорт 3D',
+      subtitle: 'Пользовательские GLB-модели для точечных объектов на карте в режиме 3D.',
+    },
+    [],
+  );
+
   if (w.denied) {
-    return <Navigate to="/" replace />;
+    return <Navigate to="../.." replace />;
   }
 
   const showUploadCard = w.canUpload;
@@ -53,29 +63,21 @@ export function Import3DPage() {
 
   return (
     <div className="import-3d-page">
-      <header className="page-header import-3d-page__header">
-        <div>
-          <h1 className="page-title">Импорт 3D</h1>
-          <p className="subtitle import-3d-page__lead">
-            Пользовательские GLB-модели для точечных объектов на карте в режиме 3D.
-          </p>
-        </div>
-        <div className="import-3d-hints" role="list">
-          {w.canUpload ? (
-            <span className="import-3d-hint-pill" role="listitem">
-              Загрузка — администратор
-            </span>
-          ) : null}
-          {w.canAssign ? (
-            <span className="import-3d-hint-pill" role="listitem">
-              Назначение — владелец проекта
-            </span>
-          ) : null}
-          <span className="import-3d-hint-pill import-3d-hint-pill--muted" role="listitem">
-            Линии без glTF
+      <div className="import-3d-hints mb-4" role="list">
+        {w.canUpload ? (
+          <span className="import-3d-hint-pill" role="listitem">
+            Загрузка — администратор
           </span>
-        </div>
-      </header>
+        ) : null}
+        {w.canAssign ? (
+          <span className="import-3d-hint-pill" role="listitem">
+            Назначение — владелец проекта
+          </span>
+        ) : null}
+        <span className="import-3d-hint-pill import-3d-hint-pill--muted" role="listitem">
+          Линии без glTF
+        </span>
+      </div>
 
       {!w.projectsLoading && !w.hasProjects && (
         <div className="import-3d-alert import-3d-alert--info">
@@ -250,10 +252,10 @@ export function Import3DPage() {
                     Снять все
                   </button>
                   {assignReady && hasSubtypeSelection ? (
-                    <Link to="/map" className="btn btn-secondary import-3d-map-link">
+                    <ProjectLink to="/map" className="btn btn-secondary import-3d-map-link">
                       <MapIcon size={16} aria-hidden />
                       Открыть карту 3D
-                    </Link>
+                    </ProjectLink>
                   ) : (
                     <p className="import-3d-muted import-3d-assign-hint">
                       Выберите модель и отметьте один или несколько подтипов

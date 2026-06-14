@@ -7,6 +7,8 @@ from uuid import UUID
 from app.services.pad_placement.schemas import BottomholeSnapshot, LogicalWell
 from app.services.well_trajectory.bottomhole_properties import (
     GS_HEEL_ID,
+    GS_HEEL_TVD_M,
+    GS_TOE_TVD_M,
     TARGET_AZI,
     TARGET_INC,
     TVD_M,
@@ -46,6 +48,36 @@ def normalize_bottomholes(
                     tvd_m=tvd,
                     target_inc=_read_float_prop(snap, TARGET_INC),
                     target_azi=_read_float_prop(snap, TARGET_AZI),
+                )
+            )
+            used.add(snap.id)
+            continue
+
+        if st == "well_bottomhole_gs":
+            if snap.end_longitude is None or snap.end_latitude is None:
+                warnings.append(f"{snap.name or snap.id}: GS missing toe endpoint")
+                continue
+            props = snap.properties or {}
+            heel_tvd = _read_float_prop(snap, GS_HEEL_TVD_M) or _read_tvd(snap)
+            toe_tvd = _read_float_prop(snap, GS_TOE_TVD_M) or _read_tvd(snap)
+            if heel_tvd is None or toe_tvd is None:
+                if require_tvd:
+                    warnings.append(f"{snap.name or snap.id}: GS missing TVD")
+                    continue
+                heel_tvd = heel_tvd or DEFAULT_TVD_M
+                toe_tvd = toe_tvd or DEFAULT_TVD_M
+            logical.append(
+                LogicalWell(
+                    logical_id=f"gs:{snap.id}",
+                    profile="gs",
+                    bottomhole_ids=[snap.id],
+                    td_longitude=snap.end_longitude,
+                    td_latitude=snap.end_latitude,
+                    tvd_m=toe_tvd,
+                    target_inc=_read_float_prop(snap, TARGET_INC),
+                    target_azi=_read_float_prop(snap, TARGET_AZI),
+                    heel_longitude=snap.longitude,
+                    heel_latitude=snap.latitude,
                 )
             )
             used.add(snap.id)

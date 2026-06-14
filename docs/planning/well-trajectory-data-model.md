@@ -219,8 +219,9 @@ erDiagram
 | Subtype | Рисование | Связи |
 |---------|-----------|--------|
 | `well_bottomhole_nnb` | 1 клик (ННБ) | `linked_pad_id`, опц. `well_index` |
-| `well_bottomhole_gs_heel` | 1-й клик в режиме ГС | `linked_pad_id`, `tvd_m` |
-| `well_bottomhole_gs_toe` | 2-й клик | `gs_heel_id`, тот же `linked_pad_id` / `well_index` |
+| `well_bottomhole_gs` | Линия heel→toe (unified) | `linked_pad_id`, `heel_tvd_m`, `toe_tvd_m`, `gs_entry_mode` |
+| `well_bottomhole_gs_heel` | 1-й клик в режиме ГС (legacy) | `linked_pad_id`, `tvd_m`, `gs_entry_mode` |
+| `well_bottomhole_gs_toe` | 2-й клик (legacy) | `gs_heel_id`, тот же `linked_pad_id` / `well_index` |
 
 **Properties (общие):**
 
@@ -228,12 +229,25 @@ erDiagram
 |------|-----|-----------|
 | `well_bottomhole_linked_pad_id` | UUID | Куст `oil_pad` / `gas_pad` |
 | `well_bottomhole_well_index` | 0…63 | Опционально; если пусто — auto по ближайшему устью |
-| `well_bottomhole_tvd_m` | number | TVD забоя / горизонтального интервала |
+| `well_bottomhole_tvd_m` | number | TVD (ННБ; fallback для ГС) |
+| `well_bottomhole_heel_tvd_m` | number | TVD пятки ГС |
+| `well_bottomhole_toe_tvd_m` | number | TVD стока ГС |
 | `well_bottomhole_target_inc` | number | ННБ: default **360°** (welleng ≈ вертикальный заход 0°); диапазон 0…360 |
 | `well_bottomhole_target_azi` | number | Опционально; default NDS куста |
-| `well_bottomhole_gs_heel_id` | UUID | Только на toe; ссылка на heel |
+| `well_bottomhole_gs_heel_id` | UUID | Только на toe (legacy pair); ссылка на heel |
+| `well_bottomhole_gs_entry_mode` | enum | `any` (default) / `heel` / `toe` — точка входа build→hold на линии пятка–сток |
 
-**API:** `POST .../sync-bottomholes`, `POST .../design-from-bottomholes` (NNB → connector; ГС → 2-segment horizontal в planner).
+**API:** `POST .../sync-bottomholes`, `POST .../design-from-bottomholes` (NNB → connector; ГС → `design_horizontal` в planner: build + hold, оптимизация `any` с учётом SF на кусте).
+
+**Блок `target` для профиля `gs`:**
+
+| Поле | Пояснение |
+|------|-----------|
+| `profile` | `"gs"` |
+| `heel_plan`, `plan` | План пятки и стока (east_m, north_m) |
+| `heel_tvd_m`, `toe_tvd_m` | TVD концов горизонтали |
+| `gs_entry_mode` | Режим точки входа |
+| `azi` | Азимут hold вдоль оси ГС |
 
 #### 5.3.2 Блок `target` в JSON куста
 

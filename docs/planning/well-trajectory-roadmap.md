@@ -1,6 +1,6 @@
 # План работ: траектории скважин
 
-> **Статус:** **M1 ✅**; **M2 ✅**; **M3 ✅** (anti-collision SF); **M4a ✅** (импорт CSV / `.wbp`, UI `/import`, async &gt;20).  
+> **Статус:** **M1 ✅**; **M2 ✅**; **M3 ✅** (anti-collision SF); **M4a ✅** (импорт CSV / `.wbp`, UI `/data/import`, async &gt;20).  
 > **См. также:** [well-trajectory.md](../features/well-trajectory.md), [well-trajectory-data-model.md](well-trajectory-data-model.md), [well-trajectory-app-assessment.md](well-trajectory-app-assessment.md), [well-trajectory-implementation-plan.md](well-trajectory-implementation-plan.md), [MICROSERVICE.md](../../well-trajectory-planner/docs/MICROSERVICE.md).
 
 **Дата:** июнь 2026.
@@ -198,7 +198,7 @@ flowchart LR
 | № | Артефакт |
 |---|----------|
 | 1 | Импорт CSV в микросервисе и BFF |
-| 2 | UI на `/import` или `/import-wells` |
+| 2 | UI на `/data/import` или `/import-wells` |
 | 3 | Пример файла `tests/fixtures/sample_survey.csv` |
 | 4 | Заметка по WITSML в MICROSERVICE.md |
 
@@ -221,7 +221,7 @@ flowchart LR
 ### От чего зависит
 
 - Фаза 3 (SF для импортированных траекторий)
-- Права как у `/import`: admin, analyst, data_manager
+- Права как у `/data/import`: admin, analyst, data_manager
 
 ---
 

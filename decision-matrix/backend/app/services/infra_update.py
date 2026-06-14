@@ -116,6 +116,8 @@ async def update_infra_object_record(
                 subtype=subtype,
                 properties=merged_props,
                 obj_id=obj.id,
+                end_lon=float(obj.end_longitude) if obj.end_longitude is not None else None,
+                end_lat=float(obj.end_latitude) if obj.end_latitude is not None else None,
             )
         obj.properties = apply_default_render_3d(subtype, merged_props)
     if "description" in payload:

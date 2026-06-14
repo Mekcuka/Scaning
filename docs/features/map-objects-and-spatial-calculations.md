@@ -647,7 +647,7 @@ sequenceDiagram
 | `render_3d_model_id` | string | переопределение точки: пусто — Kenney по подтипу; `custom:{uuid}` — GLB, назначенный на подтип |
 | `render_3d_scale` | number | множитель 0.1–10 (по умолчанию 1) |
 
-**Custom GLB:** таблица `project_map3d_models` (`display_name`, `file_size_bytes`, `assigned_subtypes`, `usage_count` в API); страница `/import-3d` — upload, PATCH метаданных, назначение подтипов, опционально массовое `apply_to_objects`; файлы на prod: volume `/opt/decision-matrix/shared/map3d_models`. PATCH `custom:*` на объекте — только если подтип в `assigned_subtypes`. Подробно: [map-3d-features.md](map-3d-features.md), [map3d-models-storage.md](../deploy/map3d-models-storage.md).
+**Custom GLB:** таблица `project_map3d_models` (`display_name`, `file_size_bytes`, `assigned_subtypes`, `usage_count` в API); страница `/data/import-3d` — upload, PATCH метаданных, назначение подтипов, опционально массовое `apply_to_objects`; файлы на prod: volume `/opt/decision-matrix/shared/map3d_models`. PATCH `custom:*` на объекте — только если подтип в `assigned_subtypes`. Подробно: [map-3d-features.md](map-3d-features.md), [map3d-models-storage.md](../deploy/map3d-models-storage.md).
 
 **L3 (клиент, реализовано):**
 

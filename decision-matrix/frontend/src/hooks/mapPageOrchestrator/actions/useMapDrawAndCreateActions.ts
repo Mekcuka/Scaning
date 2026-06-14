@@ -19,7 +19,8 @@ export function useMapDrawAndCreateActions(params: MapPageActionsParams) {
     layerVisibilityMut,
   } = data;
 
-  const { createPoiMut, createInfraMut, placeInfraPointAt, placeBottomholeAt } = useMapInfraCreate({
+  const { createPoiMut, createInfraMut, placeInfraPointAt, placeBottomholeAt, placeGsBottomholeAt } =
+    useMapInfraCreate({
     projectId: effectiveProjectId,
     mapRefreshNonce,
     canWriteInfra,
@@ -63,6 +64,7 @@ export function useMapDrawAndCreateActions(params: MapPageActionsParams) {
     createPoiMut,
     placeInfraPointAt,
     placeBottomholeAt,
+    placeGsBottomholeAt,
     ...draw,
     needsDrawCursor: draw.needsDrawCursor,
   };

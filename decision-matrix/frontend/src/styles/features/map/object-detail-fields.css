@@ -88,6 +88,23 @@
   min-width: 0;
 }
 
+.object-detail-panel__coord-grid--xyz {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+
+.object-detail-panel__coord-grid--xyz .object-detail-panel__field {
+  align-items: center;
+}
+
+.object-detail-panel__coord-grid--xyz .object-detail-panel__label {
+  justify-content: center;
+  width: 100%;
+}
+
+.object-detail-panel__coord-grid--xyz .object-detail-panel__input {
+  text-align: center;
+}
+
 .object-detail-panel__actions-row {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));

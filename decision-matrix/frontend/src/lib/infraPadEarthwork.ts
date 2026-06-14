@@ -1,7 +1,7 @@
 /** Pad earthwork property keys (mirror backend pad_earthwork/properties.py). */
 
 import type { InfraObject } from './api';
-import { POINT_SUBTYPES } from './api/subtypes';
+import { BOTTOMHOLE_CLUSTER_SUBTYPES, POINT_SUBTYPES } from './api/subtypes';
 
 export const PAD_LENGTH_M = 'pad_length_m';
 export const PAD_WIDTH_M = 'pad_width_m';
@@ -68,13 +68,13 @@ export const PAD_ENVELOPE_WRAP_WIDTH_M = 'pad_envelope_wrap_width_m';
 export const DEFAULT_PAD_ENVELOPE_WRAP_WIDTH_M = 3;
 
 const PAD_SUBTYPES = new Set(['oil_pad', 'gas_pad']);
-const EARTHWORK_EXCLUDED = new Set(['node']);
+const EARTHWORK_EXCLUDED = new Set<string>(['node', ...BOTTOMHOLE_CLUSTER_SUBTYPES]);
 
 export function isPadSubtype(subtype: string): boolean {
   return PAD_SUBTYPES.has(subtype);
 }
 
-/** Point map subtypes with pad earthwork (sketch, DEM, volumes) — excludes node only. */
+/** Point map subtypes with pad earthwork (sketch, DEM, volumes) — excludes node and well bottomholes. */
 export function isEarthworkEligibleSubtype(subtype: string): boolean {
   return (POINT_SUBTYPES as readonly string[]).includes(subtype) && !EARTHWORK_EXCLUDED.has(subtype);
 }

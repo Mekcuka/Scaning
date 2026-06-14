@@ -1,4 +1,5 @@
 import { Link } from 'react-router-dom';
+import { ProjectLink } from '../../components/ProjectLink';
 import { MapPin } from 'lucide-react';
 import { LINE_SUBTYPES } from '../../lib/api';
 import { configuredTemplateCount } from './footprintConnectionTemplateUi';
@@ -55,10 +56,10 @@ export function FootprintConnectionsPageHeader({
           )}
         </div>
       </div>
-      <Link to="/map" className="btn btn-secondary btn-sm shrink-0">
+      <ProjectLink to="/map" className="btn btn-secondary btn-sm shrink-0">
         <MapPin size={14} className="inline mr-1" />
         Открыть карту
-      </Link>
+      </ProjectLink>
     </header>
   );
 }

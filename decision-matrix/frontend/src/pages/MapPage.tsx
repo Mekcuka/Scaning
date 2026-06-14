@@ -1,8 +1,9 @@
 import { DevPortBanner } from '../components/DevPortBanner';
+import { usePageHeader } from '../components/layout/pageHeaderContext';
 import { useMapPageOrchestrator } from '../hooks/useMapPageOrchestrator';
 import { MapPageCanvas } from './map/MapPageCanvas';
 import { MapPageFooter } from './map/MapPageFooter';
-import { MapPageHeader } from './map/MapPageHeader';
+import { MapPageAnalyzeActions } from './map/MapPageHeader';
 import { MapPageLayersSidebar } from './map/MapPageLayersSidebar';
 import { MapPageModals } from './map/MapPageModals';
 import { MapPageSidePanels } from './map/MapPageSidePanels';
@@ -12,9 +13,13 @@ export function MapPage() {
   const { autoroadConfirmModal, lineSplitConfirmModal, mapCanvasRef, sections } =
     useMapPageOrchestrator();
 
+  usePageHeader({ title: 'Карта инфраструктуры' }, []);
+
   return (
     <div className="map-page flex flex-1 flex-col min-h-0 overflow-hidden">
-      <MapPageHeader {...sections.header} />
+      <div className="map-page-actions shrink-0 flex justify-end mb-3">
+        <MapPageAnalyzeActions {...sections.header} />
+      </div>
 
       <DevPortBanner />
 

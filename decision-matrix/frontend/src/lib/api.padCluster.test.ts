@@ -44,6 +44,12 @@ describe('infraSubtypeSelectOptions pad cluster', () => {
     expect(pointMenuLabel('methanol_facility')).toBe('Объект метанола');
   });
 
+  it('excludes bottomholes from «Точка» menu (отдельная кнопка «Забой» на панели)', () => {
+    expect(MAP_DRAWABLE_POINT_SUBTYPES).not.toContain('well_bottomhole_nnb');
+    expect(MAP_DRAWABLE_POINT_SUBTYPES).not.toContain('well_bottomhole_gs_heel');
+    expect(MAP_DRAWABLE_POINT_SUBTYPES).not.toContain('well_bottomhole_gs_toe');
+  });
+
   it('locks methanol_facility subtype in detail panel', () => {
     const opts = infraSubtypeSelectOptions(pointObject('methanol_facility'));
     expect(opts).toEqual([{ value: 'methanol_facility', label: 'Объект метанола' }]);

@@ -1,7 +1,7 @@
 import { Circle as CircleStyle, Fill, Icon, Stroke, Style } from 'ol/style';
 import type { InfraLayer } from '../../lib/api';
 import { MAP_SUBTYPE_COLORS, iconDataUrl } from '../../lib/mapIcons';
-import { HOVER_GLOW, HOVER_RING_FILL, HOVER_RING_STROKE, STATUS_LINE_COLOR } from './constants';
+import { HOVER_GLOW, HOVER_RING_FILL, HOVER_RING_STROKE, PICK_EMPHASIS_RING_FILL, PICK_EMPHASIS_RING_STROKE } from './constants';
 
 export function layerOpacityMap(layers: InfraLayer[] | undefined): Record<string, number> {
   const m: Record<string, number> = {};
@@ -70,6 +70,16 @@ export function softHoverRing(scale = 1): Style {
   });
 }
 
+export function pickEmphasisRing(scale = 1): Style {
+  return new Style({
+    image: new CircleStyle({
+      radius: 12 * scale,
+      fill: new Fill({ color: PICK_EMPHASIS_RING_FILL }),
+      stroke: new Stroke({ color: PICK_EMPHASIS_RING_STROKE, width: 2.5 }),
+    }),
+  });
+}
+
 export function pointIconStyle(subtype: string, scale = 1): Style[] {
   const isPoi = subtype === 'poi';
   const iconScale = (isPoi ? 1.1 : 0.95) * scale;
@@ -119,23 +129,32 @@ export function pointFeatureStyles(
   subtype: string,
   scale: number,
   hovered: boolean,
-  useIcons: boolean
+  useIcons: boolean,
+  emphasized = false,
 ): Style[] {
-  const iconScale = hovered ? scale * 1.06 : scale;
+  const iconScale = hovered || emphasized ? scale * 1.06 : scale;
   const base = useIcons ? pointIconStyle(subtype, iconScale) : [fallbackPointStyle(subtype, iconScale)];
-  return hovered ? [softHoverRing(iconScale), ...base] : base;
+  const rings: Style[] = [];
+  if (emphasized) rings.push(pickEmphasisRing(iconScale));
+  else if (hovered) rings.push(softHoverRing(iconScale));
+  return [...rings, ...base];
 }
 
 /** Invisible hit target for earthwork points when footprint polygons are shown. */
-export function footprintModePointHitStyle(hovered: boolean): Style[] {
+export function footprintModePointHitStyle(hovered: boolean, emphasized = false): Style[] {
+  const active = hovered || emphasized;
   return [
     new Style({
       image: new CircleStyle({
-        radius: hovered ? 10 : 8,
+        radius: emphasized ? 12 : active ? 10 : 8,
         fill: new Fill({ color: 'rgba(0,0,0,0.01)' }),
         stroke: new Stroke({
-          color: hovered ? 'rgba(33, 150, 243, 0.45)' : 'rgba(0,0,0,0.01)',
-          width: hovered ? 2 : 1,
+          color: emphasized
+            ? PICK_EMPHASIS_RING_STROKE
+            : active
+              ? 'rgba(33, 150, 243, 0.45)'
+              : 'rgba(0,0,0,0.01)',
+          width: emphasized ? 2.5 : active ? 2 : 1,
         }),
       }),
     }),
@@ -146,16 +165,18 @@ export function padFootprintFeatureStyles(
   subtype: string,
   hovered: boolean,
   layerOpacity: number,
+  emphasized = false,
 ): Style[] {
   if (layerOpacity <= 0) return [new Style({})];
   const color = MAP_SUBTYPE_COLORS[subtype] || '#666';
-  const fillAlpha = hovered ? '40' : '26';
-  const strokeWidth = hovered ? 2.5 : 2;
+  const fillAlpha = emphasized ? '55' : hovered ? '40' : '26';
+  const strokeWidth = emphasized ? 3 : hovered ? 2.5 : 2;
+  const strokeColor = emphasized ? '#2e7d32' : hovered ? '#2196f3' : color;
   return [
     new Style({
       fill: new Fill({ color: `${color}${fillAlpha}` }),
       stroke: new Stroke({
-        color: hovered ? '#2196f3' : color,
+        color: strokeColor,
         width: strokeWidth,
       }),
     }),

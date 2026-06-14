@@ -8,14 +8,20 @@ import pytest
 
 from app.models import InfrastructureLayer, InfrastructureObject
 from app.services.well_trajectory.bottomhole_properties import (
+    GS_ENTRY_MODE,
+    GS_HEEL_ID,
+    GS_HEEL_TVD_M,
+    GS_TOE_TVD_M,
     LINKED_PAD_ID,
     TVD_M,
-    GS_HEEL_ID,
     WELL_INDEX,
     nearest_well_index,
 )
 from app.services.well_trajectory.coord_transform import local_to_lonlat
-from app.services.well_trajectory.bottomhole_sync import sync_bottomholes_to_trajectories
+from app.services.well_trajectory.bottomhole_sync import (
+    bottomholes_for_pad_from_objects,
+    sync_bottomholes_to_trajectories,
+)
 from app.services.well_trajectory.trajectory_store import store_trajectories_json
 
 
@@ -122,13 +128,98 @@ def test_sync_assigns_sequential_indices_for_unassigned_nnb():
             )
         )
     trajectories, warnings = sync_bottomholes_to_trajectories(pad, bottomholes)
-    assert not any("Duplicate" in w for w in warnings)
+    assert not any("дубликат" in w.lower() for w in warnings)
     assert trajectories[0]["target"]["profile"] == "nnb"
     assert trajectories[1]["target"]["profile"] == "nnb"
     assert trajectories[2]["target"]["profile"] == "nnb"
 
 
+def test_bottomholes_for_pad_includes_gs_toe_without_pad_link():
+    pad = _pad()
+    heel_id = uuid4()
+    toe_id = uuid4()
+    heel = InfrastructureObject(
+        id=heel_id,
+        layer_id=pad.layer_id,
+        name="Heel",
+        subtype="well_bottomhole_gs_heel",
+        category="well",
+        properties={LINKED_PAD_ID: str(pad.id), WELL_INDEX: 0},
+    )
+    toe = InfrastructureObject(
+        id=toe_id,
+        layer_id=pad.layer_id,
+        name="Toe",
+        subtype="well_bottomhole_gs_toe",
+        category="well",
+        properties={GS_HEEL_ID: str(heel_id), WELL_INDEX: 0},
+    )
+    linked = bottomholes_for_pad_from_objects([heel, toe], pad.id)
+    assert {o.id for o in linked} == {heel_id, toe_id}
+
+
+def test_bottomholes_for_pad_includes_gs_heel_without_pad_link_when_toe_linked():
+    pad = _pad()
+    heel_id = uuid4()
+    toe_id = uuid4()
+    heel = InfrastructureObject(
+        id=heel_id,
+        layer_id=pad.layer_id,
+        name="Heel",
+        subtype="well_bottomhole_gs_heel",
+        category="well",
+        properties={WELL_INDEX: 0},
+    )
+    toe = InfrastructureObject(
+        id=toe_id,
+        layer_id=pad.layer_id,
+        name="Toe",
+        subtype="well_bottomhole_gs_toe",
+        category="well",
+        properties={LINKED_PAD_ID: str(pad.id), GS_HEEL_ID: str(heel_id), WELL_INDEX: 0},
+    )
+    linked = bottomholes_for_pad_from_objects([heel, toe], pad.id)
+    assert {o.id for o in linked} == {heel_id, toe_id}
+
+
 def test_sync_gs_pair_to_target():
+    pad = _pad()
+    heel_id = uuid4()
+    heel = InfrastructureObject(
+        id=heel_id,
+        layer_id=pad.layer_id,
+        name="Heel",
+        subtype="well_bottomhole_gs_heel",
+        category="well",
+        geometry={"type": "Point", "coordinates": [37.621, 55.761]},
+        longitude=37.621,
+        latitude=55.761,
+        properties={LINKED_PAD_ID: str(pad.id), WELL_INDEX: 0, TVD_M: 2000, GS_ENTRY_MODE: "heel"},
+    )
+    toe = InfrastructureObject(
+        id=uuid4(),
+        layer_id=pad.layer_id,
+        name="Toe",
+        subtype="well_bottomhole_gs_toe",
+        category="well",
+        geometry={"type": "Point", "coordinates": [37.622, 55.761]},
+        longitude=37.622,
+        latitude=55.761,
+        properties={
+            LINKED_PAD_ID: str(pad.id),
+            WELL_INDEX: 0,
+            GS_HEEL_ID: str(heel_id),
+            TVD_M: 2000,
+        },
+    )
+    trajectories, warnings = sync_bottomholes_to_trajectories(pad, [heel, toe])
+    assert any("without paired toe" not in w for w in warnings) or not warnings
+    assert trajectories[0]["target"]["profile"] == "gs"
+    assert "heel_plan" in trajectories[0]["target"]
+    assert trajectories[0]["target"]["gs_entry_mode"] == "heel"
+
+
+def test_sync_gs_target_default_entry_mode_any():
     pad = _pad()
     heel_id = uuid4()
     heel = InfrastructureObject(
@@ -151,17 +242,41 @@ def test_sync_gs_pair_to_target():
         geometry={"type": "Point", "coordinates": [37.622, 55.761]},
         longitude=37.622,
         latitude=55.761,
-        properties={
-            LINKED_PAD_ID: str(pad.id),
-            WELL_INDEX: 0,
-            GS_HEEL_ID: str(heel_id),
-            TVD_M: 2000,
-        },
+        properties={LINKED_PAD_ID: str(pad.id), WELL_INDEX: 0, GS_HEEL_ID: str(heel_id), TVD_M: 2000},
     )
-    trajectories, warnings = sync_bottomholes_to_trajectories(pad, [heel, toe])
-    assert any("without paired toe" not in w for w in warnings) or not warnings
+    trajectories, _ = sync_bottomholes_to_trajectories(pad, [heel, toe])
+    assert trajectories[0]["target"]["gs_entry_mode"] == "any"
+
+
+def test_sync_gs_pair_when_toe_has_no_pad_link():
+    pad = _pad()
+    heel_id = uuid4()
+    heel = InfrastructureObject(
+        id=heel_id,
+        layer_id=pad.layer_id,
+        name="Heel",
+        subtype="well_bottomhole_gs_heel",
+        category="well",
+        geometry={"type": "Point", "coordinates": [37.621, 55.761]},
+        longitude=37.621,
+        latitude=55.761,
+        properties={LINKED_PAD_ID: str(pad.id), WELL_INDEX: 0, TVD_M: 2000},
+    )
+    toe = InfrastructureObject(
+        id=uuid4(),
+        layer_id=pad.layer_id,
+        name="Toe",
+        subtype="well_bottomhole_gs_toe",
+        category="well",
+        geometry={"type": "Point", "coordinates": [37.622, 55.761]},
+        longitude=37.622,
+        latitude=55.761,
+        properties={GS_HEEL_ID: str(heel_id), WELL_INDEX: 0, TVD_M: 2000},
+    )
+    linked = bottomholes_for_pad_from_objects([heel, toe], pad.id)
+    trajectories, warnings = sync_bottomholes_to_trajectories(pad, linked)
+    assert not warnings
     assert trajectories[0]["target"]["profile"] == "gs"
-    assert "heel_plan" in trajectories[0]["target"]
 
 
 def test_sync_clears_designed_trajectory_when_bottomhole_removed():
@@ -194,6 +309,41 @@ def test_sync_clears_designed_trajectory_when_bottomhole_removed():
     assert cleared[0]["survey"]["source"] == "stub"
     assert len(cleared[0]["survey"]["stations"]) == 2
     assert "geometry" not in cleared[0]
+
+
+def test_sync_gs_unified_line_dual_tvd():
+    pad = _pad()
+    gs = InfrastructureObject(
+        id=uuid4(),
+        layer_id=pad.layer_id,
+        name="GS line",
+        subtype="well_bottomhole_gs",
+        category="well",
+        geometry={
+            "type": "LineString",
+            "coordinates": [[37.621, 55.761], [37.622, 55.761]],
+        },
+        longitude=37.621,
+        latitude=55.761,
+        end_longitude=37.622,
+        end_latitude=55.761,
+        properties={
+            LINKED_PAD_ID: str(pad.id),
+            WELL_INDEX: 0,
+            TVD_M: 2000,
+            GS_HEEL_TVD_M: 1800,
+            GS_TOE_TVD_M: 2100,
+            GS_ENTRY_MODE: "toe",
+        },
+    )
+    trajectories, warnings = sync_bottomholes_to_trajectories(pad, [gs])
+    assert not warnings
+    target = trajectories[0]["target"]
+    assert target["profile"] == "gs"
+    assert target["heel_tvd_m"] == 1800
+    assert target["toe_tvd_m"] == 2100
+    assert target["tvd_m"] == 2100
+    assert target["gs_entry_mode"] == "toe"
 
 
 def test_sync_trims_trajectories_when_wells_local_shrinks():

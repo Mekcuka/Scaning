@@ -134,6 +134,20 @@ export function PadClusteringCalculationPanel({
           />
         </label>
         <label className="pad-clustering-field">
+          <span>Шаг поиска точки входа ГС, м</span>
+          <input
+            className="input"
+            type="number"
+            min={1}
+            max={500}
+            step={1}
+            value={draft.gsEntrySearchStepM}
+            readOnly={readOnly}
+            disabled={readOnly}
+            onChange={(e) => patchDraft({ gsEntrySearchStepM: e.target.value })}
+          />
+        </label>
+        <label className="pad-clustering-field">
           <span>Порог SF (anti-collision)</span>
           <input
             className="input"

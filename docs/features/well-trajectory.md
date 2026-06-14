@@ -27,10 +27,12 @@
 | **2D / 3D слои** | GeoJSON на `/map`: plan line, маркеры забоев, траектории; 3D — `MapView3D` |
 | **Настройки welleng на кусте** | 7 параметров на вкладке «Расчёт» — [таблица §4.5](../planning/well-trajectory-app-assessment.md#45-настройки-расчёта-welleng--pywellgeo-вкладка-расчёт) |
 | **Удаление забоя** | Batch delete → resync куста, сброс target/survey; invalidate GeoJSON |
-| **Карточка забоя** | «Основное» + «3D»; вкладка «Логистика» скрыта |
+| **Карточка забоя** | «Основное» + **«Геометрия»** (X/Y/Z, длина ГС, копирование координат) + «3D»; вкладка «Логистика» скрыта |
+| **ГС: точка входа** | Режимы `any` / `heel` / `toe` на пятке ГС; при `any` — min MD + учёт SF vs другие скважины куста |
+| **ГС: dual TVD** | Отдельные TVD пятки и стока (`heel_tvd_m` / `toe_tvd_m`); Z в геометрии ↔ TVD в параметрах |
 | **PyWellGeo** | Авто-метаданные `geometry.*` после расчёта |
 | **Anti-collision (SF)** | `POST clearance` (куст / проект), таблица пар, `min_sf` на скважине, подсветка 3D |
-| **Импорт инклинометрии (M4a)** | CSV + Landmark `.wbp` на `/import`; preview/commit; async job `well_trajectory_import` при &gt;20 скв.; WITSML → 501 |
+| **Импорт инклинометрии (M4a)** | CSV + Landmark `.wbp` на **Данные → Импорт** (`/data/import`), карточка «Импорт инклинометрии»; preview/commit; async job `well_trajectory_import` при &gt;20 скв.; WITSML → 501 |
 | **3D в модалке «Схема…»** | DEM и призма — **без стволов** (стволы — «Кустование» и `/map`) |
 | **`well_trajectory_default_tvd_m`** | Fallback TVD при design, если у забоя нет `well_bottomhole_tvd_m` |
 | **`step_m` из настроек куста** | `readWellTrajectoryStepM` — карточка куста/забоя и «Кустование» |
@@ -110,10 +112,31 @@ flowchart LR
 1. На кусте есть раскладка устьев (`pad_wells_local_json`) и заготовки траекторий (сценарий 1).
 2. На **2D-карте** в панели рисования выбрать **«Забой»** → **ННБ** (один клик) или **ГС** (heel, затем toe).
 3. Объекты `well_bottomhole_nnb` / `well_bottomhole_gs_heel` / `well_bottomhole_gs_toe` привязываются к ближайшему кусту (`linked_pad_id`); скважина — явно или auto по ближайшему устью.
-4. В карточке объекта-забоя: куст, TVD, **зенитный угол** (ННБ, default **360°** — welleng трактует как вертикальный заход ≈ 0°), азимут; кнопка «Пересчитать траекторию с куста». Вкладки **«Основное»** и **«3D»** — без «Логистики».
+4. В карточке объекта-забоя: куст, **геометрия** (координаты X/Y, отметка Z), TVD / inc / azi; для ГС — **точка входа** (`Любая` / `heel` / `toe`), отдельные TVD пятки и стока; кнопка «Пересчитать траекторию с куста». Вкладки **«Основное»**, **«Геометрия»** и **«3D»** — без «Логистики».
 5. На вкладке **Траектории** куста — список привязанных объектов-забоев; **«Рассчитать до забоев»** → `sync-bottomholes` + `design-from-bottomholes`.
 6. Пунктир устье–забой на карте до полного проектирования (`bottomhole_plan_line` в GeoJSON).
 7. Дальше — сценарий 3 (расчёт SF).
+
+### 2b. Горизонтальный участок ГС (heel → toe)
+
+Профиль `gs` в `design-from-bottomholes` строит траекторию в три логических сегмента (welleng connector):
+
+1. **Build** — от устья до **точки входа** на линии пятка–сток.
+2. **Hold** — горизонтальный участок вдоль оси ГС до дальнего конца (или два hold при входе между пяткой и стоком: entry→toe→heel).
+
+**Точка входа** (`well_bottomhole_gs_entry_mode` на пятке / unified ГС):
+
+| Режим | Поведение |
+|-------|-----------|
+| `heel` | Вход у пятки; hold пятка → сток |
+| `toe` | Вход у стока; hold сток → пятка |
+| `any` (по умолчанию) | Перебор точек вдоль пятка–сток с шагом `well_trajectory_gs_entry_search_step_m`; выбирается **минимальная MD** среди вариантов с SF ≥ порога относительно **других скважин куста**; если все нарушают SF — min MD + предупреждение |
+
+При разных TVD пятки и стока hold следует наклону (интерполяция TVD и inc вдоль линии).
+
+Расчёт выполняется в фоне потока (`asyncio.to_thread`), чтобы не блокировать API (в т.ч. авторизацию) при длительном переборе.
+
+Код: `well-trajectory-planner/src/well_trajectory/design.py`, оркестрация SF — `service.py` → `_design_horizontal_any_with_clearance`.
 
 ### 3. Проверить столкновения на кусте
 
@@ -131,7 +154,7 @@ flowchart LR
 
 ### 5. Импорт Landmark `.wbp`
 
-1. Тот же блок на `/import` — файл `.wbp`.
+1. Карточка **«Импорт инклинометрии»** на `/data/import` — файл `.wbp`.
 2. Preview + commit; при &gt;20 скважин — фоновая задача `well_trajectory_import`.
 
 ### 6. WITSML
@@ -192,7 +215,7 @@ flowchart LR
 
 ### Страница импорта
 
-Расширение `/import` или отдельный `/import-wells`: пакетный CSV; позже — `.wbp`, EDM, WITSML.
+Расширение `/data/import` или отдельный `/import-wells`: пакетный CSV; позже — `.wbp`, EDM, WITSML.
 
 Импорт **Искра/Spark** траекторий **не содержит** — только контуры кустов.
 
@@ -218,7 +241,7 @@ flowchart LR
 | GET | `last` | Последние траектории + `clearance_pairs`, `clearance_computed_at`, `settings` |
 | POST | `design` | Спроектировать траекторию одной скважины |
 | POST | `sync-bottomholes` | Материализовать `target` из объектов `well_bottomhole_*` |
-| POST | `design-from-bottomholes` | Sync + design (NNB connector / GS 2-segment) |
+| POST | `design-from-bottomholes` | Sync + design (NNB connector / ГС horizontal с точкой входа) |
 | PATCH | `targets` | Сохранить забои (`target` по `well_index`; legacy API) |
 | POST | `design-all` | Спроектировать все скважины с заполненным `target` |
 | PATCH | `survey` | Сохранить или обновить станции |
@@ -286,7 +309,8 @@ flowchart LR
 | `well_trajectory_stub_tvd_m` | TVD вертикальной заготовки |
 | `well_trajectory_default_tvd_m` | TVD забоя по умолчанию; fallback при `design-from-bottomholes`, если у забоя нет TVD |
 | `well_trajectory_inc_heel` | Inc на heel для ГС |
-| `well_trajectory_sf_warning_threshold` | Порог предупреждения SF |
+| `well_trajectory_gs_entry_search_step_m` | Шаг перебора точки входа ГС при режиме `any`, м (default 30) |
+| `well_trajectory_sf_warning_threshold` | Порог предупреждения SF; также фильтр кандидатов при `any` |
 | `well_trajectory_clearance_pairs_json` | Массив пар SF, где участвует скважина этого куста |
 | `well_trajectory_clearance_computed_at` | Время последнего расчёта SF |
 
@@ -296,6 +320,10 @@ flowchart LR
 |------|------------|
 | `clearance.min_sf` | Минимальный SF по всем парам проекта с этой скважиной |
 | `clearance.computed_at` | ISO datetime расчёта |
+
+**Properties объектов-забоев** (см. [input-parameters.md](../product/input-parameters.md)): `well_bottomhole_gs_entry_mode`, `well_bottomhole_heel_tvd_m`, `well_bottomhole_toe_tvd_m`.
+
+После `design-from-bottomholes` для ГС в `design` скважины: `gs_entry_mode`, `gs_entry_offset_m` (смещение от пятки, м), опц. `gs_entry_plan`.
 
 Настройки проекта (`projects.settings.well_trajectory`) **не используются** — дублируют per-pad keys; в roadmap.
 
@@ -321,6 +349,7 @@ flowchart LR
 |------|------------|
 | `GET /health`, `/ready` | Проверки живости |
 | `POST /v1/design/connector` | Проектирование |
+| `POST /v1/design/horizontal` | ГС: build + hold, режимы `any` / `heel` / `toe` |
 | `POST /v1/survey/interpolate` | Уплотнение survey |
 | `POST /v1/clearance/pairs` | Матрица SF |
 | `POST /v1/import/csv` | CSV |

@@ -75,3 +75,9 @@ export const FootprintConnectionsParametersPage = lazy(() =>
 export const ParametersLayout = lazy(() =>
   import('../components/layout/ParametersLayout').then((m) => ({ default: m.ParametersLayout })),
 );
+export const DataLayout = lazy(() =>
+  import('../components/layout/DataLayout').then((m) => ({ default: m.DataLayout })),
+);
+export const DataIndexRedirect = lazy(() =>
+  import('../pages/data/DataIndexRedirect').then((m) => ({ default: m.DataIndexRedirect })),
+);

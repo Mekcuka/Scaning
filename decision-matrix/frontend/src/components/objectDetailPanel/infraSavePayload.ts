@@ -15,7 +15,7 @@ import {
   stripSandVolumeProperties,
   type SandVolumeInputMode,
 } from '../../lib/infraSandVolumes';
-import { isBottomholeSubtype } from '../../lib/wellBottomholeProperties';
+import { isBottomholeSubtype, WELL_BOTTOMHOLE_GS_SUBTYPE } from '../../lib/wellBottomholeProperties';
 import { mergeEntryDate, objectShowsEntryDate } from '../../lib/infraEntryDate';
 import {
   mergePadWellParams,
@@ -45,6 +45,8 @@ export type InfraSaveDraft = {
   layerId: string;
   lon: string;
   lat: string;
+  endLon: string;
+  endLat: string;
   sandInitialM3: string;
   sandCurrentM3: string;
   sandDemandM3: string;
@@ -81,6 +83,8 @@ export function buildInfraSavePayload(
     layerId,
     lon,
     lat,
+    endLon,
+    endLat,
     sandInitialM3,
     sandCurrentM3,
     sandDemandM3,
@@ -191,7 +195,18 @@ export function buildInfraSavePayload(
   const saveLon = coordForSave(parseCoord(lon), object.lon, lon);
   const saveLat = coordForSave(parseCoord(lat), object.lat, lat);
 
-  if (isLineSubtype(subtype)) {
+  if (subtype === WELL_BOTTOMHOLE_GS_SUBTYPE) {
+    const saveEndLon = coordForSave(parseCoord(endLon), object.end_lon, endLon);
+    const saveEndLat = coordForSave(parseCoord(endLat), object.end_lat, endLat);
+    payload.lon = saveLon;
+    payload.lat = saveLat;
+    payload.end_lon = saveEndLon;
+    payload.end_lat = saveEndLat;
+    payload.coordinates = [
+      [saveLon, saveLat],
+      [saveEndLon, saveEndLat],
+    ];
+  } else if (isLineSubtype(subtype)) {
     const coords = getLineCoordinates(object);
     if (coords) {
       const next = coords.map((c) => [...c] as [number, number]);

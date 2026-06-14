@@ -504,7 +504,7 @@ export function MapPageToolbarDrawGroup({
 
             <img
 
-              src={iconDataUrl('well_bottomhole_gs_heel')}
+              src={iconDataUrl('well_bottomhole_gs')}
 
               alt=""
 
@@ -514,7 +514,7 @@ export function MapPageToolbarDrawGroup({
 
             />
 
-            <span className="truncate">ГС (heel + toe)</span>
+            <span className="truncate">ГС</span>
 
           </button>
 

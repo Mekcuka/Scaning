@@ -39,7 +39,9 @@ type Props = {
 };
 
 function bottomholeIcon(subtype?: string): string {
-  if (subtype === 'well_bottomhole_gs_heel') return iconDataUrl('well_bottomhole_gs_heel');
+  if (subtype === 'well_bottomhole_gs' || subtype === 'well_bottomhole_gs_heel') {
+    return iconDataUrl('well_bottomhole_gs_heel');
+  }
   return iconDataUrl('well_bottomhole_nnb');
 }
 

@@ -18,18 +18,24 @@ describe('ImportPage', () => {
   });
 
   it('renders import page', async () => {
-    renderPage(<ImportPage />);
+    renderPage(<ImportPage />, { route: '/data/import' });
     expect(screen.getByText('Импорт данных')).toBeInTheDocument();
-    expect(screen.getByText('Подключение API')).toBeInTheDocument();
+    await waitFor(() =>
+      expect(screen.getByRole('heading', { name: 'Подключение API' })).toBeInTheDocument(),
+    );
   });
 
   it('imports csv via file input', async () => {
     const { api } = await import('../lib/api');
-    renderPage(<ImportPage />);
+    renderPage(<ImportPage />, { route: '/data/import' });
+    await waitFor(() =>
+      expect(
+        document.querySelector('input[type="file"][accept*=".geojson"]'),
+      ).toBeTruthy(),
+    );
     const input = document.querySelector(
       'input[type="file"][accept*=".geojson"]',
     ) as HTMLInputElement;
-    expect(input).toBeTruthy();
     const file = new File(['name,type,lat,lon\np,node,1,2'], 'test.csv', { type: 'text/csv' });
     await userEvent.upload(input as HTMLInputElement, file);
     await waitFor(() => expect(api.importCsv).toHaveBeenCalled());
@@ -39,7 +45,7 @@ describe('ImportPage', () => {
     const { api } = await import('../lib/api');
     vi.mocked(api.projects).mockResolvedValueOnce([]);
     seedAppStore({ currentProjectId: null });
-    renderPage(<ImportPage />);
+    renderPage(<ImportPage />, { route: '/data/import' });
     await waitFor(() =>
       expect(screen.getByText(/Создайте проект на странице/)).toBeInTheDocument(),
     );

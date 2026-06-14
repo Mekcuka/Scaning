@@ -1,9 +1,14 @@
 import { Link } from 'react-router-dom';
+import { ProjectLink } from '../../components/ProjectLink';
 import { MapPin, Target } from 'lucide-react';
 import type { InfraObject } from '../../lib/api';
 import { SUBTYPE_LABELS } from '../../lib/api';
 import {
   WELL_BOTTOMHOLE_GS_HEEL_ID,
+  WELL_BOTTOMHOLE_GS_ENTRY_MODE,
+  DEFAULT_GS_ENTRY_MODE,
+  GS_ENTRY_MODE_OPTIONS,
+  readGsEntryMode,
   DEFAULT_NNB_INC,
   WELL_BOTTOMHOLE_TARGET_AZI,
   WELL_BOTTOMHOLE_TARGET_INC,
@@ -47,10 +52,10 @@ export function PadClusteringBottomholesSection({
       {bottomholes.length === 0 ? (
         <div className="pad-clustering-empty-inline">
           <p>Нет привязанных объектов-забоев.</p>
-          <Link to="/map" className="btn btn--secondary btn--sm">
+          <ProjectLink to="/map" className="btn btn--secondary btn--sm">
             <MapPin size={14} aria-hidden />
             Добавить на карте
-          </Link>
+          </ProjectLink>
         </div>
       ) : (
         <ul className="pad-clustering-bottomholes">
@@ -94,6 +99,7 @@ function BottomholeRow({
   const targetInc = props[WELL_BOTTOMHOLE_TARGET_INC];
   const targetAzi = props[WELL_BOTTOMHOLE_TARGET_AZI];
   const gsHeelId = props[WELL_BOTTOMHOLE_GS_HEEL_ID];
+  const gsEntryMode = readGsEntryMode(props);
 
   return (
     <li className="pad-clustering-bottomholes__item">
@@ -152,6 +158,29 @@ function BottomholeRow({
             />
           </label>
         )}
+        {bottomhole.subtype === 'well_bottomhole_gs_heel' ||
+        bottomhole.subtype === 'well_bottomhole_gs' ? (
+          <label className="pad-clustering-field pad-clustering-field--span2">
+            <span>Точка входа</span>
+            <select
+              className="input"
+              disabled={readOnly || saving}
+              defaultValue={gsEntryMode}
+              key={`${bottomhole.id}-entry-${gsEntryMode}`}
+              onChange={(e) =>
+                onSave({
+                  [WELL_BOTTOMHOLE_GS_ENTRY_MODE]: e.target.value || DEFAULT_GS_ENTRY_MODE,
+                })
+              }
+            >
+              {GS_ENTRY_MODE_OPTIONS.map((opt) => (
+                <option key={opt.value} value={opt.value}>
+                  {opt.label}
+                </option>
+              ))}
+            </select>
+          </label>
+        ) : null}
         {(bottomhole.subtype === 'well_bottomhole_nnb' ||
           bottomhole.subtype === 'well_bottomhole_gs_toe') && (
           <label className="pad-clustering-field">
@@ -176,7 +205,7 @@ function BottomholeRow({
         )}
       </div>
       {bottomhole.subtype === 'well_bottomhole_gs_toe' && typeof gsHeelId === 'string' && (
-        <p className="pad-clustering-section__hint">Heel: {gsHeelId.slice(0, 8)}…</p>
+        <p className="pad-clustering-section__hint">Пятка (heel) ГС: {gsHeelId.slice(0, 8)}…</p>
       )}
     </li>
   );

@@ -1,5 +1,6 @@
 import { useEffect, useMemo } from 'react';
 import { useQuery } from '@tanstack/react-query';
+import { useParams } from 'react-router-dom';
 import {
   defaultProjectsListApi,
   type Project,
@@ -16,8 +17,10 @@ export type UseActiveProjectOptions = {
 /** Ensures currentProjectId points to an existing project for the logged-in user. */
 export function useActiveProject(options: UseActiveProjectOptions = {}) {
   const projectsApi = options.projectsApi ?? defaultProjectsListApi;
-  const projectId = useAppStore((s) => s.currentProjectId);
+  const { projectId: routeProjectId } = useParams<{ projectId?: string }>();
+  const storeProjectId = useAppStore((s) => s.currentProjectId);
   const setCurrentProjectId = useAppStore((s) => s.setCurrentProjectId);
+  const preferredProjectId = routeProjectId ?? storeProjectId;
 
   const { data, isLoading, isFetched, isError } = useQuery({
     queryKey: queryKeys.projects,
@@ -28,27 +31,28 @@ export function useActiveProject(options: UseActiveProjectOptions = {}) {
 
   const activeProject = useMemo((): Project | null => {
     if (projects.length === 0) return null;
-    if (projectId) {
-      const match = projects.find((p) => p.id === projectId);
+    if (preferredProjectId) {
+      const match = projects.find((p) => p.id === preferredProjectId);
       if (match) return match;
     }
     return projects[0] ?? null;
-  }, [projects, projectId]);
+  }, [projects, preferredProjectId]);
 
   useEffect(() => {
     if (!isFetched) return;
     if (projects.length === 0) {
-      if (projectId != null) setCurrentProjectId(null);
+      if (storeProjectId != null) setCurrentProjectId(null);
       return;
     }
-    const exists = projectId != null && projects.some((p) => p.id === projectId);
-    if (!exists) {
+    const exists =
+      preferredProjectId != null && projects.some((p) => p.id === preferredProjectId);
+    if (!exists && !routeProjectId) {
       const nextId = projects[0]?.id;
-      if (nextId && nextId !== projectId) {
+      if (nextId && nextId !== storeProjectId) {
         setCurrentProjectId(nextId);
       }
     }
-  }, [isFetched, projects, projectId, setCurrentProjectId]);
+  }, [isFetched, projects, preferredProjectId, routeProjectId, storeProjectId, setCurrentProjectId]);
 
   return {
     projectId: activeProject?.id,

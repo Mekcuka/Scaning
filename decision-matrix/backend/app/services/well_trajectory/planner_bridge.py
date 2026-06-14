@@ -47,6 +47,16 @@ def design_horizontal(request: Any) -> Any:
     return design_mod.design_horizontal(request)
 
 
+def design_horizontal_at_offset(request: Any, offset_m: float) -> Any:
+    design_mod, _, _, _, _, _, _ = _planner_modules()
+    return design_mod.design_horizontal_at_offset(request, offset_m)
+
+
+def gs_entry_search_offsets(heel: Any, toe: Any, step_m: float) -> list[float]:
+    design_mod, _, _, _, _, _, _ = _planner_modules()
+    return design_mod.gs_entry_search_offsets(heel, toe, step_m)
+
+
 def interpolate_survey(request: SurveyInterpolateRequest) -> SurveyInterpolateResponse:
     _, survey_mod, _, _, _, _, _ = _planner_modules()
     return survey_mod.interpolate_survey(request)

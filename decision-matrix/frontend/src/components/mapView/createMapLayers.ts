@@ -21,28 +21,31 @@ import {
 } from './styles';
 
 function createInfraPointLayerStyle(refs: MapViewRefs) {
-  const { layersRef, hoveredIdRef, useIconsRef, infraSymbologyRef } = refs;
+  const { layersRef, hoveredIdRef, emphasisFeatureIdsRef, useIconsRef, infraSymbologyRef } = refs;
   return (feature: FeatureLike) => {
     const subtype = feature.get('subtype') as string;
     const id = feature.get('id') as string;
+    const infraObjectId = feature.get('infra_object_id') as string | undefined;
+    const selectionId = infraObjectId ?? id;
     const layerId = feature.get('layer_id') as string | undefined;
     const opacityByLayer = layerOpacityMap(layersRef.current);
     const op = layerId ? opacityByLayer[layerId] ?? 1 : 1;
     const scale = op < 0.5 ? 0.85 : 1;
     if (op <= 0) return new Style({});
-    const hovered = !!id && hoveredIdRef.current === id;
+    const hovered = !!selectionId && hoveredIdRef.current === selectionId;
+    const emphasized = !!selectionId && emphasisFeatureIdsRef.current.has(selectionId);
     if (
       infraSymbologyRef.current === 'footprints' &&
       isEarthworkEligibleSubtype(subtype)
     ) {
-      return footprintModePointHitStyle(hovered);
+      return footprintModePointHitStyle(hovered, emphasized);
     }
-    return pointFeatureStyles(subtype, scale, hovered, useIconsRef.current);
+    return pointFeatureStyles(subtype, scale, hovered, useIconsRef.current, emphasized);
   };
 }
 
 function createPadFootprintLayerStyle(refs: MapViewRefs) {
-  const { layersRef, hoveredIdRef, infraSymbologyRef } = refs;
+  const { layersRef, hoveredIdRef, emphasisFeatureIdsRef, infraSymbologyRef } = refs;
   return (feature: FeatureLike) => {
     if (infraSymbologyRef.current !== 'footprints') return new Style({});
     const subtype = feature.get('subtype') as string;
@@ -51,7 +54,8 @@ function createPadFootprintLayerStyle(refs: MapViewRefs) {
     const opacityByLayer = layerOpacityMap(layersRef.current);
     const op = layerId ? opacityByLayer[layerId] ?? 1 : 1;
     const hovered = !!id && hoveredIdRef.current === id;
-    return padFootprintFeatureStyles(subtype, hovered, op);
+    const emphasized = !!id && emphasisFeatureIdsRef.current.has(id);
+    return padFootprintFeatureStyles(subtype, hovered, op, emphasized);
   };
 }
 
@@ -110,14 +114,17 @@ export function createMapLayers(refs: MapViewRefs, showBasemap: boolean): MapLay
     renderBuffer: MAP_VECTOR_RENDER_BUFFER,
     updateWhileAnimating: false,
     updateWhileInteracting: false,
-    style: () =>
-      new Style({
+    style: (feature) => {
+      const infraId = feature.get('infra_object_id') as string | undefined;
+      const emphasized = !!infraId && refs.emphasisFeatureIdsRef.current.has(infraId);
+      return new Style({
         image: new CircleStyle({
-          radius: 7,
-          fill: new Fill({ color: '#c62828' }),
-          stroke: new Stroke({ color: '#ffffff', width: 2 }),
+          radius: emphasized ? 9 : 7,
+          fill: new Fill({ color: emphasized ? '#2e7d32' : '#c62828' }),
+          stroke: new Stroke({ color: '#ffffff', width: emphasized ? 2.5 : 2 }),
         }),
-      }),
+      });
+    },
   });
   wellTrajectoryBottomholeLayerRef.current = wellTrajectoryBottomholeLayer;
 
@@ -175,6 +182,11 @@ export function createMapLayers(refs: MapViewRefs, showBasemap: boolean): MapLay
             width: subtype === 'gs-bottomhole-connector-preview' ? 2.5 : 3,
             lineDash: subtype === 'gs-bottomhole-connector-preview' ? [8, 6] : undefined,
           }),
+        });
+      }
+      if (subtype === 'well_bottomhole_gs') {
+        return new Style({
+          stroke: new Stroke({ color: '#2e7d32', width: 3 }),
         });
       }
       if (subtype === 'pad-placement-pad_footprint_preview') {

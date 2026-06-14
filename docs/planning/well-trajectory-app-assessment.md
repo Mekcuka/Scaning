@@ -131,14 +131,16 @@ flowchart TB
 | TVD заготовки, м | `well_trajectory_stub_tvd_m` | 100 | **Да** | **Да** | **Да** — «Сгенерировать из раскладки» | Глубина вертикальной заготовки в `pad_seed.generate_from_pad_layout` |
 | TVD забоя по умолч., м | `well_trajectory_default_tvd_m` | 1500 | **Да** | **Да** | **Нет** — в design fallback пока `DEFAULT_TVD_M` из `bottomhole_properties.py` | **Пробел:** нужно прокинуть в `target.tvd_m` при отсутствии TVD у забоя |
 | Inc на heel (ГС), ° | `well_trajectory_inc_heel` | 90 | **Да** | **Да** | **Да** — профиль `gs` в `design-from-bottomholes` | `HorizontalDesignRequest.inc_heel` |
-| Порог SF (anti-collision) | `well_trajectory_sf_warning_threshold` | 1.0 | **Да** | **Да** | **Да** — clearance + warnings + цвет 3D | Порог в `POST /v1/clearance/pairs`; per-pad |
+| Шаг поиска точки входа ГС, м | `well_trajectory_gs_entry_search_step_m` | 30 | **Да** — «Расчёт» | **Да** | **Да** — режим `any` | `HorizontalDesignRequest.entry_search_step_m` |
+| Порог SF (anti-collision) | `well_trajectory_sf_warning_threshold` | 1.0 | **Да** | **Да** | **Да** — clearance + warnings + цвет 3D; **фильтр кандидатов при `any`** | Порог в `POST /v1/clearance/pairs`; per-pad |
 
 **Другие места UI (без вкладки «Расчёт»):**
 
 | Место | Параметр | Примечание |
 |-------|----------|------------|
-| Карточка куста → «Траектория» | `step_m` | Захардкожено **30** в `InfraWellTrajectorySection` |
-| Карточка забоя | `step_m` | Захардкожено **30** в `InfraBottomholeDetailSection` |
+| Карточка забоя | `step_m` | Из настроек куста (`readWellTrajectoryStepM`) в `InfraBottomholeDetailSection` |
+| Карточка забоя (ГС) | `gs_entry_mode` | `InfraBottomholeDetailSection`, «Кустование» — `any` / `heel` / `toe` |
+| Карточка забоя | геометрия X/Y/Z | `InfraBottomholeGeometrySection` — unified ГС: Z пятки/стока ↔ dual TVD |
 
 #### PyWellGeo — параметры в приложении
 
@@ -209,7 +211,7 @@ PyWellGeo **не имеет** отдельных полей в UI — тольк
 | 3D-карта | MapView3D | Куст extrusion + **слой траекторий** (GeoJSON) |
 | Pad 3D | `PadEarthworkScene3D` | Призма + DEM — **без стволов** |
 | Кустование 3D | `PadClusteringScene3D` | Устья, траектории, забои, envelope |
-| Импорт | `/import`, Искра | Полигон/точка куста — **не survey** |
+| Импорт | `/data/import`, Искра | Полигон/точка куста — **не survey** |
 
 ### 7.2 Реализовано для траекторий (фазы 2–3)
 

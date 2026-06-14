@@ -13,6 +13,7 @@ export const THROUGHPUT_CAPACITY_EXCLUDED_SUBTYPES = new Set([
   'gtes',
   'gpes',
   'well_bottomhole_nnb',
+  'well_bottomhole_gs',
   'well_bottomhole_gs_heel',
   'well_bottomhole_gs_toe',
 ]);

@@ -20,6 +20,7 @@ import { canDeleteProject } from '../lib/permissions';
 import { useAppStore, useAuthStore } from '../store';
 import { AppModal } from '../components/AppModal';
 import { ProjectsTableCardHeader } from '../components/ProjectsTableCardHeader';
+import { usePageHeader } from '../components/layout/pageHeaderContext';
 
 export function ProjectsPage() {
   const { can, isReadOnly } = usePermissions();
@@ -90,15 +91,16 @@ export function ProjectsPage() {
 
   const saving = updateMut.isPending;
 
+  const projectsSubtitle = isReadOnly
+    ? 'Просмотр опубликованных проектов'
+    : 'Управление участками и точками интереса';
+  usePageHeader(
+    { title: 'Проекты', subtitle: projectsSubtitle },
+    [projectsSubtitle],
+  );
+
   return (
     <div className="projects-page">
-      <header className="page-header">
-        <h1>Проекты</h1>
-        <p className="subtitle">
-          {isReadOnly ? 'Просмотр опубликованных проектов' : 'Управление участками и точками интереса'}
-        </p>
-      </header>
-
       {isLoading ? (
         <p style={{ color: 'var(--text-muted)' }}>Загрузка…</p>
       ) : (

@@ -26,6 +26,9 @@ describe('infraPadEarthwork', () => {
     expect(isEarthworkEligibleSubtype('gas_processing')).toBe(true);
     expect(isEarthworkEligibleSubtype('oil_pad')).toBe(true);
     expect(isEarthworkEligibleSubtype('node')).toBe(false);
+    expect(isEarthworkEligibleSubtype('well_bottomhole_nnb')).toBe(false);
+    expect(isEarthworkEligibleSubtype('well_bottomhole_gs_heel')).toBe(false);
+    expect(isEarthworkEligibleSubtype('well_bottomhole_gs_toe')).toBe(false);
     expect(isEarthworkEligibleSubtype('sand_quarry')).toBe(true);
     expect(isEarthworkEligibleSubtype('autoroad')).toBe(false);
   });

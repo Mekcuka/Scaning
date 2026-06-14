@@ -1,9 +1,19 @@
 /** 3D helpers for pad clustering page: wellheads, trajectories, bottomhole targets. */
 
 import * as THREE from 'three';
+import type { InfraObject } from './api';
 import type { WellTrajectory } from './api/wellTrajectoryApi';
+import { metersPerDegree } from './padFootprintGeo';
 import type { PlanVertex } from './padEarthworkSketch';
 import { planEastToSceneX, planNorthToSceneZ } from './padEarthworkScene3d';
+import {
+  buildGsBottomholeConnectors,
+  readBottomholeTvdM,
+  readGsHeelTvdM,
+  readGsLineEndpoints,
+  readGsToeTvdM,
+  WELL_BOTTOMHOLE_WELL_INDEX,
+} from './wellBottomholeProperties';
 import { clearanceLineColorHex } from './wellTrajectoryClearance';
 
 export type ScenePoint = { x: number; y: number; z: number };
@@ -177,7 +187,7 @@ export function buildTrajectoryLines(
 
 export function buildBottomholeMarkers(trajectories: WellTrajectory[], kbM: number): THREE.Group {
   const group = new THREE.Group();
-  group.name = 'layer-bottomholes';
+  group.name = 'bottomhole-markers-from-trajectories';
   trajectories.forEach((well, index) => {
     const target = well.target;
     if (!target?.tvd_m) return;
@@ -205,5 +215,243 @@ export function buildBottomholeMarkers(trajectories: WellTrajectory[], kbM: numb
     mesh.position.set(p.x, p.y, p.z);
     group.add(mesh);
   });
+  return group;
+}
+
+const BOTTOMHOLE_SUBTYPE_COLORS: Record<string, number> = {
+  well_bottomhole_nnb: 0x1565c0,
+  well_bottomhole_gs: 0x2e7d32,
+  well_bottomhole_gs_heel: 0x2e7d32,
+  well_bottomhole_gs_toe: 0xc62828,
+};
+
+export function lonLatToLocalEnu(
+  lon: number,
+  lat: number,
+  anchorLon: number,
+  anchorLat: number,
+): { east_m: number; north_m: number } {
+  const { lon: mPerDegLon, lat: mPerDegLat } = metersPerDegree(anchorLat);
+  return {
+    east_m: (lon - anchorLon) * mPerDegLon,
+    north_m: (lat - anchorLat) * mPerDegLat,
+  };
+}
+
+function readBottomholeWellIndex(props: Record<string, unknown> | undefined): number | null {
+  const raw = props?.[WELL_BOTTOMHOLE_WELL_INDEX];
+  if (raw == null || raw === '') return null;
+  const n = typeof raw === 'number' ? raw : Number(raw);
+  if (!Number.isFinite(n) || n < 0 || n > 63) return null;
+  return Math.round(n);
+}
+
+function bottomholeMarkerColor(obj: InfraObject, fallbackIndex: number): number {
+  const idx = readBottomholeWellIndex(obj.properties);
+  if (idx != null) return wellColor(idx);
+  const bySubtype = BOTTOMHOLE_SUBTYPE_COLORS[obj.subtype];
+  if (bySubtype != null) return bySubtype;
+  return wellColor(fallbackIndex);
+}
+
+function addBottomholeMarker(
+  group: THREE.Group,
+  lon: number,
+  lat: number,
+  tvd: number,
+  color: number,
+  radius: number,
+  anchorLon: number,
+  anchorLat: number,
+  kbM: number,
+  userData: Record<string, unknown>,
+): void {
+  const local = lonLatToLocalEnu(lon, lat, anchorLon, anchorLat);
+  const p = stationToScenePoint(local.east_m, local.north_m, tvd, kbM);
+  const geometry = new THREE.SphereGeometry(radius, 16, 12);
+  const material = new THREE.MeshStandardMaterial({
+    color,
+    emissive: color,
+    emissiveIntensity: 0.22,
+    roughness: 0.4,
+  });
+  const mesh = new THREE.Mesh(geometry, material);
+  mesh.position.set(p.x, p.y, p.z);
+  mesh.userData = userData;
+  group.add(mesh);
+}
+
+function addGsConnectorLine(
+  group: THREE.Group,
+  heelLon: number,
+  heelLat: number,
+  toeLon: number,
+  toeLat: number,
+  heelTvd: number,
+  toeTvd: number,
+  anchorLon: number,
+  anchorLat: number,
+  kbM: number,
+): void {
+  const heelLocal = lonLatToLocalEnu(heelLon, heelLat, anchorLon, anchorLat);
+  const toeLocal = lonLatToLocalEnu(toeLon, toeLat, anchorLon, anchorLat);
+  const p1 = stationToScenePoint(heelLocal.east_m, heelLocal.north_m, heelTvd, kbM);
+  const p2 = stationToScenePoint(toeLocal.east_m, toeLocal.north_m, toeTvd, kbM);
+  const geometry = new THREE.BufferGeometry().setFromPoints([
+    new THREE.Vector3(p1.x, p1.y, p1.z),
+    new THREE.Vector3(p2.x, p2.y, p2.z),
+  ]);
+  const material = new THREE.LineDashedMaterial({
+    color: 0x2e7d32,
+    dashSize: 4,
+    gapSize: 2,
+  });
+  const line = new THREE.Line(geometry, material);
+  line.computeLineDistances();
+  group.add(line);
+}
+
+export function buildGsBottomholeConnectorLines(
+  bottomholes: InfraObject[],
+  anchorLon: number,
+  anchorLat: number,
+  kbM: number,
+): THREE.Group {
+  const group = new THREE.Group();
+  group.name = 'bottomhole-gs-connectors';
+  const byId = new Map(bottomholes.map((o) => [o.id, o]));
+
+  for (const obj of bottomholes) {
+    const endpoints = readGsLineEndpoints(obj);
+    if (!endpoints) continue;
+    const heelTvd = readGsHeelTvdM(obj.properties);
+    const toeTvd = readGsToeTvdM(obj.properties);
+    addGsConnectorLine(
+      group,
+      endpoints.heelLon,
+      endpoints.heelLat,
+      endpoints.toeLon,
+      endpoints.toeLat,
+      heelTvd,
+      toeTvd,
+      anchorLon,
+      anchorLat,
+      kbM,
+    );
+  }
+
+  for (const conn of buildGsBottomholeConnectors(bottomholes)) {
+    const heel = byId.get(conn.heelId);
+    const toe = byId.get(conn.toeId);
+    if (!heel || !toe) continue;
+    addGsConnectorLine(
+      group,
+      heel.lon,
+      heel.lat,
+      toe.lon,
+      toe.lat,
+      readBottomholeTvdM(heel.properties),
+      readBottomholeTvdM(toe.properties),
+      anchorLon,
+      anchorLat,
+      kbM,
+    );
+  }
+  return group;
+}
+
+export function buildBottomholeMarkersFromInfra(
+  bottomholes: InfraObject[],
+  anchorLon: number,
+  anchorLat: number,
+  kbM: number,
+): THREE.Group {
+  const group = new THREE.Group();
+  group.name = 'bottomhole-markers-from-infra';
+  bottomholes.forEach((obj, index) => {
+    const endpoints = readGsLineEndpoints(obj);
+    if (endpoints) {
+      const heelTvd = readGsHeelTvdM(obj.properties);
+      const toeTvd = readGsToeTvdM(obj.properties);
+      addBottomholeMarker(
+        group,
+        endpoints.heelLon,
+        endpoints.heelLat,
+        heelTvd,
+        BOTTOMHOLE_SUBTYPE_COLORS.well_bottomhole_gs_heel,
+        1.5,
+        anchorLon,
+        anchorLat,
+        kbM,
+        { bottomholeId: obj.id, subtype: 'well_bottomhole_gs_heel', gsRole: 'heel' },
+      );
+      addBottomholeMarker(
+        group,
+        endpoints.toeLon,
+        endpoints.toeLat,
+        toeTvd,
+        BOTTOMHOLE_SUBTYPE_COLORS.well_bottomhole_gs_toe,
+        1.5,
+        anchorLon,
+        anchorLat,
+        kbM,
+        { bottomholeId: obj.id, subtype: 'well_bottomhole_gs_toe', gsRole: 'toe' },
+      );
+      return;
+    }
+    const radius = obj.subtype === 'well_bottomhole_nnb' ? 1.8 : 1.5;
+    const color = bottomholeMarkerColor(obj, index);
+    const tvd = readBottomholeTvdM(obj.properties);
+    addBottomholeMarker(
+      group,
+      obj.lon,
+      obj.lat,
+      tvd,
+      color,
+      radius,
+      anchorLon,
+      anchorLat,
+      kbM,
+      { bottomholeId: obj.id, subtype: obj.subtype },
+    );
+  });
+  return group;
+}
+
+export function bottomholesSceneRevision(bottomholes: InfraObject[]): string {
+  return bottomholes
+    .map((o) => {
+      const idx = readBottomholeWellIndex(o.properties);
+      const endpoints = readGsLineEndpoints(o);
+      const endPart =
+        endpoints != null ? `:${endpoints.toeLon}:${endpoints.toeLat}` : '';
+      const tvdPart = endpoints
+        ? `${readGsHeelTvdM(o.properties)}:${readGsToeTvdM(o.properties)}`
+        : String(readBottomholeTvdM(o.properties));
+      return `${o.id}:${o.lon}:${o.lat}${endPart}:${tvdPart}:${o.subtype}:${idx ?? ''}`;
+    })
+    .join('|');
+}
+
+export function buildBottomholeLayer(
+  bottomholes: InfraObject[],
+  trajectories: WellTrajectory[],
+  anchorLon: number,
+  anchorLat: number,
+  kbM: number,
+): THREE.Group {
+  const group = new THREE.Group();
+  group.name = 'layer-bottomholes';
+
+  if (bottomholes.length > 0) {
+    group.add(buildGsBottomholeConnectorLines(bottomholes, anchorLon, anchorLat, kbM));
+    group.add(buildBottomholeMarkersFromInfra(bottomholes, anchorLon, anchorLat, kbM));
+  } else if (trajectories.length > 0) {
+    const fromTraj = buildBottomholeMarkers(trajectories, kbM);
+    for (const child of fromTraj.children) {
+      group.add(child);
+    }
+  }
+
   return group;
 }

@@ -1,22 +1,24 @@
 import { useMemo, useState } from 'react';
 import { useSyncAssistantUiContext } from '../../lib/assistant/assistantContext';
 import { Link, NavLink, Outlet, useLocation } from 'react-router-dom';
+import { ProjectLink } from '../../components/ProjectLink';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useActiveProject } from '../../hooks/useActiveProject';
 import { useProjectPois } from '../../hooks/useProjectData';
 import { queryKeys } from '../../lib/queryKeys';
-import { GitBranch, Coins, Truck, Workflow } from 'lucide-react';
+import { Coins, Truck, Workflow } from 'lucide-react';
 import { AppSelect } from '../../components/AppSelect';
 import { defaultFlowSchematicApi, defaultProjectsPoiWriteApi, type POI } from '../../lib/api';
 import type { FlowSchematicDto } from '../../lib/flowSchematic';
 import { WARNING_LABELS } from '../../lib/flowSchematic';
 import { useAppStore } from '../../store';
+import { stripProjectPrefix } from '../../lib/projectRoutes';
 import { FlowSchematicProvider } from './flowSchematicContext';
 
 const TABS = [
-  { to: '/flows/technology', label: 'Технологический поток', icon: Workflow },
-  { to: '/flows/economic', label: 'Экономический поток', icon: Coins },
-  { to: '/flows/logistics', label: 'Логистика', icon: Truck },
+  { to: 'technology', label: 'Технологический поток', icon: Workflow },
+  { to: 'economic', label: 'Экономический поток', icon: Coins },
+  { to: 'logistics', label: 'Логистика', icon: Truck },
 ] as const;
 
 export function FlowSchematicLayout() {
@@ -25,9 +27,10 @@ export function FlowSchematicLayout() {
   const queryClient = useQueryClient();
   const [selectedPoiId, setSelectedPoiId] = useState('');
   const location = useLocation();
+  const logicalPath = stripProjectPrefix(location.pathname);
   const isLogisticsRoute =
-    location.pathname === '/flows/logistics' ||
-    location.pathname.startsWith('/flows/logistics/');
+    logicalPath === '/flows/logistics' ||
+    logicalPath.startsWith('/flows/logistics/');
 
   const { data: pois = [], isLoading: poisLoading } = useProjectPois(projectId);
 
@@ -147,30 +150,6 @@ export function FlowSchematicLayout() {
   return (
     <FlowSchematicProvider value={contextValue}>
       <div className="flow-schematic-page parameters-layout">
-        <header className="parameters-layout__head flow-schematic-layout__head">
-          <div className="flow-schematic-layout__title-row">
-            <GitBranch className="text-[var(--accent)] shrink-0" size={28} aria-hidden />
-            <div className="min-w-0">
-              <h1 className="parameters-layout__title">Схема потоков</h1>
-              <p className="parameters-layout__subtitle">
-                Технологический и экономический потоки — по точке интереса; логистика песка — по
-                проекту
-              </p>
-            </div>
-          </div>
-          {projectId && pois.length > 0 && (
-            <div className="flow-schematic-page-select flex items-center gap-2 w-full sm:w-auto">
-              <span className="text-sm text-[var(--text-muted)] shrink-0">Точка интереса</span>
-              <AppSelect
-                value={activePoiId}
-                onChange={setSelectedPoiId}
-                options={pois.map((p) => ({ value: p.id, label: p.name || p.id }))}
-                className="min-w-0 flex-1"
-              />
-            </div>
-          )}
-        </header>
-
         {!projectId && (
           <div className="card p-8 text-center text-[var(--text-muted)]">
             Выберите проект в шапке, чтобы построить схему потоков.
@@ -179,12 +158,24 @@ export function FlowSchematicLayout() {
 
         {projectId && (
           <>
+            {projectId && pois.length > 0 && (
+              <div className="flow-schematic-page-select mb-4 flex items-center gap-2 w-full sm:w-auto">
+                <span className="text-sm text-[var(--text-muted)] shrink-0">Точка интереса</span>
+                <AppSelect
+                  value={activePoiId}
+                  onChange={setSelectedPoiId}
+                  options={pois.map((p) => ({ value: p.id, label: p.name || p.id }))}
+                  className="min-w-0 flex-1"
+                />
+              </div>
+            )}
+
             {needsNetwork && showPoiFlows && (
               <div className="mb-4 rounded-lg border border-amber-500/40 bg-amber-500/10 px-4 py-3 text-sm">
                 {WARNING_LABELS.network_not_built}{' '}
-                <Link to="/map" className="font-medium text-[var(--accent)] underline">
+                <ProjectLink to="/map" className="font-medium text-[var(--accent)] underline">
                   Перейти на карту
-                </Link>
+                </ProjectLink>
               </div>
             )}
 
@@ -211,15 +202,15 @@ export function FlowSchematicLayout() {
               <div className="card p-8 text-center text-[var(--text-muted)] space-y-3">
                 <p>
                   В проекте нет точек интереса. Добавьте POI на{' '}
-                  <Link to="/map" className="text-[var(--accent)] underline">
+                  <ProjectLink to="/map" className="text-[var(--accent)] underline">
                     карте
-                  </Link>
+                  </ProjectLink>
                   , чтобы открыть технологический и экономический потоки.
                 </p>
                 <p>
-                  <Link to="/flows/logistics" className="btn btn-primary btn-sm">
+                  <ProjectLink to="/flows/logistics" className="btn btn-primary btn-sm">
                     Открыть логистику песка
-                  </Link>
+                  </ProjectLink>
                 </p>
               </div>
             )}

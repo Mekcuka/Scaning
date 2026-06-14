@@ -35,10 +35,29 @@
 | `tokens.css`, `base.css` | Переменные, reset, body | `:root`, `[data-theme="dark"]` |
 | `layout/` | Shell | `.app-shell`, `.app-content` |
 | `components/` | Примитивы | `.btn`, `.form-group`, `app-select`, `app-modal/` (core, flow-overlays, sand-logistics, overlays) |
-| `features/` | Экраны и фичи | `map/` (11 файлов), `import-3d`, `parameters`, `flow-schematic` |
+| `features/` | Экраны и фичи | `map/` (11 файлов), `import-3d`, `export.css` (импорт + экспорт), `parameters`, `flow-schematic` |
 | `responsive/` | Глобальный mobile | `mobile-global.css` **до** one-pager/import-3d в цепочке |
 
 Проверка: `npm run verify:css`. Правила добавления стилей — [ui-guidelines.md](ui-guidelines.md) §6, [styles/README.md](../../decision-matrix/frontend/src/styles/README.md).
+
+---
+
+## Маршрутизация (React Router)
+
+С июня 2026 проектные экраны живут под **`/:projectId/*`**. Глобальные маршруты без id: `/login`, `/register`, `/projects`, `/projects/:id`, `/admin/*`.
+
+| Модуль | Назначение |
+|--------|------------|
+| [`lib/projectRoutes.ts`](../../decision-matrix/frontend/src/lib/projectRoutes.ts) | `projectPath()`, `stripProjectPrefix()`, `isGlobalAppPath()` |
+| [`ProjectRouteLayout.tsx`](../../decision-matrix/frontend/src/components/layout/ProjectRouteLayout.tsx) | Синхронизация URL ↔ store, проверка доступа к проекту |
+| [`LegacyProjectRedirect.tsx`](../../decision-matrix/frontend/src/components/layout/LegacyProjectRedirect.tsx) | Редирект `/map` → `/:projectId/map` и т.д. |
+| [`ProjectLink.tsx`](../../decision-matrix/frontend/src/components/ProjectLink.tsx) | `<Link>` с автопрефиксом проекта |
+| [`useProjectPath.ts`](../../decision-matrix/frontend/src/hooks/useProjectPath.ts) | `useProjectPathBuilder()` для `navigate()` |
+| [`useActiveProject.ts`](../../decision-matrix/frontend/src/hooks/useActiveProject.ts) | `projectId` из URL (приоритет) или store |
+| [`sectionNavMemory.ts`](../../decision-matrix/frontend/src/lib/sectionNavMemory.ts) | Память подвкладок — логический путь без id |
+| [`resolvePageHeader.ts`](../../decision-matrix/frontend/src/lib/resolvePageHeader.ts) | Заголовок шапки по `stripProjectPrefix(pathname)` |
+
+Пример: `http://localhost:5173/{uuid}/map`.
 
 ---
 
@@ -191,7 +210,7 @@ lib/api/
 
 `hooks/useProjectData.ts` — `useProjectInfraObjects`, `useProjectPois`, `useProjectLayers` (используются на MapPage и страницах параметров/матрицы).
 
-`hooks/useActiveProject.ts` — текущий `projectId` из store + query.
+`hooks/useActiveProject.ts` — текущий `projectId`: приоритет у параметра `:projectId` в URL, иначе store + query списка проектов.
 
 `lib/queryKeys.ts` — ключи TanStack Query для проектных сущностей.
 
@@ -327,5 +346,5 @@ components/flowSchematicEditor/
 
 ## Оставшиеся кандидаты на дробление
 
-Основной план рефакторинга карты (июнь 2026) выполнен. `useMapPageMapActions.ts` разбит на `mapPageOrchestrator/actions/*` (фаза 3 ✅). **CSS:** монолит `index.css` → `styles/` (35 файлов, каскад 1:1); карта — `features/map/` (фаза 2); модалка/flow — `components/app-modal/` (фаза 3). Import — `pages/import/*`, `pages/import3d/*`; **Export** — `pages/ExportPage.tsx`, `pages/export/*`, `lib/projectExport/*`. Опционально: `buildMapPageSections.ts`. План — [solid-refactoring-plan.md](../planning/solid-refactoring-plan.md). Границы — [module-boundaries.md](module-boundaries.md).
+Основной план рефакторинга карты (июнь 2026) выполнен. `useMapPageMapActions.ts` разбит на `mapPageOrchestrator/actions/*` (фаза 3 ✅). **CSS:** монолит `index.css` → `styles/` (35 файлов, каскад 1:1); карта — `features/map/` (фаза 2); модалка/flow — `components/app-modal/` (фаза 3). **Данные:** `DataLayout` + `/data/*`; Import — `pages/import/*`, карточки через `ExportOptionCard`; Export — `pages/export/*`, `lib/projectExport/*`; Import 3D — `pages/import3d/*`. **Шапка:** `pageHeaderContext`, `resolvePageHeader`. Опционально: `buildMapPageSections.ts`. План — [solid-refactoring-plan.md](../planning/solid-refactoring-plan.md). Границы — [module-boundaries.md](module-boundaries.md).
 

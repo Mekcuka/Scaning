@@ -223,7 +223,7 @@ GeoJSON — [data model §5.3, §8](well-trajectory-data-model.md).
 | 8 | **Режим карты: забои** | `useBottomholeDraw`, toolbar | клик → объект `well_bottomhole_*` | ✅ |
 | 9 | **Слои 2D** | `createMapLayers.ts`, `useMapViewReactiveEffects` | plan line + bottomhole markers | ✅ |
 | 10 | **3D слой проекта** | `MapView3D` + `useWellTrajectoryProjectGeoJson` | LineString на `/map` | ✅ |
-| 11 | Карточка забоя | `InfraBottomholeDetailSection` | без вкладки «Логистика» | ✅ |
+| 11 | Карточка забоя | `InfraBottomholeDetailSection`, `InfraBottomholeGeometrySection` | геометрия X/Y/Z, dual TVD ГС, `gs_entry_mode`; без «Логистики» | ✅ |
 | 12 | Resync при удалении | `infra_delete.py`, `useMapDeleteSelection` | сброс target/survey; invalidate GeoJSON | ✅ |
 | 13 | Layer prefs | `mapLayerPreferences.ts` | `well_trajectories`, bottomholes | ✅ |
 | 14 | Vitest | `padClusteringScene3d.test.ts`, hook tests | mock API / coords | ✅ частично |

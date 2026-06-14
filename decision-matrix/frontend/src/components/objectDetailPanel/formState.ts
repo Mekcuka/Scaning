@@ -24,6 +24,15 @@ import {
   readPointFootprintLineConnections,
   type PointFootprintLineConnections,
 } from '../../lib/padFootprintLineAttach';
+import {
+  formatBottomholeElevation,
+  readGsLineBottomholeElevations,
+  readPointBottomholeElevation,
+} from '../../lib/wellBottomholeElevation';
+import {
+  isBottomholeSubtype,
+  readBottomholeLinkedPadId,
+} from '../../lib/wellBottomholeProperties';
 
 export type InfraFormDraft = {
   name: string;
@@ -32,6 +41,11 @@ export type InfraFormDraft = {
   layerId: string;
   lon: string;
   lat: string;
+  endLon: string;
+  endLat: string;
+  z: string;
+  zHeel: string;
+  zToe: string;
   sandInitialM3: string;
   sandCurrentM3: string;
   sandDemandM3: string;
@@ -62,9 +76,35 @@ export function createPoiFormFromSelection(poi: POI): PoiFormValues {
   return poiToFormValues(poi);
 }
 
+function bottomholeZFieldsFromObject(
+  o: InfraObject,
+  infraObjects: InfraObject[],
+): { z: string; zHeel: string; zToe: string } {
+  const padId = readBottomholeLinkedPadId(o.properties);
+  const pad = padId ? (infraObjects.find((p) => p.id === padId) ?? null) : null;
+  if (o.subtype === 'well_bottomhole_gs') {
+    const { heelZ, toeZ } = readGsLineBottomholeElevations(o, pad);
+    return {
+      z: '',
+      zHeel: formatBottomholeElevation(heelZ),
+      zToe: formatBottomholeElevation(toeZ),
+    };
+  }
+  if (isBottomholeSubtype(o.subtype)) {
+    const elevation = readPointBottomholeElevation(o, pad);
+    return {
+      z: formatBottomholeElevation(elevation),
+      zHeel: '',
+      zToe: '',
+    };
+  }
+  return { z: '', zHeel: '', zToe: '' };
+}
+
 export function createInfraFormDraftFromObject(
   o: InfraObject,
   map3dCustomModels: Map3dCustomModel[],
+  infraObjects: InfraObject[] = [],
 ): InfraFormDraft {
   const { initial, current } = readQuarryVolumes(o.properties);
   let sandInitialM3 = '';
@@ -95,6 +135,9 @@ export function createInfraFormDraftFromObject(
     layerId: o.layer_id,
     lon: formatCoord(o.lon),
     lat: formatCoord(o.lat),
+    endLon: o.end_lon != null ? formatCoord(o.end_lon) : '',
+    endLat: o.end_lat != null ? formatCoord(o.end_lat) : '',
+    ...bottomholeZFieldsFromObject(o, infraObjects),
     sandInitialM3,
     sandCurrentM3,
     sandDemandM3,

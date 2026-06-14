@@ -1,8 +1,9 @@
 import { useEffect } from 'react';
-import { Navigate, Outlet } from 'react-router-dom';
+import { Outlet } from 'react-router-dom';
 import { usePermissions } from '../hooks/usePermissions';
 import type { UserRole } from '../lib/permissions';
 import { useAppStore } from '../store';
+import { LegacyProjectRedirect } from './layout/LegacyProjectRedirect';
 
 type Props = {
   roles?: UserRole[];
@@ -20,7 +21,7 @@ export function RoleProtectedRoute({ roles }: Props) {
   }, [denied, pushToast]);
 
   if (denied) {
-    return <Navigate to="/" replace />;
+    return <LegacyProjectRedirect />;
   }
 
   return <Outlet />;

@@ -59,7 +59,7 @@ Frontend будет доступен на `http://127.0.0.1:5173`.
 
 **Журнал задач:** в шапке приложения (иконка слева от «Тема») — статусы расчётов и экспорт JSON запросов/ответов по **активному проекту** (`currentProjectId` в store). См. [docs/features/task-log-panel.md](../docs/features/task-log-panel.md).
 
-**Экспорт данных:** раздел **«Экспорт»** (`/export`) — выбор проекта в панели на странице, количества объектов на карточках форматов, выгрузка координат и GeoJSON инфраструктуры. См. [docs/features/project-export.md](../docs/features/project-export.md).
+**Данные (импорт / экспорт):** раздел **«Данные»** в боковом меню — подвкладки **Импорт** (`/data/import`), **Экспорт** (`/data/export`), **Импорт 3D** (`/data/import-3d`). На импорте и экспорте — выбор проекта в панели и **карточки** форматов/каналов. См. [docs/features/project-import.md](../docs/features/project-import.md), [project-export.md](../docs/features/project-export.md).
 
 ## 3) Повторный запуск (со второго раза)
 

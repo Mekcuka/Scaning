@@ -1,6 +1,7 @@
 import { useMemo, useState } from 'react';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { Link } from 'react-router-dom';
+import { ProjectLink } from '../components/ProjectLink';
 import { MapPin, Search } from 'lucide-react';
 import { defaultMapMutationsApi, SUBTYPE_LABELS, type InfraObject } from '../lib/api';
 import {
@@ -93,10 +94,10 @@ export function EntryDatesParametersPage() {
           Дата ввода в эксплуатацию для точечных и линейных объектов (кроме узлов). Учитывается в
           логистике песка: объекты с датой позже сегодня не участвуют в расчёте.
         </p>
-        <Link to="/map" className="btn btn-secondary btn-sm shrink-0">
+        <ProjectLink to="/map" className="btn btn-secondary btn-sm shrink-0">
           <MapPin size={14} className="inline mr-1" />
           Открыть карту
-        </Link>
+        </ProjectLink>
       </div>
 
       <div className="card card--flush parameters-card">
@@ -119,7 +120,7 @@ export function EntryDatesParametersPage() {
 
         {datedObjects.length === 0 && !isLoading ? (
           <p className="parameters-empty" style={{ color: 'var(--text-muted)' }}>
-            Нет объектов. Добавьте инфраструктуру на <Link to="/map">карте</Link>.
+            Нет объектов. Добавьте инфраструктуру на <ProjectLink to="/map">карте</ProjectLink>.
           </p>
         ) : (
           <div className="table-wrap">

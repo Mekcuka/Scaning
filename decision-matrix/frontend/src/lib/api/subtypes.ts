@@ -78,14 +78,9 @@ export const PIPELINE_LAYER_SUBTYPES = PIPELINE_LAYER_VISIBILITY_GROUPS.flatMap(
 export const BOTTOMHOLE_LAYER_VISIBILITY_GROUPS: LayerVisibilityGroup[] = [
   { id: 'well_bottomhole_nnb', label: SUBTYPE_LABELS.well_bottomhole_nnb, subtypes: ['well_bottomhole_nnb'] },
   {
-    id: 'well_bottomhole_gs_heel',
-    label: SUBTYPE_LABELS.well_bottomhole_gs_heel,
-    subtypes: ['well_bottomhole_gs_heel'],
-  },
-  {
-    id: 'well_bottomhole_gs_toe',
-    label: SUBTYPE_LABELS.well_bottomhole_gs_toe,
-    subtypes: ['well_bottomhole_gs_toe'],
+    id: 'well_bottomhole_gs',
+    label: SUBTYPE_LABELS.well_bottomhole_gs ?? 'ГС',
+    subtypes: ['well_bottomhole_gs', 'well_bottomhole_gs_heel', 'well_bottomhole_gs_toe'],
   },
 ];
 
@@ -121,6 +116,7 @@ export const LAYER_VISIBILITY_GROUPS: LayerVisibilityGroup[] = [
   { id: 'roads', label: 'Дороги', subtypes: ['autoroad'] },
   ...PIPELINE_LAYER_VISIBILITY_GROUPS,
   { id: 'power_line', label: SUBTYPE_LABELS.power_line, subtypes: ['power_line'] },
+  { id: 'well_bottomhole_gs_line', label: SUBTYPE_LABELS.well_bottomhole_gs ?? 'ГС', subtypes: ['well_bottomhole_gs'] },
   { id: 'additional_linear', label: 'Доп. линии', subtypes: ['additional_line'] },
 ];
 
@@ -211,7 +207,7 @@ export const EXCLUSIVE_POINT_SUBTYPES = [...MANIFEST_EXCLUSIVE_POINT] as const;
 const EXCLUSIVE_POINT_SET = new Set<string>(EXCLUSIVE_POINT_SUBTYPES);
 
 export const MAP_DRAWABLE_POINT_SUBTYPES = POINT_SUBTYPES.filter(
-  (s) => !IMPORT_ONLY_POINT_SET.has(s),
+  (s) => !IMPORT_ONLY_POINT_SET.has(s) && !BOTTOMHOLE_SUBTYPE_SET.has(s),
 );
 
 export function isImmutablePointSubtype(subtype: string): boolean {

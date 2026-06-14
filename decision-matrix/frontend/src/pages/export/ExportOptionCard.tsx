@@ -15,9 +15,11 @@ type Props = {
   description: string;
   countLabel: string;
   emptyHint?: string;
-  formats: FormatTag[];
+  formats?: FormatTag[];
+  formatTags?: string[];
   disabled: boolean;
-  children: ReactNode;
+  body?: ReactNode;
+  children?: ReactNode;
 };
 
 export function ExportOptionCard({
@@ -27,10 +29,16 @@ export function ExportOptionCard({
   description,
   countLabel,
   emptyHint,
-  formats,
+  formats = [],
+  formatTags,
   disabled,
+  body,
   children,
 }: Props) {
+  const tags =
+    formatTags ??
+    formats.map((format) => FORMAT_LABELS[format]);
+
   return (
     <section
       className={`export-option card export-option--${accent}${disabled ? ' export-option--disabled' : ''}`}
@@ -47,20 +55,26 @@ export function ExportOptionCard({
 
       <div className="export-option__status">
         <span className="export-option__count">{countLabel}</span>
-        <div className="export-option__formats">
-          {formats.map((format) => (
-            <span key={format} className="export-option__format">
-              {FORMAT_LABELS[format]}
-            </span>
-          ))}
-        </div>
+        {tags.length > 0 ? (
+          <div className="export-option__formats">
+            {tags.map((tag) => (
+              <span key={tag} className="export-option__format">
+                {tag}
+              </span>
+            ))}
+          </div>
+        ) : null}
       </div>
 
       {disabled && emptyHint ? (
         <p className="export-option__empty">{emptyHint}</p>
       ) : null}
 
-      <div className="export-option__actions">{children}</div>
+      {!disabled && body ? <div className="export-option__body">{body}</div> : null}
+
+      {!disabled && children ? (
+        <div className="export-option__actions">{children}</div>
+      ) : null}
     </section>
   );
 }

@@ -85,6 +85,7 @@ export function useMapViewRefs(props: MapViewProps): MapViewRefs {
   const wellTrajectoryBottomholeLayerRef = useRef<VectorLayer<VectorSource> | null>(null);
   const basemapLayerRef = useRef<TileLayer | null>(null);
   const hoveredIdRef = useRef<string | null>(null);
+  const emphasisFeatureIdsRef = useRef<Set<string>>(new Set());
   const onMapClickRef = useRef(onMapClick);
   const onPointerMoveRef = useRef(onPointerMove);
   const onPointerLeaveRef = useRef(onPointerLeave);
@@ -191,6 +192,7 @@ export function useMapViewRefs(props: MapViewProps): MapViewRefs {
     wellTrajectoryBottomholeLayerRef,
     basemapLayerRef,
     hoveredIdRef,
+    emphasisFeatureIdsRef,
     onMapClickRef,
     onPointerMoveRef,
     onPointerLeaveRef,

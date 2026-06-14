@@ -99,7 +99,7 @@ def validate_subtype_change(current: str, new: str) -> None:
     if cur in BOTTOMHOLE_CLUSTER_SUBTYPES and nxt not in BOTTOMHOLE_CLUSTER_SUBTYPES:
         raise ValueError(
             "Для забоев допустима смена только между подтипами "
-            "«Забой (ННБ)», «ГС — heel» и «ГС — toe»."
+            "«Забой (ННБ)», «ГС», «ГС — heel» и «ГС — toe»."
         )
     if nxt in IE_DERIVED_POINT_SUBTYPES and cur not in GTES_CLUSTER_SUBTYPES:
         label = SUBTYPE_LABELS.get(nxt, nxt)

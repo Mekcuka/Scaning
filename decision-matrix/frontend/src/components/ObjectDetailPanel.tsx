@@ -10,7 +10,6 @@ import { InfraDetailMainTab } from './objectDetailPanel/InfraDetailMainTab';
 import { InfraDetailLogisticsTab } from './objectDetailPanel/InfraDetailLogisticsTab';
 import { InfraDetailExtraTab } from './objectDetailPanel/InfraDetailExtraTab';
 import { InfraDetailTrajectoriesTab } from './objectDetailPanel/InfraDetailTrajectoriesTab';
-import { InfraBottomholeDetailSection } from './objectDetailPanel/InfraBottomholeDetailSection';
 import {
   PointFootprintLineConnectionsSection,
   PointFootprintLineConnectPickControls,
@@ -18,7 +17,7 @@ import {
 import type { ObjectDetailPanelProps } from './objectDetailPanel/types';
 import type { PointFootprintLineConnections } from '../lib/padFootprintLineAttach';
 import { useProjectFootprintConnectionTemplate } from '../hooks/useProjectFootprintConnectionTemplate';
-import { isBottomholeSubtype } from '../lib/wellBottomholeProperties';
+import { readBottomholeCopySources } from '../lib/wellBottomholeElevation';
 
 export function ObjectDetailPanel({
   selection,
@@ -133,9 +132,51 @@ export function ObjectDetailPanel({
                 throughputCapacity={panel.throughputCapacity}
                 showPadWellCountField={panel.showPadWellCountField}
                 padWellCount={panel.padWellCount}
+                padWellCountDerivedFromBottomholes={panel.padWellCountDerivedFromBottomholes}
+                linkedBottomholesCount={panel.linkedBottomholesCount}
                 setPadWellCount={panel.setPadWellCount}
                 saving={saving}
                 isLine={panel.isLine}
+                isBottomhole={panel.isBottomhole}
+                linkedBottomholePad={panel.linkedBottomholePad}
+                endLon={panel.endLon}
+                setEndLon={panel.setEndLon}
+                endLat={panel.endLat}
+                setEndLat={panel.setEndLat}
+                z={panel.z}
+                setZ={panel.setZ}
+                zHeel={panel.zHeel}
+                setZHeel={panel.setZHeel}
+                zToe={panel.zToe}
+                setZToe={panel.setZToe}
+                onBottomholePropsChange={(patch) =>
+                  panel.setBottomholePropsPatch((prev) => ({ ...prev, ...patch }))
+                }
+                bottomholeCopySources={
+                  panel.infraObject
+                    ? readBottomholeCopySources(
+                        panel.infraObject,
+                        panel.linkedBottomholePad,
+                        panel.bottomholePropsPatch,
+                      )
+                    : undefined
+                }
+                bottomholeProjectId={panel.mapProjectId}
+                bottomholeObject={
+                  panel.infraObject
+                    ? {
+                        ...panel.infraObject,
+                        properties: {
+                          ...(panel.infraObject.properties ?? {}),
+                          ...panel.bottomholePropsPatch,
+                        },
+                      }
+                    : null
+                }
+                bottomholePadOptions={infraObjects.filter(
+                  (o) => o.subtype === 'oil_pad' || o.subtype === 'gas_pad',
+                )}
+                copyCoordinatesText={panel.copyCoordinatesText}
                 lineLengthLabel={panel.lineLengthLabel}
                 lineCoords={panel.lineCoords}
                 lon={panel.lon}
@@ -147,28 +188,6 @@ export function ObjectDetailPanel({
                 setDescription={panel.setDescription}
               />
             )}
-            {panel.infraTab === 'main' &&
-              panel.infraObject &&
-              panel.mapProjectId &&
-              isBottomholeSubtype(panel.infraObject.subtype) && (
-                <InfraBottomholeDetailSection
-                  projectId={panel.mapProjectId}
-                  infraObject={{
-                    ...panel.infraObject,
-                    properties: {
-                      ...(panel.infraObject.properties ?? {}),
-                      ...panel.bottomholePropsPatch,
-                    },
-                  }}
-                  padOptions={infraObjects.filter(
-                    (o) => o.subtype === 'oil_pad' || o.subtype === 'gas_pad',
-                  )}
-                  readOnly={readOnly}
-                  onPropertiesChange={(patch) =>
-                    panel.setBottomholePropsPatch((prev) => ({ ...prev, ...patch }))
-                  }
-                />
-              )}
             {panel.infraTab === 'main' &&
               mapInFootprints &&
               panel.showFootprintLineConnectionsSection &&

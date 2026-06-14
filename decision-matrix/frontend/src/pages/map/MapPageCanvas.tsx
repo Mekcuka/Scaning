@@ -1,4 +1,4 @@
-import { lazy, Suspense, type MutableRefObject } from 'react';
+import { lazy, Suspense, useMemo, type MutableRefObject } from 'react';
 import {
   MapView,
   type DrawMode,
@@ -12,6 +12,7 @@ import type { MapView3DHandle } from '../../components/MapView3D';
 import type { AnalysisRow, InfraLayer, InfraObject, POI } from '../../lib/api';
 import type { SavedMapViewState } from '../../lib/mapViewState';
 import type { MeasureLabel, FootprintEdgeHighlight } from '../../components/mapView/types';
+import { previewSegmentMeasureLabel } from '../../lib/mapMeasure';
 const MapView3D = lazy(() => import('../../components/MapView3D'));
 
 type AutoroadPreviewLine = { coordinates: number[][]; kind: string };
@@ -177,6 +178,25 @@ export function MapPageCanvas({
         ]
       : [];
 
+  const gsBottomholePreviewPoints = useMemo(() => {
+    if (drawMode !== 'bottomhole_gs' || !gsHeelDraft) return [];
+    return [
+      {
+        subtype: 'well_bottomhole_gs_heel',
+        lon: gsHeelDraft.lon,
+        lat: gsHeelDraft.lat,
+      },
+    ];
+  }, [drawMode, gsHeelDraft]);
+
+  const effectiveMeasureCursorLabel = useMemo((): MeasureLabel | null => {
+    if (measureCursorLabel) return measureCursorLabel;
+    if (drawMode === 'bottomhole_gs' && gsHeelDraft && cursor) {
+      return previewSegmentMeasureLabel(gsHeelDraft, cursor);
+    }
+    return null;
+  }, [measureCursorLabel, drawMode, gsHeelDraft, cursor]);
+
   return (
     <>
       {map3dFeatureEnabled && (map3dKeepMounted || mapIn3d) && (
@@ -270,6 +290,7 @@ export function MapPageCanvas({
                       : null
               : null
           }
+          placementPreviewPoints={gsBottomholePreviewPoints}
           clipboardPreviewPoints={clipboardPreviewPoints}
           pasteMode={pasteMode}
           onFeatureSelect={
@@ -314,7 +335,7 @@ export function MapPageCanvas({
           measureLine={rulerPoints}
           measurePreview={rulerPreview}
           measureCompletedLines={rulerCompleted}
-          measureCursorLabel={measureCursorLabel}
+          measureCursorLabel={effectiveMeasureCursorLabel}
           measureAnchorLabels={measureAnchorLabels}
           showRadii={showRadii}
           useMapIcons

@@ -1,4 +1,5 @@
 import { Link } from 'react-router-dom';
+import { ProjectLink } from '../components/ProjectLink';
 import {
   CircleDot,
   Download,
@@ -10,6 +11,7 @@ import {
   Upload,
 } from 'lucide-react';
 import { PageSkeleton } from '../components/PageSkeleton';
+import { usePageHeader } from '../components/layout/pageHeaderContext';
 import { ExportOptionCard } from './export/ExportOptionCard';
 import { ExportProjectPanel } from './export/ExportProjectPanel';
 import { useExportPage } from './export/useExportPage';
@@ -22,13 +24,21 @@ export function ExportPage() {
   const disabled = busy || !workflow.projectId || !hasObjects;
   const pointDisabled = busy || !workflow.projectId || !hasPointObjects;
 
+  const exportSubtitle = workflow.projectsLoading
+    ? 'Выгрузка координат и GeoJSON инфраструктуры проекта'
+    : 'Скачайте координаты объектов и GeoJSON для обмена с другими системами или повторного импорта';
+
+  usePageHeader(
+    {
+      title: 'Экспорт данных',
+      subtitle: exportSubtitle,
+    },
+    [exportSubtitle],
+  );
+
   if (workflow.projectsLoading) {
     return (
       <div className="export-page">
-        <header className="page-header">
-          <h1 className="page-title">Экспорт данных</h1>
-          <p className="subtitle">Выгрузка координат и GeoJSON инфраструктуры проекта</p>
-        </header>
         <PageSkeleton lines={8} />
       </div>
     );
@@ -36,25 +46,17 @@ export function ExportPage() {
 
   return (
     <div className="export-page">
-      <header className="export-page__header page-header">
-        <div>
-          <h1 className="page-title">Экспорт данных</h1>
-          <p className="subtitle export-page__lead">
-            Скачайте координаты объектов и GeoJSON для обмена с другими системами или повторного импорта
-          </p>
-        </div>
-        <div className="export-page__tags" role="list">
-          <span className="export-page__tag" role="listitem">
-            Excel
-          </span>
-          <span className="export-page__tag" role="listitem">
-            CSV
-          </span>
-          <span className="export-page__tag export-page__tag--muted" role="listitem">
-            GeoJSON
-          </span>
-        </div>
-      </header>
+      <div className="export-page__tags mb-4" role="list">
+        <span className="export-page__tag" role="listitem">
+          Excel
+        </span>
+        <span className="export-page__tag" role="listitem">
+          CSV
+        </span>
+        <span className="export-page__tag export-page__tag--muted" role="listitem">
+          GeoJSON
+        </span>
+      </div>
 
       {!workflow.hasProjects && (
         <div className="export-alert export-alert--info">
@@ -96,14 +98,14 @@ export function ExportPage() {
             выгрузки.
           </p>
           <div className="export-empty__actions">
-            <Link to="/map" className="btn btn-primary text-sm">
+            <ProjectLink to="/map" className="btn btn-primary text-sm">
               <Map size={16} aria-hidden />
               Открыть карту
-            </Link>
-            <Link to="/import" className="btn btn-secondary text-sm">
+            </ProjectLink>
+            <ProjectLink to="/data/import" className="btn btn-secondary text-sm">
               <Upload size={16} aria-hidden />
               Импорт данных
-            </Link>
+            </ProjectLink>
           </div>
         </div>
       )}

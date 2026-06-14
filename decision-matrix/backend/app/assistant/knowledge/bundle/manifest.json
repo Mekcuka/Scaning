@@ -67,7 +67,7 @@
         "data_manager"
       ],
       "file": "articles/flows-overview.md",
-      "char_count": 1043
+      "char_count": 1056
     },
     {
       "slug": "import-3d",
@@ -88,12 +88,12 @@
         "analyst"
       ],
       "file": "articles/import-3d.md",
-      "char_count": 2116
+      "char_count": 2223
     },
     {
       "slug": "import-spark",
       "title": "Импорт данных и проект Искра",
-      "summary": "Раздел Импорт, форматы файлов, импорт проекта Искра (SPARK) и журнал импортов.",
+      "summary": "Раздел Данные → Импорт, форматы файлов, импорт проекта Искра (SPARK) и журнал импортов.",
       "tags": [
         "import",
         "spark",
@@ -101,7 +101,8 @@
         "geojson"
       ],
       "tab_hints": [
-        "import"
+        "import",
+        "data"
       ],
       "roles": [
         "analyst",
@@ -109,7 +110,7 @@
         "data_manager"
       ],
       "file": "articles/import-spark.md",
-      "char_count": 1044
+      "char_count": 1547
     },
     {
       "slug": "map-2d",
@@ -133,7 +134,7 @@
         "data_manager"
       ],
       "file": "articles/map-2d.md",
-      "char_count": 3109
+      "char_count": 3200
     },
     {
       "slug": "matrix",
@@ -155,7 +156,7 @@
         "data_manager"
       ],
       "file": "articles/matrix.md",
-      "char_count": 1074
+      "char_count": 1100
     },
     {
       "slug": "navigation",
@@ -174,7 +175,7 @@
         "data_manager"
       ],
       "file": "articles/navigation.md",
-      "char_count": 1642
+      "char_count": 3034
     },
     {
       "slug": "pad-earthwork-volumes",
@@ -205,7 +206,7 @@
     {
       "slug": "pad-placement-optimization",
       "title": "Оптимизация размещения кустов с карты",
-      "summary": "Подбор числа и места новых кустов по забоям на карте — меньше площадок и меньше суммарная глубина стволов (TVD). Запуск с карты, предпросмотр, применение.",
+      "summary": "Подбор числа и места новых кустов по забоям на карте — меньше площадок и меньше суммарная измеренная глубина (MD). Запуск с карты, предпросмотр, применение.",
       "tags": [
         "map",
         "pad",
@@ -224,7 +225,7 @@
         "data_manager"
       ],
       "file": "articles/pad-placement-optimization.md",
-      "char_count": 3285
+      "char_count": 4089
     },
     {
       "slug": "parameters-earthwork",

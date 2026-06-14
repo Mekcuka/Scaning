@@ -1,4 +1,5 @@
 import { Link } from 'react-router-dom';
+import { ProjectLink } from '../../components/ProjectLink';
 import type { SandLogisticsResult } from '../../lib/api';
 import { formatEntryDateRu } from '../../lib/infraEntryDate';
 import {
@@ -29,9 +30,9 @@ export function SandHaulLegTable({ objectId, sandLogistics, asOf, compact = fals
     return (
       <p className={hintClass}>
         Выполните расчёт логистики на вкладке{' '}
-        <Link to="/flows/logistics" className="text-[var(--primary)] hover:underline">
+        <ProjectLink to="/flows/logistics" className="text-[var(--primary)] hover:underline">
           Потоки → Логистика
-        </Link>
+        </ProjectLink>
         .
       </p>
     );
@@ -42,9 +43,9 @@ export function SandHaulLegTable({ objectId, sandLogistics, asOf, compact = fals
       <p className={hintClass}>
         Объект не найден в результатах расчёта. Проверьте подключение к сети автодорог и
         повторите расчёт на{' '}
-        <Link to="/flows/logistics" className="text-[var(--primary)] hover:underline">
+        <ProjectLink to="/flows/logistics" className="text-[var(--primary)] hover:underline">
           Потоки → Логистика
-        </Link>
+        </ProjectLink>
         .
       </p>
     );

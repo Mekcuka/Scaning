@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import asyncio
 from datetime import UTC, datetime
 from typing import Any
 
@@ -53,7 +54,11 @@ from app.services.well_trajectory.trajectory_store import (
     store_trajectories_json,
 )
 from app.services.well_trajectory.settings_store import well_trajectory_settings_for_pad
-from app.services.well_trajectory.planner_bridge import planner_schemas
+from app.services.well_trajectory.planner_bridge import (
+    design_horizontal_at_offset,
+    gs_entry_search_offsets,
+    planner_schemas,
+)
 from app.subtype_manifest import PAD_CLUSTER_SUBTYPES
 
 
@@ -61,7 +66,7 @@ def assert_pad_object(obj: InfrastructureObject) -> None:
     if obj.subtype not in PAD_CLUSTER_SUBTYPES:
         raise HTTPException(
             status_code=400,
-            detail=f"Well trajectory is only available for subtypes: {sorted(PAD_CLUSTER_SUBTYPES)}",
+            detail=f"Траектории доступны только для кустов: {sorted(PAD_CLUSTER_SUBTYPES)}",
         )
 
 
@@ -113,7 +118,7 @@ def _normalize_target_for_pad(
     elif lon is not None and lat is not None:
         east_m, north_m = lonlat_to_local(anchor_lon, anchor_lat, lon, lat)
     else:
-        raise HTTPException(status_code=400, detail="target requires plan or lon/lat")
+        raise HTTPException(status_code=400, detail="Цель забоя: укажите координаты на карте или в плане")
 
     azi = target.azi if target.azi is not None else read_nds_deg(obj.properties or {})
     return {
@@ -134,13 +139,16 @@ def save_targets(
     assert_pad_object(obj)
     trajectories = read_trajectories_json(obj.properties)
     if not trajectories:
-        raise HTTPException(status_code=400, detail="No trajectories; run generate-from-layout first")
+        raise HTTPException(
+            status_code=400,
+            detail="Нет заготовок траекторий; сначала выполните «Из схемы куста»",
+        )
 
     for entry in body.targets:
         if entry.well_index >= len(trajectories):
             raise HTTPException(
                 status_code=400,
-                detail=f"well_index {entry.well_index} out of range",
+                detail=f"Индекс скважины {entry.well_index} вне диапазона",
             )
         well = dict(trajectories[entry.well_index])
         well["target"] = _normalize_target_for_pad(obj, entry.target)
@@ -156,7 +164,7 @@ def design_all_from_targets(
     assert_pad_object(obj)
     trajectories = read_trajectories_json(obj.properties)
     if not trajectories:
-        raise HTTPException(status_code=400, detail="No trajectories stored")
+        raise HTTPException(status_code=400, detail="Нет сохранённых траекторий")
 
     indices = body.well_indices if body.well_indices is not None else list(range(len(trajectories)))
     designed: list[int] = []
@@ -274,6 +282,134 @@ def _ensure_pad_ready_for_bottomholes(
     return warnings
 
 
+def _station_scalar(station: Any, key: str) -> float:
+    if isinstance(station, dict):
+        return float(station[key])
+    return float(getattr(station, key))
+
+
+def _well_dict_to_clearance_survey(well: dict[str, Any]) -> Any | None:
+    survey = well.get("survey") or {}
+    stations = survey.get("stations") or []
+    if not isinstance(stations, list) or len(stations) < 2:
+        return None
+    schemas = planner_schemas()
+    return schemas.ClearanceSurveyIn(
+        name=str(well.get("name") or ""),
+        md=[_station_scalar(s, "md") for s in stations],
+        inc=[_station_scalar(s, "inc") for s in stations],
+        azi=[_station_scalar(s, "azi") for s in stations],
+        n=[_station_scalar(s, "n") for s in stations],
+        e=[_station_scalar(s, "e") for s in stations],
+        tvd=[_station_scalar(s, "tvd") for s in stations],
+        error_model=str(well.get("error_model") or "ISCWSA MWD Rev5.11"),
+        azi_reference=str(well.get("azi_reference") or "grid"),
+    )
+
+
+def _candidate_min_sf_vs_peers(
+    candidate_stations: list[Any],
+    peer_surveys: list[Any],
+    *,
+    sf_threshold: float,
+    adapter: Any,
+) -> float | None:
+    if not peer_surveys or len(candidate_stations) < 2:
+        return None
+    schemas = planner_schemas()
+    candidate = schemas.ClearanceSurveyIn(
+        name="candidate",
+        md=[_station_scalar(s, "md") for s in candidate_stations],
+        inc=[_station_scalar(s, "inc") for s in candidate_stations],
+        azi=[_station_scalar(s, "azi") for s in candidate_stations],
+        n=[_station_scalar(s, "n") for s in candidate_stations],
+        e=[_station_scalar(s, "e") for s in candidate_stations],
+        tvd=[_station_scalar(s, "tvd") for s in candidate_stations],
+        error_model=peer_surveys[0].error_model,
+        azi_reference=peer_surveys[0].azi_reference,
+    )
+    pairs = [[0, i + 1] for i in range(len(peer_surveys))]
+    try:
+        result = adapter.clearance_pairs(
+            schemas.ClearancePairsRequest(
+                surveys=[candidate, *peer_surveys],
+                pairs=pairs,
+                method="iscwsa",
+                threshold=sf_threshold,
+            )
+        )
+    except Exception:
+        return None
+    if not result.pairs:
+        return None
+    return min(p.min_sf for p in result.pairs)
+
+
+def _design_horizontal_any_with_clearance(
+    request: Any,
+    adapter: Any,
+    *,
+    peer_wells: list[dict[str, Any]],
+    sf_threshold: float,
+) -> tuple[Any, bool]:
+    """Pick min-MD GS entry among offsets that satisfy SF vs peer trajectories."""
+    peer_surveys = [
+        s for w in peer_wells if (s := _well_dict_to_clearance_survey(w)) is not None
+    ]
+    offsets = gs_entry_search_offsets(request.heel, request.toe, request.entry_search_step_m)
+
+    best_clear: Any | None = None
+    best_clear_md = float("inf")
+    best_clear_offset = 0.0
+    best_any: Any | None = None
+    best_any_md = float("inf")
+    best_any_offset = 0.0
+
+    for offset_m in offsets:
+        try:
+            candidate = design_horizontal_at_offset(request, offset_m)
+        except (ValueError, TypeError):
+            continue
+        md = float(candidate.geometry.length_m)
+        if md < best_any_md or (abs(md - best_any_md) < 1e-3 and offset_m < best_any_offset):
+            best_any_md = md
+            best_any_offset = offset_m
+            best_any = candidate
+
+        if peer_surveys:
+            min_sf = _candidate_min_sf_vs_peers(
+                candidate.stations,
+                peer_surveys,
+                sf_threshold=sf_threshold,
+                adapter=adapter,
+            )
+            if min_sf is not None and min_sf < sf_threshold:
+                continue
+
+        if md < best_clear_md or (abs(md - best_clear_md) < 1e-3 and offset_m < best_clear_offset):
+            best_clear_md = md
+            best_clear_offset = offset_m
+            best_clear = candidate
+
+    chosen = best_clear if best_clear is not None else best_any
+    fallback = peer_surveys and best_clear is None and best_any is not None
+    chosen_offset = best_clear_offset if best_clear is not None else best_any_offset
+    if chosen is None:
+        chosen = design_horizontal_at_offset(request, 0.0)
+        chosen_offset = 0.0
+
+    return (
+        chosen.model_copy(
+            update={
+                "entry_mode": "any",
+                "entry_offset_m": chosen_offset,
+                "entry_search_evaluated": len(offsets),
+            }
+        ),
+        fallback,
+    )
+
+
 def _design_well_from_target(
     obj: InfrastructureObject,
     idx: int,
@@ -281,13 +417,18 @@ def _design_well_from_target(
     target: dict[str, Any],
     *,
     step_m: float,
+    peer_wells: list[dict[str, Any]] | None = None,
+    extra_warnings: list[str] | None = None,
 ) -> dict[str, Any]:
     props = obj.properties or {}
     trajectories = read_trajectories_json(props)
     survey = well.get("survey") or {}
     stations_raw = survey.get("stations") or []
     if not stations_raw:
-        raise HTTPException(status_code=400, detail=f"Well {idx} has no survey stations")
+        raise HTTPException(
+            status_code=400,
+            detail=f"Скв.{idx + 1}: нет станций инклинометрии",
+        )
 
     start_station = stations_raw[0]
     settings = well_trajectory_settings_for_pad(obj)
@@ -307,28 +448,58 @@ def _design_well_from_target(
     if profile == "gs":
         heel_plan = target.get("heel_plan") if isinstance(target.get("heel_plan"), dict) else {}
         plan = target.get("plan") if isinstance(target.get("plan"), dict) else {}
+        raw_mode = str(target.get("gs_entry_mode") or "any").lower().strip()
+        entry_mode = raw_mode if raw_mode in ("any", "heel", "toe") else "any"
         request = schemas.HorizontalDesignRequest(
             start=start,
             heel=schemas.ConnectorPoint(
                 northing=float(heel_plan.get("north_m", 0)),
                 easting=float(heel_plan.get("east_m", 0)),
-                tvd=float(target.get("tvd_m", DEFAULT_TVD_M)),
+                tvd=float(
+                    target.get("heel_tvd_m")
+                    or target.get("tvd_m", DEFAULT_TVD_M)
+                ),
                 inc=settings.inc_heel,
                 azi=float(target.get("azi", start.azi)),
             ),
             toe=schemas.ConnectorPoint(
                 northing=float(plan.get("north_m", 0)),
                 easting=float(plan.get("east_m", 0)),
-                tvd=float(target.get("tvd_m", DEFAULT_TVD_M)),
+                tvd=float(
+                    target.get("toe_tvd_m")
+                    or target.get("tvd_m", DEFAULT_TVD_M)
+                ),
                 inc=90.0,
                 azi=float(target.get("azi", start.azi)),
             ),
             step_m=step_m,
             azi_reference=azi_ref,
             inc_heel=settings.inc_heel,
+            entry_mode=entry_mode,
+            entry_search_step_m=settings.gs_entry_search_step_m,
         )
-        design_result = adapter.design_horizontal(request)
+        if entry_mode == "any" and peer_wells:
+            design_result, clearance_fallback = _design_horizontal_any_with_clearance(
+                request,
+                adapter,
+                peer_wells=peer_wells,
+                sf_threshold=settings.sf_warning_threshold,
+            )
+            if clearance_fallback and extra_warnings is not None:
+                extra_warnings.append(
+                    f"Скв.{idx + 1}: точка входа «Любая» — нет варианта без нарушения SF; "
+                    f"выбрана траектория с минимальной длиной"
+                )
+        else:
+            design_result = adapter.design_horizontal(request)
         design_profile = "horizontal"
+        design_extra: dict[str, Any] = {
+            "gs_entry_mode": design_result.entry_mode,
+        }
+        if design_result.entry_plan is not None:
+            design_extra["gs_entry_plan"] = design_result.entry_plan.model_dump(mode="json")
+        if design_result.entry_offset_m is not None:
+            design_extra["gs_entry_offset_m"] = design_result.entry_offset_m
     else:
         plan = target.get("plan") if isinstance(target.get("plan"), dict) else {}
         request = schemas.ConnectorDesignRequest(
@@ -345,12 +516,14 @@ def _design_well_from_target(
         )
         design_result = adapter.design_connector(request)
         design_profile = "connector"
+        design_extra = {}
 
     stations = [s.model_dump(mode="json") for s in design_result.stations]
     updated = dict(well)
     updated["design"] = {
         "profile": design_profile,
         "source": "bottomhole_object",
+        **design_extra,
     }
     updated["survey"] = {"source": "calculated", "stations": stations}
     updated["geometry"] = design_result.geometry.model_dump(mode="json")
@@ -373,7 +546,7 @@ async def design_from_bottomholes(
     warnings = list(sync_result.warnings)
 
     if not trajectories:
-        raise HTTPException(status_code=400, detail="No trajectories stored")
+        raise HTTPException(status_code=400, detail="Нет сохранённых траекторий")
 
     indices = body.well_indices if body.well_indices is not None else list(range(len(trajectories)))
     designed: list[int] = []
@@ -392,15 +565,42 @@ async def design_from_bottomholes(
             skipped.append(idx)
             continue
         try:
-            trajectories[idx] = _design_well_from_target(
-                obj, idx, well, target, step_m=body.step_m
+            peer_wells = [
+                trajectories[j]
+                for j in range(len(trajectories))
+                if j != idx and isinstance(trajectories[j], dict)
+            ]
+            well_warnings: list[str] = []
+            trajectories[idx] = await asyncio.to_thread(
+                _design_well_from_target,
+                obj,
+                idx,
+                well,
+                target,
+                step_m=body.step_m,
+                peer_wells=peer_wells,
+                extra_warnings=well_warnings,
             )
+            warnings.extend(well_warnings)
             designed.append(idx)
+            design = trajectories[idx].get("design") if isinstance(trajectories[idx], dict) else None
+            if isinstance(design, dict):
+                offset = design.get("gs_entry_offset_m")
+                mode = design.get("gs_entry_mode")
+                if mode == "any" and offset is not None:
+                    try:
+                        off_m = float(offset)
+                    except (TypeError, ValueError):
+                        off_m = 0.0
+                    if abs(off_m) > 50:
+                        warnings.append(
+                            f"Скв.{idx + 1}: точка входа смещена на {off_m:.0f} м от пятки"
+                        )
         except HTTPException:
             skipped.append(idx)
         except Exception:
             skipped.append(idx)
-            warnings.append(f"well_index {idx}: design failed")
+            warnings.append(f"Скв.{idx + 1}: не удалось спроектировать траекторию")
 
     return WellTrajectoryDesignFromBottomholesResponse(
         designed=designed,
@@ -457,14 +657,17 @@ def design_well_trajectory(
     if body.well_index >= len(trajectories):
         raise HTTPException(
             status_code=400,
-            detail=f"well_index {body.well_index} out of range (have {len(trajectories)} wells)",
+            detail=f"Индекс скважины {body.well_index} вне диапазона (всего {len(trajectories)} скважин)",
         )
 
     well = trajectories[body.well_index]
     survey = well.get("survey") or {}
     stations_raw = survey.get("stations") or []
     if not stations_raw:
-        raise HTTPException(status_code=400, detail="Well has no survey stations to design from")
+        raise HTTPException(
+            status_code=400,
+            detail="У скважины нет станций инклинометрии для расчёта",
+        )
 
     start_station = stations_raw[0]
     settings = well_trajectory_settings_for_pad(obj)
@@ -534,7 +737,10 @@ def compute_all_trajectories(obj: InfrastructureObject) -> WellTrajectoryCompute
     props = obj.properties or {}
     trajectories = read_trajectories_json(props)
     if not trajectories:
-        raise HTTPException(status_code=400, detail="No trajectories stored; run generate-from-layout first")
+        raise HTTPException(
+            status_code=400,
+            detail="Нет траекторий; сначала выполните «Из схемы куста»",
+        )
 
     settings = well_trajectory_settings_for_pad(obj)
     schemas = planner_schemas()

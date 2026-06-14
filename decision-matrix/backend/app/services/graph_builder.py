@@ -100,6 +100,8 @@ async def build_network_from_lines(
         return n
 
     for obj in lines:
+        if (obj.subtype or "").lower().strip() == "well_bottomhole_gs":
+            continue
         coords: list[tuple[float, float]] = [(obj.longitude, obj.latitude)]
         raw_coords = (obj.properties or {}).get("coordinates")
         if isinstance(raw_coords, list) and raw_coords:

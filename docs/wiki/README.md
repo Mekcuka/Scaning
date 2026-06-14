@@ -53,7 +53,7 @@ summary: Краткое описание в 1–2 предложения для 
 | `parameters-earthwork` | [parameters-earthwork.md](articles/parameters-earthwork.md) | Параметры → Земляные работы |
 | `parameters-footprint-connections` | [parameters-footprint-connections.md](articles/parameters-footprint-connections.md) | Точки подключения |
 | `flows-overview` | [flows-overview.md](articles/flows-overview.md) | Схемы потоков |
-| `import-spark` | [import-spark.md](articles/import-spark.md) | Импорт Искра |
+| `import-spark` | [import-spark.md](articles/import-spark.md) | Импорт данных и Искра |
 | `import-3d` | [import-3d.md](articles/import-3d.md) | Импорт 3D |
 | `background-jobs` | [background-jobs.md](articles/background-jobs.md) | Фоновые задачи |
 | `assistant-chat` | [assistant-chat.md](articles/assistant-chat.md) | AI-помощник |

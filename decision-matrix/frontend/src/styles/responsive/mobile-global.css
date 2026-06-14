@@ -35,6 +35,30 @@
     align-items: flex-start;
   }
 
+  .app-header-page {
+    flex: 1 1 calc(100% - 2.75rem);
+    order: 1;
+  }
+
+  .app-header-page__title {
+    font-size: 1rem;
+    white-space: normal;
+  }
+
+  .app-header-page__subtitle {
+    white-space: normal;
+    display: -webkit-box;
+    -webkit-line-clamp: 2;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
+  }
+
+  .app-header-page-actions {
+    order: 2;
+    width: 100%;
+    flex: 1 1 100%;
+  }
+
   .app-header-toolbar {
     flex: 1 1 0;
     gap: 8px;

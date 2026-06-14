@@ -49,6 +49,8 @@ class BottomholeSnapshot(BaseModel):
     name: str
     longitude: float
     latitude: float
+    end_longitude: float | None = None
+    end_latitude: float | None = None
     properties: dict[str, Any] = Field(default_factory=dict)
 
 

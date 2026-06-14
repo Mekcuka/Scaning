@@ -1,4 +1,5 @@
 import { Link } from 'react-router-dom';
+import { ProjectLink } from '../../components/ProjectLink';
 import type { SandLogisticsResult } from '../../lib/api';
 import {
   buildHaulLegRows,
@@ -39,9 +40,9 @@ export function SandHaulLegDetails({
   if (!sandLogistics) {
     return (
       <span className="parameters-haul-leg-hint text-xs text-[var(--text-muted)]">
-        <Link to="/flows/logistics" className="text-[var(--primary)] hover:underline">
+        <ProjectLink to="/flows/logistics" className="text-[var(--primary)] hover:underline">
           Расчёт
-        </Link>
+        </ProjectLink>
       </span>
     );
   }

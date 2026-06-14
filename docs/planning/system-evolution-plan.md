@@ -306,7 +306,7 @@ gantt
 | H1.6 | Coverage gates | pages 80%, components 30%, backend services 70% | P1 |
 | H1.7 | Drag-and-drop слоёв | FR-2.2.4 | P2 |
 | H1.8 | OSM подложка 2D | FR-2.1.2 (дополнение к Esri) | P2 |
-| H1.9 | Полный Excel отчёта/матрицы; GeoJSON export | FR-12.3, development-plan этап 5 | P2 (GeoJSON/координаты — ✅ `/export`) |
+| H1.9 | Полный Excel отчёта/матрицы; GeoJSON export | FR-12.3, development-plan этап 5 | P2 (GeoJSON/координаты — ✅ `/data/export`) |
 | H1.10 | Server PDF | FR-11.2.1, WeasyPrint | P2 |
 
 **Критерий выхода:** все пункты «Метрики успеха MVP» в [development-plan.md](development-plan.md) отмечены или явно отложены с обоснованием.

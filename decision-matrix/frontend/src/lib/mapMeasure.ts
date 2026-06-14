@@ -17,3 +17,22 @@ export function formatLengthMeters(meters: number): string {
   }
   return `${Math.round(meters)} м`;
 }
+
+export type MapMeasureLabel = {
+  lon: number;
+  lat: number;
+  text: string;
+};
+
+/** Label at `to` for geodesic distance from `from` (preview segment while drawing). */
+export function previewSegmentMeasureLabel(
+  from: { lon: number; lat: number },
+  to: { lon: number; lat: number },
+): MapMeasureLabel | null {
+  const len = lineLengthMeters([
+    [from.lon, from.lat],
+    [to.lon, to.lat],
+  ]);
+  if (len <= 0) return null;
+  return { lon: to.lon, lat: to.lat, text: formatLengthMeters(len) };
+}

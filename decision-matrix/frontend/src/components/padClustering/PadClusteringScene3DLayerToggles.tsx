@@ -24,6 +24,7 @@ type PadClusteringScene3DLayerTogglesProps = {
   onChange: (layers: PadClusteringScene3DLayers) => void;
   envelopeAvailable: boolean;
   trajectoriesAvailable: boolean;
+  bottomholesAvailable: boolean;
 };
 
 export function PadClusteringScene3DLayerToggles({
@@ -31,6 +32,7 @@ export function PadClusteringScene3DLayerToggles({
   onChange,
   envelopeAvailable,
   trajectoriesAvailable,
+  bottomholesAvailable,
 }: PadClusteringScene3DLayerTogglesProps) {
   const toggle = (key: PadClusteringScene3DLayerKey) => {
     onChange({ ...layers, [key]: !layers[key] });
@@ -49,7 +51,8 @@ export function PadClusteringScene3DLayerToggles({
       <div className="pad-earthwork-sketch-toolbar__group">
         {LAYER_BUTTONS.map(({ key, label, title }) => {
           if (key === 'envelope' && !envelopeAvailable) return null;
-          if ((key === 'trajectories' || key === 'bottomholes') && !trajectoriesAvailable) return null;
+          if (key === 'trajectories' && !trajectoriesAvailable) return null;
+          if (key === 'bottomholes' && !bottomholesAvailable) return null;
           const active = layers[key];
           return (
             <button

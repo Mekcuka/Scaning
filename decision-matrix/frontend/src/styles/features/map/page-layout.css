@@ -4,6 +4,13 @@
   min-height: 0;
 }
 
+.map-page-actions {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 16px;
+}
+
 .map-page .page-header {
   margin-bottom: 12px;
 }

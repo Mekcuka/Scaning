@@ -43,7 +43,8 @@ function infraPointFromFeature(inner: Feature): { lon: number; lat: number; id: 
   const geom = inner.getGeometry();
   if (!(geom instanceof Point)) return null;
   const [lon, lat] = transform(geom.getCoordinates(), 'EPSG:3857', 'EPSG:4326');
-  return { lon, lat, id };
+  const objectId = (inner.get('infra_object_id') as string | undefined) ?? id;
+  return { lon, lat, id: objectId };
 }
 
 function resolveInfraPointInSource(
@@ -160,7 +161,8 @@ export function resolveHoverFeatureIdAtCoordinate(
     const dist2 = closestPointDist2(inner, coordinate);
     if (dist2 == null || dist2 >= bestPointDist2) return;
     bestPointDist2 = dist2;
-    bestPointId = inner.get('id') as string;
+    const infraObjectId = inner.get('infra_object_id') as string | undefined;
+    bestPointId = infraObjectId ?? (inner.get('id') as string);
   });
 
   nodePointSource?.forEachFeatureIntersectingExtent(extent, (feat) => {

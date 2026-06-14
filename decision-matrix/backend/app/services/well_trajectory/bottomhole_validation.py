@@ -10,7 +10,11 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.models import InfrastructureLayer, InfrastructureObject
 from app.services.well_trajectory.bottomhole_properties import (
     BOTTOMHOLE_SUBTYPES,
+    GS_ENTRY_MODE,
+    GS_ENTRY_MODES,
     GS_HEEL_ID,
+    GS_HEEL_TVD_M,
+    GS_TOE_TVD_M,
     LINKED_PAD_ID,
     assert_pad_subtype,
     is_bottomhole_subtype,
@@ -43,6 +47,8 @@ async def validate_bottomhole_object(
     subtype: str,
     properties: dict,
     obj_id: UUID | None = None,
+    end_lon: float | None = None,
+    end_lat: float | None = None,
 ) -> None:
     st = subtype.lower().strip()
     if st not in BOTTOMHOLE_SUBTYPES:
@@ -78,6 +84,36 @@ async def validate_bottomhole_object(
             if pad is None:
                 raise ValueError("Указанный куст (linked_pad_id) не найден.")
             assert_pad_subtype(pad)
+        raw_mode = props.get(GS_ENTRY_MODE)
+        if raw_mode is not None and raw_mode != "":
+            mode = str(raw_mode).lower().strip()
+            if mode not in GS_ENTRY_MODES:
+                raise ValueError("ГС heel: gs_entry_mode должен быть any, heel или toe.")
+        return
+
+    if st == "well_bottomhole_gs":
+        if linked_pad_id is not None:
+            pad = await _get_object_in_project(db, project_id, linked_pad_id)
+            if pad is None:
+                raise ValueError("Указанный куст (linked_pad_id) не найден.")
+            assert_pad_subtype(pad)
+        raw_mode = props.get(GS_ENTRY_MODE)
+        if raw_mode is not None and raw_mode != "":
+            mode = str(raw_mode).lower().strip()
+            if mode not in GS_ENTRY_MODES:
+                raise ValueError("ГС: gs_entry_mode должен быть any, heel или toe.")
+        if end_lon is None or end_lat is None:
+            raise ValueError("ГС: укажите конечную точку (toe) линии.")
+        for key, label in ((GS_HEEL_TVD_M, "heel"), (GS_TOE_TVD_M, "toe")):
+            raw = props.get(key)
+            if raw is None or raw == "":
+                continue
+            try:
+                val = float(raw)
+            except (TypeError, ValueError):
+                raise ValueError(f"ГС: {label} TVD должна быть числом.") from None
+            if val <= 0:
+                raise ValueError(f"ГС: {label} TVD должна быть > 0.")
         return
 
     if st == "well_bottomhole_nnb":

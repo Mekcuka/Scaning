@@ -12,7 +12,15 @@ export function useMapPageBottomholeDraw(
 
   params: MapPageActionsParams,
 
-  draw: { placeBottomholeAt: ReturnType<typeof import('./actions/useMapDrawAndCreateActions').useMapDrawAndCreateActions>['placeBottomholeAt']; nextAutoName: (subtype: string) => string },
+  draw: {
+    placeBottomholeAt: ReturnType<
+      typeof import('./actions/useMapDrawAndCreateActions').useMapDrawAndCreateActions
+    >['placeBottomholeAt'];
+    placeGsBottomholeAt: ReturnType<
+      typeof import('./actions/useMapDrawAndCreateActions').useMapDrawAndCreateActions
+    >['placeGsBottomholeAt'];
+    nextAutoName: (subtype: string) => string;
+  },
 
 ) {
 
@@ -37,19 +45,13 @@ export function useMapPageBottomholeDraw(
     nextAutoName: draw.nextAutoName ?? data.nextAutoName,
 
     placeBottomholeAt: draw.placeBottomholeAt,
-
+    placeGsBottomholeAt: draw.placeGsBottomholeAt,
     pushToast,
-
     onCreated: () => {
-
       void queryClient.invalidateQueries({ queryKey: ['wellTrajectoryProjectGeoJson', projectId] });
-
-      if (edit.drawMode === 'bottomhole_nnb') {
-
+      if (edit.drawMode === 'bottomhole_nnb' || edit.drawMode === 'bottomhole_gs') {
         edit.setDrawMode('select');
-
       }
-
     },
 
   });

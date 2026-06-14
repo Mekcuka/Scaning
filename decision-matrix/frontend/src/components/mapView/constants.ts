@@ -17,6 +17,10 @@ export const HOVER_GLOW = 'rgba(33, 150, 243, 0.28)';
 export const HOVER_RING_FILL = 'rgba(33, 150, 243, 0.1)';
 export const HOVER_RING_STROKE = 'rgba(33, 150, 243, 0.45)';
 
+/** Pick list emphasis (pad placement / autoroad terminals). */
+export const PICK_EMPHASIS_RING_FILL = 'rgba(46, 125, 50, 0.18)';
+export const PICK_EMPHASIS_RING_STROKE = 'rgba(46, 125, 50, 0.9)';
+
 export const LINE_VERTEX_HIT_TOLERANCE_PX = 10;
 
 /** Совпадает с невидимым hit-кругом в pointIconStyle (radius ~16). */

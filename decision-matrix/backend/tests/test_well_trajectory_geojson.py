@@ -69,4 +69,4 @@ def test_build_pad_geojson_plan_and_3d_lines():
 
 def test_collect_trajectory_warnings_missing_targets():
     warnings = collect_trajectory_warnings(_pad_obj())
-    assert any("no bottomhole target" in w for w in warnings)
+    assert any("без цели" in w or "забоя" in w for w in warnings)

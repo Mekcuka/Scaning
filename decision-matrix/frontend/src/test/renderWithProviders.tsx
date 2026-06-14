@@ -2,6 +2,7 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { render, type RenderOptions } from '@testing-library/react';
 import { MemoryRouter, type MemoryRouterProps } from 'react-router-dom';
 import type { ReactElement, ReactNode } from 'react';
+import { PageHeaderOutlet, PageHeaderProvider } from '../components/layout/pageHeaderContext';
 
 export type RenderWithProvidersOptions = RenderOptions & {
   router?: MemoryRouterProps;
@@ -28,7 +29,12 @@ export function renderWithProviders(
   function Wrapper({ children }: { children: ReactNode }) {
     return (
       <QueryClientProvider client={queryClient}>
-        <MemoryRouter {...router}>{children}</MemoryRouter>
+        <MemoryRouter {...router}>
+          <PageHeaderProvider>
+            <PageHeaderOutlet />
+            {children}
+          </PageHeaderProvider>
+        </MemoryRouter>
       </QueryClientProvider>
     );
   }

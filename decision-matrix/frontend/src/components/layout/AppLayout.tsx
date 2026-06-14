@@ -3,8 +3,6 @@ import { NavLink, Outlet, useLocation, useNavigate } from 'react-router-dom';
 import {
   LayoutDashboard,
   Map,
-  Upload,
-  Box,
   FolderOpen,
   Grid3X3,
   FileText,
@@ -13,15 +11,17 @@ import {
   LogOut,
   Moon,
   Sun,
-  Download,
   Menu,
   SlidersHorizontal,
   Layers,
+  Database,
 } from 'lucide-react';
 import { useAuthStore, useAppStore } from '../../store';
 import { usePermissions } from '../../hooks/usePermissions';
 import { canSeeNav, ROLE_LABELS } from '../../lib/permissions';
 import { useActiveProject } from '../../hooks/useActiveProject';
+import { useProjectPathBuilder } from '../../hooks/useProjectPath';
+import { stripProjectPrefix } from '../../lib/projectRoutes';
 import { APP_LOGO_MARK, APP_NAME } from '../../lib/branding';
 import {
   navLinkTargetForSection,
@@ -33,6 +33,7 @@ import { ToastStack } from '../ToastStack';
 import { ReadOnlyBanner } from '../ReadOnlyBanner';
 import { AssistantPanel } from '../assistant/AssistantPanel';
 import { TaskLogPanel } from '../TaskLogPanel';
+import { PageHeaderOutlet, PageHeaderProvider } from './pageHeaderContext';
 
 type NavItem = {
   label: string;
@@ -64,9 +65,13 @@ const NAV: NavItem[] = [
   { section: 'flows', permissionPath: '/flows', icon: GitBranch, label: 'Потоки', end: true },
   { to: '/matrix', permissionPath: '/matrix', icon: Grid3X3, label: 'Матрица', end: true },
   { to: '/report', permissionPath: '/report', icon: FileText, label: 'Отчёты', end: true },
-  { to: '/import', permissionPath: '/import', icon: Upload, label: 'Импорт', end: true },
-  { to: '/export', permissionPath: '/export', icon: Download, label: 'Экспорт', end: true },
-  { to: '/import-3d', permissionPath: '/import-3d', icon: Box, label: 'Импорт 3D', end: true },
+  {
+    section: 'data',
+    permissionPath: '/data',
+    icon: Database,
+    label: 'Данные',
+    end: true,
+  },
   {
     section: 'admin',
     permissionPath: '/admin',
@@ -76,9 +81,15 @@ const NAV: NavItem[] = [
   },
 ];
 
-function navItemTarget(item: NavItem): string {
-  if (item.section) return navLinkTargetForSection(item.section);
-  return item.to ?? '/';
+function navItemTarget(
+  item: NavItem,
+  projectPath: (suffix: string) => string,
+  projectId?: string | null,
+): string {
+  if (item.section) return navLinkTargetForSection(item.section, projectId);
+  const logical = item.to ?? '/';
+  if (logical === '/projects') return '/projects';
+  return projectPath(logical);
 }
 
 export function AppLayout() {
@@ -86,12 +97,14 @@ export function AppLayout() {
   const { role } = usePermissions();
   const { theme, toggleTheme, toasts, dismissToast } = useAppStore();
   const { projectId, activeProject } = useActiveProject();
+  const buildProjectPath = useProjectPathBuilder();
   const navigate = useNavigate();
   const { pathname } = useLocation();
+  const logicalPath = stripProjectPrefix(pathname);
   const [navOpen, setNavOpen] = useState(false);
 
-  const isMapPage = pathname === '/map';
-  const isPadClusteringPage = pathname === '/pad-clustering';
+  const isMapPage = logicalPath === '/map';
+  const isPadClusteringPage = logicalPath === '/pad-clustering';
   const isFullHeightPage = isMapPage || isPadClusteringPage;
 
   useEffect(() => {
@@ -128,6 +141,7 @@ export function AppLayout() {
   const closeNav = () => setNavOpen(false);
 
   return (
+    <PageHeaderProvider>
     <div className="app-shell">
       <ToastStack toasts={toasts} onDismiss={dismissToast} position="bottom" />
       {navOpen && (
@@ -153,7 +167,7 @@ export function AppLayout() {
         <nav className="flex-1 min-h-0 overflow-y-auto py-3">
           {visibleNav.map((item) => {
             const { icon: Icon, label, end } = item;
-            const target = navItemTarget(item);
+            const target = navItemTarget(item, buildProjectPath, projectId);
             return (
             <NavLink
               key={label}
@@ -209,6 +223,7 @@ export function AppLayout() {
           >
             <Menu size={20} />
           </button>
+          <PageHeaderOutlet />
           <div className="app-header-toolbar">
             <div className="app-header-actions">
               <AssistantPanel />
@@ -232,5 +247,6 @@ export function AppLayout() {
         </main>
       </div>
     </div>
+    </PageHeaderProvider>
   );
 }

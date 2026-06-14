@@ -60,6 +60,11 @@ async def create_infra_object_record(
     if data.description:
         props["description"] = data.description
 
+    end_lon, end_lat = data.end_lon, data.end_lat
+    if data.coordinates and len(data.coordinates) >= 2:
+        end_lon = data.coordinates[-1][0]
+        end_lat = data.coordinates[-1][1]
+
     if is_bottomhole_subtype(subtype):
         props = apply_bottomhole_defaults(subtype, props)
         await validate_bottomhole_object(
@@ -67,12 +72,10 @@ async def create_infra_object_record(
             project_id=project_id,
             subtype=subtype,
             properties=props,
+            end_lon=end_lon,
+            end_lat=end_lat,
         )
 
-    end_lon, end_lat = data.end_lon, data.end_lat
-    if data.coordinates and len(data.coordinates) >= 2:
-        end_lon = data.coordinates[-1][0]
-        end_lat = data.coordinates[-1][1]
     line_coords = line_coordinates_for_storage(
         lon=data.lon,
         lat=data.lat,
@@ -81,7 +84,7 @@ async def create_infra_object_record(
         coordinates=data.coordinates,
     )
     lon, lat = data.lon, data.lat
-    if subtype in LINE_SUBTYPES:
+    if subtype in LINE_SUBTYPES and subtype != "well_bottomhole_gs":
         try:
             lon, lat, end_lon, end_lat, line_coords = await snap_line_endpoints_to_point_objects(
                 db,
@@ -124,6 +127,6 @@ async def create_infra_object_record(
     )
     db.add(obj)
     await db.flush()
-    if rebuild_network and obj.end_longitude is not None:
+    if rebuild_network and obj.end_longitude is not None and subtype != "well_bottomhole_gs":
         await build_network_from_lines(db, project_id)
     return obj

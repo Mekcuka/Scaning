@@ -44,6 +44,11 @@ class ConnectorDesignResponse(BaseModel):
     geometry: SurveyGeometry
 
 
+class GsEntryPlan(BaseModel):
+    northing: float
+    easting: float
+
+
 class HorizontalDesignRequest(BaseModel):
     start: ConnectorPoint
     heel: ConnectorPoint
@@ -52,12 +57,18 @@ class HorizontalDesignRequest(BaseModel):
     units: Literal["metric"] = "metric"
     azi_reference: Literal["grid", "magnetic", "true"] = "grid"
     inc_heel: float = Field(default=90.0, ge=0, le=180)
+    entry_mode: Literal["any", "heel", "toe"] = "any"
+    entry_search_step_m: float = Field(default=30.0, gt=0, le=500)
 
 
 class HorizontalDesignResponse(BaseModel):
     stations: list[SurveyStation]
     max_dls: float
     geometry: SurveyGeometry
+    entry_mode: Literal["any", "heel", "toe"] = "heel"
+    entry_plan: GsEntryPlan | None = None
+    entry_offset_m: float | None = None
+    entry_search_evaluated: int | None = None
 
 
 class SurveyInterpolateRequest(BaseModel):

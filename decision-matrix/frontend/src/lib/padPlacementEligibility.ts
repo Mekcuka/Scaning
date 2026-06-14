@@ -2,6 +2,7 @@ import type { InfraObject } from './api';
 
 const BOTTOMHOLE_PICK_SUBTYPES = new Set([
   'well_bottomhole_nnb',
+  'well_bottomhole_gs',
   'well_bottomhole_gs_heel',
 ]);
 
@@ -19,8 +20,7 @@ export function infraObjectInBbox(
   bbox: [number, number, number, number],
 ): boolean {
   const [minLon, minLat, maxLon, maxLat] = bbox;
-  const lon = obj.longitude;
-  const lat = obj.latitude;
-  if (lon == null || lat == null) return false;
+  const { lon, lat } = obj;
+  if (!Number.isFinite(lon) || !Number.isFinite(lat)) return false;
   return lon >= minLon && lon <= maxLon && lat >= minLat && lat <= maxLat;
 }

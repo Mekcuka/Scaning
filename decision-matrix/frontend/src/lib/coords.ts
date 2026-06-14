@@ -31,6 +31,40 @@ export function coordForSave(parsed: number, original: number, displayValue: str
   return parsed;
 }
 
+/** Full-precision numeric string for clipboard (no UI rounding). */
+export function formatNumberFull(value: number): string {
+  if (!Number.isFinite(value)) return '';
+  if (Number.isInteger(value)) return String(value);
+  const s = String(value);
+  if (s.includes('e') || s.includes('E')) return value.toPrecision(17);
+  return s;
+}
+
+function normalizeNumericInput(value: string): string {
+  return value.replace(/\s/g, '').replace(',', '.');
+}
+
+/** Clipboard value: full `original` when form still shows rounded display, else parsed edit. */
+export function numberStringForCopy(
+  displayValue: string,
+  original: number,
+  formatDisplay: (n: number) => string,
+): string {
+  if (!Number.isFinite(original)) return displayValue.trim();
+  const trimmed = displayValue.trim();
+  if (!trimmed) return formatNumberFull(original);
+  if (normalizeNumericInput(trimmed) === normalizeNumericInput(formatDisplay(original))) {
+    return formatNumberFull(original);
+  }
+  const parsed = parseCoord(trimmed);
+  if (!Number.isFinite(parsed)) return trimmed;
+  return normalizeNumericInput(trimmed);
+}
+
+export function coordStringForCopy(displayValue: string, original: number): string {
+  return numberStringForCopy(displayValue, original, formatCoord);
+}
+
 export function formatCoordPair(lon: number, lat: number): string {
   return `${formatCoord(lat)}°N, ${formatCoord(lon)}°E`;
 }

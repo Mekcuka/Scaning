@@ -1,6 +1,7 @@
 import { useMemo, useState } from 'react';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { Link } from 'react-router-dom';
+import { ProjectLink } from '../components/ProjectLink';
 import { MapPin, Search } from 'lucide-react';
 import { SUBTYPE_LABELS, defaultMapMutationsApi, type InfraObject } from '../lib/api';
 import { padEarthworkApi } from '../lib/api/padEarthworkApi';
@@ -130,10 +131,10 @@ export function EarthworkParametersPage() {
             ? 'Сохранение при выходе из поля или Enter. Схема контура и расчёт объёмов — на карте, вкладка «Логистика».'
             : 'Просмотр параметров площадки объектов'}
         </p>
-        <Link to="/map" className="btn btn-secondary btn-sm shrink-0">
+        <ProjectLink to="/map" className="btn btn-secondary btn-sm shrink-0">
           <MapPin size={14} className="inline mr-1" />
           Открыть карту
-        </Link>
+        </ProjectLink>
       </div>
 
       <div className="card card--flush parameters-card">
@@ -157,7 +158,7 @@ export function EarthworkParametersPage() {
         {earthworkObjects.length === 0 && !isLoading ? (
           <p className="parameters-empty" style={{ color: 'var(--text-muted)' }}>
             Нет точечных объектов с земляными работами. Добавьте объекты на{' '}
-            <Link to="/map">карте</Link> (кроме «Узел» и «Карьер песка»).
+            <ProjectLink to="/map">карте</ProjectLink> (кроме «Узел» и «Карьер песка»).
           </p>
         ) : (
           <div className="table-wrap">

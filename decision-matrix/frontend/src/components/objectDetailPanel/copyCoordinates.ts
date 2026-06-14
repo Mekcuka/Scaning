@@ -3,7 +3,13 @@ export async function copyCoordinates(
   lat: string,
   pushToast: (type: 'success' | 'error', message: string) => void,
 ) {
-  const text = `${lon}, ${lat}`;
+  await copyTextToClipboard(`${lon}, ${lat}`, pushToast);
+}
+
+export async function copyTextToClipboard(
+  text: string,
+  pushToast: (type: 'success' | 'error', message: string) => void,
+) {
   try {
     await navigator.clipboard.writeText(text);
     pushToast('success', 'Координаты скопированы');

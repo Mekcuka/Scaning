@@ -170,7 +170,7 @@ decision-matrix/
 | Карта 3D MapLibre (`VITE_MAP_3D_ENABLED`) | ✅ |
 | Матрица (таблица + карточки, eng-бейджи, фильтр превышений) | ✅ |
 | Импорт: CSV, GeoJSON, KML, Shapefile, Spark, API connections, async | ✅ |
-| **Экспорт** (`/export`): координаты точечных/всех объектов, GeoJSON проекта (Excel, CSV, `.geojson`) | ✅ |
+| **Экспорт** (`/data/export`): координаты точечных/всех объектов, GeoJSON проекта (Excel, CSV, `.geojson`) | ✅ |
 | Потоки PFD (`/flows`) | ✅ |
 | Граф сети (build/list nodes/edges) | ✅ |
 | Одностраничник (CRUD, PDF print, PPTX export) | ✅ |

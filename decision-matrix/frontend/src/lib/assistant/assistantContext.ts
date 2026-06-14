@@ -5,17 +5,20 @@ import { useActiveProject } from '../../hooks/useActiveProject';
 import { useAppStore } from '../../store';
 import type { ChatRequest } from './types';
 
+import { stripProjectPrefix } from '../projectRoutes';
+
 export function deriveActiveTab(pathname: string): string | null {
-  if (pathname === '/map') return 'map';
-  if (pathname === '/pad-clustering') return 'pad-clustering';
-  if (pathname === '/matrix') return 'matrix';
-  if (pathname === '/projects' || pathname === '/') return null;
-  if (pathname.startsWith('/projects/')) return 'project-detail';
-  if (pathname.startsWith('/parameters/')) return pathname.slice(1);
-  if (pathname.startsWith('/flows/')) return pathname.slice(1);
-  if (pathname.startsWith('/admin/')) return pathname.slice(1);
-  if (pathname.startsWith('/report')) return pathname.slice(1) || 'report';
-  return pathname.replace(/^\//, '') || null;
+  const path = stripProjectPrefix(pathname);
+  if (path === '/map') return 'map';
+  if (path === '/pad-clustering') return 'pad-clustering';
+  if (path === '/matrix') return 'matrix';
+  if (path === '/projects' || path === '/') return null;
+  if (path.startsWith('/projects/')) return 'project-detail';
+  if (path.startsWith('/parameters/')) return path.slice(1);
+  if (path.startsWith('/flows/')) return path.slice(1);
+  if (path.startsWith('/admin/')) return path.slice(1);
+  if (path.startsWith('/report')) return path.slice(1) || 'report';
+  return path.replace(/^\//, '') || null;
 }
 
 export function useAssistantChatContext(): Pick<

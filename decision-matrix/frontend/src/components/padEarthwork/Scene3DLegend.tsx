@@ -2,6 +2,7 @@ export type Scene3DLegendProps = {
   demActive: boolean;
   envelopeActive: boolean;
   showWellheads?: boolean;
+  showBottomholes?: boolean;
   showTrajectories?: boolean;
   /** `overlay` — компактная карточка поверх 3D; `inline` — боковая панель модалки */
   variant?: 'inline' | 'overlay';
@@ -14,6 +15,7 @@ export function Scene3DLegend({
   demActive,
   envelopeActive,
   showWellheads = false,
+  showBottomholes = false,
   showTrajectories = false,
   variant = 'inline',
 }: Scene3DLegendProps) {
@@ -72,13 +74,23 @@ export function Scene3DLegend({
             </span>
           </li>
         )}
+        {showBottomholes && (
+          <li className="pad-scene3d-legend__item">
+            <span className="pad-scene3d-legend__marker" aria-hidden>
+              <span className="pad-scene3d-legend__swatch pad-scene3d-legend__swatch--trajectory pad-scene3d-legend__swatch--dot" />
+            </span>
+            <span className="pad-scene3d-legend__text">
+              {compact ? 'Забои' : 'Маркеры забоев (ННБ / GS)'}
+            </span>
+          </li>
+        )}
         {showTrajectories && (
           <li className="pad-scene3d-legend__item">
             <span className="pad-scene3d-legend__marker" aria-hidden>
               <span className="pad-scene3d-legend__swatch pad-scene3d-legend__swatch--trajectory pad-scene3d-legend__swatch--line" />
             </span>
             <span className="pad-scene3d-legend__text">
-              {compact ? 'Траектории' : 'Траектории стволов и забои'}
+              {compact ? 'Траектории' : 'Траектории стволов'}
             </span>
           </li>
         )}

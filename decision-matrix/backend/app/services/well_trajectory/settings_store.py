@@ -14,11 +14,13 @@ WELL_TRAJECTORY_STUB_TVD_M = "well_trajectory_stub_tvd_m"
 WELL_TRAJECTORY_DEFAULT_TVD_M = "well_trajectory_default_tvd_m"
 WELL_TRAJECTORY_SF_WARNING_THRESHOLD = "well_trajectory_sf_warning_threshold"
 WELL_TRAJECTORY_INC_HEEL = "well_trajectory_inc_heel"
+WELL_TRAJECTORY_GS_ENTRY_SEARCH_STEP_M = "well_trajectory_gs_entry_search_step_m"
 
 DEFAULT_STEP_M = 30.0
 DEFAULT_STUB_TVD_M = 100.0
 DEFAULT_DEFAULT_TVD_M = 1500.0
 DEFAULT_INC_HEEL = 90.0
+DEFAULT_GS_ENTRY_SEARCH_STEP_M = 30.0
 DEFAULT_ERROR_MODEL = "ISCWSA MWD Rev5.11"
 
 CALC_SETTINGS_KEYS = frozenset(
@@ -30,6 +32,7 @@ CALC_SETTINGS_KEYS = frozenset(
         WELL_TRAJECTORY_DEFAULT_TVD_M,
         WELL_TRAJECTORY_SF_WARNING_THRESHOLD,
         WELL_TRAJECTORY_INC_HEEL,
+        WELL_TRAJECTORY_GS_ENTRY_SEARCH_STEP_M,
     }
 )
 
@@ -73,6 +76,9 @@ def well_trajectory_settings_for_pad(obj: InfrastructureObject | None) -> WellTr
         step_m=_read_float(props, WELL_TRAJECTORY_STEP_M, DEFAULT_STEP_M),
         stub_tvd_m=_read_float(props, WELL_TRAJECTORY_STUB_TVD_M, DEFAULT_STUB_TVD_M),
         inc_heel=_read_float(props, WELL_TRAJECTORY_INC_HEEL, DEFAULT_INC_HEEL),
+        gs_entry_search_step_m=_read_float(
+            props, WELL_TRAJECTORY_GS_ENTRY_SEARCH_STEP_M, DEFAULT_GS_ENTRY_SEARCH_STEP_M
+        ),
     )
 
 
@@ -86,6 +92,7 @@ def merge_calc_settings_into_properties(
     default_tvd_m: float,
     sf_warning_threshold: float,
     inc_heel: float,
+    gs_entry_search_step_m: float,
 ) -> dict[str, Any]:
     out = dict(props or {})
     out[WELL_TRAJECTORY_STEP_M] = step_m
@@ -95,4 +102,5 @@ def merge_calc_settings_into_properties(
     out[WELL_TRAJECTORY_DEFAULT_TVD_M] = default_tvd_m
     out[WELL_TRAJECTORY_SF_WARNING_THRESHOLD] = sf_warning_threshold
     out[WELL_TRAJECTORY_INC_HEEL] = inc_heel
+    out[WELL_TRAJECTORY_GS_ENTRY_SEARCH_STEP_M] = gs_entry_search_step_m
     return out

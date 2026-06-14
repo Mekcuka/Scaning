@@ -13,7 +13,8 @@ import { setupTranslateHandlers } from './setupTranslateHandlers';
 import { setupViewHandlers } from './setupViewHandlers';
 
 export function setupOpenLayersMap(refs: MapViewRefs, options: { showBasemap: boolean }): () => void {
-  const { containerRef, mapRef, basemapLayerRef } = refs;
+  const { containerRef, mapRef, basemapLayerRef, cursorMeasureOverlayRef, anchorMeasureOverlaysRef } =
+    refs;
   const { showBasemap } = options;
 
   if (!containerRef.current) return () => {};
@@ -66,5 +67,8 @@ export function setupOpenLayersMap(refs: MapViewRefs, options: { showBasemap: bo
     map.dispose();
     mapRef.current = null;
     basemapLayerRef.current = null;
+    // Orphaned OL overlays must not be reused on the next map instance (StrictMode / 2D↔3D toggle).
+    cursorMeasureOverlayRef.current = null;
+    anchorMeasureOverlaysRef.current = [];
   };
 }

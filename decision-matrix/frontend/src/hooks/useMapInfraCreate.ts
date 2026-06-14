@@ -360,10 +360,58 @@ export function useMapInfraCreate({
     ],
   );
 
+  const placeGsBottomholeAt = useCallback(
+    async (
+      heelLon: number,
+      heelLat: number,
+      toeLon: number,
+      toeLat: number,
+      properties: Record<string, unknown>,
+    ): Promise<InfraObject | null> => {
+      if (!projectId || !canWriteInfra) return null;
+      try {
+        await queryClient.cancelQueries({ queryKey: ['infra', projectId] });
+        const created = await mapApi.createInfraObject(projectId, {
+          name: nextAutoName('well_bottomhole_gs'),
+          subtype: 'well_bottomhole_gs',
+          lon: heelLon,
+          lat: heelLat,
+          end_lon: toeLon,
+          end_lat: toeLat,
+          properties: mergeInfraPropertiesForSave('well_bottomhole_gs', properties),
+        });
+        await afterInfraPointCreated(created);
+        pushUndo({
+          kind: 'create_infra',
+          objectId: created.id,
+          label: `создание «${created.name}»`,
+        });
+        void invalidateMap();
+        return created;
+      } catch (err) {
+        pushToast('error', err instanceof Error ? err.message : 'Не удалось сохранить забой ГС');
+        void refreshMapQueries(queryClient, projectId);
+        return null;
+      }
+    },
+    [
+      projectId,
+      canWriteInfra,
+      queryClient,
+      nextAutoName,
+      afterInfraPointCreated,
+      pushUndo,
+      pushToast,
+      invalidateMap,
+      mapApi,
+    ],
+  );
+
   return {
     createPoiMut,
     createInfraMut,
     placeInfraPointAt,
     placeBottomholeAt,
+    placeGsBottomholeAt,
   };
 }

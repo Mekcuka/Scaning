@@ -29,6 +29,7 @@ export function useMapViewOverlays(
     thresholdCircles = [],
     showRadii = true,
     placementPreview = null,
+    placementPreviewPoints = [],
     clipboardPreviewPoints = [],
     mapFocus = null,
     footprintEdgeHighlight = null,
@@ -49,6 +50,7 @@ export function useMapViewOverlays(
     | 'thresholdCircles'
     | 'showRadii'
     | 'placementPreview'
+    | 'placementPreviewPoints'
     | 'clipboardPreviewPoints'
     | 'mapFocus'
     | 'footprintEdgeHighlight'
@@ -178,7 +180,14 @@ export function useMapViewOverlays(
       return el;
     };
 
-    if (!cursorMeasureOverlayRef.current) {
+    const mapOverlays = map.getOverlays().getArray();
+    let cursorOverlay = cursorMeasureOverlayRef.current;
+    if (cursorOverlay && !mapOverlays.includes(cursorOverlay)) {
+      cursorMeasureOverlayRef.current = null;
+      cursorOverlay = null;
+    }
+
+    if (!cursorOverlay) {
       const el = makeLabelEl('measure-label measure-label--cursor');
       const overlay = new Overlay({
         element: el,
@@ -188,9 +197,9 @@ export function useMapViewOverlays(
       });
       cursorMeasureOverlayRef.current = overlay;
       map.addOverlay(overlay);
+      cursorOverlay = overlay;
     }
 
-    const cursorOverlay = cursorMeasureOverlayRef.current;
     const cursorEl = cursorOverlay.getElement();
     if (measureCursorLabel && cursorEl) {
       cursorEl.textContent = measureCursorLabel.text;
@@ -198,6 +207,10 @@ export function useMapViewOverlays(
     } else {
       cursorOverlay.setPosition(undefined);
     }
+
+    anchorMeasureOverlaysRef.current = anchorMeasureOverlaysRef.current.filter((overlay) =>
+      mapOverlays.includes(overlay),
+    );
 
     while (anchorMeasureOverlaysRef.current.length > measureAnchorLabels.length) {
       const extra = anchorMeasureOverlaysRef.current.pop();
@@ -277,6 +290,14 @@ export function useMapViewOverlays(
         }),
       );
     }
+    for (const pt of placementPreviewPoints) {
+      source.addFeature(
+        new Feature({
+          geometry: new Point(fromLonLat([pt.lon, pt.lat])),
+          subtype: pt.subtype,
+        }),
+      );
+    }
     for (const pt of clipboardPreviewPoints) {
       source.addFeature(
         new Feature({
@@ -286,7 +307,7 @@ export function useMapViewOverlays(
         }),
       );
     }
-  }, [placementPreview, clipboardPreviewPoints]);
+  }, [placementPreview, placementPreviewPoints, clipboardPreviewPoints]);
 
   useEffect(() => {
     const map = refs.mapRef.current;

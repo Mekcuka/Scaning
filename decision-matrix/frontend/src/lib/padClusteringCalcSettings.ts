@@ -13,6 +13,7 @@ export const WELL_TRAJECTORY_STUB_TVD_M = 'well_trajectory_stub_tvd_m';
 export const WELL_TRAJECTORY_DEFAULT_TVD_M = 'well_trajectory_default_tvd_m';
 export const WELL_TRAJECTORY_SF_WARNING_THRESHOLD = 'well_trajectory_sf_warning_threshold';
 export const WELL_TRAJECTORY_INC_HEEL = 'well_trajectory_inc_heel';
+export const WELL_TRAJECTORY_GS_ENTRY_SEARCH_STEP_M = 'well_trajectory_gs_entry_search_step_m';
 
 export const DEFAULT_CALC_STEP_M = 30;
 export const DEFAULT_STUB_TVD_M = 100;
@@ -31,6 +32,7 @@ export type PadClusteringCalcDraft = {
   defaultTvdM: string;
   sfWarningThreshold: string;
   incHeel: string;
+  gsEntrySearchStepM: string;
   envelopeEnabled: boolean;
   envelopeWrapWidthM: string;
 };
@@ -88,6 +90,12 @@ export function calcDraftFromSources(input: {
       ),
     ),
     incHeel: String(readNum(props[WELL_TRAJECTORY_INC_HEEL] ?? settings?.inc_heel, DEFAULT_INC_HEEL)),
+    gsEntrySearchStepM: String(
+      readNum(
+        props[WELL_TRAJECTORY_GS_ENTRY_SEARCH_STEP_M] ?? settings?.gs_entry_search_step_m,
+        DEFAULT_CALC_STEP_M,
+      ),
+    ),
     envelopeEnabled: envelope?.enabled ?? false,
     envelopeWrapWidthM: String(envelope?.wrap_width_m ?? 0),
   };
@@ -114,6 +122,10 @@ export function mergeCalcSettingsIntoProperties(
     [WELL_TRAJECTORY_DEFAULT_TVD_M]: parsePositive(draft.defaultTvdM, DEFAULT_DEFAULT_TVD_M),
     [WELL_TRAJECTORY_SF_WARNING_THRESHOLD]: parsePositive(draft.sfWarningThreshold, DEFAULT_SF_THRESHOLD),
     [WELL_TRAJECTORY_INC_HEEL]: parsePositive(draft.incHeel, DEFAULT_INC_HEEL),
+    [WELL_TRAJECTORY_GS_ENTRY_SEARCH_STEP_M]: parsePositive(
+      draft.gsEntrySearchStepM,
+      DEFAULT_CALC_STEP_M,
+    ),
     [PAD_ENVELOPE_ENABLED]: draft.envelopeEnabled,
     [PAD_ENVELOPE_WRAP_WIDTH_M]: normalizeEnvelopeWrapWidthM(wrap),
   };
@@ -136,6 +148,7 @@ export function calcDraftEquals(a: PadClusteringCalcDraft, b: PadClusteringCalcD
     a.defaultTvdM === b.defaultTvdM &&
     a.sfWarningThreshold === b.sfWarningThreshold &&
     a.incHeel === b.incHeel &&
+    a.gsEntrySearchStepM === b.gsEntrySearchStepM &&
     a.envelopeEnabled === b.envelopeEnabled &&
     a.envelopeWrapWidthM === b.envelopeWrapWidthM
   );

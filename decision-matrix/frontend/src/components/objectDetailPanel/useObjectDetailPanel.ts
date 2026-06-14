@@ -9,7 +9,7 @@ import { useObjectDetailInfraDerived } from './useObjectDetailInfraDerived';
 import { useObjectDetailPanelTabs } from './useObjectDetailPanelTabs';
 import { useObjectDetailPanelKeyboard } from './useObjectDetailPanelKeyboard';
 import { buildDetailPanelSaveHandler } from './detailPanelSave';
-import { copyCoordinates as copyCoordinatesToClipboard } from './copyCoordinates';
+import { copyCoordinates as copyCoordinatesToClipboard, copyTextToClipboard } from './copyCoordinates';
 
 export function useObjectDetailPanel({
   selection,
@@ -32,7 +32,7 @@ export function useObjectDetailPanel({
   | 'saving'
 >) {
   const pushToast = useAppStore((s) => s.pushToast);
-  const form = useObjectDetailFormState(selection, map3dCustomModels);
+  const form = useObjectDetailFormState(selection, map3dCustomModels, infraObjects);
 
   const projectId = selection.kind === 'poi' ? selection.poi.project_id : null;
   const { data: defaults } = useQuery({
@@ -95,6 +95,8 @@ export function useObjectDetailPanel({
   const copyCoordinates = () =>
     copyCoordinatesToClipboard(form.lon, form.lat, pushToast);
 
+  const copyCoordinatesText = (text: string) => copyTextToClipboard(text, pushToast);
+
   const headerIcon = derived.isPoi ? iconDataUrl('poi') : iconDataUrl(form.subtype);
 
   return {
@@ -104,6 +106,7 @@ export function useObjectDetailPanel({
     ...tabs,
     handleSave,
     copyCoordinates,
+    copyCoordinatesText,
     headerIcon,
   };
 }

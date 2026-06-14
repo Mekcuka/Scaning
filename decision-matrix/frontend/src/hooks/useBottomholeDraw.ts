@@ -5,7 +5,7 @@ import { SUBTYPE_LABELS } from '../lib/api';
 import {
   DEFAULT_BOTTOMHOLE_TVD_M,
   DEFAULT_NNB_INC,
-  WELL_BOTTOMHOLE_GS_HEEL_ID,
+  WELL_BOTTOMHOLE_GS_SUBTYPE,
   WELL_BOTTOMHOLE_LINKED_PAD_ID,
   WELL_BOTTOMHOLE_TARGET_INC,
   WELL_BOTTOMHOLE_TVD_M,
@@ -13,7 +13,6 @@ import {
 } from '../lib/wellBottomholeProperties';
 
 export type GsHeelDraft = {
-  id: string;
   lon: number;
   lat: number;
   linkedPadId: string | null;
@@ -39,6 +38,13 @@ export function useBottomholeDraw(params: {
     lat: number,
     properties: Record<string, unknown>,
   ) => Promise<InfraObject | null>;
+  placeGsBottomholeAt: (
+    heelLon: number,
+    heelLat: number,
+    toeLon: number,
+    toeLat: number,
+    properties: Record<string, unknown>,
+  ) => Promise<InfraObject | null>;
   pushToast: (kind: 'success' | 'error' | 'info', message: string) => void;
   onCreated?: () => void;
 }) {
@@ -47,8 +53,8 @@ export function useBottomholeDraw(params: {
     drawMode,
     infraObjects,
     canWriteInfra,
-    nextAutoName,
     placeBottomholeAt,
+    placeGsBottomholeAt,
     pushToast,
     onCreated,
   } = params;
@@ -88,32 +94,17 @@ export function useBottomholeDraw(params: {
       }
 
       if (!gsHeelDraft) {
-        const created = await placeBottomholeAt(
-          'well_bottomhole_gs_heel',
-          lon,
-          lat,
-          withOptionalLinkedPad(linkedPadId, {
-            [WELL_BOTTOMHOLE_TVD_M]: DEFAULT_BOTTOMHOLE_TVD_M,
-          }),
-        );
-        if (created) {
-          setGsHeelDraft({
-            id: created.id,
-            lon,
-            lat,
-            linkedPadId,
-          });
-          pushToast('info', 'Heel задан — кликните toe на карте');
-        }
+        setGsHeelDraft({ lon, lat, linkedPadId });
+        pushToast('info', 'Пятка (heel) ГС задана — укажите toe на карте');
         return;
       }
 
-      const created = await placeBottomholeAt(
-        'well_bottomhole_gs_toe',
+      const created = await placeGsBottomholeAt(
+        gsHeelDraft.lon,
+        gsHeelDraft.lat,
         lon,
         lat,
-        withOptionalLinkedPad(gsHeelDraft.linkedPadId, {
-          [WELL_BOTTOMHOLE_GS_HEEL_ID]: gsHeelDraft.id,
+        withOptionalLinkedPad(gsHeelDraft.linkedPadId ?? linkedPadId, {
           [WELL_BOTTOMHOLE_TVD_M]: DEFAULT_BOTTOMHOLE_TVD_M,
         }),
       );
@@ -121,7 +112,7 @@ export function useBottomholeDraw(params: {
       if (created) {
         pushToast(
           'success',
-          `${SUBTYPE_LABELS.well_bottomhole_gs_toe ?? 'ГС — toe'} «${created.name}» создан`,
+          `${SUBTYPE_LABELS[WELL_BOTTOMHOLE_GS_SUBTYPE] ?? 'ГС'} «${created.name}» создан`,
         );
         onCreated?.();
       }
@@ -133,6 +124,7 @@ export function useBottomholeDraw(params: {
       infraObjects,
       gsHeelDraft,
       placeBottomholeAt,
+      placeGsBottomholeAt,
       pushToast,
       onCreated,
     ],

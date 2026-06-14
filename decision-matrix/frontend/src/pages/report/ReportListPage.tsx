@@ -1,8 +1,10 @@
 import { Link } from 'react-router-dom';
+import { ProjectLink } from '../../components/ProjectLink';
 import { Download, FileText, Plus, Trash2 } from 'lucide-react';
 import { useOnePagerList } from '../../hooks/useOnePagerList';
 import { useAppStore } from '../../store';
 import { usePermissions } from '../../hooks/usePermissions';
+import { usePageHeader } from '../../components/layout/pageHeaderContext';
 
 const STATUS_LABEL: Record<string, string> = {
   pending: 'Ожидает',
@@ -15,21 +17,25 @@ export function ReportListPage() {
   const { canWriteProject } = usePermissions();
   const { reports, isLoading, deleteMut, pptxMut } = useOnePagerList(projectId);
 
+  usePageHeader(
+    {
+      title: 'Отчёты',
+      subtitle: 'Одностраничники для руководства',
+    },
+    [],
+  );
+
   return (
     <div>
-      <div className="page-toolbar">
-        <div className="page-title-block">
-          <h1 className="page-title">Отчёты</h1>
-          <p className="page-subtitle">Одностраничники для руководства</p>
-        </div>
-        {projectId && canWriteProject && (
+      {projectId && canWriteProject && (
+        <div className="page-toolbar page-toolbar--actions-only">
           <div className="page-toolbar-actions">
-            <Link to="/report/new" className="btn btn-primary">
+            <ProjectLink to="/report/new" className="btn btn-primary">
               <Plus size={16} /> Подготовить отчёт
-            </Link>
+            </ProjectLink>
           </div>
-        )}
-      </div>
+        </div>
+      )}
 
       {!projectId ? (
         <div className="card text-sm" style={{ color: 'var(--text-muted)' }}>
@@ -45,7 +51,7 @@ export function ReportListPage() {
           {canWriteProject && (
             <>
               {' '}
-              <Link to="/report/new">Создать первый отчёт</Link>
+              <ProjectLink to="/report/new">Создать первый отчёт</ProjectLink>
             </>
           )}
         </div>
@@ -67,12 +73,12 @@ export function ReportListPage() {
                   <td>{r.report_date ?? '—'}</td>
                   <td>{STATUS_LABEL[r.generation_status] ?? r.generation_status}</td>
                   <td className="col-actions">
-                    <Link to={`/report/${r.id}`} className="btn btn-secondary btn-sm">
+                    <ProjectLink to={`/report/${r.id}`} className="btn btn-secondary btn-sm">
                       <FileText size={14} /> Открыть
-                    </Link>
-                    <Link to={`/report/${r.id}?print=1`} className="btn btn-secondary btn-sm">
+                    </ProjectLink>
+                    <ProjectLink to={`/report/${r.id}?print=1`} className="btn btn-secondary btn-sm">
                       <Download size={14} /> PDF
-                    </Link>
+                    </ProjectLink>
                     {canWriteProject && (
                       <button
                         type="button"

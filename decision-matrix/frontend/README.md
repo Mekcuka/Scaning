@@ -30,7 +30,9 @@ npm run dev
 
 | Путь | Описание |
 |------|----------|
-| `src/pages/MapPage.tsx` | Страница `/map` — оркестратор |
+| `src/App.tsx` | Маршруты: `/:projectId/*`, legacy-редиректы, `/admin`, `/projects` |
+| `src/lib/projectRoutes.ts` | Построение URL с id проекта |
+| `src/pages/MapPage.tsx` | Страница `/:projectId/map` — оркестратор |
 | `src/pages/map/` | Layout-компоненты карты (toolbar, canvas, panels) |
 | `src/components/MapView.tsx` | 2D-карта (OpenLayers), public API |
 | `src/components/mapView/` | Init OL, interactions, reactive hooks |

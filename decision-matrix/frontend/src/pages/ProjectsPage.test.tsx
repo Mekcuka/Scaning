@@ -49,7 +49,7 @@ describe('ProjectsPage', () => {
   });
 
   it('renders project list', async () => {
-    renderPage(<ProjectsPage />);
+    renderPage(<ProjectsPage />, { route: '/projects' });
     expect(screen.getByText('Проекты')).toBeInTheDocument();
     await waitFor(
       () => expect(screen.getByTitle('Alpha')).toBeInTheDocument(),

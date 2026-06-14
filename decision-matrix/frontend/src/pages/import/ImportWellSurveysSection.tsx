@@ -22,6 +22,7 @@ type Props = {
   asyncThreshold: number;
   onFile: (file: File | null) => Promise<void>;
   onCommit: () => Promise<void>;
+  embedded?: boolean;
 };
 
 export function ImportWellSurveysSection({
@@ -41,23 +42,17 @@ export function ImportWellSurveysSection({
   asyncThreshold,
   onFile,
   onCommit,
+  embedded = false,
 }: Props) {
-  return (
-    <div className="card mb-6">
-      <div className="flex items-center gap-2 mb-4">
-        <Route size={18} />
-        <h2 className="font-semibold">Импорт инклинометрии</h2>
-      </div>
-
+  const content = (
+    <>
       {!hasProjects && (
-        <p className="text-sm mb-3" style={{ color: 'var(--text-muted)' }}>
-          Выберите проект для импорта траекторий на куст.
-        </p>
+        <p className="import-option__hint">Выберите проект для импорта траекторий на куст.</p>
       )}
 
       <label className="block text-sm mb-1">Куст (oil_pad / gas_pad)</label>
       <select
-        className="input w-full mb-3"
+        className="input w-full"
         value={padId}
         disabled={readOnly || !hasProjects || busy}
         onChange={(e) => setPadId(e.target.value)}
@@ -73,19 +68,16 @@ export function ImportWellSurveysSection({
       <div
         role="button"
         tabIndex={readOnly || !padId ? -1 : 0}
-        className={`border-2 border-dashed rounded-xl p-6 text-center transition-colors mb-3 ${
-          busy || readOnly || !padId ? 'opacity-50 pointer-events-none' : 'cursor-pointer hover:border-blue-400'
+        className={`import-dropzone import-dropzone--compact${
+          busy || readOnly || !padId ? ' import-dropzone--disabled' : ''
         }`}
-        style={{ borderColor: 'var(--border)' }}
         onClick={() => !busy && padId && fileInputRef.current?.click()}
         onKeyDown={(e) => e.key === 'Enter' && !busy && padId && fileInputRef.current?.click()}
       >
-        <p className="text-sm font-medium">
+        <p className="import-dropzone__title">
           {busy ? 'Обработка…' : 'Перетащите CSV или .wbp, либо нажмите для выбора'}
         </p>
-        <p className="text-xs mt-1" style={{ color: 'var(--text-muted)' }}>
-          WITSML — скоро (фаза 4b)
-        </p>
+        <p className="import-dropzone__hint">WITSML — скоро (фаза 4b)</p>
       </div>
       <input
         ref={fileInputRef}
@@ -96,8 +88,8 @@ export function ImportWellSurveysSection({
         onChange={(e) => void onFile(e.target.files?.[0] ?? null)}
       />
 
-      <div className="flex flex-wrap gap-3 text-sm mb-3">
-        <label className="flex items-center gap-2">
+      <div className="import-option__checkbox-row">
+        <label className="import-option__checkbox">
           <input
             type="checkbox"
             checked={interpolate}
@@ -106,37 +98,20 @@ export function ImportWellSurveysSection({
           />
           Уплотнить точки (interpolate)
         </label>
-        <label className="flex items-center gap-2">
+        <label className="import-option__checkbox">
           <input
             type="checkbox"
             checked={useAsync}
             disabled={readOnly || busy}
             onChange={(e) => setUseAsync(e.target.checked)}
           />
-          Фоновый импорт (&gt;{asyncThreshold} скважин — автоматически)
+          Фоновый импорт (&gt;{asyncThreshold} скважин)
         </label>
       </div>
 
-      <button
-        type="button"
-        className="btn btn-secondary text-sm mb-3 inline-flex items-center gap-2"
-        onClick={() => {
-          const blob = new Blob([IMPORT_WELL_SURVEY_CSV_TEMPLATE], { type: 'text/csv;charset=utf-8' });
-          const url = URL.createObjectURL(blob);
-          const a = document.createElement('a');
-          a.href = url;
-          a.download = 'well_survey_template.csv';
-          a.click();
-          URL.revokeObjectURL(url);
-        }}
-      >
-        <Download size={14} />
-        Скачать шаблон CSV
-      </button>
-
       {preview && (
-        <div className="mt-3 overflow-x-auto">
-          <p className="text-sm mb-2">
+        <div className="import-preview">
+          <p className="import-preview__title">
             Preview: {preview.well_count} скв. ({format ?? '?'})
           </p>
           <table className="w-full text-sm border-collapse">
@@ -166,16 +141,54 @@ export function ImportWellSurveysSection({
               {preview.errors.join('; ')}
             </p>
           )}
-          <button
-            type="button"
-            className="btn btn-primary mt-3"
-            disabled={readOnly || busy || preview.wells.length === 0}
-            onClick={() => void onCommit()}
-          >
-            Импортировать на куст
-          </button>
         </div>
       )}
+    </>
+  );
+
+  const actions = (
+    <>
+      <button
+        type="button"
+        className="btn btn-secondary text-sm export-option__btn"
+        onClick={() => {
+          const blob = new Blob([IMPORT_WELL_SURVEY_CSV_TEMPLATE], { type: 'text/csv;charset=utf-8' });
+          const url = URL.createObjectURL(blob);
+          const a = document.createElement('a');
+          a.href = url;
+          a.download = 'well_survey_template.csv';
+          a.click();
+          URL.revokeObjectURL(url);
+        }}
+      >
+        <Download size={16} aria-hidden />
+        Шаблон CSV
+      </button>
+      {preview ? (
+        <button
+          type="button"
+          className="btn btn-primary text-sm export-option__btn export-option__btn--wide"
+          disabled={readOnly || busy || preview.wells.length === 0}
+          onClick={() => void onCommit()}
+        >
+          Импортировать на куст
+        </button>
+      ) : null}
+    </>
+  );
+
+  if (embedded) {
+    return content;
+  }
+
+  return (
+    <div className="card mb-6">
+      <div className="flex items-center gap-2 mb-4">
+        <Route size={18} />
+        <h2 className="font-semibold">Импорт инклинометрии</h2>
+      </div>
+      {content}
+      <div className="flex flex-wrap gap-2 mt-3">{actions}</div>
     </div>
   );
 }

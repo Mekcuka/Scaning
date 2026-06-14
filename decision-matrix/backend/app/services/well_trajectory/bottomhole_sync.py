@@ -14,10 +14,17 @@ from app.services.well_trajectory.bottomhole_properties import (
     WELL_INDEX,
     azimuth_deg,
     bottomhole_plan_local,
+    default_tvd_m_for_bottomhole,
+    is_gs_bottomhole_line,
+    read_gs_entry_mode,
     read_gs_heel_id,
+    read_gs_heel_tvd_m,
+    read_gs_line_endpoints,
+    read_gs_toe_tvd_m,
     read_linked_pad_id,
     target_inc_azi,
 )
+from app.services.well_trajectory.coord_transform import lonlat_to_local
 from app.services.well_trajectory.trajectory_store import read_trajectories_json
 
 
@@ -72,12 +79,66 @@ def _well_has_bottomhole_design(well: dict[str, Any]) -> bool:
     return isinstance(design, dict) and design.get("source") == "bottomhole_object"
 
 
+def _bottomhole_linked_to_pad(obj: InfrastructureObject, pad_id: UUID, pad_key: str) -> bool:
+    props = obj.properties or {}
+    linked_pad = read_linked_pad_id(props)
+    if linked_pad == pad_id:
+        return True
+    return linked_pad is None and props.get("well_bottomhole_linked_pad_id") == pad_key
+
+
+def bottomholes_for_pad_from_objects(
+    objects: list[InfrastructureObject],
+    pad_id: UUID,
+) -> list[InfrastructureObject]:
+    """Pad-linked bottomholes plus GS toe/heel pairs missing direct pad link."""
+    pad_key = str(pad_id)
+    linked: list[InfrastructureObject] = []
+    linked_ids: set[UUID] = set()
+    for obj in objects:
+        if _bottomhole_linked_to_pad(obj, pad_id, pad_key):
+            linked.append(obj)
+            linked_ids.add(obj.id)
+
+    heel_ids_on_pad = {
+        obj.id
+        for obj in linked
+        if (obj.subtype or "").lower().strip() == "well_bottomhole_gs_heel"
+    }
+    for obj in objects:
+        if obj.id in linked_ids:
+            continue
+        if (obj.subtype or "").lower().strip() != "well_bottomhole_gs_toe":
+            continue
+        heel_id = read_gs_heel_id(obj.properties or {})
+        if heel_id is not None and heel_id in heel_ids_on_pad:
+            linked.append(obj)
+            linked_ids.add(obj.id)
+
+    missing_heel_ids: set[UUID] = set()
+    for obj in linked:
+        if (obj.subtype or "").lower().strip() != "well_bottomhole_gs_toe":
+            continue
+        heel_id = read_gs_heel_id(obj.properties or {})
+        if heel_id is not None and heel_id not in linked_ids:
+            missing_heel_ids.add(heel_id)
+    for obj in objects:
+        if obj.id in linked_ids:
+            continue
+        if (obj.subtype or "").lower().strip() != "well_bottomhole_gs_heel":
+            continue
+        if obj.id in missing_heel_ids:
+            linked.append(obj)
+            linked_ids.add(obj.id)
+
+    return linked
+
+
 async def fetch_bottomholes_for_pad(
     db: AsyncSession,
     project_id: UUID,
     pad_id: UUID,
 ) -> list[InfrastructureObject]:
-    pad_key = str(pad_id)
     result = await db.execute(
         select(InfrastructureObject)
         .join(InfrastructureLayer)
@@ -87,16 +148,7 @@ async def fetch_bottomholes_for_pad(
         )
     )
     objects = list(result.scalars().all())
-    linked: list[InfrastructureObject] = []
-    for obj in objects:
-        props = obj.properties or {}
-        linked_pad = read_linked_pad_id(props)
-        if linked_pad == pad_id:
-            linked.append(obj)
-            continue
-        if linked_pad is None and props.get("well_bottomhole_linked_pad_id") == pad_key:
-            linked.append(obj)
-    return linked
+    return bottomholes_for_pad_from_objects(objects, pad_id)
 
 
 def _read_stored_well_index(props: dict[str, Any]) -> int | None:
@@ -129,6 +181,9 @@ def _assign_bottomhole_well_indices(
             continue
         st = (obj.subtype or "").lower().strip()
         if st == "well_bottomhole_gs_toe":
+            continue
+        if st == "well_bottomhole_gs":
+            deferred.append(obj)
             continue
         deferred.append(obj)
 
@@ -193,13 +248,21 @@ def _build_nnb_target(
     }
 
 
-def _build_gs_target(
+def _build_gs_target_from_line(
     pad: InfrastructureObject,
-    heel: InfrastructureObject,
-    toe: InfrastructureObject,
+    obj: InfrastructureObject,
 ) -> dict[str, Any]:
-    heel_e, heel_n, heel_lon, heel_lat, tvd_m = bottomhole_plan_local(pad, heel)
-    toe_e, toe_n, toe_lon, toe_lat, _ = bottomhole_plan_local(pad, toe)
+    endpoints = read_gs_line_endpoints(obj)
+    if endpoints is None:
+        raise ValueError("ГС: не заданы координаты heel/toe")
+    heel_lon, heel_lat, toe_lon, toe_lat = endpoints
+    anchor_lon = float(pad.longitude)
+    anchor_lat = float(pad.latitude)
+    heel_e, heel_n = lonlat_to_local(anchor_lon, anchor_lat, heel_lon, heel_lat)
+    toe_e, toe_n = lonlat_to_local(anchor_lon, anchor_lat, toe_lon, toe_lat)
+    props = obj.properties or {}
+    heel_tvd_m = read_gs_heel_tvd_m(pad, props)
+    toe_tvd_m = read_gs_toe_tvd_m(pad, props)
     azi = azimuth_deg(heel_n, heel_e, toe_n, toe_e)
     return {
         "source": "bottomhole_object",
@@ -210,9 +273,39 @@ def _build_gs_target(
         "lat": toe_lat,
         "heel_lon": heel_lon,
         "heel_lat": heel_lat,
-        "tvd_m": tvd_m,
+        "tvd_m": toe_tvd_m,
+        "heel_tvd_m": heel_tvd_m,
+        "toe_tvd_m": toe_tvd_m,
         "inc": 90.0,
         "azi": azi,
+        "gs_entry_mode": read_gs_entry_mode(props),
+        "bottomhole_object_id": str(obj.id),
+    }
+
+
+def _build_gs_target(
+    pad: InfrastructureObject,
+    heel: InfrastructureObject,
+    toe: InfrastructureObject,
+) -> dict[str, Any]:
+    heel_e, heel_n, heel_lon, heel_lat, heel_tvd_m = bottomhole_plan_local(pad, heel)
+    toe_e, toe_n, toe_lon, toe_lat, toe_tvd_m = bottomhole_plan_local(pad, toe)
+    azi = azimuth_deg(heel_n, heel_e, toe_n, toe_e)
+    return {
+        "source": "bottomhole_object",
+        "profile": "gs",
+        "plan": {"east_m": toe_e, "north_m": toe_n},
+        "heel_plan": {"east_m": heel_e, "north_m": heel_n},
+        "lon": toe_lon,
+        "lat": toe_lat,
+        "heel_lon": heel_lon,
+        "heel_lat": heel_lat,
+        "tvd_m": toe_tvd_m,
+        "heel_tvd_m": heel_tvd_m,
+        "toe_tvd_m": toe_tvd_m,
+        "inc": 90.0,
+        "azi": azi,
+        "gs_entry_mode": read_gs_entry_mode(heel.properties or {}),
         "gs_heel_object_id": str(heel.id),
         "gs_toe_object_id": str(toe.id),
         "bottomhole_object_id": str(toe.id),
@@ -225,12 +318,13 @@ def sync_bottomholes_to_trajectories(
 ) -> tuple[list[dict[str, Any]], list[str]]:
     trajectories = read_trajectories_json(pad.properties)
     if not trajectories:
-        return [], ["No trajectories; run generate-from-layout first"]
+        return [], ["Нет заготовок траекторий; сначала выполните «Из схемы куста»"]
 
     warnings: list[str] = []
     index_map = _assign_bottomhole_well_indices(bottomholes)
     by_well = _index_by_well(bottomholes, index_map=index_map)
     nnb_by_well: dict[int, InfrastructureObject] = {}
+    gs_line_by_well: dict[int, InfrastructureObject] = {}
     heels_by_well: dict[int, InfrastructureObject] = {}
     toes_by_heel: dict[UUID, InfrastructureObject] = {}
 
@@ -241,25 +335,29 @@ def sync_bottomholes_to_trajectories(
             continue
         if st == "well_bottomhole_nnb":
             if idx in nnb_by_well:
-                warnings.append(f"Duplicate NNB bottomhole for well_index {idx}")
+                warnings.append(f"Скв.{idx + 1}: дубликат забоя ННБ")
             nnb_by_well[idx] = obj
+        elif st == "well_bottomhole_gs":
+            if idx in gs_line_by_well:
+                warnings.append(f"Скв.{idx + 1}: дубликат забоя ГС")
+            gs_line_by_well[idx] = obj
         elif st == "well_bottomhole_gs_heel":
             if idx in heels_by_well:
-                warnings.append(f"Duplicate GS heel for well_index {idx}")
+                warnings.append(f"Скв.{idx + 1}: дубликат пятки (heel) ГС")
             heels_by_well[idx] = obj
         elif st == "well_bottomhole_gs_toe":
             props = obj.properties or {}
             heel_id = read_gs_heel_id(props)
             if heel_id is None:
-                warnings.append(f"GS toe {obj.id} has no gs_heel_id")
+                warnings.append(f"Toe ГС без привязки к пятке (heel), объект {obj.id}")
                 continue
             if heel_id in toes_by_heel:
-                warnings.append(f"Duplicate toe for heel {heel_id}")
+                warnings.append("Дубликат toe для одной пятки (heel) ГС")
             toes_by_heel[heel_id] = obj
 
     for idx, objs in by_well.items():
         if len(objs) > 2:
-            warnings.append(f"well_index {idx}: more than expected bottomhole objects")
+            warnings.append(f"Скв.{idx + 1}: слишком много объектов-забоев")
 
     updated = [dict(w) if isinstance(w, dict) else w for w in trajectories]
     assigned: set[int] = set()
@@ -270,12 +368,22 @@ def sync_bottomholes_to_trajectories(
             updated[idx] = well
             assigned.add(idx)
             continue
+        gs_line = gs_line_by_well.get(idx)
+        if gs_line is not None:
+            try:
+                well = dict(updated[idx])
+                well["target"] = _build_gs_target_from_line(pad, gs_line)
+                updated[idx] = well
+                assigned.add(idx)
+            except ValueError as exc:
+                warnings.append(f"Скв.{idx + 1}: {exc}")
+            continue
         heel = heels_by_well.get(idx)
         if heel is None:
             continue
         toe = toes_by_heel.get(heel.id)
         if toe is None:
-            warnings.append(f"well_index {idx}: GS heel without paired toe")
+            warnings.append(f"Скв.{idx + 1}: пятка (heel) ГС без парного toe")
             continue
         well = dict(updated[idx])
         well["target"] = _build_gs_target(pad, heel, toe)

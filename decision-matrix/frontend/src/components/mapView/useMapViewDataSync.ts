@@ -4,7 +4,7 @@ import Point from 'ol/geom/Point';
 import Polygon from 'ol/geom/Polygon';
 import { fromLonLat } from 'ol/proj';
 import { normalizeInfraSubtype } from '../../lib/api';
-import { buildGsBottomholeConnectors } from '../../lib/wellBottomholeProperties';
+import { buildGsBottomholeConnectors, gsLineEndpointPoints } from '../../lib/wellBottomholeProperties';
 import type { LinePathDisplayOptions } from '../../lib/infraGeometry';
 import { lineLodForScale } from '../../lib/mapLineLod';
 import { resolveFootprintLonLat } from '../../lib/padFootprintGeo';
@@ -81,6 +81,19 @@ export function useMapViewDataSync(
         };
         if (lineGeom) {
           lineItems.push({ id: obj.id, geometry: lineGeom, attrs });
+          for (const ep of gsLineEndpointPoints(obj)) {
+            pointItems.push({
+              id: ep.id,
+              geometry: new Point(fromLonLat([ep.lon, ep.lat])),
+              attrs: {
+                name: obj.name,
+                subtype: ep.subtype,
+                layer_id: obj.layer_id,
+                featureKind: 'infra',
+                infra_object_id: obj.id,
+              },
+            });
+          }
         } else {
           pointItems.push({
             id: obj.id,

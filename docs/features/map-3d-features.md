@@ -125,7 +125,7 @@ flowchart TB
 
 ### Custom GLB (проектные модели)
 
-**Страница:** `/import-3d` (меню «Импорт 3D»). На широком экране: формы и таблица моделей — слева; **превью Three.js** — справа (`position: sticky` при прокрутке). Стили: `frontend/src/styles/features/import-3d.css`.
+**Страница:** `/data/import-3d` (раздел **Данные → Импорт 3D**; legacy `/import-3d` → редирект). На широком экране: формы и таблица моделей — слева; **превью Three.js** — справа (`position: sticky` при прокрутке). Стили: `frontend/src/styles/features/import-3d.css`.
 
 | Действие | Кто |
 |----------|-----|
@@ -335,7 +335,7 @@ python scripts/draw_demo_map_network.py --project-name "<имя проекта>"
 | Отчёт PNG | только 2D |
 | Производительность | каждый 3D-объект — отдельный draw в custom layer; при сотнях объектов возможен просад FPS |
 | Подтип `ie` | иконка/3D-каталог есть; в `POINT_SUBTYPES` / группах слоёв может отсутствовать — проверьте фильтр слоёв |
-| Bundled glTF | только файлы в `public/map3d-models/`; custom — через `/import-3d` |
+| Bundled glTF | только файлы в `public/map3d-models/`; custom — через `/data/import-3d` |
 | Несколько custom на один подтип | разрешено; на карте у каждой точки свой выбор в «Модель 3D» |
 | Custom GLB на проде (Pages) | обязателен `VITE_API_URL` с полным URL API; загрузка файла — Bearer (не только cookie) |
 | 404 custom GLB «from disk cache» | браузер закэшировал неудачный ответ; **Ctrl+F5** или очистка данных сайта; после фикса frontend — повторная загрузка с `cache: no-store` |

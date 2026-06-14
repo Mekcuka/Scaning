@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
-import type { Map3dCustomModel } from '../../lib/api';
+import type { InfraObject, Map3dCustomModel } from '../../lib/api';
 import type { PoiFormValues } from '../../lib/poiParams';
 import { DEFAULT_RENDER_3D_SCALE } from '../../lib/map3d/render3d';
 import type { SandVolumeInputMode } from '../../lib/infraSandVolumes';
@@ -8,21 +8,34 @@ import { createInfraFormDraftFromObject, createPoiFormFromSelection } from './fo
 import { readPointFootprintLineConnections } from '../../lib/padFootprintLineAttach';
 import type { SelectedFeature } from './types';
 import {
+  WELL_BOTTOMHOLE_GS_ENTRY_MODE,
   WELL_BOTTOMHOLE_GS_HEEL_ID,
+  WELL_BOTTOMHOLE_HEEL_TVD_M,
   WELL_BOTTOMHOLE_LINKED_PAD_ID,
   WELL_BOTTOMHOLE_TARGET_AZI,
   WELL_BOTTOMHOLE_TARGET_INC,
+  WELL_BOTTOMHOLE_TOE_TVD_M,
   WELL_BOTTOMHOLE_TVD_M,
   WELL_BOTTOMHOLE_WELL_INDEX,
+  isBottomholeSubtype,
+  readBottomholeLinkedPadId,
 } from '../../lib/wellBottomholeProperties';
+import {
+  formatBottomholeElevation,
+  readGsLineBottomholeElevations,
+  readPointBottomholeElevation,
+} from '../../lib/wellBottomholeElevation';
 
 const BOTTOMHOLE_PROP_KEYS = [
   WELL_BOTTOMHOLE_LINKED_PAD_ID,
   WELL_BOTTOMHOLE_WELL_INDEX,
   WELL_BOTTOMHOLE_TVD_M,
+  WELL_BOTTOMHOLE_HEEL_TVD_M,
+  WELL_BOTTOMHOLE_TOE_TVD_M,
   WELL_BOTTOMHOLE_TARGET_INC,
   WELL_BOTTOMHOLE_TARGET_AZI,
   WELL_BOTTOMHOLE_GS_HEEL_ID,
+  WELL_BOTTOMHOLE_GS_ENTRY_MODE,
 ] as const;
 
 export function pickBottomholePropsPatch(
@@ -39,6 +52,7 @@ export function pickBottomholePropsPatch(
 export function useObjectDetailFormState(
   selection: SelectedFeature,
   map3dCustomModels: Map3dCustomModel[],
+  infraObjects: InfraObject[] = [],
 ) {
   const [name, setName] = useState('');
   const [description, setDescription] = useState('');
@@ -46,6 +60,11 @@ export function useObjectDetailFormState(
   const [layerId, setLayerId] = useState('');
   const [lon, setLon] = useState('');
   const [lat, setLat] = useState('');
+  const [endLon, setEndLon] = useState('');
+  const [endLat, setEndLat] = useState('');
+  const [z, setZ] = useState('');
+  const [zHeel, setZHeel] = useState('');
+  const [zToe, setZToe] = useState('');
   const [poiForm, setPoiForm] = useState<PoiFormValues | null>(null);
   const [sandInitialM3, setSandInitialM3] = useState('');
   const [sandCurrentM3, setSandCurrentM3] = useState('');
@@ -91,13 +110,18 @@ export function useObjectDetailFormState(
     const isNewSelection = selectionKeyRef.current !== key;
     selectionKeyRef.current = key;
     if (!isNewSelection) return;
-    const draft = createInfraFormDraftFromObject(selection.object, map3dCustomModels);
+    const draft = createInfraFormDraftFromObject(selection.object, map3dCustomModels, infraObjects);
     setName(draft.name);
     setDescription(draft.description);
     setSubtype(draft.subtype);
     setLayerId(draft.layerId);
     setLon(draft.lon);
     setLat(draft.lat);
+    setEndLon(draft.endLon);
+    setEndLat(draft.endLat);
+    setZ(draft.z);
+    setZHeel(draft.zHeel);
+    setZToe(draft.zToe);
     setPoiForm(null);
     setSandInitialM3(draft.sandInitialM3);
     setSandCurrentM3(draft.sandCurrentM3);
@@ -124,7 +148,26 @@ export function useObjectDetailFormState(
     setBottomholePropsPatch({});
     setInfraTab(draft.infraTab);
     setPoiTab(draft.poiTab);
-  }, [selection, map3dCustomModels]);
+  }, [selection, map3dCustomModels, infraObjects]);
+
+  useEffect(() => {
+    if (selection.kind !== 'infra') return;
+    const obj = selection.object;
+    if (!isBottomholeSubtype(obj.subtype)) return;
+    const padId = readBottomholeLinkedPadId({
+      ...obj.properties,
+      ...bottomholePropsPatch,
+    });
+    const pad = padId ? (infraObjects.find((p) => p.id === padId) ?? null) : null;
+    const merged = { ...obj, properties: { ...(obj.properties ?? {}), ...bottomholePropsPatch } };
+    if (obj.subtype === 'well_bottomhole_gs') {
+      const { heelZ, toeZ } = readGsLineBottomholeElevations(merged, pad);
+      setZHeel(formatBottomholeElevation(heelZ));
+      setZToe(formatBottomholeElevation(toeZ));
+      return;
+    }
+    setZ(formatBottomholeElevation(readPointBottomholeElevation(merged, pad)));
+  }, [bottomholePropsPatch, selection, infraObjects]);
 
   useEffect(() => {
     if (selection.kind !== 'infra') return;
@@ -150,6 +193,16 @@ export function useObjectDetailFormState(
     setLon,
     lat,
     setLat,
+    endLon,
+    setEndLon,
+    endLat,
+    setEndLat,
+    z,
+    setZ,
+    zHeel,
+    setZHeel,
+    zToe,
+    setZToe,
     poiForm,
     setPoiForm,
     sandInitialM3,

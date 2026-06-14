@@ -1,5 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { Link, useNavigate, useParams, useSearchParams } from 'react-router-dom';
+import { ProjectLink } from '../../components/ProjectLink';
+import { useProjectPathBuilder } from '../../hooks/useProjectPath';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { ArrowLeft, Download, FileText, Save, Sparkles } from 'lucide-react';
 import { AppSelect } from '../../components/AppSelect';
@@ -32,6 +34,7 @@ import {
 } from '../../hooks/useProjectData';
 import { useAppStore } from '../../store';
 import { usePermissions } from '../../hooks/usePermissions';
+import { usePageHeader } from '../../components/layout/pageHeaderContext';
 import { OnePagerPreview, type OnePagerPreviewData } from './components/OnePagerPreview';
 import { DEFAULT_ROADMAP } from './reportUtils';
 import type { MapFocusTarget } from '../../components/MapView';
@@ -63,6 +66,7 @@ export function ReportEditorPage({ mode }: { mode: 'new' | 'edit' }) {
   const { id } = useParams();
   const [searchParams, setSearchParams] = useSearchParams();
   const navigate = useNavigate();
+  const buildPath = useProjectPathBuilder();
   const { projectId } = useActiveProject();
   const { canWriteProject } = usePermissions();
   const readOnly = !canWriteProject;
@@ -277,7 +281,7 @@ export function ReportEditorPage({ mode }: { mode: 'new' | 'edit' }) {
     onSuccess: (op: OnePager) => {
       queryClient.invalidateQueries({ queryKey: ['one-pagers', projectId] });
       pushToast('success', 'Одностраничник сформирован');
-      navigate(`/report/${op.id}`, { replace: true });
+      navigate(buildPath(`/report/${op.id}`), { replace: true });
     },
     onError: (e: Error) => pushToast('error', e.message),
   });
@@ -314,8 +318,6 @@ export function ReportEditorPage({ mode }: { mode: 'new' | 'edit' }) {
     onError: (e: Error) => pushToast('error', e.message),
   });
 
-  const handlePrint = () => window.print();
-
   useEffect(() => {
     if (searchParams.get('print') !== '1') return;
     const t = window.setTimeout(() => {
@@ -325,6 +327,10 @@ export function ReportEditorPage({ mode }: { mode: 'new' | 'edit' }) {
     }, 600);
     return () => window.clearTimeout(t);
   }, [searchParams, setSearchParams]);
+
+  const reportTitle = mode === 'new' ? 'Новый одностраничник' : 'Одностраничник';
+
+  usePageHeader({ title: reportTitle }, [reportTitle]);
 
   if (mode === 'edit' && loadingSaved) {
     return (
@@ -337,18 +343,15 @@ export function ReportEditorPage({ mode }: { mode: 'new' | 'edit' }) {
   return (
     <div className="report-editor">
       <div className="page-toolbar no-print">
-        <div className="page-title-block">
-          <Link to="/report" className="btn btn-secondary btn-sm mb-2">
+        <div>
+          <ProjectLink to="/report" className="btn btn-secondary btn-sm">
             <ArrowLeft size={14} /> К списку
-          </Link>
-          <h1 className="page-title">
-            {mode === 'new' ? 'Новый одностраничник' : 'Одностраничник'}
-          </h1>
+          </ProjectLink>
         </div>
         <div className="page-toolbar-actions">
           {(mode === 'edit' || (mode === 'new' && hasAnalysis)) && (
             <>
-              <button type="button" className="btn btn-secondary" onClick={handlePrint}>
+              <button type="button" className="btn btn-secondary" onClick={() => window.print()}>
                 <Download size={16} /> PDF
               </button>
               {mode === 'edit' && (

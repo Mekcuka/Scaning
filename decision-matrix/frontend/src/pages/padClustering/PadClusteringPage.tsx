@@ -1,7 +1,9 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { Link, useSearchParams } from 'react-router-dom';
+import { ProjectLink } from '../../components/ProjectLink';
 import { Layers, MapPin, Save, Settings2, Box } from 'lucide-react';
 import { AppSelect } from '../../components/AppSelect';
+import { usePageHeader } from '../../components/layout/pageHeaderContext';
 import { PadClusteringBottomholesSection } from '../../components/padClustering/PadClusteringBottomholesSection';
 import { PadClusteringCalculationPanel } from '../../components/padClustering/PadClusteringCalculationPanel';
 import { PadClusteringScene3DLayerToggles } from '../../components/padClustering/PadClusteringScene3DLayerToggles';
@@ -15,7 +17,6 @@ import {
   type PadClusteringSidebarTab,
 } from '../../components/padClustering/PadClusteringSidebarTabs';
 import { PadClusteringTrajectorySection } from '../../components/padClustering/PadClusteringTrajectorySection';
-import { PadClusteringViewerStats } from '../../components/padClustering/PadClusteringViewerStats';
 import { PadScene3DToolbar } from '../../components/padEarthwork/PadScene3DToolbar';
 import { Scene3DLegend } from '../../components/padEarthwork/Scene3DLegend';
 import { PageSkeleton } from '../../components/PageSkeleton';
@@ -90,13 +91,23 @@ export function PadClusteringPage() {
   const envelopeEnabled = editor.activeEnvelope.enabled;
   const wrapWidthM = editor.activeEnvelope.wrap_width_m;
 
+  const padSubtitle = useMemo(() => {
+    if (!projectId) return 'Выберите активный проект на дашборде или в списке проектов.';
+    const parts = [activeProject?.name ?? 'Проект'];
+    if (editor.pad) {
+      parts.push(editor.pad.name);
+      parts.push(SUBTYPE_LABELS[editor.pad.subtype] ?? editor.pad.subtype);
+    }
+    return parts.join(' · ');
+  }, [activeProject?.name, editor.pad, projectId]);
+
+  usePageHeader({ title: 'Кустование', subtitle: padSubtitle }, [padSubtitle]);
+
   if (!projectId) {
     return (
       <div className="pad-clustering-page">
         <div className="pad-clustering-page__empty-state">
           <Layers size={40} strokeWidth={1.25} aria-hidden />
-          <h1 className="page-title">Кустование</h1>
-          <p>Выберите активный проект на дашборде или в списке проектов.</p>
         </div>
       </div>
     );
@@ -106,31 +117,6 @@ export function PadClusteringPage() {
     <div className="pad-clustering-page">
       <div className="pad-clustering-page__chrome">
         <header className="pad-clustering-page__header">
-          <div className="pad-clustering-page__header-main">
-            <div className="pad-clustering-page__title-row">
-              <span className="pad-clustering-page__title-icon" aria-hidden>
-                <Layers size={22} strokeWidth={1.75} />
-              </span>
-              <div>
-                <h1 className="page-title pad-clustering-page__title">Кустование</h1>
-                <p className="pad-clustering-page__subtitle">
-                  {activeProject?.name ?? 'Проект'}
-                  {editor.pad && (
-                    <>
-                      <span className="pad-clustering-page__subtitle-sep" aria-hidden>
-                        ·
-                      </span>
-                      <span className="pad-clustering-page__pad-name">{editor.pad.name}</span>
-                      <span className="pad-clustering-page__pad-meta">
-                        {SUBTYPE_LABELS[editor.pad.subtype] ?? editor.pad.subtype}
-                      </span>
-                    </>
-                  )}
-                </p>
-              </div>
-            </div>
-          </div>
-
           <div className="pad-clustering-page__toolbar">
             <div className="pad-clustering-page__pad-select">
               <span className="pad-clustering-page__select-label">Куст</span>
@@ -177,9 +163,9 @@ export function PadClusteringPage() {
           <Layers size={36} strokeWidth={1.25} aria-hidden />
           <p>
             В проекте нет кустовых площадок.{' '}
-            <Link to="/map" className="link">
+            <ProjectLink to="/map" className="link">
               Добавьте oil_pad / gas_pad на карте
-            </Link>
+            </ProjectLink>
             .
           </p>
         </div>
@@ -276,15 +262,6 @@ export function PadClusteringPage() {
 
             <div className="pad-clustering-page__viewer">
               <div className="pad-clustering-page__viewer-head">
-                <PadClusteringViewerStats
-                  kbM={editor.kbM}
-                  wellsCount={editor.wellsLocalCount}
-                  bottomholesCount={editor.linkedBottomholes.length}
-                  designedCount={designedCount}
-                  demAvailable={editor.demAvailable}
-                  demLoading={editor.demPreviewLoading}
-                  computedAt={editor.trajectoryComputedAt}
-                />
                 <div
                   className="pad-clustering-page__viewer-tools"
                   title="Колёсико — зум · ЛКМ — вращение · ПКМ — сдвиг"
@@ -294,6 +271,7 @@ export function PadClusteringPage() {
                     onChange={setSceneLayers}
                     envelopeAvailable={envelopeEnabled && wrapWidthM > 0}
                     trajectoriesAvailable={designedCount > 0 && !editor.sceneTrajectoriesHidden}
+                    bottomholesAvailable={editor.linkedBottomholes.length > 0 || designedCount > 0}
                   />
                   <PadScene3DToolbar
                     showHint={false}
@@ -322,6 +300,9 @@ export function PadClusteringPage() {
                   demAvailable={editor.demAvailable}
                   demLoading={editor.demPreviewLoading}
                   wellsLocal={editor.sceneWellsLocal}
+                  bottomholes={editor.linkedBottomholes}
+                  padLon={editor.pad?.lon ?? 0}
+                  padLat={editor.pad?.lat ?? 0}
                   trajectories={editor.sceneTrajectories}
                   trajectoriesHiddenReason={editor.sceneLayoutCallout}
                   sfWarningThreshold={editor.trajectorySettings?.sf_warning_threshold ?? 1}
@@ -338,6 +319,10 @@ export function PadClusteringPage() {
                   demActive={Boolean(editor.demPreview)}
                   envelopeActive={envelopeEnabled && wrapWidthM > 0}
                   showWellheads={editor.sceneWellsLocal.length > 0}
+                  showBottomholes={
+                    editor.linkedBottomholes.length > 0 ||
+                    (designedCount > 0 && !editor.sceneTrajectoriesHidden)
+                  }
                   showTrajectories={designedCount > 0 && !editor.sceneTrajectoriesHidden}
                 />
               </div>

@@ -21,7 +21,7 @@ import {
   pointShowsSandDemand,
 } from '../../lib/infraSandVolumes';
 import { objectShowsEntryDate } from '../../lib/infraEntryDate';
-import { isBottomholeSubtype } from '../../lib/wellBottomholeProperties';
+import { isBottomholeSubtype, bottomholesLinkedToPad, logicalWellCountFromBottomholes, readBottomholeLinkedPadId } from '../../lib/wellBottomholeProperties';
 import { buildRender3dModelOptions } from '../../lib/map3d/render3dModelOptions';
 import { useProjectSandLogistics } from '../../hooks/useProjectSandLogistics';
 import { useActiveProject } from '../../hooks/useActiveProject';
@@ -47,6 +47,21 @@ export function useObjectDetailInfraDerived(params: {
   const isPoi = selection.kind === 'poi';
   const infraObject: InfraObject | null = selection.kind === 'infra' ? selection.object : null;
 
+  const { projectId: mapProjectId } = useActiveProject();
+  const resolvedMapProjectId = mapProjectId ?? null;
+
+  const linkedBottomholes = useMemo(() => {
+    if (!infraObject || !isPadSubtype(infraObject.subtype)) return [];
+    return bottomholesLinkedToPad(infraObjects, infraObject.id);
+  }, [infraObject, infraObjects]);
+
+  const padWellCountDerivedFromBottomholes = linkedBottomholes.length > 0;
+  const derivedPadWellCount = padWellCountDerivedFromBottomholes
+    ? logicalWellCountFromBottomholes(linkedBottomholes)
+    : null;
+  const effectivePadWellCount =
+    derivedPadWellCount != null ? String(derivedPadWellCount) : form.padWellCount;
+
   const infraDirtyDraft = useMemo<InfraDirtyDraft>(
     () => ({
       name: form.name,
@@ -55,6 +70,8 @@ export function useObjectDetailInfraDerived(params: {
       layerId: form.layerId,
       lon: form.lon,
       lat: form.lat,
+      endLon: form.endLon,
+      endLat: form.endLat,
       sandInitialM3: form.sandInitialM3,
       sandCurrentM3: form.sandCurrentM3,
       sandDemandM3: form.sandDemandM3,
@@ -68,7 +85,7 @@ export function useObjectDetailInfraDerived(params: {
       render3dVisible: form.render3dVisible,
       render3dStyle: form.render3dStyle,
       render3dModelId: form.render3dModelId,
-      padWellCount: form.padWellCount,
+      padWellCount: effectivePadWellCount,
       padWellsPerGroup: form.padWellsPerGroup,
       padWellSpacingM: form.padWellSpacingM,
       padGroupSpacingM: form.padGroupSpacingM,
@@ -79,7 +96,7 @@ export function useObjectDetailInfraDerived(params: {
       pointFootprintLineConnections: form.pointFootprintLineConnections,
       bottomholePropsPatch: form.bottomholePropsPatch,
     }),
-    [form],
+    [form, effectivePadWellCount],
   );
 
   const render3dModelOptions = useMemo(() => {
@@ -87,7 +104,21 @@ export function useObjectDetailInfraDerived(params: {
     return buildRender3dModelOptions(infraObject.subtype, map3dCustomModels);
   }, [infraObject, map3dCustomModels]);
 
-  const isLine = infraObject != null && isLineSubtype(infraObject.subtype);
+  const isBottomhole =
+    selection.kind === 'infra' && isBottomholeSubtype(selection.object.subtype);
+
+  const linkedBottomholePad = useMemo(() => {
+    if (!infraObject || !isBottomhole) return null;
+    const mergedProps = {
+      ...(infraObject.properties ?? {}),
+      ...form.bottomholePropsPatch,
+    };
+    const padId = readBottomholeLinkedPadId(mergedProps);
+    if (!padId) return null;
+    return infraObjects.find((o) => o.id === padId) ?? null;
+  }, [infraObject, isBottomhole, form.bottomholePropsPatch, infraObjects]);
+
+  const isLine = infraObject != null && isLineSubtype(infraObject.subtype) && !isBottomhole;
   const lineCoords = infraObject
     ? (getLineCoordinates(infraObject) as [number, number][] | null)
     : null;
@@ -124,8 +155,6 @@ export function useObjectDetailInfraDerived(params: {
   const showPadWellCountField =
     selection.kind === 'infra' && pointShowsPadWellFields(form.subtype) && !isLine;
 
-  const { projectId: mapProjectId } = useActiveProject();
-  const resolvedMapProjectId = mapProjectId ?? null;
   const sandLogisticsProjectId =
     selection.kind === 'poi' ? selection.poi.project_id : mapProjectId;
   const infraObjectId = selection.kind === 'infra' ? selection.object.id : null;
@@ -182,6 +211,8 @@ export function useObjectDetailInfraDerived(params: {
     infraDirtyDraft,
     render3dModelOptions,
     isLine,
+    isBottomhole,
+    linkedBottomholePad,
     lineCoords,
     lineLengthLabel,
     subtypeLabel,
@@ -195,6 +226,9 @@ export function useObjectDetailInfraDerived(params: {
     showPadEarthworkSection,
     showTrajectoriesSection,
     showPadWellCountField,
+    padWellCount: effectivePadWellCount,
+    padWellCountDerivedFromBottomholes,
+    linkedBottomholesCount: linkedBottomholes.length,
     sandLogistics,
     infraObjectId,
     showEntryDateField,

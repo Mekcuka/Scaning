@@ -1,6 +1,7 @@
 import { useMemo, useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { Link } from 'react-router-dom';
+import { ProjectLink } from '../components/ProjectLink';
 import { FileOutput, Grid3X3, Map, Plus, Trash2 } from 'lucide-react';
 import { defaultProjectsListApi, type Project } from '../lib/api';
 import { queryKeys } from '../lib/queryKeys';
@@ -20,6 +21,7 @@ import { PageSkeleton } from '../components/PageSkeleton';
 import { ErrorPanel } from '../components/ErrorPanel';
 import { useDeleteProjectDialog } from '../hooks/useDeleteProjectDialog';
 import { canDeleteProject } from '../lib/permissions';
+import { usePageHeader } from '../components/layout/pageHeaderContext';
 
 function displayName(username: string | undefined): string {
   if (!username) return 'Engineer';
@@ -53,6 +55,15 @@ export function DashboardPage() {
     [myProjects, projectSearch],
   );
 
+  const welcomeTitle = `Добро пожаловать, ${displayName(user?.username)}`;
+  usePageHeader(
+    {
+      title: welcomeTitle,
+      subtitle: 'Оценка инфраструктуры и сравнение точек интереса',
+    },
+    [welcomeTitle],
+  );
+
   const totalPoi = myProjects.reduce((s, p) => s + p.poi_count, 0);
   const exceedCount = 0;
 
@@ -65,11 +76,6 @@ export function DashboardPage() {
 
   return (
     <div className="dashboard-page">
-      <header className="page-header">
-        <h1>Добро пожаловать, {displayName(user?.username)}</h1>
-        <p className="subtitle">Оценка инфраструктуры и сравнение точек интереса</p>
-      </header>
-
       <div className="stats-row">
         <div className="stat-box">
           <div className="value tabular">{myProjects.length}</div>
@@ -92,24 +98,24 @@ export function DashboardPage() {
           </div>
           <strong>Новый проект</strong>
         </Link>
-        <Link to="/map" className="quick-card">
+        <ProjectLink to="/map" className="quick-card">
           <div className="icon-wrap">
             <Map size={20} />
           </div>
           <strong>Открыть карту</strong>
-        </Link>
-        <Link to="/matrix" className="quick-card">
+        </ProjectLink>
+        <ProjectLink to="/matrix" className="quick-card">
           <div className="icon-wrap">
             <Grid3X3 size={20} />
           </div>
           <strong>Матрица</strong>
-        </Link>
-        <Link to="/report" className="quick-card">
+        </ProjectLink>
+        <ProjectLink to="/report" className="quick-card">
           <div className="icon-wrap">
             <FileOutput size={20} />
           </div>
           <strong>Отчёт</strong>
-        </Link>
+        </ProjectLink>
       </div>
 
       <div className="card card--flush projects-table-card">

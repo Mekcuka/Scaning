@@ -10,12 +10,6 @@ const TABS = [
 export function AdminLayout() {
   return (
     <div className="parameters-layout">
-      <header className="parameters-layout__head">
-        <h1 className="parameters-layout__title">Администрирование</h1>
-        <p className="parameters-layout__subtitle">
-          Пользователи, роли, фоновые задачи и параметры AI-помощника
-        </p>
-      </header>
       <nav className="parameters-subnav" aria-label="Разделы администрирования">
         {TABS.map(({ to, label, icon: Icon }) => (
           <NavLink

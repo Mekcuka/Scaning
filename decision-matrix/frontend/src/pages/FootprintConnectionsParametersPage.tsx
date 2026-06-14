@@ -1,6 +1,7 @@
 import { useMemo, useState } from 'react';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { Link } from 'react-router-dom';
+import { ProjectLink } from '../components/ProjectLink';
 import { Undo2 } from 'lucide-react';
 import {
   FootprintLineConnectionTemplateForm,
@@ -333,7 +334,7 @@ export function FootprintConnectionsParametersPage() {
           {earthworkObjects.length === 0 && !isLoading && (
             <p className="parameters-empty footprint-connect-apply-panel__empty">
               Нет точечных объектов с контуром площадки. Добавьте объекты на{' '}
-              <Link to="/map">карте</Link> (режим «Площадки»).
+              <ProjectLink to="/map">карте</ProjectLink> (режим «Площадки»).
             </p>
           )}
         </aside>

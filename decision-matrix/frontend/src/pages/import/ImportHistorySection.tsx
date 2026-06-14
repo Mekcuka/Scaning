@@ -1,3 +1,4 @@
+import { History } from 'lucide-react';
 import type { ImportLog } from '../../lib/api';
 
 type Props = {
@@ -7,9 +8,22 @@ type Props = {
 
 export function ImportHistorySection({ history, isLoading }: Props) {
   return (
-    <div className="card">
-      <h2 className="font-semibold mb-4">История импорта</h2>
-      {isLoading && <p className="text-sm">Загрузка…</p>}
+    <section className="import-history card">
+      <div className="import-history__head">
+        <span className="import-history__icon" aria-hidden>
+          <History size={20} />
+        </span>
+        <div>
+          <h2 className="import-history__title">История импорта</h2>
+          <p className="import-history__hint">
+            {isLoading
+              ? 'Загрузка…'
+              : history.length === 0
+                ? 'Операций импорта пока нет'
+                : `${history.length} ${history.length === 1 ? 'запись' : history.length < 5 ? 'записи' : 'записей'}`}
+          </p>
+        </div>
+      </div>
       <div className="table-wrap">
         <table className="data-table">
           <thead>
@@ -38,6 +52,6 @@ export function ImportHistorySection({ history, isLoading }: Props) {
           </tbody>
         </table>
       </div>
-    </div>
+    </section>
   );
 }

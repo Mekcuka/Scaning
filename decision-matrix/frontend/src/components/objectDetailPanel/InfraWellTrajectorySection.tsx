@@ -1,4 +1,6 @@
+import { useMemo } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import { GitBranch } from 'lucide-react';
 
 import {
   wellTrajectoryApi,
@@ -7,18 +9,20 @@ import {
 import { readWellTrajectoryStepM } from '../../lib/padClusteringCalcSettings';
 import { wellTrajectoryQueryKeys } from '../../hooks/useWellTrajectoryGeoJson';
 import { isProjectJobCreateResponse, pollProjectJobUntilDone } from '../../lib/pollProjectJob';
+import { parseWellsLocalFromLast } from '../../lib/padEarthworkSketch';
+import { countDesignedTrajectories } from '../../lib/padClusteringWorkflow';
+import { readPadWellParams } from '../../lib/infraPadWells';
 
 import type { InfraObject } from '../../lib/api';
-
 import { SUBTYPE_LABELS } from '../../lib/api';
 
 import {
-  WELL_BOTTOMHOLE_WELL_INDEX,
-  isBottomholeSubtype,
-  readBottomholeLinkedPadId,
+  bottomholesLinkedToPad,
+  logicalWellCountFromBottomholes,
 } from '../../lib/wellBottomholeProperties';
 
-import { FieldLabel, PanelSection } from './panelUi';
+import { PanelSection, PanelSubsection, StatChip } from './panelUi';
+import { translateWellTrajectoryUserMessage } from '../../lib/wellTrajectoryUserMessages';
 
 interface InfraWellTrajectorySectionProps {
   projectId: string;
@@ -65,22 +69,22 @@ export function InfraWellTrajectorySection({
     enabled: Boolean(projectId && infraObject.id),
   });
 
-  const linkedBottomholes = infraObjects.filter(
-    (obj) =>
-      isBottomholeSubtype(obj.subtype) &&
-      readBottomholeLinkedPadId(obj.properties) === infraObject.id,
+  const linkedBottomholes = useMemo(
+    () => bottomholesLinkedToPad(infraObjects, infraObject.id),
+    [infraObjects, infraObject.id],
+  );
+  const logicalBottomholeWells = useMemo(
+    () => logicalWellCountFromBottomholes(linkedBottomholes),
+    [linkedBottomholes],
   );
 
-  const bottomholesByWell = new Map<number, InfraObject[]>();
-  for (const bh of linkedBottomholes) {
-    const raw = bh.properties?.[WELL_BOTTOMHOLE_WELL_INDEX];
-    const idx =
-      raw === '' || raw == null || Number.isNaN(Number(raw)) ? -1 : Number(raw);
-    const key = idx >= 0 ? idx : linkedBottomholes.indexOf(bh);
-    const list = bottomholesByWell.get(key) ?? [];
-    list.push(bh);
-    bottomholesByWell.set(key, list);
-  }
+  const wellsLocalCount = useMemo(() => {
+    if (last?.wells_local?.length) return last.wells_local.length;
+    const raw = (infraObject.properties as Record<string, unknown> | undefined)?.pad_wells_local_json;
+    const parsed = parseWellsLocalFromLast(raw).length;
+    if (parsed > 0) return parsed;
+    return readPadWellParams(infraObject.properties).wellCount;
+  }, [last?.wells_local, infraObject.properties]);
 
   const invalidate = () => {
     void queryClient.invalidateQueries({ queryKey: qk.last });
@@ -118,159 +122,242 @@ export function InfraWellTrajectorySection({
   const warnings = last?.warnings ?? [];
   const clearancePairs = last?.clearance_pairs ?? [];
   const sfThreshold = last?.settings?.sf_warning_threshold ?? 1;
+  const designedCount = countDesignedTrajectories(trajectories);
   const designedForClearance = trajectories.filter(
     (w) => (w.survey?.stations?.length ?? 0) >= 2,
   ).length;
   const clearanceReady = designedForClearance >= 2;
 
+  const pending =
+    generateMut.isPending ||
+    designFromBottomholesMut.isPending ||
+    runClearanceMut.isPending;
+
+  const mutationError =
+    generateMut.error ?? designFromBottomholesMut.error ?? runClearanceMut.error;
+
+  const layoutReady = wellsLocalCount > 0 || trajectories.length > 0;
+  const bottomholesReady = logicalBottomholeWells > 0;
+  const designReady = designedCount > 0;
+  const clearanceDone = clearancePairs.length > 0;
+
   return (
-    <PanelSection title="Траектории скважин">
-      <p className="object-detail-panel__hint text-xs">
-        Сначала разместите забои на карте (инструмент «Забой»). Раскладку устьев можно задать
-        в «Земляные работы» или оставить число скважин на кусте — она создастся автоматически.
-        Затем «Рассчитать до забоев» построит профиль траектории.
+    <PanelSection title="Траектории скважин" card>
+      <div className="odp-traj-head">
+        <div className="odp-traj-head__icon" aria-hidden>
+          <GitBranch size={16} strokeWidth={2} />
+        </div>
+        <div className="odp-traj-head__stats">
+          <StatChip>{wellsLocalCount} устьев</StatChip>
+          <StatChip>
+            {bottomholesReady ? `${logicalBottomholeWells} заб.` : 'нет забоев'}
+          </StatChip>
+          <StatChip>
+            {designReady ? `${designedCount} постр.` : 'не рассчитано'}
+          </StatChip>
+        </div>
+      </div>
+
+      <p className="object-detail-panel__hint object-detail-panel__hint--intro">
+        Раскладка устьев → забои на карте → расчёт профиля → антиколлизия (SF).
       </p>
 
+      <ol className="odp-traj-steps" aria-label="Этапы расчёта траекторий">
+        <li className={layoutReady ? 'odp-traj-steps__item--done' : ''}>
+          <span className="odp-traj-steps__num">1</span>
+          <div>
+            <strong>Раскладка устьев</strong>
+            <p>
+              {layoutReady
+                ? `${wellsLocalCount} устьев на площадке`
+                : 'Вкладка «Логистика» → «Земляные работы» или число скв. на кусте'}
+            </p>
+          </div>
+          <button
+            type="button"
+            className="btn btn-secondary btn-sm odp-traj-steps__action"
+            disabled={readOnly || pending}
+            onClick={() => generateMut.mutate()}
+          >
+            {generateMut.isPending ? '…' : 'Заготовки'}
+          </button>
+        </li>
+
+        <li className={bottomholesReady ? 'odp-traj-steps__item--done' : ''}>
+          <span className="odp-traj-steps__num">2</span>
+          <div>
+            <strong>Забои на карте</strong>
+            <p>
+              {bottomholesReady
+                ? `${logicalBottomholeWells} скв. · ${linkedBottomholes.length} объект(ов)`
+                : 'Инструмент «Забой» на панели рисования карты'}
+            </p>
+          </div>
+        </li>
+
+        <li className={designReady ? 'odp-traj-steps__item--done' : ''}>
+          <span className="odp-traj-steps__num">3</span>
+          <div>
+            <strong>Расчёт до забоя</strong>
+            <p className="odp-traj-steps__hint">
+              {bottomholesReady
+                ? `Шаг инклинометрии: ${stepM} м`
+                : 'Сначала разместите забои на карте'}
+            </p>
+          </div>
+          <button
+            type="button"
+            className="btn btn-primary btn-sm odp-traj-steps__action"
+            disabled={
+              readOnly ||
+              pending ||
+              (trajectories.length === 0 && linkedBottomholes.length === 0)
+            }
+            onClick={() => designFromBottomholesMut.mutate()}
+          >
+            {designFromBottomholesMut.isPending ? '…' : 'Рассчитать'}
+          </button>
+        </li>
+
+        <li className={clearanceDone ? 'odp-traj-steps__item--done' : ''}>
+          <span className="odp-traj-steps__num">4</span>
+          <div>
+            <strong>Антиколлизия (SF)</strong>
+            <p className="odp-traj-steps__hint">
+              {clearanceReady
+                ? `Порог SF: ${sfThreshold}`
+                : 'Нужны ≥2 скважины с рассчитанной траекторией'}
+            </p>
+          </div>
+          <button
+            type="button"
+            className="btn btn-secondary btn-sm odp-traj-steps__action"
+            disabled={readOnly || pending || !clearanceReady}
+            onClick={() => runClearanceMut.mutate()}
+          >
+            {runClearanceMut.isPending ? '…' : 'SF'}
+          </button>
+        </li>
+      </ol>
+
       {warnings.length > 0 && (
-        <ul className="object-detail-panel__hint text-xs text-amber-600">
+        <ul className="odp-traj-warnings">
           {warnings.map((w) => (
-            <li key={w}>{w}</li>
+            <li key={w}>{translateWellTrajectoryUserMessage(w)}</li>
           ))}
         </ul>
       )}
 
-      <div className="object-detail-panel__actions-row">
-        <button
-          type="button"
-          className="btn btn--secondary btn--sm"
-          disabled={readOnly || generateMut.isPending}
-          onClick={() => generateMut.mutate()}
-        >
-          {generateMut.isPending ? 'Генерация…' : 'Из схемы куста'}
-        </button>
-        <button
-          type="button"
-          className="btn btn--secondary btn--sm"
-          disabled={
-            readOnly ||
-            designFromBottomholesMut.isPending ||
-            (trajectories.length === 0 && linkedBottomholes.length === 0)
-          }
-          onClick={() => designFromBottomholesMut.mutate()}
-        >
-          {designFromBottomholesMut.isPending ? 'Расчёт…' : 'Рассчитать до забоев'}
-        </button>
-        <button
-          type="button"
-          className="btn btn--secondary btn--sm"
-          disabled={readOnly || runClearanceMut.isPending || !clearanceReady}
-          title={
-            clearanceReady
-              ? undefined
-              : 'Нужны минимум 2 скважины с survey ≥ 2 станций'
-          }
-          onClick={() => runClearanceMut.mutate()}
-        >
-          {runClearanceMut.isPending ? 'SF…' : 'Рассчитать SF'}
-        </button>
-      </div>
-
-      {(generateMut.error || designFromBottomholesMut.error || runClearanceMut.error) && (
-        <p className="object-detail-panel__hint text-xs text-red-600">
-          {(generateMut.error ?? designFromBottomholesMut.error ?? runClearanceMut.error) instanceof
-          Error
-            ? (generateMut.error ?? designFromBottomholesMut.error ?? runClearanceMut.error)?.message
-            : 'Ошибка операции'}
+      {mutationError && (
+        <p className="odp-traj-error">
+          {translateWellTrajectoryUserMessage(
+            mutationError instanceof Error ? mutationError.message : 'Ошибка операции',
+          )}
         </p>
       )}
 
-      {linkedBottomholes.length === 0 && (
-        <p className="object-detail-panel__hint text-xs">
-          Нет привязанных объектов-забоев. Используйте «Забой» на панели рисования карты.
-        </p>
+      {isLoading && (
+        <p className="object-detail-panel__hint">Загрузка сохранённых траекторий…</p>
       )}
 
-      {linkedBottomholes.length > 0 && (
-        <div className="object-detail-panel__subsection">
-          <FieldLabel>Объекты-забои ({linkedBottomholes.length})</FieldLabel>
-          <ul className="object-detail-panel__list text-xs">
+      {bottomholesReady && (
+        <PanelSubsection title={`Забои (${linkedBottomholes.length})`}>
+          <ul className="odp-traj-chip-list">
             {linkedBottomholes.map((bh) => (
-              <li key={bh.id} className="object-detail-panel__list-item">
-                {bottomholeLabel(bh)} — {bh.name}
+              <li key={bh.id}>
+                <span className="odp-traj-chip">
+                  <span className="odp-traj-chip__label">{bottomholeLabel(bh)}</span>
+                  <span className="odp-traj-chip__meta">{bh.name}</span>
+                </span>
               </li>
             ))}
           </ul>
-        </div>
+        </PanelSubsection>
       )}
 
-      {isLoading && <p className="object-detail-panel__hint text-xs">Загрузка…</p>}
-
       {trajectories.length > 0 && (
-        <div className="object-detail-panel__subsection">
-          <FieldLabel>Скважины ({trajectories.length})</FieldLabel>
-          <ul className="object-detail-panel__list text-xs">
+        <PanelSubsection title={`Скважины (${trajectories.length})`}>
+          <ul className="odp-traj-well-list" aria-label="Скважины куста">
             {trajectories.map((well) => {
               const hasTarget = Boolean(well.target?.tvd_m);
               const stationCount = well.survey?.stations?.length ?? 0;
-              const linked = bottomholesByWell.get(well.well_index) ?? [];
+              const designed = stationCount >= 2;
               const minSf = well.clearance?.min_sf;
               return (
-                <li key={well.well_index} className="object-detail-panel__list-item">
-                  <span>
-                    {wellLabel(well)}
-                    {hasTarget ? ' · забой задан' : ' · забой не задан'}
-                    {linked.length > 0
-                      ? ` · ${linked.map((o) => bottomholeLabel(o)).join(', ')}`
-                      : ' · нет объекта на карте'}
-                    {stationCount > 1 ? ` · ${stationCount} ст.` : ''}
-                    {minSf != null && (
-                      <span className={minSf < sfThreshold ? ' text-amber-600' : ' text-green-700'}>
-                        {` · SF ${minSf.toFixed(2)}`}
+                <li key={well.well_index}>
+                  <div className="odp-traj-well-list__item">
+                    <span className="odp-traj-well-list__name">{wellLabel(well)}</span>
+                    <span
+                      className={`odp-traj-well-list__pill${
+                        hasTarget ? ' odp-traj-well-list__pill--ok' : ''
+                      }`}
+                    >
+                      {hasTarget ? 'забой' : 'нет забоя'}
+                    </span>
+                    {designed && (
+                      <span className="odp-traj-well-list__pill odp-traj-well-list__pill--ok">
+                        {stationCount} ст.
                       </span>
                     )}
-                  </span>
+                    {minSf != null && (
+                      <span
+                        className={`odp-traj-well-list__pill${
+                          minSf < sfThreshold ? ' odp-traj-well-list__pill--warn' : ' odp-traj-well-list__pill--ok'
+                        }`}
+                      >
+                        SF {minSf.toFixed(2)}
+                      </span>
+                    )}
+                  </div>
                 </li>
               );
             })}
           </ul>
-        </div>
+        </PanelSubsection>
       )}
 
       {clearancePairs.length > 0 && (
-        <div className="object-detail-panel__subsection">
-          <FieldLabel>Пары SF ({clearancePairs.length})</FieldLabel>
-          <table className="object-detail-panel__table text-xs">
-            <thead>
-              <tr>
-                <th>Скв. A</th>
-                <th>Скв. B</th>
-                <th>min SF</th>
-              </tr>
-            </thead>
-            <tbody>
-              {clearancePairs.map((pair, i) => (
-                <tr key={`${pair.well_a}-${pair.well_b}-${i}`}>
-                  <td>{pairWellLabel(pair, 'a', infraObject.id)}</td>
-                  <td>{pairWellLabel(pair, 'b', infraObject.id)}</td>
-                  <td className={pair.warning ? 'text-amber-600' : undefined}>
-                    {pair.min_sf.toFixed(2)}
-                  </td>
+        <PanelSubsection title={`Пары SF (${clearancePairs.length})`}>
+          <div className="odp-traj-table-wrap">
+            <table className="odp-traj-table">
+              <thead>
+                <tr>
+                  <th>Скв. A</th>
+                  <th>Скв. B</th>
+                  <th>мин. SF</th>
                 </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
+              </thead>
+              <tbody>
+                {clearancePairs.map((pair, i) => (
+                  <tr key={`${pair.well_a}-${pair.well_b}-${i}`}>
+                    <td>{pairWellLabel(pair, 'a', infraObject.id)}</td>
+                    <td>{pairWellLabel(pair, 'b', infraObject.id)}</td>
+                    <td>
+                      <span
+                        className={
+                          pair.warning ? 'odp-traj-sf odp-traj-sf--warn' : 'odp-traj-sf odp-traj-sf--ok'
+                        }
+                      >
+                        {pair.min_sf.toFixed(2)}
+                      </span>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </PanelSubsection>
       )}
 
-      {last?.clearance_computed_at && (
-        <p className="object-detail-panel__hint text-xs">
-          SF: {new Date(last.clearance_computed_at).toLocaleString()}
-        </p>
-      )}
-
-      {last?.computed_at && (
-        <p className="object-detail-panel__hint text-xs">
-          Последний пересчёт: {new Date(last.computed_at).toLocaleString()}
+      {(last?.computed_at || last?.clearance_computed_at) && (
+        <p className="object-detail-panel__meta">
+          {last?.computed_at && (
+            <span>Профиль: {new Date(last.computed_at).toLocaleString()}</span>
+          )}
+          {last?.computed_at && last?.clearance_computed_at && ' · '}
+          {last?.clearance_computed_at && (
+            <span>SF: {new Date(last.clearance_computed_at).toLocaleString()}</span>
+          )}
         </p>
       )}
     </PanelSection>

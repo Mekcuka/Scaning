@@ -191,6 +191,9 @@ async def snap_line_endpoints_to_point_objects(
     snap_object_cache: dict[UUID, InfrastructureObject] | None = None,
 ) -> tuple[float, float, float | None, float | None, list[list[float]] | None]:
     """Validate exact coords then return coordinates equal to attached point objects."""
+    if line_subtype.lower().strip() == "well_bottomhole_gs":
+        return lon, lat, end_lon, end_lat, coordinates
+
     candidates = _filter_autoroad_snap_candidates(
         line_subtype,
         await _point_candidates(db, project_id=project_id, exclude_object_id=exclude_object_id),
@@ -259,6 +262,8 @@ async def validate_line_endpoint_matrix(
 ) -> None:
     """Ensure both line ends match a point infrastructure object's coordinates exactly."""
     subtype = line_subtype.lower().strip()
+    if subtype == "well_bottomhole_gs":
+        return
     if subtype not in LINE_SUBTYPES:
         return
 

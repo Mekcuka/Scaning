@@ -37,4 +37,9 @@ describe('sectionNavMemory', () => {
     rememberSectionFromPath('/flows/logistics');
     expect(getSavedSectionPath('flows')).toBe('/flows/logistics');
   });
+
+  it('remembers data export sub-route', () => {
+    rememberSectionFromPath('/data/export');
+    expect(getLastSectionPath('data')).toBe('/data/export');
+  });
 });

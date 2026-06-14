@@ -3,6 +3,7 @@ import { countDesignedTrajectories } from '../../lib/padClusteringWorkflow';
 import type { ClearancePair, WellTrajectory } from '../../lib/api/wellTrajectoryApi';
 import type { usePadClusteringEditor } from '../../hooks/usePadClusteringEditor';
 import { PadClusteringCollapsibleSection } from './PadClusteringCollapsibleSection';
+import { translateWellTrajectoryUserMessage } from '../../lib/wellTrajectoryUserMessages';
 
 type Editor = ReturnType<typeof usePadClusteringEditor>;
 
@@ -89,7 +90,7 @@ export function PadClusteringTrajectorySection({
           {designedCount > 0 ? `${designedCount} постр.` : 'не рассчитано'}
         </span>
       }
-      hint="Заготовки из раскладки → забои на карте → расчёт профиля → SF."
+      hint="Заготовки из раскладки → забои на карте → расчёт профиля → антиколлизия (SF)."
       defaultOpen
     >
       <ol className="pad-clustering-steps">
@@ -130,8 +131,10 @@ export function PadClusteringTrajectorySection({
         <li className={designedCount > 0 ? 'pad-clustering-steps__item--done' : ''}>
           <span className="pad-clustering-steps__num">3</span>
           <div>
-            <strong>Расчёт до TD</strong>
-            <p className="pad-clustering-steps__hint">Шаг survey и welleng — вкладка «Расчёт».</p>
+            <strong>Расчёт до забоя</strong>
+            <p className="pad-clustering-steps__hint">
+              Шаг инклинометрии и модель погрешностей — вкладка «Расчёт».
+            </p>
           </div>
           <button
             type="button"
@@ -149,7 +152,7 @@ export function PadClusteringTrajectorySection({
         <li className={clearancePairs.length > 0 ? 'pad-clustering-steps__item--done' : ''}>
           <span className="pad-clustering-steps__num">4</span>
           <div>
-            <strong>Anti-collision (SF)</strong>
+            <strong>Антиколлизия (SF)</strong>
             <p className="pad-clustering-steps__hint">
               {clearanceReady
                 ? `Порог SF: ${sfThreshold}`
@@ -170,14 +173,16 @@ export function PadClusteringTrajectorySection({
       {warnings.length > 0 && (
         <ul className="pad-clustering-warnings">
           {warnings.map((w) => (
-            <li key={w}>{w}</li>
+            <li key={w}>{translateWellTrajectoryUserMessage(w)}</li>
           ))}
         </ul>
       )}
 
       {error && (
         <p className="pad-clustering-section__error">
-          {error instanceof Error ? error.message : 'Ошибка операции'}
+          {translateWellTrajectoryUserMessage(
+            error instanceof Error ? error.message : 'Ошибка операции',
+          )}
         </p>
       )}
 
@@ -222,7 +227,7 @@ export function PadClusteringTrajectorySection({
                     hasTarget ? ' pad-clustering-well-list__pill--ok' : ''
                   }`}
                 >
-                  {hasTarget ? 'забой' : 'нет TD'}
+                  {hasTarget ? 'забой' : 'нет забоя'}
                 </span>
                 {designed && (
                   <span className="pad-clustering-well-list__pill pad-clustering-well-list__pill--ok">
@@ -253,7 +258,7 @@ export function PadClusteringTrajectorySection({
               <tr>
                 <th>Скв. A</th>
                 <th>Скв. B</th>
-                <th>min SF</th>
+                <th>мин. SF</th>
               </tr>
             </thead>
             <tbody>
@@ -272,7 +277,7 @@ export function PadClusteringTrajectorySection({
           </table>
           {clearanceComputedAt && (
             <p className="pad-clustering-steps__hint">
-              SF: {new Date(clearanceComputedAt).toLocaleString()}
+              Антиколлизия (SF): {new Date(clearanceComputedAt).toLocaleString()}
             </p>
           )}
         </div>

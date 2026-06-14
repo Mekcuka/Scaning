@@ -5,6 +5,7 @@ import { useBottomholeDraw } from './useBottomholeDraw';
 describe('useBottomholeDraw', () => {
   it('creates NNB on single click', async () => {
     const placeBottomholeAt = vi.fn().mockResolvedValue({ id: 'bh-1', name: 'BH-1' });
+    const placeGsBottomholeAt = vi.fn();
     const pushToast = vi.fn();
     const { result } = renderHook(() =>
       useBottomholeDraw({
@@ -21,6 +22,7 @@ describe('useBottomholeDraw', () => {
         canWriteInfra: true,
         nextAutoName: () => 'BH-1',
         placeBottomholeAt,
+        placeGsBottomholeAt,
         pushToast,
       }),
     );
@@ -37,11 +39,9 @@ describe('useBottomholeDraw', () => {
     );
   });
 
-  it('requires two clicks for GS (heel then toe)', async () => {
-    const placeBottomholeAt = vi
-      .fn()
-      .mockResolvedValueOnce({ id: 'heel-1', name: 'Heel' })
-      .mockResolvedValueOnce({ id: 'toe-1', name: 'Toe' });
+  it('requires two clicks for GS (heel draft then single line create)', async () => {
+    const placeBottomholeAt = vi.fn();
+    const placeGsBottomholeAt = vi.fn().mockResolvedValue({ id: 'gs-1', name: 'GS-1' });
     const pushToast = vi.fn();
     const { result } = renderHook(() =>
       useBottomholeDraw({
@@ -58,6 +58,7 @@ describe('useBottomholeDraw', () => {
         canWriteInfra: true,
         nextAutoName: (st) => st,
         placeBottomholeAt,
+        placeGsBottomholeAt,
         pushToast,
       }),
     );
@@ -65,18 +66,29 @@ describe('useBottomholeDraw', () => {
     await act(async () => {
       await result.current.handleMapClickForBottomholeDraw(37.621, 55.761);
     });
-    expect(placeBottomholeAt).toHaveBeenCalledTimes(1);
-    expect(result.current.gsHeelDraft?.id).toBe('heel-1');
+    expect(placeGsBottomholeAt).not.toHaveBeenCalled();
+    expect(result.current.gsHeelDraft).toEqual({
+      lon: 37.621,
+      lat: 55.761,
+      linkedPadId: 'pad-1',
+    });
 
     await act(async () => {
       await result.current.handleMapClickForBottomholeDraw(37.622, 55.761);
     });
-    expect(placeBottomholeAt).toHaveBeenCalledTimes(2);
+    expect(placeGsBottomholeAt).toHaveBeenCalledWith(
+      37.621,
+      55.761,
+      37.622,
+      55.761,
+      expect.objectContaining({ well_bottomhole_linked_pad_id: 'pad-1' }),
+    );
     expect(result.current.gsHeelDraft).toBeNull();
   });
 
   it('creates NNB without pad when none on map', async () => {
     const placeBottomholeAt = vi.fn().mockResolvedValue({ id: 'bh-1', name: 'BH-1' });
+    const placeGsBottomholeAt = vi.fn();
     const pushToast = vi.fn();
     const { result } = renderHook(() =>
       useBottomholeDraw({
@@ -86,6 +98,7 @@ describe('useBottomholeDraw', () => {
         canWriteInfra: true,
         nextAutoName: () => 'BH-1',
         placeBottomholeAt,
+        placeGsBottomholeAt,
         pushToast,
       }),
     );

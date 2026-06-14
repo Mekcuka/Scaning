@@ -1,6 +1,9 @@
 import { request } from './client';
 import type { ProjectJobCreateResponse } from './jobs';
 
+/** Welleng design for many GS wells can exceed the default 12s API timeout. */
+const WELL_TRAJECTORY_TIMEOUT_MS = 120_000;
+
 export type WellTrajectoryStation = {
   md?: number;
   tvd?: number;
@@ -65,6 +68,7 @@ export type WellTrajectoryLastResponse = {
     step_m?: number;
     stub_tvd_m?: number;
     inc_heel?: number;
+    gs_entry_search_step_m?: number;
   };
   warnings: string[];
 };
@@ -107,7 +111,7 @@ export const wellTrajectoryApi = {
   generateFromLayout: (projectId: string, objectId: string) =>
     request<{ trajectories: WellTrajectory[]; computed_at?: string | null }>(
       `/projects/${projectId}/infrastructure/objects/${objectId}/well-trajectory/generate-from-layout`,
-      { method: 'POST' },
+      { method: 'POST', timeoutMs: WELL_TRAJECTORY_TIMEOUT_MS },
     ),
 
   patchTargets: (
@@ -123,13 +127,13 @@ export const wellTrajectoryApi = {
   designAll: (projectId: string, objectId: string, body?: { step_m?: number; well_indices?: number[] }) =>
     request<{ designed: number[]; skipped: number[]; trajectories: WellTrajectory[] }>(
       `/projects/${projectId}/infrastructure/objects/${objectId}/well-trajectory/design-all`,
-      { method: 'POST', body: JSON.stringify(body ?? {}) },
+      { method: 'POST', body: JSON.stringify(body ?? {}), timeoutMs: WELL_TRAJECTORY_TIMEOUT_MS },
     ),
 
   syncBottomholes: (projectId: string, padObjectId: string) =>
     request<{ trajectories: WellTrajectory[]; warnings: string[] }>(
       `/projects/${projectId}/infrastructure/objects/${padObjectId}/well-trajectory/sync-bottomholes`,
-      { method: 'POST' },
+      { method: 'POST', timeoutMs: WELL_TRAJECTORY_TIMEOUT_MS },
     ),
 
   designFromBottomholes: (
@@ -144,25 +148,29 @@ export const wellTrajectoryApi = {
       warnings: string[];
     }>(
       `/projects/${projectId}/infrastructure/objects/${padObjectId}/well-trajectory/design-from-bottomholes`,
-      { method: 'POST', body: JSON.stringify(body ?? {}) },
+      {
+        method: 'POST',
+        body: JSON.stringify(body ?? {}),
+        timeoutMs: WELL_TRAJECTORY_TIMEOUT_MS,
+      },
     ),
 
   compute: (projectId: string, objectId: string) =>
     request<{ trajectories: WellTrajectory[]; computed_at: string }>(
       `/projects/${projectId}/infrastructure/objects/${objectId}/well-trajectory/compute`,
-      { method: 'POST' },
+      { method: 'POST', timeoutMs: WELL_TRAJECTORY_TIMEOUT_MS },
     ),
 
   runProjectClearance: (projectId: string) =>
     request<WellTrajectoryClearanceResponse | ProjectJobCreateResponse>(
       `/projects/${projectId}/well-trajectory/clearance`,
-      { method: 'POST' },
+      { method: 'POST', timeoutMs: WELL_TRAJECTORY_TIMEOUT_MS },
     ),
 
   runPadClearance: (projectId: string, padId: string) =>
     request<WellTrajectoryClearanceResponse | ProjectJobCreateResponse>(
       `/projects/${projectId}/infrastructure/objects/${padId}/well-trajectory/clearance`,
-      { method: 'POST' },
+      { method: 'POST', timeoutMs: WELL_TRAJECTORY_TIMEOUT_MS },
     ),
 
   previewSurveyImport: (projectId: string, padId: string, file: File, format: 'csv' | 'wbp') => {

@@ -19,6 +19,7 @@ type Props = {
     unknown
   >;
   syncConnMut: UseMutationResult<{ imported: number }, Error, string, unknown>;
+  embedded?: boolean;
 };
 
 export function ImportConnectionsSection({
@@ -32,13 +33,10 @@ export function ImportConnectionsSection({
   saveConnMut,
   testConnMut,
   syncConnMut,
+  embedded = false,
 }: Props) {
-  return (
-    <div className="card">
-      <div className="flex items-center gap-2 mb-4">
-        <LinkIcon size={18} />
-        <h2 className="font-semibold">Подключение API</h2>
-      </div>
+  const fields = (
+    <>
       <div className="form-group">
         <label>Название</label>
         <input
@@ -93,32 +91,50 @@ export function ImportConnectionsSection({
           />
         </div>
       )}
-      <div className="flex flex-wrap gap-2 mt-2">
-        <button
-          type="button"
-          className="btn btn-primary text-sm"
-          disabled={!projectId || readOnly}
-          onClick={() => saveConnMut.mutate()}
-        >
-          Сохранить
-        </button>
-        <button
-          type="button"
-          className="btn btn-secondary text-sm"
-          disabled={!projectId || !selectedConnId || readOnly}
-          onClick={() => selectedConnId && testConnMut.mutate(selectedConnId)}
-        >
-          Тест
-        </button>
-        <button
-          type="button"
-          className="btn btn-secondary text-sm"
-          disabled={!projectId || !selectedConnId || readOnly}
-          onClick={() => selectedConnId && syncConnMut.mutate(selectedConnId)}
-        >
-          Синхронизировать
-        </button>
+    </>
+  );
+
+  const actions = (
+    <>
+      <button
+        type="button"
+        className="btn btn-primary text-sm export-option__btn"
+        disabled={!projectId || readOnly}
+        onClick={() => saveConnMut.mutate()}
+      >
+        Сохранить
+      </button>
+      <button
+        type="button"
+        className="btn btn-secondary text-sm export-option__btn"
+        disabled={!projectId || !selectedConnId || readOnly}
+        onClick={() => selectedConnId && testConnMut.mutate(selectedConnId)}
+      >
+        Тест
+      </button>
+      <button
+        type="button"
+        className="btn btn-secondary text-sm export-option__btn export-option__btn--wide"
+        disabled={!projectId || !selectedConnId || readOnly}
+        onClick={() => selectedConnId && syncConnMut.mutate(selectedConnId)}
+      >
+        Синхронизировать
+      </button>
+    </>
+  );
+
+  if (embedded) {
+    return fields;
+  }
+
+  return (
+    <div className="card">
+      <div className="flex items-center gap-2 mb-4">
+        <LinkIcon size={18} />
+        <h2 className="font-semibold">Подключение API</h2>
       </div>
+      {fields}
+      <div className="flex flex-wrap gap-2 mt-2">{actions}</div>
     </div>
   );
 }

@@ -61,9 +61,9 @@ def count_valid_clearance_wells(pads: list[InfrastructureObject]) -> int:
 
 def _validate_collection(collection: ClearanceCollection) -> None:
     if len(collection.surveys) < 2:
-        detail = "Need at least 2 wells with survey ≥ 2 stations for clearance"
+        detail = "Для расчёта SF нужны минимум 2 скважины с инклинометрией (≥ 2 станций)"
         if collection.skips:
-            detail += f"; skipped: {'; '.join(collection.skips[:8])}"
+            detail += f"; пропущено: {'; '.join(collection.skips[:8])}"
         raise HTTPException(status_code=400, detail=detail)
 
 
@@ -176,7 +176,7 @@ def _run_clearance(
 ) -> WellTrajectoryClearanceResponse:
     _validate_collection(collection)
     if not pair_indices:
-        raise HTTPException(status_code=400, detail="No clearance pairs to compute")
+        raise HTTPException(status_code=400, detail="Нет пар для расчёта антиколлизии")
 
     schemas = planner_schemas()
     surveys = [schemas.ClearanceSurveyIn.model_validate(s) for s in collection.surveys]
@@ -227,7 +227,7 @@ async def run_clearance_for_pad(
     pads = await fetch_project_pads(db, project_id)
     pad = next((p for p in pads if p.id == pad_id), None)
     if pad is None:
-        raise HTTPException(status_code=404, detail="Pad not found")
+        raise HTTPException(status_code=404, detail="Куст не найден")
     eff_threshold = threshold if threshold is not None else well_trajectory_settings_for_pad(pad).sf_warning_threshold
     collection = collect_project_wells_for_clearance(pads, pad_filter=pad_id)
     pair_indices = intra_pad_pair_indices(collection.meta)

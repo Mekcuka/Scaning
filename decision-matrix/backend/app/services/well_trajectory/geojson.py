@@ -250,14 +250,16 @@ def collect_trajectory_warnings(obj: InfrastructureObject) -> list[str]:
         well_count = len(wells_local)
     if wells_local and well_count != len(wells_local):
         warnings.append(
-            f"pad_well_count ({well_count}) != len(pad_wells_local_json) ({len(wells_local)})"
+            f"Число скважин на кусте ({well_count}) не совпадает с раскладкой устьев ({len(wells_local)})"
         )
     trajectories = read_trajectories_json(props)
     missing_target = sum(
         1 for w in trajectories if not isinstance(w.get("target"), dict) or not w.get("target")
     )
     if trajectories and missing_target:
-        warnings.append(f"{missing_target} of {len(trajectories)} wells have no bottomhole target")
+        warnings.append(
+            f"{missing_target} из {len(trajectories)} скважин без цели (забоя)"
+        )
     settings = well_trajectory_settings_for_pad(obj)
     threshold = settings.sf_warning_threshold
     designed = [
@@ -268,7 +270,9 @@ def collect_trajectory_warnings(obj: InfrastructureObject) -> list[str]:
         and len((w.get("survey") or {}).get("stations") or []) >= 2
     ]
     if designed and not read_clearance_computed_at(props):
-        warnings.append("Anti-collision (SF) not computed; run clearance after design")
+        warnings.append(
+            "Антиколлизия (SF) не рассчитана; выполните «Рассчитать SF» после проектирования"
+        )
     for well in trajectories:
         if not isinstance(well, dict):
             continue
@@ -282,5 +286,5 @@ def collect_trajectory_warnings(obj: InfrastructureObject) -> list[str]:
         if min_sf < threshold:
             idx = well.get("well_index", 0)
             name = well.get("name") or f"Скв-{int(idx) + 1}"
-            warnings.append(f"{name}: min SF {min_sf:.2f} < {threshold}")
+            warnings.append(f"{name}: мин. SF {min_sf:.2f} < порога {threshold}")
     return warnings

@@ -1,3 +1,5 @@
+import { stripProjectPrefix } from '../projectRoutes';
+
 export const TOOL_LABELS_RU: Record<string, string> = {
   get_me: 'Текущий пользователь',
   get_assistant_status: 'Статус AI-помощника',
@@ -108,12 +110,15 @@ const TAB_HELP_CHIPS: { prefix: string; label: string; message: string }[] = [
 
 const CONTEXTUAL_CHIPS: ContextualChip[] = [
   ...TAB_HELP_CHIPS.map(({ prefix, label, message }) => ({
-    match: ({ pathname }: QuickCommandContext) =>
-      pathname === prefix || (prefix.endsWith('/') && pathname.startsWith(prefix)),
+    match: ({ pathname }: QuickCommandContext) => {
+      const path = stripProjectPrefix(pathname);
+      return path === prefix || (prefix.endsWith('/') && path.startsWith(prefix));
+    },
     chip: { label, message },
   })),
   {
-    match: ({ pathname, hasProject }) => pathname === '/map' && hasProject,
+    match: ({ pathname, hasProject }) =>
+      stripProjectPrefix(pathname) === '/map' && hasProject,
     chip: {
       label: 'Объекты на карте',
       message: 'Покажи объекты инфраструктуры на карте текущего проекта',
@@ -121,7 +126,8 @@ const CONTEXTUAL_CHIPS: ContextualChip[] = [
     },
   },
   {
-    match: ({ pathname, hasProject }) => pathname === '/matrix' && hasProject,
+    match: ({ pathname, hasProject }) =>
+      stripProjectPrefix(pathname) === '/matrix' && hasProject,
     chip: {
       label: 'Матрица',
       message: 'Кратко опиши матрицу решений текущего проекта',
@@ -129,7 +135,8 @@ const CONTEXTUAL_CHIPS: ContextualChip[] = [
     },
   },
   {
-    match: ({ pathname, hasProject }) => pathname.startsWith('/flows/') && hasProject,
+    match: ({ pathname, hasProject }) =>
+      stripProjectPrefix(pathname).startsWith('/flows/') && hasProject,
     chip: {
       label: 'Схема потоков',
       message: 'Покажи схему потоков для текущего POI',

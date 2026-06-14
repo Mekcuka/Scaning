@@ -32,6 +32,8 @@ export type InfraDirtyDraft = {
   layerId: string;
   lon: string;
   lat: string;
+  endLon: string;
+  endLat: string;
   sandInitialM3: string;
   sandCurrentM3: string;
   sandDemandM3: string;
@@ -131,6 +133,10 @@ export function computeInfraIsDirty(
   const bottomholeDirty = Object.entries(draft.bottomholePropsPatch).some(
     ([key, value]) => (infraObject.properties?.[key] ?? undefined) !== value,
   );
+  const gsEndDirty =
+    infraObject.subtype === 'well_bottomhole_gs' &&
+    (draft.endLon !== (infraObject.end_lon != null ? formatCoord(infraObject.end_lon) : '') ||
+      draft.endLat !== (infraObject.end_lat != null ? formatCoord(infraObject.end_lat) : ''));
   return (
     draft.name !== infraObject.name ||
     draft.description !== origDesc ||
@@ -144,7 +150,8 @@ export function computeInfraIsDirty(
     padWellDirty ||
     r3Dirty ||
     attachDirty ||
-    bottomholeDirty
+    bottomholeDirty ||
+    gsEndDirty
   );
 }
 
@@ -181,7 +188,10 @@ export function computeInfraTabDirty(
       )) ||
     Object.entries(draft.bottomholePropsPatch).some(
       ([key, value]) => (infraObject.properties?.[key] ?? undefined) !== value,
-    );
+    ) ||
+    (infraObject.subtype === 'well_bottomhole_gs' &&
+      (draft.endLon !== (infraObject.end_lon != null ? formatCoord(infraObject.end_lon) : '') ||
+        draft.endLat !== (infraObject.end_lat != null ? formatCoord(infraObject.end_lat) : '')));
 
   switch (tab) {
     case 'main':

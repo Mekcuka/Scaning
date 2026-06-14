@@ -10,6 +10,7 @@ from app.services.cost_rates import (
     EXTERNAL_POINT_SUBTYPES,
 )
 from app.subtype_manifest import (
+    BOTTOMHOLE_CLUSTER_SUBTYPES,
     EARTHWORK_SUBTYPES,
     EXCLUSIVE_POINT_SUBTYPES,
     FACILITY_POINT_SUBTYPES,
@@ -59,12 +60,15 @@ def test_manifest_point_map_matches_geo_point_subtypes():
     assert set(geo_constants.POINT_SUBTYPES) == set(raw["point"]["map"])
 
 
-def test_earthwork_subtypes_exclude_node_only():
-    assert EARTHWORK_SUBTYPES == frozenset(POINT_MAP_SUBTYPES) - frozenset({"node"})
+def test_earthwork_subtypes_exclude_node_and_bottomholes():
+    assert EARTHWORK_SUBTYPES == frozenset(POINT_MAP_SUBTYPES) - frozenset({"node"}) - BOTTOMHOLE_CLUSTER_SUBTYPES
     assert "oil_pad" in EARTHWORK_SUBTYPES
     assert "substation" in EARTHWORK_SUBTYPES
     assert "sand_quarry" in EARTHWORK_SUBTYPES
     assert "node" not in EARTHWORK_SUBTYPES
+    assert "well_bottomhole_nnb" not in EARTHWORK_SUBTYPES
+    assert "well_bottomhole_gs_heel" not in EARTHWORK_SUBTYPES
+    assert "well_bottomhole_gs_toe" not in EARTHWORK_SUBTYPES
 
 
 def test_manifest_clusters_match_geo_constants():

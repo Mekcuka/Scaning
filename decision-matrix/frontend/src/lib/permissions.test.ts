@@ -48,5 +48,8 @@ describe('permissions', () => {
     ).toBe(true);
     expect(canSeeNav('admin', '/admin')).toBe(true);
     expect(canSeeNav('viewer', '/admin')).toBe(false);
+    expect(canSeeNav('viewer', '/data')).toBe(true);
+    expect(canSeeNav('viewer', '/data/import')).toBe(false);
+    expect(canSeeNav('viewer', '/data/export')).toBe(true);
   });
 });

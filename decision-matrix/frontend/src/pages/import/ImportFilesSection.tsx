@@ -19,6 +19,7 @@ type Props = {
   preview: Preview | null;
   previewRejected: ImportPreviewRejectedRow[];
   onFile: (file: File | null, commit?: boolean) => Promise<void>;
+  embedded?: boolean;
 };
 
 export function ImportFilesSection({
@@ -30,14 +31,11 @@ export function ImportFilesSection({
   preview,
   previewRejected,
   onFile,
+  embedded = false,
 }: Props) {
-  return (
-    <div className="card">
-      <div className="flex items-center gap-2 mb-4">
-        <Upload size={18} />
-        <h2 className="font-semibold">Импорт файлов</h2>
-      </div>
-      <label className="flex items-center gap-2 text-sm mb-3">
+  const content = (
+    <>
+      <label className="import-option__checkbox">
         <input
           type="checkbox"
           checked={useAsync}
@@ -49,18 +47,15 @@ export function ImportFilesSection({
       <div
         role="button"
         tabIndex={readOnly ? -1 : 0}
-        className={`border-2 border-dashed rounded-xl p-8 text-center transition-colors ${
-          busy || readOnly ? 'opacity-50 pointer-events-none' : 'cursor-pointer hover:border-blue-400'
-        }`}
-        style={{ borderColor: 'var(--border)' }}
-        onClick={() => !busy && fileInputRef.current?.click()}
-        onKeyDown={(e) => e.key === 'Enter' && !busy && fileInputRef.current?.click()}
+        className={`import-dropzone${busy || readOnly ? ' import-dropzone--disabled' : ''}`}
+        onClick={() => !busy && !readOnly && fileInputRef.current?.click()}
+        onKeyDown={(e) => e.key === 'Enter' && !busy && !readOnly && fileInputRef.current?.click()}
       >
-        <Upload size={32} className="mx-auto mb-2 opacity-50" />
-        <p className="text-sm font-medium">
+        <Upload size={28} className="import-dropzone__icon" aria-hidden />
+        <p className="import-dropzone__title">
           {busy ? 'Импорт…' : 'Перетащите файл или нажмите для выбора'}
         </p>
-        <p className="text-xs mt-1" style={{ color: 'var(--text-muted)' }}>
+        <p className="import-dropzone__hint">
           CSV, GeoJSON, экспорт Искра (.json), KML/KMZ, ZIP (Shapefile)
         </p>
       </div>
@@ -72,42 +67,9 @@ export function ImportFilesSection({
         disabled={busy || readOnly}
         onChange={(e) => onFile(e.target.files?.[0] ?? null)}
       />
-      <div className="flex gap-2 mt-3">
-        <button
-          type="button"
-          className="btn btn-secondary text-sm flex-1"
-          disabled={busy || readOnly}
-          onClick={() => {
-            const f = fileInputRef.current?.files?.[0];
-            if (f) void onFile(f, false);
-          }}
-        >
-          Превью (dry-run)
-        </button>
-        <button
-          type="button"
-          className="btn btn-secondary text-sm"
-          onClick={() => {
-            const blob = new Blob([IMPORT_CSV_TEMPLATE], { type: 'text/csv;charset=utf-8;' });
-            const url = URL.createObjectURL(blob);
-            const link = document.createElement('a');
-            link.href = url;
-            link.download = 'import_template.csv';
-            document.body.appendChild(link);
-            link.click();
-            document.body.removeChild(link);
-            URL.revokeObjectURL(url);
-          }}
-        >
-          Скачать шаблон CSV
-        </button>
-      </div>
       {preview && (
-        <div
-          className="mt-3 text-xs border rounded-lg p-2 max-h-40 overflow-auto"
-          style={{ borderColor: 'var(--border)' }}
-        >
-          <div className="font-medium mb-1">
+        <div className="import-preview">
+          <div className="import-preview__title">
             Превью: {preview.records_total} строк
             {preview.errors.length > 0 && `, ошибок: ${preview.errors.length}`}
           </div>
@@ -147,12 +109,58 @@ export function ImportFilesSection({
           </table>
         </div>
       )}
-      <p className="text-xs mt-3" style={{ color: 'var(--text-muted)' }}>
-        CSV: `name`, `type|subtype`, `lat`, `lon` (точечные: ГКС/ГТЭС/ПС/НПЗ/Узел) или
-        `start_lat`, `start_lon`, `end_lat`, `end_lon` (линейные).
-        Для линий при импорте действует матрица допустимых связей (как на карте), ошибки пишутся в лог.
-        SHP: zip-архив с `.shp` (требуется `ogr2ogr` в PATH).
+      <p className="import-option__footnote">
+        CSV: `name`, `type|subtype`, `lat`, `lon` (точечные) или `start_lat`, `start_lon`, `end_lat`,
+        `end_lon` (линейные). SHP: zip с `.shp` (требуется `ogr2ogr` в PATH).
       </p>
+    </>
+  );
+
+  const actions = (
+    <>
+      <button
+        type="button"
+        className="btn btn-secondary text-sm export-option__btn"
+        disabled={busy || readOnly}
+        onClick={() => {
+          const f = fileInputRef.current?.files?.[0];
+          if (f) void onFile(f, false);
+        }}
+      >
+        Превью (dry-run)
+      </button>
+      <button
+        type="button"
+        className="btn btn-secondary text-sm export-option__btn"
+        onClick={() => {
+          const blob = new Blob([IMPORT_CSV_TEMPLATE], { type: 'text/csv;charset=utf-8;' });
+          const url = URL.createObjectURL(blob);
+          const link = document.createElement('a');
+          link.href = url;
+          link.download = 'import_template.csv';
+          document.body.appendChild(link);
+          link.click();
+          document.body.removeChild(link);
+          URL.revokeObjectURL(url);
+        }}
+      >
+        Шаблон CSV
+      </button>
+    </>
+  );
+
+  if (embedded) {
+    return content;
+  }
+
+  return (
+    <div className="card">
+      <div className="flex items-center gap-2 mb-4">
+        <Upload size={18} />
+        <h2 className="font-semibold">Импорт файлов</h2>
+      </div>
+      {content}
+      <div className="flex gap-2 mt-3">{actions}</div>
     </div>
   );
 }

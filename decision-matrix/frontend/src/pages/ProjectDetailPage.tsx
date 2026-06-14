@@ -1,4 +1,5 @@
 import { useParams, Link } from 'react-router-dom';
+import { projectPath } from '../lib/projectRoutes';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useState, useEffect } from 'react';
 import { Map, Table2, Coins, Upload, Zap, MapPin, Settings2, BarChart3 } from 'lucide-react';
@@ -12,6 +13,7 @@ import { analyzeAllPoisAndWait } from '../lib/runApiJob';
 import { useAppStore } from '../store';
 import { usePermissions } from '../hooks/usePermissions';
 import { useSyncAssistantUiContext } from '../lib/assistant/assistantContext';
+import { usePageHeader } from '../components/layout/pageHeaderContext';
 import { PoiParamsPanel } from '../components/PoiParamsPanel';
 import {
   AnalysisEnvironmentTable,
@@ -48,6 +50,7 @@ function poiSummaryLine(poi: POI): string {
 export function ProjectDetailPage() {
   const { canWriteProject, can } = usePermissions();
   const { id } = useParams<{ id: string }>();
+  const projectHref = (suffix: string) => projectPath(id ?? '', suffix);
   const queryClient = useQueryClient();
   const setCurrentProjectId = useAppStore((s) => s.setCurrentProjectId);
   const pushToast = useAppStore((s) => s.pushToast);
@@ -124,6 +127,14 @@ export function ProjectDetailPage() {
     pois.length > 1 ? `Анализ (${pois.length})` : 'Анализ';
   const analysisPending = analysisLoading || analysisFetching;
 
+  usePageHeader(
+    {
+      title: project?.name ?? 'Проект',
+      subtitle: project?.description?.trim() || null,
+    },
+    [project?.description, project?.name],
+  );
+
   if (pageLoading) {
     return (
       <div className="project-detail-page">
@@ -142,13 +153,7 @@ export function ProjectDetailPage() {
         <span className="project-detail-breadcrumb__current">{project?.name ?? '…'}</span>
       </nav>
 
-      <div className="page-toolbar">
-        <div className="page-title-block">
-          <h1 className="page-title">{project?.name}</h1>
-          {project?.description?.trim() ? (
-            <p className="page-subtitle">{project.description}</p>
-          ) : null}
-        </div>
+      <div className="page-toolbar page-toolbar--actions-only">
         <div className="page-toolbar-actions">
           {pois.length > 0 && canWriteProject && (
             <button
@@ -170,20 +175,20 @@ export function ProjectDetailPage() {
       </div>
 
       <nav className="project-detail-quick-nav" aria-label="Разделы проекта">
-        <Link to="/map" className="project-detail-quick-nav__link">
+        <Link to={projectHref('/map')} className="project-detail-quick-nav__link">
           <Map size={15} aria-hidden />
           Карта
         </Link>
-        <Link to="/matrix" className="project-detail-quick-nav__link">
+        <Link to={projectHref('/matrix')} className="project-detail-quick-nav__link">
           <Table2 size={15} aria-hidden />
           Матрица
         </Link>
-        <Link to="/parameters/rates" className="project-detail-quick-nav__link">
+        <Link to={projectHref('/parameters/rates')} className="project-detail-quick-nav__link">
           <Coins size={15} aria-hidden />
           Ставки
         </Link>
         {can('write_infra') && (
-          <Link to="/import" className="project-detail-quick-nav__link">
+          <Link to={projectHref('/data/import')} className="project-detail-quick-nav__link">
             <Upload size={15} aria-hidden />
             Импорт
           </Link>
@@ -199,7 +204,7 @@ export function ProjectDetailPage() {
           {pois.length === 0 ? (
             <div className="project-detail-empty">
               <p>Нет точек интереса в этом проекте.</p>
-              <Link to="/map" className="btn btn-secondary btn-sm">
+              <Link to={projectHref('/map')} className="btn btn-secondary btn-sm">
                 Добавить на карте
               </Link>
             </div>
@@ -267,7 +272,7 @@ export function ProjectDetailPage() {
                     </span>
                   </div>
                 </div>
-                <Link to="/map" className="btn btn-secondary btn-sm project-detail-panel__map-link">
+                <Link to={projectHref('/map')} className="btn btn-secondary btn-sm project-detail-panel__map-link">
                   <MapPin size={14} aria-hidden />
                   На карте
                 </Link>
@@ -323,7 +328,7 @@ export function ProjectDetailPage() {
                       embedded
                       hidePoiSelector
                       sections={['basic', 'engineering']}
-                      footer={<Link to="/map">Пороги и нормы → на карте</Link>}
+                      footer={<Link to={projectHref('/map')}>Пороги и нормы → на карте</Link>}
                     />
                   </div>
                 )}

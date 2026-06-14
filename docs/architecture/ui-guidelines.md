@@ -48,11 +48,16 @@
 
 | Класс | Назначение |
 |-------|------------|
-| `.page-header` | Шапка раздела |
+| `.app-header-page` | Заголовок текущей страницы в **глобальной шапке** (`PageHeaderOutlet`) |
+| `.app-header-page__title` | H1 заголовок раздела |
+| `.app-header-page__subtitle` | Подзаголовок под title в шапке |
+| `.page-header` | Локальная шапка в теле страницы (legacy; новые экраны — `usePageHeader`) |
 | `.page-title` / `h1` в header | Заголовок |
 | `.subtitle` / `.page-subtitle` | Подзаголовок, lead-текст |
 
-Примеры: [`DashboardPage.tsx`](../../decision-matrix/frontend/src/pages/DashboardPage.tsx), [`Import3DPage.tsx`](../../decision-matrix/frontend/src/pages/Import3DPage.tsx).
+**Паттерн (июнь 2026):** страница вызывает `usePageHeader({ title, subtitle })`; статические маршруты — `resolvePageHeader(pathname)`. Действия (кнопки, переключатели режима) — **в контенте страницы**, не в `app-header`.
+
+Примеры: [`AppLayout.tsx`](../../decision-matrix/frontend/src/components/layout/AppLayout.tsx), [`ImportPage.tsx`](../../decision-matrix/frontend/src/pages/ImportPage.tsx), [`ExportPage.tsx`](../../decision-matrix/frontend/src/pages/ExportPage.tsx).
 
 ### Блоки контента
 
@@ -156,6 +161,7 @@
 | Кнопки, формы | `src/styles/components/` |
 | Модалка, flow overlays, toast | `src/styles/components/app-modal/` (см. `styles/README.md` § app-modal) |
 | Экран / фича | `src/styles/features/<feature>.css` |
+| Импорт / экспорт (карточки) | `export.css` — `.export-page`, `.export-grid`, `.export-option`, `.import-dropzone` |
 | Карта 2D/3D | `src/styles/features/map/` — по префиксу класса (см. [`styles/README.md`](../../decision-matrix/frontend/src/styles/README.md) § map) |
 | Глобальный responsive | `src/styles/responsive/` (порядок в `cascade-order.md`) |
 
@@ -204,7 +210,8 @@
 
 ## 10. Чеклист нового экрана
 
-- [ ] `page-header` + заголовок + при необходимости subtitle
+- [ ] Заголовок через `usePageHeader` (или статика в `resolvePageHeader`); subtitle при необходимости
+- [ ] Кнопки действий — в теле страницы (toolbar / card actions), не в `app-header`
 - [ ] Контент в `.card` или фичевой панели с тем же визуальным языком
 - [ ] Кнопки через `.btn-*`; формы через `.form-group` / `AppSelect`
 - [ ] Модалки через `AppModal`, не копипаста overlay

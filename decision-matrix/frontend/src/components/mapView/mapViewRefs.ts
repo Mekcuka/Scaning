@@ -52,6 +52,7 @@ export type MapViewRefs = {
   lineLayerRef: MutableRefObject<VectorLayer<VectorSource> | null>;
   basemapLayerRef: MutableRefObject<TileLayer | null>;
   hoveredIdRef: MutableRefObject<string | null>;
+  emphasisFeatureIdsRef: MutableRefObject<Set<string>>;
   onMapClickRef: MutableRefObject<MapViewProps['onMapClick']>;
   onPointerMoveRef: MutableRefObject<MapViewProps['onPointerMove']>;
   onPointerLeaveRef: MutableRefObject<MapViewProps['onPointerLeave']>;

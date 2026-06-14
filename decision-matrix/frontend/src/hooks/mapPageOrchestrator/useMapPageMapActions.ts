@@ -67,7 +67,7 @@ export function useMapPageMapActions(params: MapPageActionsParams) {
   const bottomholeDraw = useMapPageBottomholeDraw(params, {
 
     placeBottomholeAt: draw.placeBottomholeAt,
-
+    placeGsBottomholeAt: draw.placeGsBottomholeAt,
     nextAutoName: data.nextAutoName,
 
   });

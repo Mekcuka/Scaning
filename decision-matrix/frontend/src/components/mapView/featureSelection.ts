@@ -17,7 +17,10 @@ export function resolveFeatureSelection(f: Feature): MapFeatureSelection | null 
   const subtype = inner.get('subtype') as string;
   if (!id || subtype === 'draft') return null;
   if (kind === 'poi') return { kind: 'poi', id };
-  if (kind === 'infra') return { kind: 'infra', id };
+  if (kind === 'infra') {
+    const objectId = inner.get('infra_object_id') as string | undefined;
+    return { kind: 'infra', id: objectId ?? id };
+  }
   return null;
 }
 
@@ -101,8 +104,12 @@ export function findSelectableLayerFeature(
     if (!source) continue;
     const found = source.getFeatures().find((f) => {
       if (f.get('subtype') === 'draft' || f.get('subtype') === 'measure') return false;
-      if (f.get('id') === id) return true;
-      return expandLayerFeatures(f).some((inner) => inner.get('id') === id);
+      const infraObjectId = f.get('infra_object_id') as string | undefined;
+      if (f.get('id') === id || infraObjectId === id) return true;
+      return expandLayerFeatures(f).some((inner) => {
+        const innerInfraId = inner.get('infra_object_id') as string | undefined;
+        return inner.get('id') === id || innerInfraId === id;
+      });
     });
     if (found) return found;
   }

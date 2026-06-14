@@ -1,14 +1,16 @@
 # Экспорт данных проекта
 
 **Дата:** июнь 2026  
-**Маршрут:** `/export`  
-**Связанные документы:** [user-flows.md](../product/user-flows.md) §2.3, [import через GeoJSON](map-objects-and-spatial-calculations.md), [implementation-status.md](../planning/implementation-status.md)
+**Маршрут:** `/data/export` (legacy `/export` → редирект)  
+**Связанные документы:** [user-flows.md](../product/user-flows.md) §2.3, [project-import.md](project-import.md), [import через GeoJSON](map-objects-and-spatial-calculations.md), [implementation-status.md](../planning/implementation-status.md)
 
 ---
 
 ## 1. Назначение
 
 Страница **«Экспорт»** выгружает инфраструктуру **активного проекта** (объекты `infrastructure_objects`, не POI) в табличные форматы и GeoJSON для обмена с другими системами или повторного импорта.
+
+Раздел входит в группу **«Данные»** (`/data/*`) с подвкладками **Импорт**, **Экспорт**, **Импорт 3D** — layout как у «Параметры» (`DataLayout`).
 
 Реализация **клиентская**: данные запрашиваются через `GET /projects/{id}/infrastructure/objects`, файлы формируются в браузере (`frontend/src/lib/projectExport/`). Отдельного backend-маршрута `POST /api/export/geojson` нет.
 
@@ -20,7 +22,7 @@
 |-----|--------------|-----------------|
 | admin, analyst, data_manager, viewer | да | да |
 
-Настройка: `NAV_VISIBILITY['/export']` в `lib/permissions.ts`.
+Настройка: `NAV_VISIBILITY['/data/export']` в `lib/permissions.ts`.
 
 ---
 
@@ -33,7 +35,7 @@
 
 Отдельной сводки по проекту (статус, описание, POI, агрегированная статистика) **нет** — количества объектов показываются на карточках форматов ниже (см. §4).
 
-Выбор синхронизируется с **глобальным** `currentProjectId` (Zustand) — тот же контекст, что используют карта, матрица, журнал задач в шапке. **Селектора проекта в шапке приложения нет** (с июня 2026).
+Выбор синхронизируется с **глобальным** `currentProjectId` (Zustand) — тот же контекст, что используют карта, матрица, журнал задач в шапке. Заголовок страницы («Экспорт данных») — в **глобальной шапке** (`app-header` через `usePageHeader`). **Селектора проекта в шапке приложения нет** (с июня 2026).
 
 ---
 
@@ -83,6 +85,7 @@
 
 | Путь | Роль |
 |------|------|
+| `frontend/src/components/layout/DataLayout.tsx` | подвкладки Данные |
 | `frontend/src/pages/ExportPage.tsx` | UI страницы |
 | `frontend/src/pages/export/useExportPage.ts` | загрузка infra, обработчики |
 | `frontend/src/pages/export/ExportProjectPanel.tsx` | выбор проекта |

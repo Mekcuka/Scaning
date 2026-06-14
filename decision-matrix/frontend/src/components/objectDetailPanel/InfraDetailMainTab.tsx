@@ -1,9 +1,11 @@
 import { Copy, MapPin } from 'lucide-react';
-import type { InfraLayer } from '../../lib/api';
+import type { InfraLayer, InfraObject } from '../../lib/api';
 import { capacityUnitLabel, type InfraCapacityUnit } from '../../lib/infraCapacity';
 import { AppSelect } from '../AppSelect';
 import { DeferredNumberInput } from '../DeferredNumberInput';
 import { FieldLabel, PanelSection, ReadOnlyValue, StatChip } from './panelUi';
+import { InfraBottomholeGeometrySection } from './InfraBottomholeGeometrySection';
+import { InfraBottomholeDetailSection } from './InfraBottomholeDetailSection';
 
 interface InfraDetailMainTabProps {
   readOnly: boolean;
@@ -27,9 +29,29 @@ interface InfraDetailMainTabProps {
   throughputCapacity: { value: number | null; unit: InfraCapacityUnit; isStored: boolean } | null;
   showPadWellCountField: boolean;
   padWellCount: string;
+  padWellCountDerivedFromBottomholes?: boolean;
+  linkedBottomholesCount?: number;
   setPadWellCount: (value: string) => void;
   saving?: boolean;
   isLine: boolean;
+  isBottomhole?: boolean;
+  linkedBottomholePad?: InfraObject | null;
+  endLon?: string;
+  setEndLon?: (value: string) => void;
+  endLat?: string;
+  setEndLat?: (value: string) => void;
+  z?: string;
+  setZ?: (value: string) => void;
+  zHeel?: string;
+  setZHeel?: (value: string) => void;
+  zToe?: string;
+  setZToe?: (value: string) => void;
+  onBottomholePropsChange?: (patch: Record<string, unknown>) => void;
+  copyCoordinatesText?: (text: string) => Promise<void>;
+  bottomholeCopySources?: import('../../lib/wellBottomholeElevation').BottomholeCopySources;
+  bottomholeProjectId?: string | null;
+  bottomholeObject?: InfraObject | null;
+  bottomholePadOptions?: InfraObject[];
   lineLengthLabel: string | null;
   lineCoords: [number, number][] | null;
   lon: string;
@@ -70,9 +92,29 @@ export function InfraDetailMainTab({
   throughputCapacity,
   showPadWellCountField,
   padWellCount,
+  padWellCountDerivedFromBottomholes = false,
+  linkedBottomholesCount = 0,
   setPadWellCount,
   saving,
   isLine,
+  isBottomhole = false,
+  linkedBottomholePad = null,
+  endLon = '',
+  setEndLon = () => {},
+  endLat = '',
+  setEndLat = () => {},
+  z = '',
+  setZ = () => {},
+  zHeel = '',
+  setZHeel = () => {},
+  zToe = '',
+  setZToe = () => {},
+  onBottomholePropsChange = () => {},
+  copyCoordinatesText = async () => {},
+  bottomholeCopySources,
+  bottomholeProjectId = null,
+  bottomholeObject = null,
+  bottomholePadOptions = [],
   lineLengthLabel,
   lineCoords,
   lon,
@@ -225,7 +267,7 @@ export function InfraDetailMainTab({
                       className="input object-detail-panel__input"
                       placeholder="Не задано"
                       value={padWellCount}
-                      disabled={saving}
+                      disabled={saving || padWellCountDerivedFromBottomholes}
                       onCommit={(v) =>
                         setPadWellCount(v === '' ? '' : String(typeof v === 'number' ? v : Number(v)))
                       }
@@ -234,14 +276,21 @@ export function InfraDetailMainTab({
                 </div>
               )}
             </div>
-            {showThroughputCapacity && (
+            {(showThroughputCapacity ||
+              (showPadWellCountField && padWellCountDerivedFromBottomholes)) && (
               <div className="object-detail-panel__pair-grid-row object-detail-panel__pair-grid-row--hints">
                 {showEntryDateField && (
                   <p className="object-detail-panel__hint">{'\u00a0'}</p>
                 )}
-                <p className="object-detail-panel__hint">{capacityHint || '\u00a0'}</p>
+                {showThroughputCapacity && (
+                  <p className="object-detail-panel__hint">{capacityHint || '\u00a0'}</p>
+                )}
                 {showPadWellCountField && (
-                  <p className="object-detail-panel__hint">{'\u00a0'}</p>
+                  <p className="object-detail-panel__hint">
+                    {padWellCountDerivedFromBottomholes
+                      ? `По забоям на карте (${linkedBottomholesCount})`
+                      : '\u00a0'}
+                  </p>
                 )}
               </div>
             )}
@@ -249,56 +298,91 @@ export function InfraDetailMainTab({
         </PanelSection>
       )}
 
-      <PanelSection title={isLine ? 'Геометрия линии' : 'Координаты'} card>
-        {isLine && (lineLengthLabel || (lineCoords && lineCoords.length > 2)) && (
-          <div className="object-detail-panel__stats">
-            {lineLengthLabel && <StatChip>Длина: {lineLengthLabel}</StatChip>}
-            {lineCoords && lineCoords.length > 2 && (
-              <StatChip>Вершин: {lineCoords.length}</StatChip>
-            )}
+      {isBottomhole && bottomholeCopySources ? (
+        <InfraBottomholeGeometrySection
+          readOnly={readOnly}
+          subtype={subtype}
+          lon={lon}
+          setLon={setLon}
+          lat={lat}
+          setLat={setLat}
+          endLon={endLon}
+          setEndLon={setEndLon}
+          endLat={endLat}
+          setEndLat={setEndLat}
+          z={z}
+          setZ={setZ}
+          zHeel={zHeel}
+          setZHeel={setZHeel}
+          zToe={zToe}
+          setZToe={setZToe}
+          linkedPad={linkedBottomholePad}
+          copySources={bottomholeCopySources}
+          onBottomholePropsChange={onBottomholePropsChange}
+          onCopyCoordinates={copyCoordinatesText}
+        />
+      ) : isBottomhole ? null : (
+        <PanelSection title={isLine ? 'Геометрия линии' : 'Координаты'} card>
+          {isLine && (lineLengthLabel || (lineCoords && lineCoords.length > 2)) && (
+            <div className="object-detail-panel__stats">
+              {lineLengthLabel && <StatChip>Длина: {lineLengthLabel}</StatChip>}
+              {lineCoords && lineCoords.length > 2 && (
+                <StatChip>Вершин: {lineCoords.length}</StatChip>
+              )}
+            </div>
+          )}
+          <div className="object-detail-panel__coord-card">
+            <div className="object-detail-panel__coord-grid">
+              <label className="object-detail-panel__field">
+                <FieldLabel>{isLine ? 'Начало — долгота' : 'Долгота'}</FieldLabel>
+                <input
+                  className="input object-detail-panel__input object-detail-panel__input--mono"
+                  value={lon}
+                  inputMode="decimal"
+                  readOnly={readOnly}
+                  disabled={readOnly}
+                  onChange={(e) => setLon(e.target.value)}
+                />
+              </label>
+              <label className="object-detail-panel__field">
+                <FieldLabel>{isLine ? 'Начало — широта' : 'Широта'}</FieldLabel>
+                <input
+                  className="input object-detail-panel__input object-detail-panel__input--mono"
+                  value={lat}
+                  inputMode="decimal"
+                  readOnly={readOnly}
+                  disabled={readOnly}
+                  onChange={(e) => setLat(e.target.value)}
+                />
+              </label>
+            </div>
+            <button
+              type="button"
+              className="btn btn-secondary btn-sm object-detail-panel__copy-btn object-detail-panel__copy-btn--block"
+              onClick={() => void copyCoordinates()}
+            >
+              <Copy size={14} aria-hidden />
+              Копировать координаты
+            </button>
           </div>
-        )}
-        <div className="object-detail-panel__coord-card">
-          <div className="object-detail-panel__coord-grid">
-            <label className="object-detail-panel__field">
-              <FieldLabel>{isLine ? 'Начало — долгота' : 'Долгота'}</FieldLabel>
-              <input
-                className="input object-detail-panel__input object-detail-panel__input--mono"
-                value={lon}
-                inputMode="decimal"
-                readOnly={readOnly}
-                disabled={readOnly}
-                onChange={(e) => setLon(e.target.value)}
-              />
-            </label>
-            <label className="object-detail-panel__field">
-              <FieldLabel>{isLine ? 'Начало — широта' : 'Широта'}</FieldLabel>
-              <input
-                className="input object-detail-panel__input object-detail-panel__input--mono"
-                value={lat}
-                inputMode="decimal"
-                readOnly={readOnly}
-                disabled={readOnly}
-                onChange={(e) => setLat(e.target.value)}
-              />
-            </label>
-          </div>
-          <button
-            type="button"
-            className="btn btn-secondary btn-sm object-detail-panel__copy-btn object-detail-panel__copy-btn--block"
-            onClick={() => void copyCoordinates()}
-          >
-            <Copy size={14} aria-hidden />
-            Копировать координаты
-          </button>
-        </div>
-        {isLine && (
-          <p className="object-detail-panel__hint object-detail-panel__hint--with-icon">
-            <MapPin size={12} aria-hidden />
-            Конец и форму линии меняйте на карте в режиме редактирования.
-          </p>
-        )}
-      </PanelSection>
+          {isLine && (
+            <p className="object-detail-panel__hint object-detail-panel__hint--with-icon">
+              <MapPin size={12} aria-hidden />
+              Конец и форму линии меняйте на карте в режиме редактирования.
+            </p>
+          )}
+        </PanelSection>
+      )}
+
+      {isBottomhole && bottomholeProjectId && bottomholeObject && (
+        <InfraBottomholeDetailSection
+          projectId={bottomholeProjectId}
+          infraObject={bottomholeObject}
+          padOptions={bottomholePadOptions}
+          readOnly={readOnly}
+          onPropertiesChange={onBottomholePropsChange}
+        />
+      )}
 
       <PanelSection title="Описание" card>
         <label className="object-detail-panel__field">

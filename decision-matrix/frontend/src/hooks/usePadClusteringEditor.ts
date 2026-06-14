@@ -35,7 +35,7 @@ import {
   type PlanShapeSketch,
   type PlanVertex,
 } from '../lib/padEarthworkSketch';
-import { readBottomholeLinkedPadId, isBottomholeSubtype } from '../lib/wellBottomholeProperties';
+import { bottomholesLinkedToPad } from '../lib/wellBottomholeProperties';
 import { isPersistedLayoutStale, wellsLocalMatch } from '../lib/padClusteringLayoutSync';
 import { resolvePadClusteringSceneTrajectoryDisplay } from '../lib/padClusteringSceneTrajectories';
 import { maybeRegenerateTrajectoriesAfterLayoutChange } from '../lib/wellTrajectoryLayoutRegenerate';
@@ -87,12 +87,7 @@ export function usePadClusteringEditor(
   const pads = useMemo(() => filterPadObjects(infraObjects), [infraObjects]);
 
   const linkedBottomholes = useMemo(
-    () =>
-      padId
-        ? infraObjects.filter(
-            (o) => isBottomholeSubtype(o.subtype) && readBottomholeLinkedPadId(o.properties) === padId,
-          )
-        : [],
+    () => (padId ? bottomholesLinkedToPad(infraObjects, padId) : []),
     [infraObjects, padId],
   );
 
@@ -403,7 +398,6 @@ export function usePadClusteringEditor(
   const designFromBottomholesMut = useMutation({
     mutationFn: async () => {
       const step = parsePositive(activeCalcDraft.stepM) ?? DEFAULT_STEP_M;
-      await wellTrajectoryApi.syncBottomholes(projectId!, padId!);
       return wellTrajectoryApi.designFromBottomholes(projectId!, padId!, { step_m: step });
     },
     onSuccess: (data) => {

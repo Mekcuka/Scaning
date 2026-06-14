@@ -1,4 +1,5 @@
 import { Link } from 'react-router-dom';
+import { ProjectLink } from '../../components/ProjectLink';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { useCallback, useEffect, useMemo, useState, useTransition } from 'react';
 import { Network } from 'lucide-react';
@@ -205,9 +206,9 @@ export function FlowLogisticsPage() {
             Распределение объёмов песка по карьерам и потребителям внутри каждой связной подсети
             автодорог с карьером. Расчёт выполняется по годам внутри горизонта; срез на схеме можно
             менять без пересчёта. Задайте объёмы на{' '}
-            <Link to="/map" className="text-[var(--accent)] underline">
+            <ProjectLink to="/map" className="text-[var(--accent)] underline">
               карте
-            </Link>
+            </ProjectLink>
             , постройте сеть и нажмите расчёт.
           </p>
         </div>

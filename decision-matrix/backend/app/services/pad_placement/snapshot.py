@@ -125,5 +125,7 @@ def _to_snapshot(obj: InfrastructureObject) -> BottomholeSnapshot:
         name=obj.name or "",
         longitude=float(obj.longitude),
         latitude=float(obj.latitude),
+        end_longitude=float(obj.end_longitude) if obj.end_longitude is not None else None,
+        end_latitude=float(obj.end_latitude) if obj.end_latitude is not None else None,
         properties=dict(obj.properties or {}),
     )

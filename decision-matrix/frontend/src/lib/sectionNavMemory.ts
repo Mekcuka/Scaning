@@ -1,20 +1,24 @@
 /**
- * Remember last visited sub-route within main nav sections (Параметры / Потоки / Админ).
+ * Remember last visited sub-route within main nav sections (Параметры / Потоки / Данные / Админ).
  * Used so sidebar clicks return to the same sub-tab, not the section default.
  */
 
-export type NavSection = 'parameters' | 'flows' | 'admin';
+import { projectPath, stripProjectPrefix } from './projectRoutes';
+
+export type NavSection = 'parameters' | 'flows' | 'admin' | 'data';
 
 const SECTION_PREFIX: Record<NavSection, string> = {
   parameters: '/parameters',
   flows: '/flows',
   admin: '/admin',
+  data: '/data',
 };
 
 const SECTION_DEFAULT: Record<NavSection, string> = {
   parameters: '/parameters/capacity',
   flows: '/flows/technology',
   admin: '/admin/users',
+  data: '/data/export',
 };
 
 const ALLOWED_PATHS: Record<NavSection, readonly string[]> = {
@@ -28,6 +32,7 @@ const ALLOWED_PATHS: Record<NavSection, readonly string[]> = {
   ],
   flows: ['/flows/technology', '/flows/economic', '/flows/logistics'],
   admin: ['/admin/users', '/admin/jobs', '/admin/assistant'],
+  data: ['/data/import', '/data/export', '/data/import-3d'],
 };
 
 const STORAGE_KEY = 'dm-nav-last-section';
@@ -37,8 +42,9 @@ function storageKey(section: NavSection): string {
 }
 
 export function pathBelongsToSection(pathname: string, section: NavSection): boolean {
+  const logical = stripProjectPrefix(pathname);
   const prefix = SECTION_PREFIX[section];
-  return pathname === prefix || pathname.startsWith(`${prefix}/`);
+  return logical === prefix || logical.startsWith(`${prefix}/`);
 }
 
 function isAllowedSectionPath(pathname: string, section: NavSection): boolean {
@@ -47,12 +53,13 @@ function isAllowedSectionPath(pathname: string, section: NavSection): boolean {
 
 /** Persist sub-route when user navigates inside a section. */
 export function rememberSectionFromPath(pathname: string): void {
+  const logical = stripProjectPrefix(pathname);
   for (const section of Object.keys(SECTION_PREFIX) as NavSection[]) {
     const prefix = SECTION_PREFIX[section];
-    if (pathname !== prefix && pathBelongsToSection(pathname, section)) {
-      if (isAllowedSectionPath(pathname, section)) {
+    if (logical !== prefix && pathBelongsToSection(logical, section)) {
+      if (isAllowedSectionPath(logical, section)) {
         try {
-          sessionStorage.setItem(storageKey(section), pathname);
+          sessionStorage.setItem(storageKey(section), logical);
         } catch {
           /* sessionStorage unavailable */
         }
@@ -87,6 +94,18 @@ export function getSavedSectionPath(section: NavSection): string | null {
   return null;
 }
 
-export function navLinkTargetForSection(section: NavSection): string {
-  return getLastSectionPath(section);
+export function navLinkTargetForSection(section: NavSection, projectId?: string | null): string {
+  const logical = getLastSectionPath(section);
+  if (!projectId) return logical;
+  return projectPath(projectId, logical);
+}
+
+/** Sub-route relative to section parent (capacity, import, technology, …). */
+export function sectionRelativePath(section: NavSection): string {
+  const full = getLastSectionPath(section);
+  const prefix = SECTION_PREFIX[section];
+  if (full.startsWith(`${prefix}/`)) {
+    return full.slice(prefix.length + 1);
+  }
+  return SECTION_DEFAULT[section].slice(prefix.length + 1);
 }

@@ -45,4 +45,14 @@ describe('padFootprintGeo', () => {
     const obj = makeInfraPoint({ subtype: 'node' });
     expect(resolveFootprintLonLat(obj)).toBeNull();
   });
+
+  it('resolveFootprintLonLat returns null for well bottomholes', () => {
+    for (const subtype of [
+      'well_bottomhole_nnb',
+      'well_bottomhole_gs_heel',
+      'well_bottomhole_gs_toe',
+    ] as const) {
+      expect(resolveFootprintLonLat(makeInfraPoint({ subtype }))).toBeNull();
+    }
+  });
 });

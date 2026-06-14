@@ -1,6 +1,7 @@
 import { useMemo, useState } from 'react';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { Link } from 'react-router-dom';
+import { ProjectLink } from '../components/ProjectLink';
 import { MapPin, Search } from 'lucide-react';
 import { defaultMapMutationsApi, SUBTYPE_LABELS, type InfraObject } from '../lib/api';
 import {
@@ -118,10 +119,10 @@ export function ParametersPage() {
         <p className="parameters-page__hint" style={{ color: 'var(--text-muted)' }}>
           {canWriteProject ? 'Сохранение при выходе из поля или Enter' : 'Просмотр пропускной способности объектов'}
         </p>
-        <Link to="/map" className="btn btn-secondary btn-sm shrink-0">
+        <ProjectLink to="/map" className="btn btn-secondary btn-sm shrink-0">
           <MapPin size={14} className="inline mr-1" />
           Открыть карту
-        </Link>
+        </ProjectLink>
       </div>
 
       <div className="card card--flush parameters-card">
@@ -145,7 +146,7 @@ export function ParametersPage() {
         {capacityObjects.length === 0 && !isLoading ? (
           <p className="parameters-empty" style={{ color: 'var(--text-muted)' }}>
             Нет объектов с полем пропускной способности. Импортируйте данные Искра или добавьте объекты на{' '}
-            <Link to="/map">карте</Link>.
+            <ProjectLink to="/map">карте</ProjectLink>.
           </p>
         ) : (
           <div className="table-wrap">

@@ -1,6 +1,7 @@
 import { useMemo, useState } from 'react';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { Link } from 'react-router-dom';
+import { ProjectLink } from '../components/ProjectLink';
 import { MapPin, Search } from 'lucide-react';
 import { defaultMapMutationsApi, SUBTYPE_LABELS, type InfraObject } from '../lib/api';
 import {
@@ -128,10 +129,10 @@ export function SandParametersPage() {
             ? 'Спрос потребителей для расчёта логистики песка. Сохранение при выходе из поля или Enter.'
             : 'Просмотр объёмов спроса песка по объектам'}
         </p>
-        <Link to="/map" className="btn btn-secondary btn-sm shrink-0">
+        <ProjectLink to="/map" className="btn btn-secondary btn-sm shrink-0">
           <MapPin size={14} className="inline mr-1" />
           Открыть карту
-        </Link>
+        </ProjectLink>
       </div>
 
       <div className="card card--flush parameters-card">
@@ -155,7 +156,7 @@ export function SandParametersPage() {
         {sandObjects.length === 0 && !isLoading ? (
           <p className="parameters-empty" style={{ color: 'var(--text-muted)' }}>
             Нет точечных объектов со спросом песка. Добавьте объекты на{' '}
-            <Link to="/map">карте</Link> (кроме узлов и карьеров).
+            <ProjectLink to="/map">карте</ProjectLink> (кроме узлов и карьеров).
           </p>
         ) : (
           <div className="table-wrap">

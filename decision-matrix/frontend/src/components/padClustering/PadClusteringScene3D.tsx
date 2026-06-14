@@ -1,10 +1,12 @@
 import { useCallback, useEffect, useImperativeHandle, useMemo, useRef, forwardRef } from 'react';
 import * as THREE from 'three';
 import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
+import type { InfraObject } from '../../lib/api';
 import type { WellTrajectory } from '../../lib/api/wellTrajectoryApi';
 import type { PadDemPreview } from '../../lib/padEarthworkDemPreview';
 import {
-  buildBottomholeMarkers,
+  bottomholesSceneRevision,
+  buildBottomholeLayer,
   buildTrajectoryLines,
   buildWellheadMarkers,
   isPointerClick,
@@ -58,6 +60,9 @@ export type PadClusteringScene3DProps = {
   demAvailable: boolean;
   demLoading?: boolean;
   wellsLocal: PlanVertex[];
+  bottomholes: InfraObject[];
+  padLon: number;
+  padLat: number;
   trajectories: WellTrajectory[];
   sceneLayers: PadClusteringScene3DLayers;
   selectedWellIndex?: number | null;
@@ -98,6 +103,9 @@ export const PadClusteringScene3D = forwardRef<PadClusteringScene3DHandle, PadCl
       demAvailable,
       demLoading = false,
       wellsLocal,
+      bottomholes,
+      padLon,
+      padLat,
       trajectories,
       sceneLayers,
       selectedWellIndex = null,
@@ -138,6 +146,10 @@ export const PadClusteringScene3D = forwardRef<PadClusteringScene3DHandle, PadCl
     const trajectoriesRevision = useMemo(
       () => trajectoriesSceneRevision(trajectories),
       [trajectories],
+    );
+    const bottomholesRevision = useMemo(
+      () => bottomholesSceneRevision(bottomholes),
+      [bottomholes],
     );
 
     const emitCameraState = useCallback(() => {
@@ -438,14 +450,11 @@ export const PadClusteringScene3D = forwardRef<PadClusteringScene3DHandle, PadCl
 
       const trajGroup = new THREE.Group();
       trajGroup.name = 'layer-trajectories';
-      const bottomGroup = new THREE.Group();
-      bottomGroup.name = 'layer-bottomholes';
       if (trajectories.length > 0) {
         trajGroup.add(buildTrajectoryLines(trajectories, kbM, sfWarningThreshold));
-        bottomGroup.add(buildBottomholeMarkers(trajectories, kbM));
       }
       root.add(trajGroup);
-      root.add(bottomGroup);
+      root.add(buildBottomholeLayer(bottomholes, trajectories, padLon, padLat, kbM));
 
       applyPadClusteringLayerVisibility(root, sceneLayersRef.current);
 
@@ -473,6 +482,10 @@ export const PadClusteringScene3D = forwardRef<PadClusteringScene3DHandle, PadCl
       envelopeEnabled,
       wrapWidthM,
       wellsLocal,
+      bottomholes,
+      bottomholesRevision,
+      padLon,
+      padLat,
       trajectories,
       trajectoriesRevision,
       sfWarningThreshold,

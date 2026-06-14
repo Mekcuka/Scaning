@@ -131,6 +131,8 @@ export interface MapViewProps {
   editMode?: boolean;
   /** Ghost icon at cursor while placing point infrastructure. */
   placementPreview?: { subtype: string; lon: number; lat: number } | null;
+  /** Fixed ghost icons during multi-step draw (e.g. GS heel after first click). */
+  placementPreviewPoints?: { subtype: string; lon: number; lat: number }[];
   /** Ghost markers while positioning clipboard paste. */
   clipboardPreviewPoints?: { subtype: string; lon: number; lat: number }[];
   /** When true, map click in select mode runs onMapClick (paste anchor). */

@@ -14,12 +14,17 @@ from app.subtype_manifest import BOTTOMHOLE_CLUSTER_SUBTYPES, PAD_CLUSTER_SUBTYP
 LINKED_PAD_ID = "well_bottomhole_linked_pad_id"
 WELL_INDEX = "well_bottomhole_well_index"
 TVD_M = "well_bottomhole_tvd_m"
+GS_HEEL_TVD_M = "well_bottomhole_heel_tvd_m"
+GS_TOE_TVD_M = "well_bottomhole_toe_tvd_m"
 TARGET_INC = "well_bottomhole_target_inc"
 TARGET_AZI = "well_bottomhole_target_azi"
 GS_HEEL_ID = "well_bottomhole_gs_heel_id"
+GS_ENTRY_MODE = "well_bottomhole_gs_entry_mode"
 
 DEFAULT_NNB_INC = 360.0
 DEFAULT_TVD_M = 1500.0
+DEFAULT_GS_ENTRY_MODE = "any"
+GS_ENTRY_MODES = frozenset({"any", "heel", "toe"})
 
 BOTTOMHOLE_SUBTYPES = frozenset(BOTTOMHOLE_CLUSTER_SUBTYPES)
 
@@ -69,6 +74,13 @@ def read_gs_heel_id(props: dict[str, Any]) -> UUID | None:
         return UUID(str(raw))
     except (TypeError, ValueError):
         return None
+
+
+def read_gs_entry_mode(props: dict[str, Any]) -> str:
+    raw = str(props.get(GS_ENTRY_MODE) or DEFAULT_GS_ENTRY_MODE).lower().strip()
+    if raw in GS_ENTRY_MODES:
+        return raw
+    return DEFAULT_GS_ENTRY_MODE
 
 
 def nearest_well_index(pad: InfrastructureObject, lon: float, lat: float) -> int:
@@ -121,6 +133,20 @@ def default_tvd_m_for_bottomhole(
     return DEFAULT_TVD_M
 
 
+def read_gs_heel_tvd_m(pad: InfrastructureObject | None, props: dict[str, Any]) -> float:
+    parsed = _read_float(props, GS_HEEL_TVD_M)
+    if parsed is not None and parsed > 0:
+        return parsed
+    return default_tvd_m_for_bottomhole(pad, props)
+
+
+def read_gs_toe_tvd_m(pad: InfrastructureObject | None, props: dict[str, Any]) -> float:
+    parsed = _read_float(props, GS_TOE_TVD_M)
+    if parsed is not None and parsed > 0:
+        return parsed
+    return default_tvd_m_for_bottomhole(pad, props)
+
+
 def apply_bottomhole_defaults(
     subtype: str,
     props: dict[str, Any],
@@ -135,7 +161,36 @@ def apply_bottomhole_defaults(
     st = subtype.lower().strip()
     if st == "well_bottomhole_nnb" and TARGET_INC not in merged:
         merged[TARGET_INC] = DEFAULT_NNB_INC
+    if st == "well_bottomhole_gs_heel" and GS_ENTRY_MODE not in merged:
+        merged[GS_ENTRY_MODE] = DEFAULT_GS_ENTRY_MODE
+    if st == "well_bottomhole_gs" and GS_ENTRY_MODE not in merged:
+        merged[GS_ENTRY_MODE] = DEFAULT_GS_ENTRY_MODE
+    if st == "well_bottomhole_gs":
+        base_tvd = default_tvd_m_for_bottomhole(pad, merged)
+        if GS_HEEL_TVD_M not in merged:
+            merged[GS_HEEL_TVD_M] = base_tvd
+        if GS_TOE_TVD_M not in merged:
+            merged[GS_TOE_TVD_M] = base_tvd
     return merged
+
+
+def is_gs_bottomhole_line(obj: InfrastructureObject) -> bool:
+    return (obj.subtype or "").lower().strip() == "well_bottomhole_gs"
+
+
+def read_gs_line_endpoints(
+    obj: InfrastructureObject,
+) -> tuple[float, float, float, float] | None:
+    if not is_gs_bottomhole_line(obj):
+        return None
+    if obj.end_longitude is None or obj.end_latitude is None:
+        return None
+    return (
+        float(obj.longitude),
+        float(obj.latitude),
+        float(obj.end_longitude),
+        float(obj.end_latitude),
+    )
 
 
 def bottomhole_plan_local(

@@ -24,6 +24,7 @@ import { AppSelect } from '../components/AppSelect';
 import { MatrixCardsPanel } from '../components/matrix/MatrixCardsPanel';
 import { getMatrixSectionOrder } from '../lib/matrixCardView';
 import { useIsMobile } from '../hooks/useMediaQuery';
+import { usePageHeader } from '../components/layout/pageHeaderContext';
 
 function initialMatrixViewMode(isMobile: boolean): 'table' | 'cards' {
   return isMobile ? 'cards' : 'table';
@@ -142,15 +143,17 @@ export function MatrixPage() {
     },
   });
 
+  usePageHeader(
+    {
+      title: 'Матрица решений',
+      subtitle: 'Сравнение анализа окружения по всем точкам интереса проекта',
+    },
+    [],
+  );
+
   return (
     <div>
-      <div className="page-toolbar">
-        <div className="page-title-block">
-          <h1 className="page-title">Матрица решений</h1>
-          <p className="page-subtitle">
-            Сравнение анализа окружения по всем точкам интереса проекта
-          </p>
-        </div>
+      <div className="page-toolbar page-toolbar--actions-only">
         <div className="page-toolbar-actions">
           {projectId && pois.length > 0 && canWriteProject && (
             <button
@@ -195,8 +198,7 @@ export function MatrixPage() {
         </div>
       </div>
 
-      <div>
-          {pois.length === 0 ? (
+      {pois.length === 0 ? (
             <div className="card text-sm" style={{ color: 'var(--text-muted)' }}>
               В проекте нет точек интереса. Добавьте POI на карте.
             </div>
@@ -297,7 +299,6 @@ export function MatrixPage() {
               onSelectCol={setSelectedCol}
             />
           )}
-      </div>
     </div>
   );
 }
