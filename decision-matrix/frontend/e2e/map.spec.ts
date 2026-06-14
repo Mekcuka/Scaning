@@ -4,6 +4,7 @@ import {
   createInfraPoint,
   createLayer,
   createProject,
+  dblclickMapLonLat,
   enableMapEdit,
   hoverMapLonLat,
   fitMapToAllObjects,
@@ -79,7 +80,7 @@ test.describe('Map', () => {
     expect((await createRes.json()).subtype).toBe('autoroad');
   });
 
-  test('select infra object, save detail panel, ruler measurement', async ({ page, request }) => {
+  test('select infra object and save detail panel', async ({ page, request }) => {
     const csrf = await apiCsrf(request);
     const projectId = await createProject(request, csrf, `test_map_save_${Date.now()}`);
     const layerId = await createLayer(request, csrf, projectId);
@@ -116,15 +117,25 @@ test.describe('Map', () => {
 
     await page.locator('.object-detail-panel__close').click();
     await expect(page.locator('.object-detail-panel')).toBeHidden({ timeout: 10_000 });
+  });
+
+  test('ruler measurement on map', async ({ page, request }) => {
+    const csrf = await apiCsrf(request);
+    const projectId = await createProject(request, csrf, `test_map_ruler_${Date.now()}`);
+    await createLayer(request, csrf, projectId);
+
+    await loginViaUi(page, email);
+    const viewport = await openMapPage(page, projectId);
+    await enableMapEdit(page);
+    await fitMapToAllObjects(page);
 
     await page.getByRole('button', { name: 'Линейка' }).click();
+    // Ruler clicks are debounced (220ms); spaced clicks so both vertices register.
     await clickMapLonLat(page, viewport, 37.617, 55.755);
+    await page.waitForTimeout(350);
     await clickMapLonLat(page, viewport, 37.62, 55.758);
-    await hoverMapLonLat(page, viewport, 37.62, 55.758);
-    await page.waitForTimeout(200);
-
-    await expect(page.getByRole('button', { name: 'Готово' })).toBeEnabled({ timeout: 20_000 });
-    await page.getByRole('button', { name: 'Готово' }).click();
+    await page.waitForTimeout(350);
+    await dblclickMapLonLat(page, viewport, 37.62, 55.758);
     await expect(page.locator('.measure-label').first()).toBeVisible({ timeout: 15_000 });
   });
 });
