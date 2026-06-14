@@ -12,17 +12,6 @@ vi.mock('../lib/api', async (importOriginal) => {
 vi.mock('../hooks/usePermissions', () => ({
   usePermissions: () => ({ canWriteProject: true }),
 }));
-vi.mock('../hooks/useProjectFootprintConnectionTemplate', () => ({
-  useProjectFootprintConnectionTemplate: vi.fn(() => ({
-    template: {},
-    isLoading: false,
-    isSaving: false,
-    saveError: null,
-    lastSavedAt: null,
-    persistTemplate: vi.fn(),
-    persistTemplateDebounced: vi.fn(),
-  })),
-}));
 
 describe('FootprintConnectionsParametersPage', () => {
   beforeEach(() => {
@@ -32,6 +21,10 @@ describe('FootprintConnectionsParametersPage', () => {
 
   it('renders template form and apply controls', async () => {
     const { api } = await import('../lib/api');
+    vi.mocked(api.getFootprintConnectionTemplate).mockResolvedValue({
+      project_id: 'p1',
+      template: {},
+    });
     vi.mocked(api.getInfraObjects).mockResolvedValue([
       makeInfraPoint({
         subtype: 'ground_pumping_station',
