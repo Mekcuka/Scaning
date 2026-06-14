@@ -4,7 +4,7 @@ import { Routes, Route } from 'react-router-dom';
 import { FlowsIndexRedirect } from './FlowsIndexRedirect';
 import { renderPage } from '../../test/pages/renderPage';
 import { seedAppStore } from '../../test/pages/seedAppStore';
-import { api } from '../../lib/api';
+import { defaultProjectsDataApi } from '../../lib/api';
 
 vi.mock('../../lib/api', async (importOriginal) => {
   const { createApiMock } = await import('../../test/pages/apiMockModule');
@@ -27,16 +27,17 @@ describe('FlowsIndexRedirect', () => {
   beforeEach(() => {
     sessionStorage.clear();
     seedAppStore({ currentProjectId: 'p1' });
+    vi.mocked(defaultProjectsDataApi.getPois).mockReset();
   });
 
   it('redirects to logistics when no POIs', async () => {
-    vi.mocked(api.getPois).mockResolvedValueOnce([]);
+    vi.mocked(defaultProjectsDataApi.getPois).mockResolvedValue([]);
     renderRedirect();
     await waitFor(() => expect(screen.getByText('logistics-page')).toBeInTheDocument());
   });
 
   it('redirects to technology when POIs exist', async () => {
-    vi.mocked(api.getPois).mockResolvedValueOnce([
+    vi.mocked(defaultProjectsDataApi.getPois).mockResolvedValue([
       { id: 'poi-1', name: 'P', project_id: 'p1' },
     ] as never);
     renderRedirect();
@@ -45,6 +46,9 @@ describe('FlowsIndexRedirect', () => {
 
   it('redirects to technology without project', async () => {
     seedAppStore({ currentProjectId: null });
+    vi.mocked(defaultProjectsDataApi.getPois).mockResolvedValue([]);
+    const { api } = await import('../../lib/api');
+    vi.mocked(api.projects).mockResolvedValue([] as never);
     renderRedirect();
     await waitFor(() => expect(screen.getByText('technology-page')).toBeInTheDocument());
   });

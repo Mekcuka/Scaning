@@ -7,8 +7,8 @@ import { getSavedSectionPath, sectionRelativePath } from '../../lib/sectionNavMe
 /** Default flows tab: last visited, else logistics when no POI, else technology. */
 export function FlowsIndexRedirect() {
   const saved = getSavedSectionPath('flows');
-  const { projectId } = useActiveProject();
-  const { data: pois = [], isLoading } = useQuery({
+  const { projectId, isLoading: projectLoading } = useActiveProject();
+  const { data: pois = [], isLoading: poisLoading } = useQuery({
     queryKey: ['pois', projectId],
     queryFn: () => defaultProjectsDataApi.getPois(projectId!),
     enabled: !!projectId && !saved,
@@ -17,8 +17,11 @@ export function FlowsIndexRedirect() {
   if (saved) {
     return <Navigate to={sectionRelativePath('flows')} replace />;
   }
-  if (!projectId) return <Navigate to="technology" replace />;
-  if (isLoading) return null;
+  if (!projectId) {
+    if (projectLoading) return null;
+    return <Navigate to="technology" replace />;
+  }
+  if (poisLoading) return null;
   if (pois.length === 0) return <Navigate to="logistics" replace />;
   return <Navigate to="technology" replace />;
 }
