@@ -52,6 +52,18 @@ const SYMBOL_PAINT = {
   'text-halo-width': 1.5,
 };
 
+const WELL_TRAJECTORY_LINE_WIDTH: ExpressionSpecification = [
+  'interpolate',
+  ['linear'],
+  ['zoom'],
+  8,
+  1.5,
+  12,
+  2.5,
+  16,
+  3,
+];
+
 /** App vector layers (call after map load). */
 export function addMap3dVectorLayers(map: MapLibreMap): void {
   if (map.getLayer(MAP3D_LAYER_IDS.thresholds)) return;
@@ -87,32 +99,6 @@ export function addMap3dVectorLayers(map: MapLibreMap): void {
       'line-width': 2,
       'line-dasharray': [4, 3],
       'line-opacity': 0.9,
-    },
-  });
-
-  map.addLayer({
-    id: MAP3D_LAYER_IDS.wellTrajectories,
-    type: 'line',
-    source: MAP3D_SOURCE_IDS.wellTrajectories,
-    paint: {
-      'line-color': [
-        'case',
-        [
-          'all',
-          ['has', 'min_sf'],
-          ['<', ['get', 'min_sf'], ['coalesce', ['get', 'sf_warning_threshold'], 1]],
-        ],
-        '#c62828',
-        ['has', 'min_sf'],
-        '#2e7d32',
-        '#1565c0',
-      ],
-      'line-width': 3,
-      'line-opacity': 0.85,
-    },
-    layout: {
-      'line-cap': 'round',
-      'line-join': 'round',
     },
   });
 
@@ -234,6 +220,22 @@ export function addMap3dVectorLayers(map: MapLibreMap): void {
         8,
       ],
       'circle-opacity': 0.01,
+    },
+  });
+
+  /** Pick-only fallback; visible geometry is Three.js `dm-3d-well-trajectories`. */
+  map.addLayer({
+    id: MAP3D_LAYER_IDS.wellTrajectories,
+    type: 'line',
+    source: MAP3D_SOURCE_IDS.wellTrajectories,
+    paint: {
+      'line-color': '#1565c0',
+      'line-width': WELL_TRAJECTORY_LINE_WIDTH,
+      'line-opacity': 0,
+    },
+    layout: {
+      'line-cap': 'round',
+      'line-join': 'round',
     },
   });
 }

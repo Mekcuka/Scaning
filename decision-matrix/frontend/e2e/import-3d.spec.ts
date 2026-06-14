@@ -7,7 +7,7 @@ test('import 3d page renders for project owner', async ({ page, request }) => {
   const projectId = await createProject(request, csrf, `test_import3d_${Date.now()}`);
 
   await loginViaUi(page, email);
-  await page.goto(`/import-3d?project=${projectId}`);
+  await page.goto(`/data/import-3d/${projectId}`);
 
   await expect(page.getByRole('heading', { name: 'Импорт 3D' })).toBeVisible();
   await expect(page.getByText('Назначение подтипам')).toBeVisible();

@@ -29,17 +29,24 @@ def _create_bottomhole(
     lon: float,
     lat: float,
     properties: dict | None = None,
+    end_lon: float | None = None,
+    end_lat: float | None = None,
 ) -> dict:
+    payload: dict = {
+        "name": name,
+        "subtype": subtype,
+        "lon": lon,
+        "lat": lat,
+        "layer_id": layer_id,
+        "properties": properties or {},
+    }
+    if end_lon is not None:
+        payload["end_lon"] = end_lon
+    if end_lat is not None:
+        payload["end_lat"] = end_lat
     res = client.post(
         f"/api/v1/projects/{pid}/infrastructure/objects",
-        json={
-            "name": name,
-            "subtype": subtype,
-            "lon": lon,
-            "lat": lat,
-            "layer_id": layer_id,
-            "properties": properties or {},
-        },
+        json=payload,
         headers=headers,
     )
     assert res.status_code == 201, res.text
@@ -144,3 +151,80 @@ def test_pad_placement_apply_creates_pad(client: TestClient):
     applied = apply_res.json()
     assert len(applied["created_pad_ids"]) == 1
     assert obj["id"] in applied["updated_bottomhole_ids"]
+
+
+def test_pad_placement_compute_gs_unified_line_valid(client: TestClient):
+    project, headers = create_test_project(client, name="test_pad_placement_gs_line")
+    pid = project["id"]
+    layer = create_test_layer(client, pid, headers)
+
+    gs = _create_bottomhole(
+        client,
+        pid,
+        layer["id"],
+        headers,
+        name="GS-line",
+        subtype="well_bottomhole_gs",
+        lon=37.621,
+        lat=55.761,
+        end_lon=37.631,
+        end_lat=55.761,
+        properties={
+            "well_bottomhole_tvd_m": 2000,
+            "well_bottomhole_heel_tvd_m": 1800,
+            "well_bottomhole_toe_tvd_m": 2100,
+        },
+    )
+
+    comp = client.post(
+        f"/api/v1/projects/{pid}/pad-placement/compute",
+        json={
+            "bottomhole_ids": [gs["id"]],
+            "params": {
+                "top_k": 1,
+                "min_pad_spacing_m": 50,
+                "center_optimize": False,
+            },
+        },
+        headers=headers,
+    )
+    assert comp.status_code == 200, comp.text
+    result = comp.json()
+    assert result["logical_well_count"] == 1
+    variant = result["variants"][0]
+    assert variant["invalid"] is False
+    pad = variant["pads"][0]
+    assert "не заданы координаты heel/toe" not in " ".join(pad.get("warnings", []))
+    assert pad["trajectories"][0]["survey"]["source"] == "calculated"
+    assert pad["trajectories"][0].get("design", {}).get("profile") == "horizontal"
+
+    apply_res = client.post(
+        f"/api/v1/projects/{pid}/pad-placement/apply",
+        json={
+            "request_id": result["request_id"],
+            "variant_index": variant["variant_index"],
+        },
+        headers=headers,
+    )
+    assert apply_res.status_code == 200, apply_res.text
+    applied = apply_res.json()
+    pad_id = applied["created_pad_ids"][0]
+
+    geo = client.get(
+        f"/api/v1/projects/{pid}/well-trajectory/geojson",
+        headers=headers,
+    )
+    assert geo.status_code == 200, geo.text
+    kinds = [f["properties"]["kind"] for f in geo.json()["features"]]
+    assert "trajectory_plan" in kinds
+    assert any(f["properties"].get("infra_object_id") == pad_id for f in geo.json()["features"])
+
+    last = client.get(
+        f"/api/v1/projects/{pid}/infrastructure/objects/{pad_id}/well-trajectory/last",
+        headers=headers,
+    )
+    assert last.status_code == 200, last.text
+    traj = last.json()["trajectories"]
+    assert len(traj) >= 1
+    assert traj[0]["survey"]["source"] == "calculated"
+    assert traj[0].get("design", {}).get("profile") == "horizontal"

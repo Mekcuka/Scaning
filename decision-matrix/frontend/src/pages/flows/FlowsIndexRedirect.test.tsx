@@ -14,12 +14,13 @@ vi.mock('../../lib/api', async (importOriginal) => {
 function renderRedirect() {
   return renderPage(
     <Routes>
-      <Route path="/flows" element={<FlowsIndexRedirect />} />
-      <Route path="/flows/logistics" element={<div>logistics-page</div>} />
-      <Route path="/flows/technology" element={<div>technology-page</div>} />
-      <Route path="/flows/economic" element={<div>economic-page</div>} />
+      <Route path="/flows/:projectId" element={<FlowsIndexRedirect />} />
+      <Route path="/flows/logistics/:projectId" element={<div>logistics-page</div>} />
+      <Route path="/flows/technology/:projectId" element={<div>technology-page</div>} />
+      <Route path="/flows/economic/:projectId" element={<div>economic-page</div>} />
+      <Route path="/flows/technology" element={<div>technology-bare</div>} />
     </Routes>,
-    { initialEntries: ['/flows'] },
+    { initialEntries: ['/flows/p1'] },
   );
 }
 
@@ -49,8 +50,14 @@ describe('FlowsIndexRedirect', () => {
     vi.mocked(defaultProjectsDataApi.getPois).mockResolvedValue([]);
     const { api } = await import('../../lib/api');
     vi.mocked(api.projects).mockResolvedValue([] as never);
-    renderRedirect();
-    await waitFor(() => expect(screen.getByText('technology-page')).toBeInTheDocument());
+    renderPage(
+      <Routes>
+        <Route path="/flows" element={<FlowsIndexRedirect />} />
+        <Route path="/flows/technology" element={<div>technology-bare</div>} />
+      </Routes>,
+      { initialEntries: ['/flows'] },
+    );
+    await waitFor(() => expect(screen.getByText('technology-bare')).toBeInTheDocument());
   });
 
   it('redirects to last visited flows tab when saved', async () => {

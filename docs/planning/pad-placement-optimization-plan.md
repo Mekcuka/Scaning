@@ -67,6 +67,19 @@
 
 ---
 
+## M2+ perf — ускорение расчёта (июнь 2026) ✅
+
+- [x] `entry_clearance=false` в pad placement — SF не на каждом offset точки входа ГС
+- [x] Двухфазный `find_best_pad_center`: `trajectory_design=coarse` на сетке → `full` для победителя
+- [x] `trajectory_design.py` — адаптивный `gs_entry_search_step_m` (длина ГС ÷ 4 / ÷ 10)
+- [x] Сетка центра: потолок **5×5** (`MAX_GRID_AXIS=5`)
+- [x] Горизонтальный design ГС в `evaluate` (`design_well_from_target`, sync `end_lon/lat`)
+- [x] Таймаут compute/apply **600 с** (frontend + backend)
+- [x] `tests/test_pad_placement_trajectory_design.py`, расширен `test_pad_placement_center_optimize.py`
+- [x] E2E `pad-placement.spec.ts`
+
+---
+
 ## D0 — Документация (текущий этап)
 
 - [x] [pad-placement-optimization.md](../features/pad-placement-optimization.md)
@@ -87,7 +100,8 @@ decision-matrix/backend/app/
     normalize.py                   # забои → логические скважины
     partition.py                   # разбиения на k групп
     placement.py                   # эвристики, spacing, td_centroid
-    placement_optimize.py          # M2+ перебор центра по Σ MD
+    placement_optimize.py          # M2+ двухфазный перебор центра по Σ MD
+    trajectory_design.py           # адаптивный шаг entry ГС (coarse/full)
     evaluate.py                    # раскладка + design + оценка
     apply.py                       # запись варианта в БД
     schemas.py                     # модели Pydantic

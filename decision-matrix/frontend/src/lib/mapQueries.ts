@@ -78,7 +78,7 @@ export function upsertInfraObjectsInQueries(
   });
 }
 
-/** Refetch layers/infra/network after import or edits; clears map bbox filter via store nonce. */
+/** Refetch layers/infra/network and well trajectories after import or edits; clears map bbox filter via store nonce. */
 export async function refreshMapQueries(queryClient: QueryClient, projectId: string) {
   useAppStore.getState().bumpMapRefresh();
   await queryClient.invalidateQueries({ queryKey: ['layers', projectId] });
@@ -87,6 +87,8 @@ export async function refreshMapQueries(queryClient: QueryClient, projectId: str
     queryKey: ['infra', projectId],
     predicate: (q) => q.queryKey[2] === 'bbox',
   });
+  await queryClient.invalidateQueries({ queryKey: ['wellTrajectoryProjectGeoJson', projectId] });
   await queryClient.refetchQueries({ queryKey: ['layers', projectId] });
   await queryClient.refetchQueries({ queryKey: ['infra', projectId] });
+  await queryClient.refetchQueries({ queryKey: ['wellTrajectoryProjectGeoJson', projectId] });
 }

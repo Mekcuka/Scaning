@@ -14,6 +14,7 @@ import type {
   PadPlacementComputeResponse,
   PadPlacementParams,
 } from '../../lib/padPlacementTypes';
+import { findPadPlacementVariant } from '../../lib/padPlacementCompute';
 import { iconDataUrl } from '../../lib/mapIcons';
 
 type Props = {
@@ -70,9 +71,12 @@ export function PadPlacementPanel({
   const busy = computePending || applyPending;
 
   const selectedVariant = useMemo(
-    () =>
-      computeResult?.variants.find((v) => v.variant_index === selectedVariantIndex) ?? null,
+    () => findPadPlacementVariant(computeResult, selectedVariantIndex),
     [computeResult, selectedVariantIndex],
+  );
+
+  const canApply = Boolean(
+    selectedVariant && !selectedVariant.invalid && !busy && !computePending,
   );
 
   useEffect(() => {
@@ -267,6 +271,12 @@ export function PadPlacementPanel({
           </div>
         ) : null}
 
+        {selectedVariant?.invalid ? (
+          <p className="pad-placement-panel__hint">
+            Выбранный вариант нельзя применить — не для всех скважин рассчитаны траектории. Выберите
+            другой вариант или измените параметры.
+          </p>
+        ) : null}
         {!canCompute && disabledHint ? (
           <p className="pad-placement-panel__hint">{disabledHint}</p>
         ) : null}
@@ -289,7 +299,7 @@ export function PadPlacementPanel({
         <button
           type="button"
           className="btn btn-secondary btn-sm flex-1"
-          disabled={!computeResult || selectedVariantIndex == null || applyPending}
+          disabled={!canApply || applyPending}
           onClick={onApply}
         >
           {applyPending ? 'Применение…' : 'Применить'}

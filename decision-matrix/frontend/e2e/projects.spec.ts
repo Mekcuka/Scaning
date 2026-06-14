@@ -20,8 +20,8 @@ test.describe('Projects', () => {
 
   test('create project and open map', async ({ page }) => {
     await loginViaUi(page, email);
-    await page.goto(`/map?project=${mapProjectId}`);
-    await expect(page).toHaveURL(/\/map/);
+    await page.goto(`/map/${mapProjectId}`);
+    await expect(page).toHaveURL(new RegExp(`/map/${mapProjectId}`));
   });
 
   test('delete project shows confirm modal', async ({ page }) => {

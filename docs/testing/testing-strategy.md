@@ -74,7 +74,7 @@ npm run test:e2e
 
 Перед прогоном остановите лишние процессы на порту 8000 (иначе rate-limit и CSRF могут флапать). В `development`/`test` лимитер auth отключён (`app/main.py`).
 
-### E2E сценарии (16)
+### E2E сценарии (17)
 
 | Файл | Сценарий |
 |------|----------|
@@ -88,13 +88,15 @@ npm run test:e2e
 | `report.spec.ts` | список отчётов |
 | `import-3d.spec.ts` | импорт 3D для владельца проекта |
 | `map.spec.ts` | 2D-карта; автодорога (seed точек + «Готово»); detail PATCH; линейка |
+| `pad-placement.spec.ts` | оптимизация кустов: seed забоев → «Видимые» → «Рассчитать» → «Применить» |
+| `well-trajectory.spec.ts` | API + UI «Кустование» |
 
 ### Инфраструктура E2E
 
 | Компонент | Путь | Назначение |
 |-----------|------|------------|
 | Конфиг | [`playwright.config.ts`](../../decision-matrix/frontend/playwright.config.ts) | `workers: 1`, dev на `:5174`, `globalTeardown` |
-| Хелперы | [`e2e/helpers.ts`](../../decision-matrix/frontend/e2e/helpers.ts) | `setupE2eSession`, `loginViaApi`, `createProject`, `clickMapLonLat`, `seedSandLogisticsNetwork` |
+| Хелперы | [`e2e/helpers.ts`](../../decision-matrix/frontend/e2e/helpers.ts) | `setupE2eSession`, `loginViaApi`, `createProject`, `deleteProject`, `cleanupE2eProjects`, `clickMapLonLat`, `seedSandLogisticsNetwork` |
 | Teardown | [`e2e/global-teardown.ts`](../../decision-matrix/frontend/e2e/global-teardown.ts) | вызов скрипта очистки после прогона |
 | Очистка БД | [`scripts/cleanup_e2e_data.py`](../../decision-matrix/backend/scripts/cleanup_e2e_data.py) | cascade-delete проектов `test_*` и тестовых пользователей |
 | Map hook | [`setupViewHandlers.ts`](../../decision-matrix/frontend/src/components/mapView/setupViewHandlers.ts) | `window.__dmOlMap` при `VITE_E2E_MAP_HOOK=true` |
@@ -103,7 +105,7 @@ npm run test:e2e
 
 **CI (job `E2E`):** отдельная БД `data/e2e.db`, `vite preview` на `:5173`, `VITE_E2E_MAP_HOOK=true` при сборке, `E2E_DATABASE_URL` при teardown.
 
-**Автоочистка:** после каждого `npm run test:e2e` (включая падения) `globalTeardown` запускает `cleanup_e2e_data.py`. Удаляются проекты `test_*` и пользователи `e2e-*` / `*@test.ru`; демо-аккаунты (`engineer@oilgas.ru` и др.) не трогаются.
+**Автоочистка:** после каждого `npm run test:e2e` (включая падения) `globalTeardown` запускает `cleanup_e2e_data.py`. Удаляются проекты `test_*` / `e2e_*` и пользователи `e2e-*` / `*@test.ru`; демо-аккаунты (`engineer@oilgas.ru` и др.) не трогаются. Отдельные spec-файлы (напр. `pad-placement.spec.ts`) могут дополнительно удалять проект в `afterAll` через `cleanupE2eProjects`.
 
 | Переменная | Локально | CI |
 |------------|----------|-----|
@@ -150,7 +152,7 @@ python scripts/cleanup_e2e_data.py
 - [`src/test/renderWithProviders.tsx`](../../decision-matrix/frontend/src/test/renderWithProviders.tsx) — QueryClient + Router.
 - [`src/test/pages/`](../../decision-matrix/frontend/src/test/pages/) — `renderPage`, `createApiMock` / [`apiMockModule.ts`](../../decision-matrix/frontend/src/test/pages/apiMockModule.ts), [`mapPageHarness.tsx`](../../decision-matrix/frontend/src/test/pages/mapPageHarness.tsx).
 - [`src/test/fixtures/`](../../decision-matrix/frontend/src/test/fixtures/) — проекты, пользователи, infra, map (`map.ts`).
-- E2E: [`e2e/`](../../decision-matrix/frontend/e2e/) — 10 spec-файлов, **16** тестов; `helpers.ts`, `global-teardown.ts`; автоочистка `cleanup_e2e_data.py`.
+- E2E: [`e2e/`](../../decision-matrix/frontend/e2e/) — 11 spec-файлов, **17** тестов; `helpers.ts`, `global-teardown.ts`; автоочистка `cleanup_e2e_data.py`.
 - CSS: `npm run verify:css` — конкатенация `src/styles/*` совпадает с эталоном `.snapshot-monolith.css` (после split, июнь 2026).
 
 ### Pages 80% (план, май 2026)

@@ -7,6 +7,13 @@ const createdMapOptions = vi.hoisted(() => [] as Array<{ style: unknown }>);
 
 const ensureMap3dModelsLayer = vi.hoisted(() => vi.fn());
 const removeMap3dModelsLayer = vi.hoisted(() => vi.fn());
+const ensureMap3dWellTrajectoriesLayer = vi.hoisted(() => vi.fn());
+const setMap3dWellTrajectoriesLayerVisible = vi.hoisted(() => vi.fn());
+const buildMap3dWellTrajectoryLayerData = vi.hoisted(() => vi.fn(() => ({
+  trajectories: [],
+  bottomholes: [],
+  planLines: [],
+})));
 const syncMap3dBasemap = vi.hoisted(() => vi.fn());
 const applyMap3dTerrain = vi.hoisted(() => vi.fn(() => false));
 const addMap3dVectorLayers = vi.hoisted(() => vi.fn());
@@ -136,6 +143,21 @@ vi.mock('../lib/map3d/map3dModelsLayer', () => ({
   setMap3dModelsLayerVisible: vi.fn(),
 }));
 
+vi.mock('../lib/map3d/map3dWellTrajectoriesLayer', () => ({
+  ensureMap3dWellTrajectoriesLayer,
+  Map3dWellTrajectoriesCustomLayer: class {
+    id = 'dm-3d-well-trajectories';
+    setLayerData = vi.fn();
+    setInstances = vi.fn();
+    setVisible = vi.fn();
+  },
+  setMap3dWellTrajectoriesLayerVisible,
+}));
+
+vi.mock('../lib/map3d/map3dWellTrajectoryInstances', () => ({
+  buildMap3dWellTrajectoryLayerData,
+}));
+
 vi.mock('../lib/map3d/map3dLineLayerData', () => ({
   buildMap3dLineLayerData,
 }));
@@ -249,5 +271,42 @@ describe('MapView3D init (lazy layer loading)', () => {
     rerender(<MapView3D showBasemap={true} showTerrain={false} showModels={true} height="200px" />);
     await waitFor(() => expect(ensureMap3dModelsLayer).toHaveBeenCalled());
     expect(buildMap3dModelInstances).toHaveBeenCalled();
+  });
+
+  it('attaches well trajectories custom layer on load', async () => {
+    render(
+      <MapView3D
+        showBasemap={false}
+        showTerrain={false}
+        showModels={false}
+        showWellTrajectories3d={true}
+        height="200px"
+      />,
+    );
+    await flushMapLoad();
+
+    expect(ensureMap3dWellTrajectoriesLayer).toHaveBeenCalled();
+    expect(buildMap3dWellTrajectoryLayerData).toHaveBeenCalled();
+    expect(setMap3dWellTrajectoriesLayerVisible).toHaveBeenCalledWith(expect.anything(), true);
+  });
+
+  it('hides well trajectories Three.js layer when toggle is off', async () => {
+    const { rerender } = render(
+      <MapView3D showWellTrajectories3d={true} showBasemap={false} height="200px" />,
+    );
+    await flushMapLoad();
+    setMap3dWellTrajectoriesLayerVisible.mockClear();
+
+    rerender(
+      <MapView3D
+        showWellTrajectories3d={false}
+        showWellBottomholes={false}
+        showBasemap={false}
+        height="200px"
+      />,
+    );
+    await waitFor(() =>
+      expect(setMap3dWellTrajectoriesLayerVisible).toHaveBeenCalledWith(expect.anything(), false),
+    );
   });
 });

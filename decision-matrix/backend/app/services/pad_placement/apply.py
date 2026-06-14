@@ -15,7 +15,7 @@ from app.services.pad_earthwork.earthwork_store import store_sketch, store_wells
 from app.services.pad_earthwork.properties import PAD_LENGTH_M, PAD_ROTATION_DEG, PAD_WIDTH_M, PAD_WELL_COUNT
 from app.services.pad_earthwork.schemas import PlanPolygonSketchIn, PlanRectangleSketchIn
 from app.services.pad_placement.evaluate import params_to_pad_properties
-from app.services.pad_placement.result_cache import get
+from app.services.pad_placement.result_cache import ensure_cached_from_jobs, get
 from app.services.pad_placement.schemas import (
     BottomholeSnapshot,
     PadPlacementApplyResponse,
@@ -42,6 +42,8 @@ async def apply_variant(
     layer_id: UUID | None = None,
 ) -> PadPlacementApplyResponse:
     entry = get(request_id)
+    if entry is None:
+        entry = await ensure_cached_from_jobs(db, project_id, request_id)
     if entry is None:
         raise PadPlacementApplyError("Compute result expired or not found", status_code=404)
 

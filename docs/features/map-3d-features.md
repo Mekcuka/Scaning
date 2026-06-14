@@ -78,6 +78,8 @@ flowchart TB
 | `map3dTerrain.ts` | `setTerrain`, hillshade |
 | `map3dModelsLayer.ts` | custom layer `dm-3d-models` (Three.js) |
 | `map3dLinesLayer.ts` | custom layer `dm-3d-lines` (трубы) |
+| `map3dWellTrajectoriesLayer.ts` | custom layer `dm-3d-well-trajectories` (объёмные стволы скважин по `[lon,lat,z]`) |
+| `map3dWellTrajectoryInstances.ts` | GeoJSON trajectory → Three.js tube instances |
 | `map3dGltfLoader.ts` | загрузка glTF, палитра по вершинам; custom GLB — через blob после авторизованного fetch |
 | `map3dGltfAssets.ts` | пути к `/map3d-models/*.glb` (bundled, статика frontend) |
 | `map3dCustomAssets.ts` | runtime-реестр загруженных GLB проекта (`custom:{uuid}`), URL `GET .../map3d-custom-models/{id}/file` |
@@ -226,7 +228,19 @@ flowchart TB
 
 Подтипы линий: `autoroad`, `oil_pipeline`, `gas_pipeline`, `water_pipeline`, `power_line`, `methanol_pipeline`, `additional_line`.
 
-См. также §1.5 [map-objects-and-spatial-calculations.md](map-objects-and-spatial-calculations.md) — рисование, привязка концов, координаты.
+### 6.2 Траектории скважин (Three.js)
+
+- Источник: `GET .../well-trajectory/geojson` (проект), features `kind: trajectory` с координатами `[lon, lat, z]` (`z = KB − TVD`).
+- Toggle «Траектории → 3D» — стволы (`kind: trajectory`); «Цели забоев (расчёт)» — сферы TD (`bottomhole_target_3d`, `[lon,lat,z]`) и пунктиры устье→забой (`bottomhole_plan_line`) с абсолютной Z.
+- Объекты инфраструктуры `well_bottomhole_*` (ННБ, ГС heel/toe, unified ГС) — те же сферы/трубы в Three.js по KB−TVD; при включённом слое забоев не дублируются на земле в MapLibre.
+- Радиусы: ствол `MAP3D_WELL_TRAJECTORY_RADIUS_M` ≈ 0.8 м; TD `MAP3D_WELL_BOTTOMHOLE_RADIUS_M` ≈ 4 м; план-линия `MAP3D_WELL_PLAN_LINE_RADIUS_M` ≈ 0.35 м.
+- Clip planes: `applyMap3dExtendedClipPlanes` — far ≈ 500 км (MapLibre по умолчанию ~100 м ниже камеры, глубокие TD иначе обрезаются).
+- MapLibre `dm-well-trajectories`: **opacity 0** (pick-only fallback).
+- Цвет: палитра по `well_index` ([`wellTrajectoryClearance.ts`](../../decision-matrix/frontend/src/lib/wellTrajectoryClearance.ts)); красный при `min_sf < sf_warning_threshold`.
+- Toggle «Траектории → 3D» в панели «Слои» вкл/выкл стволы; «Цели забоев (расчёт)» — 3D-маркеры TD и план-линии (Three.js-слой виден, если включён хотя бы один из toggles).
+- Порядок custom layers: `dm-3d-lines` → `dm-3d-models` → `dm-3d-well-trajectories`.
+
+См. также [well-trajectory.md](well-trajectory.md) § «3D-карта».
 
 ### 6.1 QA: паритет 2D/3D линий
 

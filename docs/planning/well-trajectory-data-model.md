@@ -239,6 +239,8 @@ erDiagram
 
 **API:** `POST .../sync-bottomholes`, `POST .../design-from-bottomholes` (NNB → connector; ГС → `design_horizontal` в planner: build + hold, оптимизация `any` с учётом SF на кусте).
 
+**Pad placement (оптимизация кустов):** тот же `design_well_from_target`, но `entry_clearance=false` и адаптивный шаг entry; SF — один раз на вариант при `sf_check`. См. [pad-placement-optimization.md](../features/pad-placement-optimization.md).
+
 **Блок `target` для профиля `gs`:**
 
 | Поле | Пояснение |

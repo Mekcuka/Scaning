@@ -23,7 +23,7 @@ export function resetMapDisplayMode() {
   mapState().displayMode = '2d';
 }
 
-export async function renderMapPage(ui: ReactElement, route = '/map') {
+export async function renderMapPage(ui: ReactElement, route = '/map/p1') {
   resetMapDisplayMode();
   seedAppStore({ currentProjectId: 'p1' });
   const result = renderPage(ui, { route });

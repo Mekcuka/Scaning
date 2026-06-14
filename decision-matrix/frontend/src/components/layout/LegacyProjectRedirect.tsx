@@ -1,15 +1,15 @@
 import { Navigate, useLocation } from 'react-router-dom';
 
 import { useActiveProject } from '../../hooks/useActiveProject';
-import { projectPath } from '../../lib/projectRoutes';
+import { legacyPrefixToSuffixPath, projectPath } from '../../lib/projectRoutes';
 import { RouteFallback } from '../../routes/lazyPages';
 
 type Props = {
-  /** Logical path without project prefix, e.g. `/map` or `/parameters/rates`. Empty = dashboard. */
+  /** Logical path without project id, e.g. `/map` or `/parameters/rates`. Empty = dashboard. */
   suffix?: string;
 };
 
-/** Redirect legacy URLs (/map) to /:projectId/map using active project. */
+/** Redirect bare legacy URLs (/map) to /map/{projectId} using active project. */
 export function LegacyProjectRedirect({ suffix = '' }: Props) {
   const { projectId, isLoading, isFetched } = useActiveProject();
   const location = useLocation();
@@ -26,8 +26,18 @@ export function LegacyProjectRedirect({ suffix = '' }: Props) {
   return <Navigate to={target} replace />;
 }
 
-/** Preserve full legacy path (/parameters/sand → /:projectId/parameters/sand). */
+/** Preserve full legacy path (/parameters/sand → /parameters/sand/{projectId}). */
 export function LegacyPathPreserveRedirect() {
   const location = useLocation();
   return <LegacyProjectRedirect suffix={location.pathname} />;
+}
+
+/** Redirect legacy /{projectId}/… prefix URLs to suffix form (/map/{projectId}). */
+export function LegacyPrefixRedirect() {
+  const location = useLocation();
+  const target = legacyPrefixToSuffixPath(location.pathname);
+  if (!target) {
+    return <Navigate to="/projects" replace />;
+  }
+  return <Navigate to={target + location.search + location.hash} replace />;
 }

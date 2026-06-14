@@ -13,6 +13,7 @@ const STYLES: Record<string, Line3dVisualStyle> = {
   water_pipeline: { radiusMul: 1, radialSegments: 10 },
   power_line: { radiusMul: 0.9, radialSegments: 6 },
   additional_line: { radiusMul: 1, radialSegments: 8 },
+  well_trajectory: { radiusMul: 1, radialSegments: 8 },
 };
 
 const DEFAULT_STYLE: Line3dVisualStyle = {

@@ -1,6 +1,7 @@
 import type { InfraLayer, InfraObject, POI } from '../api';
 import { normalizeInfraSubtype } from '../api';
 import { isLineSubtype } from '../infraGeometry';
+import { isBottomholeSubtype } from '../wellBottomholeProperties';
 import { MAP_SUBTYPE_COLORS } from '../mapIcons';
 import {
   catalogEntryForModelId,
@@ -60,6 +61,7 @@ export function buildMap3dModelInstances(input: {
   for (const obj of input.infraObjects) {
     if (!layerVisible(obj.layer_id, maps)) continue;
     const st = normalizeInfraSubtype(obj.subtype);
+    if (isBottomholeSubtype(st)) continue;
     if (isLineSubtype(st)) continue;
 
     const render = resolveRender3D(st, obj.properties);

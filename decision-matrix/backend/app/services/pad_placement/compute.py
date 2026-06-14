@@ -2,7 +2,9 @@
 
 from __future__ import annotations
 
+from dataclasses import dataclass
 from datetime import UTC, datetime
+from typing import Any
 from uuid import UUID, uuid4
 
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -44,6 +46,26 @@ class PadPlacementComputeError(Exception):
         super().__init__(detail)
 
 
+@dataclass
+class PadPlacementComputeOutcome:
+    response: PadPlacementComputeResponse
+    snapshots: list[BottomholeSnapshot]
+    subtype: str
+    params: PadPlacementParams
+
+
+def outcome_to_job_result(outcome: PadPlacementComputeOutcome) -> dict[str, Any]:
+    """Persist enough metadata for apply/preview after async worker compute."""
+    return {
+        **outcome.response.model_dump(mode="json"),
+        "cache_meta": {
+            "snapshots": [s.model_dump(mode="json") for s in outcome.snapshots],
+            "subtype": outcome.subtype,
+            "params": outcome.params.model_dump(mode="json"),
+        },
+    }
+
+
 async def build_request_preview(
     db: AsyncSession,
     project_id: UUID,
@@ -74,7 +96,7 @@ async def run_compute(
     body: PadPlacementComputeRequest,
     *,
     request_id: UUID | None = None,
-) -> PadPlacementComputeResponse:
+) -> PadPlacementComputeOutcome:
     snapshots, load_warnings = await load_bottomhole_snapshots(
         db, project_id, body.bottomhole_ids
     )
@@ -142,7 +164,12 @@ async def run_compute(
         computed_at=datetime.now(UTC),
     )
     put(rid, response, snapshots=snapshots, subtype=body.subtype, params=body.params, compute_request=body)
-    return response
+    return PadPlacementComputeOutcome(
+        response=response,
+        snapshots=snapshots,
+        subtype=body.subtype,
+        params=body.params,
+    )
 
 
 def _evaluate_partition(

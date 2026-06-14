@@ -29,7 +29,7 @@ DEFAULT_DB = "sqlite+aiosqlite:///./data/sppr.db"
 
 
 def is_test_project(name: str) -> bool:
-    return name.startswith("test_")
+    return name.startswith("test_") or name.startswith("e2e_")
 
 
 def is_test_user(email: str) -> bool:

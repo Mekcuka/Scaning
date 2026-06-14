@@ -14,7 +14,10 @@ import {
   readGsToeTvdM,
   WELL_BOTTOMHOLE_WELL_INDEX,
 } from './wellBottomholeProperties';
-import { clearanceLineColorHex } from './wellTrajectoryClearance';
+import {
+  wellTrajectoryDisplayColorHex,
+  wellTrajectoryPaletteColorHex,
+} from './wellTrajectoryClearance';
 
 export type ScenePoint = { x: number; y: number; z: number };
 
@@ -62,12 +65,6 @@ export function trajectoriesAlignWithWells(
     }
   }
   return true;
-}
-
-const WELLHEAD_COLORS = [0xf97316, 0x22c55e, 0xa855f7, 0x06b6d4, 0xeab308, 0xef4444];
-
-function wellColor(index: number): number {
-  return WELLHEAD_COLORS[index % WELLHEAD_COLORS.length]!;
 }
 
 export type BuildWellheadMarkersOptions = {
@@ -122,7 +119,7 @@ export function buildWellheadMarkers(
     const selected = selectedWellIndex === index;
     const radius = selected ? baseRadius * 1.35 : baseRadius;
     const geometry = new THREE.CylinderGeometry(radius, radius, height, 12);
-    const color = wellColor(index);
+    const color = wellTrajectoryPaletteColorHex(index);
     const material = new THREE.MeshStandardMaterial({
       color,
       roughness: 0.55,
@@ -172,10 +169,11 @@ export function buildTrajectoryLines(
     if (points.length < 2) return;
     const geometry = new THREE.BufferGeometry().setFromPoints(points);
     const minSf = well.clearance?.min_sf;
-    const color =
-      minSf != null
-        ? clearanceLineColorHex(minSf, sfWarningThreshold)
-        : wellColor(well.well_index ?? index);
+    const color = wellTrajectoryDisplayColorHex(
+      well.well_index ?? index,
+      minSf,
+      sfWarningThreshold,
+    );
     const material = new THREE.LineBasicMaterial({
       color,
       linewidth: 2,
@@ -206,8 +204,8 @@ export function buildBottomholeMarkers(trajectories: WellTrajectory[], kbM: numb
     const p = stationToScenePoint(east, north, target.tvd_m, kbM);
     const geometry = new THREE.SphereGeometry(1.8, 16, 12);
     const material = new THREE.MeshStandardMaterial({
-      color: wellColor(well.well_index ?? index),
-      emissive: wellColor(well.well_index ?? index),
+      color: wellTrajectoryPaletteColorHex(well.well_index ?? index),
+      emissive: wellTrajectoryPaletteColorHex(well.well_index ?? index),
       emissiveIntensity: 0.25,
       roughness: 0.4,
     });
@@ -248,10 +246,10 @@ function readBottomholeWellIndex(props: Record<string, unknown> | undefined): nu
 
 function bottomholeMarkerColor(obj: InfraObject, fallbackIndex: number): number {
   const idx = readBottomholeWellIndex(obj.properties);
-  if (idx != null) return wellColor(idx);
+  if (idx != null) return wellTrajectoryPaletteColorHex(idx);
   const bySubtype = BOTTOMHOLE_SUBTYPE_COLORS[obj.subtype];
   if (bySubtype != null) return bySubtype;
-  return wellColor(fallbackIndex);
+  return wellTrajectoryPaletteColorHex(fallbackIndex);
 }
 
 function addBottomholeMarker(

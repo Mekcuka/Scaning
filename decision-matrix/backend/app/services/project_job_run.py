@@ -211,8 +211,8 @@ async def _run_pad_placement_compute(db: AsyncSession, job: ProjectJob) -> dict[
     payload = job.payload or {}
     request_id = UUID(str(payload["request_id"]))
     body = PadPlacementComputeRequest.model_validate(payload["compute_request"])
-    result = await run_compute(db, job.project_id, body, request_id=request_id)
-    return result.model_dump(mode="json")
+    outcome = await run_compute(db, job.project_id, body, request_id=request_id)
+    return outcome_to_job_result(outcome)
 
 
 async def _run_pad_placement_apply(db: AsyncSession, job: ProjectJob) -> dict[str, Any]:

@@ -25,31 +25,31 @@
 
 Боковое меню (`AppLayout.tsx`), видимость по роли — `lib/permissions.ts`.
 
-**Проектные маршруты** включают UUID активного проекта: `/:projectId/map`, `/:projectId/matrix`, … Код: [`projectRoutes.ts`](../../decision-matrix/frontend/src/lib/projectRoutes.ts), `ProjectRouteLayout`, `ProjectLink`, `useProjectPathBuilder`. Старые URL без префикса (`/map`, `/matrix`, …) → редирект на `/:projectId/...` через `LegacyProjectRedirect`.
+**Проектные маршруты** включают UUID активного проекта в **конце** пути: `/map/{projectId}`, `/matrix/{projectId}`, … Код: [`projectRoutes.ts`](../../decision-matrix/frontend/src/lib/projectRoutes.ts), `ProjectRouteLayout`, `ProjectLink`, `useProjectPathBuilder`. Старые URL (`/map`, `/{projectId}/map`, …) → редирект на `/раздел/{projectId}` через `LegacyProjectRedirect` / `LegacyPrefixRedirect`.
 
 | Маршрут | Раздел | Роли |
 |---------|--------|------|
-| `/:projectId` | Дашборд | все |
+| `/dashboard/{projectId}` | Дашборд | все |
 | `/projects` | Список проектов | admin, analyst, viewer |
 | `/projects/:id` | Карточка проекта (POI, анализ) | ↑ |
-| `/:projectId/map` | Карта (+ слой траекторий GeoJSON) | все |
-| `/:projectId/pad-clustering` | Кустование (раскладка, траектории, 3D) | admin, analyst, data_manager, viewer |
-| `/:projectId/parameters` | Параметры (вкладки) | admin, analyst, viewer |
-| `/:projectId/parameters/capacity` | Пропускная способность | ↑ |
-| `/:projectId/parameters/sand` | Песок / логистика | ↑ |
-| `/:projectId/parameters/earthwork` | Земляные работы (L/W/H, опорная, поворот) | ↑ |
-| `/:projectId/parameters/entry-dates` | Даты ввода | ↑ |
-| `/:projectId/parameters/rates` | Ставки (16 показателей) | ↑ |
-| `/:projectId/flows/*` | Потоки (PFD) | admin, analyst, viewer |
-| `/:projectId/matrix` | Матрица | admin, analyst, viewer |
-| `/:projectId/report` | Отчёты (одностраничники) | admin, analyst, viewer |
-| `/:projectId/data` | **Данные** (вкладки) | по подмаршруту |
-| `/:projectId/data/import` | Импорт (карточки: файлы, API, инклинометрия) | admin, analyst, data_manager |
-| `/:projectId/data/export` | Экспорт (координаты, GeoJSON) | все роли |
-| `/:projectId/data/import-3d` | Импорт 3D (custom GLB) | admin (загрузка); admin + владелец проекта (назначение) |
+| `/map/{projectId}` | Карта (+ слой траекторий GeoJSON) | все |
+| `/pad-clustering/{projectId}` | Кустование (раскладка, траектории, 3D) | admin, analyst, data_manager, viewer |
+| `/parameters/{projectId}` | Параметры (index → последняя вкладка) | admin, analyst, viewer |
+| `/parameters/capacity/{projectId}` | Пропускная способность | ↑ |
+| `/parameters/sand/{projectId}` | Песок / логистика | ↑ |
+| `/parameters/earthwork/{projectId}` | Земляные работы (L/W/H, опорная, поворот) | ↑ |
+| `/parameters/entry-dates/{projectId}` | Даты ввода | ↑ |
+| `/parameters/rates/{projectId}` | Ставки (16 показателей) | ↑ |
+| `/flows/*/{projectId}` | Потоки (PFD) | admin, analyst, viewer |
+| `/matrix/{projectId}` | Матрица | admin, analyst, viewer |
+| `/report/{projectId}` | Отчёты (одностраничники) | admin, analyst, viewer |
+| `/data/{projectId}` | **Данные** (вкладки) | по подмаршруту |
+| `/data/import/{projectId}` | Импорт (карточки: файлы, API, инклинометрия) | admin, analyst, data_manager |
+| `/data/export/{projectId}` | Экспорт (координаты, GeoJSON) | все роли |
+| `/data/import-3d/{projectId}` | Импорт 3D (custom GLB) | admin (загрузка); admin + владелец проекта (назначение) |
 | `/admin/users`, `/admin/jobs` | Администрирование (пользователи, журнал задач) | admin |
 
-**Отличие от FR-12.2.2:** отдельного пункта «Ставки» нет — ставки внутри **«Параметры»**; добавлены **«Параметры»**, **«Потоки»** и группа **«Данные»** (импорт/экспорт/3D). Редиректы: `/` → `/:projectId`; `/rates` → `/:projectId/parameters/rates`; `/import`, `/export`, `/import-3d` → `/:projectId/data/...`; прочие legacy-пути — `LegacyPathPreserveRedirect`.
+**Отличие от FR-12.2.2:** отдельного пункта «Ставки» нет — ставки внутри **«Параметры»**; добавлены **«Параметры»**, **«Потоки»** и группа **«Данные»** (импорт/экспорт/3D). Редиректы: `/` → `/dashboard/{projectId}`; `/rates` → `/parameters/rates/{projectId}`; `/import`, `/export`, `/import-3d` → `/data/.../{projectId}`; `/{projectId}/*` → suffix через `LegacyPrefixRedirect`; прочие legacy-пути — `LegacyPathPreserveRedirect`.
 
 ---
 
@@ -72,7 +72,7 @@
 | Песок / логистика | `api/v1/sand_logistics.py`, `sand_logistics.py`, `sand_logistics_store.py` | ✅ (результат в БД; схема: timeline, полная топология на любом годе, layout/slice, адаптивные отступы) |
 | Земляные работы площадки | `pad-earthwork-planner` + BFF; все точечные объекты кроме `node` (включая **карьер песка**); карта: L/W/H, **Схема…**, DEM; режим **Площадки** (контуры footprint, **точки подключения** линий); **Параметры → Земляные работы** — табличное редактирование габаритов; **Параметры → Точки подключения** — шаблон cardinal + bulk apply; **Генератор** только кусты — [pad-earthwork.md](../features/pad-earthwork.md) | ✅ flat + plan + envelope + DEM + 3D preview + footprints |
 | Траектории скважин (3D) | `well-trajectory-planner` (welleng) + BFF — [well-trajectory.md](../features/well-trajectory.md), [план реализации](well-trajectory-implementation-plan.md), [оценка приложения](well-trajectory-app-assessment.md) | ✅ **M1 ✅, M2 ✅, M3 ✅, M4a ✅** — BFF, «Кустование», забои (+ **геометрия X/Y/Z**, dual TVD ГС, **точка входа `any`/heel/toe + SF**), GeoJSON 2D/3D, anti-collision SF, **импорт CSV / `.wbp`**, E2E smoke; WITSML 4b — в планах |
-| Оптимизация размещения кустов | BFF `pad-placement/*`, `services/pad_placement/` (`placement_optimize.py` — M2+ перебор центра по Σ MD); jobs `pad_placement_compute` / `apply` — [pad-placement-optimization.md](../features/pad-placement-optimization.md), [plan](pad-placement-optimization-plan.md) | ✅ **M1–M5 + M2+** |
+| Оптимизация размещения кустов | BFF `pad-placement/*`, `services/pad_placement/` (`placement_optimize.py` — двухфазный перебор центра; `trajectory_design.py` — адаптивный entry ГС); jobs `pad_placement_compute` / `apply` — [pad-placement-optimization.md](../features/pad-placement-optimization.md), [plan](pad-placement-optimization-plan.md) | ✅ **M1–M5 + M2+** |
 | Экономика потоков | `economic_flow_schematic.py`, `economic_rates.py` | ✅ |
 | Автосеть автодорог | `network-planner` + `planner_adapter.py`: Steiner tree, post-processing, preview overlay; BFF request/compute/apply | ✅ |
 | Autoroad Network Service (HTTP :8080) | `autoroad-network-planner` microservice / legacy `services/autoroad-network/` | ⬜ опционально (`AUTOROAD_NETWORK_INPROCESS=false`) |
@@ -93,19 +93,19 @@
 | Маршрут | Компонент | Статус |
 |---------|-----------|--------|
 | `/login`, `/register` | `LoginPage`, `RegisterPage` | ✅ |
-| `/:projectId` | `DashboardPage` | ✅ |
+| `/dashboard/{projectId}` | `DashboardPage` | ✅ |
 | `/projects`, `/projects/:id` | `ProjectsPage`, `ProjectDetailPage` | ✅ |
-| `/:projectId/map` | `MapPage` + `MapView` (2D) / `MapView3D` (+ слой траекторий GeoJSON) | ✅ |
-| `/:projectId/pad-clustering` | `PadClusteringPage` — куст, траектории, 3D | ✅ |
-| `/:projectId/map` (режим «Оптимизация кустов») | planned — `PadPlacementPanel`, overlay вариантов | ⬜ |
-| `/:projectId/parameters/*` | `ParametersPage`, `SandParametersPage`, … | ✅ |
-| `/:projectId/matrix` | `MatrixPage` | ✅ |
-| `/:projectId/report/*` | `ReportListPage`, `ReportEditorPage`, … | ✅ |
-| `/:projectId/data/*` | `DataLayout` + `ImportPage`, `ExportPage`, `Import3DPage` | ✅ |
-| `/:projectId/data/import` | `ImportPage` — карточки (`ExportOptionCard`), панель проекта, история | ✅ |
-| `/:projectId/data/export` | `ExportPage` — выбор проекта, карточки форматов; координаты, GeoJSON (клиент) | ✅ |
-| `/:projectId/data/import-3d` | `Import3DPage` — custom GLB (upload + metadata, PATCH, bulk apply) | ✅ |
-| `/:projectId/flows/*` | `FlowTechnologyPage`, … | ✅ |
+| `/map/{projectId}` | `MapPage` + `MapView` (2D) / `MapView3D` (+ слой траекторий GeoJSON) | ✅ |
+| `/pad-clustering/{projectId}` | `PadClusteringPage` — куст, траектории, 3D | ✅ |
+| `/map/{projectId}` (режим «Оптимизация кустов») | `PadPlacementPanel`, preview GeoJSON, async compute, apply → новые кусты | ✅ |
+| `/parameters/*/{projectId}` | `ParametersPage`, `SandParametersPage`, … | ✅ |
+| `/matrix/{projectId}` | `MatrixPage` | ✅ |
+| `/report/*/{projectId}` | `ReportListPage`, `ReportEditorPage`, … | ✅ |
+| `/data/*/{projectId}` | `DataLayout` + `ImportPage`, `ExportPage`, `Import3DPage` | ✅ |
+| `/data/import/{projectId}` | `ImportPage` — карточки (`ExportOptionCard`), панель проекта, история | ✅ |
+| `/data/export/{projectId}` | `ExportPage` — выбор проекта, карточки форматов; координаты, GeoJSON (клиент) | ✅ |
+| `/data/import-3d/{projectId}` | `Import3DPage` — custom GLB (upload + metadata, PATCH, bulk apply) | ✅ |
+| `/flows/*/{projectId}` | `FlowTechnologyPage`, … | ✅ |
 | `/admin/users` | `AdminLayout` + `AdminUsersPage` | ✅ |
 | `/admin/jobs` | `AdminLayout` + `AdminJobsPage` (health, фильтры, **пагинация 10 записей/стр.**, отмена только `pending`/`running`, автообновление 3 с) | ✅ |
 
@@ -113,7 +113,7 @@
 
 **3D-карта:** `VITE_MAP_3D_ENABLED`, `VITE_MAPTILER_KEY`, `VITE_API_URL` (обязателен на GitHub Pages) — см. [map-3d-features.md](../features/map-3d-features.md), cross-origin auth — [auth-rbac.md](../architecture/auth-rbac.md).
 
-**Панель «Слои» на `/:projectId/map`:** переключатели подложки, групп подтипов, POI, радиусов — в `localStorage` на проект (`mapLayerPreferences.ts`, ключ `dm-map-layer-prefs:{projectId}`). Видимость импортированных слоёв (`infrastructure_layers.is_visible`) — в БД.
+**Панель «Слои» на `/map/{projectId}`:** переключатели подложки, групп подтипов, POI, радиусов — в `localStorage` на проект (`mapLayerPreferences.ts`, ключ `dm-map-layer-prefs:{projectId}`). Видимость импортированных слоёв (`infrastructure_layers.is_visible`) — в БД.
 
 **Загрузка объектов на карте:** гибрид полного кэша + bbox при просмотре (порог 80 объектов, буфер 12%, без лишних `GET` при мелком пане); синхронизация full+bbox кэшей при CRUD/геометрии (`mapQueries.ts`); API [`bbox_filter.py`](../../decision-matrix/backend/app/geo/bbox_filter.py). **Плавность 2D:** rAF на `pointermove`, spatial hit-test (`mapHitTest.ts`), точечный hover, `React.memo(MapView)`, idle-sync слоя при ≥150 объектах, LOD линий по умолчанию 1:500 000 — §6.1.2 [map-objects-and-spatial-calculations.md](../features/map-objects-and-spatial-calculations.md). **Drag точек в editMode:** `updateWhileInteracting` + [`mapFeatureGeometrySync.ts`](../../decision-matrix/frontend/src/lib/mapFeatureGeometrySync.ts).
 

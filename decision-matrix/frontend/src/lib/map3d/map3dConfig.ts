@@ -23,6 +23,21 @@ export const MAP3D_OBJECT_SCALE = 5;
 /** Extra scale for procedural ЛЭП towers (on top of MAP3D_OBJECT_SCALE). */
 export const MAP3D_POWER_LINE_TOWER_SCALE = 5;
 
+/** Tube radius (m) for 3D well trajectories — thinner than infra pipelines. */
+export const MAP3D_WELL_TRAJECTORY_RADIUS_M = 0.8;
+
+/** Sphere radius (m) for 3D bottomhole TD markers — larger for visibility at depth. */
+export const MAP3D_WELL_BOTTOMHOLE_RADIUS_M = 4;
+
+/** Thin tube for ustyie→bottomhole guide lines before full survey. */
+export const MAP3D_WELL_PLAN_LINE_RADIUS_M = 0.35;
+
+/** MapLibre clip planes (m) — auto far/near clips deep underground TD (~100 m below camera). */
+export const MAP3D_CLIP_NEAR_M = 1;
+export const MAP3D_CLIP_FAR_M = 500_000;
+
+export const MAP3D_WELL_TRAJECTORIES_LAYER_ID = 'dm-3d-well-trajectories';
+
 export function scaleMap3dMeters(meters: number): number {
   return meters * MAP3D_OBJECT_SCALE;
 }

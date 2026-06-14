@@ -14,8 +14,9 @@ from app.schemas import ProjectJobCreateResponse
 from app.services.job_enqueue import commit_and_schedule, create_and_schedule_job, jobs_async_enabled
 from app.services.pad_placement.apply import PadPlacementApplyError, apply_variant
 from app.services.pad_placement.compute import PadPlacementComputeError, build_request_preview, run_compute
+from app.services.pad_placement.compute import outcome_to_job_result
 from app.services.pad_placement.geojson_preview import build_variant_geojson
-from app.services.pad_placement.result_cache import get
+from app.services.pad_placement.result_cache import ensure_cached_from_jobs
 from app.services.pad_placement.schemas import (
     PadPlacementApplyRequest,
     PadPlacementApplyResponse,
@@ -86,12 +87,13 @@ async def handle_compute(
         )
 
     try:
-        return await run_compute(
+        outcome = await run_compute(
             db,
             project_id,
             data,
             request_id=preview.request_id,
         )
+        return outcome.response
     except PadPlacementComputeError as e:
         raise HTTPException(status_code=e.status_code, detail=e.detail) from e
 
@@ -103,7 +105,7 @@ async def handle_get_compute(
     db: AsyncSession,
 ) -> PadPlacementComputeResponse:
     await require_infra_write(project_id, user, db)
-    entry = get(request_id)
+    entry = await ensure_cached_from_jobs(db, project_id, request_id)
     if entry is None:
         raise HTTPException(status_code=404, detail="Compute result not found or expired")
     return entry.response
@@ -117,7 +119,7 @@ async def handle_preview_geojson(
     db: AsyncSession,
 ) -> PadPlacementGeoJsonResponse:
     await require_infra_write(project_id, user, db)
-    entry = get(request_id)
+    entry = await ensure_cached_from_jobs(db, project_id, request_id)
     if entry is None:
         raise HTTPException(status_code=404, detail="Compute result not found or expired")
     variant = next(
@@ -140,7 +142,7 @@ async def handle_apply(
     async_mode: bool = False,
 ) -> PadPlacementApplyResponse | JSONResponse:
     await require_infra_write(project_id, user, db)
-    entry = get(data.request_id)
+    entry = await ensure_cached_from_jobs(db, project_id, data.request_id)
     if entry is None:
         raise HTTPException(status_code=404, detail="Compute result not found or expired")
     variant = next(

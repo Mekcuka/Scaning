@@ -27,6 +27,12 @@ class PadPlacementParams(BaseModel):
     center_optimize: bool = True
     center_search_radius_m: float = Field(default=400.0, ge=100, le=2000)
     center_search_step_m: float = Field(default=200.0, ge=50, le=500)
+    gs_entry_search_step_m: float | None = Field(
+        default=None,
+        gt=0,
+        le=500,
+        description="Override GS entry search step; None = adaptive coarser step for pad placement",
+    )
 
 
 class PadPlacementComputeRequest(BaseModel):

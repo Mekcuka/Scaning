@@ -9,6 +9,11 @@ import {
   isPadPlacementBottomhole,
   mergeBottomholeIds,
 } from '../lib/padPlacementEligibility';
+import {
+  defaultPadPlacementVariantIndex,
+  findPadPlacementVariant,
+  normalizePadPlacementComputeResponse,
+} from '../lib/padPlacementCompute';
 import { geoJsonToPreviewFeatures } from '../lib/padPlacementPreview';
 import {
   DEFAULT_PAD_PLACEMENT_PARAMS,
@@ -52,12 +57,20 @@ export function useMapPadPlacement({
   const [computeResult, setComputeResult] = useState<PadPlacementComputeResponse | null>(null);
   const [selectedVariantIndex, setSelectedVariantIndex] = useState<number | null>(null);
 
+  const clearComputeState = useCallback(() => {
+    setComputeResult(null);
+    setSelectedVariantIndex(null);
+  }, []);
+
   useEffect(() => {
     if (drawMode !== 'pad_placement') {
-      setComputeResult(null);
-      setSelectedVariantIndex(null);
+      clearComputeState();
     }
-  }, [drawMode]);
+  }, [drawMode, clearComputeState]);
+
+  useEffect(() => {
+    clearComputeState();
+  }, [bottomholeIds, params, subtype, clearComputeState]);
 
   const bottomholeDetails: MapGroupSelectionItem[] = useMemo(
     () =>
@@ -91,6 +104,29 @@ export function useMapPadPlacement({
     [previewQuery.data],
   );
 
+  const applyComputeResult = useCallback(
+    (raw: unknown) => {
+      const data = normalizePadPlacementComputeResponse(raw);
+      const nextIndex = defaultPadPlacementVariantIndex(data.variants);
+      setComputeResult(data);
+      setSelectedVariantIndex(nextIndex);
+      if (data.variants.length === 0) {
+        pushToast('info', 'Расчёт завершён, но подходящих вариантов не найдено');
+        return;
+      }
+      const selected = findPadPlacementVariant(data, nextIndex);
+      if (selected?.invalid) {
+        pushToast(
+          'info',
+          'Выбранный вариант недопустим для применения — выберите другой или измените параметры',
+        );
+        return;
+      }
+      pushToast('success', `Готово: ${data.variants.length} вариант(ов)`);
+    },
+    [pushToast],
+  );
+
   const computeMut = useMutation({
     mutationFn: async () => {
       if (!projectId || bottomholeIds.length === 0) {
@@ -110,17 +146,25 @@ export function useMapPadPlacement({
         const done = await pollProjectJobUntilDone(projectId, res.job_id, {
           timeoutMs: 600_000,
         });
-        const payload = done.result as PadPlacementComputeResponse | undefined;
+        let payload: unknown = done.result;
+        if (
+          !payload ||
+          typeof payload !== 'object' ||
+          !Array.isArray((payload as PadPlacementComputeResponse).variants) ||
+          (payload as PadPlacementComputeResponse).variants.length === 0
+        ) {
+          payload = await padPlacementApi.getCompute(projectId, preview.request_id);
+        }
         if (!payload) throw new Error('Пустой результат задачи');
         return payload;
       }
       return res;
     },
-    onSuccess: (data) => {
-      setComputeResult(data);
-      const first = data.variants[0];
-      setSelectedVariantIndex(first?.variant_index ?? 0);
-      pushToast('success', `Готово: ${data.variants.length} вариант(ов)`);
+    onSuccess: (raw) => {
+      applyComputeResult(raw);
+      if (projectId) {
+        void queryClient.invalidateQueries({ queryKey: ['activeJob', projectId] });
+      }
     },
     onError: (e: Error) => pushToast('error', e.message),
   });
@@ -140,10 +184,18 @@ export function useMapPadPlacement({
       }
       return res;
     },
-    onSuccess: () => {
+    onSuccess: (res) => {
       pushToast('success', 'Кусты созданы на карте');
       invalidateMap();
-      refreshMapQueries(queryClient, projectId!);
+      void refreshMapQueries(queryClient, projectId!);
+      if (projectId && res && typeof res === 'object' && 'created_pad_ids' in res) {
+        const applied = res as { created_pad_ids?: string[] };
+        for (const padId of applied.created_pad_ids ?? []) {
+          void queryClient.invalidateQueries({
+            queryKey: ['wellTrajectoryLast', projectId, padId],
+          });
+        }
+      }
       setDrawMode('select');
     },
     onError: (e: Error) => pushToast('error', e.message),

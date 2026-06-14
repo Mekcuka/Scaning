@@ -44,20 +44,20 @@
 
 ## Маршрутизация (React Router)
 
-С июня 2026 проектные экраны живут под **`/:projectId/*`**. Глобальные маршруты без id: `/login`, `/register`, `/projects`, `/projects/:id`, `/admin/*`.
+С июня 2026 проектные экраны используют **suffix-маршруты** — id проекта в **конце** пути: `/map/{projectId}`, `/parameters/rates/{projectId}`, … Глобальные маршруты без id: `/login`, `/register`, `/projects`, `/projects/:id`, `/admin/*`.
 
 | Модуль | Назначение |
 |--------|------------|
-| [`lib/projectRoutes.ts`](../../decision-matrix/frontend/src/lib/projectRoutes.ts) | `projectPath()`, `stripProjectPrefix()`, `isGlobalAppPath()` |
+| [`lib/projectRoutes.ts`](../../decision-matrix/frontend/src/lib/projectRoutes.ts) | `projectPath()`, `stripProjectPrefix()`, `legacyPrefixToSuffixPath()` |
 | [`ProjectRouteLayout.tsx`](../../decision-matrix/frontend/src/components/layout/ProjectRouteLayout.tsx) | Синхронизация URL ↔ store, проверка доступа к проекту |
-| [`LegacyProjectRedirect.tsx`](../../decision-matrix/frontend/src/components/layout/LegacyProjectRedirect.tsx) | Редирект `/map` → `/:projectId/map` и т.д. |
+| [`LegacyProjectRedirect.tsx`](../../decision-matrix/frontend/src/components/layout/LegacyProjectRedirect.tsx) | Редирект `/map` → `/map/{projectId}`; `LegacyPrefixRedirect` — `/{projectId}/map` → `/map/{projectId}` |
 | [`ProjectLink.tsx`](../../decision-matrix/frontend/src/components/ProjectLink.tsx) | `<Link>` с автопрефиксом проекта |
 | [`useProjectPath.ts`](../../decision-matrix/frontend/src/hooks/useProjectPath.ts) | `useProjectPathBuilder()` для `navigate()` |
 | [`useActiveProject.ts`](../../decision-matrix/frontend/src/hooks/useActiveProject.ts) | `projectId` из URL (приоритет) или store |
 | [`sectionNavMemory.ts`](../../decision-matrix/frontend/src/lib/sectionNavMemory.ts) | Память подвкладок — логический путь без id |
 | [`resolvePageHeader.ts`](../../decision-matrix/frontend/src/lib/resolvePageHeader.ts) | Заголовок шапки по `stripProjectPrefix(pathname)` |
 
-Пример: `http://localhost:5173/{uuid}/map`.
+Пример: `http://localhost:5173/map/{uuid}`.
 
 ---
 

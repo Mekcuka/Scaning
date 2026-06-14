@@ -7,6 +7,9 @@ import type {
   PadPlacementParams,
 } from '../padPlacementTypes';
 
+/** Pad placement compute/apply and design-from-bottomholes on large GS pads. */
+const PAD_PLACEMENT_TIMEOUT_MS = 600_000;
+
 export type PadPlacementComputeRequest = {
   bottomhole_ids: string[];
   params?: PadPlacementParams;
@@ -32,7 +35,7 @@ export const padPlacementApi = {
       {
         method: 'POST',
         body: JSON.stringify(body),
-        timeoutMs: 180_000,
+        timeoutMs: PAD_PLACEMENT_TIMEOUT_MS,
       },
     ),
 
@@ -54,7 +57,7 @@ export const padPlacementApi = {
       {
         method: 'POST',
         body: JSON.stringify(body),
-        timeoutMs: 120_000,
+        timeoutMs: PAD_PLACEMENT_TIMEOUT_MS,
       },
     ),
 };

@@ -3,6 +3,7 @@ import type { AnalysisRow, InfraLayer, InfraObject, POI } from '../api';
 import { normalizeInfraSubtype } from '../api';
 import { LINE_SUBTYPES } from '../api';
 import { isLineSubtype } from '../infraGeometry';
+import { isBottomholeSubtype } from '../wellBottomholeProperties';
 import { MAP_SUBTYPE_COLORS } from '../mapIcons';
 import type { ThresholdCircle } from '../../components/MapView';
 import { scaleMap3dMeters } from './map3dConfig';
@@ -123,6 +124,7 @@ function infraToFeatures(
   layers: InfraLayer[] | undefined,
   showModels: boolean,
   snapPool: InfraObject[],
+  omitBottomholesFromMaplibre = false,
 ): Pick<Map3dGeoJsonBundle, 'infraLines' | 'infraExtrusions' | 'infraPoints'> {
   const maps = layerMaps(layers);
   const lineFeatures: Feature<LineString>[] = [];
@@ -133,6 +135,7 @@ function infraToFeatures(
     if (!layerVisible(obj.layer_id, maps)) continue;
 
     const st = normalizeInfraSubtype(obj.subtype);
+    if (omitBottomholesFromMaplibre && isBottomholeSubtype(st)) continue;
     const render = resolveRender3D(st, obj.properties);
     if (!render.visible) continue;
 
@@ -355,10 +358,18 @@ export function buildMap3dGeoJson(input: {
   thresholdCenter?: { lon: number; lat: number } | null;
   connectionLines?: AnalysisRow[];
   selectedPoi?: POI | null;
+  /** When true, `well_bottomhole_*` are omitted from MapLibre (rendered in Three.js well layer). */
+  omitInfraBottomholesFromMaplibre?: boolean;
 }): Map3dGeoJsonBundle {
   const showModels = input.showModels !== false;
   const snapPool = input.snapPool ?? input.infraObjects;
-  const infra = infraToFeatures(input.infraObjects, input.layers, showModels, snapPool);
+  const infra = infraToFeatures(
+    input.infraObjects,
+    input.layers,
+    showModels,
+    snapPool,
+    input.omitInfraBottomholesFromMaplibre === true,
+  );
   const poiPoints = poisToFeatures(input.pois);
   const poiExtrusionFc = poiExtrusions(input.pois, showModels);
 

@@ -24,7 +24,7 @@ from app.services.pad_placement.schemas import (
     PadPlacementParams,
 )
 
-MAX_GRID_AXIS = 7
+MAX_GRID_AXIS = 5
 MAX_GRID_POINTS = MAX_GRID_AXIS * MAX_GRID_AXIS
 
 
@@ -109,6 +109,7 @@ def find_best_pad_center(
 
     best: PadCandidateOut | None = None
     best_key: tuple[float, int, int] | None = None
+    best_center: tuple[float, float] | None = None
 
     for lon, lat in search_points:
         if violates_pad_spacing(
@@ -127,6 +128,7 @@ def find_best_pad_center(
             candidate_id=candidate_id,
             center_lon=lon,
             center_lat=lat,
+            trajectory_design="coarse",
         )
         md, _ = sum_md_m_from_candidate([cand], wells)
         invalid = variant_is_invalid([cand], len(wells))
@@ -136,9 +138,22 @@ def find_best_pad_center(
         if best_key is None or key < best_key:
             best = cand
             best_key = key
+            best_center = (lon, lat)
 
-    if best is None:
+    if best is None or best_center is None:
         warnings.append("No valid pad center in search grid (spacing constraints)")
+        return None, warnings
+
+    best = evaluate_fn(
+        wells,
+        snapshots_by_id=snapshots_by_id,
+        params=params,
+        subtype=subtype,
+        candidate_id=candidate_id,
+        center_lon=best_center[0],
+        center_lat=best_center[1],
+        trajectory_design="full",
+    )
     return best, warnings
 
 

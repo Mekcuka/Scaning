@@ -64,12 +64,13 @@ class InProcessWellTrajectoryAdapter:
 class HttpWellTrajectoryAdapter:
     def __init__(self, base_url: str) -> None:
         self._base_url = base_url.rstrip("/")
+        self._timeout = settings.WELL_TRAJECTORY_HTTP_TIMEOUT_SECONDS
 
     def design_connector(self, request: ConnectorDesignRequest) -> ConnectorDesignResponse:
         schemas = __import__("well_trajectory.schemas", fromlist=["ConnectorDesignResponse"])
         ConnectorDesignResponse = schemas.ConnectorDesignResponse
         url = f"{self._base_url}/v1/design/connector"
-        with httpx.Client(timeout=120.0) as client:
+        with httpx.Client(timeout=self._timeout) as client:
             res = client.post(url, json=request.model_dump(mode="json"))
             res.raise_for_status()
             return ConnectorDesignResponse.model_validate(res.json())
@@ -78,7 +79,7 @@ class HttpWellTrajectoryAdapter:
         schemas = __import__("well_trajectory.schemas", fromlist=["HorizontalDesignResponse"])
         HorizontalDesignResponse = schemas.HorizontalDesignResponse
         url = f"{self._base_url}/v1/design/horizontal"
-        with httpx.Client(timeout=120.0) as client:
+        with httpx.Client(timeout=self._timeout) as client:
             res = client.post(url, json=request.model_dump(mode="json"))
             res.raise_for_status()
             return HorizontalDesignResponse.model_validate(res.json())
@@ -87,7 +88,7 @@ class HttpWellTrajectoryAdapter:
         schemas = __import__("well_trajectory.schemas", fromlist=["SurveyInterpolateResponse"])
         SurveyInterpolateResponse = schemas.SurveyInterpolateResponse
         url = f"{self._base_url}/v1/survey/interpolate"
-        with httpx.Client(timeout=120.0) as client:
+        with httpx.Client(timeout=self._timeout) as client:
             res = client.post(url, json=request.model_dump(mode="json"))
             res.raise_for_status()
             return SurveyInterpolateResponse.model_validate(res.json())
@@ -98,7 +99,7 @@ class HttpWellTrajectoryAdapter:
         schemas = __import__("well_trajectory.schemas", fromlist=["PadGenerateFromLayoutResponse"])
         PadGenerateFromLayoutResponse = schemas.PadGenerateFromLayoutResponse
         url = f"{self._base_url}/v1/pad/generate-from-layout"
-        with httpx.Client(timeout=120.0) as client:
+        with httpx.Client(timeout=self._timeout) as client:
             res = client.post(url, json=request.model_dump(mode="json"))
             res.raise_for_status()
             return PadGenerateFromLayoutResponse.model_validate(res.json())
@@ -107,7 +108,7 @@ class HttpWellTrajectoryAdapter:
         schemas = __import__("well_trajectory.schemas", fromlist=["ClearancePairsResponse"])
         ClearancePairsResponse = schemas.ClearancePairsResponse
         url = f"{self._base_url}/v1/clearance/pairs"
-        with httpx.Client(timeout=120.0) as client:
+        with httpx.Client(timeout=self._timeout) as client:
             res = client.post(url, json=request.model_dump(mode="json"))
             res.raise_for_status()
             return ClearancePairsResponse.model_validate(res.json())
@@ -116,7 +117,7 @@ class HttpWellTrajectoryAdapter:
         schemas = __import__("well_trajectory.schemas", fromlist=["ImportParseResponse"])
         ImportParseResponse = schemas.ImportParseResponse
         url = f"{self._base_url}/v1/import/csv"
-        with httpx.Client(timeout=120.0) as client:
+        with httpx.Client(timeout=self._timeout) as client:
             res = client.post(url, json={"content": content})
             res.raise_for_status()
             return ImportParseResponse.model_validate(res.json())
@@ -125,7 +126,7 @@ class HttpWellTrajectoryAdapter:
         schemas = __import__("well_trajectory.schemas", fromlist=["ImportParseResponse"])
         ImportParseResponse = schemas.ImportParseResponse
         url = f"{self._base_url}/v1/import/wbp"
-        with httpx.Client(timeout=120.0) as client:
+        with httpx.Client(timeout=self._timeout) as client:
             res = client.post(url, files={"file": ("survey.wbp", data, "application/octet-stream")})
             res.raise_for_status()
             return ImportParseResponse.model_validate(res.json())

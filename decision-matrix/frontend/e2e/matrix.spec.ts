@@ -7,7 +7,7 @@ test('matrix page renders', async ({ page, request }) => {
   const projectId = await createProject(request, csrf, `test_matrix_${Date.now()}`);
 
   await loginViaUi(page, email);
-  await page.goto(`/matrix?project=${projectId}`);
+  await page.goto(`/matrix/${projectId}`);
 
   await expect(page.getByRole('heading', { name: 'Матрица решений' })).toBeVisible();
   await expect(page.getByRole('button', { name: 'Таблица' })).toBeVisible();

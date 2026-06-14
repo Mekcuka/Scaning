@@ -238,6 +238,7 @@ export function MapPageCanvas({
               mapFocus={mapFocus}
               wellTrajectoryFeatures={wellTrajectoryFeatures}
               showWellTrajectories3d={showWellTrajectories3d}
+              showWellBottomholes={showWellBottomholes}
               height="100%"
             />
           </Suspense>

@@ -1,5 +1,10 @@
 import { describe, expect, it } from 'vitest';
-import { clearanceLineColor, formatMinSf } from './wellTrajectoryClearance';
+import {
+  clearanceLineColor,
+  formatMinSf,
+  wellTrajectoryDisplayColor,
+  wellTrajectoryPaletteColor,
+} from './wellTrajectoryClearance';
 
 describe('clearanceLineColor', () => {
   it('returns default when min_sf missing', () => {
@@ -27,5 +32,16 @@ describe('formatMinSf', () => {
   it('formats finite numbers', () => {
     expect(formatMinSf(1.234)).toBe('1.23');
     expect(formatMinSf(0.5, 1)).toBe('0.5');
+  });
+});
+
+describe('wellTrajectoryDisplayColor', () => {
+  it('returns palette color by well index when SF ok or missing', () => {
+    expect(wellTrajectoryDisplayColor(0, null, 1)).toBe(wellTrajectoryPaletteColor(0));
+    expect(wellTrajectoryDisplayColor(1, 1.2, 1)).toBe('#22c55e');
+  });
+
+  it('returns red when SF below threshold', () => {
+    expect(wellTrajectoryDisplayColor(2, 0.85, 1)).toBe('#c62828');
   });
 });

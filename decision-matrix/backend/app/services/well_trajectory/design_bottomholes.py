@@ -154,6 +154,8 @@ def design_well_from_target(
     *,
     step_m: float,
     peer_wells: list[dict[str, Any]] | None = None,
+    entry_clearance: bool = True,
+    entry_search_step_m: float | None = None,
     extra_warnings: list[str] | None = None,
 ) -> dict[str, Any]:
     props = obj.properties or {}
@@ -211,9 +213,9 @@ def design_well_from_target(
             azi_reference=azi_ref,
             inc_heel=settings.inc_heel,
             entry_mode=entry_mode,
-            entry_search_step_m=settings.gs_entry_search_step_m,
+            entry_search_step_m=entry_search_step_m or settings.gs_entry_search_step_m,
         )
-        if entry_mode == "any" and peer_wells:
+        if entry_mode == "any" and peer_wells and entry_clearance:
             design_result, clearance_fallback = _design_horizontal_any_with_clearance(
                 request,
                 adapter,

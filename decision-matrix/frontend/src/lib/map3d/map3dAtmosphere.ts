@@ -17,7 +17,7 @@ export function applyMap3dAtmosphere(map: MapLibreMap): void {
       setFog.call(map, {
         color: 'rgb(200, 220, 235)',
         'horizon-blend': 0.08,
-        range: [0.5, 8],
+        range: [0.5, 24],
       });
     } catch {
       /* fog optional per MapLibre version */

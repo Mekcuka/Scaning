@@ -1,5 +1,6 @@
 import type { InfraLayer, InfraObject } from '../api';
 import { isLineSubtype } from '../infraGeometry';
+import { isBottomholeSubtype } from '../wellBottomholeProperties';
 import { layerMaps, layerVisible, resolveColor } from './geoJson';
 import { buildNormalizedLinePath3d } from './map3dLinePathBuild';
 import { scaleMap3dMeters } from './map3dConfig';
@@ -51,6 +52,7 @@ export function buildMap3dLineInstances(
 
   for (const obj of input.infraObjects) {
     if (!layerVisible(obj.layer_id, maps)) continue;
+    if (isBottomholeSubtype(obj.subtype)) continue;
     if (!isLineSubtype(obj.subtype)) continue;
     if (obj.subtype === 'power_line') continue;
 

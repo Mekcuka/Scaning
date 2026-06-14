@@ -5,6 +5,7 @@ import { defaultProjectsWriteApi, type Project, type ProjectsWriteApiPort } from
 import { queryKeys } from '../lib/queryKeys';
 import { normalizeProjectsList } from '../lib/normalizeProjectsList';
 import { DeleteProjectConfirmModal } from '../components/DeleteProjectConfirmModal';
+import { projectIdFromPathname } from '../lib/projectRoutes';
 import { useAppStore } from '../store';
 
 function reconcileCurrentProjectAfterDelete(
@@ -40,7 +41,11 @@ export function useDeleteProjectDialog(options: UseDeleteProjectDialogOptions = 
       const remaining = normalizeProjectsList(qc.getQueryData<Project[]>(queryKeys.projects));
       reconcileCurrentProjectAfterDelete(projectId, remaining, setCurrentProjectId);
 
-      if (pathname === `/projects/${projectId}` || pathname.startsWith(`/projects/${projectId}/`)) {
+      if (
+        pathname === `/projects/${projectId}` ||
+        pathname.startsWith(`/projects/${projectId}/`) ||
+        projectIdFromPathname(pathname) === projectId
+      ) {
         navigate('/projects', { replace: true });
       }
 

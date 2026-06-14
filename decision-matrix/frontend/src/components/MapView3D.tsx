@@ -10,6 +10,7 @@ import 'maplibre-gl/dist/maplibre-gl.css';
 import type { AnalysisRow, InfraLayer, InfraObject, POI } from '../lib/api';
 import { buildMap3dGeoJson } from '../lib/map3d/geoJson';
 import { applyMap3dAtmosphere } from '../lib/map3d/map3dAtmosphere';
+import { applyMap3dExtendedClipPlanes, clearMap3dExtendedClipPlanes } from '../lib/map3d/map3dClipPlanes';
 import { createMap3dBaseStyle } from '../lib/map3d/map3dBasemap';
 import { MAP3D_LAYER_IDS } from '../lib/map3d/map3dConfig';
 import {
@@ -45,6 +46,12 @@ import {
   removeMap3dModelsLayer,
   setMap3dModelsLayerVisible,
 } from '../lib/map3d/map3dModelsLayer';
+import { buildMap3dWellTrajectoryLayerData } from '../lib/map3d/map3dWellTrajectoryInstances';
+import {
+  ensureMap3dWellTrajectoriesLayer,
+  Map3dWellTrajectoriesCustomLayer,
+  setMap3dWellTrajectoriesLayerVisible,
+} from '../lib/map3d/map3dWellTrajectoriesLayer';
 import {
   resolveInitialMapView3d,
   saveMapViewState3d,
@@ -82,6 +89,8 @@ export interface MapView3DProps {
   /** 3D well trajectory lines from project GeoJSON. */
   wellTrajectoryFeatures?: import('../lib/api/wellTrajectoryApi').WellTrajectoryGeoJsonFeature[];
   showWellTrajectories3d?: boolean;
+  /** 3D TD markers from bottomhole_target_3d GeoJSON. */
+  showWellBottomholes?: boolean;
   connectionLines?: AnalysisRow[];
   selectedPoi?: POI | null;
   thresholdCircles?: ThresholdCircle[];
@@ -158,6 +167,7 @@ const MapView3D = forwardRef<MapView3DHandle, MapView3DProps>(function MapView3D
     showRadii = true,
     wellTrajectoryFeatures = [],
     showWellTrajectories3d = true,
+    showWellBottomholes = true,
     connectionLines = [],
     selectedPoi = null,
     thresholdCircles = [],
@@ -175,6 +185,7 @@ const MapView3D = forwardRef<MapView3DHandle, MapView3DProps>(function MapView3D
   const mapRef = useRef<MapLibreMap | null>(null);
   const linesLayerRef = useRef(new Map3dLinesCustomLayer());
   const modelsLayerRef = useRef(new Map3dModelsCustomLayer());
+  const wellTrajectoriesLayerRef = useRef(new Map3dWellTrajectoriesCustomLayer());
   const prevSelectedRef = useRef<string | null>(null);
   const projectId = useAppStore((s) => s.currentProjectId);
   const viewStateIdRef = useRef(viewStateId);
@@ -250,12 +261,14 @@ const MapView3D = forwardRef<MapView3DHandle, MapView3DProps>(function MapView3D
 
     const linesLayer = linesLayerRef.current;
     const modelsLayer = modelsLayerRef.current;
+    const wellTrajectoriesLayer = wellTrajectoriesLayerRef.current;
 
     map.on('load', () => {
       addMap3dVectorLayers(map);
       syncMap3dBasemap(map, showBasemap);
       applyMap3dTerrain(map, showTerrain, terrainExaggeration);
       applyMap3dAtmosphere(map);
+      applyMap3dExtendedClipPlanes(map);
       ensureMap3dLinesLayer(map, linesLayer);
       linesLayer.setInstances(
         buildMap3dLineLayerData(map, {
@@ -285,6 +298,22 @@ const MapView3D = forwardRef<MapView3DHandle, MapView3DProps>(function MapView3D
         removeMap3dModelsLayer(map);
       }
       setMap3dPointSymbolsVisibility(map, !showModels);
+      ensureMap3dWellTrajectoriesLayer(map, wellTrajectoriesLayer);
+      wellTrajectoriesLayer.setLayerData(
+        buildMap3dWellTrajectoryLayerData(wellTrajectoryFeatures, {
+          includeTrajectories: showWellTrajectories3d,
+          includeBottomholes: showWellBottomholes,
+          includePlanLines: showWellBottomholes,
+          includeInfraBottomholes: showWellBottomholes,
+          infraObjects,
+          infraPool: snapPool,
+        }),
+      );
+      setMap3dWellTrajectoriesLayerVisible(
+        wellTrajectoriesLayer,
+        showWellTrajectories3d || showWellBottomholes,
+      );
+      setMap3dWellTrajectoriesVisibility(map, showWellTrajectories3d);
     });
 
     map.on('click', (e) => {
@@ -317,6 +346,7 @@ const MapView3D = forwardRef<MapView3DHandle, MapView3DProps>(function MapView3D
     mapRef.current = map;
 
     return () => {
+      clearMap3dExtendedClipPlanes(map);
       map.remove();
       mapRef.current = null;
     };
@@ -420,6 +450,31 @@ const MapView3D = forwardRef<MapView3DHandle, MapView3DProps>(function MapView3D
     const map = mapRef.current;
     if (!map) return;
 
+    const applyWellTrajectories = () => {
+      const layer = wellTrajectoriesLayerRef.current;
+      ensureMap3dWellTrajectoriesLayer(map, layer);
+      layer.setLayerData(
+        buildMap3dWellTrajectoryLayerData(wellTrajectoryFeatures, {
+          includeTrajectories: showWellTrajectories3d,
+          includeBottomholes: showWellBottomholes,
+          includePlanLines: showWellBottomholes,
+          includeInfraBottomholes: showWellBottomholes,
+          infraObjects,
+          infraPool: snapPool,
+        }),
+      );
+      setMap3dWellTrajectoriesLayerVisible(layer, showWellTrajectories3d || showWellBottomholes);
+      setMap3dWellTrajectoriesVisibility(map, showWellTrajectories3d);
+    };
+
+    if (map.isStyleLoaded()) applyWellTrajectories();
+    else map.once('load', applyWellTrajectories);
+  }, [wellTrajectoryFeatures, showWellTrajectories3d, showWellBottomholes, infraObjects, snapPool]);
+
+  useEffect(() => {
+    const map = mapRef.current;
+    if (!map) return;
+
     const apply = async () => {
       const bundle = buildMap3dGeoJson({
         infraObjects,
@@ -431,6 +486,7 @@ const MapView3D = forwardRef<MapView3DHandle, MapView3DProps>(function MapView3D
         thresholdCenter: selectedPoi ? { lon: selectedPoi.lon, lat: selectedPoi.lat } : null,
         connectionLines,
         selectedPoi,
+        omitInfraBottomholesFromMaplibre: showWellBottomholes,
       });
 
       await registerMap3dSubtypeIcons(
@@ -476,6 +532,7 @@ const MapView3D = forwardRef<MapView3DHandle, MapView3DProps>(function MapView3D
     showModels,
     wellTrajectoryFeatures,
     showWellTrajectories3d,
+    showWellBottomholes,
   ]);
 
   useEffect(() => {

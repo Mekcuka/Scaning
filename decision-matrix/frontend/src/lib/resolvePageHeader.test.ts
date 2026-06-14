@@ -23,8 +23,10 @@ describe('resolvePageHeader', () => {
     expect(resolvePageHeader('/data')).toMatchObject({ title: 'Данные' });
   });
 
-  it('resolves map route with project prefix', () => {
-    expect(resolvePageHeader('/abc-123/map')).toMatchObject({ title: 'Карта инфраструктуры' });
+  it('resolves map route with project suffix', () => {
+    expect(
+      resolvePageHeader('/map/abc12345-6789-4abc-def0-123456789abc'),
+    ).toMatchObject({ title: 'Карта инфраструктуры' });
   });
 
   it('resolves admin route', () => {

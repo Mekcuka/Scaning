@@ -13,16 +13,18 @@ import type { FlowSchematicDto } from '../../lib/flowSchematic';
 import { WARNING_LABELS } from '../../lib/flowSchematic';
 import { useAppStore } from '../../store';
 import { stripProjectPrefix } from '../../lib/projectRoutes';
+import { useProjectPathBuilder } from '../../hooks/useProjectPath';
 import { FlowSchematicProvider } from './flowSchematicContext';
 
 const TABS = [
-  { to: 'technology', label: 'Технологический поток', icon: Workflow },
-  { to: 'economic', label: 'Экономический поток', icon: Coins },
-  { to: 'logistics', label: 'Логистика', icon: Truck },
+  { suffix: '/flows/technology', label: 'Технологический поток', icon: Workflow },
+  { suffix: '/flows/economic', label: 'Экономический поток', icon: Coins },
+  { suffix: '/flows/logistics', label: 'Логистика', icon: Truck },
 ] as const;
 
 export function FlowSchematicLayout() {
   const { projectId } = useActiveProject();
+  const buildPath = useProjectPathBuilder();
   const pushToast = useAppStore((s) => s.pushToast);
   const queryClient = useQueryClient();
   const [selectedPoiId, setSelectedPoiId] = useState('');
@@ -180,10 +182,10 @@ export function FlowSchematicLayout() {
             )}
 
             <nav className="parameters-subnav" aria-label="Разделы схемы потоков">
-              {TABS.map(({ to, label, icon: Icon }) => (
+              {TABS.map(({ suffix, label, icon: Icon }) => (
                 <NavLink
-                  key={to}
-                  to={to}
+                  key={suffix}
+                  to={buildPath(suffix)}
                   className={({ isActive }) =>
                     `parameters-subnav__tab${isActive ? ' parameters-subnav__tab--active' : ''}`
                   }

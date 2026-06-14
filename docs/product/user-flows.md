@@ -8,36 +8,36 @@
 
 После входа доступно боковое меню (`AppLayout`).
 
-**URL проекта:** разделы с данными проекта используют id в пути — `/:projectId/map`, `/:projectId/matrix`, … Пример: `http://localhost:5173/a1b2c3d4-…/map`. Без id: `/login`, `/register`, `/projects`, `/projects/:id`, `/admin/*`. Старые адреса (`/map`, `/matrix`, …) редиректятся на активный проект.
+**URL проекта:** id в **конце** пути — `/map/{projectId}`, `/matrix/{projectId}`, … Пример: `http://localhost:5173/map/a1b2c3d4-…`. Без id: `/login`, `/register`, `/projects`, `/projects/:id`, `/admin/*`. Старые адреса (`/map`, `/{projectId}/map`, …) редиректятся на `/раздел/{projectId}`.
 
 | Раздел | Маршрут | Кто видит |
 |--------|---------|-----------|
-| Дашборд | `/:projectId` | все роли |
+| Дашборд | `/dashboard/{projectId}` | все роли |
 | Проекты | `/projects` | admin, analyst, viewer |
-| Карта | `/:projectId/map` | все |
-| Кустование | `/:projectId/pad-clustering` | все |
-| Параметры | `/:projectId/parameters/*` | admin, analyst, viewer |
-| Потоки | `/:projectId/flows/technology` … | admin, analyst, viewer |
-| Матрица | `/:projectId/matrix` | admin, analyst, viewer |
-| Отчёты | `/:projectId/report` | admin, analyst, viewer |
-| **Данные** | `/:projectId/data/*` | подвкладки по роли (см. ниже) |
+| Карта | `/map/{projectId}` | все |
+| Кустование | `/pad-clustering/{projectId}` | все |
+| Параметры | `/parameters/*/{projectId}` | admin, analyst, viewer |
+| Потоки | `/flows/technology/{projectId}` … | admin, analyst, viewer |
+| Матрица | `/matrix/{projectId}` | admin, analyst, viewer |
+| Отчёты | `/report/{projectId}` | admin, analyst, viewer |
+| **Данные** | `/data/*/{projectId}` | подвкладки по роли (см. ниже) |
 | Администрирование | `/admin/users`, `/admin/jobs`, `/admin/assistant` | admin |
 
 **Данные** (`DataLayout`, подвкладки как у «Параметры»):
 
 | Вкладка | Маршрут | Кто видит |
 |---------|---------|-----------|
-| Импорт | `/:projectId/data/import` | admin, analyst, data_manager |
-| Экспорт | `/:projectId/data/export` | все роли |
-| Импорт 3D | `/:projectId/data/import-3d` | admin (загрузка); admin и владелец проекта (назначение, превью) |
+| Импорт | `/data/import/{projectId}` | admin, analyst, data_manager |
+| Экспорт | `/data/export/{projectId}` | все роли |
+| Импорт 3D | `/data/import-3d/{projectId}` | admin (загрузка); admin и владелец проекта (назначение, превью) |
 
-Legacy URL `/import`, `/export`, `/import-3d` → редирект на `/:projectId/data/...`.
+Legacy URL `/import`, `/export`, `/import-3d` и `/{projectId}/data/...` → редирект на `/data/.../{projectId}`.
 
 **Шапка приложения:** заголовок и subtitle текущей страницы — в `app-header` (`PageHeaderProvider`, `resolvePageHeader` + `stripProjectPrefix`); кнопки действий — в теле страницы.
 
 **Администрирование:** вложенные вкладки (`AdminLayout`, как у «Параметры»): **Пользователи** (`/admin/users`), **Журнал задач** (`/admin/jobs`), **AI-помощник** (`/admin/assistant`). Прямой переход по URL поддерживается (GitHub Pages: `index.html` + `404.html`, service worker `public/sw.js`). **Выход** — иконка в нижней панели сайдбара (не в шапке).
 
-Вкладки **Параметры:** пропускная способность (`/:projectId/parameters/capacity`), **земляные работы** (`/:projectId/parameters/earthwork` — L/W/H, опорная, поворот по точечным объектам), песок (`/:projectId/parameters/sand`), даты ввода (`/:projectId/parameters/entry-dates`), **ставки** 16 показателей (`/:projectId/parameters/rates`).
+Вкладки **Параметры:** пропускная способность (`/parameters/capacity/{projectId}`), **земляные работы** (`/parameters/earthwork/{projectId}` — L/W/H, опорная, поворот по точечным объектам), песок (`/parameters/sand/{projectId}`), даты ввода (`/parameters/entry-dates/{projectId}`), **ставки** 16 показателей (`/parameters/rates/{projectId}`).
 
 ## 1. Регистрация и первый вход
 
@@ -260,7 +260,7 @@ Legacy URL `/import`, `/export`, `/import-3d` → редирект на `/:proje
 1. На карте рисуют или импортируют **забои** (ННБ; для ГС — пятка и сток = одна скважина).
 2. В режиме **«Кусты»** / **«Оптимизация кустов»** выделяют нужные забои.
 3. В панели задают ограничения: максимум скважин на куст, минимальное расстояние между кустами, при необходимости — проверку SF; в **«Расширенные»** — перебор центра по Σ MD ([input-parameters.md](input-parameters.md) §6).
-4. **«Рассчитать»** — система перебирает варианты разбиения по кустам, для каждой группы — сетку положений центра (M2+), строит раскладку устьев и траектории. При большом числе скважин — фоновая задача и [журнал задач](../features/task-log-panel.md).
+4. **«Рассчитать»** — система перебирает варианты разбиения по кустам; для каждой группы — **двухфазный** перебор центра (грубая сетка → полный design), раскладка устьев и горизонтальный/connector design. При большом числе скважин — фоновая задача и [журнал задач](../features/task-log-panel.md) (таймаут до 10 мин).
 5. На карте — **предпросмотр** кустов; в таблице — варианты от лучшего к худшему (число кустов, Σ MD, min SF, предупреждения).
 6. **«Применить»** — создаются новые кусты, забои привязываются; **существующие кусты не меняются**.
 7. Переход в **«Кустование»** (`/pad-clustering?padId=…`) — доработка раскладки, отметки устья и SF.

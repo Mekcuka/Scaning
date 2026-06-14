@@ -4,6 +4,8 @@ from __future__ import annotations
 
 from uuid import UUID, uuid4
 
+from fastapi import HTTPException
+
 from app.models import InfrastructureObject
 from app.services.pad_earthwork.earthwork_store import store_sketch, store_wells_local
 from app.services.pad_earthwork.properties import (
@@ -26,12 +28,20 @@ from app.services.pad_placement.schemas import (
     PadCandidateOut,
     PadPlacementParams,
 )
+from app.services.pad_placement.trajectory_design import (
+    TrajectoryDesignMode,
+    pad_placement_gs_entry_search_step_m,
+)
 from app.services.well_trajectory.bottomhole_properties import WELL_INDEX
 from app.services.well_trajectory.bottomhole_sync import sync_bottomholes_to_trajectories
-from app.services.well_trajectory.schemas import WellTrajectoryDesignAllRequest
-from app.services.well_trajectory.service import design_all_from_targets, generate_trajectories_from_layout
-from app.services.well_trajectory.trajectory_store import store_trajectories_json
-from app.services.well_trajectory.settings_store import WELL_TRAJECTORY_STEP_M, WELL_TRAJECTORY_SF_WARNING_THRESHOLD
+from app.services.well_trajectory.design_bottomholes import design_well_from_target
+from app.services.well_trajectory.service import generate_trajectories_from_layout
+from app.services.well_trajectory.trajectory_store import read_trajectories_json, store_trajectories_json
+from app.services.well_trajectory.settings_store import (
+    WELL_TRAJECTORY_SF_WARNING_THRESHOLD,
+    WELL_TRAJECTORY_STEP_M,
+    well_trajectory_settings_for_pad,
+)
 
 
 def params_to_pad_properties(params: PadPlacementParams, well_count: int) -> dict:
@@ -89,6 +99,8 @@ def snapshot_to_bottomhole(
         geometry={"type": "Point", "coordinates": [snap.longitude, snap.latitude]},
         longitude=snap.longitude,
         latitude=snap.latitude,
+        end_longitude=snap.end_longitude,
+        end_latitude=snap.end_latitude,
         properties=props,
     )
 
@@ -102,6 +114,7 @@ def evaluate_pad_group(
     candidate_id: str,
     center_lon: float | None = None,
     center_lat: float | None = None,
+    trajectory_design: TrajectoryDesignMode = "full",
 ) -> PadCandidateOut:
     warnings: list[str] = []
     if not wells:
@@ -163,14 +176,45 @@ def evaluate_pad_group(
     warnings.extend(sync_warnings)
     pad.properties = store_trajectories_json(pad.properties, trajectories)
 
-    design = design_all_from_targets(
-        pad,
-        WellTrajectoryDesignAllRequest(step_m=params.step_m),
-    )
-    if design.skipped:
-        warnings.append(f"Design skipped wells: {design.skipped}")
+    trajectories = read_trajectories_json(pad.properties)
+    if trajectory_design != "skip":
+        settings = well_trajectory_settings_for_pad(pad)
+        skipped: list[int] = []
+        for idx in range(len(trajectories)):
+            well = trajectories[idx]
+            if not isinstance(well, dict):
+                skipped.append(idx)
+                continue
+            target = well.get("target")
+            if not isinstance(target, dict):
+                skipped.append(idx)
+                continue
+            try:
+                entry_step = pad_placement_gs_entry_search_step_m(
+                    target,
+                    params=params,
+                    settings_step_m=settings.gs_entry_search_step_m,
+                    mode=trajectory_design,
+                )
+                trajectories[idx] = design_well_from_target(
+                    pad,
+                    idx,
+                    well,
+                    target,
+                    step_m=params.step_m,
+                    entry_clearance=False,
+                    entry_search_step_m=entry_step,
+                    extra_warnings=warnings,
+                )
+            except HTTPException:
+                skipped.append(idx)
+            except Exception as exc:
+                warnings.append(f"Скв.{idx + 1}: design failed: {exc}")
+                skipped.append(idx)
+        if skipped:
+            warnings.append(f"Design skipped wells: {skipped}")
 
-    pad.properties = store_trajectories_json(pad.properties, design.trajectories)
+        pad.properties = store_trajectories_json(pad.properties, trajectories)
 
     return PadCandidateOut(
         candidate_id=candidate_id,
@@ -182,7 +226,7 @@ def evaluate_pad_group(
         length_m=layout.length_m,
         width_m=layout.width_m,
         rotation_deg=layout.rotation_deg,
-        trajectories=design.trajectories,
+        trajectories=trajectories,
         warnings=warnings,
     )
 

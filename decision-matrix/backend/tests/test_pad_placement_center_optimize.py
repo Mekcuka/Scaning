@@ -73,6 +73,41 @@ def test_find_best_pad_center_prefers_centroid_over_heel_seed():
     assert not any("No valid pad center" in w for w in warnings)
 
 
+def test_find_best_pad_center_two_phase_refines_winner():
+    wells = [_well(37.620, 55.760), _well(37.621, 55.761)]
+    params = PadPlacementParams(
+        center_optimize=True,
+        center_search_radius_m=400,
+        center_search_step_m=200,
+        min_pad_spacing_m=0,
+    )
+    calls: list[str] = []
+
+    def tracking_evaluate(wells, *, center_lon, center_lat, candidate_id, trajectory_design="full", **kwargs):
+        calls.append(trajectory_design)
+        return _mock_evaluate(
+            wells,
+            center_lon=center_lon,
+            center_lat=center_lat,
+            candidate_id=candidate_id,
+            **kwargs,
+        )
+
+    best, _ = find_best_pad_center(
+        wells,
+        params=params,
+        snapshots_by_id={},
+        subtype="oil_pad",
+        candidate_id="test_p0",
+        existing_pads=[],
+        other_centers=[],
+        evaluate_fn=tracking_evaluate,
+    )
+    assert best is not None
+    assert calls.count("full") == 1
+    assert calls.count("coarse") >= 1
+
+
 def test_find_best_pad_center_returns_none_when_all_spacing_blocked():
     wells = [_well(37.62, 55.76)]
     params = PadPlacementParams(min_pad_spacing_m=5000)

@@ -7,7 +7,7 @@ test('report list page renders', async ({ page, request }) => {
   const projectId = await createProject(request, csrf, `test_report_${Date.now()}`);
 
   await loginViaUi(page, email);
-  await page.goto(`/report?project=${projectId}`);
+  await page.goto(`/report/${projectId}`);
 
   await expect(page.getByRole('heading', { name: 'Отчёты' })).toBeVisible();
 });

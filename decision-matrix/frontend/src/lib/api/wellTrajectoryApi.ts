@@ -1,8 +1,8 @@
 import { request } from './client';
 import type { ProjectJobCreateResponse } from './jobs';
 
-/** Welleng design for many GS wells can exceed the default 12s API timeout. */
-const WELL_TRAJECTORY_TIMEOUT_MS = 120_000;
+/** Welleng design for many GS wells can exceed the default API timeout (10 min). */
+const WELL_TRAJECTORY_TIMEOUT_MS = 600_000;
 
 export type WellTrajectoryStation = {
   md?: number;

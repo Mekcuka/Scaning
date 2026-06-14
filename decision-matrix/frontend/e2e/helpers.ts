@@ -88,6 +88,60 @@ export async function createProject(
 
 
 
+export async function deleteProject(
+
+  request: APIRequestContext,
+
+  csrf: CsrfHolder,
+
+  projectId: string,
+
+): Promise<void> {
+
+  const res = await request.delete(`${API}/api/v1/projects/${projectId}`, {
+
+    headers: { 'X-CSRF-Token': csrf.token },
+
+  });
+
+  if (res.status() === 204) {
+
+    applyCsrf(res.headers(), csrf);
+
+    return;
+
+  }
+
+  if (res.status() === 404) return;
+
+  expect(res.ok(), `deleteProject failed: ${res.status()} ${await res.text()}`).toBeTruthy();
+
+}
+
+
+
+/** Best-effort cascade delete of E2E projects (ignores 404). */
+
+export async function cleanupE2eProjects(
+
+  request: APIRequestContext,
+
+  csrf: CsrfHolder,
+
+  projectIds: Iterable<string>,
+
+): Promise<void> {
+
+  for (const projectId of projectIds) {
+
+    await deleteProject(request, csrf, projectId);
+
+  }
+
+}
+
+
+
 export async function setupE2eSession(
 
   request: APIRequestContext,
@@ -212,6 +266,29 @@ export async function createInfraPoint(
 
   return body.id as string;
 
+}
+
+/** NNB bottomholes for map «Оптимизация кустов» (pad placement) E2E/API tests. */
+export async function seedPadPlacementBottomholes(
+  request: APIRequestContext,
+  csrf: CsrfHolder,
+  projectId: string,
+  count = 3,
+): Promise<string[]> {
+  const layerId = await createLayer(request, csrf, projectId, 'e2e_pad_placement_layer');
+  const ids: string[] = [];
+  for (let i = 0; i < count; i++) {
+    const id = await createInfraPoint(request, csrf, projectId, {
+      layerId,
+      name: `E2E Забой ${i + 1}`,
+      subtype: 'well_bottomhole_nnb',
+      lon: 37.62 + i * 0.001,
+      lat: 55.76 + i * 0.001,
+      properties: { well_bottomhole_tvd_m: 1500 + i * 10 },
+    });
+    ids.push(id);
+  }
+  return ids;
 }
 
 
@@ -422,7 +499,7 @@ export async function openMapPage(page: Page, projectId?: string): Promise<Locat
 
   );
 
-  const path = projectId ? `/map?project=${projectId}` : '/map';
+  const path = projectId ? `/map/${projectId}` : '/map';
 
   await page.goto(path);
 

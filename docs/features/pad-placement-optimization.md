@@ -75,7 +75,7 @@
 
 | Порядок | Источник |
 |---------|----------|
-| 1 | **MD** последней точки инклинометрии после успешного `design-from-bottomholes` |
+| 1 | **MD** последней точки инклинометрии после успешного design (`design_well_from_target`: NNB → connector; ГС → `design_horizontal`) |
 | 2 | Поле `md` в target траектории (если есть) |
 | 3 | Fallback на **TVD** из логической скважины / карточки забоя — с предупреждением в варианте |
 | 4 | Вариант **invalid**, если расчёт не удался и MD/TVD недоступны |
@@ -139,13 +139,19 @@ flowchart TB
 
 ### Шаг 3. Где поставить центр куста
 
-**M2+ (реализовано):** для каждой группы скважин — сетка кандидатов вокруг **центроида TD** (± радиус, шаг сетки), полный пересчёт траекторий на каждой точке, выбор позиции с **минимальной Σ MD**. Legacy-эвристика (центроид + сдвиг к устью) остаётся дополнительной seed-точкой в сетке.
+**M2+ (реализовано):** для каждой группы скважин — **двухфазный** перебор центра вокруг **центроида TD**:
+
+1. **Фаза 1 (грубо):** сетка кандидатов (до **5×5** точек), на каждой — раскладка + design с **укрупнённым** шагом перебора точки входа ГС; выбор позиции с минимальной Σ MD.
+2. **Фаза 2 (точно):** полный design только для **лучшего** центра из фазы 1.
+
+Legacy-эвристика (центроид + сдвиг к устью) остаётся дополнительной seed-точкой в сетке.
 
 | Параметр | По умолч. | Описание |
 |----------|-----------|----------|
 | `center_optimize` | `true` | Включить перебор центра |
 | `center_search_radius_m` | 400 | Окно поиска, м |
-| `center_search_step_m` | 200 | Шаг сетки, м (автоувеличение при >7×7 точек) |
+| `center_search_step_m` | 200 | Шаг сетки, м (автоувеличение при >5×5 точек) |
+| `gs_entry_search_step_m` | `null` | Явный шаг перебора точки входа ГС; `null` — **адаптивный** (длина ГС ÷ 10 на финальном этапе, ÷ 4 на грубом) |
 
 В UI — блок **«Расширенные»** в панели «Оптимизация кустов».
 
@@ -155,8 +161,12 @@ flowchart TB
 
 1. Генератор раскладки устьев — [`pad_wells_bootstrap.py`](../../decision-matrix/backend/app/services/well_trajectory/pad_wells_bootstrap.py).
 2. Заготовки траекторий из раскладки.
-3. Привязка забоев — `sync-bottomholes`.
-4. Полный расчёт траекторий — `design-from-bottomholes` через [`well-trajectory-planner`](../../well-trajectory-planner/).
+3. Привязка забоев — `sync-bottomholes` (координаты `end_longitude` / `end_latitude` для ГС).
+4. Полный расчёт траекторий — [`design_well_from_target`](../../decision-matrix/backend/app/services/well_trajectory/design_bottomholes.py) через [`well-trajectory-planner`](../../well-trajectory-planner/):
+   - **ННБ** — connector до TD;
+   - **ГС** — горизонтальный design (`design_horizontal`), режим точки входа из карточки забоя (`any` / `heel` / `toe`).
+
+**Отличие от «Кустования» на одном кусте:** при pad placement **не** вызывается SF на каждом offset точки входа ГС (`entry_clearance=false`) — иначе расчёт для 8+ ГС занимает минуты. Проверка SF — **один раз на вариант** при `sf_check=true` ([`sf_score.py`](../../decision-matrix/backend/app/services/pad_placement/sf_score.py)). После «Применить» на кусте доступен полный перебор с SF в «Кустовании».
 
 ### Шаг 5. Отбор лучших
 
@@ -166,7 +176,24 @@ flowchart TB
 
 ### Долгий расчёт
 
-Если скважин **больше 8** или вариантов **больше 50** — расчёт уходит в фоновую задачу (ARQ, `project_jobs`), статус — в [журнале задач](task-log-panel.md).
+| Условие | Поведение |
+|---------|-----------|
+| N **≤ 8** логических скважин и ≤ **100** комбинаций разбиения | Синхронный `POST compute` (ответ в том же HTTP-запросе) |
+| N **> 8** или > **100** комбинаций | Рекомендуется `POST compute?async=true` → ARQ, [`project_jobs`](task-log-panel.md) |
+| Таймаут HTTP (frontend / BFF) | **600 с** для `compute` и `apply` (`PAD_PLACEMENT_TIMEOUT_MS`, `WELL_TRAJECTORY_HTTP_TIMEOUT_SECONDS`) |
+
+**Предпросмотр** `POST …/request` — только оценка входа (число скважин, допустимость sync); **не** запускает design.
+
+### Производительность (июнь 2026)
+
+| Узкое место | Оптимизация в коде |
+|-------------|-------------------|
+| SF на каждом offset точки входа ГС | Отключено в pad placement; SF только при `sf_check` |
+| Полный design на каждой точке сетки центра | Двухфазный поиск: грубый перебор → один финальный design |
+| Мелкий шаг перебора entry при длинной ГС | Адаптивный `gs_entry_search_step_m` (≈ длина ÷ 10) |
+| Большая сетка центра | Потолок **5×5** точек; шаг сетки автоувеличивается |
+
+**Ручное ускорение:** выключить «Оптимизировать положение куста»; на забоях ГС задать точку входа **пятка** или **сток** вместо «Любая»; увеличить `center_search_step_m`; отключить `sf_check`.
 
 ---
 
@@ -192,7 +219,7 @@ flowchart TB
 
 | Метод | Путь | Назначение |
 |-------|------|------------|
-| POST | `request` | Проверка входа, оценка числа вариантов, выдача `request_id` |
+| POST | `request` | Проверка входа, оценка числа вариантов, `sync_allowed` (быстро, без design) |
 | POST | `compute` | Запуск расчёта; `?async=true` → 202 и `job_id` |
 | GET | `compute/{request_id}` | Статус и список вариантов |
 | POST | `apply` | Тело: `{ request_id, variant_index }` → создание объектов |
@@ -237,7 +264,8 @@ flowchart LR
 
 | Модуль | Роль |
 |--------|------|
-| [`placement_optimize.py`](../../decision-matrix/backend/app/services/pad_placement/placement_optimize.py) | M2+ перебор XY центра куста по Σ MD |
+| [`placement_optimize.py`](../../decision-matrix/backend/app/services/pad_placement/placement_optimize.py) | M2+ двухфазный перебор XY центра куста по Σ MD |
+| [`trajectory_design.py`](../../decision-matrix/backend/app/services/pad_placement/trajectory_design.py) | Адаптивный шаг перебора точки входа ГС (`coarse` / `full`) |
 | [pad-earthwork-planner](../../pad-earthwork-planner/) | Контур куста, координаты устьев, габариты |
 | [well-trajectory-planner](../../well-trajectory-planner/) | Горизонтальный участок, инклинометрия, TVD |
 | [well_trajectory BFF](../../decision-matrix/backend/app/api/v1/well_trajectory.py) | Образец оркестрации и фоновых задач |
@@ -270,3 +298,4 @@ flowchart LR
 | 2026-06 | v1: первая спецификация (greenfield, вход — забои) |
 | 2026-06 | v1.1: переписано простым русским языком |
 | 2026-06 | v1.2: M2+ — перебор центра куста (`center_optimize`, `center_search_*`), критерий Σ MD |
+| 2026-06 | v1.3: горизонтальный design ГС в evaluate; sync `end_lon/lat`; таймаут compute/apply **600 с**; двухфазный поиск центра; адаптивный шаг entry; SF только при `sf_check` |

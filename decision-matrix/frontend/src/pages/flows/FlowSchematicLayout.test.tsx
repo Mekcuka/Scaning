@@ -39,10 +39,10 @@ describe('FlowSchematicLayout', () => {
     renderPage(
       <Routes>
         <Route path="/flows" element={<FlowSchematicLayout />}>
-          <Route path="technology" element={<FlowTechnologyPage />} />
+          <Route path="technology/:projectId" element={<FlowTechnologyPage />} />
         </Route>
       </Routes>,
-      { initialEntries: ['/flows/technology'] },
+      { initialEntries: ['/flows/technology/p1'] },
     );
     await waitFor(() =>
       expect(screen.getByText('Технологический поток')).toBeInTheDocument(),

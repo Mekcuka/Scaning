@@ -97,6 +97,6 @@ describe('ProjectDetailPage', () => {
     );
 
     await waitFor(() => expect(screen.getByText('Добавить на карте')).toBeInTheDocument());
-    expect(screen.getByRole('link', { name: /добавить на карте/i })).toHaveAttribute('href', '/map');
+    expect(screen.getByRole('link', { name: /добавить на карте/i })).toHaveAttribute('href', '/map/p1');
   });
 });
