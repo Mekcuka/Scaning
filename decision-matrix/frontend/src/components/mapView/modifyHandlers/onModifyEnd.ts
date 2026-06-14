@@ -3,7 +3,7 @@ import Point from 'ol/geom/Point';
 import LineString from 'ol/geom/LineString';
 import { fromLonLat, transform } from 'ol/proj';
 import type Modify from 'ol/interaction/Modify';
-import { constrainLineCoordinatesOnEdit, normalizeLinePathEndpoints } from '../../../lib/lineEndpointRules';
+import { constrainLineCoordinatesOnEdit } from '../../../lib/lineEndpointRules';
 import { useAppStore } from '../../../store';
 import { lineCoordsFromGeometry } from '../geometry';
 import type { MapHitHelpers } from '../mapHitHelpers';

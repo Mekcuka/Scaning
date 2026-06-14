@@ -5,6 +5,7 @@ from __future__ import annotations
 from datetime import date
 
 from app.geo.entry_date import is_in_service
+from app.subtype_manifest import BOTTOMHOLE_CLUSTER_SUBTYPES
 
 SAND_VOLUME_INITIAL_M3 = "sand_volume_initial_m3"
 SAND_VOLUME_CURRENT_M3 = "sand_volume_current_m3"
@@ -172,10 +173,8 @@ def strip_sand_volume_properties(properties: dict | None) -> dict:
 
 
 def is_sand_consumer_subtype(subtype: str) -> bool:
-    from app.services.well_trajectory.bottomhole_properties import is_bottomhole_subtype
-
     st = subtype.strip().lower()
-    if is_bottomhole_subtype(st):
+    if st in BOTTOMHOLE_CLUSTER_SUBTYPES:
         return False
     return st not in SAND_DEMAND_EXCLUDED_SUBTYPES
 
@@ -183,11 +182,10 @@ def is_sand_consumer_subtype(subtype: str) -> bool:
 def apply_default_sand_volumes(subtype: str, properties: dict | None) -> dict:
     """Fill sand volume properties on new point objects when keys are absent."""
     from app.geo.constants import LINE_SUBTYPES
-    from app.services.well_trajectory.bottomhole_properties import is_bottomhole_subtype
 
     props = dict(properties or {})
     st = subtype.strip().lower()
-    if is_bottomhole_subtype(st):
+    if st in BOTTOMHOLE_CLUSTER_SUBTYPES:
         return strip_sand_volume_properties(props)
     if st in LINE_SUBTYPES:
         return props

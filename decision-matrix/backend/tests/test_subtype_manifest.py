@@ -131,11 +131,22 @@ def test_manifest_labels_and_categories_cover_map_subtypes():
     assert geo_constants.SUBTYPE_CATEGORY == SUBTYPE_CATEGORY
 
 
-def test_well_bottomhole_subtypes_are_map_points():
+def test_well_bottomhole_subtypes_geometry_manifest():
+    """Unified GS is linear (heel→toe); NNB and legacy heel/toe remain point map subtypes."""
     from app.geo.validation import validate_subtype_geometry
 
     raw = json.loads(_MANIFEST_PATH.read_text(encoding="utf-8"))
-    bottomholes = raw["clusters"]["bottomhole"]
-    assert set(bottomholes).issubset(set(raw["point"]["map"]))
+    bottomholes = set(raw["clusters"]["bottomhole"])
+    point_map = set(raw["point"]["map"])
+    linear_all = set(raw["linear"]["all"])
+
+    point_bottomholes = bottomholes - {"well_bottomhole_gs"}
+    assert point_bottomholes.issubset(point_map)
+    assert "well_bottomhole_gs" in linear_all
+    assert "well_bottomhole_gs" not in point_map
+
     for subtype in bottomholes:
-        validate_subtype_geometry(subtype)
+        if subtype == "well_bottomhole_gs":
+            validate_subtype_geometry(subtype, coordinate_count=2)
+        else:
+            validate_subtype_geometry(subtype)

@@ -4,7 +4,7 @@
 
 **Связанные документы:** [requirements.md](../product/requirements.md) (FR-2.3, FR-2.4, FR-6, FR-10), [database-schema.md](../architecture/database-schema.md), [input-parameters.md](../product/input-parameters.md), [calculation-logic-flow.md](../calculations/calculation-logic-flow.md), [fluid-flow-schematic.md](fluid-flow-schematic.md), [architecture.md](../architecture/architecture.md).
 
-**Дата актуализации:** май 2026.
+**Дата актуализации:** июнь 2026.
 
 ---
 
@@ -77,6 +77,10 @@
 | `power_line_node` | Узел ЛЭП | **Точка** | `POINT` | `electricity` | смена у «Узел» | — | да (с `node`, `methanol_joint`) | — | — |
 | `offplot` | ВО | **Точка** | `POINT` | `area_facility` | «Точка» / импорт Искра | — | нет | — | — |
 | `additional_facility` | Доп. объект | **Точка** | `POINT` | `area_facility` | «Точка» / импорт Искра | — | нет | — | — |
+| `well_bottomhole_nnb` | Забой (ННБ) | **Точка** | `POINT` | `well` | «Забой» → ННБ | — | нет | — | — |
+| `well_bottomhole_gs` | ГС (unified) | **Линия** | `LINESTRING` | `well` | «Забой» → ГС (heel→toe) | — | нет | — | — |
+| `well_bottomhole_gs_heel` | ГС — heel | **Точка** | `POINT` | `well` | «Забой» → ГС (legacy, 1-й клик) | — | нет | — | — |
+| `well_bottomhole_gs_toe` | ГС — toe | **Точка** | `POINT` | `well` | «Забой» → ГС (legacy, 2-й клик) | — | нет | — | — |
 | `autoroad` | Автодорога | **Линия** | `LINESTRING` | `road` | «Линия» | любая **Точка** | нет | internal (4 типа) | — |
 | `oil_pipeline` | Нефтепровод | **Линия** | `LINESTRING` | `pipeline` | «Линия» | любая **Точка** | нет | internal | — |
 | `gas_pipeline` | Газопровод | **Линия** | `LINESTRING` | `pipeline` | «Линия» | любая **Точка** | нет | — | — |
@@ -115,7 +119,7 @@ flowchart TB
   end
   POI --> poiTable[(points_of_interest)]
   PT --> pointSub[14 point subtypes]
-  LN --> lineSub[6 line subtypes]
+  LN --> lineSub[7 line subtypes incl. well_bottomhole_gs]
   pointSub --> geomP[POINT]
   lineSub --> geomL[LINESTRING]
   geomL --> snap["Концы: точные coords точки или node"]
@@ -180,6 +184,21 @@ flowchart LR
 | Линейный подтип с `lat`/`lon` без концов отрезка | `type=autoroad`, только `lat`, `lon` |
 | Точечный подтип с координатами отрезка | `type=gas_processing`, `start_lat`, `end_lat` |
 | Polygon для площадного подтипа | GeoJSON `Polygon` для `refinery` |
+
+#### 1.4.5 Объекты-забои (`well_bottomhole_*`)
+
+Подтипы траекторий скважин на карте; manifest — `decision-matrix/shared/infrastructure_subtypes.json`, кластер `clusters.bottomhole`. Подробнее — [well-trajectory.md](well-trajectory.md), [input-parameters.md](../product/input-parameters.md) §3.1.
+
+| `subtype` | Геометрия | Режим рисования | Примечание |
+|-----------|-----------|-----------------|------------|
+| `well_bottomhole_nnb` | `POINT` | 1 клик | TVD, inc, azi; обязателен `well_bottomhole_linked_pad_id` |
+| `well_bottomhole_gs` | `LINESTRING` (≥2 вершины) | Линия heel→toe | Unified ГС: dual TVD (`heel_tvd_m`, `toe_tvd_m`), `gs_entry_mode`; **не** в `point.map` |
+| `well_bottomhole_gs_heel` | `POINT` | 1-й клик (legacy) | Пара с `well_bottomhole_gs_toe` через `well_bottomhole_gs_heel_id` |
+| `well_bottomhole_gs_toe` | `POINT` | 2-й клик (legacy) | То же; для новых проектов предпочтителен unified `well_bottomhole_gs` |
+
+**Валидация:** `validate_subtype_geometry` — point-подтипы требуют одну координату; `well_bottomhole_gs` — линию (`coordinate_count ≥ 2`). Тест: `tests/test_subtype_manifest.py::test_well_bottomhole_subtypes_geometry_manifest`.
+
+**UI:** вкладка **«Геометрия»** (`InfraBottomholeGeometrySection`) — X/Y/Z, связь Z ↔ TVD через KB куста; 3D-маркеры забоев на карте проекта.
 
 ### 1.6 Пропускная способность точечных объектов (PFD и карта)
 
@@ -697,6 +716,7 @@ sequenceDiagram
 | 2026-06 | 2D drag точек: `updateWhileInteracting` в editMode, `mapFeatureGeometrySync` (иконка + ручка вместе, в т.ч. `methanol_facility`) |
 | 2026-06 | Admin `/admin/jobs`: журнал, health, отмена; пагинация 10/стр.; кнопка «Отменить» только для `pending`/`running`; автообновление 3 с |
 | 2026-06 | §1.9: фоновые задачи проекта (`project_jobs`, Redis + ARQ, worker); сериализация по `project_id` |
+| 2026-06 | §1.4 / §1.4.5: объекты-забои `well_bottomhole_*` — unified ГС (`well_bottomhole_gs`) как `LINESTRING`, NNB/legacy heel/toe как `POINT`; manifest `linear.all` vs `point.map` |
 | 2026-06 | [autoroad-network-plan.md](../autoroad/autoroad-network-plan.md): план выделенного сервиса plan API, BFF, UI «Построить сеть» |
 | 2026-06 | §1.8: серверное соединение точек автодорогами (`autoroad-connect`, `road_graph`, `line_split`); UI в панели группового выделения |
 | 2026-06 | §1.8: качество Steiner (MST по ●, geodesic midpoint, collinear simplify) |

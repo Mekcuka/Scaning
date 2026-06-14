@@ -31,4 +31,11 @@ export default defineConfig([
       'preserve-caught-error': 'off',
     },
   },
+  {
+    files: ['src/components/mapView/**/*.{ts,tsx}'],
+    rules: {
+      // OL hooks read stable ref handles; deps are data props only (see useMapViewRefs).
+      'react-hooks/exhaustive-deps': 'off',
+    },
+  },
 ])

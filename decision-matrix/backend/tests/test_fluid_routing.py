@@ -1,6 +1,6 @@
 """Tests for fluid routing rules."""
 
-from app.geo.fluid_routing import active_fluids, oil_uses_pipeline_transport, water_uses_local_utilization
+from app.services.fluid_routing import active_fluids, oil_uses_pipeline_transport, water_uses_local_utilization
 from app.services.calculations import EngineeringState
 
 

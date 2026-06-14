@@ -1,4 +1,3 @@
-import { Link } from 'react-router-dom';
 import { ProjectLink } from '../../components/ProjectLink';
 import { MapPin, Target } from 'lucide-react';
 import type { InfraObject } from '../../lib/api';

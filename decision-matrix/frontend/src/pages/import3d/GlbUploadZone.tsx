@@ -1,4 +1,4 @@
-import { useEffect, useState, type DragEvent, type RefObject } from 'react';
+import { useCallback, useEffect, useState, type DragEvent, type RefObject } from 'react';
 import { Upload } from 'lucide-react';
 
 export function GlbUploadZone({
@@ -19,13 +19,13 @@ export function GlbUploadZone({
   const [dragOver, setDragOver] = useState(false);
   const [fileName, setFileName] = useState('');
 
-  const syncFileName = () => {
+  const syncFileName = useCallback(() => {
     setFileName(fileInputRef.current?.files?.[0]?.name ?? '');
-  };
+  }, [fileInputRef]);
 
   useEffect(() => {
     if (!busy) syncFileName();
-  }, [busy]);
+  }, [busy, syncFileName]);
 
   const onDrop = (e: DragEvent) => {
     e.preventDefault();

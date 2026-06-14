@@ -145,11 +145,11 @@ export function PlanRectangleEditor({
 
   useEffect(() => {
     setStableHalfExtent(Math.max(sketch.length_m, sketch.width_m, 10) * VIEW_PAD);
-  }, [fitViewNonce]);
+  }, [fitViewNonce, sketch.length_m, sketch.width_m]);
 
   const gridLines = useMemo(
     () => planSketchGridLines(viewPan.east_m, viewPan.north_m, viewHalf, snapStep),
-    [snapEnabled, viewHalf, viewPan.east_m, viewPan.north_m, snapStep],
+    [viewHalf, viewPan.east_m, viewPan.north_m, snapStep],
   );
 
   const clientToLocal = useCallback((clientX: number, clientY: number) => {

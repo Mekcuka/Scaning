@@ -273,7 +273,7 @@ export function useMapGeometrySave({
         }
       }
     },
-    [projectId, queryClient, pois, infraObjects, pushUndo, pushToast, touchInfraOverlay],
+    [projectId, queryClient, pois, infraObjects, pushUndo, pushToast, touchInfraOverlay, mapApi, poiApi],
   );
 
   const handleBatchGeometryChange = useCallback(
@@ -433,6 +433,8 @@ export function useMapGeometrySave({
       pushToast,
       invalidateMap,
       touchInfraOverlay,
+      mapApi,
+      poiApi,
     ],
   );
 

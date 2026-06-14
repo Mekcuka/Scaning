@@ -1,4 +1,4 @@
-import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import { useMutation, useQueryClient } from '@tanstack/react-query';
 import type { InfraObject } from '../../lib/api';
 import { wellTrajectoryApi } from '../../lib/api/wellTrajectoryApi';
 import { readWellTrajectoryStepM } from '../../lib/padClusteringCalcSettings';

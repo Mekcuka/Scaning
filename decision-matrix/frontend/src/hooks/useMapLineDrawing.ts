@@ -43,7 +43,7 @@ export function useMapLineDrawing({
   drawMode,
   infraSubtype,
   infraObjects,
-  mapInFootprints = false,
+  mapInFootprints: _mapInFootprints = false,
   canWriteInfra,
   createInfraMut,
   pushToast,
@@ -352,7 +352,6 @@ export function useMapLineDrawing({
       projectId,
       infraSubtype,
       infraObjects,
-      mapInFootprints,
       nextAutoName,
       pushToast,
       pushUndo,
@@ -362,6 +361,7 @@ export function useMapLineDrawing({
       setFeatureSel,
       clearLineDraft,
       requestLineSplitConfirm,
+      mapApi,
     ],
   );
 

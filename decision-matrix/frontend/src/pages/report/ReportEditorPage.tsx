@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { Link, useNavigate, useParams, useSearchParams } from 'react-router-dom';
+import { useNavigate, useParams, useSearchParams } from 'react-router-dom';
 import { ProjectLink } from '../../components/ProjectLink';
 import { useProjectPathBuilder } from '../../hooks/useProjectPath';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
@@ -210,9 +210,7 @@ export function ReportEditorPage({ mode }: { mode: 'new' | 'edit' }) {
     const focus = resultFocus ?? lineFocus;
     setMapFocus({ ...focus, nonce: Date.now() });
   }, [
-    selectedPoi?.id,
-    selectedPoi?.lon,
-    selectedPoi?.lat,
+    selectedPoi,
     projectId,
     connectionLines,
     alignedAnalysisRows,

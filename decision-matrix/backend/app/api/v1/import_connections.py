@@ -11,10 +11,10 @@ from app.api.deps import get_current_user
 from app.core.crypto import decrypt_secret, encrypt_secret
 from app.core.database import get_db
 from app.core.url_validation import safe_http_get, validate_outbound_url
-from app.models import ImportConnection, InfrastructureLayer, Project, User
+from app.models import ImportConnection, Project, User
 from app.models.enums import AccessLevel, WriteScope
 from app.schemas import ImportConnectionCreate, ImportConnectionResponse, ImportConnectionUpdate
-from app.services.import_service import import_rows_to_layer
+from app.services.import_connection_sync import sync_import_connection
 from app.services.project_access import resolve_project
 
 connections_router = APIRouter()
@@ -178,55 +178,10 @@ async def sync_connection(
         raise HTTPException(status_code=404, detail="Connection not found")
     token = decrypt_secret(c.credentials_encrypted)
     headers, auth = _http_auth(c, token)
-    try:
-        validate_outbound_url(c.api_url)
-        r = await safe_http_get(c.api_url, headers=headers, auth=auth, timeout=60.0)
-    except ValueError as e:
-        raise HTTPException(status_code=400, detail=str(e)) from e
-    except httpx.HTTPError as e:
-        raise HTTPException(status_code=502, detail="Upstream request failed") from e
-    if r.status_code >= 400:
-        raise HTTPException(status_code=502, detail=f"Upstream returned {r.status_code}")
-    data = r.json()
-    items = data if isinstance(data, list) else data.get("features") or data.get("items") or []
-    rows: list[dict] = []
-    for i, item in enumerate(items):
-        if not isinstance(item, dict):
-            continue
-        subtype = (item.get("type") or item.get("subtype") or "gas_processing").lower()
-        name = item.get("name") or f"API object {i + 1}"
-        lon = float(item.get("lon") or item.get("longitude") or 0)
-        lat = float(item.get("lat") or item.get("latitude") or 0)
-        from app.geo.geometry_utils import build_infra_geometry
-        from app.geo.validation import category_for_subtype
-
-        rows.append(
-            {
-                "name": name,
-                "subtype": subtype,
-                "lon": lon,
-                "lat": lat,
-                "end_lon": None,
-                "end_lat": None,
-                "geometry": build_infra_geometry(subtype, lon, lat),
-                "category": category_for_subtype(subtype),
-            }
-        )
-    layer = await db.scalar(
-        select(InfrastructureLayer).where(
-            InfrastructureLayer.project_id == project_id,
-            InfrastructureLayer.source_type == "corporate_api",
-        )
+    return await sync_import_connection(
+        db,
+        project_id=project_id,
+        connection=c,
+        headers=headers,
+        auth=auth,
     )
-    if not layer:
-        layer = InfrastructureLayer(
-            project_id=project_id,
-            name="Корпоративный API",
-            source_type="corporate_api",
-            layer_type="vector",
-        )
-        db.add(layer)
-        await db.flush()
-    count = await import_rows_to_layer(db, layer, rows)
-    await db.commit()
-    return {"imported": count}

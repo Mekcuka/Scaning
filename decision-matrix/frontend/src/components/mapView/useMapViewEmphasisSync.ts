@@ -23,14 +23,15 @@ export function useMapViewEmphasisSync(
   refs: MapViewRefs,
   { drawMode = 'select', selectedFeatureIds = [] }: Pick<MapViewProps, 'drawMode' | 'selectedFeatureIds'>,
 ): void {
+  const { emphasisFeatureIdsRef } = refs;
   const idsKey = selectedFeatureIds.join('|');
 
   useEffect(() => {
     const next = EMPHASIS_DRAW_MODES.has(drawMode)
       ? new Set(selectedFeatureIds)
       : new Set<string>();
-    if (setsEqual(next, refs.emphasisFeatureIdsRef.current)) return;
-    refs.emphasisFeatureIdsRef.current = next;
+    if (setsEqual(next, emphasisFeatureIdsRef.current)) return;
+    emphasisFeatureIdsRef.current = next;
     refreshEmphasisLayers(refs);
-  }, [drawMode, idsKey, refs, selectedFeatureIds]);
+  }, [drawMode, emphasisFeatureIdsRef, idsKey, refs, selectedFeatureIds]);
 }

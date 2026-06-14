@@ -85,7 +85,7 @@ export function PoiParamsPanel({
 
   useEffect(() => {
     if (selectedPoi) setForm(poiToFormValues(selectedPoi));
-  }, [selectedPoi?.id]);
+  }, [selectedPoi]);
 
   const saveMut = useMutation({
     mutationFn: (payload: ReturnType<typeof formValuesToPoiPayload>) =>

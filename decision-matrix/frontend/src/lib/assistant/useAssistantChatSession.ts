@@ -103,7 +103,7 @@ export function useAssistantChatSession(
       // Last session removed — welcome screen; session is created on first message.
       selectSession(null);
     },
-    [queryClient, selectSession, sessionId, sessions],
+    [queryClient, selectSession, sessionId],
   );
 
   const applySessionFromResponse = useCallback(

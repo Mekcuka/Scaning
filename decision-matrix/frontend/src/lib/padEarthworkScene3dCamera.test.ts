@@ -7,7 +7,6 @@ import {
   scene3dCameraZoomPercent,
   scene3dToolbarZoomIn,
   scene3dToolbarZoomOut,
-  shouldSyncPlanCamera,
   syncTopDownPlanCamera,
   zoomScene3dCamera,
 } from './padEarthworkScene3dCamera';

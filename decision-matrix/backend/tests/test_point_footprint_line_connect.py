@@ -2,7 +2,7 @@
 
 from types import SimpleNamespace
 
-from app.geo.point_footprint_line_connect import (
+from app.services.point_footprint_line_connect import (
     FOOTPRINT_LINE_CONNECTIONS_KEY,
     _edge_valid_for_point,
     _parse_edge_attach,

@@ -78,7 +78,10 @@ export function useMapAnalysis({
     placeholderData: keepPreviousData,
   });
 
-  const analysisRowsRaw: AnalysisRow[] = analysisData?.rows ?? analysisData?.analysis ?? [];
+  const analysisRowsRaw = useMemo(
+    (): AnalysisRow[] => analysisData?.rows ?? analysisData?.analysis ?? [],
+    [analysisData],
+  );
 
   useEffect(() => {
     if (!analysisQueryError) return;
@@ -100,7 +103,7 @@ export function useMapAnalysis({
     [analysisRowsForMap, mapLayerVisibleInfra],
   );
 
-  const thresholdKm = (subtype: string, fallback: number) => {
+  const thresholdKm = useCallback((subtype: string, fallback: number) => {
     if (!selectedPoi) return fallback;
     const poiKey = `threshold_${subtype}_km` as keyof typeof selectedPoi;
     const poiVal = selectedPoi[poiKey];
@@ -111,7 +114,7 @@ export function useMapAnalysis({
       if (typeof dv === 'number') return dv;
     }
     return fallback;
-  };
+  }, [selectedPoi, distanceDefaults]);
 
   const thresholdCircles: ThresholdCircle[] = useMemo(() => {
     if (!selectedPoi) return [];
@@ -121,7 +124,7 @@ export function useMapAnalysis({
       color: m.color,
       visible: radiusVisible[m.subtype] ?? true,
     }));
-  }, [selectedPoi, radiusVisible, distanceDefaults]);
+  }, [selectedPoi, radiusVisible, thresholdKm]);
 
   const focusMapOnPoiAnalysis = useCallback(
     (poiForFocus: POI, normalized: PoiAnalysisResponse | null) => {

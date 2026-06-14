@@ -43,7 +43,7 @@ export function DemPlanBackground({
     const observer = new ResizeObserver(resize);
     observer.observe(container);
     return () => observer.disconnect();
-  }, [preview, viewHalf, pan.east_m, pan.north_m]);
+  }, [preview, viewHalf, pan]);
 
   if (!preview && !loading) return null;
 

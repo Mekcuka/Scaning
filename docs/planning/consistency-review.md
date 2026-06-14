@@ -1,13 +1,14 @@
 # Ревизия согласованности документации
 
-Дата: май 2026. Проверка комплекта `docs/`.
+Дата: **июнь 2026** (обновлено после compliance audit P0–P2+). Проверка комплекта `docs/`.
 
 ## Итог
 
 | Категория | Статус |
 |-----------|--------|
 | Док ↔ код (сводка) | [implementation-status.md](implementation-status.md) |
-| SOLID / границы модулей | [solid-refactoring-plan.md](solid-refactoring-plan.md), [module-boundaries.md](../architecture/module-boundaries.md) (фаза 0, июнь 2026) |
+| SOLID / границы модулей | [solid-refactoring-plan.md](solid-refactoring-plan.md), [module-boundaries.md](../architecture/module-boundaries.md) (фаза 0 + **compliance P2**, июнь 2026) |
+| CI lint (frontend) | **0 errors, 0 warnings** (июнь 2026; `eslint.config.js`, override `mapView/**`) |
 | Навигация (Параметры, Потоки, ставки внутри Параметров) | Согласовано (май 2026) |
 | OpenLayers / Lucide | Согласовано |
 | Импорт отдельно от карты | Согласовано |
@@ -17,6 +18,8 @@
 | Селектор проекта | На страницах (Экспорт и др.); в шапке нет (июнь 2026) |
 | 16 ставок, тыс. ₽ | Согласовано |
 | 9 подтипов vs анализ на карте | Согласовано |
+| Unified ГС (`well_bottomhole_gs`) = LineString; NNB/legacy heel/toe = Point | Согласовано (июнь 2026, [map-objects §1.4.5](../features/map-objects-and-spatial-calculations.md), manifest, `test_subtype_manifest`) |
+| Конкурентность `design-from-bottomholes` (last-write-wins) | Зафиксировано (июнь 2026, [well-trajectory.md §2c](../features/well-trajectory.md)) |
 | Internal linear = pads × km/КП | **Зафиксировано** (FR-5.3.4, calculation-functions §3) |
 | Каталог расчётных функций | **Добавлен** [calculation-functions.md](../calculations/calculation-functions.md) |
 | `decision_matrices` | **Legacy** (FR-14.1.3) |
@@ -41,6 +44,33 @@
 | 12 | UI, навигация, таблицы | FR-12 |
 | 13 | Системные (SR) | SR-13 |
 | 14 | Вне scope MVP | — |
+
+## Ревизия: compliance audit P0–P2+ (июнь 2026)
+
+Аудит согласованности кода с [module-boundaries.md](../architecture/module-boundaries.md), [CONTRIBUTING.md](../../CONTRIBUTING.md), [testing-strategy.md](../testing/testing-strategy.md).
+
+| Приоритет | Задача | Статус | Где зафиксировано |
+|-----------|--------|--------|-------------------|
+| **P0** | CI: `test_subtype_manifest` (GS LineString), ESLint `useMapViewEmphasisSync` | ✅ | pytest + `npm run lint` |
+| **P1** | Док ↔ код: `well_bottomhole_*`, траектории §2c, changelog map-objects | ✅ | [map-objects §1.4.5](../features/map-objects-and-spatial-calculations.md), [well-trajectory.md §2c](../features/well-trajectory.md) |
+| **P2** | `geo/` → `services/`: `fluid_routing`, `line_footprint_attach`, `point_footprint_line_connect` | ✅ | [module-boundaries.md](../architecture/module-boundaries.md), [fluid-flow-schematic.md](../features/fluid-flow-schematic.md) |
+| **P2** | Thin handler: `import_connections.sync_connection` → `import_connection_sync.py` | ✅ | `services/import_connection_sync.py` |
+| **P2** | Split `well_trajectory/service.py` (~700 → ~338 + модули) | ✅ | `services/well_trajectory/{design_bottomholes,layout_ops,design_connector,compute_ops,pad_access}.py` |
+| **P2+** | Split `PadEarthworkSketchModal` (~1185 → ~116 + hook/tabs) | ✅ | [pad-earthwork.md § Frontend](../features/pad-earthwork.md), [frontend-structure.md](../architecture/frontend-structure.md) |
+| **P2+** | Split `PlanPolygonEditor` (~570 → hook + SVG) | ✅ | `usePlanPolygonEditor.ts`, `PlanPolygonEditorSvg.tsx` |
+| **P2+** | Split `AdminAssistantPage` (~1039 → ~150 + components) | ✅ | `components/admin-assistant/*`, `useAdminAssistantPage.ts` |
+| **P2+** | Split `sand_logistics.py` + thin API handlers | ✅ | `sand_logistics_subnet.py`, `sand_logistics_handlers.py` |
+| **P2+** | Split `api_handlers.py` → common/design/clearance/import | ✅ | `services/well_trajectory/api_*_handlers.py` |
+| **P2+** | Split `InfraPadEarthworkSection` (~479 → hook + form) | ✅ | `objectDetailPanel/useInfraPadEarthworkSection.ts` |
+| **P2+** | ESLint: 71 warning → **0** | ✅ | `eslint.config.js` (override `mapView/**`), правки hooks/deps |
+
+### Остаётся (осознанный backlog)
+
+| Тема | Примечание |
+|------|------------|
+| API handlers >15 строк | ~40 handlers; map_*, projects, pad_placement, admin_assistant ✅ |
+| FE >400 строк | прочие крупные компоненты (см. frontend-structure) |
+| BE >400 строк | `assistant.py`, `import_connections.py`, … |
 
 ## Ревизия: закрытие пробелов документации (май 2026)
 

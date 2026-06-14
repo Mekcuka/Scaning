@@ -14,13 +14,12 @@ from app.geo.sand_properties import (
     sand_demand_plan_total_m3,
 )
 from app.models import InfrastructureEdge
-from app.services.sand_logistics import (
-    _PointSite,
-    _RoadGraph,
-    _analyze_subnet,
-    _connected_components,
-    _dijkstra,
-    _snap_site_to_autoroad_network,
+from app.services.sand_logistics_subnet import _PointSite, _analyze_subnet
+from app.services.road_graph import (
+    RoadGraph as _RoadGraph,
+    connected_components as _connected_components,
+    dijkstra as _dijkstra,
+    snap_site_to_autoroad_network as _snap_site_to_autoroad_network,
 )
 
 _EPS_KM = 0.001

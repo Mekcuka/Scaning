@@ -47,7 +47,8 @@ pre-commit install
 ## Code style
 
 - Backend: `ruff check` / `ruff format` on `decision-matrix/backend`
-- Frontend: ESLint with TypeScript type-checked rules
+- Frontend: ESLint with TypeScript type-checked rules (**0 errors, 0 warnings** — CI fails on warnings)
+- OpenLayers `mapView/**`: `react-hooks/exhaustive-deps` отключён в `eslint.config.js` (стабильные ref-колбэки OL)
 - Keep changes focused; match existing patterns in neighboring files
 
 ## Module boundaries (SOLID)

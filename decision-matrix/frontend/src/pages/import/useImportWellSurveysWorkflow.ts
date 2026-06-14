@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { wellTrajectoryApi, type WellTrajectoryImportPreviewResponse } from '../../lib/api/wellTrajectoryApi';
 import type { ProjectJobCreateResponse } from '../../lib/api/jobs';
@@ -49,13 +49,13 @@ export function useImportWellSurveysWorkflow() {
   const format = selectedFile ? detectSurveyFormat(selectedFile) : null;
   const busy = projectJobBusy;
 
-  const invalidateTrajectory = async () => {
+  const invalidateTrajectory = useCallback(async () => {
     if (!projectId || !padId) return;
     await queryClient.invalidateQueries({ queryKey: wellTrajectoryQueryKeys.geoJson(projectId, padId) });
     await queryClient.invalidateQueries({ queryKey: wellTrajectoryQueryKeys.last(projectId, padId) });
     await queryClient.invalidateQueries({ queryKey: ['wellTrajectoryProjectGeoJson', projectId] });
     await refreshMapQueries(queryClient, projectId);
-  };
+  }, [projectId, padId, queryClient]);
 
   useEffect(() => {
     if (
@@ -65,7 +65,7 @@ export function useImportWellSurveysWorkflow() {
       void invalidateTrajectory();
       pushToast('success', 'Импорт инклинометрии завершён');
     }
-  }, [activeProjectJob?.id, activeProjectJob?.job_type, activeProjectJob?.status, padId, projectId]);
+  }, [activeProjectJob?.id, activeProjectJob?.job_type, activeProjectJob?.status, padId, projectId, invalidateTrajectory, pushToast]);
 
   const previewMut = useMutation({
     mutationFn: async (file: File) => {

@@ -322,6 +322,49 @@ components/flowSchematicEditor/
 
 ---
 
+## Земляные работы (pad earthwork) — `padEarthwork/` и `lib/padEarthworkSketch/`
+
+Публичный API модалки: `import { PadEarthworkSketchModal } from '../components/padEarthwork/PadEarthworkSketchModal'` — без изменений.
+
+Потребители: `InfraPadEarthworkSection`, карта (режим «Площадки»), тесты `padEarthworkSketch.test.ts`, `infraPadEarthwork.test.ts`.
+
+```
+components/padEarthwork/
+├── PadEarthworkSketchModal.tsx          # shell (~116): AppModal + tabs
+├── usePadEarthworkSketchModal.ts        # orchestrator (state + preview + mutations)
+├── usePadEarthworkSketchState.ts
+├── usePadEarthworkSketchDemPreview.ts
+├── usePadEarthworkSketchMutations.ts
+├── padEarthworkSketchModalState.ts
+├── PadEarthworkSketchPlanTab.tsx        # вкладка «План»
+├── PadEarthworkSketchPlanToolbar.tsx
+├── PadEarthworkSketchPlanSidebar.tsx
+├── padEarthworkSketchPlanTabTypes.ts
+├── PadEarthworkSketchScene3dTab.tsx
+├── PadEarthworkScene3D.tsx
+├── PlanRectangleEditor.tsx
+├── PlanPolygonEditor.tsx                # shell (~48)
+├── usePlanPolygonEditor.ts              # drag/tools/viewport hook (~350)
+├── PlanPolygonEditorSvg.tsx             # SVG canvas (~250)
+├── planPolygonEditorTypes.ts
+└── … (Dem*, Envelope*, toolbars)
+
+lib/padEarthworkSketch.ts                # barrel (export *)
+lib/padEarthworkSketch/
+├── types.ts, clamp.ts, rectangle.ts, polygon.ts
+├── envelope.ts, layout.ts, api.ts, index.ts
+
+objectDetailPanel/
+├── InfraPadEarthworkSection.tsx         # shell (~130)
+├── useInfraPadEarthworkSection.ts
+├── InfraPadEarthworkSectionForm.tsx
+└── infraPadEarthworkSectionUtils.ts
+```
+
+Тесты: `lib/padEarthworkSketch.test.ts` (30), `lib/infraPadEarthwork.test.ts`, `envelopeBerm*.test.ts`, `padEarthworkScene3d.test.ts`.
+
+---
+
 ## Куда смотреть при доработках
 
 | Задача | Файлы |
@@ -339,6 +382,8 @@ components/flowSchematicEditor/
 | Песок: нормализация API | `sandLogisticsResult/normalize.ts`, `schematicSlice.ts` |
 | Песок: prefs / warnings | `sandLogisticsResult/storagePrefs.ts`, `warnings.ts` |
 | Схема потоков (PFD) | `flowSchematicEditor/FlowSchematicEditorInner.tsx`, `FlowEdge.tsx`, `FlowNode.tsx` |
+| Земляные работы (модалка) | `padEarthwork/usePadEarthworkSketchModal.ts`, `PadEarthworkSketchPlanTab.tsx`, `lib/padEarthworkSketch/*` |
+| Земляные работы (карточка) | `objectDetailPanel/useInfraPadEarthworkSection.ts`, `InfraPadEarthworkSectionForm.tsx` |
 | Тесты карты | `MapPage.*.test.tsx`, `MapView.smoke.test.tsx`, `mapPageHarness.tsx` |
 | E2E клики по карте | `setupViewHandlers.ts` (`__dmOlMap` при `VITE_E2E_MAP_HOOK`), `e2e/helpers.ts` (`clickMapLonLat`) |
 
@@ -346,5 +391,5 @@ components/flowSchematicEditor/
 
 ## Оставшиеся кандидаты на дробление
 
-Основной план рефакторинга карты (июнь 2026) выполнен. `useMapPageMapActions.ts` разбит на `mapPageOrchestrator/actions/*` (фаза 3 ✅). **CSS:** монолит `index.css` → `styles/` (35 файлов, каскад 1:1); карта — `features/map/` (фаза 2); модалка/flow — `components/app-modal/` (фаза 3). **Данные:** `DataLayout` + `/data/*`; Import — `pages/import/*`, карточки через `ExportOptionCard`; Export — `pages/export/*`, `lib/projectExport/*`; Import 3D — `pages/import3d/*`. **Шапка:** `pageHeaderContext`, `resolvePageHeader`. Опционально: `buildMapPageSections.ts`. План — [solid-refactoring-plan.md](../planning/solid-refactoring-plan.md). Границы — [module-boundaries.md](module-boundaries.md).
+Основной план рефакторинга карты (июнь 2026) выполнен. `useMapPageMapActions.ts` разбит на `mapPageOrchestrator/actions/*` (фаза 3 ✅). **Pad earthwork:** `PadEarthworkSketchModal` (~1185→~116), `lib/padEarthworkSketch.ts` → `padEarthworkSketch/*`, `InfraPadEarthworkSection` → hook + form (compliance P2+ ✅). **CSS:** монолит `index.css` → `styles/` (35 файлов, каскад 1:1); карта — `features/map/` (фаза 2); модалка/flow — `components/app-modal/` (фаза 3). **Lint:** `npm run lint` — **0 errors, 0 warnings** (override `mapView/**` exhaustive-deps в `eslint.config.js`). **Данные:** `DataLayout` + `/data/*`; Import — `pages/import/*`, карточки через `ExportOptionCard`; Export — `pages/export/*`, `lib/projectExport/*`; Import 3D — `pages/import3d/*`. **Шапка:** `pageHeaderContext`, `resolvePageHeader`. `buildMapPageSections/` — split по секциям ✅. Backlog: прочие thin API handlers (`map_objects`, …). План — [solid-refactoring-plan.md](../planning/solid-refactoring-plan.md). Границы — [module-boundaries.md](module-boundaries.md).
 

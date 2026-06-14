@@ -264,6 +264,7 @@ export function useMapClipboard({
       setSelectMode,
       setFeatureGroupSel,
       lineHealSkipIdsRef,
+      mapApi,
     ],
   );
 

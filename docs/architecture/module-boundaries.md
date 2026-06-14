@@ -39,6 +39,22 @@ app/
 ├── geo/                 # пространственные утилиты без бизнес-правил
 └── services/            # бизнес-логика
     ├── calculations.py  # чистые функции, без БД
+    ├── fluid_routing.py # правила веток PFD (oil/water/gas)
+    ├── line_footprint_attach.py  # sanitize line.properties.line_footprint_attach
+    ├── point_footprint_line_connect.py
+    ├── import_connection_sync.py  # corporate API sync
+    ├── well_trajectory/           # BFF траекторий (split P2+, июнь 2026)
+    │   ├── service.py             # публичный API / re-export (~338 строк)
+    │   ├── design_bottomholes.py
+    │   ├── layout_ops.py
+    │   ├── design_connector.py
+    │   ├── compute_ops.py
+    │   ├── pad_access.py
+    │   ├── api_common.py          # shared HTTP helpers
+    │   ├── api_design_handlers.py
+    │   ├── api_clearance_handlers.py
+    │   ├── api_import_handlers.py
+    │   └── api_handlers.py        # barrel re-export
     ├── analysis/        # целевая декомпозиция (фаза 2)
     ├── spatial.py       # nearest, geodesic (кандидат на SpatialQueryPort, фаза 4)
     └── autoroad_network/
@@ -134,7 +150,7 @@ store  →  минимальные зависимости
 
 - `MapPage.tsx` — только layout + `{...sections.*}`
 - `useMapPageOrchestrator` — композиция под-хуков
-- `buildMapPageSections` — маппинг state → props дочерних компонентов
+- `buildMapPageSections/` — маппинг state → props дочерних компонентов (split ✅)
 
 ---
 
@@ -144,11 +160,12 @@ store  →  минимальные зависимости
 |-------|---------|----------|------------|
 | Auth | `api/v1/auth.py`, `services/auth_tokens.py` | `LoginPage`, `lib/api/authApi` (цель) | JWT + CSRF |
 | Projects / POI | `api/v1/projects.py`, `analysis.py` | `ProjectsPage`, `projectsApi` | Фаза 6 ✅ |
-| Map | `api/v1/map.py`, `map_*.py`, `services/infra_create.py` | `MapPage`, `mapApi`, `mapPageOrchestrator` | map split ✅ |
+| Map | `api/v1/map.py`, `map_*.py`, `services/map_{objects,poi,import}/api_handlers.py` | `MapPage`, `mapApi`, `mapPageOrchestrator` | map split + thin BFF ✅ |
 | Analysis | `infrastructure_analysis.py` → `analysis/` | `MatrixPage`, `matrixData` | Фаза 2 / 5 |
 | Import | `import_service.py`, `import_connections.py` | `ImportPage` → `pages/import/` | Фаза 3 |
-| Autoroad | `autoroad_network/*`, `planner_adapter` | `useMapAutoroadNetwork` | DIP: planner port |
-| Sand | `sand_logistics.py` | `sandLogisticsFlow/*` | Уже разбит |
+| Autoroad | `autoroad_network/*`, `api_handlers.py`, `planner_adapter` | `useMapAutoroadNetwork` | Thin BFF P2+ ✅ |
+| Sand | `sand_logistics.py`, `sand_logistics_subnet.py`, `sand_logistics_handlers.py` | `sandLogisticsFlow/*` | Split P2+ ✅ |
+| Pad earthwork | `pad_earthwork/service.py`, `api_handlers.py` | `padEarthwork/*`, `lib/padEarthworkSketch/*` | Модалка + thin BFF ✅ (июнь 2026) |
 | Flows PFD | `flow.py`, `fluid_flow_schematic.py` | `flowSchematicEditor/*` | Уже разбит |
 | Jobs | `jobs.py`, `project_jobs.py` | `AdminJobsPage`, `jobsApi` | Async tasks |
 
@@ -175,8 +192,25 @@ store  →  минимальные зависимости
 |------|---------|--------------|
 | ~~`apiClient.ts`~~ | compose (фаза 1 ✅) | — |
 | ~~`infrastructure_analysis.py`~~ | barrel → `services/analysis/` (фаза 2 ✅) | — |
-| `useMapPageMapActions.ts` | compose до разбиения | 3 |
-| `buildMapPageSections.ts` | props mapping | 3 (опционально) |
+| ~~`useMapPageMapActions.ts`~~ | compose → `actions/*` (фаза 3 ✅) | — |
+| ~~`PadEarthworkSketchModal.tsx`~~ | shell + hook/tabs (P2+ ✅) | — |
+| ~~`lib/padEarthworkSketch.ts`~~ | barrel → `padEarthworkSketch/*` (P2+ ✅) | — |
+| ~~`PlanPolygonEditor.tsx`~~ | hook + SVG (P2+ ✅) | — |
+| ~~`usePadClusteringEditor.ts`~~ | utils + mutations + scene (P2+ ✅) | — |
+| ~~`AdminAssistantPage.tsx`~~ | hook + panels (P2+ ✅) | — |
+| ~~`services/sand_logistics.py`~~ | subnet module + handlers (P2+ ✅) | — |
+| ~~`buildMapPageSections.ts`~~ | split → `buildMapPageSections/*` (P2+ ✅) | — |
+| ~~`api/v1/pad_earthwork.py`~~ | thin routes → `api_handlers.py` (P2+ ✅) | — |
+| ~~`api/v1/autoroad_network.py`~~ | thin routes → `api_handlers.py` (P2+ ✅) | — |
+| ~~`api/v1/map_objects.py`~~ | thin routes → `api_handlers.py` (P2+ ✅) | — |
+| ~~`api/v1/map_poi.py`~~ | thin routes → `api_handlers.py` (P2+ ✅) | — |
+| ~~`api/v1/map_import.py`~~ | thin routes → `api_handlers.py` (P2+ ✅) | — |
+| ~~`api/v1/map_layers.py`~~ | thin routes → `api_handlers.py` (P2+ ✅) | — |
+| ~~`api/v1/pad_placement.py`~~ | thin routes → `api_handlers.py` (P2+ ✅) | — |
+| ~~`api/v1/map3d_models.py`~~ | thin routes → `map3d_models/api_handlers.py` (P2+ ✅) | — |
+| ~~`api/v1/projects.py`~~ | thin routes → `api_handlers.py` (P2+ ✅) | — |
+| ~~`api/v1/admin_assistant.py`~~ | thin routes + schemas split (P2+ ✅) | — |
+| ~~`api/v1/well_trajectory.py`~~ | thin routes → `api_*_handlers.py` (P2+ ✅) | — |
 | ~~`router.py`~~ | compose only (фаза 6 ✅) | — |
 
 Новый код **не добавляется** в эти файлы сверх мелких правок; расширение — через новые модули или следующую фазу плана.

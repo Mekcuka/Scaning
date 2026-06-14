@@ -215,7 +215,10 @@ export function TaskLogPanel({ projectId }: { projectId: string | null }) {
   const byProject = useTaskLogStore((s) => s.byProject);
   const hydrateProject = useTaskLogStore((s) => s.hydrateProject);
   const mergeJobsFromApi = useTaskLogStore((s) => s.mergeJobsFromApi);
-  const storeEntries = projectId ? (byProject[projectId] ?? []) : [];
+  const storeEntries = useMemo(
+    () => (projectId ? (byProject[projectId] ?? []) : []),
+    [projectId, byProject],
+  );
 
   useEffect(() => {
     if (projectId) hydrateProject(projectId);

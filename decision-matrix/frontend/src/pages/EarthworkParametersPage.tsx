@@ -1,6 +1,5 @@
 import { useMemo, useState } from 'react';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
-import { Link } from 'react-router-dom';
 import { ProjectLink } from '../components/ProjectLink';
 import { MapPin, Search } from 'lucide-react';
 import { SUBTYPE_LABELS, defaultMapMutationsApi, type InfraObject } from '../lib/api';

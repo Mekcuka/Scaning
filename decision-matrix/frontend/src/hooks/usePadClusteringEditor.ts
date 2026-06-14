@@ -1,31 +1,22 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { defaultMapMutationsApi, type InfraObject } from '../lib/api';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
+import type { InfraObject } from '../lib/api';
 import { padEarthworkApi } from '../lib/api/padEarthworkApi';
 import { wellTrajectoryApi, type WellTrajectoryLastResponse } from '../lib/api/wellTrajectoryApi';
-import { isProjectJobCreateResponse, pollProjectJobUntilDone } from '../lib/pollProjectJob';
-import { wellTrajectoryQueryKeys } from './useWellTrajectoryGeoJson';
 import {
-  clampNdsDeg,
-  DEFAULT_PAD_NDS_DEG,
   envelopeFromObject,
-  envelopeWrapForApi,
-  padParamsFromObject,
   readDemStatusFromProperties,
-  resolveGeneratorNdsDeg,
 } from '../lib/infraPadEarthwork';
-import { padWellFieldsFromForm, padWellFormStringsFromObject } from '../lib/infraPadWells';
 import {
   buildPadClusteringSaveProperties,
   filterPadObjects,
   isPadLayoutDraftDirty,
-  type PadClusteringPadDraft,
 } from '../lib/padClusteringSave';
 import {
   calcDraftEquals,
   calcDraftFromSources,
-  DEFAULT_CALC_STEP_M,
   type PadClusteringCalcDraft,
+  type PadClusteringPadDraft,
 } from '../lib/padClusteringCalcSettings';
 import {
   parseSketchFromLast,
@@ -36,40 +27,18 @@ import {
   type PlanVertex,
 } from '../lib/padEarthworkSketch';
 import { bottomholesLinkedToPad } from '../lib/wellBottomholeProperties';
-import { isPersistedLayoutStale, wellsLocalMatch } from '../lib/padClusteringLayoutSync';
-import { resolvePadClusteringSceneTrajectoryDisplay } from '../lib/padClusteringSceneTrajectories';
-import { maybeRegenerateTrajectoriesAfterLayoutChange } from '../lib/wellTrajectoryLayoutRegenerate';
-import { useAppStore } from '../store';
+import { isPersistedLayoutStale } from '../lib/padClusteringLayoutSync';
+import { wellTrajectoryQueryKeys } from './useWellTrajectoryGeoJson';
+import { draftFromPad, parseHeightRef, parsePositive } from './padClusteringEditorUtils';
+import { usePadClusteringEditorMutations } from './usePadClusteringEditorMutations';
+import {
+  isPadFormDraftDirty,
+  resolveActiveLayout,
+  usePadClusteringEditorScene,
+} from './usePadClusteringEditorScene';
 
-const DEFAULT_STEP_M = DEFAULT_CALC_STEP_M;
-
-function parsePositive(raw: string): number | null {
-  const t = raw.trim().replace(',', '.');
-  if (!t) return null;
-  const n = Number(t);
-  return Number.isFinite(n) && n > 0 ? n : null;
-}
-
-function parseHeightRef(heightM: string, referenceElevationM: string) {
-  const height = parsePositive(heightM);
-  const refRaw = referenceElevationM.trim().replace(',', '.');
-  const ref = refRaw === '' ? 0 : Number(refRaw);
-  if (height == null || !Number.isFinite(ref)) return null;
-  return { height_m: height, reference_elevation_m: ref };
-}
-
-export function draftFromPad(pad: InfraObject, wellsCount = 0): PadClusteringPadDraft {
-  const p = padParamsFromObject(pad);
-  const wells = padWellFormStringsFromObject(pad.properties);
-  return {
-    ...wells,
-    lengthM: p.lengthM,
-    widthM: p.widthM,
-    heightM: p.heightM,
-    rotationDeg: resolveGeneratorNdsDeg(p.rotationDeg, wellsCount > 0),
-    referenceElevationM: p.referenceElevationM,
-  };
-}
+export { draftFromPad } from './padClusteringEditorUtils';
+export { filterPadObjects, buildPadClusteringSaveProperties };
 
 export function usePadClusteringEditor(
   projectId: string | null | undefined,
@@ -77,7 +46,6 @@ export function usePadClusteringEditor(
   infraObjects: InfraObject[],
 ) {
   const queryClient = useQueryClient();
-  const pushToast = useAppStore((s) => s.pushToast);
 
   const pad = useMemo(
     () => infraObjects.find((o) => o.id === padId) ?? null,
@@ -159,7 +127,7 @@ export function usePadClusteringEditor(
     setLocalWellsLocal(wellsLocal);
     setLocalSketch(null);
     setSketchDirty(false);
-  }, [pad?.id, pad?.properties, wellsLocal, trajectoryLast?.settings, envelope]);
+  }, [pad, wellsLocal, trajectoryLast?.settings, envelope]);
 
   const activeDraft = draft ?? (pad ? draftFromPad(pad, wellsLocal.length) : null);
   const activeCalcDraft =
@@ -193,18 +161,36 @@ export function usePadClusteringEditor(
     [sketchDirty, isLayoutDraftDirty, wellsLocal, savedSketch, layoutPreview],
   );
 
+  const trajectories = useMemo(
+    () => trajectoryLast?.trajectories ?? [],
+    [trajectoryLast?.trajectories],
+  );
+
   const useLiveLayoutPreview = Boolean(
     layoutPreview && (isLayoutDraftDirty || sketchDirty || layoutPreviewStale),
   );
 
-  const activeSketch = useLiveLayoutPreview
-    ? layoutPreview!.sketch
-    : localSketch ?? sketch;
-  const activeWellsLocal = useLiveLayoutPreview
-    ? layoutPreview!.wellsLocal
-    : sketchDirty
-      ? localWellsLocal
-      : wellsLocal;
+  const { activeSketch, activeWellsLocal } = resolveActiveLayout({
+    useLiveLayoutPreview,
+    layoutPreview,
+    localSketch,
+    sketch,
+    sketchDirty,
+    localWellsLocal,
+    wellsLocal,
+  });
+
+  const {
+    sceneTrajectories,
+    sceneWellsLocal,
+    sceneTrajectoriesHidden,
+    sceneLayoutCallout,
+  } = usePadClusteringEditorScene({
+    trajectories,
+    wellsLocal,
+    activeWellsLocal,
+    layoutPreviewStale,
+  });
 
   const demAssetId = earthworkLast?.dem?.asset_id ?? null;
   const demAvailable = Boolean(demAssetId);
@@ -274,25 +260,29 @@ export function usePadClusteringEditor(
     [pad, wellsLocal.length],
   );
 
-  const buildGenerateBody = useCallback(() => {
-    if (!activeDraft) return {};
-    const fields = padWellFieldsFromForm(activeDraft);
-    const rotRaw = activeDraft.rotationDeg.trim().replace(',', '.');
-    const rotation = rotRaw === '' ? DEFAULT_PAD_NDS_DEG : Number(rotRaw);
-    return {
-      well_count: fields.wellCount,
-      wells_per_group: fields.wellsPerGroup,
-      well_spacing_m: fields.wellSpacingM,
-      group_spacing_m: fields.groupSpacingM,
-      margins: {
-        left_m: fields.leftM,
-        bottom_m: fields.bottomM,
-        top_m: fields.topM,
-        end_m: fields.endM,
-      },
-      rotation_deg: Number.isFinite(rotation) ? clampNdsDeg(rotation) : DEFAULT_PAD_NDS_DEG,
-    };
-  }, [activeDraft]);
+  const {
+    savePadMut,
+    generateAndSaveMut,
+    generateFromLayoutMut,
+    syncBottomholesMut,
+    designFromBottomholesMut,
+    runClearanceMut,
+    saveBottomholeMut,
+  } = usePadClusteringEditorMutations({
+    projectId,
+    padId,
+    pad,
+    activeDraft,
+    activeCalcDraft,
+    wellsLocal,
+    invalidateAll,
+    patchTrajectoryLast,
+    setSavedCalcDraft,
+    setLocalSketch,
+    setLocalWellsLocal,
+    setSketchDirty,
+    patchDraft,
+  });
 
   const activeEnvelope = useMemo(() => {
     const wrap = parsePositive(activeCalcDraft.envelopeWrapWidthM) ?? 0;
@@ -307,190 +297,11 @@ export function usePadClusteringEditor(
     readDemStatusFromProperties(pad?.properties as Record<string, unknown> | undefined)?.source ??
     null;
 
-  const savePadMut = useMutation({
-    mutationFn: async () => {
-      if (!projectId || !pad || !activeDraft) throw new Error('Выберите куст');
-      const properties = buildPadClusteringSaveProperties(
-        pad.properties,
-        activeDraft,
-        activeCalcDraft,
-      );
-      if (!properties) throw new Error('Проверьте габариты площадки');
-      return defaultMapMutationsApi.updateInfraObject(projectId, pad.id, { properties });
-    },
-    onSuccess: () => {
-      setSavedCalcDraft(activeCalcDraft);
-      pushToast('success', 'Настройки куста сохранены');
-      invalidateAll();
-    },
-    onError: (err: Error) => pushToast('error', err.message || 'Ошибка сохранения'),
-  });
-
-  const generateAndSaveMut = useMutation({
-    mutationFn: async () => {
-      if (!projectId || !padId || !activeDraft) throw new Error('Выберите куст');
-      const heightRef = parseHeightRef(activeDraft.heightM, activeDraft.referenceElevationM);
-      if (!heightRef) throw new Error('Укажите высоту и опорную отметку');
-      const previousWells = wellsLocal.map((w) => ({ east_m: w.east_m, north_m: w.north_m }));
-      const generated = await padEarthworkApi.generateSketch(projectId, padId, buildGenerateBody());
-      await padEarthworkApi.saveSketch(projectId, padId, {
-        sketch: generated.sketch,
-        params: heightRef,
-        wells_local: generated.wells_local,
-        rotation_deg: generated.rotation_deg,
-        envelope: envelopeWrapForApi(
-          activeCalcDraft.envelopeEnabled,
-          parsePositive(activeCalcDraft.envelopeWrapWidthM) ?? 0,
-        ),
-      });
-      return { generated, previousWells };
-    },
-    onSuccess: async ({ generated, previousWells }) => {
-      setLocalSketch(generated.sketch);
-      setLocalWellsLocal(generated.wells_local);
-      setSketchDirty(true);
-      patchDraft({
-        lengthM: String(generated.length_m),
-        widthM: String(generated.width_m),
-        rotationDeg: String(generated.rotation_deg),
-      });
-      pushToast('success', `Контур сгенерирован: ${generated.wells_local.length} устьев`);
-      const regenerated = await maybeRegenerateTrajectoriesAfterLayoutChange({
-        projectId: projectId!,
-        padId: padId!,
-        previousWells,
-        nextWells: generated.wells_local,
-      });
-      if (regenerated) {
-        pushToast('info', 'Траектории пересчитаны из новой раскладки');
-      }
-      invalidateAll();
-    },
-    onError: (err: Error) => pushToast('error', err.message || 'Ошибка генерации'),
-  });
-
-  const generateFromLayoutMut = useMutation({
-    mutationFn: () => wellTrajectoryApi.generateFromLayout(projectId!, padId!),
-    onSuccess: (data) => {
-      patchTrajectoryLast({
-        trajectories: data.trajectories,
-        computed_at: data.computed_at ?? new Date().toISOString(),
-      });
-      pushToast('success', 'Заготовки траекторий созданы из раскладки');
-      invalidateAll();
-    },
-    onError: (err: Error) => pushToast('error', err.message || 'Ошибка генерации'),
-  });
-
-  const syncBottomholesMut = useMutation({
-    mutationFn: () => wellTrajectoryApi.syncBottomholes(projectId!, padId!),
-    onSuccess: (data) => {
-      patchTrajectoryLast({
-        trajectories: data.trajectories,
-        warnings: data.warnings,
-      });
-      pushToast('success', 'Забои синхронизированы');
-      invalidateAll();
-    },
-    onError: (err: Error) => pushToast('error', err.message || 'Ошибка синхронизации'),
-  });
-
-  const designFromBottomholesMut = useMutation({
-    mutationFn: async () => {
-      const step = parsePositive(activeCalcDraft.stepM) ?? DEFAULT_STEP_M;
-      return wellTrajectoryApi.designFromBottomholes(projectId!, padId!, { step_m: step });
-    },
-    onSuccess: (data) => {
-      patchTrajectoryLast({
-        trajectories: data.trajectories,
-        warnings: data.warnings,
-        computed_at: new Date().toISOString(),
-      });
-      const n = data.designed?.length ?? 0;
-      pushToast('success', n > 0 ? `Построено траекторий: ${n}` : 'Расчёт завершён');
-      invalidateAll();
-    },
-    onError: (err: Error) => pushToast('error', err.message || 'Ошибка расчёта'),
-  });
-
-  const runClearanceMut = useMutation({
-    mutationFn: () => wellTrajectoryApi.runPadClearance(projectId!, padId!),
-    onSuccess: (data) => {
-      if (isProjectJobCreateResponse(data)) {
-        pushToast('info', 'Задача anti-collision в журнале задач');
-        void pollProjectJobUntilDone(projectId!, data.job_id).then(() => {
-          pushToast('success', 'Расчёт SF завершён');
-          invalidateAll();
-        });
-        return;
-      }
-      pushToast('success', `SF: ${data.pairs_count} пар, ${data.wells_count} скважин`);
-      invalidateAll();
-    },
-    onError: (err: Error) => pushToast('error', err.message || 'Ошибка расчёта SF'),
-  });
-
-  const saveBottomholeMut = useMutation({
-    mutationFn: async ({
-      objectId,
-      properties,
-    }: {
-      objectId: string;
-      properties: Record<string, unknown>;
-    }) => {
-      if (!projectId) throw new Error('Нет проекта');
-      return defaultMapMutationsApi.updateInfraObject(projectId, objectId, { properties });
-    },
-    onSuccess: () => {
-      pushToast('success', 'Забой сохранён');
-      invalidateAll();
-    },
-    onError: (err: Error) => pushToast('error', err.message || 'Ошибка сохранения забоя'),
-  });
-
-  const trajectories = trajectoryLast?.trajectories ?? [];
   const trajectoryWarnings = trajectoryLast?.warnings ?? [];
   const trajectorySettings = trajectoryLast?.settings ?? null;
   const trajectoryComputedAt = trajectoryLast?.computed_at ?? null;
   const clearancePairs = trajectoryLast?.clearance_pairs ?? [];
   const clearanceComputedAt = trajectoryLast?.clearance_computed_at ?? null;
-
-  /** Saved trajectories match persisted or active well layout for 3D display. */
-  const sceneTrajectoryDisplay = useMemo(
-    () =>
-      resolvePadClusteringSceneTrajectoryDisplay({
-        trajectories,
-        persistedWellsLocal: wellsLocal,
-        activeWellsLocal,
-      }),
-    [trajectories, wellsLocal, activeWellsLocal],
-  );
-  const sceneTrajectories = sceneTrajectoryDisplay.sceneTrajectories;
-  const sceneWellsLocal = sceneTrajectoryDisplay.sceneWellsLocal;
-  const sceneTrajectoriesHidden = sceneTrajectoryDisplay.sceneTrajectoriesHidden;
-  const sceneUsesPersistedWells =
-    sceneTrajectories.length > 0 &&
-    wellsLocalMatch(sceneWellsLocal, wellsLocal) &&
-    !wellsLocalMatch(activeWellsLocal, wellsLocal);
-
-  const sceneLayoutCallout = useMemo(() => {
-    if (layoutPreviewStale && sceneUsesPersistedWells && sceneTrajectories.length > 0) {
-      return `Траектории показаны для сохранённой раскладки (${wellsLocal.length} уст.). Параметры слева отличаются — сгенерируйте план и сохраните куст.`;
-    }
-    if (layoutPreviewStale) {
-      return 'На холсте — предпросмотр раскладки по параметрам слева. Нажмите «Сгенерировать план», затем «Сохранить».';
-    }
-    if (sceneTrajectoriesHidden) {
-      return 'Траектории скрыты: раскладка изменилась. Сгенерируйте план, сохраните куст и пересчитайте траектории.';
-    }
-    return null;
-  }, [
-    layoutPreviewStale,
-    sceneUsesPersistedWells,
-    sceneTrajectories.length,
-    wellsLocal.length,
-    sceneTrajectoriesHidden,
-  ]);
 
   const referenceElevationM = Number(activeDraft?.referenceElevationM ?? 0);
   const heightM = Number(activeDraft?.heightM ?? 1);
@@ -503,15 +314,12 @@ export function usePadClusteringEditor(
     return !calcDraftEquals(activeCalcDraft, savedCalcDraft);
   }, [activeCalcDraft, savedCalcDraft]);
 
-  const isDraftDirty = useMemo(() => {
-    if (!pad || !activeDraft || !savedPadDraft) return false;
-    return (Object.keys(savedPadDraft) as (keyof PadClusteringPadDraft)[]).some(
-      (key) => activeDraft[key] !== savedPadDraft[key],
-    );
-  }, [pad, activeDraft, savedPadDraft]);
+  const isDraftDirty = useMemo(
+    () => isPadFormDraftDirty(pad, activeDraft, savedPadDraft),
+    [pad, activeDraft, savedPadDraft],
+  );
 
   const isAnyDirty = isDraftDirty || isCalcDirty;
-
   const isLoading = earthworkLoading || trajectoryLoading;
 
   return {
@@ -561,5 +369,3 @@ export function usePadClusteringEditor(
     saveBottomholeMut,
   };
 }
-
-export { filterPadObjects, buildPadClusteringSaveProperties };

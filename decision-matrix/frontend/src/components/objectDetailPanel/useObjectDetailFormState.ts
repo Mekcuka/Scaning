@@ -169,16 +169,17 @@ export function useObjectDetailFormState(
     setZ(formatBottomholeElevation(readPointBottomholeElevation(merged, pad)));
   }, [bottomholePropsPatch, selection, infraObjects]);
 
+  const infraFootprintSelection = selection.kind === 'infra' ? selection.object : null;
+  const infraFootprintConnectionsKey = infraFootprintSelection
+    ? JSON.stringify(infraFootprintSelection.properties?.footprint_line_connections ?? null)
+    : null;
+
   useEffect(() => {
-    if (selection.kind !== 'infra') return;
-    setPointFootprintLineConnections(readPointFootprintLineConnections(selection.object.properties));
-  }, [
-    selection.kind,
-    selection.kind === 'infra' ? selection.object.id : null,
-    selection.kind === 'infra'
-      ? JSON.stringify(selection.object.properties?.footprint_line_connections ?? null)
-      : null,
-  ]);
+    if (!infraFootprintSelection) return;
+    setPointFootprintLineConnections(
+      readPointFootprintLineConnections(infraFootprintSelection.properties),
+    );
+  }, [infraFootprintSelection, infraFootprintConnectionsKey]);
 
   return {
     name,

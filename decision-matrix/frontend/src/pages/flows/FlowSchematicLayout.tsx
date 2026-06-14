@@ -1,6 +1,6 @@
 import { useMemo, useState } from 'react';
 import { useSyncAssistantUiContext } from '../../lib/assistant/assistantContext';
-import { Link, NavLink, Outlet, useLocation } from 'react-router-dom';
+import { NavLink, Outlet, useLocation } from 'react-router-dom';
 import { ProjectLink } from '../../components/ProjectLink';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useActiveProject } from '../../hooks/useActiveProject';

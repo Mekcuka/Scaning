@@ -151,7 +151,7 @@ def test_import_csv_async_threshold(client: TestClient, monkeypatch: pytest.Monk
     from app.core.config import settings
 
     settings.WELL_TRAJECTORY_IMPORT_ASYNC_THRESHOLD = 20
-    monkeypatch.setattr("app.api.v1.well_trajectory.jobs_async_enabled", lambda: True)
+    monkeypatch.setattr("app.services.well_trajectory.api_import_handlers.jobs_async_enabled", lambda: True)
 
     pid, headers, oid = _seed_oil_pad(client, well_count=21)
     content = _csv_many_wells(21)

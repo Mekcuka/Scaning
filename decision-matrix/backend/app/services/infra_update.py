@@ -9,8 +9,8 @@ from app.geo.constants import LINE_SUBTYPES, normalize_infra_subtype
 from app.geo.geometry_utils import build_infra_geometry, line_coordinates_for_storage
 from app.geo.render_3d_properties import apply_default_render_3d, merge_infra_properties_patch
 from app.geo.sand_properties import strip_sand_volume_properties
-from app.geo.line_footprint_attach import sanitize_line_footprint_attach_in_properties
-from app.geo.point_footprint_line_connect import sanitize_footprint_line_connections_in_properties
+from app.services.line_footprint_attach import sanitize_line_footprint_attach_in_properties
+from app.services.point_footprint_line_connect import sanitize_footprint_line_connections_in_properties
 from app.geo.validation import category_for_subtype, validate_subtype_change, validate_subtype_geometry
 from app.models import InfrastructureObject, Project, User
 from app.schemas import InfraObjectUpdate

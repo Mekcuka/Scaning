@@ -78,7 +78,7 @@ export function useMapPageInteraction(
     if (drawingActive) {
       edit.cancelDrawingSelection();
     }
-  }, [edit, selection.deleteConfirm, selection.setDeleteConfirm, bottomholeDraw]);
+  }, [edit, selection, bottomholeDraw]);
 
   const handlePointerMove = useCallback(
     (lon: number, lat: number, overPoint?: { lon: number; lat: number }) => {

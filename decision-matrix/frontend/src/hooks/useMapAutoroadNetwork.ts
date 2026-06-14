@@ -147,7 +147,7 @@ export function useMapAutoroadNetwork({
     return () => {
       cancelled = true;
     };
-  }, [drawMode, projectId]);
+  }, [drawMode, projectId, networkApi]);
 
   const handlePlannerOptionsChange = useCallback(
     (next: AutoroadPlannerOptions) => {

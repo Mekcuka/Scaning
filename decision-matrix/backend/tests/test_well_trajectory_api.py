@@ -160,7 +160,7 @@ def test_planner_unavailable_returns_503(client: TestClient):
     _save_wells_local(client, pid, oid, headers, well_count=2)
 
     with patch(
-        "app.services.well_trajectory.service.planner_schemas",
+        "app.services.well_trajectory.layout_ops.planner_schemas",
         side_effect=RuntimeError("missing"),
     ):
         res = client.post(
@@ -353,7 +353,7 @@ def test_project_clearance_enqueues_job_when_many_wells(client: TestClient, monk
     pid, headers, oid = _seed_oil_pad(client)
     _design_all_wells(client, pid, oid, headers, count=13)
 
-    monkeypatch.setattr("app.api.v1.well_trajectory.jobs_async_enabled", lambda: True)
+    monkeypatch.setattr("app.services.well_trajectory.api_clearance_handlers.jobs_async_enabled", lambda: True)
     created: list[dict] = []
 
     async def fake_create_and_schedule(db, **kwargs):
@@ -376,8 +376,8 @@ def test_project_clearance_enqueues_job_when_many_wells(client: TestClient, monk
     async def fake_commit_and_schedule(db, job):
         return None
 
-    monkeypatch.setattr("app.api.v1.well_trajectory.create_and_schedule_job", fake_create_and_schedule)
-    monkeypatch.setattr("app.api.v1.well_trajectory.commit_and_schedule", fake_commit_and_schedule)
+    monkeypatch.setattr("app.services.well_trajectory.api_clearance_handlers.create_and_schedule_job", fake_create_and_schedule)
+    monkeypatch.setattr("app.services.well_trajectory.api_clearance_handlers.commit_and_schedule", fake_commit_and_schedule)
 
     res = client.post(
         f"/api/v1/projects/{pid}/well-trajectory/clearance",

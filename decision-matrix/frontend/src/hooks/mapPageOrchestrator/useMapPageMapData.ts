@@ -52,7 +52,7 @@ export function useMapPageMapData(params: {
 
   useEffect(() => {
     if (pois.length > 0 && !edit.selectedPoiId) edit.setSelectedPoiId(pois[0].id);
-  }, [pois, edit.selectedPoiId, edit.setSelectedPoiId]);
+  }, [pois, edit]);
 
   const { data: distanceDefaults } = useQuery({
     queryKey: ['distance-defaults', projectId],
@@ -164,7 +164,7 @@ export function useMapPageMapData(params: {
       return;
     }
     edit.setMapFocus({ ...focus, nonce: Date.now() });
-  }, [pois, filteredInfra, showPoisOnMap, pushToast, edit.setMapFocus]);
+  }, [pois, filteredInfra, showPoisOnMap, pushToast, edit]);
 
   const invalidateMap = () => {
     if (!projectId) return;

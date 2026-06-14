@@ -1,6 +1,6 @@
 import { Route } from 'lucide-react';
 import { countDesignedTrajectories } from '../../lib/padClusteringWorkflow';
-import type { ClearancePair, WellTrajectory } from '../../lib/api/wellTrajectoryApi';
+import type { ClearancePair } from '../../lib/api/wellTrajectoryApi';
 import type { usePadClusteringEditor } from '../../hooks/usePadClusteringEditor';
 import { PadClusteringCollapsibleSection } from './PadClusteringCollapsibleSection';
 import { translateWellTrajectoryUserMessage } from '../../lib/wellTrajectoryUserMessages';

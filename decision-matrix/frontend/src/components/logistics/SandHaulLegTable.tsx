@@ -1,4 +1,3 @@
-import { Link } from 'react-router-dom';
 import { ProjectLink } from '../../components/ProjectLink';
 import type { SandLogisticsResult } from '../../lib/api';
 import { formatEntryDateRu } from '../../lib/infraEntryDate';

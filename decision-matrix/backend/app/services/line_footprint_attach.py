@@ -13,7 +13,6 @@ from app.services.pad_earthwork.service import resolve_footprint_lonlat
 from app.subtype_manifest import EARTHWORK_SUBTYPES
 
 LINE_FOOTPRINT_ATTACH_KEY = "line_footprint_attach"
-_DEFAULT_T = 0.5
 
 
 def _parse_endpoint(raw: object) -> dict | None:
@@ -68,7 +67,7 @@ async def _load_points_by_id(
     return {str(o.id): o for o in rows}
 
 
-def _endpoint_valid_for_point(
+def endpoint_valid_for_footprint_point(
     endpoint: dict,
     point: InfrastructureObject,
 ) -> dict | None:
@@ -123,7 +122,7 @@ async def sanitize_line_footprint_attach_in_properties(
         point = by_id.get(ep["point_id"])
         if not point:
             continue
-        valid = _endpoint_valid_for_point(ep, point)
+        valid = endpoint_valid_for_footprint_point(ep, point)
         if valid:
             cleaned[key] = valid
 

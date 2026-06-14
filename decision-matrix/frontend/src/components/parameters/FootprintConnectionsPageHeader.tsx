@@ -1,4 +1,3 @@
-import { Link } from 'react-router-dom';
 import { ProjectLink } from '../../components/ProjectLink';
 import { MapPin } from 'lucide-react';
 import { LINE_SUBTYPES } from '../../lib/api';

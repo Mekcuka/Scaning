@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from typing import Any
 
-from app.geo.fluid_routing import FluidKind
+from app.services.fluid_routing import FluidKind
 from app.models import PointOfInterest
 from app.services.calculations import EngineeringState
 

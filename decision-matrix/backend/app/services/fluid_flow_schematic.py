@@ -11,7 +11,7 @@ from uuid import UUID
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.geo.fluid_routing import (
+from app.services.fluid_routing import (
     ENG_GAS_LABELS,
     FLUID_BRANCH_LABELS,
     FLUID_EDGE_SUBTYPES,

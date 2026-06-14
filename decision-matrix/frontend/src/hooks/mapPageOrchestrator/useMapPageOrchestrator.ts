@@ -60,7 +60,7 @@ export function useMapPageOrchestrator() {
     if (!mapInFootprints) {
       edit.setFootprintLineConnectPickSubtype(null);
     }
-  }, [mapInFootprints, edit.setFootprintLineConnectPickSubtype]);
+  }, [mapInFootprints, edit]);
 
   const data = useMapPageMapData({ projectId, edit, layerPrefs, setLayerPrefs, pushToast });
   const actions = useMapPageMapActions({

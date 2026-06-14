@@ -320,6 +320,8 @@ const MapView3D = forwardRef<MapView3DHandle, MapView3DProps>(function MapView3D
       map.remove();
       mapRef.current = null;
     };
+    // MapLibre instance mounts once; initial style uses first render props via closure.
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- remount only when view scope changes
   }, [viewStateScope]);
 
   useEffect(() => {
@@ -382,7 +384,7 @@ const MapView3D = forwardRef<MapView3DHandle, MapView3DProps>(function MapView3D
 
     if (map.isStyleLoaded()) applyLines();
     else map.once('load', applyLines);
-  }, [infraObjects, infraSnapPool, layers, selectedFeatureId, showTerrain]);
+  }, [infraObjects, snapPool, layers, selectedFeatureId, showTerrain]);
 
   useEffect(() => {
     const map = mapRef.current;
@@ -412,7 +414,7 @@ const MapView3D = forwardRef<MapView3DHandle, MapView3DProps>(function MapView3D
 
     if (map.isStyleLoaded()) applyModels();
     else map.once('load', applyModels);
-  }, [showModels, infraObjects, infraSnapPool, pois, layers, selectedFeatureId, customGltfAssetsRevision]);
+  }, [showModels, infraObjects, snapPool, pois, layers, selectedFeatureId, customGltfAssetsRevision]);
 
   useEffect(() => {
     const map = mapRef.current;
@@ -463,7 +465,7 @@ const MapView3D = forwardRef<MapView3DHandle, MapView3DProps>(function MapView3D
     else map.once('load', () => void apply());
   }, [
     infraObjects,
-    infraSnapPool,
+    snapPool,
     pois,
     layers,
     thresholdCircles,
@@ -503,7 +505,7 @@ const MapView3D = forwardRef<MapView3DHandle, MapView3DProps>(function MapView3D
 
     if (map.isStyleLoaded()) run();
     else map.once('load', run);
-  }, [mapFocus?.nonce]);
+  }, [mapFocus]);
 
   return (
     <div

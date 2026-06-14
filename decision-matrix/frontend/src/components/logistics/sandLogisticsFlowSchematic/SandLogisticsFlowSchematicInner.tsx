@@ -4,7 +4,6 @@ import { formatEntryDateRu } from '../../../lib/infraEntryDate';
 import {
   buildSandLogisticsLayout,
   buildSandLogisticsSliceFlow,
-  computeSandLogisticsSliceKey,
   computeSandLogisticsTopologyKey,
   type SandLogisticsEdgeLabelMode,
   type SandLogisticsLineStyle,
@@ -53,10 +52,6 @@ export function SandLogisticsFlowSchematicInner({
     () => computeSandLogisticsTopologyKey(layoutSubnet),
     [layoutSubnet],
   );
-  const sliceKey = useMemo(
-    () => computeSandLogisticsSliceKey(sliceSubnet, asOf),
-    [sliceSubnet, asOf],
-  );
   const [lineStyle, setLineStyle] = useState<SandLogisticsLineStyle>(() =>
     projectId ? loadSandLogisticsLineStyle(projectId) : 'straight'
   );
@@ -90,7 +85,7 @@ export function SandLogisticsFlowSchematicInner({
         nodeFilter: flowNodeFilter,
         groupByEntryYear,
       }),
-    [layoutSubnet, topologyKey, flowNodeFilter, groupByEntryYear],
+    [layoutSubnet, flowNodeFilter, groupByEntryYear],
   );
 
   const built = useMemo(() => {
@@ -108,7 +103,6 @@ export function SandLogisticsFlowSchematicInner({
   }, [
     layout,
     sliceSubnet,
-    sliceKey,
     edgeLabelMode,
     flowNodeFilter,
     showPlannedRoutes,

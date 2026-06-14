@@ -146,7 +146,7 @@ export function useMapInfraCreate({
     return () => {
       cancelled = true;
     };
-  }, [infraObjects, projectId, canWriteInfra, upsertInfraInCache, pushToast, lineHealSkipIdsRef]);
+  }, [infraObjects, projectId, canWriteInfra, upsertInfraInCache, pushToast, lineHealSkipIdsRef, mapApi]);
 
   const afterInfraPointCreated = useCallback(
     async (created: InfraObject) => {
@@ -313,6 +313,7 @@ export function useMapInfraCreate({
       pushUndo,
       pushToast,
       requestLineSplitConfirm,
+      mapApi,
     ],
   );
 

@@ -1,4 +1,4 @@
-import { Navigate, Link } from 'react-router-dom';
+import { Navigate } from 'react-router-dom';
 import { ProjectLink } from '../components/ProjectLink';
 import { Box, FileBox, Info, Map as MapIcon, Upload } from 'lucide-react';
 import { Import3dPreview } from '../components/map3d/Import3dPreview';

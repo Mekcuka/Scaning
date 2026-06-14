@@ -1,7 +1,6 @@
 import { useMemo } from 'react';
 import type { InfraObject } from '../../lib/api';
 import { InfraPointSnapIndex } from '../../lib/infraSnapIndex';
-import { infraSnapPoolSignature } from './geometry';
 import type { MapViewRefs } from './mapViewRefs';
 
 export function useMapViewSnapIndex(
@@ -11,7 +10,6 @@ export function useMapViewSnapIndex(
 ): void {
   const { snapIndexRef } = refs;
   const pool = infraSnapPool ?? infraObjects;
-  const sig = infraSnapPoolSignature(pool);
-  const snapIndex = useMemo(() => new InfraPointSnapIndex(pool), [sig]);
+  const snapIndex = useMemo(() => new InfraPointSnapIndex(pool), [pool]);
   snapIndexRef.current = snapIndex;
 }

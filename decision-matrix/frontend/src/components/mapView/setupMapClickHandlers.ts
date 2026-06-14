@@ -35,7 +35,6 @@ export function setupMapClickHandlers(
     infraSymbologyRef,
     pointSourceRef,
     nodePointSourceRef,
-    lineSourceRef,
   } = refs;
   const { resolveInfraPointAtPixel, resolveInfraLineSplitAtPixel } = hitHelpers;
   const { tryFinishLineAtPointer } = drawHandlers;

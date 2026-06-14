@@ -551,6 +551,25 @@ backend/app/api/v1/map_import.py   # тонкие handlers (~280 → ~270 стр
 
 ---
 
+## Compliance audit P0–P2+ (июнь 2026) ✅
+
+**Статус:** завершена (аудит согласованности кода с границами модулей и CI).
+
+- [x] **P0:** CI green — `test_subtype_manifest` (GS LineString), ESLint ref-mutation в `useMapViewEmphasisSync`
+- [x] **P1:** docs ↔ код — bottomhole TVD, траектории §2c, map-objects §1.4.5
+- [x] **P2 backend:** `geo/` → `services/` — `fluid_routing`, `line_footprint_attach`, `point_footprint_line_connect`; `import_connection_sync.py`; split `well_trajectory/service.py` → `design_bottomholes`, `layout_ops`, `design_connector`, `compute_ops`, `pad_access`
+- [x] **P2+ frontend:** pad earthwork — модалка + hooks + plan tab + `lib/padEarthworkSketch/*`; `InfraPadEarthworkSection` → hook + form; `PlanPolygonEditor` → hook + SVG
+- [x] **P2+ backend:** `api/v1/well_trajectory.py` → thin handlers + `services/well_trajectory/api_handlers.py`
+- [x] **P2+ backend:** map BFF + projects + admin — thin routes + `api_handlers.py` (map_objects/poi/import/layers, pad_earthwork, autoroad, sand, well_trajectory, pad_placement, map3d, projects, admin_assistant)
+- [x] **P2+ frontend:** `buildMapPageSections/` — split по секциям
+- [x] ESLint: 71 warning → **0** (`eslint.config.js`, override `mapView/**`)
+- [x] **P2+ backend:** `map_layers`, `pad_placement`, `map3d_models`, `projects`, `admin_assistant` → thin routes + handlers
+- [ ] Backlog: thin API handlers (`assistant`, `import_connections`, `one_pagers`, …)
+
+Детали: [consistency-review.md](consistency-review.md) § compliance audit, [module-boundaries.md](../architecture/module-boundaries.md), [frontend-structure.md](../architecture/frontend-structure.md) § pad earthwork.
+
+---
+
 ## Порядок выполнения PR
 
 | # | Фаза | Эффект | Риск |

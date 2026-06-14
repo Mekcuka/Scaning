@@ -2,7 +2,7 @@
 
 from uuid import uuid4
 
-from app.geo.fluid_routing import FLUID_TERMINAL_SUBTYPES
+from app.services.fluid_routing import FLUID_TERMINAL_SUBTYPES
 from app.services.fluid_flow_schematic import _Graph, nearest_node_on_fluid_edges, pathfind_bfs
 
 

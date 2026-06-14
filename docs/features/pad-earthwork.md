@@ -18,7 +18,7 @@ flowchart LR
 ```
 
 - **Микросервис** [`pad-earthwork-planner`](../../pad-earthwork-planner/) — расчёт объёмов, footprint, mesh GLB.
-- **Монолит** — BFF (`app/api/v1/pad_earthwork.py`), port/adapter (`app/services/pad_earthwork/`), кэш в `properties`.
+- **Монолит** — thin BFF (`app/api/v1/pad_earthwork.py` → `services/pad_earthwork/api_handlers.py`), port/adapter (`app/services/pad_earthwork/`), кэш в `properties`.
 - По умолчанию **in-process** (пакет в образе API как `pad-earthwork-vendor`). Отдельный контейнер `:8081` — только dev/нагрузочные тесты.
 
 ## Микросервис
@@ -160,7 +160,7 @@ flowchart LR
 - Только earthwork-eligible точки (как контуры); **узлы** и прочие подтипы — без attach.
 - Legacy `properties.line_footprint_attach` на линиях по-прежнему учитывается при отображении, если на точке нет записи для подтипа линии.
 
-**UX (карточка объекта):** **точечный** earthwork-объект, вкладка «Основное», **только** при режиме «Площадки»: переключатель типа линии, мини-схема контура, кнопки **С/З/В/Ю** и **Центр**, поле `t`; **«Применить шаблон проекта»** (merge в `footprint_line_connections` с учётом поворота объекта); клик по ребру на схеме/карте. Компонент `PointFootprintLineConnectionsSection.tsx`; модуль `frontend/src/lib/padFootprintLineAttach.ts`; валидация PATCH — `app/geo/point_footprint_line_connect.py` (точки), `app/geo/line_footprint_attach.py` (legacy на линиях).
+**UX (карточка объекта):** **точечный** earthwork-объект, вкладка «Основное», **только** при режиме «Площадки»: переключатель типа линии, мини-схема контура, кнопки **С/З/В/Ю** и **Центр**, поле `t`; **«Применить шаблон проекта»** (merge в `footprint_line_connections` с учётом поворота объекта); клик по ребру на схеме/карте. Компонент `PointFootprintLineConnectionsSection.tsx`; модуль `frontend/src/lib/padFootprintLineAttach.ts`; валидация PATCH — `app/services/point_footprint_line_connect.py` (точки), `app/services/line_footprint_attach.py` (legacy на линиях).
 
 **UX (Параметры → Точки подключения,** `/parameters/footprint-connections`):
 
@@ -463,7 +463,39 @@ PAD_EARTHWORK_INPROCESS=true
 
 Пресеты контура: «Из прямоугольника», «Очистить», сброс. Индикатор сохранённой схемы на вкладке «Логистика» (`pad_earthwork_sketch_saved_at`).
 
-**Frontend:** `components/padEarthwork/` (`PadEarthworkSketchModal`, `PadEarthworkScene3D`, …), `lib/padEarthworkSketch.ts`, …
+**Frontend** (compliance P2+, июнь 2026 — без смены публичных импортов):
+
+```
+components/padEarthwork/
+├── PadEarthworkSketchModal.tsx          # shell (~116): tabs, AppModal
+├── usePadEarthworkSketchModal.ts        # orchestrator
+├── usePadEarthworkSketchState.ts
+├── usePadEarthworkSketchDemPreview.ts
+├── usePadEarthworkSketchMutations.ts
+├── padEarthworkSketchModalState.ts
+├── PadEarthworkSketchPlanTab.tsx        # вкладка «План»
+├── PadEarthworkSketchPlanToolbar.tsx
+├── PadEarthworkSketchPlanSidebar.tsx
+├── padEarthworkSketchPlanTabTypes.ts
+├── PadEarthworkSketchScene3dTab.tsx
+├── PadEarthworkScene3D.tsx
+├── PlanRectangleEditor.tsx / PlanPolygonEditor.tsx
+├── usePlanPolygonEditor.ts / PlanPolygonEditorSvg.tsx / planPolygonEditorTypes.ts
+└── … (Dem*, Envelope*, toolbars)
+
+lib/padEarthworkSketch.ts                # barrel → lib/padEarthworkSketch/*
+lib/padEarthworkSketch/
+├── types.ts, clamp.ts, rectangle.ts, polygon.ts
+├── envelope.ts, layout.ts, api.ts, index.ts
+
+components/objectDetailPanel/
+├── InfraPadEarthworkSection.tsx         # shell
+├── useInfraPadEarthworkSection.ts
+├── InfraPadEarthworkSectionForm.tsx
+└── infraPadEarthworkSectionUtils.ts
+```
+
+Детали структуры — [frontend-structure.md § Pad earthwork](../architecture/frontend-structure.md).
 
 ## Ограничения MVP
 

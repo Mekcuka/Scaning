@@ -536,7 +536,7 @@ describe('mapClipboard', () => {
         points: chunk.infra_points.length,
         lines: chunk.infra_lines.length,
       });
-      const createdPoints = chunk.infra_points.map((item, index) => ({
+      const createdPoints = chunk.infra_points.map((item) => ({
         id: `created-${item.client_ref}`,
         name: item.create.name,
         subtype: item.create.subtype,

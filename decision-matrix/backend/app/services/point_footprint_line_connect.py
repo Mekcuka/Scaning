@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 from app.geo.constants import LINE_SUBTYPES
-from app.geo.line_footprint_attach import _endpoint_valid_for_point
+from app.services.line_footprint_attach import endpoint_valid_for_footprint_point
 from app.subtype_manifest import EARTHWORK_SUBTYPES
 
 FOOTPRINT_LINE_CONNECTIONS_KEY = "footprint_line_connections"
@@ -34,7 +34,7 @@ def _parse_edge_attach(raw: object) -> dict | None:
 def _edge_valid_for_point(point, edge: dict) -> dict | None:
     if point.subtype not in EARTHWORK_SUBTYPES:
         return None
-    valid = _endpoint_valid_for_point({"point_id": "x", **edge}, point)
+    valid = endpoint_valid_for_footprint_point({"point_id": "x", **edge}, point)
     if not valid:
         return None
     out = {"edge_index": valid["edge_index"]}

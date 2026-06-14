@@ -32,7 +32,7 @@ def test_post_llm_probe_admin_ok(client):
         "provider_ready": True,
     }
     with patch(
-        "app.api.v1.admin_assistant.run_full_llm_probe",
+        "app.services.admin_assistant.api_handlers.run_full_llm_probe",
         new_callable=AsyncMock,
         return_value=probe_payload,
     ):
@@ -75,7 +75,7 @@ def test_get_llm_config_includes_rag_mode_and_embedding(client):
 def test_post_llm_test_admin(client):
     login(client, "admin@test.ru")
     with patch(
-        "app.api.v1.admin_assistant.run_llm_test_message",
+        "app.services.admin_assistant.api_handlers.run_llm_test_message",
         new_callable=AsyncMock,
         return_value={
             "ok": True,
@@ -99,7 +99,7 @@ def test_post_llm_test_admin(client):
 def test_get_llm_models_admin(client):
     login(client, "admin@test.ru")
     with patch(
-        "app.api.v1.admin_assistant.list_chat_models",
+        "app.services.admin_assistant.api_handlers.list_chat_models",
         new_callable=AsyncMock,
         return_value=["model-a", "model-b"],
     ):

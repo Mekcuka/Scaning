@@ -110,8 +110,8 @@ flowchart LR
 ### 2a. Расставить забои на карте (объекты инфраструктуры)
 
 1. На кусте есть раскладка устьев (`pad_wells_local_json`) и заготовки траекторий (сценарий 1).
-2. На **2D-карте** в панели рисования выбрать **«Забой»** → **ННБ** (один клик) или **ГС** (heel, затем toe).
-3. Объекты `well_bottomhole_nnb` / `well_bottomhole_gs_heel` / `well_bottomhole_gs_toe` привязываются к ближайшему кусту (`linked_pad_id`); скважина — явно или auto по ближайшему устью.
+2. На **2D-карте** в панели рисования выбрать **«Забой»** → **ННБ** (один клик) или **ГС** (линия heel→toe; legacy — два клика heel + toe).
+3. Объекты `well_bottomhole_nnb` / `well_bottomhole_gs` (unified) / `well_bottomhole_gs_heel` / `well_bottomhole_gs_toe` привязываются к ближайшему кусту (`linked_pad_id`); скважина — явно или auto по ближайшему устью.
 4. В карточке объекта-забоя: куст, **геометрия** (координаты X/Y, отметка Z), TVD / inc / azi; для ГС — **точка входа** (`Любая` / `heel` / `toe`), отдельные TVD пятки и стока; кнопка «Пересчитать траекторию с куста». Вкладки **«Основное»**, **«Геометрия»** и **«3D»** — без «Логистики».
 5. На вкладке **Траектории** куста — список привязанных объектов-забоев; **«Рассчитать до забоев»** → `sync-bottomholes` + `design-from-bottomholes`.
 6. Пунктир устье–забой на карте до полного проектирования (`bottomhole_plan_line` в GeoJSON).
@@ -137,6 +137,19 @@ flowchart LR
 Расчёт выполняется в фоне потока (`asyncio.to_thread`), чтобы не блокировать API (в т.ч. авторизацию) при длительном переборе.
 
 Код: `well-trajectory-planner/src/well_trajectory/design.py`, оркестрация SF — `service.py` → `_design_horizontal_any_with_clearance`.
+
+### 2c. Конкурентность расчётов на кусте
+
+| Операция | Модель | Поведение при параллельных запросах |
+|----------|--------|--------------------------------------|
+| `POST .../design-from-bottomholes` | Синхронный HTTP | **Нет блокировки** на уровне куста/проекта. Два пользователя на одном кусте → **last-write-wins** в `pad_wells_trajectories_json` (кто последний сохранил — тот результат). Режим `any` + SF читает `peer_wells` из snapshot на начало запроса — при гонке возможны расхождения SF между сессиями. |
+| `POST .../clearance` (≤12 скв.) | Синхронный HTTP | Та же модель: перезапись JSON без merge. |
+| `POST .../clearance` (>12 скв.), `well_trajectory_import` | Фоновая `ProjectJob` | **409 Conflict**, если у проекта уже есть active job ([project_jobs.py](../../decision-matrix/backend/app/services/project_jobs.py)). Разные проекты — независимо (worker `max_jobs = 4`). |
+| Разные кусты одного проекта | Независимые объекты | Параллельно допустимо; гонка только при записи в **один** `oil_pad` / `gas_pad`. |
+
+**Event loop:** тяжёлый sync-расчёт (`design-from-bottomholes`, перебор `any`) выполняется в `asyncio.to_thread`, чтобы не блокировать auth и другие запросы на том же worker.
+
+**Roadmap (не MVP):** pad-level lock или постановка design/clearance в очередь `ProjectJob` — см. [well-trajectory-app-assessment.md](../planning/well-trajectory-app-assessment.md).
 
 ### 3. Проверить столкновения на кусте
 
@@ -222,6 +235,8 @@ flowchart LR
 ---
 
 ## API монолита (BFF)
+
+**Слой сервисов** (июнь 2026, compliance P2+): `app/services/well_trajectory/` — публичный API в `service.py`; оркестрация в `design_bottomholes.py`, `layout_ops.py`, …; **HTTP** — `api_handlers.py` (тонкие роуты в `api/v1/well_trajectory.py`, ≤15 строк на handler).
 
 **На уровне проекта:**
 

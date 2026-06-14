@@ -92,9 +92,9 @@
 3. **BFS** по рёбрам с допустимым подтипом до терминального узла (кратчайший по числу переходов).
 4. На схеме: агрегат **«Нефтепровод (N км)»** / **«Водопровод (N км)»** + терминал с именем объекта.
 
-**Терминалы воды на PFD:** только **`ground_pumping_station` (БКНС)** — см. `FLUID_TERMINAL_SUBTYPES["water"]` в `app/geo/fluid_routing.py`.
+**Терминалы воды на PFD:** только **`ground_pumping_station` (БКНС)** — см. `FLUID_TERMINAL_SUBTYPES["water"]` в `app/services/fluid_routing.py`.
 
-Код: `app/services/fluid_flow_schematic.py`, `app/services/flow_schematic_merge.py`, константы: `app/geo/fluid_routing.py`.
+Код: `app/services/fluid_flow_schematic.py`, `app/services/flow_schematic_merge.py`, константы: `app/services/fluid_routing.py`.
 
 ---
 

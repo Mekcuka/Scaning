@@ -311,6 +311,7 @@ export function useMapDeleteSelection({
     invalidateMap,
     pushToast,
     deleteInfraMut,
+    poiApi,
   ]);
 
   const requestDeleteSelection = useCallback(() => {
