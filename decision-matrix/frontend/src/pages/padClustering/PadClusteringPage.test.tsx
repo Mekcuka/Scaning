@@ -1,5 +1,6 @@
 import { describe, expect, it, vi, beforeEach } from 'vitest';
 import { screen, waitFor } from '@testing-library/react';
+import userEvent from '@testing-library/user-event';
 import { PadClusteringPage } from './PadClusteringPage';
 import { renderPage } from '../../test/pages/renderPage';
 import { seedAppStore } from '../../test/pages/seedAppStore';
@@ -76,5 +77,22 @@ describe('PadClusteringPage', () => {
     expect(screen.getAllByText('Куст_1').length).toBeGreaterThan(0);
     expect(screen.getByRole('button', { name: 'Сохранить' })).toBeInTheDocument();
     expect(screen.getByTestId('mock-pad-clustering-scene')).toBeInTheDocument();
+  });
+
+  it('switches to calculation sidebar tab', async () => {
+    const user = userEvent.setup();
+    const { api } = await import('../../lib/api');
+    vi.mocked(api.getInfraObjects).mockResolvedValue([
+      makeInfraPoint({
+        id: 'pad-1',
+        subtype: 'oil_pad',
+        name: 'Куст_1',
+        properties: { pad_length_m: 120, pad_width_m: 80, pad_rotation_deg: 90 },
+      }),
+    ] as never);
+    renderPage(<PadClusteringPage />);
+    await waitFor(() => expect(screen.getByRole('tab', { name: /Настройки/i })).toBeInTheDocument());
+    await user.click(screen.getByRole('tab', { name: 'Расчёт' }));
+    expect(screen.getByRole('tab', { name: 'Расчёт', selected: true })).toBeInTheDocument();
   });
 });
