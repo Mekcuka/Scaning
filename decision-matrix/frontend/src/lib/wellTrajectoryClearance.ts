@@ -21,3 +21,8 @@ export function clearanceLineColorHex(
   const hex = clearanceLineColor(minSf, threshold).replace('#', '');
   return Number.parseInt(hex, 16);
 }
+
+export function formatMinSf(minSf: number | null | undefined, digits = 2): string {
+  if (minSf == null || !Number.isFinite(minSf)) return '—';
+  return minSf.toFixed(digits);
+}

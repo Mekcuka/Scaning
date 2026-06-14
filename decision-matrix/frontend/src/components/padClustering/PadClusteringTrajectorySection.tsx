@@ -4,6 +4,7 @@ import type { ClearancePair } from '../../lib/api/wellTrajectoryApi';
 import type { usePadClusteringEditor } from '../../hooks/usePadClusteringEditor';
 import { PadClusteringCollapsibleSection } from './PadClusteringCollapsibleSection';
 import { translateWellTrajectoryUserMessage } from '../../lib/wellTrajectoryUserMessages';
+import { formatMinSf } from '../../lib/wellTrajectoryClearance';
 
 type Editor = ReturnType<typeof usePadClusteringEditor>;
 
@@ -234,13 +235,13 @@ export function PadClusteringTrajectorySection({
                     {stationCount} ст.
                   </span>
                 )}
-                {minSf != null && (
+                {minSf != null && Number.isFinite(minSf) && (
                   <span
                     className={`pad-clustering-well-list__pill${
                       minSf < sfThreshold ? '' : ' pad-clustering-well-list__pill--ok'
                     }`}
                   >
-                    SF {minSf.toFixed(2)}
+                    SF {formatMinSf(minSf)}
                   </span>
                 )}
                 </button>
@@ -267,8 +268,16 @@ export function PadClusteringTrajectorySection({
                   <td>{pairWellLabel(pair, 'a')}</td>
                   <td>{pairWellLabel(pair, 'b')}</td>
                   <td>
-                    <span className={pair.warning ? 'pad-clustering-sf-warn' : 'pad-clustering-sf-ok'}>
-                      {pair.min_sf.toFixed(2)}
+                    <span
+                      className={
+                        pair.min_sf != null && Number.isFinite(pair.min_sf)
+                          ? pair.warning
+                            ? 'pad-clustering-sf-warn'
+                            : 'pad-clustering-sf-ok'
+                          : 'pad-clustering-steps__hint'
+                      }
+                    >
+                      {formatMinSf(pair.min_sf)}
                     </span>
                   </td>
                 </tr>

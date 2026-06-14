@@ -40,7 +40,7 @@ export type ClearancePair = {
   well_b: number;
   well_b_pad_id?: string;
   well_b_pad_name?: string;
-  min_sf: number;
+  min_sf: number | null;
   warning: boolean;
 };
 

@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { clearanceLineColor } from './wellTrajectoryClearance';
+import { clearanceLineColor, formatMinSf } from './wellTrajectoryClearance';
 
 describe('clearanceLineColor', () => {
   it('returns default when min_sf missing', () => {
@@ -14,5 +14,18 @@ describe('clearanceLineColor', () => {
   it('returns green when at or above threshold', () => {
     expect(clearanceLineColor(1.0, 1)).toBe('#2e7d32');
     expect(clearanceLineColor(1.5, 1)).toBe('#2e7d32');
+  });
+});
+
+describe('formatMinSf', () => {
+  it('returns em dash for null, undefined, and non-finite values', () => {
+    expect(formatMinSf(null)).toBe('—');
+    expect(formatMinSf(undefined)).toBe('—');
+    expect(formatMinSf(Number.NaN)).toBe('—');
+  });
+
+  it('formats finite numbers', () => {
+    expect(formatMinSf(1.234)).toBe('1.23');
+    expect(formatMinSf(0.5, 1)).toBe('0.5');
   });
 });

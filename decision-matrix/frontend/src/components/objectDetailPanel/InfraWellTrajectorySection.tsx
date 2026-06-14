@@ -11,6 +11,7 @@ import { wellTrajectoryQueryKeys } from '../../hooks/useWellTrajectoryGeoJson';
 import { isProjectJobCreateResponse, pollProjectJobUntilDone } from '../../lib/pollProjectJob';
 import { parseWellsLocalFromLast } from '../../lib/padEarthworkSketch';
 import { countDesignedTrajectories } from '../../lib/padClusteringWorkflow';
+import { formatMinSf } from '../../lib/wellTrajectoryClearance';
 import { readPadWellParams } from '../../lib/infraPadWells';
 
 import type { InfraObject } from '../../lib/api';
@@ -335,10 +336,14 @@ export function InfraWellTrajectorySection({
                     <td>
                       <span
                         className={
-                          pair.warning ? 'odp-traj-sf odp-traj-sf--warn' : 'odp-traj-sf odp-traj-sf--ok'
+                          pair.min_sf != null && Number.isFinite(pair.min_sf)
+                            ? pair.warning
+                              ? 'odp-traj-sf odp-traj-sf--warn'
+                              : 'odp-traj-sf odp-traj-sf--ok'
+                            : 'object-detail-panel__meta'
                         }
                       >
-                        {pair.min_sf.toFixed(2)}
+                        {formatMinSf(pair.min_sf)}
                       </span>
                     </td>
                   </tr>
