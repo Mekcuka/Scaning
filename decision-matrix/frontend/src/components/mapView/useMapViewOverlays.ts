@@ -74,6 +74,8 @@ export function useMapViewOverlays(
         f.get('subtype') === 'autoroad-plan-link' ||
         f.get('subtype') === 'autoroad-plan-connector' ||
         f.get('subtype') === 'gs-bottomhole-connector-preview' ||
+        f.get('subtype') === 'clipboard-preview-line' ||
+        f.get('clipboardPreview') === true ||
         f.get('subtype') === 'footprint-edge-highlight'
       )
       .forEach((f) => lines.removeFeature(f));
