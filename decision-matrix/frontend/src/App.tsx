@@ -34,7 +34,11 @@ import {
   DataIndexRedirect,
   LoginPage,
   MapPage,
-  PadClusteringPage,
+  PadClusteringLayout,
+  PadClusteringLegacyRedirect,
+  PadClusteringProfilePage,
+  PadClusteringSummaryPage,
+  PadClusteringWorkspacePage,
   MatrixPage,
   ParametersLayout,
   ParametersPage,
@@ -57,7 +61,12 @@ function ProjectRoutes() {
     <Route element={<ProjectRouteLayout />}>
       <Route path="/dashboard/:projectId" element={<DashboardPage />} />
       <Route path="/map/:projectId" element={<MapPage />} />
-      <Route path="/pad-clustering/:projectId" element={<PadClusteringPage />} />
+      <Route path="/pad-clustering" element={<PadClusteringLayout />}>
+        <Route path="workspace/:projectId" element={<PadClusteringWorkspacePage />} />
+        <Route path="summary/:projectId" element={<PadClusteringSummaryPage />} />
+        <Route path="profile/:projectId" element={<PadClusteringProfilePage />} />
+        <Route path=":projectId" element={<PadClusteringLegacyRedirect />} />
+      </Route>
       <Route path="/matrix/:projectId" element={<MatrixPage />} />
 
       <Route path="/parameters" element={<ParametersLayout />}>

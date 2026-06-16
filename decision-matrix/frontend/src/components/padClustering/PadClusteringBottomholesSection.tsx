@@ -3,17 +3,22 @@ import { MapPin, Target } from 'lucide-react';
 import type { InfraObject } from '../../lib/api';
 import { SUBTYPE_LABELS } from '../../lib/api';
 import {
-  WELL_BOTTOMHOLE_GS_HEEL_ID,
-  WELL_BOTTOMHOLE_GS_ENTRY_MODE,
+  BOTTOMHOLE_ROLE_OPTIONS,
   DEFAULT_GS_ENTRY_MODE,
   GS_ENTRY_MODE_OPTIONS,
   readGsEntryMode,
   DEFAULT_NNB_INC,
+  WELL_BOTTOMHOLE_GS_HEEL_ID,
+  WELL_BOTTOMHOLE_GS_ENTRY_MODE,
   WELL_BOTTOMHOLE_TARGET_AZI,
   WELL_BOTTOMHOLE_TARGET_INC,
   WELL_BOTTOMHOLE_TVD_M,
   WELL_BOTTOMHOLE_WELL_INDEX,
+  isLateralBottomhole,
+  orderBottomholesHierarchical,
+  readBottomholeRole,
   readBottomholeTvdM,
+  GS_HEEL_LABEL,
 } from '../../lib/wellBottomholeProperties';
 import type { usePadClusteringEditor } from '../../hooks/usePadClusteringEditor';
 import { PadClusteringCollapsibleSection } from './PadClusteringCollapsibleSection';
@@ -57,22 +62,39 @@ export function PadClusteringBottomholesSection({
           </ProjectLink>
         </div>
       ) : (
-        <ul className="pad-clustering-bottomholes">
-          {bottomholes.map((bh) => (
-            <BottomholeRow
-              key={bh.id}
-              bottomhole={bh}
-              readOnly={readOnly}
-              saving={saveBottomholeMut.isPending}
-              onSave={(properties) =>
-                saveBottomholeMut.mutate({
-                  objectId: bh.id,
-                  properties: { ...bh.properties, ...properties },
-                })
-              }
-            />
-          ))}
-        </ul>
+        <div className="pad-clustering-table-wrap">
+          <table className="pad-clustering-table pad-clustering-bottomholes-table">
+            <thead>
+              <tr>
+                <th>Забой</th>
+                <th>Роль</th>
+                <th>Тип</th>
+                <th>Скв. №</th>
+                <th>TVD, м</th>
+                <th>Inc, °</th>
+                <th>Azi, °</th>
+                <th>Вход</th>
+              </tr>
+            </thead>
+            <tbody>
+              {orderBottomholesHierarchical(bottomholes).map((bh) => (
+                <BottomholeRow
+                  key={bh.id}
+                  bottomhole={bh}
+                  isChild={isLateralBottomhole(bh)}
+                  readOnly={readOnly}
+                  saving={saveBottomholeMut.isPending}
+                  onSave={(properties) =>
+                    saveBottomholeMut.mutate({
+                      objectId: bh.id,
+                      properties: { ...bh.properties, ...properties },
+                    })
+                  }
+                />
+              ))}
+            </tbody>
+          </table>
+        </div>
       )}
     </PadClusteringCollapsibleSection>
   );
@@ -80,16 +102,20 @@ export function PadClusteringBottomholesSection({
 
 function BottomholeRow({
   bottomhole,
+  isChild,
   readOnly,
   saving,
   onSave,
 }: {
   bottomhole: InfraObject;
+  isChild?: boolean;
   readOnly: boolean;
   saving: boolean;
   onSave: (properties: Record<string, unknown>) => void;
 }) {
   const props = bottomhole.properties ?? {};
+  const roleLabel =
+    BOTTOMHOLE_ROLE_OPTIONS.find((o) => o.value === readBottomholeRole(props))?.label ?? 'Основной забой';
   const subtypeLabel = SUBTYPE_LABELS[bottomhole.subtype] ?? bottomhole.subtype;
   const tvdM = readBottomholeTvdM(props);
   const wellIndexRaw = props[WELL_BOTTOMHOLE_WELL_INDEX];
@@ -99,113 +125,128 @@ function BottomholeRow({
   const targetAzi = props[WELL_BOTTOMHOLE_TARGET_AZI];
   const gsHeelId = props[WELL_BOTTOMHOLE_GS_HEEL_ID];
   const gsEntryMode = readGsEntryMode(props);
+  const isNnb = bottomhole.subtype === 'well_bottomhole_nnb';
+  const isGsHeel =
+    bottomhole.subtype === 'well_bottomhole_gs_heel' ||
+    bottomhole.subtype === 'well_bottomhole_gs';
+  const showAzi = isNnb || bottomhole.subtype === 'well_bottomhole_gs_toe';
 
   return (
-    <li className="pad-clustering-bottomholes__item">
-      <div className="pad-clustering-bottomholes__header">
-        <strong>{bottomhole.name}</strong>
-        <span className="pad-clustering-bottomholes__subtype">{subtypeLabel}</span>
-      </div>
-      <div className="pad-clustering-bottomholes__fields">
-        <label className="pad-clustering-field">
-          <span>Скв. №</span>
+    <tr className={isChild ? 'pad-clustering-bottomholes-table__row--child' : undefined}>
+      <td className="pad-clustering-bottomholes-table__name">
+        <span
+          className="pad-clustering-bottomholes-table__name-text"
+          style={isChild ? { paddingLeft: '1rem' } : undefined}
+        >
+          {bottomhole.name}
+        </span>
+        {bottomhole.subtype === 'well_bottomhole_gs_toe' && typeof gsHeelId === 'string' && (
+          <span className="pad-clustering-bottomholes-table__sub" title={gsHeelId}>
+            {GS_HEEL_LABEL} {gsHeelId.slice(0, 8)}…
+          </span>
+        )}
+      </td>
+      <td className="pad-clustering-bottomholes-table__type">{roleLabel}</td>
+      <td className="pad-clustering-bottomholes-table__type">{subtypeLabel}</td>
+      <td>
+        <input
+          className="input pad-clustering-bottomholes-table__input"
+          type="number"
+          min={0}
+          max={63}
+          disabled={readOnly || saving || isChild}
+          defaultValue={wellIndex}
+          key={`${bottomhole.id}-wi-${String(wellIndexRaw)}`}
+          aria-label={`Скв. № для ${bottomhole.name}`}
+          onBlur={(e) =>
+            onSave({
+              [WELL_BOTTOMHOLE_WELL_INDEX]:
+                e.target.value === '' ? undefined : Number(e.target.value),
+            })
+          }
+        />
+      </td>
+      <td>
+        <input
+          className="input pad-clustering-bottomholes-table__input"
+          type="number"
+          min={1}
+          disabled={readOnly || saving}
+          defaultValue={tvdM}
+          key={`${bottomhole.id}-tvd-${tvdM}`}
+          aria-label={`TVD для ${bottomhole.name}`}
+          onBlur={(e) => {
+            const n = Number(e.target.value);
+            if (Number.isFinite(n) && n > 0) {
+              onSave({ [WELL_BOTTOMHOLE_TVD_M]: n });
+            }
+          }}
+        />
+      </td>
+      <td>
+        {isNnb ? (
           <input
-            className="input"
+            className="input pad-clustering-bottomholes-table__input"
             type="number"
             min={0}
-            max={63}
+            max={360}
             disabled={readOnly || saving}
-            defaultValue={wellIndex}
-            key={`${bottomhole.id}-wi-${String(wellIndexRaw)}`}
+            defaultValue={targetInc ?? DEFAULT_NNB_INC}
+            key={`${bottomhole.id}-inc-${String(targetInc)}`}
+            aria-label={`Inc для ${bottomhole.name}`}
+            onBlur={(e) => onSave({ [WELL_BOTTOMHOLE_TARGET_INC]: Number(e.target.value) })}
+          />
+        ) : (
+          <span className="pad-clustering-bottomholes-table__na">—</span>
+        )}
+      </td>
+      <td>
+        {showAzi ? (
+          <input
+            className="input pad-clustering-bottomholes-table__input"
+            type="number"
+            min={0}
+            max={360}
+            disabled={readOnly || saving}
+            defaultValue={targetAzi ?? ''}
+            placeholder="NDS"
+            key={`${bottomhole.id}-azi-${String(targetAzi)}`}
+            aria-label={`Azi для ${bottomhole.name}`}
             onBlur={(e) =>
               onSave({
-                [WELL_BOTTOMHOLE_WELL_INDEX]:
+                [WELL_BOTTOMHOLE_TARGET_AZI]:
                   e.target.value === '' ? undefined : Number(e.target.value),
               })
             }
           />
-        </label>
-        <label className="pad-clustering-field">
-          <span>TVD, м</span>
-          <input
-            className="input"
-            type="number"
-            min={1}
+        ) : (
+          <span className="pad-clustering-bottomholes-table__na">—</span>
+        )}
+      </td>
+      <td>
+        {isGsHeel ? (
+          <select
+            className="input pad-clustering-bottomholes-table__input"
             disabled={readOnly || saving}
-            defaultValue={tvdM}
-            key={`${bottomhole.id}-tvd-${tvdM}`}
-            onBlur={(e) => {
-              const n = Number(e.target.value);
-              if (Number.isFinite(n) && n > 0) {
-                onSave({ [WELL_BOTTOMHOLE_TVD_M]: n });
-              }
-            }}
-          />
-        </label>
-        {bottomhole.subtype === 'well_bottomhole_nnb' && (
-          <label className="pad-clustering-field">
-            <span>Inc, °</span>
-            <input
-              className="input"
-              type="number"
-              min={0}
-              max={360}
-              disabled={readOnly || saving}
-              defaultValue={targetInc ?? DEFAULT_NNB_INC}
-              key={`${bottomhole.id}-inc-${String(targetInc)}`}
-              onBlur={(e) => onSave({ [WELL_BOTTOMHOLE_TARGET_INC]: Number(e.target.value) })}
-            />
-          </label>
+            defaultValue={gsEntryMode}
+            key={`${bottomhole.id}-entry-${gsEntryMode}`}
+            aria-label={`Точка входа для ${bottomhole.name}`}
+            onChange={(e) =>
+              onSave({
+                [WELL_BOTTOMHOLE_GS_ENTRY_MODE]: e.target.value || DEFAULT_GS_ENTRY_MODE,
+              })
+            }
+          >
+            {GS_ENTRY_MODE_OPTIONS.map((opt) => (
+              <option key={opt.value} value={opt.value}>
+                {opt.label}
+              </option>
+            ))}
+          </select>
+        ) : (
+          <span className="pad-clustering-bottomholes-table__na">—</span>
         )}
-        {bottomhole.subtype === 'well_bottomhole_gs_heel' ||
-        bottomhole.subtype === 'well_bottomhole_gs' ? (
-          <label className="pad-clustering-field pad-clustering-field--span2">
-            <span>Точка входа</span>
-            <select
-              className="input"
-              disabled={readOnly || saving}
-              defaultValue={gsEntryMode}
-              key={`${bottomhole.id}-entry-${gsEntryMode}`}
-              onChange={(e) =>
-                onSave({
-                  [WELL_BOTTOMHOLE_GS_ENTRY_MODE]: e.target.value || DEFAULT_GS_ENTRY_MODE,
-                })
-              }
-            >
-              {GS_ENTRY_MODE_OPTIONS.map((opt) => (
-                <option key={opt.value} value={opt.value}>
-                  {opt.label}
-                </option>
-              ))}
-            </select>
-          </label>
-        ) : null}
-        {(bottomhole.subtype === 'well_bottomhole_nnb' ||
-          bottomhole.subtype === 'well_bottomhole_gs_toe') && (
-          <label className="pad-clustering-field">
-            <span>Azi, °</span>
-            <input
-              className="input"
-              type="number"
-              min={0}
-              max={360}
-              disabled={readOnly || saving}
-              defaultValue={targetAzi ?? ''}
-              placeholder="NDS"
-              key={`${bottomhole.id}-azi-${String(targetAzi)}`}
-              onBlur={(e) =>
-                onSave({
-                  [WELL_BOTTOMHOLE_TARGET_AZI]:
-                    e.target.value === '' ? undefined : Number(e.target.value),
-                })
-              }
-            />
-          </label>
-        )}
-      </div>
-      {bottomhole.subtype === 'well_bottomhole_gs_toe' && typeof gsHeelId === 'string' && (
-        <p className="pad-clustering-section__hint">Пятка (heel) ГС: {gsHeelId.slice(0, 8)}…</p>
-      )}
-    </li>
+      </td>
+    </tr>
   );
 }

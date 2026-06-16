@@ -58,26 +58,35 @@ describe('buildMap3dWellTrajectoryInstances', () => {
     },
   };
 
-  it('builds instance with palette color when SF ok', () => {
+  it('builds main trajectory instance', () => {
     const [inst] = buildMap3dWellTrajectoryInstances([baseFeature]);
     expect(inst).toMatchObject({
       id: 'pad-1:1',
       wellIndex: 1,
       radiusM: 0.8,
-      colorHex: '#22c55e',
+      colorHex: '#1565c0',
     });
     expect(inst?.path).toHaveLength(2);
     expect(inst?.alts).toEqual([120, 110]);
   });
 
-  it('uses red when SF below threshold', () => {
+  it('builds pywellgeo lateral branch in yellow', () => {
     const [inst] = buildMap3dWellTrajectoryInstances([
       {
         ...baseFeature,
-        properties: { ...baseFeature.properties, min_sf: 0.8 },
+        properties: {
+          ...baseFeature.properties,
+          kind: 'pywellgeo_branch',
+          branch_name: 'lat1',
+          branch_id: '0.2',
+        },
       },
     ]);
-    expect(inst?.colorHex).toBe('#c62828');
+    expect(inst).toMatchObject({
+      id: 'pwg:pad-1:1:0.2',
+      colorHex: '#f9a825',
+      radiusM: 0.8 * 0.85,
+    });
   });
 
   it('skips non-trajectory and short paths', () => {

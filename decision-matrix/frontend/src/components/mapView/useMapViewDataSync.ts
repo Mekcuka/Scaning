@@ -1,10 +1,21 @@
-import { useEffect } from 'react';
+import { useEffect, useRef } from 'react';
 import LineString from 'ol/geom/LineString';
 import Point from 'ol/geom/Point';
 import Polygon from 'ol/geom/Polygon';
 import { fromLonLat } from 'ol/proj';
 import { normalizeInfraSubtype } from '../../lib/api';
-import { buildGsBottomholeConnectors, gsLineEndpointPoints } from '../../lib/wellBottomholeProperties';
+import type { WellTrajectoryGeoJsonFeature } from '../../lib/api/wellTrajectoryApi';
+import {
+  buildGsBottomholeConnectors,
+  buildLateralBottomholeConnectors,
+  gsLineEndpointPoints,
+  isBottomholeSubtype,
+  lateralBottomholeIdsWithBranchCoverage,
+  lateralBranchPlanEndpointsFromGeoJson,
+  readBottomholeRole,
+  resolveBottomholeMapSubtype,
+  WELL_BOTTOMHOLE_LATERAL_DISPLAY,
+} from '../../lib/wellBottomholeProperties';
 import type { LinePathDisplayOptions } from '../../lib/infraGeometry';
 import { lineLodForScale } from '../../lib/mapLineLod';
 import { resolveFootprintLonLat } from '../../lib/padFootprintGeo';
@@ -21,11 +32,14 @@ export function useMapViewDataSync(
     infraSnapPool,
     lineLodScaleThreshold,
     infraSymbology = 'points',
+    wellTrajectoryFeatures,
   }: Pick<
     MapViewProps,
-    'pois' | 'infraObjects' | 'infraSnapPool' | 'lineLodScaleThreshold' | 'infraSymbology'
+    'pois' | 'infraObjects' | 'infraSnapPool' | 'lineLodScaleThreshold' | 'infraSymbology' | 'wellTrajectoryFeatures'
   >,
 ): void {
+  const wellTrajectoryFeaturesRef = useRef<WellTrajectoryGeoJsonFeature[]>([]);
+  wellTrajectoryFeaturesRef.current = wellTrajectoryFeatures ?? [];
   const {
     syncInfraDataToLayersRef,
     pointSourceRef,
@@ -73,9 +87,15 @@ export function useMapViewDataSync(
 
       infra.forEach((obj) => {
         const lineGeom = infraLineGeometry(obj, snapPool, lineDisplayOpts);
+        const role = isBottomholeSubtype(obj.subtype) ? readBottomholeRole(obj.properties) : undefined;
+        const displaySubtype = isBottomholeSubtype(obj.subtype)
+          ? resolveBottomholeMapSubtype(obj)
+          : normalizeInfraSubtype(obj.subtype);
         const attrs = {
           name: obj.name,
           subtype: normalizeInfraSubtype(obj.subtype),
+          displaySubtype,
+          bottomhole_role: role,
           layer_id: obj.layer_id,
           featureKind: 'infra',
         };
@@ -87,7 +107,9 @@ export function useMapViewDataSync(
               geometry: new Point(fromLonLat([ep.lon, ep.lat])),
               attrs: {
                 name: obj.name,
-                subtype: ep.subtype,
+                subtype: role === 'lateral' ? WELL_BOTTOMHOLE_LATERAL_DISPLAY : ep.subtype,
+                displaySubtype: role === 'lateral' ? WELL_BOTTOMHOLE_LATERAL_DISPLAY : ep.subtype,
+                bottomhole_role: role,
                 layer_id: obj.layer_id,
                 featureKind: 'infra',
                 infra_object_id: obj.id,
@@ -98,7 +120,10 @@ export function useMapViewDataSync(
           pointItems.push({
             id: obj.id,
             geometry: new Point(fromLonLat([obj.lon, obj.lat])),
-            attrs,
+            attrs: {
+              ...attrs,
+              subtype: displaySubtype,
+            },
           });
         }
       });
@@ -120,6 +145,27 @@ export function useMapViewDataSync(
             featureKind: 'derived',
             heel_id: conn.heelId,
             toe_id: conn.toeId,
+          },
+        });
+      }
+
+      for (const conn of buildLateralBottomholeConnectors(
+        infra,
+        {
+          excludeLateralIds: lateralBottomholeIdsWithBranchCoverage(
+            infra,
+            lateralBranchPlanEndpointsFromGeoJson(wellTrajectoryFeaturesRef.current),
+          ),
+        },
+      )) {
+        lineItems.push({
+          id: conn.id,
+          geometry: new LineString(conn.coordinates.map((c) => fromLonLat([c[0], c[1]]))),
+          attrs: {
+            subtype: 'lateral-bottomhole-connector',
+            featureKind: 'derived',
+            parent_id: conn.parentId,
+            lateral_id: conn.lateralId,
           },
         });
       }
@@ -193,7 +239,7 @@ export function useMapViewDataSync(
       return () => clearTimeout(t);
     }
     runSync();
-  }, [pois, infraObjects, infraSnapPool]);
+  }, [pois, infraObjects, infraSnapPool, wellTrajectoryFeatures]);
 
   useEffect(() => {
     const lineLod = lineLodForScale(

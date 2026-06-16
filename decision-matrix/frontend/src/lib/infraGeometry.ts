@@ -2,6 +2,7 @@ import { LINE_SUBTYPES, type InfraObject } from './api';
 import type { InfraPointSnapIndex } from './infraSnapIndex';
 import { normalizeLinePathEndpoints } from './lineEndpointRules';
 import { applyFootprintDisplayEndpoints } from './padFootprintLineAttach';
+import { isGsBottomholeLine, readGsLineEndpoints } from './wellBottomholeProperties';
 import type { InfraSymbology } from '../components/mapView/types';
 
 export type LinePathDisplayOptions = {
@@ -16,16 +17,43 @@ export function isLineSubtype(subtype: string): boolean {
   return (LINE_SUBTYPES as readonly string[]).includes(subtype);
 }
 
+function lineEndpointsMatchScalars(obj: InfraObject, coords: number[][]): boolean {
+  if (obj.end_lon == null || obj.end_lat == null || coords.length < 2) return true;
+  const first = coords[0]!;
+  const last = coords[coords.length - 1]!;
+  return (
+    Math.abs(first[0]! - obj.lon) < 1e-9 &&
+    Math.abs(first[1]! - obj.lat) < 1e-9 &&
+    Math.abs(last[0]! - obj.end_lon) < 1e-9 &&
+    Math.abs(last[1]! - obj.end_lat) < 1e-9
+  );
+}
+
 /** Full vertex list for a linear infrastructure object. */
 export function getLineCoordinates(obj: InfraObject): number[][] | null {
-  if (obj.coordinates && obj.coordinates.length >= 2) {
-    return obj.coordinates.map((c) => [c[0], c[1]]);
+  if (isGsBottomholeLine(obj)) {
+    const endpoints = readGsLineEndpoints(obj);
+    if (!endpoints) return null;
+    return [
+      [endpoints.heelLon, endpoints.heelLat],
+      [endpoints.toeLon, endpoints.toeLat],
+    ];
   }
   if (obj.end_lon != null && obj.end_lat != null) {
-    return [
+    const fromScalars: number[][] = [
       [obj.lon, obj.lat],
       [obj.end_lon, obj.end_lat],
     ];
+    if (obj.coordinates && obj.coordinates.length >= 2) {
+      if (obj.coordinates.length > 2 || lineEndpointsMatchScalars(obj, obj.coordinates)) {
+        return obj.coordinates.map((c) => [c[0], c[1]]);
+      }
+      return fromScalars;
+    }
+    return fromScalars;
+  }
+  if (obj.coordinates && obj.coordinates.length >= 2) {
+    return obj.coordinates.map((c) => [c[0], c[1]]);
   }
   return null;
 }

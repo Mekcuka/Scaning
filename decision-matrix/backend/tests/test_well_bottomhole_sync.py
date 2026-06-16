@@ -351,3 +351,188 @@ def test_sync_trims_trajectories_when_wells_local_shrinks():
     pad.properties["pad_wells_local_json"] = [{"east_m": 0.0, "north_m": 0.0}]
     trajectories, _ = sync_bottomholes_to_trajectories(pad, [])
     assert len(trajectories) == 1
+
+
+def test_design_from_bottomholes_resets_stale_calculated_without_target():
+    """Mirrors pre-design reset in design_from_bottomholes for wells without target."""
+    from app.services.well_trajectory.bottomhole_sync import (
+        _reset_well_to_stub,
+        _well_has_bottomhole_design,
+    )
+
+    pad = _pad()
+    trajectories = [dict(t) for t in pad.properties["pad_wells_trajectories_json"]]
+    trajectories[1]["survey"] = {
+        "source": "calculated",
+        "stations": [
+            {"md": 0, "inc": 0, "azi": 90, "tvd": 0, "n": 0, "e": 9},
+            {"md": 1500, "inc": 90, "azi": 90, "tvd": 1500, "n": 0, "e": 800},
+        ],
+    }
+    trajectories[1]["geometry"] = {"length_m": 1500, "md_max": 1500, "tvd_max": 1500}
+
+    for idx in range(len(trajectories)):
+        well = trajectories[idx]
+        if not isinstance(well, dict):
+            continue
+        if isinstance(well.get("target"), dict):
+            continue
+        if _well_has_bottomhole_design(well):
+            trajectories[idx] = _reset_well_to_stub(well, pad)
+
+    assert "target" not in trajectories[1]
+    assert trajectories[1]["survey"]["source"] == "stub"
+    assert len(trajectories[1]["survey"]["stations"]) == 2
+    assert "geometry" not in trajectories[1]
+
+
+def test_sync_excludes_lateral_bottomhole_from_primary_target():
+    pad = _pad()
+    main = InfrastructureObject(
+        id=uuid4(),
+        layer_id=pad.layer_id,
+        name="Main-BH",
+        subtype="well_bottomhole_nnb",
+        category="well",
+        geometry={"type": "Point", "coordinates": [37.621, 55.761]},
+        longitude=37.621,
+        latitude=55.761,
+        properties={
+            LINKED_PAD_ID: str(pad.id),
+            WELL_INDEX: 0,
+            TVD_M: 1500,
+            "well_bottomhole_role": "main",
+        },
+    )
+    lateral = InfrastructureObject(
+        id=uuid4(),
+        layer_id=pad.layer_id,
+        name="Lat-BH",
+        subtype="well_bottomhole_nnb",
+        category="well",
+        geometry={"type": "Point", "coordinates": [37.622, 55.762]},
+        longitude=37.622,
+        latitude=55.762,
+        properties={
+            "well_bottomhole_role": "lateral",
+            "well_bottomhole_parent_id": str(main.id),
+            TVD_M: 1600,
+        },
+    )
+    trajectories, warnings = sync_bottomholes_to_trajectories(pad, [main, lateral])
+    assert not any("дубликат" in w.lower() for w in warnings)
+    assert trajectories[0]["target"]["bottomhole_object_id"] == str(main.id)
+    assert trajectories[0]["target"]["tvd_m"] == 1500
+
+
+def test_bottomholes_for_pad_includes_lateral_via_parent():
+    pad = _pad()
+    main_id = uuid4()
+    main = InfrastructureObject(
+        id=main_id,
+        layer_id=pad.layer_id,
+        name="Main",
+        subtype="well_bottomhole_nnb",
+        category="well",
+        geometry={"type": "Point", "coordinates": [37.621, 55.761]},
+        longitude=37.621,
+        latitude=55.761,
+        properties={LINKED_PAD_ID: str(pad.id), "well_bottomhole_role": "main"},
+    )
+    lateral = InfrastructureObject(
+        id=uuid4(),
+        layer_id=pad.layer_id,
+        name="Lat",
+        subtype="well_bottomhole_nnb",
+        category="well",
+        geometry={"type": "Point", "coordinates": [37.622, 55.762]},
+        longitude=37.622,
+        latitude=55.762,
+        properties={
+            "well_bottomhole_role": "lateral",
+            "well_bottomhole_parent_id": str(main_id),
+        },
+    )
+    linked = bottomholes_for_pad_from_objects([main, lateral], pad.id)
+    assert {o.id for o in linked} == {main.id, lateral.id}
+
+
+def test_sync_gs_line_endpoints_prefer_scalars_over_stale_coordinates():
+    from app.services.well_trajectory.bottomhole_properties import read_gs_line_endpoints
+
+    pad = _pad()
+    gs = InfrastructureObject(
+        id=uuid4(),
+        layer_id=pad.layer_id,
+        name="GS-2",
+        subtype="well_bottomhole_gs",
+        category="well",
+        geometry={"type": "LineString", "coordinates": [[37.621, 55.761], [37.622, 55.761]]},
+        longitude=37.631,
+        latitude=55.771,
+        end_longitude=37.641,
+        end_latitude=55.771,
+        properties={
+            LINKED_PAD_ID: str(pad.id),
+            WELL_INDEX: 1,
+            GS_HEEL_TVD_M: 1800,
+            GS_TOE_TVD_M: 2100,
+            GS_ENTRY_MODE: "heel",
+            "coordinates": [[37.621, 55.761], [37.622, 55.761]],
+        },
+    )
+    endpoints = read_gs_line_endpoints(gs)
+    assert endpoints == (37.631, 55.771, 37.641, 55.771)
+    trajectories, _ = sync_bottomholes_to_trajectories(pad, [gs])
+    target = trajectories[1]["target"]
+    assert target["gs_entry_mode"] == "heel"
+    assert target["heel_tvd_m"] == 1800
+    assert target["toe_tvd_m"] == 2100
+
+
+def test_sync_invalidates_stale_design_when_gs_entry_mode_changes():
+    pad = _pad()
+    gs = InfrastructureObject(
+        id=uuid4(),
+        layer_id=pad.layer_id,
+        name="GS-2",
+        subtype="well_bottomhole_gs",
+        category="well",
+        geometry={"type": "LineString", "coordinates": [[37.621, 55.761], [37.631, 55.761]]},
+        longitude=37.621,
+        latitude=55.761,
+        end_longitude=37.631,
+        end_latitude=55.761,
+        properties={
+            LINKED_PAD_ID: str(pad.id),
+            WELL_INDEX: 1,
+            GS_HEEL_TVD_M: 2000,
+            GS_TOE_TVD_M: 2000,
+            GS_ENTRY_MODE: "any",
+        },
+    )
+    trajectories, _ = sync_bottomholes_to_trajectories(pad, [gs])
+    trajectories[1]["survey"] = {
+        "source": "calculated",
+        "stations": [
+            {"md": 0, "inc": 0, "azi": 90, "tvd": 0, "n": 0, "e": 0},
+            {"md": 2500, "inc": 90, "azi": 90, "tvd": 2500, "n": 0, "e": 800},
+        ],
+    }
+    trajectories[1]["design"] = {
+        "source": "bottomhole_object",
+        "profile": "horizontal",
+        "gs_entry_mode": "any",
+        "gs_entry_offset_m": 400.0,
+    }
+    pad.properties = store_trajectories_json(pad.properties, trajectories)
+
+    gs.properties = {
+        **gs.properties,
+        GS_ENTRY_MODE: "heel",
+    }
+    trajectories2, _ = sync_bottomholes_to_trajectories(pad, [gs])
+    well = trajectories2[1]
+    assert well["target"]["gs_entry_mode"] == "heel"
+    assert well["survey"]["source"] == "stub"
+    assert "design" not in well

@@ -15,7 +15,7 @@ const pointObj = (id: string, subtype: string, lon: number, lat: number): InfraO
     lat,
   }) as InfraObject;
 
-/** Contract from docs/features/map-objects-and-spatial-calculations.md §1.4 */
+/** Contract from docs/features/map/map-objects-and-spatial-calculations.md §1.4 */
 describe('map line drawing rules (contract)', () => {
   const pad = pointObj('oil_pad', 'oil_pad', 37.6, 55.75);
 

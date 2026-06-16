@@ -38,7 +38,7 @@ http://localhost:5173/parameters/rates/{id-проекта}
 | Дашборд | `/dashboard/{projectId}` | Обзор |
 | Проекты | `/projects` | Список проектов, создание (admin/analyst) |
 | Карта | `/map/{projectId}` | 2D / **Площадки** / 3D — объекты и POI |
-| Кустование | `/pad-clustering/{projectId}` | Раскладка устьев, траектории, 3D куста |
+| Кустование | `/pad-clustering/workspace/{projectId}` (subnav: **Куст**, **Сводка**, **Профиль**) | Раскладка устьев, траектории, 3D куста, read-only сводка, профиль MD–TVD |
 | Параметры | `/parameters/*/{projectId}` | Пропускная способность, **земляные работы**, **точки подключения**, песок, даты, **ставки** |
 | Потоки | `/flows/*/{projectId}` | Технологическая, экономическая схемы, логистика песка |
 | Матрица | `/matrix/{projectId}` | Сравнение POI по стоимости и кандидатам |
@@ -53,6 +53,16 @@ http://localhost:5173/parameters/rates/{id-проекта}
 | Импорт | `/data/import/{projectId}` | admin, analyst, data_manager |
 | Экспорт | `/data/export/{projectId}` | все роли |
 | Импорт 3D | `/data/import-3d/{projectId}` | admin (загрузка); admin и владелец проекта (назначение) |
+
+### Подвкладки «Кустование»
+
+| Вкладка | Маршрут |
+|---------|---------|
+| Куст (workspace) | `/pad-clustering/workspace/{projectId}` |
+| Сводка расчёта | `/pad-clustering/summary/{projectId}` |
+| Профиль траектории | `/pad-clustering/profile/{projectId}` |
+
+Legacy `/pad-clustering/{projectId}` → **Куст**.
 
 Старые URL `/import`, `/export`, `/import-3d` и `/{projectId}/data/...` перенаправляются на `/data/.../{projectId}`.
 

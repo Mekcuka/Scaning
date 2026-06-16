@@ -5,10 +5,15 @@ import { SUBTYPE_LABELS } from '../lib/api';
 import {
   DEFAULT_BOTTOMHOLE_TVD_M,
   DEFAULT_NNB_INC,
+  GS_HEEL_LABEL,
+  GS_TOE_LABEL,
   WELL_BOTTOMHOLE_GS_SUBTYPE,
   WELL_BOTTOMHOLE_LINKED_PAD_ID,
+  WELL_BOTTOMHOLE_PARENT_ID,
+  WELL_BOTTOMHOLE_ROLE,
   WELL_BOTTOMHOLE_TARGET_INC,
   WELL_BOTTOMHOLE_TVD_M,
+  findNearestMainBottomhole,
   findNearestPad,
 } from '../lib/wellBottomholeProperties';
 
@@ -16,6 +21,8 @@ export type GsHeelDraft = {
   lon: number;
   lat: number;
   linkedPadId: string | null;
+  parentId: string | null;
+  isLateral: boolean;
 };
 
 function withOptionalLinkedPad(
@@ -68,10 +75,63 @@ export function useBottomholeDraw(params: {
   const handleMapClickForBottomholeDraw = useCallback(
     async (lon: number, lat: number) => {
       if (!projectId || !canWriteInfra) return;
-      if (drawMode !== 'bottomhole_nnb' && drawMode !== 'bottomhole_gs') return;
+      const isNnb =
+        drawMode === 'bottomhole_nnb' || drawMode === 'bottomhole_lateral_nnb';
+      const isGs =
+        drawMode === 'bottomhole_gs' || drawMode === 'bottomhole_lateral_gs';
+      if (!isNnb && !isGs) return;
 
       const pads = infraObjects.filter((o) => o.subtype === 'oil_pad' || o.subtype === 'gas_pad');
       const linkedPadId = findNearestPad(pads, lon, lat)?.id ?? null;
+      const isLateral = drawMode === 'bottomhole_lateral_nnb' || drawMode === 'bottomhole_lateral_gs';
+
+      if (isLateral) {
+        const parent = findNearestMainBottomhole(infraObjects, lon, lat, linkedPadId);
+        if (!parent) {
+          pushToast('error', 'Рядом нет основного забоя — сначала создайте основной забой на кусте');
+          return;
+        }
+        if (isNnb) {
+          const created = await placeBottomholeAt(
+            'well_bottomhole_nnb',
+            lon,
+            lat,
+            {
+              [WELL_BOTTOMHOLE_ROLE]: 'lateral',
+              [WELL_BOTTOMHOLE_PARENT_ID]: parent.id,
+              [WELL_BOTTOMHOLE_TVD_M]: DEFAULT_BOTTOMHOLE_TVD_M,
+              [WELL_BOTTOMHOLE_TARGET_INC]: DEFAULT_NNB_INC,
+            },
+          );
+          if (created) {
+            pushToast('success', `Доп.ствол «${created.name}» создан (родитель: ${parent.name})`);
+            onCreated?.();
+          }
+          return;
+        }
+        if (!gsHeelDraft) {
+          setGsHeelDraft({ lon, lat, linkedPadId, parentId: parent.id, isLateral: true });
+          pushToast('info', `${GS_HEEL_LABEL} доп.ствола — укажите ${GS_TOE_LABEL} на карте`);
+          return;
+        }
+        const created = await placeGsBottomholeAt(
+          gsHeelDraft.lon,
+          gsHeelDraft.lat,
+          lon,
+          lat,
+          {
+            [WELL_BOTTOMHOLE_ROLE]: 'lateral',
+            [WELL_BOTTOMHOLE_PARENT_ID]: gsHeelDraft.parentId,
+            [WELL_BOTTOMHOLE_TVD_M]: DEFAULT_BOTTOMHOLE_TVD_M,
+          },
+        );
+        setGsHeelDraft(null);
+        if (created) {
+          pushToast('success', `Доп.ствол ГС «${created.name}» создан`);
+          onCreated?.();
+        }
+        return;
+      }
 
       if (drawMode === 'bottomhole_nnb') {
         const created = await placeBottomholeAt(
@@ -94,8 +154,8 @@ export function useBottomholeDraw(params: {
       }
 
       if (!gsHeelDraft) {
-        setGsHeelDraft({ lon, lat, linkedPadId });
-        pushToast('info', 'Пятка (heel) ГС задана — укажите toe на карте');
+        setGsHeelDraft({ lon, lat, linkedPadId, parentId: null, isLateral: false });
+        pushToast('info', `${GS_HEEL_LABEL} ГС задан — укажите ${GS_TOE_LABEL} на карте`);
         return;
       }
 
@@ -131,7 +191,10 @@ export function useBottomholeDraw(params: {
   );
 
   const isBottomholeDrawActive =
-    drawMode === 'bottomhole_nnb' || drawMode === 'bottomhole_gs';
+    drawMode === 'bottomhole_nnb' ||
+    drawMode === 'bottomhole_gs' ||
+    drawMode === 'bottomhole_lateral_nnb' ||
+    drawMode === 'bottomhole_lateral_gs';
 
   return {
     gsHeelDraft,

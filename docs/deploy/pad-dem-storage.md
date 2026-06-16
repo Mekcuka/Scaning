@@ -1,6 +1,6 @@
 # Хранение DEM кустовых площадок на production VM
 
-> Связано: [DEPLOY.md](../../DEPLOY.md), [pad-earthwork.md](../features/pad-earthwork.md) § DEM.
+> Связано: [DEPLOY.md](../../DEPLOY.md), [pad-earthwork.md](../features/pad-earthwork/pad-earthwork.md) § DEM.
 
 ## Назначение
 

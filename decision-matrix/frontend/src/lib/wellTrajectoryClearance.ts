@@ -4,6 +4,13 @@ const COLOR_OK = '#2e7d32';
 const COLOR_WARN = '#c62828';
 const COLOR_DEFAULT = '#1565c0';
 
+/** Map 2D/3D: main bore (welleng survey). */
+export const WELL_TRAJECTORY_MAP_MAIN_COLOR = '#1565c0';
+/** Map 2D/3D: PyWellGeo lateral / side branches. */
+export const WELL_TRAJECTORY_MAP_LATERAL_COLOR = '#f9a825';
+/** OpenLayers lineDash for trajectory plan layers. */
+export const WELL_TRAJECTORY_MAP_LINE_DASH = [8, 6] as const;
+
 /** Distinct colors per well index (shared with pad clustering 3D). */
 export const WELL_TRAJECTORY_PALETTE = [
   '#f97316',

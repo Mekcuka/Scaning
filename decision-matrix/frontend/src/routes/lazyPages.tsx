@@ -17,9 +17,31 @@ export const AdminLayout = lazy(() =>
 );
 export const DashboardPage = lazy(() => import('../pages/DashboardPage').then((m) => ({ default: m.DashboardPage })));
 export const MapPage = lazy(() => import('../pages/MapPage').then((m) => ({ default: m.MapPage })));
-export const PadClusteringPage = lazy(() =>
-  import('../pages/padClustering/PadClusteringPage').then((m) => ({ default: m.PadClusteringPage })),
+export const PadClusteringLayout = lazy(() =>
+  import('../components/layout/PadClusteringLayout').then((m) => ({ default: m.PadClusteringLayout })),
 );
+export const PadClusteringWorkspacePage = lazy(() =>
+  import('../pages/padClustering/PadClusteringWorkspacePage').then((m) => ({
+    default: m.PadClusteringWorkspacePage,
+  })),
+);
+export const PadClusteringSummaryPage = lazy(() =>
+  import('../pages/padClustering/PadClusteringSummaryPage').then((m) => ({
+    default: m.PadClusteringSummaryPage,
+  })),
+);
+export const PadClusteringProfilePage = lazy(() =>
+  import('../pages/padClustering/PadClusteringProfilePage').then((m) => ({
+    default: m.PadClusteringProfilePage,
+  })),
+);
+export const PadClusteringLegacyRedirect = lazy(() =>
+  import('../components/layout/PadClusteringLegacyRedirect').then((m) => ({
+    default: m.PadClusteringLegacyRedirect,
+  })),
+);
+/** @deprecated Use PadClusteringWorkspacePage within PadClusteringLayout */
+export const PadClusteringPage = PadClusteringWorkspacePage;
 export const ImportPage = lazy(() => import('../pages/ImportPage').then((m) => ({ default: m.ImportPage })));
 export const ExportPage = lazy(() => import('../pages/ExportPage').then((m) => ({ default: m.ExportPage })));
 export const Import3DPage = lazy(() =>

@@ -10,7 +10,6 @@ import {
 } from './api';
 import type { MapBulkProgressUpdate } from './mapBulkProgress';
 import { bulkOperationTimeoutMs } from './mapBulkProgress';
-import type { InfraDetailUndo } from './mapUndo';
 import {
   infraClipboardToCreatePayload,
   infraPasteSubtypePlan,
@@ -20,6 +19,134 @@ import {
   sanitizePoiCreateForApi,
   type MapClipboardItem,
 } from './mapClipboard';
+import type { InfraDetailUndo } from './mapUndo';
+import {
+  WELL_BOTTOMHOLE_GS_SUBTYPE,
+  WELL_BOTTOMHOLE_LINKED_PAD_ID,
+  WELL_BOTTOMHOLE_PASTE_BATCH_REF_KEYS,
+  WELL_BOTTOMHOLE_ROLE,
+} from './wellBottomholeProperties';
+
+const PAD_PASTE_SUBTYPES = new Set(['oil_pad', 'gas_pad']);
+
+function infraPointPasteRank(item: MapBatchPasteInfraPointItem): number {
+  const st = String(item.create.subtype ?? '').toLowerCase();
+  const role = String(item.create.properties?.[WELL_BOTTOMHOLE_ROLE] ?? 'main').toLowerCase();
+  if (PAD_PASTE_SUBTYPES.has(st)) return 0;
+  if (st === 'well_bottomhole_gs_toe') return 3;
+  if (role === 'lateral') return 2;
+  if (st.startsWith('well_bottomhole')) return 1;
+  return 1;
+}
+
+function sortInfraPointsForPaste(
+  items: MapBatchPasteInfraPointItem[],
+): MapBatchPasteInfraPointItem[] {
+  return [...items].sort(
+    (a, b) => infraPointPasteRank(a) - infraPointPasteRank(b) || a.client_ref.localeCompare(b.client_ref),
+  );
+}
+
+export function remapBottomholePasteRefs(
+  properties: Record<string, unknown> | undefined,
+  refToCreated: Map<string, string>,
+  padRefToCreated?: Map<string, string>,
+): Record<string, unknown> | undefined {
+  if (!properties) return properties;
+  let changed = false;
+  const next = { ...properties };
+  for (const key of WELL_BOTTOMHOLE_PASTE_BATCH_REF_KEYS) {
+    const raw = next[key];
+    if (typeof raw !== 'string' || !raw.trim()) continue;
+    const mapped = refToCreated.get(raw.trim());
+    if (mapped) {
+      next[key] = mapped;
+      changed = true;
+    }
+  }
+  const padRaw = next[WELL_BOTTOMHOLE_LINKED_PAD_ID];
+  if (typeof padRaw === 'string' && padRaw.trim() && padRefToCreated) {
+    const mappedPad = padRefToCreated.get(padRaw.trim());
+    if (mappedPad) {
+      next[WELL_BOTTOMHOLE_LINKED_PAD_ID] = mappedPad;
+      changed = true;
+    }
+  }
+  return changed ? next : properties;
+}
+
+function remapBatchPasteBottomholeRefs(
+  payload: MapBatchPasteRequest,
+  refToCreated: Map<string, string>,
+  padRefToCreated: Map<string, string>,
+): MapBatchPasteRequest {
+  if (
+    refToCreated.size === 0 &&
+    padRefToCreated.size === 0 &&
+    payload.infra_points.length === 0 &&
+    payload.infra_lines.length === 0
+  ) {
+    return payload;
+  }
+  return {
+    ...payload,
+    infra_points: payload.infra_points.map((item) => {
+      const properties = remapBottomholePasteRefs(
+        item.create.properties,
+        refToCreated,
+        padRefToCreated,
+      );
+      if (properties === item.create.properties) return item;
+      return { ...item, create: { ...item.create, properties } };
+    }),
+    infra_lines: payload.infra_lines.map((item) => {
+      const properties = remapBottomholePasteRefs(
+        item.create.properties,
+        refToCreated,
+        padRefToCreated,
+      );
+      if (properties === item.create.properties) return item;
+      return { ...item, create: { ...item.create, properties } };
+    }),
+  };
+}
+
+function stripLinkedPadWhenPadNotPasted(
+  properties: Record<string, unknown> | undefined,
+): Record<string, unknown> | undefined {
+  if (!properties || !(WELL_BOTTOMHOLE_LINKED_PAD_ID in properties)) return properties;
+  const { [WELL_BOTTOMHOLE_LINKED_PAD_ID]: _removed, ...rest } = properties;
+  return Object.keys(rest).length > 0 ? rest : undefined;
+}
+
+function stripOrphanBottomholePadLinks(
+  request: MapBatchPasteRequest,
+): MapBatchPasteRequest {
+  const padSourceIds = new Set(
+    request.infra_points
+      .filter((item) => PAD_PASTE_SUBTYPES.has(String(item.create.subtype ?? '').toLowerCase()))
+      .map((item) => item.client_ref),
+  );
+  if (padSourceIds.size > 0) return request;
+
+  return {
+    ...request,
+    infra_points: request.infra_points.map((item) => {
+      const st = String(item.create.subtype ?? '').toLowerCase();
+      if (!st.startsWith('well_bottomhole')) return item;
+      const properties = stripLinkedPadWhenPadNotPasted(item.create.properties);
+      if (properties === item.create.properties) return item;
+      return { ...item, create: { ...item.create, properties } };
+    }),
+    infra_lines: request.infra_lines.map((item) => {
+      const st = String(item.create.subtype ?? '').toLowerCase();
+      if (st !== WELL_BOTTOMHOLE_GS_SUBTYPE) return item;
+      const properties = stripLinkedPadWhenPadNotPasted(item.create.properties);
+      if (properties === item.create.properties) return item;
+      return { ...item, create: { ...item.create, properties } };
+    }),
+  };
+}
 
 function infraPointBatchPastePayload(
   snap: InfraDetailUndo,
@@ -117,7 +244,11 @@ export function buildMapBatchPasteRequest(
     });
   }
 
-  return { pois: poiBatchItems, infra_points: pointBatchItems, infra_lines: lineBatchItems };
+  return stripOrphanBottomholePadLinks({
+    pois: poiBatchItems,
+    infra_points: sortInfraPointsForPaste(pointBatchItems),
+    infra_lines: lineBatchItems,
+  });
 }
 
 export const BATCH_PASTE_MAX_OBJECTS = 10_000;
@@ -211,6 +342,7 @@ function trackCreatedRefs(
   request: MapBatchPasteRequest,
   response: MapBatchPasteResponse,
   refToCreated: Map<string, string>,
+  padRefToCreated: Map<string, string>,
 ): void {
   request.pois.forEach((item, index) => {
     const created = response.created_pois[index];
@@ -219,7 +351,12 @@ function trackCreatedRefs(
   let infraIndex = 0;
   request.infra_points.forEach((item) => {
     const created = response.created_infra[infraIndex++];
-    if (created) refToCreated.set(item.client_ref, created.id);
+    if (!created) return;
+    refToCreated.set(item.client_ref, created.id);
+    const st = String(created.subtype ?? '').toLowerCase();
+    if (PAD_PASTE_SUBTYPES.has(st)) {
+      padRefToCreated.set(item.client_ref, created.id);
+    }
   });
   request.infra_lines.forEach((item) => {
     const created = response.created_infra[infraIndex++];
@@ -260,6 +397,7 @@ export async function executeMapBatchPaste(
   }
 
   const refToCreated = new Map<string, string>();
+  const padRefToCreated = new Map<string, string>();
   let merged: MapBatchPasteResponse = {
     created_pois: [],
     created_infra: [],
@@ -269,7 +407,7 @@ export async function executeMapBatchPaste(
 
   for (let chunkIndex = 0; chunkIndex < chunks.length; chunkIndex += 1) {
     const rawChunk = chunks[chunkIndex]!;
-    const chunk: MapBatchPasteRequest =
+    const chunkBase: MapBatchPasteRequest =
       rawChunk.infra_lines.length > 0
         ? {
             ...rawChunk,
@@ -278,6 +416,7 @@ export async function executeMapBatchPaste(
             ),
           }
         : rawChunk;
+    const chunk = remapBatchPasteBottomholeRefs(chunkBase, refToCreated, padRefToCreated);
 
     emitPasteProgress(onProgress, {
       label: '???????',
@@ -288,7 +427,7 @@ export async function executeMapBatchPaste(
       indeterminate: false,
     });
     const result = await batchPaste(projectId, chunk);
-    trackCreatedRefs(chunk, result, refToCreated);
+    trackCreatedRefs(chunk, result, refToCreated, padRefToCreated);
     merged = mergeBatchPasteResponses(merged, result);
     done += countBatchItems(chunk);
     emitPasteProgress(onProgress, {

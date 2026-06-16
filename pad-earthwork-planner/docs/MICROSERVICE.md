@@ -23,7 +23,7 @@ flowchart LR
 | `well_layout.py` | Автогенерация контура по скважинам и отступам |
 | `volume_flat.py` | MVP: `fill = L×W×H` или площадь×H, `cut = 0` |
 | `volume_plan.py` | Площадь/ bbox для plan sketch |
-| `envelope.py` | Обволование в `compute`: усечённая пирамида (legacy; UI — вариант A, см. [pad-earthwork.md](../../docs/features/pad-earthwork.md) § Модель обволования) |
+| `envelope.py` | Обволование в `compute`: усечённая пирамида (legacy; UI — вариант A, см. [pad-earthwork.md](../../docs/features/pad-earthwork/pad-earthwork.md) § Модель обволования) |
 | `volume_grid.py` | Cut/fill по сетке относительно design surface (unit-тесты; не используется в DEM pipeline) |
 | `dem_volume.py` | DEM: выемка = грунт выше `reference_elevation_m` в footprint; fill из DEM не считается |
 | `mesh.py` | Экспорт box mesh как base64 GLB |
@@ -53,7 +53,7 @@ OpenAPI: `http://localhost:8081/docs`
 }
 ```
 
-При пустом теле `{}` backend подставляет defaults (см. таблицу в [pad-earthwork.md](../../docs/features/pad-earthwork.md)) или значения из `properties` объекта куста.
+При пустом теле `{}` backend подставляет defaults (см. таблицу в [pad-earthwork.md](../../docs/features/pad-earthwork/pad-earthwork.md)) или значения из `properties` объекта куста.
 
 Ответ: `sketch` (`plan_polygon`), `wells_local`, `length_m`, `width_m`, `rotation_deg`, `footprint_area_m2`. Для стандартных defaults: 12 скважин, `length_m ≈ 196`, `width_m ≈ 58`.
 
@@ -101,7 +101,7 @@ python run_server.py
 
 Монолит **стартует без пакета**; расчёт и автогенерация требуют установленный `pad-earthwork-planner` или HTTP-сервис на `:8081`.
 
-BFF-обёртка автогенерации: `POST /api/v1/projects/{id}/infrastructure/objects/{object_id}/pad-earthwork/sketch/generate` — см. [pad-earthwork.md](../../docs/features/pad-earthwork.md).
+BFF-обёртка автогенерации: `POST /api/v1/projects/{id}/infrastructure/objects/{object_id}/pad-earthwork/sketch/generate` — см. [pad-earthwork.md](../../docs/features/pad-earthwork/pad-earthwork.md).
 
 ## Пример запроса compute
 
@@ -133,7 +133,7 @@ BFF-обёртка автогенерации: `POST /api/v1/projects/{id}/infra
 - `cut_m3` — сумма `(Z_terrain − reference_elevation_m) × cell_area` по ячейкам внутри контура, где `Z_terrain > reference`;
 - `net_fill_m3 = fill_m3` (выемка не вычитается).
 
-Подробнее: [pad-earthwork.md](../../docs/features/pad-earthwork.md) § Модель объёмов.
+Подробнее: [pad-earthwork.md](../../docs/features/pad-earthwork/pad-earthwork.md) § Модель объёмов.
 
 ## Тесты
 

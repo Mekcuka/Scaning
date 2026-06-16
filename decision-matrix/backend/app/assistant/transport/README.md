@@ -32,7 +32,7 @@ HTTP MCP **не выполняет** mutating tools. `call_tool` для `mutatin
 
 Подтверждение — только в веб-чате (`AssistantPanel` → «Подтвердить»). Read-only tools и admin read tools работают без ограничений.
 
-Список mutating: см. [assistant-tools.md §8](../../../docs/features/assistant-tools.md).
+Список mutating: см. [assistant-tools.md §8](../../../docs/features/assistant/assistant-tools.md).
 
 ## Cursor setup
 
@@ -58,8 +58,13 @@ HTTP MCP **не выполняет** mutating tools. `call_tool` для `mutatin
 | Файл | Назначение |
 |------|------------|
 | `.cursor/mcp.json` | Рабочий конфиг с токеном (**gitignored**) |
-| `.cursor/mcp.json.example` | Шаблон для команды |
+| `.cursor/mcp.json.example` | Шаблон для команды (HTTP + dev stdio) |
 | `.cursor/rules/atlas-grid-mcp.mdc` | Rule: агент использует MCP для live data |
+| `.cursor/rules/atlas-grid-dev-mcp.mdc` | Rule: pytest, search, git через stdio |
+
+### Dev stdio MCP (`atlas-grid-dev`)
+
+Отдельный subprocess stdio — **не** этот HTTP mount. Настройка: тот же `get-atlas-grid-token.ps1` (по умолчанию включает dev). На Windows в `env` нужен `PYTHONPATH` → `decision-matrix/backend` (Cursor может игнорировать `cwd`). Подробнее: [dev/README.md](../dev/README.md), [assistant-tools.md §11](../../../docs/features/assistant/assistant-tools.md).
 
 ### Важно
 
@@ -68,6 +73,14 @@ HTTP MCP **не выполняет** mutating tools. `call_tool` для `mutatin
 - Подсказка в UI: `GET /api/v1/assistant/status` → `mcp_url`, `mcp_setup_hint_ru`; блок «Подключение Cursor MCP» в `AssistantPanel`.
 - Windows: `${env:TOKEN}` в HTTP headers Cursor часто **не подставляет** — используйте скрипт.
 - Prod URL: `https://erascaning.duckdns.org/api/v1/mcp/`
+
+### Типичные ошибки
+
+| Симптом | Решение |
+|---------|---------|
+| 401 | Перезапустить `get-atlas-grid-token.ps1`, Reload MCP |
+| 401 при «правильном» URL | Проверить trailing slash в URL |
+| `atlas-grid-dev`: `No module named 'app'` | Добавить `PYTHONPATH` в `env` (см. [dev/README.md](../dev/README.md)) |
 
 ## Resources (фаза 8.5)
 

@@ -33,6 +33,16 @@ npm run dev
 - Frontend: http://localhost:5173  
 - API / Swagger: http://127.0.0.1:8000/api/v1/docs  
 
+### Cursor MCP (агент в IDE)
+
+Из корня репозитория:
+
+```powershell
+.\scripts\get-atlas-grid-token.ps1
+```
+
+Затем **Cursor → Settings → Tools & MCP → Reload**. Два сервера: `atlas-grid` (живые данные) и `atlas-grid-dev` (pytest, поиск, git). Подробнее: [docs/features/assistant/assistant-tools.md](docs/features/assistant/assistant-tools.md) §9–11.
+
 ### Демо-учётки
 
 | Email | Пароль | Роль |
@@ -46,6 +56,6 @@ npm run dev
 
 ## Документация
 
-[docs/](docs/) — требования, архитектура, [auth-rbac.md](docs/architecture/auth-rbac.md), **[статус реализации](docs/planning/implementation-status.md)**, [экспорт проекта](docs/features/project-export.md), [земляные работы куста](docs/features/pad-earthwork.md), [траектории скважин](docs/features/well-trajectory.md) (M1–M3 ✅), [оптимизация размещения кустов](docs/features/pad-placement-optimization.md) (✅), [оценка настроек для траекторий](docs/planning/well-trajectory-app-assessment.md), [план реализации](docs/planning/well-trajectory-implementation-plan.md), [план SOLID](docs/planning/solid-refactoring-plan.md), [границы модулей](docs/architecture/module-boundaries.md), план разработки.
+[docs/](docs/) — требования, архитектура, [auth-rbac.md](docs/architecture/auth-rbac.md), **[статус реализации](docs/planning/implementation-status.md)**, [экспорт проекта](docs/features/import-export/project-export.md), [земляные работы куста](docs/features/pad-earthwork/pad-earthwork.md), [траектории скважин](docs/features/well-trajectory/well-trajectory.md) (M1–M3 ✅), [оптимизация размещения кустов](docs/features/pad-placement/pad-placement-optimization.md) (✅), [оценка настроек для траекторий](docs/features/well-trajectory/well-trajectory-app-assessment.md), [план реализации](docs/features/well-trajectory/well-trajectory-implementation-plan.md), [план SOLID](docs/planning/solid-refactoring-plan.md), [границы модулей](docs/architecture/module-boundaries.md), план разработки.
 
 Микросервисы в монорепо: `autoroad-network-planner/` (автосеть), `pad-earthwork-planner/` (объёмы кустовой площадки, порт 8081), `well-trajectory-planner/` (траектории скважин, порт 8082).

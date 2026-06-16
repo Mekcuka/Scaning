@@ -2,7 +2,7 @@
 
 **Дата:** июнь 2026  
 **Для кого:** аналитики, инженеры карты, разработчики  
-**Связанные документы:** [autoroad-network-plan.md](autoroad-network-plan.md) (правила и схемы случаев), [map-objects-and-spatial-calculations.md](../features/map-objects-and-spatial-calculations.md) (геометрия на карте), [task-log-panel.md](../features/task-log-panel.md) (журнал задач в шапке)
+**Связанные документы:** [autoroad-network-plan.md](autoroad-network-plan.md) (правила и схемы случаев), [map-objects-and-spatial-calculations.md](../features/map/map-objects-and-spatial-calculations.md) (геометрия на карте), [task-log-panel.md](../features/jobs/task-log-panel.md) (журнал задач в шапке)
 
 ---
 
@@ -78,7 +78,7 @@
 6. Нажмите **«Рассчитать»** — `request` → `compute`; на карте появится **preview** (новые линии) и модалка с цифрами (км, число линий, предупреждения).
 7. Нажмите **«Применить»** в модалке — `apply` с тем же планом (без пересчёта); при необходимости откатите **Ctrl+Z**.
 
-**Журнал задач** в шапке (иконка слева от «Тема»): статусы расчётов, тела JSON запросов/ответов, экспорт. Для режима «Сеть» в журнале видны шаги `request` → `compute` → `apply`; для «Соединить автодорогами» — два POST с `dry_run: true/false` (см. [task-log-panel.md](../features/task-log-panel.md)).
+**Журнал задач** в шапке (иконка слева от «Тема»): статусы расчётов, тела JSON запросов/ответов, экспорт. Для режима «Сеть» в журнале видны шаги `request` → `compute` → `apply`; для «Соединить автодорогами» — два POST с `dry_run: true/false` (см. [task-log-panel.md](../features/jobs/task-log-panel.md)).
 
 **Важно:** режим «Сеть» (`autoroad-network`) при apply **заменяет** все ранее созданные этим модулем автодороги и узлы в проекте (кроме выбранных терминалов) и строит сеть заново. Старый пункт меню «Соединить автодорогами» (`autoroad-connect`) ведёт себя иначе — он **дополняет** существующую сеть, не очищая её.
 
@@ -566,7 +566,7 @@ cd decision-matrix\backend
 В [autoroad-network-plan.md](autoroad-network-plan.md), раздел «Схемы по случаем».
 
 **Почему JSON отправляется два раза при «Соединить» и «Применить»?**  
-Legacy `autoroad-connect`: preview (`dry_run: true`) и apply (`dry_run: false`) — два расчёта. Режим «Сеть» передаёт готовый `plan` на apply без повторного compute. Подробно: [task-log-panel.md](../features/task-log-panel.md) §5.
+Legacy `autoroad-connect`: preview (`dry_run: true`) и apply (`dry_run: false`) — два расчёта. Режим «Сеть» передаёт готовый `plan` на apply без повторного compute. Подробно: [task-log-panel.md](../features/jobs/task-log-panel.md) §5.
 
 ---
 

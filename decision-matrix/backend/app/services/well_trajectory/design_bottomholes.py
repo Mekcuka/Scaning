@@ -9,13 +9,16 @@ from fastapi import HTTPException
 from app.models import InfrastructureObject
 from app.services.pad_earthwork.earthwork_store import read_nds_deg
 from app.services.well_trajectory.bottomhole_properties import DEFAULT_NNB_INC, DEFAULT_TVD_M
+from app.services.well_trajectory.clearance_coords import _survey_eligible_for_clearance
 from app.services.well_trajectory.planner_bridge import (
     design_horizontal_at_offset,
+    gs_entry_endpoint_offsets,
     gs_entry_search_offsets,
     planner_schemas,
 )
 from app.services.well_trajectory.settings_store import well_trajectory_settings_for_pad
 from app.services.well_trajectory.trajectory_adapter import get_well_trajectory_adapter
+from app.services.well_trajectory.trajectory_store import read_clearance_computed_at
 
 
 def _station_scalar(station: Any, key: str) -> float:
@@ -26,9 +29,9 @@ def _station_scalar(station: Any, key: str) -> float:
 
 def _well_dict_to_clearance_survey(well: dict[str, Any]) -> Any | None:
     survey = well.get("survey") or {}
-    stations = survey.get("stations") or []
-    if not isinstance(stations, list) or len(stations) < 2:
+    if not _survey_eligible_for_clearance(survey):
         return None
+    stations = survey.get("stations") or []
     schemas = planner_schemas()
     return schemas.ClearanceSurveyIn(
         name=str(well.get("name") or ""),
@@ -81,6 +84,28 @@ def _candidate_min_sf_vs_peers(
     return min(p.min_sf for p in result.pairs)
 
 
+def _endpoint_offset(offset_m: float, lateral_length_m: float) -> bool:
+    return offset_m <= 1e-3 or offset_m >= lateral_length_m - 1e-3
+
+
+def _offset_passes_clearance(
+    candidate_stations: list[Any],
+    peer_surveys: list[Any],
+    *,
+    sf_threshold: float,
+    adapter: Any,
+) -> bool:
+    if not peer_surveys:
+        return True
+    min_sf = _candidate_min_sf_vs_peers(
+        candidate_stations,
+        peer_surveys,
+        sf_threshold=sf_threshold,
+        adapter=adapter,
+    )
+    return min_sf is None or min_sf >= sf_threshold
+
+
 def _design_horizontal_any_with_clearance(
     request: Any,
     adapter: Any,
@@ -88,11 +113,12 @@ def _design_horizontal_any_with_clearance(
     peer_wells: list[dict[str, Any]],
     sf_threshold: float,
 ) -> tuple[Any, bool]:
-    """Pick min-MD GS entry among offsets that satisfy SF vs peer trajectories."""
+    """Pick GS entry among offsets; filter by SF vs peers when clearance was computed."""
     peer_surveys = [
         s for w in peer_wells if (s := _well_dict_to_clearance_survey(w)) is not None
     ]
-    offsets = gs_entry_search_offsets(request.heel, request.toe, request.entry_search_step_m)
+    offsets = gs_entry_endpoint_offsets(request.heel, request.toe)
+    lateral_length = gs_entry_search_offsets(request.heel, request.toe, 1.0)[-1] if offsets else 0.0
 
     best_clear: Any | None = None
     best_clear_md = float("inf")
@@ -107,32 +133,64 @@ def _design_horizontal_any_with_clearance(
         except (ValueError, TypeError):
             continue
         md = float(candidate.geometry.length_m)
-        if md < best_any_md or (abs(md - best_any_md) < 1e-3 and offset_m < best_any_offset):
+        if md < best_any_md or (
+            abs(md - best_any_md) < 1e-3 and offset_m < best_any_offset
+        ):
             best_any_md = md
             best_any_offset = offset_m
             best_any = candidate
 
         if peer_surveys:
-            min_sf = _candidate_min_sf_vs_peers(
+            if not _offset_passes_clearance(
                 candidate.stations,
                 peer_surveys,
                 sf_threshold=sf_threshold,
                 adapter=adapter,
-            )
-            if min_sf is not None and min_sf < sf_threshold:
+            ):
                 continue
 
-        if md < best_clear_md or (abs(md - best_clear_md) < 1e-3 and offset_m < best_clear_offset):
+        prefer = False
+        if md < best_clear_md - 1e-3:
+            prefer = True
+        elif abs(md - best_clear_md) <= 1e-3:
+            cur_ep = _endpoint_offset(offset_m, lateral_length)
+            prev_ep = _endpoint_offset(best_clear_offset, lateral_length)
+            if cur_ep and not prev_ep:
+                prefer = True
+            elif cur_ep == prev_ep and offset_m < best_clear_offset:
+                prefer = True
+        if prefer:
             best_clear_md = md
             best_clear_offset = offset_m
             best_clear = candidate
 
-    chosen = best_clear if best_clear is not None else best_any
-    fallback = peer_surveys and best_clear is None and best_any is not None
-    chosen_offset = best_clear_offset if best_clear is not None else best_any_offset
-    if chosen is None:
+    if best_clear is not None:
+        chosen = best_clear
+        chosen_offset = best_clear_offset
+        fallback = False
+    elif peer_surveys and best_any is not None:
+        # No SF-safe offset — still prefer natural heel (then toe) over shorter interior MD.
+        fallback = True
+        chosen = None
+        chosen_offset = 0.0
+        for fb_offset in (0.0, lateral_length):
+            try:
+                chosen = design_horizontal_at_offset(request, fb_offset)
+                chosen_offset = fb_offset
+                break
+            except (ValueError, TypeError):
+                continue
+        if chosen is None:
+            chosen = best_any
+            chosen_offset = best_any_offset
+    elif best_any is not None:
+        chosen = best_any
+        chosen_offset = best_any_offset
+        fallback = False
+    else:
         chosen = design_horizontal_at_offset(request, 0.0)
         chosen_offset = 0.0
+        fallback = False
 
     return (
         chosen.model_copy(
@@ -214,12 +272,16 @@ def design_well_from_target(
             inc_heel=settings.inc_heel,
             entry_mode=entry_mode,
             entry_search_step_m=entry_search_step_m or settings.gs_entry_search_step_m,
+            dls_design=settings.dls_design,
         )
-        if entry_mode == "any" and peer_wells and entry_clearance:
+        use_entry_clearance = (
+            entry_clearance and read_clearance_computed_at(obj.properties or {}) is not None
+        )
+        if entry_mode == "any" and use_entry_clearance:
             design_result, clearance_fallback = _design_horizontal_any_with_clearance(
                 request,
                 adapter,
-                peer_wells=peer_wells,
+                peer_wells=peer_wells or [],
                 sf_threshold=settings.sf_warning_threshold,
             )
             if clearance_fallback and extra_warnings is not None:
@@ -250,6 +312,7 @@ def design_well_from_target(
             ),
             step_m=step_m,
             azi_reference=azi_ref,
+            dls_design=settings.dls_design,
         )
         design_result = adapter.design_connector(request)
         design_profile = "connector"

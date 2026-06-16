@@ -6,6 +6,7 @@ import type Modify from 'ol/interaction/Modify';
 import { constrainLineCoordinatesOnEdit } from '../../../lib/lineEndpointRules';
 import { useAppStore } from '../../../store';
 import { lineCoordsFromGeometry } from '../geometry';
+import { resolveInfraMapFeatureSelection } from '../featureSelection';
 import type { MapHitHelpers } from '../mapHitHelpers';
 import type { MapSetupContext } from '../mapSetupContext';
 import { lineEndpointMoved } from './helpers';
@@ -53,9 +54,9 @@ export function bindModifyEndHandler(
     const members = f.get('features') as Feature[] | undefined;
     const inner = members?.length === 1 ? members[0] : f;
     const kind = inner.get('featureKind') as string;
-    const id = inner.get('id') as string;
+    const featureId = inner.get('id') as string;
     const geom = f.getGeometry();
-    if (!geom || !kind || !id) {
+    if (!geom || !kind || !featureId) {
       finishSession();
       return;
     }
@@ -67,13 +68,17 @@ export function bindModifyEndHandler(
     let save: void | Promise<void>;
     if (geom instanceof Point) {
       const [lon, lat] = transform(geom.getCoordinates(), 'EPSG:3857', 'EPSG:4326');
-      save = onGeometryChangeRef.current?.(
-        kind === 'poi' ? { kind: 'poi', id } : { kind: 'infra', id },
-        lon,
-        lat,
-      );
+      const sel =
+        kind === 'poi'
+          ? ({ kind: 'poi' as const, id: featureId })
+          : resolveInfraMapFeatureSelection(
+              featureId,
+              inner.get('infra_object_id') as string | undefined,
+            );
+      save = onGeometryChangeRef.current?.(sel, lon, lat);
     } else if (geom instanceof LineString) {
       let coords = lineCoordsFromGeometry(geom);
+      const id = featureId;
       const session = lineModifySessionRef.current;
       if (session && session.lineId === id && session.sessionId === sessionId) {
         const pool = infraObjectsRef.current.filter((o) => o.id !== id);

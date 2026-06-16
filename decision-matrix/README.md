@@ -15,7 +15,7 @@
 
 Фронтенд публикуется через GitHub Actions (см. [`../DEPLOY.md`](../DEPLOY.md)).
 
-После push в `main` сайт доступен по адресу `https://<user>.github.io/<repo>/`. Для работы API задайте переменную репозитория `VITE_API_URL` (полный URL, например `https://erascaning.duckdns.org/api/v1`). На cross-origin клиент шлёт `Authorization: Bearer` и синхронизирует CSRF; custom GLB для 3D грузятся через `map3dCustomGlbFetch.ts` — см. [docs/architecture/auth-rbac.md](../docs/architecture/auth-rbac.md), [docs/features/map-3d-features.md](../docs/features/map-3d-features.md).
+После push в `main` сайт доступен по адресу `https://<user>.github.io/<repo>/`. Для работы API задайте переменную репозитория `VITE_API_URL` (полный URL, например `https://erascaning.duckdns.org/api/v1`). На cross-origin клиент шлёт `Authorization: Bearer` и синхронизирует CSRF; custom GLB для 3D грузятся через `map3dCustomGlbFetch.ts` — см. [docs/architecture/auth-rbac.md](../docs/architecture/auth-rbac.md), [docs/features/map/map-3d-features.md](../docs/features/map/map-3d-features.md).
 
 ## Быстрый старт
 
@@ -55,7 +55,7 @@ python -m pip install -e C:\Users\user\Documents\Cursore\pad-earthwork-planner
 python C:\Users\user\Documents\Cursore\decision-matrix\backend\run_local.py
 ```
 
-> `run_local.py` при отсутствии `pad-earthwork-planner` попытается установить его автоматически. Земляные работы куста: [docs/features/pad-earthwork.md](../docs/features/pad-earthwork.md).
+> `run_local.py` при отсутствии `pad-earthwork-planner` попытается установить его автоматически. Земляные работы куста: [docs/features/pad-earthwork/pad-earthwork.md](../docs/features/pad-earthwork/pad-earthwork.md).
 
 Проверить, что активен именно `venv`:
 

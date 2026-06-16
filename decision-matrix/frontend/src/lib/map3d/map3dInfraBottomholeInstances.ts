@@ -7,6 +7,7 @@ import { wellTrajectoryPaletteColor } from '../wellTrajectoryClearance';
 import {
   isBottomholeSubtype,
   isGsBottomholeLine,
+  isLateralBottomhole,
   readBottomholeLinkedPadId,
   readGsLineEndpoints,
   WELL_BOTTOMHOLE_WELL_INDEX,
@@ -22,6 +23,7 @@ const BOTTOMHOLE_SUBTYPE_COLORS: Record<string, string> = {
   well_bottomhole_gs: '#2e7d32',
   well_bottomhole_gs_heel: '#2e7d32',
   well_bottomhole_gs_toe: '#c62828',
+  well_bottomhole_lateral: '#7b1fa2',
 };
 
 function readWellIndex(props: Record<string, unknown> | undefined, fallback: number): number {
@@ -38,6 +40,7 @@ function resolveLinkedPad(obj: InfraObject, infraPool: InfraObject[]): InfraObje
 }
 
 function bottomholeColor(obj: InfraObject, fallbackIndex: number): string {
+  if (isLateralBottomhole(obj)) return BOTTOMHOLE_SUBTYPE_COLORS.well_bottomhole_lateral!;
   const idx = readWellIndex(obj.properties, -1);
   if (idx >= 0) return wellTrajectoryPaletteColor(idx);
   return BOTTOMHOLE_SUBTYPE_COLORS[obj.subtype] ?? wellTrajectoryPaletteColor(fallbackIndex);

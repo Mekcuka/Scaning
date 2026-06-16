@@ -21,7 +21,13 @@ import {
   pointShowsSandDemand,
 } from '../../lib/infraSandVolumes';
 import { objectShowsEntryDate } from '../../lib/infraEntryDate';
-import { isBottomholeSubtype, bottomholesLinkedToPad, logicalWellCountFromBottomholes, readBottomholeLinkedPadId } from '../../lib/wellBottomholeProperties';
+import {
+  bottomholesLinkedToPad,
+  isBottomholeSubtype,
+  logicalWellCountFromBottomholes,
+  readBottomholeLinkedPadId,
+} from '../../lib/wellBottomholeProperties';
+import type { BottomholeFormFields } from './bottomholeFormFields';
 import { buildRender3dModelOptions } from '../../lib/map3d/render3dModelOptions';
 import { useProjectSandLogistics } from '../../hooks/useProjectSandLogistics';
 import { useActiveProject } from '../../hooks/useActiveProject';
@@ -94,7 +100,7 @@ export function useObjectDetailInfraDerived(params: {
       padMarginTopM: form.padMarginTopM,
       padMarginEndM: form.padMarginEndM,
       pointFootprintLineConnections: form.pointFootprintLineConnections,
-      bottomholePropsPatch: form.bottomholePropsPatch,
+      bottomholeFields: form.bottomholeFields,
     }),
     [form, effectivePadWellCount],
   );
@@ -109,14 +115,15 @@ export function useObjectDetailInfraDerived(params: {
 
   const linkedBottomholePad = useMemo(() => {
     if (!infraObject || !isBottomhole) return null;
-    const mergedProps = {
+    const padId = readBottomholeLinkedPadId({
       ...(infraObject.properties ?? {}),
-      ...form.bottomholePropsPatch,
-    };
-    const padId = readBottomholeLinkedPadId(mergedProps);
+      ...(form.bottomholeFields.linkedPadId
+        ? { well_bottomhole_linked_pad_id: form.bottomholeFields.linkedPadId }
+        : {}),
+    });
     if (!padId) return null;
     return infraObjects.find((o) => o.id === padId) ?? null;
-  }, [infraObject, isBottomhole, form.bottomholePropsPatch, infraObjects]);
+  }, [infraObject, isBottomhole, form.bottomholeFields, infraObjects]);
 
   const isLine = infraObject != null && isLineSubtype(infraObject.subtype) && !isBottomhole;
   const lineCoords = infraObject

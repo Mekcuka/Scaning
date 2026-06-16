@@ -66,7 +66,9 @@ export function useMapPageEditState(
         drawMode === 'autoroad_network' ||
         drawMode === 'pad_placement' ||
         drawMode === 'bottomhole_nnb' ||
-        drawMode === 'bottomhole_gs')
+        drawMode === 'bottomhole_gs' ||
+        drawMode === 'bottomhole_lateral_nnb' ||
+        drawMode === 'bottomhole_lateral_gs')
     ) {
       setDrawMode('select');
     }
@@ -93,7 +95,13 @@ export function useMapPageEditState(
     setFeatureGroupSel([]);
     setPasteMode(false);
     setDrawMode((m) =>
-      m === 'ruler' || m === 'bottomhole_nnb' || m === 'bottomhole_gs' ? m : 'select',
+      m === 'ruler' ||
+      m === 'bottomhole_nnb' ||
+      m === 'bottomhole_gs' ||
+      m === 'bottomhole_lateral_nnb' ||
+      m === 'bottomhole_lateral_gs'
+        ? m
+        : 'select',
     );
     clearLineDraftRef.current();
     setPointMenuOpen(false);

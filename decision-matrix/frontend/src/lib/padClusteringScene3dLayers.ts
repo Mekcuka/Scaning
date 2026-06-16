@@ -9,6 +9,8 @@ export type PadClusteringScene3DLayerKey =
   | 'wellheads'
   | 'wellLabels'
   | 'trajectories'
+  | 'clearancePairs'
+  | 'pywellgeoBranches'
   | 'bottomholes';
 
 export type PadClusteringScene3DLayers = Record<PadClusteringScene3DLayerKey, boolean>;
@@ -20,6 +22,8 @@ export const DEFAULT_PAD_CLUSTERING_SCENE_LAYERS: PadClusteringScene3DLayers = {
   wellheads: true,
   wellLabels: true,
   trajectories: true,
+  clearancePairs: true,
+  pywellgeoBranches: true,
   bottomholes: true,
 };
 
@@ -30,6 +34,8 @@ export const PAD_CLUSTERING_SCENE_LAYER_NAMES = {
   envelope: 'layer-envelope',
   wellheads: 'layer-wellheads',
   trajectories: 'layer-trajectories',
+  clearancePairs: 'layer-clearance-pairs',
+  pywellgeoBranches: 'layer-pywellgeo-branches',
   bottomholes: 'layer-bottomholes',
 } as const;
 

@@ -42,7 +42,9 @@ export function useMapPageInteraction(
     edit.drawMode === 'point' ||
     edit.drawMode === 'poi' ||
     edit.drawMode === 'bottomhole_nnb' ||
-    edit.drawMode === 'bottomhole_gs';
+    edit.drawMode === 'bottomhole_gs' ||
+    edit.drawMode === 'bottomhole_lateral_nnb' ||
+    edit.drawMode === 'bottomhole_lateral_gs';
   const needsCursorStateWithDrawing = needsCursorState || draw.needsDrawCursor;
 
   const handleMapEscape = useCallback(() => {
@@ -111,7 +113,12 @@ export function useMapPageInteraction(
         void lineFootprintEdgePick.handleMapClickForEdgePick(lon, lat);
         return;
       }
-      if (edit.drawMode === 'bottomhole_nnb' || edit.drawMode === 'bottomhole_gs') {
+      if (
+        edit.drawMode === 'bottomhole_nnb' ||
+        edit.drawMode === 'bottomhole_gs' ||
+        edit.drawMode === 'bottomhole_lateral_nnb' ||
+        edit.drawMode === 'bottomhole_lateral_gs'
+      ) {
         if (!canWriteInfra) return;
         void bottomholeDraw.handleMapClickForBottomholeDraw(lon, lat);
         return;

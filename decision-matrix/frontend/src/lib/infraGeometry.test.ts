@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import type { InfraObject } from './api';
-import { lineEndpointHealPayload, linePathForDisplay } from './infraGeometry';
+import { getLineCoordinates, lineEndpointHealPayload, linePathForDisplay } from './infraGeometry';
 import { resolveFootprintLonLat } from './padFootprintGeo';
 import { lonLatOnFootprintEdge } from './padFootprintLineAttach';
 
@@ -75,6 +75,31 @@ describe('linePathForDisplay', () => {
     expect(path![0]![1]).toBeCloseTo(edgePt[1], 9);
     const centerPath = linePathForDisplay(l, [pad]);
     expect(centerPath![0]).toEqual([pad.lon, pad.lat]);
+  });
+});
+
+describe('getLineCoordinates', () => {
+  it('prefers lon/end_lon over stale coordinates for GS bottomhole', () => {
+    const gs = {
+      id: 'gs-1',
+      subtype: 'well_bottomhole_gs',
+      lon: 37.611,
+      lat: 55.711,
+      end_lon: 37.621,
+      end_lat: 55.712,
+      coordinates: [
+        [37.61, 55.71],
+        [37.62, 55.71],
+      ],
+    } as InfraObject;
+    expect(getLineCoordinates(gs)).toEqual([
+      [37.611, 55.711],
+      [37.621, 55.712],
+    ]);
+    expect(linePathForDisplay(gs, [])).toEqual([
+      [37.611, 55.711],
+      [37.621, 55.712],
+    ]);
   });
 });
 

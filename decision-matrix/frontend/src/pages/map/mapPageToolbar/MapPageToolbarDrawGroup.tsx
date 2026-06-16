@@ -17,6 +17,7 @@ import {
 } from '../../../lib/api';
 
 import { iconDataUrl } from '../../../lib/mapIcons';
+import { GS_HEEL_LABEL, GS_TOE_LABEL } from '../../../lib/wellBottomholeProperties';
 
 import { PointSubtypeMenuItem } from '../PointSubtypeMenuItem';
 
@@ -152,7 +153,7 @@ export function MapPageToolbarDrawGroup({
 
 
 
-  const enterBottomholeMode = (mode: 'bottomhole_nnb' | 'bottomhole_gs') => {
+  const enterBottomholeMode = (mode: 'bottomhole_nnb' | 'bottomhole_gs' | 'bottomhole_lateral_nnb' | 'bottomhole_lateral_gs') => {
 
     onResetDrawingMenus();
 
@@ -172,7 +173,11 @@ export function MapPageToolbarDrawGroup({
 
   const bottomholeActive =
 
-    drawMode === 'bottomhole_nnb' || drawMode === 'bottomhole_gs' || bottomholeMenuOpen;
+    drawMode === 'bottomhole_nnb' ||
+    drawMode === 'bottomhole_gs' ||
+    drawMode === 'bottomhole_lateral_nnb' ||
+    drawMode === 'bottomhole_lateral_gs' ||
+    bottomholeMenuOpen;
 
 
 
@@ -406,7 +411,12 @@ export function MapPageToolbarDrawGroup({
 
           onClick={() => {
 
-            if (drawMode === 'bottomhole_nnb' || drawMode === 'bottomhole_gs') {
+            if (
+              drawMode === 'bottomhole_nnb' ||
+              drawMode === 'bottomhole_gs' ||
+              drawMode === 'bottomhole_lateral_nnb' ||
+              drawMode === 'bottomhole_lateral_gs'
+            ) {
 
               onDrawModeChange('select');
 
@@ -518,6 +528,38 @@ export function MapPageToolbarDrawGroup({
 
           </button>
 
+          <button
+            type="button"
+            className={`w-full text-left px-3 py-1.5 hover:bg-[var(--bg)] flex items-center gap-2 ${
+              drawMode === 'bottomhole_lateral_nnb' ? 'font-medium' : ''
+            }`}
+            onClick={() => enterBottomholeMode('bottomhole_lateral_nnb')}
+          >
+            <img
+              src={iconDataUrl('well_bottomhole_lateral')}
+              alt=""
+              className="w-4 h-4 shrink-0"
+              draggable={false}
+            />
+            <span className="truncate">Доп.ствол (ННБ)</span>
+          </button>
+
+          <button
+            type="button"
+            className={`w-full text-left px-3 py-1.5 hover:bg-[var(--bg)] flex items-center gap-2 ${
+              drawMode === 'bottomhole_lateral_gs' ? 'font-medium' : ''
+            }`}
+            onClick={() => enterBottomholeMode('bottomhole_lateral_gs')}
+          >
+            <img
+              src={iconDataUrl('well_bottomhole_lateral')}
+              alt=""
+              className="w-4 h-4 shrink-0"
+              draggable={false}
+            />
+            <span className="truncate">Доп.ствол (ГС)</span>
+          </button>
+
           <p
 
             className="px-3 py-2 text-xs border-t"
@@ -526,7 +568,7 @@ export function MapPageToolbarDrawGroup({
 
           >
 
-            ННБ — один клик. ГС — первый клик heel, второй toe. Если на карте есть куст — привязка к ближайшему.
+            ННБ — один клик. ГС — первый клик {GS_HEEL_LABEL}, второй {GS_TOE_LABEL}. Доп.ствол привязывается к ближайшему основному забою на кусте.
 
           </p>
 

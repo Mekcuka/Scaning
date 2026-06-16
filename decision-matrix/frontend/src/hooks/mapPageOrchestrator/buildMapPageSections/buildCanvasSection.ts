@@ -72,6 +72,7 @@ export function buildCanvasSection(
     cursor: edit.cursor,
     infraFormSubtype: edit.infraForm.subtype,
     clipboardPreviewPoints: actions.clipboardPreviewPoints,
+    clipboardPreviewLines: actions.clipboardPreviewLines,
     setFeatureGroupSel: edit.setFeatureGroupSel,
     autoroadNetworkPickMode: actions.autoroadNetworkPickMode,
     handleAutoroadNetworkDragBoxPick: actions.handleAutoroadNetworkDragBoxPick,

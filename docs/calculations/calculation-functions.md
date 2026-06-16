@@ -2,7 +2,7 @@
 
 > **Параметры ввода:** [input-parameters.md](../product/input-parameters.md).  
 > **Потоки и диаграммы:** [calculation-logic-flow.md](calculation-logic-flow.md).  
-> **Геометрия и якоря (внешние):** [map-objects-and-spatial-calculations.md](../features/map-objects-and-spatial-calculations.md).
+> **Геометрия и якоря (внешние):** [map-objects-and-spatial-calculations.md](../features/map/map-objects-and-spatial-calculations.md).
 
 **Дата актуализации:** май 2026.
 
@@ -100,7 +100,7 @@ pads_count = CEIL(wells_total / wells_per_pad)
 | **Выход** | `pads_count` (integer ≥ 0) |
 | **FR** | FR-5.3.1 |
 
-> **Не путать** с [оптимизацией размещения кустов](../features/pad-placement-optimization.md) (✅): здесь считается только **число КП для стоимости** точки интереса (`CEIL(скважины ÷ скважин на КП)`), **без координат** на карте. Отдельная функция подбирает **где и сколько** новых кустов поставить по забоям (критерий — Σ MD).
+> **Не путать** с [оптимизацией размещения кустов](../features/pad-placement/pad-placement-optimization.md) (✅): здесь считается только **число КП для стоимости** точки интереса (`CEIL(скважины ÷ скважин на КП)`), **без координат** на карте. Отдельная функция подбирает **где и сколько** новых кустов поставить по забоям (критерий — Σ MD).
 
 При `planned_production_volume = 0` → `pads_count = 0`.
 

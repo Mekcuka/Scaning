@@ -20,11 +20,19 @@ TARGET_INC = "well_bottomhole_target_inc"
 TARGET_AZI = "well_bottomhole_target_azi"
 GS_HEEL_ID = "well_bottomhole_gs_heel_id"
 GS_ENTRY_MODE = "well_bottomhole_gs_entry_mode"
+BOTTOMHOLE_ROLE = "well_bottomhole_role"
+PARENT_ID = "well_bottomhole_parent_id"
 
 DEFAULT_NNB_INC = 360.0
+DEFAULT_BOTTOMHOLE_ROLE = "main"
+BOTTOMHOLE_ROLES = frozenset({"main", "lateral"})
 DEFAULT_TVD_M = 1500.0
 DEFAULT_GS_ENTRY_MODE = "any"
 GS_ENTRY_MODES = frozenset({"any", "heel", "toe"})
+
+# User-facing labels for GS horizontal ends (Т1 = kick-off side, Т3 = toe side).
+GS_HEEL_LABEL = "Т1"
+GS_TOE_LABEL = "Т3"
 
 BOTTOMHOLE_SUBTYPES = frozenset(BOTTOMHOLE_CLUSTER_SUBTYPES)
 
@@ -64,6 +72,53 @@ def read_linked_pad_id(props: dict[str, Any]) -> UUID | None:
         return UUID(str(raw))
     except (TypeError, ValueError):
         return None
+
+
+def read_bottomhole_role(props: dict[str, Any]) -> str:
+    raw = str(props.get(BOTTOMHOLE_ROLE) or DEFAULT_BOTTOMHOLE_ROLE).lower().strip()
+    if raw in BOTTOMHOLE_ROLES:
+        return raw
+    return DEFAULT_BOTTOMHOLE_ROLE
+
+
+def is_lateral_bottomhole(props: dict[str, Any]) -> bool:
+    return read_bottomhole_role(props) == "lateral"
+
+
+def is_main_bottomhole(props: dict[str, Any]) -> bool:
+    return read_bottomhole_role(props) == "main"
+
+
+def read_parent_id(props: dict[str, Any]) -> UUID | None:
+    raw = props.get(PARENT_ID)
+    if not raw:
+        return None
+    try:
+        return UUID(str(raw))
+    except (TypeError, ValueError):
+        return None
+
+
+def apply_lateral_inheritance_from_parent(
+    props: dict[str, Any],
+    parent: InfrastructureObject | None,
+) -> dict[str, Any]:
+    """For role=lateral: inherit linked_pad_id and well_index from parent main bottomhole."""
+    merged = dict(props)
+    if not is_lateral_bottomhole(merged):
+        if is_main_bottomhole(merged):
+            merged.pop(PARENT_ID, None)
+        return merged
+    if parent is None:
+        return merged
+    parent_props = parent.properties or {}
+    parent_pad = read_linked_pad_id(parent_props)
+    if parent_pad is not None:
+        merged[LINKED_PAD_ID] = str(parent_pad)
+    parent_idx = _read_optional_int(parent_props, WELL_INDEX)
+    if parent_idx is not None:
+        merged[WELL_INDEX] = parent_idx
+    return merged
 
 
 def read_gs_heel_id(props: dict[str, Any]) -> UUID | None:
@@ -156,6 +211,8 @@ def apply_bottomhole_defaults(
     from app.geo.sand_properties import strip_sand_volume_properties
 
     merged = strip_sand_volume_properties(props)
+    if BOTTOMHOLE_ROLE not in merged:
+        merged[BOTTOMHOLE_ROLE] = DEFAULT_BOTTOMHOLE_ROLE
     if TVD_M not in merged:
         merged[TVD_M] = default_tvd_m_for_bottomhole(pad, merged)
     st = subtype.lower().strip()
@@ -183,14 +240,33 @@ def read_gs_line_endpoints(
 ) -> tuple[float, float, float, float] | None:
     if not is_gs_bottomhole_line(obj):
         return None
-    if obj.end_longitude is None or obj.end_latitude is None:
-        return None
-    return (
-        float(obj.longitude),
-        float(obj.latitude),
-        float(obj.end_longitude),
-        float(obj.end_latitude),
-    )
+    props = obj.properties or {}
+    raw_coords = props.get("coordinates")
+    coords: list[list[float]] | None = None
+    if isinstance(raw_coords, list) and len(raw_coords) >= 2:
+        coords = [[float(c[0]), float(c[1])] for c in raw_coords]
+
+    if obj.end_longitude is not None and obj.end_latitude is not None:
+        heel_lon = float(obj.longitude)
+        heel_lat = float(obj.latitude)
+        toe_lon = float(obj.end_longitude)
+        toe_lat = float(obj.end_latitude)
+        if coords is not None and len(coords) == 2:
+            c0, c1 = coords[0], coords[1]
+            scalars_match = (
+                abs(c0[0] - heel_lon) < 1e-9
+                and abs(c0[1] - heel_lat) < 1e-9
+                and abs(c1[0] - toe_lon) < 1e-9
+                and abs(c1[1] - toe_lat) < 1e-9
+            )
+            if not scalars_match:
+                return heel_lon, heel_lat, toe_lon, toe_lat
+        return heel_lon, heel_lat, toe_lon, toe_lat
+
+    if coords is not None:
+        c0, c1 = coords[0], coords[-1]
+        return c0[0], c0[1], c1[0], c1[1]
+    return None
 
 
 def bottomhole_plan_local(

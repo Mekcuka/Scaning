@@ -1,5 +1,6 @@
 """API response builders for map entities."""
 
+from app.core.json_public import json_public_roundtrip
 from uuid import UUID
 
 from sqlalchemy import select
@@ -134,6 +135,31 @@ def infra_to_response(obj: InfrastructureObject) -> InfraObjectResponse:
             scale=r3d.scale,
         ),
     )
+
+
+def infra_to_public_json(obj: InfrastructureObject) -> dict[str, Any]:
+    """JSON-safe infra payload for HTTP responses.
+
+    Deep PyWellGeo trees (long main-bore chains) exceed Pydantic's serialization
+    depth guard on ``InfraObjectResponse.model_dump()``; stdlib ``json`` encodes them fine.
+    """
+    resp = infra_to_response(obj)
+    payload: dict[str, Any] = {
+        "id": str(resp.id),
+        "layer_id": str(resp.layer_id),
+        "name": resp.name,
+        "subtype": resp.subtype,
+        "category": resp.category,
+        "lon": resp.lon,
+        "lat": resp.lat,
+        "end_lon": resp.end_lon,
+        "end_lat": resp.end_lat,
+        "coordinates": resp.coordinates,
+        "properties": resp.properties,
+    }
+    if resp.render_3d_effective is not None:
+        payload["render_3d_effective"] = resp.render_3d_effective.model_dump(mode="json")
+    return json_public_roundtrip(payload)
 
 
 async def load_infra_name(db: AsyncSession, object_id: UUID | None) -> str | None:

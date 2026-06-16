@@ -110,7 +110,7 @@ async def update_infra_object_record(
         )
         if is_bottomhole_subtype(subtype):
             merged_props = strip_sand_volume_properties(merged_props)
-            await validate_bottomhole_object(
+            merged_props = await validate_bottomhole_object(
                 db,
                 project_id=project_id,
                 subtype=subtype,

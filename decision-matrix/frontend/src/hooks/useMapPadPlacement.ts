@@ -17,6 +17,7 @@ import {
 import { geoJsonToPreviewFeatures } from '../lib/padPlacementPreview';
 import {
   DEFAULT_PAD_PLACEMENT_PARAMS,
+  PAD_PLACEMENT_MAX_WELLS,
   type PadPlacementComputeResponse,
   type PadPlacementParams,
 } from '../lib/padPlacementTypes';
@@ -132,7 +133,15 @@ export function useMapPadPlacement({
       if (!projectId || bottomholeIds.length === 0) {
         throw new Error('Выберите хотя бы один забой');
       }
-      const body = { bottomhole_ids: bottomholeIds, params, subtype };
+      let ids = bottomholeIds;
+      if (ids.length > PAD_PLACEMENT_MAX_WELLS) {
+        pushToast(
+          'info',
+          `В расчёт пойдут первые ${PAD_PLACEMENT_MAX_WELLS} из ${ids.length} забоев`,
+        );
+        ids = ids.slice(0, PAD_PLACEMENT_MAX_WELLS);
+      }
+      const body = { bottomhole_ids: ids, params, subtype };
       const preview = await padPlacementApi.request(projectId, body);
       const useAsync = !preview.sync_allowed;
       if (useAsync) {
@@ -251,7 +260,9 @@ export function useMapPadPlacement({
         ? 'В проекте выполняется фоновая задача'
         : bottomholeIds.length === 0
           ? 'Выберите забои на карте'
-          : null;
+          : bottomholeIds.length > PAD_PLACEMENT_MAX_WELLS
+            ? `В списке ${bottomholeIds.length} забоев — в расчёт пойдут первые ${PAD_PLACEMENT_MAX_WELLS}`
+            : null;
 
   return {
     bottomholeIds,

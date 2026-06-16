@@ -47,4 +47,4 @@ summary: Массовое редактирование длины, ширины,
 
 Кнопка Excel в заголовке таблицы — выгрузка всех видимых строк (с учётом поиска).
 
-Техническая спецификация: [pad-earthwork.md](../../features/pad-earthwork.md).
+Техническая спецификация: [pad-earthwork.md](../../features/pad-earthwork/pad-earthwork.md).

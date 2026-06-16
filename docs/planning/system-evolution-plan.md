@@ -323,7 +323,7 @@ gantt
 | H2.2 | Polygon / MultiPolygon (ограниченно) | FR-2.3.9 post-MVP; влияние на импорт |
 | H2.3 | Sharing проектов | роли на уровне проекта, invite (v1.1 из development-plan) |
 | H2.4 | Профиль пользователя | FR-1.3.1 |
-| H2.5 | 3D в матрице/отчёте | фаза 3 из [map-3d-plan.md](../features/map-3d-plan.md) |
+| H2.5 | 3D в матрице/отчёте | фаза 3 из [map-3d-plan.md](../features/map/map-3d-plan.md) |
 | H2.6 | Object storage для GLB | S3-совместимое хранилище YC; CDN для `/file` |
 | H2.7 | Landing + onboarding | user-flows §1 |
 
@@ -337,7 +337,7 @@ gantt
 
 | # | Инициатива | Описание |
 |---|------------|----------|
-| H3.1 | `network_node` в анализе POI | FR-2.4.5, [map-objects §5](../features/map-objects-and-spatial-calculations.md) |
+| H3.1 | `network_node` в анализе POI | FR-2.4.5, [map-objects §5](../features/map/map-objects-and-spatial-calculations.md) |
 | H3.2 | `along_network` / route cost | calculation-functions planned |
 | H3.3 | Автопривязка internal LineString | post-MVP geodesic к линиям |
 | H3.4 | Планировщик sync import | Celery + Redis (architecture post-MVP) |
@@ -500,8 +500,8 @@ flowchart TB
 | [requirements.md](../product/requirements.md) | Источник FR для backlog |
 | [DEPLOY.md](../../DEPLOY.md) | H0 Platform |
 | [testing-strategy.md](../testing/testing-strategy.md) | H1 Quality |
-| [map-3d-plan.md](../features/map-3d-plan.md) | H2 3D в отчётах, L3 storage |
-| [map-objects-and-spatial-calculations.md](../features/map-objects-and-spatial-calculations.md) | H3 network_node |
+| [map-3d-plan.md](../features/map/map-3d-plan.md) | H2 3D в отчётах, L3 storage |
+| [map-objects-and-spatial-calculations.md](../features/map/map-objects-and-spatial-calculations.md) | H3 network_node |
 | [assistant.md](../architecture/assistant.md) | H3.8 AI Assistant |
 | [architecture.md](../architecture/architecture.md) | Celery, analytics, enterprise |
 

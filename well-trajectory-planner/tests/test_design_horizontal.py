@@ -1,7 +1,41 @@
 """Tests for horizontal (heel-toe) trajectory design."""
 
-from well_trajectory.design import design_horizontal
+import math
+
+from well_trajectory.design import (
+    design_horizontal,
+    design_horizontal_at_offset,
+    gs_entry_endpoint_offsets,
+)
 from well_trajectory.schemas import ConnectorPoint, HorizontalDesignRequest
+
+
+def _azi_delta_deg(a: float, b: float) -> float:
+    return abs((a - b + 180.0) % 360.0 - 180.0)
+
+
+def test_design_horizontal_passes_dls_design_to_connector_segments(monkeypatch):
+    import well_trajectory.design as design_mod
+
+    captured: list[float] = []
+    original = design_mod.design_connector
+
+    def spy(request):
+        captured.append(request.dls_design)
+        return original(request)
+
+    monkeypatch.setattr(design_mod, "design_connector", spy)
+    req = HorizontalDesignRequest(
+        start=ConnectorPoint(northing=0, easting=0, tvd=0, inc=0, azi=90),
+        heel=ConnectorPoint(northing=500, easting=200, tvd=2500, inc=90, azi=90),
+        toe=ConnectorPoint(northing=500, easting=1200, tvd=2500, inc=90, azi=90),
+        step_m=30,
+        entry_mode="heel",
+        dls_design=6.5,
+    )
+    design_horizontal(req)
+    assert captured
+    assert all(d == 6.5 for d in captured)
 
 
 def test_design_horizontal_concatenates_segments():
@@ -72,7 +106,14 @@ def test_design_horizontal_any_picks_entry():
     result = design_horizontal(req)
     assert result.entry_mode == "any"
     assert result.entry_plan is not None
-    assert (result.entry_search_evaluated or 0) >= 1
+    assert result.entry_search_evaluated == 2
+    assert result.entry_offset_m in (0.0, 1000.0)
+
+
+def test_gs_entry_endpoint_offsets_returns_heel_and_toe_only():
+    heel = ConnectorPoint(northing=0, easting=0, tvd=2500, inc=90, azi=90)
+    toe = ConnectorPoint(northing=0, easting=1000, tvd=2500, inc=90, azi=90)
+    assert gs_entry_endpoint_offsets(heel, toe) == [0.0, 1000.0]
 
 
 def test_design_horizontal_entry_matches_hold_azi_at_heel():
@@ -92,8 +133,8 @@ def test_design_horizontal_entry_matches_hold_azi_at_heel():
     assert abs(azi_delta) < 2.0
 
 
-def test_design_horizontal_interior_entry_covers_heel_and_toe():
-    """Mid-line entry drills full lateral (entry→toe→heel), not only to toe."""
+def test_design_horizontal_interior_offset_snaps_to_endpoint():
+    """Mid-line offset snaps to nearest endpoint — no entry→toe→heel U-turn."""
     req = HorizontalDesignRequest(
         start=ConnectorPoint(northing=0, easting=0, tvd=0, inc=0, azi=90),
         heel=ConnectorPoint(northing=500, easting=200, tvd=2500, inc=90, azi=90),
@@ -102,20 +143,16 @@ def test_design_horizontal_interior_entry_covers_heel_and_toe():
         entry_mode="any",
         entry_search_step_m=500,
     )
-    from well_trajectory.design import design_horizontal_at_offset
-
-    result = design_horizontal_at_offset(req, 500.0)
-    assert result.entry_offset_m == 500.0
-    heel_near = min(result.stations, key=lambda s: abs(s.e - 200))
-    toe_near = min(result.stations, key=lambda s: abs(s.e - 1200))
-    assert abs(heel_near.e - 200) < 30
-    assert abs(toe_near.e - 1200) < 30
-    assert abs(heel_near.tvd - 2500) < 10
-    assert abs(toe_near.tvd - 2500) < 10
+    heel_result = design_horizontal_at_offset(req, 200.0)
+    toe_result = design_horizontal_at_offset(req, 800.0)
+    assert heel_result.entry_offset_m == 0.0
+    assert toe_result.entry_offset_m == 1000.0
+    assert heel_result.entry_mode == "heel"
+    assert toe_result.entry_mode == "toe"
 
 
 def test_design_horizontal_any_prefers_endpoint_over_partial_lateral():
-    """With full lateral at interior entries, min MD should match heel or toe quality."""
+    """Mode any compares only T1 and T3; result matches one of the endpoint designs."""
     base = dict(
         start=ConnectorPoint(northing=0, easting=0, tvd=0, inc=0, azi=90),
         heel=ConnectorPoint(northing=500, easting=200, tvd=2500, inc=90, azi=90),
@@ -124,11 +161,36 @@ def test_design_horizontal_any_prefers_endpoint_over_partial_lateral():
         inc_heel=90.0,
     )
     heel = design_horizontal(HorizontalDesignRequest(**base, entry_mode="heel"))
+    toe = design_horizontal(HorizontalDesignRequest(**base, entry_mode="toe"))
     any_result = design_horizontal(
         HorizontalDesignRequest(**base, entry_mode="any", entry_search_step_m=100)
     )
     assert any_result.entry_mode == "any"
-    assert abs(any_result.geometry.length_m - heel.geometry.length_m) < 50
+    assert any_result.entry_offset_m in (0.0, 1000.0)
+    best_endpoint_md = min(heel.geometry.length_m, toe.geometry.length_m)
+    assert abs(any_result.geometry.length_m - best_endpoint_md) < 1e-3
+
+
+def test_no_180_azi_flip_at_toe_for_offset_lateral():
+    """Oblique pad-to-lateral geometry: no ~180° azimuth jump at T3."""
+    req = HorizontalDesignRequest(
+        start=ConnectorPoint(northing=0, easting=9, tvd=0, inc=0, azi=0),
+        heel=ConnectorPoint(northing=-39.5, easting=-491.3, tvd=1280.9, inc=90, azi=268.1),
+        toe=ConnectorPoint(northing=-72.7, easting=-1492.8, tvd=1277.0, inc=90, azi=268.1),
+        step_m=30,
+        entry_mode="any",
+        inc_heel=90.0,
+        dls_design=3.0,
+    )
+    result = design_horizontal(req)
+    assert result.entry_offset_m in (0.0, math.hypot(-33.2, -1001.5))
+    toe_e, toe_n = -1492.8, -72.7
+    near_toe = sorted(
+        result.stations,
+        key=lambda s: math.hypot(s.e - toe_e, s.n - toe_n),
+    )[:5]
+    for prev, nxt in zip(near_toe, near_toe[1:]):
+        assert _azi_delta_deg(prev.azi, nxt.azi) < 90.0
 
 
 def test_design_horizontal_dual_tvd_sloping_hold():

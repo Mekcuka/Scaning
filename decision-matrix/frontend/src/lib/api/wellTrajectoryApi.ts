@@ -69,6 +69,7 @@ export type WellTrajectoryLastResponse = {
     stub_tvd_m?: number;
     inc_heel?: number;
     gs_entry_search_step_m?: number;
+    dls_design?: number;
   };
   warnings: string[];
 };

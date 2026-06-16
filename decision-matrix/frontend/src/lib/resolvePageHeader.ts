@@ -25,7 +25,7 @@ export function resolvePageHeader(pathname: string): PageHeaderConfig | null {
   if (path === '/map') {
     return { title: 'Карта инфраструктуры' };
   }
-  if (path === '/pad-clustering') {
+  if (path.startsWith('/pad-clustering')) {
     return { title: 'Кустование' };
   }
   if (path.startsWith('/parameters')) {

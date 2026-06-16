@@ -8,7 +8,7 @@ import {
   type POI,
   type ProjectsPoiWriteApiPort,
 } from '../lib/api';
-import { upsertInfraObjectInQueries } from '../lib/mapQueries';
+import { upsertInfraObjectInQueries, patchInfraObjectsInQueries } from '../lib/mapQueries';
 import {
   infraDetailUndo,
   poiDetailUndo,
@@ -60,7 +60,7 @@ export function useMapDetailSave({
         ...(data.properties ? { properties: data.properties as Record<string, unknown> } : {}),
       });
     },
-    onMutate: () => {
+    onMutate: (data) => {
       if (!detailSelection) return;
       if (detailSelection.kind === 'poi') {
         return {
@@ -71,6 +71,25 @@ export function useMapDetailSave({
             label: `изменение «${detailSelection.poi.name}»`,
           },
         };
+      }
+      if (projectId) {
+        patchInfraObjectsInQueries(queryClient, projectId, (o) => {
+          if (o.id !== detailSelection.object.id) return o;
+          return {
+            ...o,
+            ...(typeof data.name === 'string' ? { name: data.name } : {}),
+            ...(typeof data.lon === 'number' ? { lon: data.lon } : {}),
+            ...(typeof data.lat === 'number' ? { lat: data.lat } : {}),
+            ...(typeof data.end_lon === 'number' ? { end_lon: data.end_lon } : {}),
+            ...(typeof data.end_lat === 'number' ? { end_lat: data.end_lat } : {}),
+            ...(Array.isArray(data.coordinates)
+              ? { coordinates: data.coordinates as number[][] }
+              : {}),
+            ...(data.properties && typeof data.properties === 'object'
+              ? { properties: { ...(o.properties ?? {}), ...(data.properties as Record<string, unknown>) } }
+              : {}),
+          };
+        });
       }
       return {
         undo: {

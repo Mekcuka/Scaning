@@ -46,7 +46,8 @@ summary: Краткое описание в 1–2 предложения для 
 | Slug | Файл | Тема |
 |------|------|------|
 | `navigation` | [navigation.md](articles/navigation.md) | Навигация по приложению |
-| `map-2d` | [map-2d.md](articles/map-2d.md) | Карта 2D |
+| `map-2d` | [map-2d.md](articles/map-2d.md) | Карта 2D — забои, доп.стволы, слои |
+| `pad-clustering-pywellgeo` | [pad-clustering-pywellgeo.md](articles/pad-clustering-pywellgeo.md) | **Кустование → PyWellGeo**, доп.стволы «До забоя» |
 | `matrix` | [matrix.md](articles/matrix.md) | Матрица сравнения |
 | `pad-earthwork-volumes` | [pad-earthwork-volumes.md](articles/pad-earthwork-volumes.md) | Земляные работы площадки |
 | `pad-placement-optimization` | [pad-placement-optimization.md](articles/pad-placement-optimization.md) | **Оптимизация размещения кустов** (✅) |

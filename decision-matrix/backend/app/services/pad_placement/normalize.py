@@ -7,7 +7,9 @@ from uuid import UUID
 from app.services.pad_placement.schemas import BottomholeSnapshot, LogicalWell
 from app.services.well_trajectory.bottomhole_properties import (
     GS_HEEL_ID,
+    GS_HEEL_LABEL,
     GS_HEEL_TVD_M,
+    GS_TOE_LABEL,
     GS_TOE_TVD_M,
     TARGET_AZI,
     TARGET_INC,
@@ -55,7 +57,7 @@ def normalize_bottomholes(
 
         if st == "well_bottomhole_gs":
             if snap.end_longitude is None or snap.end_latitude is None:
-                warnings.append(f"{snap.name or snap.id}: GS missing toe endpoint")
+                warnings.append(f"{snap.name or snap.id}: ГС — не задана конечная точка {GS_TOE_LABEL}")
                 continue
             props = snap.properties or {}
             heel_tvd = _read_float_prop(snap, GS_HEEL_TVD_M) or _read_tvd(snap)
@@ -86,7 +88,9 @@ def normalize_bottomholes(
         if st == "well_bottomhole_gs_heel":
             toe = _find_gs_toe(snap.id, snapshots, by_id)
             if toe is None:
-                warnings.append(f"{snap.name or snap.id}: GS heel without toe")
+                warnings.append(
+                    f"{snap.name or snap.id}: {GS_HEEL_LABEL} ГС без парного {GS_TOE_LABEL}"
+                )
                 continue
             tvd = _read_tvd(snap) or _read_tvd(toe)
             if tvd is None:
@@ -114,7 +118,9 @@ def normalize_bottomholes(
 
         if st == "well_bottomhole_gs_toe":
             if snap.id not in used:
-                warnings.append(f"{snap.name or snap.id}: GS toe without heel in selection")
+                warnings.append(
+                    f"{snap.name or snap.id}: {GS_TOE_LABEL} ГС без {GS_HEEL_LABEL} в выборке"
+                )
             continue
 
         warnings.append(f"{snap.name or snap.id}: unsupported subtype {snap.subtype!r}")

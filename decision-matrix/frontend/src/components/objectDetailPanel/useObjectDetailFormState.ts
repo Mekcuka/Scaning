@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import type { InfraObject, Map3dCustomModel } from '../../lib/api';
 import type { PoiFormValues } from '../../lib/poiParams';
 import { DEFAULT_RENDER_3D_SCALE } from '../../lib/map3d/render3d';
@@ -8,17 +8,18 @@ import { createInfraFormDraftFromObject, createPoiFormFromSelection } from './fo
 import { readPointFootprintLineConnections } from '../../lib/padFootprintLineAttach';
 import type { SelectedFeature } from './types';
 import {
-  WELL_BOTTOMHOLE_GS_ENTRY_MODE,
-  WELL_BOTTOMHOLE_GS_HEEL_ID,
-  WELL_BOTTOMHOLE_HEEL_TVD_M,
-  WELL_BOTTOMHOLE_LINKED_PAD_ID,
-  WELL_BOTTOMHOLE_TARGET_AZI,
-  WELL_BOTTOMHOLE_TARGET_INC,
-  WELL_BOTTOMHOLE_TOE_TVD_M,
-  WELL_BOTTOMHOLE_TVD_M,
-  WELL_BOTTOMHOLE_WELL_INDEX,
+  bottomholeFormFieldsFromInfraObject,
+  EMPTY_BOTTOMHOLE_FORM_FIELDS,
+  mergeBottomholeFormFields,
+  type BottomholeFormFields,
+} from './bottomholeFormFields';
+import {
   isBottomholeSubtype,
   readBottomholeLinkedPadId,
+  WELL_BOTTOMHOLE_HEEL_TVD_M,
+  WELL_BOTTOMHOLE_LINKED_PAD_ID,
+  WELL_BOTTOMHOLE_TOE_TVD_M,
+  WELL_BOTTOMHOLE_TVD_M,
 } from '../../lib/wellBottomholeProperties';
 import {
   formatBottomholeElevation,
@@ -26,27 +27,10 @@ import {
   readPointBottomholeElevation,
 } from '../../lib/wellBottomholeElevation';
 
-const BOTTOMHOLE_PROP_KEYS = [
-  WELL_BOTTOMHOLE_LINKED_PAD_ID,
-  WELL_BOTTOMHOLE_WELL_INDEX,
-  WELL_BOTTOMHOLE_TVD_M,
-  WELL_BOTTOMHOLE_HEEL_TVD_M,
-  WELL_BOTTOMHOLE_TOE_TVD_M,
-  WELL_BOTTOMHOLE_TARGET_INC,
-  WELL_BOTTOMHOLE_TARGET_AZI,
-  WELL_BOTTOMHOLE_GS_HEEL_ID,
-  WELL_BOTTOMHOLE_GS_ENTRY_MODE,
-] as const;
-
-export function pickBottomholePropsPatch(
-  props: Record<string, unknown> | null | undefined,
-): Record<string, unknown> {
-  const out: Record<string, unknown> = {};
-  if (!props) return out;
-  for (const key of BOTTOMHOLE_PROP_KEYS) {
-    if (props[key] !== undefined) out[key] = props[key];
-  }
-  return out;
+function selectionSyncKey(selection: SelectedFeature): string {
+  return selection.kind === 'poi'
+    ? `poi:${selection.poi.id}`
+    : `infra:${selection.object.id}`;
 }
 
 export function useObjectDetailFormState(
@@ -92,12 +76,18 @@ export function useObjectDetailFormState(
   >({});
   const [infraTab, setInfraTab] = useState<InfraDetailTab>('main');
   const [poiTab, setPoiTab] = useState<PoiDetailTab>('basic');
-  const [bottomholePropsPatch, setBottomholePropsPatch] = useState<Record<string, unknown>>({});
+  const [bottomholeFields, setBottomholeFields] = useState<BottomholeFormFields>(
+    EMPTY_BOTTOMHOLE_FORM_FIELDS,
+  );
   const selectionKeyRef = useRef('');
+  const infraObjectsRef = useRef(infraObjects);
+  infraObjectsRef.current = infraObjects;
+
+  const syncKey = selectionSyncKey(selection);
 
   useEffect(() => {
     if (selection.kind === 'poi') {
-      const key = `poi:${selection.poi.id}`;
+      const key = selectionSyncKey(selection);
       const isNewSelection = selectionKeyRef.current !== key;
       selectionKeyRef.current = key;
       if (isNewSelection) {
@@ -106,11 +96,15 @@ export function useObjectDetailFormState(
       }
       return;
     }
-    const key = `infra:${selection.object.id}`;
+    const key = selectionSyncKey(selection);
     const isNewSelection = selectionKeyRef.current !== key;
     selectionKeyRef.current = key;
     if (!isNewSelection) return;
-    const draft = createInfraFormDraftFromObject(selection.object, map3dCustomModels, infraObjects);
+    const draft = createInfraFormDraftFromObject(
+      selection.object,
+      map3dCustomModels,
+      infraObjectsRef.current,
+    );
     setName(draft.name);
     setDescription(draft.description);
     setSubtype(draft.subtype);
@@ -145,21 +139,37 @@ export function useObjectDetailFormState(
     setPadMarginTopM(draft.padMarginTopM);
     setPadMarginEndM(draft.padMarginEndM);
     setPointFootprintLineConnections(draft.pointFootprintLineConnections);
-    setBottomholePropsPatch({});
+    setBottomholeFields(
+      isBottomholeSubtype(selection.object.subtype)
+        ? bottomholeFormFieldsFromInfraObject(selection.object)
+        : EMPTY_BOTTOMHOLE_FORM_FIELDS,
+    );
     setInfraTab(draft.infraTab);
     setPoiTab(draft.poiTab);
-  }, [selection, map3dCustomModels, infraObjects]);
+  }, [syncKey, map3dCustomModels, selection]);
 
   useEffect(() => {
     if (selection.kind !== 'infra') return;
     const obj = selection.object;
     if (!isBottomholeSubtype(obj.subtype)) return;
-    const padId = readBottomholeLinkedPadId({
-      ...obj.properties,
-      ...bottomholePropsPatch,
-    });
+    const mergedProps = {
+      ...(obj.properties ?? {}),
+      ...(bottomholeFields.linkedPadId
+        ? { [WELL_BOTTOMHOLE_LINKED_PAD_ID]: bottomholeFields.linkedPadId }
+        : {}),
+      ...(bottomholeFields.heelTvdM.trim()
+        ? { [WELL_BOTTOMHOLE_HEEL_TVD_M]: Number(bottomholeFields.heelTvdM) }
+        : {}),
+      ...(bottomholeFields.toeTvdM.trim()
+        ? { [WELL_BOTTOMHOLE_TOE_TVD_M]: Number(bottomholeFields.toeTvdM) }
+        : {}),
+      ...(bottomholeFields.tvdM.trim()
+        ? { [WELL_BOTTOMHOLE_TVD_M]: Number(bottomholeFields.tvdM) }
+        : {}),
+    };
+    const padId = readBottomholeLinkedPadId(mergedProps);
     const pad = padId ? (infraObjects.find((p) => p.id === padId) ?? null) : null;
-    const merged = { ...obj, properties: { ...(obj.properties ?? {}), ...bottomholePropsPatch } };
+    const merged = { ...obj, properties: mergedProps };
     if (obj.subtype === 'well_bottomhole_gs') {
       const { heelZ, toeZ } = readGsLineBottomholeElevations(merged, pad);
       setZHeel(formatBottomholeElevation(heelZ));
@@ -167,7 +177,11 @@ export function useObjectDetailFormState(
       return;
     }
     setZ(formatBottomholeElevation(readPointBottomholeElevation(merged, pad)));
-  }, [bottomholePropsPatch, selection, infraObjects]);
+  }, [bottomholeFields, selection, infraObjects]);
+
+  const patchBottomholeFields = useCallback((patch: Partial<BottomholeFormFields>) => {
+    setBottomholeFields((prev) => mergeBottomholeFormFields(prev, patch));
+  }, []);
 
   const infraFootprintSelection = selection.kind === 'infra' ? selection.object : null;
   const infraFootprintConnectionsKey = infraFootprintSelection
@@ -254,7 +268,8 @@ export function useObjectDetailFormState(
     setInfraTab,
     poiTab,
     setPoiTab,
-    bottomholePropsPatch,
-    setBottomholePropsPatch,
+    bottomholeFields,
+    setBottomholeFields,
+    patchBottomholeFields,
   };
 }

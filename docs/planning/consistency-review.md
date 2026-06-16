@@ -12,14 +12,14 @@
 | Навигация (Параметры, Потоки, ставки внутри Параметров) | Согласовано (май 2026) |
 | OpenLayers / Lucide | Согласовано |
 | Импорт отдельно от карты | Согласовано |
-| Экспорт инфраструктуры (`/data/export`) | Согласовано (июнь 2026, [project-export.md](../features/project-export.md)) |
-| Импорт: карточки как экспорт, раздел «Данные» | Согласовано (июнь 2026, [project-import.md](../features/project-import.md)) |
+| Экспорт инфраструктуры (`/data/export`) | Согласовано (июнь 2026, [project-export.md](../features/import-export/project-export.md)) |
+| Импорт: карточки как экспорт, раздел «Данные» | Согласовано (июнь 2026, [project-import.md](../features/import-export/project-import.md)) |
 | Глобальный заголовок страницы в `app-header` | Согласовано (июнь 2026, [ui-guidelines.md](../architecture/ui-guidelines.md)) |
 | Селектор проекта | На страницах (Экспорт и др.); в шапке нет (июнь 2026) |
 | 16 ставок, тыс. ₽ | Согласовано |
 | 9 подтипов vs анализ на карте | Согласовано |
-| Unified ГС (`well_bottomhole_gs`) = LineString; NNB/legacy heel/toe = Point | Согласовано (июнь 2026, [map-objects §1.4.5](../features/map-objects-and-spatial-calculations.md), manifest, `test_subtype_manifest`) |
-| Конкурентность `design-from-bottomholes` (last-write-wins) | Зафиксировано (июнь 2026, [well-trajectory.md §2c](../features/well-trajectory.md)) |
+| Unified ГС (`well_bottomhole_gs`) = LineString; NNB/legacy Т1/Т3 = Point | Согласовано (июнь 2026, [map-objects §1.4.5](../features/map/map-objects-and-spatial-calculations.md), manifest, `test_subtype_manifest`) |
+| Конкурентность `design-from-bottomholes` (last-write-wins) | Зафиксировано (июнь 2026, [well-trajectory.md §2c](../features/well-trajectory/well-trajectory.md)) |
 | Internal linear = pads × km/КП | **Зафиксировано** (FR-5.3.4, calculation-functions §3) |
 | Каталог расчётных функций | **Добавлен** [calculation-functions.md](../calculations/calculation-functions.md) |
 | `decision_matrices` | **Legacy** (FR-14.1.3) |
@@ -52,11 +52,11 @@
 | Приоритет | Задача | Статус | Где зафиксировано |
 |-----------|--------|--------|-------------------|
 | **P0** | CI: `test_subtype_manifest` (GS LineString), ESLint `useMapViewEmphasisSync` | ✅ | pytest + `npm run lint` |
-| **P1** | Док ↔ код: `well_bottomhole_*`, траектории §2c, changelog map-objects | ✅ | [map-objects §1.4.5](../features/map-objects-and-spatial-calculations.md), [well-trajectory.md §2c](../features/well-trajectory.md) |
-| **P2** | `geo/` → `services/`: `fluid_routing`, `line_footprint_attach`, `point_footprint_line_connect` | ✅ | [module-boundaries.md](../architecture/module-boundaries.md), [fluid-flow-schematic.md](../features/fluid-flow-schematic.md) |
+| **P1** | Док ↔ код: `well_bottomhole_*`, траектории §2c, changelog map-objects | ✅ | [map-objects §1.4.5](../features/map/map-objects-and-spatial-calculations.md), [well-trajectory.md §2c](../features/well-trajectory/well-trajectory.md) |
+| **P2** | `geo/` → `services/`: `fluid_routing`, `line_footprint_attach`, `point_footprint_line_connect` | ✅ | [module-boundaries.md](../architecture/module-boundaries.md), [fluid-flow-schematic.md](../features/flows/fluid-flow-schematic.md) |
 | **P2** | Thin handler: `import_connections.sync_connection` → `import_connection_sync.py` | ✅ | `services/import_connection_sync.py` |
 | **P2** | Split `well_trajectory/service.py` (~700 → ~338 + модули) | ✅ | `services/well_trajectory/{design_bottomholes,layout_ops,design_connector,compute_ops,pad_access}.py` |
-| **P2+** | Split `PadEarthworkSketchModal` (~1185 → ~116 + hook/tabs) | ✅ | [pad-earthwork.md § Frontend](../features/pad-earthwork.md), [frontend-structure.md](../architecture/frontend-structure.md) |
+| **P2+** | Split `PadEarthworkSketchModal` (~1185 → ~116 + hook/tabs) | ✅ | [pad-earthwork.md § Frontend](../features/pad-earthwork/pad-earthwork.md), [frontend-structure.md](../architecture/frontend-structure.md) |
 | **P2+** | Split `PlanPolygonEditor` (~570 → hook + SVG) | ✅ | `usePlanPolygonEditor.ts`, `PlanPolygonEditorSvg.tsx` |
 | **P2+** | Split `AdminAssistantPage` (~1039 → ~150 + components) | ✅ | `components/admin-assistant/*`, `useAdminAssistantPage.ts` |
 | **P2+** | Split `sand_logistics.py` + thin API handlers | ✅ | `sand_logistics_subnet.py`, `sand_logistics_handlers.py` |
@@ -82,7 +82,7 @@
 4. **[input-parameters.md](../product/input-parameters.md):** `threshold_*`, `km_per_pad_*` → mvp; `project_visibility`.
 5. **[database-schema.md](../architecture/database-schema.md):** `import_connections`, `audit_log`, `visibility`, legacy note на `decision_matrices`.
 6. **[architecture.md](../architecture/architecture.md):** FastAPI, candidates API.
-7. **[user-flows.md](../product/user-flows.md), [development-plan.md](development-plan.md), [map-objects-and-spatial-calculations.md](../features/map-objects-and-spatial-calculations.md), [calculation-logic-flow.md](../calculations/calculation-logic-flow.md)** — синхронизированы.
+7. **[user-flows.md](../product/user-flows.md), [development-plan.md](development-plan.md), [map-objects-and-spatial-calculations.md](../features/map/map-objects-and-spatial-calculations.md), [calculation-logic-flow.md](../calculations/calculation-logic-flow.md)** — синхронизированы.
 
 ## Ревизия: продуктовые решения P0 (май 2026)
 
@@ -118,7 +118,7 @@
 
 | Решение | Где зафиксировано |
 |---------|-------------------|
-| Вкладка «Потоки» `/flows`, React Flow + API flow-schematic | [fluid-flow-schematic.md](../features/fluid-flow-schematic.md) §9, user-flows §3.9 |
+| Вкладка «Потоки» `/flows`, React Flow + API flow-schematic | [fluid-flow-schematic.md](../features/flows/fluid-flow-schematic.md) §9, user-flows §3.9 |
 | Ветка «Вода» всегда для `fluid_type = oil` | fluid-flow-schematic §3.1, `active_fluids` |
 | Локальная закачка → «В пласт»; централизованная → БКНС → «В пласт» | fluid-flow-schematic §3.3, map-objects §1.6 |
 | `water_injection_volume` POI — popover блока «В пласт» | fluid-flow-schematic §3.3, input-parameters `poi_water_injection_volume` |

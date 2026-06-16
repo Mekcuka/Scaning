@@ -184,7 +184,7 @@
 
 - Стили с префиксом `map-*`, `map-page-*`, `map-layers-*`.
 - Не смешивать с админкой и параметрами.
-- 3D: [map-3d-features.md](../features/map-3d-features.md).
+- 3D: [map-3d-features.md](../features/map/map-3d-features.md).
 
 ### React Flow (потоки, логистика песка)
 
@@ -238,9 +238,9 @@
 | Документ | Содержание |
 |----------|------------|
 | [frontend-structure.md](frontend-structure.md) | Структура TSX, куда класть компоненты |
-| [map-3d-features.md](../features/map-3d-features.md) | 3D-карта, custom GLB |
+| [map-3d-features.md](../features/map/map-3d-features.md) | 3D-карта, custom GLB |
 | [user-flows.md](../product/user-flows.md) | Пользовательские сценарии (Import 3D, карта) |
-| [task-log-panel.md](../features/task-log-panel.md) | Стили журнала задач (`.task-log-*`) |
+| [task-log-panel.md](../features/jobs/task-log-panel.md) | Стили журнала задач (`.task-log-*`) |
 
 ---
 

@@ -50,7 +50,7 @@ orchestrator._chat_events
 2. Запись в `registry._specs()` с `priority` и `tool_names`.
 3. При list-tool — compact summary в `orchestrator._summarize_list_for_llm` при необходимости.
 4. Unit в `tests/test_assistant_response_formatters.py`; при end-to-end — `tests/test_assistant_chat.py`.
-5. Строка в [assistant-tools.md §10](../../../../docs/features/assistant-tools.md).
+5. Строка в [assistant-tools.md §10](../../../../docs/features/assistant/assistant-tools.md).
 
 ## Тесты
 

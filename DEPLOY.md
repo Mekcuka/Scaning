@@ -140,7 +140,7 @@ Get-Content -Raw "C:\Users\user\Documents\mykey\ssh-key\ssh-key-1779903372392" |
 | MCP (Cursor) | `https://erascaning.duckdns.org/api/v1/mcp/` — **trailing slash обязателен**; настройка: `.\scripts\get-atlas-grid-token.ps1` из корня репо; **не** на GitHub Pages |
 | Assistant chat | `GET /api/v1/assistant/status`, `POST /api/v1/assistant/chat` — нужен `ASSISTANT_LLM_*` на VM; UI: иконка в header приложения |
 | Assistant LLM troubleshooting | `provider_ready` проверяет только `GET …/models`; **429** на chat — лимит OpenRouter (free-модели) или rate limit провайдера; UI показывает текст по `code` (`llm_rate_limit`, …), не «LM Studio» при OpenRouter |
-| Dev stdio MCP (`atlas-grid-dev`) | **не на VM** — только локально в Cursor (`python -m app.assistant.dev.stdio_mcp`); pytest/search/git |
+| Dev stdio MCP (`atlas-grid-dev`) | **не на VM** — только локально в Cursor; pytest/search/git; в `mcp.json` нужен `PYTHONPATH` → `decision-matrix/backend` (скрипт задаёт автоматически) |
 | Wiki bundle | Статьи в образе backend (`knowledge/bundle/`). После правки [`docs/wiki/`](docs/wiki/) локально: `python scripts/sync-assistant-wiki.py` и пересборка образа |
 
 **Фоновые задачи:** контейнер **`worker`** (`arq app.worker.settings.WorkerSettings`) обрабатывает соединение автодорог, async-импорт, логистику песка и `analyze-all`. В проекте одновременно не более одной задачи в статусе `pending`/`running` (ответ **409** при конфликте). API: `POST/GET /projects/{id}/jobs`, `GET .../jobs/active`, `POST .../jobs/{job_id}/cancel`.
@@ -149,7 +149,7 @@ Get-Content -Raw "C:\Users\user\Documents\mykey\ssh-key\ssh-key-1779903372392" |
 
 **Журнал задач (admin):** при `REDIS_URL` на VM администратор видит очередь в UI (**Администрирование → Журнал задач**, `/admin/jobs`): `GET /admin/jobs`, `GET /admin/jobs/health`, `POST /admin/jobs/{id}/cancel` (идемпотентная отмена с актуальным статусом). Список и счётчики автообновляются каждые 3 с, пока есть `pending`/`running`. См. [docs/product/user-flows.md](docs/product/user-flows.md) §5.3.
 
-**Параметры LLM (admin):** **Администрирование → AI-помощник** (`/admin/assistant`) — статус, probe, runtime override (chat + embeddings), тест completion; `GET/POST/DELETE /admin/assistant/llm-config`, `POST /llm-probe`, `POST /llm-test`, `GET /llm-models`. Постоянные `ASSISTANT_LLM_*` и `ASSISTANT_WIKI_EMBEDDING_*` — только через `app.env` и перезапуск API. См. [docs/features/assistant-tools.md](docs/features/assistant-tools.md), [docs/product/user-flows.md](docs/product/user-flows.md) §5.4.
+**Параметры LLM (admin):** **Администрирование → AI-помощник** (`/admin/assistant`) — статус, probe, runtime override (chat + embeddings), тест completion; `GET/POST/DELETE /admin/assistant/llm-config`, `POST /llm-probe`, `POST /llm-test`, `GET /llm-models`. Постоянные `ASSISTANT_LLM_*` и `ASSISTANT_WIKI_EMBEDDING_*` — только через `app.env` и перезапуск API. См. [docs/features/assistant/assistant-tools.md](docs/features/assistant/assistant-tools.md), [docs/product/user-flows.md](docs/product/user-flows.md) §5.4.
 
 ### Runtime env на VM (один раз)
 
@@ -232,10 +232,10 @@ ssh -i "C:\Users\user\Documents\mykey\ssh-key\ssh-key-1779903372392" vovavolgin9
 - Swagger: `https://erascaning.duckdns.org/api/v1/docs`
 - Frontend: https://mekcuka.github.io/Scaning/ — карта `/map`, переключатель **2D | 3D**
 - Frontend использует актуальный `VITE_API_URL` (`https://erascaning.duckdns.org/api/v1`).
-- **Импорт 3D:** upload GLB → назначение подтипов → 3D на карте / превью; custom GLB грузятся с API с Bearer (см. [docs/architecture/auth-rbac.md](docs/architecture/auth-rbac.md), [docs/features/map-3d-features.md](docs/features/map-3d-features.md)).
-- **Логистика песка:** `/flows/logistics` — схема с timeline (полная топология на любом годе, будущие объекты серые); быстрая смена года без remount React Flow (см. [map-objects-and-spatial-calculations.md](docs/features/map-objects-and-spatial-calculations.md) §1.7.1).
+- **Импорт 3D:** upload GLB → назначение подтипов → 3D на карте / превью; custom GLB грузятся с API с Bearer (см. [docs/architecture/auth-rbac.md](docs/architecture/auth-rbac.md), [docs/features/map/map-3d-features.md](docs/features/map/map-3d-features.md)).
+- **Логистика песка:** `/flows/logistics` — схема с timeline (полная топология на любом годе, будущие объекты серые); быстрая смена года без remount React Flow (см. [map-objects-and-spatial-calculations.md](docs/features/map/map-objects-and-spatial-calculations.md) §1.7.1).
 - **Админ, журнал задач:** https://mekcuka.github.io/Scaning/admin/jobs — Redis OK, автообновление статусов, отмена `pending`/`running`; нужны backend с `admin/jobs` и актуальный frontend.
-- Карта (регрессия линий): pitch **0°** — изгиб 3D = 2D; концы ЛЭП на узлах после pan; см. [map-3d-features.md](docs/features/map-3d-features.md) §6.1
+- Карта (регрессия линий): pitch **0°** — изгиб 3D = 2D; концы ЛЭП на узлах после pan; см. [map-3d-features.md](docs/features/map/map-3d-features.md) §6.1
 - Карта 2D (производительность): на тяжёлом проекте — плавный pan/hover без лишних React commits; опционально — [testing-strategy.md](docs/testing/testing-strategy.md) § «Карта 2D — ручной perf checklist»
 
 ### Custom GLB на VM (хранение)
@@ -265,7 +265,7 @@ ls -la /opt/decision-matrix/shared/map3d_models/
 
 Опционально в `/opt/decision-matrix/shared/app.env`: `MAP3D_MODELS_ROOT=/app/data/map3d_models` (по умолчанию тот же путь).
 
-Подробнее: [docs/deploy/map3d-models-storage.md](docs/deploy/map3d-models-storage.md), [map-3d-features.md](docs/features/map-3d-features.md) § Custom GLB.
+Подробнее: [docs/deploy/map3d-models-storage.md](docs/deploy/map3d-models-storage.md), [map-3d-features.md](docs/features/map/map-3d-features.md) § Custom GLB.
 
 **Старые GLB** (загруженные до volume): файлы на диске могли быть потеряны при redeploy — перезагрузите через «Импорт 3D». Записи в БД без файла дают `404 Model file not found on disk`.
 
@@ -277,7 +277,7 @@ Bind-mount в `deploy/docker-compose.yml` для `api` и `worker`:
 /opt/decision-matrix/shared/pad_dem  →  /app/data/pad_dem
 ```
 
-Метаданные — PostgreSQL `infra_object_pad_dem` (миграция **`024`**); GeoTIFF — `{project_id}/{asset_id}.tif`. Подробнее: [docs/deploy/pad-dem-storage.md](docs/deploy/pad-dem-storage.md), [pad-earthwork.md](docs/features/pad-earthwork.md) § DEM.
+Метаданные — PostgreSQL `infra_object_pad_dem` (миграция **`024`**); GeoTIFF — `{project_id}/{asset_id}.tif`. Подробнее: [docs/deploy/pad-dem-storage.md](docs/deploy/pad-dem-storage.md), [pad-earthwork.md](docs/features/pad-earthwork/pad-earthwork.md) § DEM.
 
 ```bash
 sudo mkdir -p /opt/decision-matrix/shared/pad_dem

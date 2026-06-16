@@ -240,7 +240,7 @@ result = await execute_tool("list_projects", {}, ctx)
 
 - Cursor: `scripts/get-atlas-grid-token.ps1` → `.cursor/mcp.json`; rule `.cursor/rules/atlas-grid-mcp.mdc`
 
-- Docs: [transport/README.md](transport/README.md), [assistant-tools.md §9](../../../docs/features/assistant-tools.md)
+- Docs: [transport/README.md](transport/README.md), [assistant-tools.md §9](../../../docs/features/assistant/assistant-tools.md)
 
 
 
@@ -266,7 +266,9 @@ result = await execute_tool("list_projects", {}, ctx)
 
 - Cursor server: `atlas-grid-dev` (pytest, search, git; опционально read-only domain tools)
 
-- Docs: [dev/README.md](dev/README.md)
+- Setup: `scripts/get-atlas-grid-token.ps1` → в `env` задаётся `PYTHONPATH` (Cursor на Windows может игнорировать `cwd`)
+
+- Docs: [dev/README.md](dev/README.md), [assistant-tools.md §11](../../../docs/features/assistant/assistant-tools.md)
 
 
 

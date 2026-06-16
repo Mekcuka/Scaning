@@ -8,7 +8,6 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.api.deps import get_current_user
 from app.core.database import get_db
 from app.models import User
-from app.schemas import InfraObjectResponse
 from app.services.pad_earthwork.api_handlers import (
     handle_compute,
     handle_dem_fetch,
@@ -118,7 +117,6 @@ async def get_pad_earthwork_last(
 
 @pad_earthwork_router.patch(
     "/projects/{project_id}/infrastructure/objects/{object_id}/pad-earthwork/params",
-    response_model=InfraObjectResponse,
 )
 async def patch_pad_earthwork_params(
     project_id: UUID,
@@ -146,7 +144,6 @@ async def post_pad_earthwork_sketch_generate(
 
 @pad_earthwork_router.patch(
     "/projects/{project_id}/infrastructure/objects/{object_id}/pad-earthwork/sketch",
-    response_model=InfraObjectResponse,
 )
 async def patch_pad_earthwork_sketch(
     project_id: UUID,

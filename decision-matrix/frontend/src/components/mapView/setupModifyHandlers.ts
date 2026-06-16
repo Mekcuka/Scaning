@@ -7,6 +7,7 @@ import { bindModifyStartHandler } from './modifyHandlers/onModifyStart';
 export function setupModifyHandlers(
   ctx: MapSetupContext,
   hitHelpers: MapHitHelpers,
+  applyLinkedLineDrag: () => void,
 ): { refreshDraggedFeatureVisual: () => void } {
   const { refs, interactions } = ctx;
   const { select, modify } = interactions;
@@ -21,6 +22,11 @@ export function setupModifyHandlers(
     pointLayerRef,
     nodePointLayerRef,
     lineLayerRef,
+  });
+
+  modify.on('modifying', () => {
+    refreshDraggedFeatureVisual();
+    applyLinkedLineDrag();
   });
 
   return { refreshDraggedFeatureVisual };

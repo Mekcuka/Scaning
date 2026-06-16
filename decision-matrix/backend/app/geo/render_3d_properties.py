@@ -18,7 +18,16 @@ MIN_RENDER_3D_SCALE = 0.1
 MAX_RENDER_3D_SCALE = 10.0
 
 # PATCH with null/blank clears these keys (partial merge keeps other properties).
-_NULLABLE_PROPERTY_KEYS = frozenset({RENDER_3D_MODEL_ID_KEY, RENDER_3D_STYLE_KEY})
+_NULLABLE_PROPERTY_KEYS = frozenset({
+    RENDER_3D_MODEL_ID_KEY,
+    RENDER_3D_STYLE_KEY,
+    "well_bottomhole_linked_pad_id",
+    "well_bottomhole_well_index",
+    "well_bottomhole_target_azi",
+    "well_trajectory_clearance_pairs_json",
+    "well_trajectory_clearance_computed_at",
+    "pad_pywellgeo_trees_json",
+})
 
 _RESERVED_IMPORT_PROP_KEYS = frozenset({"type", "subtype", "name"})
 

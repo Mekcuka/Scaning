@@ -14,12 +14,15 @@ export const WELL_TRAJECTORY_DEFAULT_TVD_M = 'well_trajectory_default_tvd_m';
 export const WELL_TRAJECTORY_SF_WARNING_THRESHOLD = 'well_trajectory_sf_warning_threshold';
 export const WELL_TRAJECTORY_INC_HEEL = 'well_trajectory_inc_heel';
 export const WELL_TRAJECTORY_GS_ENTRY_SEARCH_STEP_M = 'well_trajectory_gs_entry_search_step_m';
+export const WELL_TRAJECTORY_DLS_DESIGN = 'well_trajectory_dls_design';
 
 export const DEFAULT_CALC_STEP_M = 30;
 export const DEFAULT_STUB_TVD_M = 100;
 export const DEFAULT_DEFAULT_TVD_M = 1500;
 export const DEFAULT_SF_THRESHOLD = 1;
 export const DEFAULT_INC_HEEL = 90;
+export const DEFAULT_DLS_DESIGN = 3;
+export const MAX_DLS_DESIGN = 30;
 export const DEFAULT_ERROR_MODEL = 'ISCWSA MWD Rev5.11';
 
 export type AziReference = 'grid' | 'magnetic' | 'true';
@@ -33,6 +36,7 @@ export type PadClusteringCalcDraft = {
   sfWarningThreshold: string;
   incHeel: string;
   gsEntrySearchStepM: string;
+  dlsDesign: string;
   envelopeEnabled: boolean;
   envelopeWrapWidthM: string;
 };
@@ -96,6 +100,9 @@ export function calcDraftFromSources(input: {
         DEFAULT_CALC_STEP_M,
       ),
     ),
+    dlsDesign: String(
+      readNum(props[WELL_TRAJECTORY_DLS_DESIGN] ?? settings?.dls_design, DEFAULT_DLS_DESIGN),
+    ),
     envelopeEnabled: envelope?.enabled ?? false,
     envelopeWrapWidthM: String(envelope?.wrap_width_m ?? 0),
   };
@@ -106,6 +113,11 @@ function parsePositive(raw: string, fallback: number): number {
   if (!t) return fallback;
   const n = Number(t);
   return Number.isFinite(n) && n > 0 ? n : fallback;
+}
+
+function clampDlsDesign(raw: string, fallback = DEFAULT_DLS_DESIGN): number {
+  const n = parsePositive(raw, fallback);
+  return Math.min(n, MAX_DLS_DESIGN);
 }
 
 export function mergeCalcSettingsIntoProperties(
@@ -126,6 +138,7 @@ export function mergeCalcSettingsIntoProperties(
       draft.gsEntrySearchStepM,
       DEFAULT_CALC_STEP_M,
     ),
+    [WELL_TRAJECTORY_DLS_DESIGN]: clampDlsDesign(draft.dlsDesign),
     [PAD_ENVELOPE_ENABLED]: draft.envelopeEnabled,
     [PAD_ENVELOPE_WRAP_WIDTH_M]: normalizeEnvelopeWrapWidthM(wrap),
   };
@@ -149,6 +162,7 @@ export function calcDraftEquals(a: PadClusteringCalcDraft, b: PadClusteringCalcD
     a.sfWarningThreshold === b.sfWarningThreshold &&
     a.incHeel === b.incHeel &&
     a.gsEntrySearchStepM === b.gsEntrySearchStepM &&
+    a.dlsDesign === b.dlsDesign &&
     a.envelopeEnabled === b.envelopeEnabled &&
     a.envelopeWrapWidthM === b.envelopeWrapWidthM
   );

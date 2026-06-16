@@ -56,6 +56,7 @@ export type MapPageCanvasProps = {
   cursor: { lon: number; lat: number } | null;
   infraFormSubtype: string;
   clipboardPreviewPoints: { subtype: string; lon: number; lat: number }[];
+  clipboardPreviewLines: { subtype: string; coordinates: [number, number][] }[];
   setFeatureGroupSel: (sels: MapFeatureSelection[]) => void;
   autoroadNetworkPickMode: 'click' | 'box';
   handleAutoroadNetworkDragBoxPick: (selections: MapFeatureSelection[]) => void;
@@ -134,6 +135,7 @@ export function MapPageCanvas({
   cursor,
   infraFormSubtype,
   clipboardPreviewPoints,
+  clipboardPreviewLines,
   setFeatureGroupSel,
   autoroadNetworkPickMode,
   handleAutoroadNetworkDragBoxPick,
@@ -166,8 +168,10 @@ export function MapPageCanvas({
   handlePadPlacementDragBoxPick,
 }: MapPageCanvasProps) {
   const visiblePois = showPoisOnMap ? pois : [];
+  const isGsBottomholeDraw =
+    drawMode === 'bottomhole_gs' || drawMode === 'bottomhole_lateral_gs';
   const gsBottomholePreviewLines =
-    drawMode === 'bottomhole_gs' && gsHeelDraft && cursor
+    isGsBottomholeDraw && gsHeelDraft && cursor
       ? [
           {
             coordinates: [
@@ -179,10 +183,14 @@ export function MapPageCanvas({
       : [];
 
   const gsBottomholePreviewPoints = useMemo(() => {
-    if (drawMode !== 'bottomhole_gs' || !gsHeelDraft) return [];
+    if (drawMode !== 'bottomhole_gs' && drawMode !== 'bottomhole_lateral_gs') return [];
+    if (!gsHeelDraft) return [];
     return [
       {
-        subtype: 'well_bottomhole_gs_heel',
+        subtype:
+          drawMode === 'bottomhole_lateral_gs'
+            ? 'well_bottomhole_lateral'
+            : 'well_bottomhole_gs_heel',
         lon: gsHeelDraft.lon,
         lat: gsHeelDraft.lat,
       },
@@ -191,7 +199,7 @@ export function MapPageCanvas({
 
   const effectiveMeasureCursorLabel = useMemo((): MeasureLabel | null => {
     if (measureCursorLabel) return measureCursorLabel;
-    if (drawMode === 'bottomhole_gs' && gsHeelDraft && cursor) {
+    if (isGsBottomholeDraw && gsHeelDraft && cursor) {
       return previewSegmentMeasureLabel(gsHeelDraft, cursor);
     }
     return null;
@@ -280,9 +288,17 @@ export function MapPageCanvas({
                 ? { subtype: infraFormSubtype, lon: cursor.lon, lat: cursor.lat }
                 : drawMode === 'bottomhole_nnb'
                   ? { subtype: 'well_bottomhole_nnb', lon: cursor.lon, lat: cursor.lat }
-                  : drawMode === 'bottomhole_gs'
+                  : drawMode === 'bottomhole_lateral_nnb'
+                    ? { subtype: 'well_bottomhole_lateral', lon: cursor.lon, lat: cursor.lat }
+                  : drawMode === 'bottomhole_gs' || drawMode === 'bottomhole_lateral_gs'
                     ? {
-                        subtype: gsHeelDraft ? 'well_bottomhole_gs_toe' : 'well_bottomhole_gs_heel',
+                        subtype: gsHeelDraft
+                          ? drawMode === 'bottomhole_lateral_gs'
+                            ? 'well_bottomhole_lateral'
+                            : 'well_bottomhole_gs_toe'
+                          : drawMode === 'bottomhole_lateral_gs'
+                            ? 'well_bottomhole_lateral'
+                            : 'well_bottomhole_gs_heel',
                         lon: cursor.lon,
                         lat: cursor.lat,
                       }
@@ -293,6 +309,7 @@ export function MapPageCanvas({
           }
           placementPreviewPoints={gsBottomholePreviewPoints}
           clipboardPreviewPoints={clipboardPreviewPoints}
+          clipboardPreviewLines={clipboardPreviewLines}
           pasteMode={pasteMode}
           onFeatureSelect={
             drawMode === 'select' && selectMode === 'single' ? setFeatureSel : undefined

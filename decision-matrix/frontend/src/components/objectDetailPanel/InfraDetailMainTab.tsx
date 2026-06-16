@@ -6,6 +6,7 @@ import { DeferredNumberInput } from '../DeferredNumberInput';
 import { FieldLabel, PanelSection, ReadOnlyValue, StatChip } from './panelUi';
 import { InfraBottomholeGeometrySection } from './InfraBottomholeGeometrySection';
 import { InfraBottomholeDetailSection } from './InfraBottomholeDetailSection';
+import type { BottomholeFormFields } from './bottomholeFormFields';
 
 interface InfraDetailMainTabProps {
   readOnly: boolean;
@@ -46,12 +47,14 @@ interface InfraDetailMainTabProps {
   setZHeel?: (value: string) => void;
   zToe?: string;
   setZToe?: (value: string) => void;
-  onBottomholePropsChange?: (patch: Record<string, unknown>) => void;
+  onBottomholeFieldsChange?: (patch: Partial<BottomholeFormFields>) => void;
+  bottomholeFields?: BottomholeFormFields;
   copyCoordinatesText?: (text: string) => Promise<void>;
   bottomholeCopySources?: import('../../lib/wellBottomholeElevation').BottomholeCopySources;
   bottomholeProjectId?: string | null;
   bottomholeObject?: InfraObject | null;
   bottomholePadOptions?: InfraObject[];
+  bottomholeInfraObjects?: InfraObject[];
   lineLengthLabel: string | null;
   lineCoords: [number, number][] | null;
   lon: string;
@@ -109,12 +112,14 @@ export function InfraDetailMainTab({
   setZHeel = () => {},
   zToe = '',
   setZToe = () => {},
-  onBottomholePropsChange = () => {},
+  onBottomholeFieldsChange = () => {},
+  bottomholeFields,
   copyCoordinatesText = async () => {},
   bottomholeCopySources,
   bottomholeProjectId = null,
   bottomholeObject = null,
   bottomholePadOptions = [],
+  bottomholeInfraObjects = [],
   lineLengthLabel,
   lineCoords,
   lon,
@@ -318,7 +323,7 @@ export function InfraDetailMainTab({
           setZToe={setZToe}
           linkedPad={linkedBottomholePad}
           copySources={bottomholeCopySources}
-          onBottomholePropsChange={onBottomholePropsChange}
+          onBottomholeFieldsChange={onBottomholeFieldsChange}
           onCopyCoordinates={copyCoordinatesText}
         />
       ) : isBottomhole ? null : (
@@ -374,13 +379,15 @@ export function InfraDetailMainTab({
         </PanelSection>
       )}
 
-      {isBottomhole && bottomholeProjectId && bottomholeObject && (
+      {isBottomhole && bottomholeProjectId && bottomholeObject && bottomholeFields && (
         <InfraBottomholeDetailSection
           projectId={bottomholeProjectId}
           infraObject={bottomholeObject}
+          fields={bottomholeFields}
+          onFieldsChange={onBottomholeFieldsChange}
           padOptions={bottomholePadOptions}
+          infraObjects={bottomholeInfraObjects}
           readOnly={readOnly}
-          onPropertiesChange={onBottomholePropsChange}
         />
       )}
 

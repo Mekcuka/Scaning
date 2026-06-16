@@ -13,6 +13,8 @@ interface PadClusteringSettingsPanelProps {
   patchDraft: (patch: Partial<PadClusteringPadDraft>) => void;
   wellsLocalCount: number;
   kbM: number;
+  linkedBottomholesCount: number;
+  padWellCountDerivedFromBottomholes: boolean;
   generateAndSaveMut: Editor['generateAndSaveMut'];
   trajectorySection: ReactNode;
   bottomholesSection: ReactNode;
@@ -30,6 +32,8 @@ export function PadClusteringSettingsPanel({
   patchDraft,
   wellsLocalCount,
   kbM,
+  linkedBottomholesCount,
+  padWellCountDerivedFromBottomholes,
   generateAndSaveMut,
   trajectorySection,
   bottomholesSection,
@@ -76,6 +80,8 @@ export function PadClusteringSettingsPanel({
           onGenerate={() => generateAndSaveMut.mutate()}
           hasPreview={wellsLocalCount > 0}
           wellCountOnCanvas={wellsLocalCount}
+          padWellCountDerivedFromBottomholes={padWellCountDerivedFromBottomholes}
+          linkedBottomholesCount={linkedBottomholesCount}
         />
       </PadClusteringCollapsibleSection>
 

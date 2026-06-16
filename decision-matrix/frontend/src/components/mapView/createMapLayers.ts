@@ -4,6 +4,11 @@ import Point from 'ol/geom/Point';
 import LineString from 'ol/geom/LineString';
 import { Circle as CircleStyle, Fill, Stroke, Style, Text } from 'ol/style';
 import { MAP_SUBTYPE_COLORS } from '../../lib/mapIcons';
+import {
+  WELL_TRAJECTORY_MAP_LATERAL_COLOR,
+  WELL_TRAJECTORY_MAP_LINE_DASH,
+  WELL_TRAJECTORY_MAP_MAIN_COLOR,
+} from '../../lib/wellTrajectoryClearance';
 import { isEarthworkEligibleSubtype } from '../../lib/infraPadEarthwork';
 import { LINE_SUBTYPE_SET, MAP_LAYER_Z, MAP_VECTOR_RENDER_BUFFER } from './constants';
 import { createBasemapLayer } from './basemap';
@@ -24,6 +29,7 @@ function createInfraPointLayerStyle(refs: MapViewRefs) {
   const { layersRef, hoveredIdRef, emphasisFeatureIdsRef, useIconsRef, infraSymbologyRef } = refs;
   return (feature: FeatureLike) => {
     const subtype = feature.get('subtype') as string;
+    const displaySubtype = (feature.get('displaySubtype') as string | undefined) ?? subtype;
     const id = feature.get('id') as string;
     const infraObjectId = feature.get('infra_object_id') as string | undefined;
     const selectionId = infraObjectId ?? id;
@@ -40,7 +46,7 @@ function createInfraPointLayerStyle(refs: MapViewRefs) {
     ) {
       return footprintModePointHitStyle(hovered, emphasized);
     }
-    return pointFeatureStyles(subtype, scale, hovered, useIconsRef.current, emphasized);
+    return pointFeatureStyles(displaySubtype, scale, hovered, useIconsRef.current, emphasized);
   };
 }
 
@@ -101,10 +107,25 @@ export function createMapLayers(refs: MapViewRefs, showBasemap: boolean): MapLay
     renderBuffer: MAP_VECTOR_RENDER_BUFFER,
     updateWhileAnimating: false,
     updateWhileInteracting: false,
-    style: () =>
-      new Style({
-        stroke: new Stroke({ color: '#1565c0', width: 2.5, lineDash: [8, 6] }),
-      }),
+    style: (feature) => {
+      const kind = feature.get('kind') as string | undefined;
+      if (kind === 'pywellgeo_branch') {
+        return new Style({
+          stroke: new Stroke({
+            color: WELL_TRAJECTORY_MAP_LATERAL_COLOR,
+            width: 2.5,
+            lineDash: [...WELL_TRAJECTORY_MAP_LINE_DASH],
+          }),
+        });
+      }
+      return new Style({
+        stroke: new Stroke({
+          color: WELL_TRAJECTORY_MAP_MAIN_COLOR,
+          width: 2.5,
+          lineDash: [...WELL_TRAJECTORY_MAP_LINE_DASH],
+        }),
+      });
+    },
   });
   wellTrajectoryPlanLayerRef.current = wellTrajectoryPlanLayer;
 
@@ -184,9 +205,28 @@ export function createMapLayers(refs: MapViewRefs, showBasemap: boolean): MapLay
           }),
         });
       }
-      if (subtype === 'well_bottomhole_gs') {
+      if (subtype === 'lateral-bottomhole-connector') {
         return new Style({
-          stroke: new Stroke({ color: '#2e7d32', width: 3 }),
+          stroke: new Stroke({
+            color: '#7b1fa2',
+            width: 2.5,
+            lineDash: [6, 6],
+          }),
+        });
+      }
+      if (subtype === 'clipboard-preview-line') {
+        return new Style({
+          stroke: new Stroke({ color: '#1565c0', width: 2.5, lineDash: [8, 6] }),
+        });
+      }
+      if (subtype === 'well_bottomhole_gs') {
+        const role = feature.get('bottomhole_role') as string | undefined;
+        return new Style({
+          stroke: new Stroke({
+            color: role === 'lateral' ? '#7b1fa2' : '#2e7d32',
+            width: 3,
+            lineDash: role === 'lateral' ? [8, 6] : undefined,
+          }),
         });
       }
       if (subtype === 'pad-placement-pad_footprint_preview') {
@@ -197,7 +237,11 @@ export function createMapLayers(refs: MapViewRefs, showBasemap: boolean): MapLay
       }
       if (subtype === 'pad-placement-trajectory_plan_preview') {
         return new Style({
-          stroke: new Stroke({ color: '#1565c0', width: 2, lineDash: [6, 4] }),
+          stroke: new Stroke({
+            color: WELL_TRAJECTORY_MAP_MAIN_COLOR,
+            width: 2,
+            lineDash: [...WELL_TRAJECTORY_MAP_LINE_DASH],
+          }),
         });
       }
       if (subtype === 'pad-placement-wellhead_preview') {

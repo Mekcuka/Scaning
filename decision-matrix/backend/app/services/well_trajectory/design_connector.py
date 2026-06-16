@@ -43,6 +43,7 @@ def design_well_trajectory(
 
     start_station = stations_raw[0]
     settings = well_trajectory_settings_for_pad(obj)
+    settings = well_trajectory_settings_for_pad(obj)
     azi_ref = well.get("azi_reference") or settings.default_azi_reference
 
     schemas = planner_schemas()
@@ -69,6 +70,7 @@ def design_well_trajectory(
         ),
         step_m=body.step_m,
         azi_reference=azi_ref,
+        dls_design=settings.dls_design,
     )
 
     adapter = get_well_trajectory_adapter()

@@ -42,9 +42,10 @@ export function setupOpenLayersMap(refs: MapViewRefs, options: { showBasemap: bo
   ctx.interactions.dragBox = dragBox;
 
   const hitHelpers = createMapHitHelpers(map, refs);
-  const { refreshDraggedFeatureVisual } = setupModifyHandlers(ctx, hitHelpers);
   const { translate, applyLinkedLineDrag } = setupTranslateHandlers(ctx);
   ctx.interactions.translate = translate;
+
+  const { refreshDraggedFeatureVisual } = setupModifyHandlers(ctx, hitHelpers, applyLinkedLineDrag);
 
   const drawHandlers = createMapDrawHandlers(ctx, hitHelpers);
   setupMapClickHandlers(ctx, hitHelpers, drawHandlers);

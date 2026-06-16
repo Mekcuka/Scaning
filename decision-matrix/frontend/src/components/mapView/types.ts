@@ -25,13 +25,15 @@ export type DrawMode =
   | 'autoroad_network'
   | 'pad_placement'
   | 'bottomhole_nnb'
-  | 'bottomhole_gs';
+  | 'bottomhole_gs'
+  | 'bottomhole_lateral_nnb'
+  | 'bottomhole_lateral_gs';
 
 export type SelectMode = 'single' | 'box';
 
 export type MapFeatureSelection =
   | { kind: 'poi'; id: string }
-  | { kind: 'infra'; id: string };
+  | { kind: 'infra'; id: string; gsEndpoint?: 'heel' | 'toe' };
 
 /** Pan/zoom target (change nonce to re-run animation). */
 export type MapFocusTarget = {
@@ -135,6 +137,8 @@ export interface MapViewProps {
   placementPreviewPoints?: { subtype: string; lon: number; lat: number }[];
   /** Ghost markers while positioning clipboard paste. */
   clipboardPreviewPoints?: { subtype: string; lon: number; lat: number }[];
+  /** Ghost line segments while positioning clipboard paste (e.g. GS bottomhole). */
+  clipboardPreviewLines?: { subtype: string; coordinates: [number, number][] }[];
   /** When true, map click in select mode runs onMapClick (paste anchor). */
   pasteMode?: boolean;
   /** Remember pan/zoom per project when leaving the page (main / matrix / report). */

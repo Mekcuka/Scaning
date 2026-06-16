@@ -12,6 +12,7 @@ T = TypeVar("T")
 
 SYNC_MAX_WELLS = 8
 SYNC_MAX_PARTITIONS = 100
+MAX_PAD_PLACEMENT_WELLS = 20
 
 
 def max_pad_count(n: int, max_wells_per_pad: int) -> int:
@@ -22,6 +23,11 @@ def max_pad_count(n: int, max_wells_per_pad: int) -> int:
 
 def estimate_partition_count(n: int, max_wells_per_pad: int) -> int:
     """Upper bound on distinct partition evaluations for sync guard."""
+    if n <= 0:
+        return 0
+    if n > SYNC_MAX_WELLS:
+        # Exact Stirling(2) recursion is exponential; large selections use k-means heuristic only.
+        return max_pad_count(n, max_wells_per_pad)
     k_max = max_pad_count(n, max_wells_per_pad)
     total = 0
     for k in range(1, k_max + 1):

@@ -18,6 +18,7 @@ import {
 } from './sandLogisticsHaulLegs';
 import { subtypeDisplayLabel } from './analysisDisplay';
 import { formatEntryDateRu } from './infraEntryDate';
+import type { TrajectoryProfilePoint } from './wellTrajectoryProfile';
 
 function fmtKmExport(km: number | null | undefined): number | string {
   if (km == null) return '';
@@ -179,4 +180,26 @@ export function sandConsumerTableExportColumns(): ExcelColumn<SandLogisticsConsu
       value: (r) => (r.in_service ? 'да' : 'нет'),
     },
   ];
+}
+
+export function trajectoryProfileTableExportColumns(): ExcelColumn<TrajectoryProfilePoint>[] {
+  return [
+    { header: 'MD, м', value: (p) => fmtNumExport(p.md) },
+    { header: 'TVD, м', value: (p) => fmtNumExport(p.tvd) },
+    { header: 'Наклон, °', value: (p) => fmtNumExport(p.inc) },
+    { header: 'Азимут, °', value: (p) => fmtNumExport(p.azi) },
+    { header: 'DLS, °/30 м', value: (p) => fmtNumExport(p.dls) },
+    { header: 'На север, м', value: (p) => fmtNumExport(p.n) },
+    { header: 'На восток, м', value: (p) => fmtNumExport(p.e) },
+  ];
+}
+
+export function trajectoryProfileExportFilename(padName: string, subjectLabel: string): string {
+  const slug = (s: string) =>
+    s
+      .replace(/[<>:"/\\|?*]/g, '_')
+      .replace(/\s+/g, '-')
+      .trim()
+      .slice(0, 40);
+  return `traektoriya-stancii-${slug(padName)}-${slug(subjectLabel)}.xlsx`;
 }

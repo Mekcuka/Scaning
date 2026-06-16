@@ -17,6 +17,10 @@ import {
   mergeCalcSettingsIntoProperties,
   type PadClusteringCalcDraft,
 } from './padClusteringCalcSettings';
+import {
+  mergePyWellGeoIntoProperties,
+  type PadClusteringPyWellGeoDraft,
+} from './padClusteringPyWellGeoSettings';
 
 export type PadClusteringPadDraft = InfraPadWellDraftStrings & {
   lengthM: string;
@@ -69,6 +73,7 @@ export function buildPadClusteringSaveProperties(
   existing: Record<string, unknown> | null | undefined,
   draft: PadClusteringPadDraft,
   calcDraft?: PadClusteringCalcDraft,
+  geoDraft?: PadClusteringPyWellGeoDraft,
 ): Record<string, unknown> | null {
   const length = parsePositive(draft.lengthM) ?? DEFAULT_PAD_LENGTH_M;
   const width = parsePositive(draft.widthM) ?? DEFAULT_PAD_WIDTH_M;
@@ -90,6 +95,9 @@ export function buildPadClusteringSaveProperties(
   };
   if (calcDraft) {
     props = mergeCalcSettingsIntoProperties(props, calcDraft);
+  }
+  if (geoDraft) {
+    props = mergePyWellGeoIntoProperties(props, geoDraft);
   }
   return props;
 }

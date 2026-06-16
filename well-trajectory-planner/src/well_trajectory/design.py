@@ -48,6 +48,7 @@ def design_connector(request: ConnectorDesignRequest) -> ConnectorDesignResponse
         pos2=_point_to_pos(request.end),
         inc2=request.end.inc,
         azi2=request.end.azi,
+        dls_design=request.dls_design,
     )
     survey = we.survey.from_connections(
         connector,
@@ -175,12 +176,35 @@ def gs_entry_search_offsets(
     return offsets
 
 
+def gs_entry_endpoint_offsets(heel: ConnectorPoint, toe: ConnectorPoint) -> list[float]:
+    """T1 and T3 only — avoids interior entry with a 180° turn at an endpoint."""
+    length = _heel_toe_length(heel, toe)
+    if length < 1e-6:
+        return [0.0]
+    return [0.0, length]
+
+
+def _snap_entry_to_endpoint(
+    heel: ConnectorPoint,
+    toe: ConnectorPoint,
+    entry: ConnectorPoint,
+) -> tuple[ConnectorPoint, bool, bool]:
+    at_heel = _landing_at_heel(heel, toe, entry)
+    at_toe = _landing_at_toe(heel, toe, entry)
+    if at_heel or at_toe:
+        return entry, at_heel, at_toe
+    length = _heel_toe_length(heel, toe)
+    offset = _heel_toe_length(heel, entry)
+    if offset <= length / 2.0:
+        return heel.model_copy(deep=True), True, False
+    return toe.model_copy(deep=True), False, True
+
+
 def _design_horizontal_at_entry(
     request: HorizontalDesignRequest,
     entry: ConnectorPoint,
 ) -> HorizontalDesignResponse:
-    at_heel = _landing_at_heel(request.heel, request.toe, entry)
-    at_toe = _landing_at_toe(request.heel, request.toe, entry)
+    entry, at_heel, at_toe = _snap_entry_to_endpoint(request.heel, request.toe, entry)
     hold_forward_azi = _horizontal_hold_azi(request.heel, request.toe)
     hold_reverse_azi = _reverse_hold_azi(hold_forward_azi)
 
@@ -205,68 +229,28 @@ def _design_horizontal_at_entry(
             end=entry_end,
             step_m=request.step_m,
             azi_reference=request.azi_reference,
+            dls_design=request.dls_design,
         )
     )
 
-    if at_heel or at_toe:
-        hold_end = ConnectorPoint(
-            northing=first_hold_target.northing,
-            easting=first_hold_target.easting,
-            tvd=first_hold_target.tvd,
-            inc=first_hold_inc,
-            azi=first_hold_azi,
+    hold_end = ConnectorPoint(
+        northing=first_hold_target.northing,
+        easting=first_hold_target.easting,
+        tvd=first_hold_target.tvd,
+        inc=first_hold_inc,
+        azi=first_hold_azi,
+    )
+    seg2 = design_connector(
+        ConnectorDesignRequest(
+            start=entry_end.model_copy(deep=True),
+            end=hold_end,
+            step_m=request.step_m,
+            azi_reference=request.azi_reference,
+            dls_design=request.dls_design,
         )
-        seg2 = design_connector(
-            ConnectorDesignRequest(
-                start=entry_end.model_copy(deep=True),
-                end=hold_end,
-                step_m=request.step_m,
-                azi_reference=request.azi_reference,
-            )
-        )
-        stations = _concat_stations(seg1.stations, seg2.stations)
-        max_dls = max(seg1.max_dls, seg2.max_dls)
-    else:
-        toe_end = ConnectorPoint(
-            northing=request.toe.northing,
-            easting=request.toe.easting,
-            tvd=request.toe.tvd,
-            inc=first_hold_inc,
-            azi=hold_forward_azi,
-        )
-        seg2 = design_connector(
-            ConnectorDesignRequest(
-                start=entry_end.model_copy(deep=True),
-                end=toe_end,
-                step_m=request.step_m,
-                azi_reference=request.azi_reference,
-            )
-        )
-        heel_hold_inc = _hold_segment_end_inc(request.toe, request.heel, request.inc_heel)
-        heel_end = ConnectorPoint(
-            northing=request.heel.northing,
-            easting=request.heel.easting,
-            tvd=request.heel.tvd,
-            inc=heel_hold_inc,
-            azi=hold_reverse_azi,
-        )
-        toe_start = ConnectorPoint(
-            northing=request.toe.northing,
-            easting=request.toe.easting,
-            tvd=request.toe.tvd,
-            inc=heel_hold_inc,
-            azi=hold_reverse_azi,
-        )
-        seg3 = design_connector(
-            ConnectorDesignRequest(
-                start=toe_start,
-                end=heel_end,
-                step_m=request.step_m,
-                azi_reference=request.azi_reference,
-            )
-        )
-        stations = _concat_stations(seg1.stations, _concat_stations(seg2.stations, seg3.stations))
-        max_dls = max(seg1.max_dls, seg2.max_dls, seg3.max_dls)
+    )
+    stations = _concat_stations(seg1.stations, seg2.stations)
+    max_dls = max(seg1.max_dls, seg2.max_dls)
 
     geometry = enrich_survey_geometry(stations)
     entry_offset_m = _heel_toe_length(request.heel, entry)
@@ -305,7 +289,8 @@ def design_horizontal_at_offset(
 
 
 def design_horizontal_optimize_entry(request: HorizontalDesignRequest) -> HorizontalDesignResponse:
-    offsets = gs_entry_search_offsets(request.heel, request.toe, request.entry_search_step_m)
+    offsets = gs_entry_endpoint_offsets(request.heel, request.toe)
+    best: HorizontalDesignResponse | None = None
     best_md = float("inf")
     best_offset = 0.0
 

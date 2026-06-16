@@ -9,7 +9,8 @@ import {
 
 type CreatePoiPayload = Parameters<typeof projectsApi.createPoi>[1];
 import type { MapFeatureSelection } from '../components/MapView';
-import { isLineSubtype } from './infraGeometry';
+import { getLineCoordinates, isLineSubtype } from './infraGeometry';
+import { WELL_BOTTOMHOLE_GS_SUBTYPE } from './wellBottomholeProperties';
 import { lineEndpointAttachmentsFromObject } from './lineEndpointRules';
 import {
   readLineFootprintAttach,
@@ -38,16 +39,9 @@ export type MapClipboardItem =
     };
 
 function linePathFromSnapshot(snap: InfraDetailUndo): [number, number][] | null {
-  if (snap.coordinates && snap.coordinates.length >= 2) {
-    return snap.coordinates.map((c) => [c[0], c[1]] as [number, number]);
-  }
-  if (snap.end_lon != null && snap.end_lat != null) {
-    return [
-      [snap.lon, snap.lat],
-      [snap.end_lon, snap.end_lat],
-    ];
-  }
-  return null;
+  const coords = getLineCoordinates(snap as InfraObject);
+  if (!coords || coords.length < 2) return null;
+  return coords.map((c) => [c[0]!, c[1]!] as [number, number]);
 }
 
 function collectPositions(items: MapClipboardItem[]): [number, number][] {
@@ -232,27 +226,52 @@ export function applyOffsetToClipboard(
   });
 }
 
-/** Preview positions at cursor without mutating stored clipboard. */
+export type MapClipboardPreviewPoint = { lon: number; lat: number; subtype: string };
+export type MapClipboardPreviewLine = { coordinates: [number, number][]; subtype: string };
+
+export type MapClipboardPreview = {
+  points: MapClipboardPreviewPoint[];
+  lines: MapClipboardPreviewLine[];
+};
+
+/** Preview geometry at cursor without mutating stored clipboard. */
 export function clipboardPreviewAt(
   items: MapClipboardItem[],
   anchorLon: number,
   anchorLat: number,
-): { lon: number; lat: number; subtype: string }[] {
+): MapClipboardPreview {
   const offset = applyOffsetToClipboard(items, anchorLon, anchorLat);
-  const out: { lon: number; lat: number; subtype: string }[] = [];
+  const points: MapClipboardPreviewPoint[] = [];
+  const lines: MapClipboardPreviewLine[] = [];
   for (const item of offset) {
     if (item.kind === 'poi') {
-      out.push({ lon: item.snapshot.lon, lat: item.snapshot.lat, subtype: 'poi' });
+      points.push({ lon: item.snapshot.lon, lat: item.snapshot.lat, subtype: 'poi' });
       continue;
     }
-    if (isLineSubtype(item.snapshot.subtype)) continue;
-    out.push({
+    if (isLineSubtype(item.snapshot.subtype)) {
+      const path = linePathFromSnapshot(item.snapshot);
+      if (path && path.length >= 2) {
+        lines.push({ coordinates: path, subtype: item.snapshot.subtype });
+        if (item.snapshot.subtype === WELL_BOTTOMHOLE_GS_SUBTYPE) {
+          points.push(
+            { lon: path[0]![0], lat: path[0]![1], subtype: 'well_bottomhole_gs_heel' },
+            {
+              lon: path[path.length - 1]![0],
+              lat: path[path.length - 1]![1],
+              subtype: 'well_bottomhole_gs_toe',
+            },
+          );
+        }
+      }
+      continue;
+    }
+    points.push({
       lon: item.snapshot.lon,
       lat: item.snapshot.lat,
       subtype: item.snapshot.subtype,
     });
   }
-  return out;
+  return { points, lines };
 }
 
 export type LinePasteRemapResult = {
@@ -417,18 +436,19 @@ export function infraClipboardToCreatePayload(
     snap.properties && typeof snap.properties.description === 'string'
       ? snap.properties.description
       : undefined;
+  const path = linePathFromSnapshot(snap);
+  const lon = path?.[0]?.[0] ?? snap.lon;
+  const lat = path?.[0]?.[1] ?? snap.lat;
+  const endLon = path && path.length >= 2 ? path[path.length - 1]![0] : snap.end_lon;
+  const endLat = path && path.length >= 2 ? path[path.length - 1]![1] : snap.end_lat;
   return {
     name,
     subtype: snap.subtype,
-    lon: snap.lon,
-    lat: snap.lat,
+    lon,
+    lat,
     layer_id: snap.layer_id,
-    ...(snap.end_lon != null && snap.end_lat != null
-      ? { end_lon: snap.end_lon, end_lat: snap.end_lat }
-      : {}),
-    ...(snap.coordinates && snap.coordinates.length >= 2
-      ? { coordinates: snap.coordinates }
-      : {}),
+    ...(endLon != null && endLat != null ? { end_lon: endLon, end_lat: endLat } : {}),
+    ...(path && path.length >= 2 ? { coordinates: path } : {}),
     ...(snap.properties ? { properties: snap.properties } : {}),
     ...(desc ? { description: desc } : {}),
     ...(snapIds?.line_snap_start_object_id

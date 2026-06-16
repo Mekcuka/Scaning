@@ -1,8 +1,9 @@
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import type { InfraObject } from '../lib/api';
 import { padEarthworkApi } from '../lib/api/padEarthworkApi';
 import { wellTrajectoryApi, type WellTrajectoryLastResponse } from '../lib/api/wellTrajectoryApi';
+import { pywellgeoApi } from '../lib/api/pywellgeoApi';
 import {
   envelopeFromObject,
   readDemStatusFromProperties,
@@ -19,6 +20,12 @@ import {
   type PadClusteringPadDraft,
 } from '../lib/padClusteringCalcSettings';
 import {
+  pyWellGeoDraftEquals,
+  pyWellGeoDraftFromSources,
+  countTreeNodes,
+  type PadClusteringPyWellGeoDraft,
+} from '../lib/padClusteringPyWellGeoSettings';
+import {
   parseSketchFromLast,
   parseWellsLocalFromLast,
   planFromFormFields,
@@ -29,7 +36,15 @@ import {
 import { bottomholesLinkedToPad } from '../lib/wellBottomholeProperties';
 import { isPersistedLayoutStale } from '../lib/padClusteringLayoutSync';
 import { wellTrajectoryQueryKeys } from './useWellTrajectoryGeoJson';
-import { draftFromPad, parseHeightRef, parsePositive } from './padClusteringEditorUtils';
+import {
+  draftFromPad,
+  draftFromPadSources,
+  padClusteringDraftSourceKey,
+  padClusteringDraftsEqual,
+  parseHeightRef,
+  parsePositive,
+  resolvePadClusteringDraftSync,
+} from './padClusteringEditorUtils';
 import { usePadClusteringEditorMutations } from './usePadClusteringEditorMutations';
 import {
   isPadFormDraftDirty,
@@ -73,6 +88,12 @@ export function usePadClusteringEditor(
     enabled: Boolean(projectId && padId),
   });
 
+  const { data: pywellgeoLast, isLoading: pywellgeoLoading } = useQuery({
+    queryKey: ['pywellgeoLast', projectId, padId],
+    queryFn: () => pywellgeoApi.getLast(projectId!, padId!),
+    enabled: Boolean(projectId && padId),
+  });
+
   const savedSketch = useMemo(
     () => parseSketchFromLast(earthworkLast?.sketch ?? null),
     [earthworkLast?.sketch],
@@ -102,21 +123,66 @@ export function usePadClusteringEditor(
   const [draft, setDraft] = useState<PadClusteringPadDraft | null>(null);
   const [calcDraft, setCalcDraft] = useState<PadClusteringCalcDraft | null>(null);
   const [savedCalcDraft, setSavedCalcDraft] = useState<PadClusteringCalcDraft | null>(null);
+  const [geoDraft, setGeoDraft] = useState<PadClusteringPyWellGeoDraft | null>(null);
+  const [savedGeoDraft, setSavedGeoDraft] = useState<PadClusteringPyWellGeoDraft | null>(null);
   const [localWellsLocal, setLocalWellsLocal] = useState<PlanVertex[]>([]);
   const [localSketch, setLocalSketch] = useState<PlanShapeSketch | null>(null);
   const [sketchDirty, setSketchDirty] = useState(false);
+  const lastServerPadDraftRef = useRef<PadClusteringPadDraft | null>(null);
+  const lastPadIdRef = useRef<string | null>(null);
+  const sketchDirtyRef = useRef(false);
+  sketchDirtyRef.current = sketchDirty;
+
+  const savedPadDraft = useMemo(
+    () =>
+      pad
+        ? draftFromPadSources({
+            pad,
+            wellsCount: wellsLocal.length,
+            earthworkParams: earthworkLast?.params ?? null,
+            linkedBottomholes,
+          })
+        : null,
+    [pad, wellsLocal.length, earthworkLast?.params, linkedBottomholes],
+  );
+
+  const savedPadDraftKey = useMemo(
+    () => padClusteringDraftSourceKey(savedPadDraft),
+    [savedPadDraft],
+  );
 
   useEffect(() => {
     if (!pad) {
       setDraft(null);
       setCalcDraft(null);
       setSavedCalcDraft(null);
+      setGeoDraft(null);
+      setSavedGeoDraft(null);
       setLocalWellsLocal([]);
       setLocalSketch(null);
       setSketchDirty(false);
+      lastServerPadDraftRef.current = null;
+      lastPadIdRef.current = null;
       return;
     }
-    setDraft(draftFromPad(pad, wellsLocal.length));
+
+    const padChanged = lastPadIdRef.current !== pad.id;
+    lastPadIdRef.current = pad.id;
+    const serverDraft = savedPadDraft ?? draftFromPad(pad, wellsLocal.length);
+
+    setDraft((prev) => {
+      const next = resolvePadClusteringDraftSync(
+        prev,
+        serverDraft,
+        lastServerPadDraftRef.current,
+        padChanged,
+      );
+      if (padClusteringDraftsEqual(next, serverDraft)) {
+        lastServerPadDraftRef.current = serverDraft;
+      }
+      return next;
+    });
+
     const calc = calcDraftFromSources({
       properties: pad.properties as Record<string, unknown>,
       settings: trajectoryLast?.settings,
@@ -124,12 +190,41 @@ export function usePadClusteringEditor(
     });
     setCalcDraft(calc);
     setSavedCalcDraft(calc);
-    setLocalWellsLocal(wellsLocal);
-    setLocalSketch(null);
-    setSketchDirty(false);
-  }, [pad, wellsLocal, trajectoryLast?.settings, envelope]);
+    const geo = pyWellGeoDraftFromSources(pad.properties as Record<string, unknown>, pywellgeoLast ?? undefined);
+    setGeoDraft((prev) => {
+      if (!prev || padChanged) return geo;
+      const prevNodes = prev.trees.reduce((n, t) => n + countTreeNodes(t.tree), 0);
+      const geoNodes = geo.trees.reduce((n, t) => n + countTreeNodes(t.tree), 0);
+      if (prevNodes > geoNodes) return prev;
+      return geo;
+    });
+    setSavedGeoDraft(geo);
 
-  const activeDraft = draft ?? (pad ? draftFromPad(pad, wellsLocal.length) : null);
+    if (padChanged || !sketchDirtyRef.current) {
+      setLocalWellsLocal(wellsLocal);
+      if (padChanged) {
+        setLocalSketch(null);
+        setSketchDirty(false);
+      }
+    }
+  }, [
+    pad,
+    pad?.id,
+    savedPadDraft,
+    savedPadDraftKey,
+    wellsLocal,
+    trajectoryLast?.settings,
+    envelope,
+    pywellgeoLast,
+  ]);
+
+  const activeDraft = draft ?? savedPadDraft ?? (pad ? draftFromPad(pad, wellsLocal.length) : null);
+  const activeGeoDraft =
+    geoDraft ??
+    pyWellGeoDraftFromSources(
+      (pad?.properties as Record<string, unknown>) ?? null,
+      pywellgeoLast ?? undefined,
+    );
   const activeCalcDraft =
     calcDraft ??
     calcDraftFromSources({
@@ -141,11 +236,6 @@ export function usePadClusteringEditor(
   const layoutPreview = useMemo(
     () => (activeDraft ? tryLayoutPreviewFromWellForm(activeDraft) : null),
     [activeDraft],
-  );
-
-  const savedPadDraft = useMemo(
-    () => (pad ? draftFromPad(pad, wellsLocal.length) : null),
-    [pad, wellsLocal.length],
   );
 
   const isLayoutDraftDirty = useMemo(() => {
@@ -222,6 +312,8 @@ export function usePadClusteringEditor(
     void queryClient.invalidateQueries({ queryKey: ['padEarthworkLast', projectId, padId] });
     void queryClient.invalidateQueries({ queryKey: wellTrajectoryQueryKeys(projectId, padId).last });
     void queryClient.invalidateQueries({ queryKey: ['wellTrajectoryProjectGeoJson', projectId] });
+    void queryClient.refetchQueries({ queryKey: ['wellTrajectoryProjectGeoJson', projectId] });
+    void queryClient.invalidateQueries({ queryKey: ['pywellgeoLast', projectId, padId] });
     void queryClient.invalidateQueries({ queryKey: ['infra', projectId] });
   }, [projectId, padId, queryClient]);
 
@@ -235,6 +327,18 @@ export function usePadClusteringEditor(
     },
     [queryClient, trajectoryQk],
   );
+
+  const patchGeoDraft = useCallback((patch: Partial<PadClusteringPyWellGeoDraft>) => {
+    setGeoDraft((prev) => {
+      const base =
+        prev ??
+        pyWellGeoDraftFromSources(
+          (pad?.properties as Record<string, unknown>) ?? null,
+          pywellgeoLast ?? undefined,
+        );
+      return { ...base, ...patch };
+    });
+  }, [pad?.properties, pywellgeoLast]);
 
   const patchCalcDraft = useCallback((patch: Partial<PadClusteringCalcDraft>) => {
     setCalcDraft((prev) => {
@@ -253,11 +357,11 @@ export function usePadClusteringEditor(
     (patch: Partial<PadClusteringPadDraft>) => {
       setDraft((prev) => {
         if (!pad) return prev;
-        const base = prev ?? draftFromPad(pad, wellsLocal.length);
+        const base = prev ?? savedPadDraft ?? draftFromPad(pad, wellsLocal.length);
         return { ...base, ...patch };
       });
     },
-    [pad, wellsLocal.length],
+    [pad, wellsLocal.length, savedPadDraft],
   );
 
   const {
@@ -274,10 +378,12 @@ export function usePadClusteringEditor(
     pad,
     activeDraft,
     activeCalcDraft,
+    activeGeoDraft,
     wellsLocal,
     invalidateAll,
     patchTrajectoryLast,
     setSavedCalcDraft,
+    setSavedGeoDraft,
     setLocalSketch,
     setLocalWellsLocal,
     setSketchDirty,
@@ -309,6 +415,11 @@ export function usePadClusteringEditor(
     (Number.isFinite(referenceElevationM) ? referenceElevationM : 0) +
     (Number.isFinite(heightM) ? heightM : 0);
 
+  const isGeoDirty = useMemo(() => {
+    if (!savedGeoDraft) return false;
+    return !pyWellGeoDraftEquals(activeGeoDraft, savedGeoDraft);
+  }, [activeGeoDraft, savedGeoDraft]);
+
   const isCalcDirty = useMemo(() => {
     if (!savedCalcDraft) return false;
     return !calcDraftEquals(activeCalcDraft, savedCalcDraft);
@@ -319,8 +430,8 @@ export function usePadClusteringEditor(
     [pad, activeDraft, savedPadDraft],
   );
 
-  const isAnyDirty = isDraftDirty || isCalcDirty;
-  const isLoading = earthworkLoading || trajectoryLoading;
+  const isAnyDirty = isDraftDirty || isCalcDirty || isGeoDirty;
+  const isLoading = earthworkLoading || trajectoryLoading || pywellgeoLoading;
 
   return {
     pads,
@@ -328,6 +439,8 @@ export function usePadClusteringEditor(
     activeDraft,
     activeCalcDraft,
     patchCalcDraft,
+    activeGeoDraft,
+    patchGeoDraft,
     activeEnvelope,
     demSource,
     patchDraft,
@@ -349,6 +462,7 @@ export function usePadClusteringEditor(
     kbM,
     isDraftDirty,
     isCalcDirty,
+    isGeoDirty,
     isAnyDirty,
     isLoading,
     trajectoryComputedAt,

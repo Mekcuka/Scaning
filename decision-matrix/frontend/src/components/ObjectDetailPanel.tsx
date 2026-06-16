@@ -18,6 +18,7 @@ import type { ObjectDetailPanelProps } from './objectDetailPanel/types';
 import type { PointFootprintLineConnections } from '../lib/padFootprintLineAttach';
 import { useProjectFootprintConnectionTemplate } from '../hooks/useProjectFootprintConnectionTemplate';
 import { readBottomholeCopySources } from '../lib/wellBottomholeElevation';
+import { bottomholeFormFieldsToProperties } from './objectDetailPanel/bottomholeFormFields';
 
 export function ObjectDetailPanel({
   selection,
@@ -149,33 +150,23 @@ export function ObjectDetailPanel({
                 setZHeel={panel.setZHeel}
                 zToe={panel.zToe}
                 setZToe={panel.setZToe}
-                onBottomholePropsChange={(patch) =>
-                  panel.setBottomholePropsPatch((prev) => ({ ...prev, ...patch }))
-                }
+                onBottomholeFieldsChange={panel.patchBottomholeFields}
+                bottomholeFields={panel.bottomholeFields}
                 bottomholeCopySources={
                   panel.infraObject
                     ? readBottomholeCopySources(
                         panel.infraObject,
                         panel.linkedBottomholePad,
-                        panel.bottomholePropsPatch,
+                        bottomholeFormFieldsToProperties(panel.bottomholeFields),
                       )
                     : undefined
                 }
                 bottomholeProjectId={panel.mapProjectId}
-                bottomholeObject={
-                  panel.infraObject
-                    ? {
-                        ...panel.infraObject,
-                        properties: {
-                          ...(panel.infraObject.properties ?? {}),
-                          ...panel.bottomholePropsPatch,
-                        },
-                      }
-                    : null
-                }
+                bottomholeObject={panel.infraObject}
                 bottomholePadOptions={infraObjects.filter(
                   (o) => o.subtype === 'oil_pad' || o.subtype === 'gas_pad',
                 )}
+                bottomholeInfraObjects={infraObjects}
                 copyCoordinatesText={panel.copyCoordinatesText}
                 lineLengthLabel={panel.lineLengthLabel}
                 lineCoords={panel.lineCoords}

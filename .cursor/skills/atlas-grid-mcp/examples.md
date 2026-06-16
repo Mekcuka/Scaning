@@ -44,14 +44,25 @@
 
 **Agent:**
 1. Tell user token expired
-2. Run `.\scripts\get-atlas-grid-token.ps1` (or with `-McpUrl` for local)
+2. Run `.\scripts\get-atlas-grid-token.ps1` (for local API add `-ApiUrl` and `-McpUrl`)
 3. Ask user to reload MCP in Cursor Settings
 4. Retry the original tool call
 
 ---
 
-## Example 5: Architecture question (no MCP)
+## Example 5: Dev MCP failure (`atlas-grid-dev`)
+
+**Log:** `ModuleNotFoundError: No module named 'app'`
+
+**Agent:**
+1. Explain: Cursor may ignore `cwd` for stdio MCP on Windows
+2. Ensure `.cursor/mcp.json` has `env.PYTHONPATH` → `decision-matrix/backend` (re-run `get-atlas-grid-token.ps1`)
+3. Reload MCP in Cursor Settings
+
+---
+
+## Example 6: Architecture question (no MCP)
 
 **User:** «Как устроен RBAC для assistant tools?»
 
-**Agent:** Read `docs/features/assistant-tools.md` and source under `decision-matrix/backend/app/assistant/` — **not** MCP.
+**Agent:** Read `docs/features/assistant/assistant-tools.md` and source under `decision-matrix/backend/app/assistant/` — **not** MCP.

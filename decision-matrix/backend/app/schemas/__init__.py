@@ -2,7 +2,7 @@ from datetime import date, datetime
 from uuid import UUID
 
 import re
-from typing import Literal
+from typing import Any, Literal
 
 from pydantic import BaseModel, EmailStr, Field, field_validator, model_validator
 
@@ -594,7 +594,7 @@ class MapBatchPasteRequest(BaseModel):
 
 class MapBatchPasteResponse(BaseModel):
     created_pois: list[POIResponse] = Field(default_factory=list)
-    created_infra: list[InfraObjectResponse] = Field(default_factory=list)
+    created_infra: list[dict[str, Any]] = Field(default_factory=list)
     network_rebuilt: bool = False
 
 

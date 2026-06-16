@@ -49,7 +49,12 @@ export function useMapPageBottomholeDraw(
     pushToast,
     onCreated: () => {
       void queryClient.invalidateQueries({ queryKey: ['wellTrajectoryProjectGeoJson', projectId] });
-      if (edit.drawMode === 'bottomhole_nnb' || edit.drawMode === 'bottomhole_gs') {
+      if (
+        edit.drawMode === 'bottomhole_nnb' ||
+        edit.drawMode === 'bottomhole_gs' ||
+        edit.drawMode === 'bottomhole_lateral_nnb' ||
+        edit.drawMode === 'bottomhole_lateral_gs'
+      ) {
         edit.setDrawMode('select');
       }
     },

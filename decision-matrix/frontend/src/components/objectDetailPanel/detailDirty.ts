@@ -24,6 +24,7 @@ import {
   type PointFootprintLineConnections,
 } from '../../lib/padFootprintLineAttach';
 import { isEarthworkEligibleSubtype } from '../../lib/infraPadEarthwork';
+import { bottomholeFormFieldsDirty } from './bottomholeFormFields';
 
 export type InfraDirtyDraft = {
   name: string;
@@ -56,7 +57,7 @@ export type InfraDirtyDraft = {
   padMarginTopM: string;
   padMarginEndM: string;
   pointFootprintLineConnections: PointFootprintLineConnections;
-  bottomholePropsPatch: Record<string, unknown>;
+  bottomholeFields: BottomholeFormFields;
 };
 
 function sandFieldsDirty(
@@ -130,8 +131,9 @@ export function computeInfraIsDirty(
       draft.pointFootprintLineConnections,
       readPointFootprintLineConnections(infraObject.properties),
     );
-  const bottomholeDirty = Object.entries(draft.bottomholePropsPatch).some(
-    ([key, value]) => (infraObject.properties?.[key] ?? undefined) !== value,
+  const bottomholeDirty = bottomholeFormFieldsDirty(
+    infraObject.properties,
+    draft.bottomholeFields,
   );
   const gsEndDirty =
     infraObject.subtype === 'well_bottomhole_gs' &&
@@ -186,9 +188,7 @@ export function computeInfraTabDirty(
         draft.pointFootprintLineConnections,
         readPointFootprintLineConnections(infraObject.properties),
       )) ||
-    Object.entries(draft.bottomholePropsPatch).some(
-      ([key, value]) => (infraObject.properties?.[key] ?? undefined) !== value,
-    ) ||
+    bottomholeFormFieldsDirty(infraObject.properties, draft.bottomholeFields) ||
     (infraObject.subtype === 'well_bottomhole_gs' &&
       (draft.endLon !== (infraObject.end_lon != null ? formatCoord(infraObject.end_lon) : '') ||
         draft.endLat !== (infraObject.end_lat != null ? formatCoord(infraObject.end_lat) : '')));

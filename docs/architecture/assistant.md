@@ -3,7 +3,7 @@
 **Дата:** июнь 2026  
 **Для кого:** backend- и frontend-разработчики, интеграторы MCP  
 **Код:** [`decision-matrix/backend/app/assistant/`](../../decision-matrix/backend/app/assistant/)  
-**Связанные документы:** [assistant-tools.md](../features/assistant-tools.md), [auth-rbac.md](auth-rbac.md), [architecture.md](architecture.md)
+**Связанные документы:** [assistant-tools.md](../features/assistant/assistant-tools.md), [auth-rbac.md](auth-rbac.md), [architecture.md](architecture.md)
 
 ---
 
@@ -147,7 +147,7 @@ React ──► api/v1/projects.py ──► services/project_access.py
 Chat  ──► assistant/tools/domain/projects.py ──► services/project_access.py
 ```
 
-Подробный каталог tools и REST-аналоги — [assistant-tools.md](../features/assistant-tools.md).
+Подробный каталог tools и REST-аналоги — [assistant-tools.md](../features/assistant/assistant-tools.md).
 
 ---
 
@@ -172,7 +172,7 @@ pytest tests/test_assistant_tools.py tests/test_assistant_mcp_http.py tests/test
 2. `register_tool(ToolDefinition(...))` в `register()` модуля.
 3. Вызов модуля из [`tools/__init__.py`](../../decision-matrix/backend/app/assistant/tools/__init__.py) → `register_all_tools()`.
 4. Тест в `tests/test_assistant_tools.py`.
-5. Обновить [assistant-tools.md](../features/assistant-tools.md).
+5. Обновить [assistant-tools.md](../features/assistant/assistant-tools.md).
 
 ---
 
@@ -215,7 +215,7 @@ sequenceDiagram
 
 **CORS:** заголовки `Mcp-Session-Id`, `MCP-Protocol-Version` добавлены в `allow_headers`.
 
-**Cursor (prod):** `scripts/get-atlas-grid-token.ps1` → `.cursor/mcp.json` (gitignored); rule `.cursor/rules/atlas-grid-mcp.mdc`. См. [assistant-tools.md §9](../features/assistant-tools.md).
+**Cursor (prod):** `scripts/get-atlas-grid-token.ps1` → `.cursor/mcp.json` (gitignored); rule `.cursor/rules/atlas-grid-mcp.mdc`. См. [assistant-tools.md §9](../features/assistant/assistant-tools.md).
 
 Подробнее: [`transport/README.md`](../../decision-matrix/backend/app/assistant/transport/README.md).
 
@@ -262,7 +262,7 @@ sequenceDiagram
 
 **UI:** [`AssistantPanel.tsx`](../../decision-matrix/frontend/src/components/assistant/AssistantPanel.tsx) в header [`AppLayout.tsx`](../../decision-matrix/frontend/src/components/layout/AppLayout.tsx).
 
-Подробнее: [`chat/README.md`](../../decision-matrix/backend/app/assistant/chat/README.md), [assistant-tools.md §10](../features/assistant-tools.md).
+Подробнее: [`chat/README.md`](../../decision-matrix/backend/app/assistant/chat/README.md), [assistant-tools.md §10](../features/assistant/assistant-tools.md).
 
 ---
 
@@ -292,11 +292,11 @@ sequenceDiagram
 
 **Domain data** — по умолчанию HTTP **`atlas-grid`** (`/api/v1/mcp/`). Опционально (фаза 9.6): read-only domain tools в stdio при `ASSISTANT_DEV_MCP_DOMAIN_TOOLS=true` (mutating не экспортируются).
 
-**Setup:** `.\scripts\get-atlas-grid-token.ps1 -IncludeDevMcp` или [`.cursor/mcp.json.example`](../../.cursor/mcp.json.example).
+**Setup:** `.\scripts\get-atlas-grid-token.ps1` (по умолчанию HTTP + dev stdio) или [`.cursor/mcp.json.example`](../../.cursor/mcp.json.example). В `env` для stdio задайте `PYTHONPATH=<repo>/decision-matrix/backend` — Cursor на Windows может не применять `cwd`.
 
 **Prod VM:** dev MCP **не деплоится** (stdio только на ПК разработчика).
 
-Подробнее: [`dev/README.md`](../../decision-matrix/backend/app/assistant/dev/README.md), [assistant-tools.md §11](../features/assistant-tools.md).
+Подробнее: [`dev/README.md`](../../decision-matrix/backend/app/assistant/dev/README.md), [assistant-tools.md §11](../features/assistant/assistant-tools.md).
 
 ---
 
@@ -312,7 +312,7 @@ sequenceDiagram
 
 **Чат UX:** быстрые chips, лог `tool_calls_made`, «Очистить чат», русские labels ([`tool_labels.py`](../../decision-matrix/backend/app/assistant/chat/tool_labels.py)).
 
-Подробнее: [assistant-tools.md §12](../features/assistant-tools.md).
+Подробнее: [assistant-tools.md §12](../features/assistant/assistant-tools.md).
 
 ---
 
@@ -322,7 +322,7 @@ sequenceDiagram
 
 Модули: `session.py`, `graph.py`, `one_pagers.py`, `imports.py`, `map3d.py`, `admin.py` + расширения `projects.py`, `map.py`, `analysis.py`.
 
-Подробнее: [assistant-tools.md §13](../features/assistant-tools.md).
+Подробнее: [assistant-tools.md §13](../features/assistant/assistant-tools.md).
 
 ---
 
@@ -407,7 +407,7 @@ chat/formatters/
 
 **Вне scope:** полный proxy всех REST write endpoints; SSE (фаза 8).
 
-Подробнее: [assistant-tools.md §8](../features/assistant-tools.md).
+Подробнее: [assistant-tools.md §8](../features/assistant/assistant-tools.md).
 
 ---
 
@@ -429,4 +429,4 @@ chat/formatters/
 | 10.2 | Wiki RAG | [`knowledge/rag.py`](../../decision-matrix/backend/app/assistant/knowledge/rag.py) | ✅ hybrid keyword + TF-IDF/embeddings |
 | — | Админ-редактор wiki в БД | — | вне scope |
 
-Подробнее: [assistant-tools.md §15](../features/assistant-tools.md).
+Подробнее: [assistant-tools.md §15](../features/assistant/assistant-tools.md).

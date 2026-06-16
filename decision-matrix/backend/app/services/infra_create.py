@@ -67,7 +67,7 @@ async def create_infra_object_record(
 
     if is_bottomhole_subtype(subtype):
         props = apply_bottomhole_defaults(subtype, props)
-        await validate_bottomhole_object(
+        props = await validate_bottomhole_object(
             db,
             project_id=project_id,
             subtype=subtype,

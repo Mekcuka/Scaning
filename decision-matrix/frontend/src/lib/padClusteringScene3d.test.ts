@@ -7,6 +7,7 @@ import {
   buildBottomholeMarkersFromInfra,
   buildGsBottomholeConnectorLines,
   buildWellheadMarkers,
+  collectBottomholeLabelAnchors,
   kbFromPad,
   lonLatToLocalEnu,
   stationToScenePoint,
@@ -184,5 +185,38 @@ describe('padClusteringScene3d', () => {
     ];
     const moved = [{ ...base[0]!, lon: 60.001 }];
     expect(bottomholesSceneRevision(base)).not.toBe(bottomholesSceneRevision(moved));
+  });
+
+  it('collectBottomholeLabelAnchors emits NNB and GS heel/toe labels from infra', () => {
+    const bottomholes: InfraObject[] = [
+      {
+        id: 'nnb-1',
+        project_id: 'p',
+        name: 'Скв. 1',
+        subtype: 'well_bottomhole_nnb',
+        lon: 60.001,
+        lat: 55,
+        properties: { [WELL_BOTTOMHOLE_TVD_M]: 2500 },
+      },
+      {
+        id: 'gs-1',
+        project_id: 'p',
+        name: 'ГС-2',
+        subtype: 'well_bottomhole_gs',
+        lon: 60,
+        lat: 55,
+        end_lon: 60.002,
+        end_lat: 55.001,
+        properties: {
+          [WELL_BOTTOMHOLE_TVD_M]: 2400,
+          well_bottomhole_toe_tvd_m: 2450,
+        },
+      },
+    ];
+    const anchors = collectBottomholeLabelAnchors(bottomholes, [], 60, 55);
+    expect(anchors).toHaveLength(3);
+    expect(anchors[0]).toMatchObject({ id: 'nnb-1', label: 'Скв. 1', tvdM: 2500 });
+    expect(anchors[1]).toMatchObject({ id: 'gs-1:heel', label: 'ГС-2 · Т1', gsRole: 'heel' });
+    expect(anchors[2]).toMatchObject({ id: 'gs-1:toe', label: 'ГС-2 · Т3', gsRole: 'toe', tvdM: 2450 });
   });
 });

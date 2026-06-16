@@ -1,3 +1,5 @@
+export const PAD_PLACEMENT_MAX_WELLS = 20;
+
 export type PadPlacementParams = {
   max_wells_per_pad?: number;
   well_spacing_m?: number;

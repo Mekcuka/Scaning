@@ -17,7 +17,7 @@ React AssistantPanel
 
 `POST /assistant/chat` остаётся для совместимости и тестов (цельный `ChatResponse`).
 
-Mutating tools (8 шт., см. [assistant-tools.md §8](../../../../docs/features/assistant-tools.md)) не выполняются сразу — API возвращает `pending_action` с `action_id`; подтверждение через `confirm_action_id` в следующем запросе. HTTP MCP для mutating возвращает `confirm_required`.
+Mutating tools (8 шт., см. [assistant-tools.md §8](../../../../docs/features/assistant/assistant-tools.md)) не выполняются сразу — API возвращает `pending_action` с `action_id`; подтверждение через `confirm_action_id` в следующем запросе. HTTP MCP для mutating возвращает `confirm_required`.
 
 ## UI-контекст (`ChatRequest`, фаза 8.3)
 
@@ -60,7 +60,7 @@ Frontend: [`assistantContext.ts`](../../../../frontend/src/lib/assistant/assista
 
 `ChatResponse.answer_source`: `formatter` | `tool_error` | `llm`. Список покрытых tools: `GET /assistant/status` → `formatter_tools`.
 
-Подробнее: [`formatters/README.md`](formatters/README.md), [assistant-tools.md §10](../../../../docs/features/assistant-tools.md).
+Подробнее: [`formatters/README.md`](formatters/README.md), [assistant-tools.md §10](../../../../docs/features/assistant/assistant-tools.md).
 
 Тесты: `test_assistant_tool_router.py`, `test_assistant_response_formatters.py`, интеграция в `test_assistant_chat.py`.
 

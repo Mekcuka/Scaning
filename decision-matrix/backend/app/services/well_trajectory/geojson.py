@@ -16,6 +16,7 @@ from app.services.pad_earthwork.properties import (
 )
 from app.services.well_trajectory.coord_transform import local_to_lonlat, lonlat_to_local
 from app.services.well_trajectory.settings_store import well_trajectory_settings_for_pad
+from app.services.well_trajectory.pywellgeo_store import read_trees_json
 from app.services.well_trajectory.trajectory_store import read_clearance_computed_at, read_trajectories_json
 
 
@@ -62,6 +63,192 @@ def _target_plan_coords(well: dict[str, Any]) -> tuple[float, float] | None:
     return None  # lon/lat stored; caller uses anchor conversion if plan missing
 
 
+def _node_xyz(node: dict[str, Any]) -> tuple[float, float, float]:
+    return float(node.get("x", 0)), float(node.get("y", 0)), float(node.get("z", 0))
+
+
+def _node_enu(node: dict[str, Any]) -> tuple[float, float, float]:
+    """PyWellGeo node → east, north, TVD (m)."""
+    x, y, z = _node_xyz(node)
+    return x, y, -z
+
+
+def _collect_main_bore_enu(root: dict[str, Any]) -> list[tuple[float, float, float]]:
+    """First-child chain with name main (matches pywellgeo collect_main_bore_xyz)."""
+    points = [_node_enu(root)]
+    node = root
+    while True:
+        branches = node.get("branches") or []
+        if not branches or not isinstance(branches[0], dict):
+            break
+        child = branches[0]
+        child_name = str(child.get("name") or "main")
+        node_name = str(node.get("name") or "main")
+        if child_name not in ("main", node_name):
+            break
+        points.append(_node_enu(child))
+        node = child
+    return points
+
+
+def _collect_lateral_branch_enu(branch_root: dict[str, Any]) -> list[tuple[float, float, float]]:
+    """Lateral polyline without repeating the main-bore parent (kick-off only once on main)."""
+    points = [_node_enu(branch_root)]
+    node = branch_root
+    while True:
+        branches = node.get("branches") or []
+        if not branches or not isinstance(branches[0], dict):
+            break
+        child = branches[0]
+        points.append(_node_enu(child))
+        node = child
+    return points
+
+
+def _collect_lateral_polylines_enu(
+    root: dict[str, Any],
+) -> list[tuple[str, str, list[tuple[float, float, float]]]]:
+    """Named laterals excluding main-bore continuation; branch_id is unique tree path."""
+    laterals: list[tuple[str, str, list[tuple[float, float, float]]]] = []
+
+    def visit(node: dict[str, Any], path: tuple[int, ...]) -> None:
+        branches = node.get("branches") or []
+        for idx, branch in enumerate(branches):
+            if not isinstance(branch, dict):
+                continue
+            branch_name = str(branch.get("name") or "main")
+            node_name = str(node.get("name") or "main")
+            child_path = (*path, idx)
+            if idx == 0 and branch_name in ("main", node_name):
+                visit(branch, child_path)
+                continue
+            branch_id = ".".join(str(i) for i in child_path)
+            laterals.append((branch_id, branch_name, _collect_lateral_branch_enu(branch)))
+            visit(branch, child_path)
+
+    visit(root, ())
+    return laterals
+
+
+def _enu_polyline_to_plan_coords(
+    points: list[tuple[float, float, float]],
+    *,
+    anchor_lon: float,
+    anchor_lat: float,
+) -> list[list[float]]:
+    out: list[list[float]] = []
+    for east_m, north_m, _tvd_m in points:
+        lon, lat = local_to_lonlat(anchor_lon, anchor_lat, east_m, north_m)
+        out.append([lon, lat])
+    return out
+
+
+def _enu_polyline_to_line_coords(
+    points: list[tuple[float, float, float]],
+    *,
+    anchor_lon: float,
+    anchor_lat: float,
+    kb_m: float,
+) -> list[list[float]]:
+    out: list[list[float]] = []
+    for east_m, north_m, tvd_m in points:
+        lon, lat, z = _station_lonlat(
+            anchor_lon=anchor_lon,
+            anchor_lat=anchor_lat,
+            east_m=east_m,
+            north_m=north_m,
+            kb_m=kb_m,
+            tvd_m=tvd_m,
+        )
+        out.append([lon, lat, z])
+    return out
+
+
+def _pywellgeo_trees_by_well_index(props: dict[str, Any]) -> dict[int, dict[str, Any]]:
+    out: dict[int, dict[str, Any]] = {}
+    for record in read_trees_json(props):
+        if not isinstance(record, dict):
+            continue
+        tree = record.get("tree")
+        if not isinstance(tree, dict):
+            continue
+        out[int(record.get("well_index", 0))] = record
+    return out
+
+
+def _append_pywellgeo_map_features(
+    features: list[dict[str, Any]],
+    *,
+    obj: InfrastructureObject,
+    anchor_lon: float,
+    anchor_lat: float,
+    kb_m: float,
+) -> None:
+    """Main bore + named laterals from pad_pywellgeo_trees_json (no overlap with welleng survey)."""
+    for well_index, record in _pywellgeo_trees_by_well_index(obj.properties or {}).items():
+        tree = record["tree"]
+        name = record.get("name") or f"Скв-{well_index + 1}"
+
+        main_pts = _collect_main_bore_enu(tree)
+        if len(main_pts) >= 2:
+            plan_coords = _enu_polyline_to_plan_coords(
+                main_pts, anchor_lon=anchor_lon, anchor_lat=anchor_lat
+            )
+            line_coords = _enu_polyline_to_line_coords(
+                main_pts, anchor_lon=anchor_lon, anchor_lat=anchor_lat, kb_m=kb_m
+            )
+            features.append(
+                {
+                    "type": "Feature",
+                    "properties": {
+                        "kind": "trajectory_plan",
+                        "well_index": well_index,
+                        "name": name,
+                        "infra_object_id": str(obj.id),
+                        "pad_name": obj.name,
+                        "source": "pywellgeo_main",
+                    },
+                    "geometry": {"type": "LineString", "coordinates": plan_coords},
+                }
+            )
+            features.append(
+                {
+                    "type": "Feature",
+                    "properties": {
+                        "kind": "trajectory",
+                        "well_index": well_index,
+                        "name": name,
+                        "infra_object_id": str(obj.id),
+                        "pad_name": obj.name,
+                        "source": "pywellgeo_main",
+                    },
+                    "geometry": {"type": "LineString", "coordinates": line_coords},
+                }
+            )
+
+        for branch_id, branch_name, lateral_pts in _collect_lateral_polylines_enu(tree):
+            if len(lateral_pts) < 2:
+                continue
+            line_coords = _enu_polyline_to_line_coords(
+                lateral_pts, anchor_lon=anchor_lon, anchor_lat=anchor_lat, kb_m=kb_m
+            )
+            features.append(
+                {
+                    "type": "Feature",
+                    "properties": {
+                        "kind": "pywellgeo_branch",
+                        "well_index": well_index,
+                        "name": name,
+                        "branch_name": branch_name,
+                        "branch_id": branch_id,
+                        "infra_object_id": str(obj.id),
+                        "pad_name": obj.name,
+                    },
+                    "geometry": {"type": "LineString", "coordinates": line_coords},
+                }
+            )
+
+
 def build_pad_geojson(obj: InfrastructureObject) -> dict[str, Any]:
     props = obj.properties or {}
     trajectories = read_trajectories_json(props)
@@ -69,16 +256,20 @@ def build_pad_geojson(obj: InfrastructureObject) -> dict[str, Any]:
     anchor_lat = float(obj.latitude)
     kb = _kb_m(props)
     features: list[dict[str, Any]] = []
+    pywellgeo_by_well = _pywellgeo_trees_by_well_index(props)
 
     for well in trajectories:
         if not isinstance(well, dict):
             continue
-        well_index = well.get("well_index", 0)
-        name = well.get("name") or f"Скв-{int(well_index) + 1}"
+        well_index = int(well.get("well_index", 0))
+        has_pywellgeo = well_index in pywellgeo_by_well
+        name = well.get("name") or f"Скв-{well_index + 1}"
         survey = well.get("survey") or {}
         stations = survey.get("stations") or []
         if not isinstance(stations, list):
             stations = []
+        survey_source = survey.get("source") if isinstance(survey, dict) else None
+        map_survey = survey_source in ("calculated", "imported")
 
         plan_coords: list[list[float]] = []
         line_coords: list[list[float]] = []
@@ -102,7 +293,7 @@ def build_pad_geojson(obj: InfrastructureObject) -> dict[str, Any]:
             plan_coords.append([lon, lat])
             line_coords.append([lon, lat, z])
 
-        if len(line_coords) >= 2:
+        if len(line_coords) >= 2 and not has_pywellgeo and map_survey:
             clearance = well.get("clearance") if isinstance(well.get("clearance"), dict) else {}
             min_sf = clearance.get("min_sf")
             traj_props: dict[str, Any] = {
@@ -126,7 +317,7 @@ def build_pad_geojson(obj: InfrastructureObject) -> dict[str, Any]:
                     "geometry": {"type": "LineString", "coordinates": line_coords},
                 }
             )
-        if len(plan_coords) >= 2:
+        if len(plan_coords) >= 2 and not has_pywellgeo and map_survey:
             features.append(
                 {
                     "type": "Feature",
@@ -227,6 +418,14 @@ def build_pad_geojson(obj: InfrastructureObject) -> dict[str, Any]:
                             },
                         }
                     )
+
+    _append_pywellgeo_map_features(
+        features,
+        obj=obj,
+        anchor_lon=anchor_lon,
+        anchor_lat=anchor_lat,
+        kb_m=kb,
+    )
 
     return {"type": "FeatureCollection", "features": features}
 

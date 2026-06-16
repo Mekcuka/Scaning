@@ -1,0 +1,56 @@
+---
+description: Перед деплоем — прогон CI-проверок локально и ожидание зелёного CI на GitHub
+alwaysApply: true
+---
+
+# CI перед деплоем
+
+**Не пушить в `main` и не считать деплой успешным**, пока не пройдены проверки CI (`.github/workflows/ci.yml`).
+
+## Когда применять
+
+- Пользователь просит **деплой**, **push в `scaning/main`** или «выложить на прод»
+- Перед коммитом, если явно идёт подготовка к релизу/деплою
+
+## Обязательный порядок
+
+1. **Локально** — минимум те же шаги, что в CI (исправить падения до push):
+
+```powershell
+# Frontend
+cd decision-matrix/frontend
+npm run lint
+npm run test
+npm run test:coverage
+
+# Backend (venv: decision-matrix/backend/venv)
+cd decision-matrix/backend
+pytest tests/ -q
+```
+
+2. **Push** — только после зелёных локальных проверок (или осознанного пропуска с согласия пользователя).
+
+3. **GitHub CI** — после push дождаться завершения workflow **CI** на `Mekcuka/Scaning`:
+
+```powershell
+gh run list --repo Mekcuka/Scaning --limit 3
+gh run watch <run-id> --repo Mekcuka/Scaning --exit-status
+```
+
+4. **Деплой** — Pages и VM запускаются после push/`workflow_run`; сообщай об успехе деплоя **только если CI зелёный**. При падении CI — чини тесты, новый push, снова жди CI.
+
+## E2E
+
+Полный Playwright-прогон (`npm run test:e2e`) в CI требует поднятый API — локально опционально. Если менялись маршруты, E2E или карта — по возможности прогони E2E локально или убедись, что job **E2E (Playwright)** прошёл на GitHub.
+
+## Инструменты
+
+- Backend pytest из репозитория: **`atlas-grid-dev`** → `run_pytest_tool`
+- Не заменяй CI локальным «lint одного файла» перед деплоем — нужен полный прогон frontend + backend
+
+## Чеклист перед push
+
+- [ ] `npm run lint` и `npm run test` (frontend)
+- [ ] `pytest tests/ -q` (backend)
+- [ ] Нет незакоммиченных правок, которые ломают CI
+- [ ] После push — CI на GitHub **success**

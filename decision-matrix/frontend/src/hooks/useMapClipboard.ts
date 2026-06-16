@@ -11,6 +11,8 @@ import {
   clipboardPreviewAt,
   executeMapBatchPaste,
   type MapClipboardItem,
+  type MapClipboardPreviewLine,
+  type MapClipboardPreviewPoint,
   type MapPasteProgressUpdate,
 } from '../lib/mapClipboard';
 import { mergeInfraPropertiesForSave } from '../lib/mergeInfraPropertiesForSave';
@@ -273,10 +275,15 @@ export function useMapClipboard({
     requestDeleteSelection();
   }, [copyMapSelection, requestDeleteSelection]);
 
-  const clipboardPreviewPoints = useMemo(() => {
-    if (!pasteMode || !mapClipboard?.length || !cursor) return [];
+  const clipboardPreview = useMemo(() => {
+    if (!pasteMode || !mapClipboard?.length || !cursor) {
+      return { points: [] as MapClipboardPreviewPoint[], lines: [] as MapClipboardPreviewLine[] };
+    }
     return clipboardPreviewAt(mapClipboard, cursor.lon, cursor.lat);
   }, [pasteMode, mapClipboard, cursor]);
+
+  const clipboardPreviewPoints = clipboardPreview.points;
+  const clipboardPreviewLines = clipboardPreview.lines;
 
   const hasMapSelection = getActiveMapSelections().length > 0;
   const canCopyMapSelection =
@@ -290,6 +297,7 @@ export function useMapClipboard({
     executePaste,
     cutMapSelection,
     clipboardPreviewPoints,
+    clipboardPreviewLines,
     canCopyMapSelection,
     canPasteMapClipboard,
     canCutMapSelection,

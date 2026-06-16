@@ -3,6 +3,7 @@ import Point from 'ol/geom/Point';
 import LineString from 'ol/geom/LineString';
 import { transform } from 'ol/proj';
 import { lineCoordsFromGeometry } from '../geometry';
+import { resolveInfraMapFeatureSelection } from '../featureSelection';
 import type { MapFeatureSelection } from '../types';
 
 export function readFeatureGeometry(
@@ -11,10 +12,15 @@ export function readFeatureGeometry(
   const members = f.get('features') as Feature[] | undefined;
   const inner = members?.length === 1 ? members[0] : f;
   const kind = inner.get('featureKind') as string;
-  const id = inner.get('id') as string;
-  if (!id || !kind) return null;
+  const featureId = inner.get('id') as string;
+  if (!featureId || !kind) return null;
   const sel: MapFeatureSelection =
-    kind === 'poi' ? { kind: 'poi', id } : { kind: 'infra', id };
+    kind === 'poi'
+      ? { kind: 'poi', id: featureId }
+      : resolveInfraMapFeatureSelection(
+          featureId,
+          inner.get('infra_object_id') as string | undefined,
+        );
   const geom = f.getGeometry();
   if (geom instanceof Point) {
     const [lon, lat] = transform(geom.getCoordinates(), 'EPSG:3857', 'EPSG:4326');

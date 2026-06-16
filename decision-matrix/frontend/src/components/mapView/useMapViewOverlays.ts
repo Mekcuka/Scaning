@@ -31,6 +31,7 @@ export function useMapViewOverlays(
     placementPreview = null,
     placementPreviewPoints = [],
     clipboardPreviewPoints = [],
+    clipboardPreviewLines = [],
     mapFocus = null,
     footprintEdgeHighlight = null,
     infraObjects = [],
@@ -52,6 +53,7 @@ export function useMapViewOverlays(
     | 'placementPreview'
     | 'placementPreviewPoints'
     | 'clipboardPreviewPoints'
+    | 'clipboardPreviewLines'
     | 'mapFocus'
     | 'footprintEdgeHighlight'
     | 'infraObjects'
@@ -160,6 +162,21 @@ export function useMapViewOverlays(
         }),
       );
     });
+
+    clipboardPreviewLines.forEach((pl, i) => {
+      if (pl.coordinates.length < 2) return;
+      lines.addFeature(
+        new Feature({
+          geometry: new LineString(pl.coordinates.map((c) => fromLonLat([c[0], c[1]]))),
+          subtype:
+            pl.subtype === 'well_bottomhole_gs'
+              ? 'gs-bottomhole-connector-preview'
+              : 'clipboard-preview-line',
+          id: `clipboard-preview-line-${i}`,
+          clipboardPreview: true,
+        }),
+      );
+    });
   }, [
     draftLine,
     draftLinePreview,
@@ -168,6 +185,7 @@ export function useMapViewOverlays(
     measureCompletedLines,
     autoroadPlanPreviewLines,
     gsBottomholePreviewLines,
+    clipboardPreviewLines,
   ]);
 
   useEffect(() => {

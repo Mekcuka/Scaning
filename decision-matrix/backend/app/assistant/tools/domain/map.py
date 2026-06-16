@@ -19,7 +19,7 @@ from app.schemas import InfraObjectUpdate, LayerResponse
 from app.models.enums import AccessLevel, WriteScope
 from app.services.infra_update import update_infra_object_record
 from app.services.project_access import resolve_project
-from app.services.serializers import infra_to_response
+from app.services.serializers import infra_to_public_json
 
 
 class ProjectIdInput(BaseModel):
@@ -97,7 +97,7 @@ async def _list_infra_objects(ctx: ToolContext, args: ListInfraObjectsInput) -> 
         except ValueError as e:
             raise ToolError("validation", "Invalid bbox format") from e
     result = await ctx.db.execute(qry)
-    return [infra_to_response(obj).model_dump(mode="json") for obj in result.scalars().all()]
+    return [infra_to_public_json(obj) for obj in result.scalars().all()]
 
 
 async def _update_infra_object(ctx: ToolContext, args: UpdateInfraObjectInput) -> dict:
@@ -124,7 +124,7 @@ async def _update_infra_object(ctx: ToolContext, args: UpdateInfraObjectInput) -
         raise ToolError("validation", str(e)) from e
     await ctx.db.commit()
     await ctx.db.refresh(obj)
-    return infra_to_response(obj).model_dump(mode="json")
+    return infra_to_public_json(obj)
 
 
 def register() -> None:

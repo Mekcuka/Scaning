@@ -27,6 +27,7 @@ export const padPlacementApi = {
     }>(`/projects/${projectId}/pad-placement/request`, {
       method: 'POST',
       body: JSON.stringify(body),
+      timeoutMs: PAD_PLACEMENT_TIMEOUT_MS,
     }),
 
   compute: (projectId: string, body: PadPlacementComputeRequest, opts?: { async?: boolean }) =>

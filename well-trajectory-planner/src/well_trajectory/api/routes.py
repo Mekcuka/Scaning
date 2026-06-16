@@ -22,9 +22,11 @@ from well_trajectory.schemas import (
     SurveyInterpolateRequest,
     SurveyInterpolateResponse,
 )
+from well_trajectory.pywellgeo_routes import router as pywellgeo_router
 from well_trajectory.survey import interpolate_survey
 
 router = APIRouter()
+router.include_router(pywellgeo_router)
 
 
 @router.get("/health")

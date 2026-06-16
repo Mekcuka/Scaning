@@ -120,6 +120,193 @@ def test_batch_paste_gas_pad_target_subtype(client):
     assert body["created_infra"][0]["subtype"] == "gas_pad"
 
 
+def test_batch_paste_pad_with_linked_bottomholes(client):
+    from uuid import uuid4
+
+    pad_ref = str(uuid4())
+    well1_ref = str(uuid4())
+    well2_ref = str(uuid4())
+
+    project, headers = create_test_project(
+        client, email="analyst@test.ru", name="test_batch_paste_pad_wells"
+    )
+    pid = project["id"]
+    layer = create_test_layer(client, pid, headers)
+    hdrs = csrf_headers(client)
+
+    res = _batch_paste(
+        client,
+        pid,
+        hdrs,
+        {
+            "pois": [],
+            "infra_points": [
+                {
+                    "client_ref": pad_ref,
+                    "create": {
+                        "name": "Куст_1",
+                        "subtype": "oil_pad",
+                        "lon": 37.6,
+                        "lat": 55.75,
+                        "layer_id": layer["id"],
+                        "properties": {"pad_well_count": 2},
+                    },
+                },
+                {
+                    "client_ref": well1_ref,
+                    "create": {
+                        "name": "Забой_1",
+                        "subtype": "well_bottomhole_nnb",
+                        "lon": 37.601,
+                        "lat": 55.751,
+                        "layer_id": layer["id"],
+                        "properties": {
+                            "well_bottomhole_linked_pad_id": pad_ref,
+                            "well_bottomhole_tvd_m": 1500,
+                        },
+                    },
+                },
+                {
+                    "client_ref": well2_ref,
+                    "create": {
+                        "name": "Забой_2",
+                        "subtype": "well_bottomhole_nnb",
+                        "lon": 37.602,
+                        "lat": 55.752,
+                        "layer_id": layer["id"],
+                        "properties": {
+                            "well_bottomhole_linked_pad_id": pad_ref,
+                            "well_bottomhole_tvd_m": 1500,
+                        },
+                    },
+                },
+            ],
+            "infra_lines": [],
+        },
+    )
+    assert res.status_code == 200, res.text
+    body = res.json()
+    assert len(body["created_infra"]) == 3
+    pad = next(row for row in body["created_infra"] if row["subtype"] == "oil_pad")
+    wells = [row for row in body["created_infra"] if row["subtype"] == "well_bottomhole_nnb"]
+    assert len(wells) == 2
+    for well in wells:
+        assert well["properties"]["well_bottomhole_linked_pad_id"] == pad["id"]
+
+
+def test_batch_paste_wells_only_strips_orphan_linked_pad_id(client):
+    from uuid import uuid4
+
+    orphan_pad_id = str(uuid4())
+    well1_ref = str(uuid4())
+    well2_ref = str(uuid4())
+
+    project, headers = create_test_project(
+        client, email="analyst@test.ru", name="test_batch_paste_wells_only"
+    )
+    pid = project["id"]
+    layer = create_test_layer(client, pid, headers)
+    hdrs = csrf_headers(client)
+
+    res = _batch_paste(
+        client,
+        pid,
+        hdrs,
+        {
+            "pois": [],
+            "infra_points": [
+                {
+                    "client_ref": well1_ref,
+                    "create": {
+                        "name": "Забой_1",
+                        "subtype": "well_bottomhole_nnb",
+                        "lon": 37.601,
+                        "lat": 55.751,
+                        "layer_id": layer["id"],
+                        "properties": {
+                            "well_bottomhole_linked_pad_id": orphan_pad_id,
+                            "well_bottomhole_tvd_m": 1500,
+                        },
+                    },
+                },
+                {
+                    "client_ref": well2_ref,
+                    "create": {
+                        "name": "Забой_2",
+                        "subtype": "well_bottomhole_nnb",
+                        "lon": 37.602,
+                        "lat": 55.752,
+                        "layer_id": layer["id"],
+                        "properties": {
+                            "well_bottomhole_linked_pad_id": well2_ref,
+                            "well_bottomhole_tvd_m": 1500,
+                        },
+                    },
+                },
+            ],
+            "infra_lines": [],
+        },
+    )
+    assert res.status_code == 200, res.text
+    body = res.json()
+    assert len(body["created_infra"]) == 2
+    for well in body["created_infra"]:
+        assert "well_bottomhole_linked_pad_id" not in (well.get("properties") or {})
+
+
+def test_batch_paste_gs_line_strips_orphan_linked_pad_id(client):
+    from uuid import uuid4
+
+    orphan_pad_id = str(uuid4())
+    gs_ref = str(uuid4())
+
+    project, headers = create_test_project(
+        client, email="analyst@test.ru", name="test_batch_paste_gs_line"
+    )
+    pid = project["id"]
+    layer = create_test_layer(client, pid, headers)
+    hdrs = csrf_headers(client)
+
+    res = _batch_paste(
+        client,
+        pid,
+        hdrs,
+        {
+            "pois": [],
+            "infra_points": [],
+            "infra_lines": [
+                {
+                    "client_ref": gs_ref,
+                    "create": {
+                        "name": "ГС_1",
+                        "subtype": "well_bottomhole_gs",
+                        "lon": 37.6,
+                        "lat": 55.75,
+                        "end_lon": 37.62,
+                        "end_lat": 55.76,
+                        "layer_id": layer["id"],
+                        "coordinates": [
+                            [37.6, 55.75],
+                            [37.62, 55.76],
+                        ],
+                        "properties": {
+                            "well_bottomhole_linked_pad_id": orphan_pad_id,
+                            "well_bottomhole_heel_tvd_m": 1500,
+                            "well_bottomhole_toe_tvd_m": 1500,
+                        },
+                    },
+                }
+            ],
+        },
+    )
+    assert res.status_code == 200, res.text
+    body = res.json()
+    assert len(body["created_infra"]) == 1
+    gs = body["created_infra"][0]
+    assert gs["subtype"] == "well_bottomhole_gs"
+    assert "well_bottomhole_linked_pad_id" not in (gs.get("properties") or {})
+
+
 def test_batch_paste_atomic_on_invalid_line(client):
     project, headers = create_test_project(client, email="analyst@test.ru", name="test_batch_paste_atomic")
     pid = project["id"]

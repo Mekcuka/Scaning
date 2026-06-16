@@ -17,6 +17,7 @@
       "args": ["-m", "app.assistant.dev.stdio_mcp"],
       "cwd": "<repo>/decision-matrix/backend",
       "env": {
+        "PYTHONPATH": "<repo>/decision-matrix/backend",
         "ASSISTANT_DEV_MCP_DOMAIN_TOOLS": "false",
         "ASSISTANT_DEV_MCP_USER_EMAIL": "admin@test.ru"
       }

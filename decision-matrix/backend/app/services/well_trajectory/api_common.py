@@ -16,7 +16,29 @@ from app.services.infra_update import update_infra_object_record
 from app.services.project_access import resolve_project
 from app.services.well_trajectory.import_service import ImportOptions
 from app.services.well_trajectory.pad_access import assert_pad_object
-from app.services.well_trajectory.trajectory_store import store_trajectories_json
+from app.services.well_trajectory.properties import (
+    PAD_PYWELLGEO_TREES_JSON,
+    WELL_TRAJECTORY_CLEARANCE_COMPUTED_AT,
+    WELL_TRAJECTORY_CLEARANCE_PAIRS_JSON,
+)
+from app.services.well_trajectory.trajectory_store import finalize_pad_trajectories
+
+
+def _props_for_infra_merge(
+    old_props: dict[str, Any] | None,
+    finalized: dict[str, Any],
+) -> dict[str, Any]:
+    """Mark removed pad-level keys as null so infra property merge drops them."""
+    patch = dict(finalized)
+    old = old_props or {}
+    for key in (
+        WELL_TRAJECTORY_CLEARANCE_PAIRS_JSON,
+        WELL_TRAJECTORY_CLEARANCE_COMPUTED_AT,
+        PAD_PYWELLGEO_TREES_JSON,
+    ):
+        if key in old and key not in patch:
+            patch[key] = None
+    return patch
 
 
 def planner_unavailable_http(exc: Exception) -> HTTPException:
@@ -70,10 +92,18 @@ async def persist_pad_trajectories(
     obj: InfrastructureObject,
     trajectories: list[Any],
     props_postprocess: Any | None = None,
+    clear_clearance: bool = True,
+    clear_pywellgeo_indices: set[int] | None = None,
 ) -> None:
-    props = store_trajectories_json(obj.properties, trajectories)
+    props = finalize_pad_trajectories(
+        obj.properties,
+        trajectories,
+        clear_clearance=clear_clearance,
+        clear_pywellgeo_indices=clear_pywellgeo_indices,
+    )
     if props_postprocess is not None:
         props = props_postprocess(props)
+    props = _props_for_infra_merge(obj.properties, props)
     await update_infra_object_record(
         db,
         project=project,

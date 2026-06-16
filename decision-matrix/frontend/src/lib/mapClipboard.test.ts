@@ -6,6 +6,7 @@ import {
   BATCH_PASTE_CHUNK_SIZE,
   batchPasteTimeoutMs,
   clipboardCentroid,
+  clipboardPreviewAt,
   executeMapBatchPaste,
   infraPasteSubtypePlan,
   partitionClipboardForPaste,
@@ -14,6 +15,8 @@ import {
   sanitizePoiCreateForApi,
   type MapClipboardItem,
 } from './mapClipboard';
+import { remapBottomholePasteRefs } from './mapBatchPaste';
+import { WELL_BOTTOMHOLE_LINKED_PAD_ID } from './wellBottomholeProperties';
 import { lineLengthMeters } from './mapMeasure';
 import type { InfraObject, POI } from './api';
 
@@ -53,6 +56,112 @@ const lineInfra: InfraObject = {
 } as unknown as InfraObject;
 
 describe('mapClipboard', () => {
+  it('clipboardPreviewAt uses lon/end_lon when coordinates are stale for GS bottomhole', () => {
+    const gsBottomhole: InfraObject = {
+      id: 'bh-gs-stale',
+      project_id: 'p1',
+      name: 'GS-stale',
+      subtype: 'well_bottomhole_gs',
+      lon: 38.0,
+      lat: 56.0,
+      end_lon: 38.5,
+      end_lat: 56.5,
+      coordinates: [
+        [37.0, 55.0],
+        [37.1, 55.0],
+      ],
+      layer_id: 'layer-1',
+    } as unknown as InfraObject;
+    const items = buildClipboardFromSelection([], [gsBottomhole], [
+      { kind: 'infra', id: gsBottomhole.id },
+    ]);
+    const preview = clipboardPreviewAt(items, 40, 50);
+    const line = preview.lines[0]?.coordinates;
+    expect(line?.[0]).toEqual([39.75, 49.75]);
+    expect(line?.[1]).toEqual([40.25, 50.25]);
+  });
+
+  it('buildMapBatchPasteRequest uses canonical GS endpoints for stale coordinates', () => {
+    const gsBottomhole: InfraObject = {
+      id: 'bh-gs-stale',
+      project_id: 'p1',
+      name: 'GS-stale',
+      subtype: 'well_bottomhole_gs',
+      lon: 38.0,
+      lat: 56.0,
+      end_lon: 38.5,
+      end_lat: 56.5,
+      coordinates: [
+        [37.0, 55.0],
+        [37.1, 55.0],
+      ],
+      layer_id: 'layer-1',
+    } as unknown as InfraObject;
+    const items = buildClipboardFromSelection([], [gsBottomhole], [
+      { kind: 'infra', id: gsBottomhole.id },
+    ]);
+    const offset = applyOffsetToClipboard(items, 40, 50);
+    const req = buildMapBatchPasteRequest(offset, {
+      existingPois: [],
+      nextPoiAutoName: () => 'POI_1',
+      nextAutoName: () => 'GS_1',
+      mergeProperties: (_st, props) => props,
+    });
+    expect(req.infra_lines).toHaveLength(1);
+    const create = req.infra_lines[0]!.create;
+    expect(create.lon).toBe(39.75);
+    expect(create.end_lon).toBe(40.25);
+    expect(create.coordinates).toEqual([
+      [39.75, 49.75],
+      [40.25, 50.25],
+    ]);
+  });
+
+  it('clipboardPreviewAt includes GS bottomhole line and heel/toe markers', () => {
+    const gsBottomhole: InfraObject = {
+      id: 'bh-gs-1',
+      project_id: 'p1',
+      name: 'GS-1',
+      subtype: 'well_bottomhole_gs',
+      lon: 37.61,
+      lat: 55.751,
+      end_lon: 37.65,
+      end_lat: 55.755,
+      layer_id: 'layer-1',
+    } as unknown as InfraObject;
+    const items = buildClipboardFromSelection([], [gsBottomhole], [{ kind: 'infra', id: gsBottomhole.id }]);
+    const preview = clipboardPreviewAt(items, 38, 56);
+    expect(preview.lines).toHaveLength(1);
+    expect(preview.lines[0]?.subtype).toBe('well_bottomhole_gs');
+    expect(preview.lines[0]?.coordinates).toHaveLength(2);
+    expect(preview.points.map((p) => p.subtype)).toEqual([
+      'well_bottomhole_gs_heel',
+      'well_bottomhole_gs_toe',
+    ]);
+    expect(preview.lines[0]?.coordinates[0]).toEqual([
+      preview.points[0]!.lon,
+      preview.points[0]!.lat,
+    ]);
+  });
+
+  it('clipboardPreviewAt includes NNB bottomhole point', () => {
+    const nnb: InfraObject = {
+      id: 'bh-nnb-1',
+      project_id: 'p1',
+      name: 'NNB-1',
+      subtype: 'well_bottomhole_nnb',
+      lon: 37.61,
+      lat: 55.751,
+      layer_id: 'layer-1',
+    } as unknown as InfraObject;
+    const items = buildClipboardFromSelection([], [nnb], [{ kind: 'infra', id: nnb.id }]);
+    const preview = clipboardPreviewAt(items, 38, 56);
+    expect(preview.lines).toHaveLength(0);
+    expect(preview.points).toEqual([
+      expect.objectContaining({ subtype: 'well_bottomhole_nnb', lon: expect.any(Number), lat: expect.any(Number) }),
+    ]);
+  });
+
   it('buildClipboardFromSelection captures snapshots', () => {
     const items = buildClipboardFromSelection(
       [poi],
@@ -291,6 +400,123 @@ describe('mapClipboard', () => {
     expect(parts.pois).toHaveLength(1);
     expect(parts.pointInfra).toHaveLength(1);
     expect(parts.lineInfra).toHaveLength(1);
+  });
+
+  it('buildMapBatchPasteRequest sorts pad before linked bottomholes', () => {
+    const padId = 'pad-old-id';
+    const well: InfraObject = {
+      ...pointInfra,
+      id: 'well-1',
+      subtype: 'well_bottomhole_nnb',
+      name: 'Забой_1',
+      properties: {
+        [WELL_BOTTOMHOLE_LINKED_PAD_ID]: padId,
+        well_bottomhole_tvd_m: 1500,
+      },
+    };
+    const pad: InfraObject = {
+      ...pointInfra,
+      id: padId,
+      subtype: 'oil_pad',
+      name: 'Куст_1',
+    };
+    const items = buildClipboardFromSelection(
+      [],
+      [well, pad],
+      [
+        { kind: 'infra', id: well.id },
+        { kind: 'infra', id: pad.id },
+      ],
+    );
+    const req = buildMapBatchPasteRequest(applyOffsetToClipboard(items, 38, 56), {
+      existingPois: [],
+      nextPoiAutoName: () => 'POI_1',
+      nextAutoName: () => 'name',
+      mergeProperties: (_st, props) => props,
+    });
+    expect(req.infra_points).toHaveLength(2);
+    expect(req.infra_points[0]?.client_ref).toBe(padId);
+    expect(req.infra_points[1]?.create.properties?.[WELL_BOTTOMHOLE_LINKED_PAD_ID]).toBe(padId);
+  });
+
+  it('remapBottomholePasteRefs maps parent/heel via batch twins and pad via padRefToCreated', () => {
+    const mapped = remapBottomholePasteRefs(
+      { [WELL_BOTTOMHOLE_LINKED_PAD_ID]: 'old-pad', well_bottomhole_parent_id: 'old-main' },
+      new Map([['old-main', 'new-main-id']]),
+      new Map([['old-pad', 'new-pad-id']]),
+    );
+    expect(mapped?.[WELL_BOTTOMHOLE_LINKED_PAD_ID]).toBe('new-pad-id');
+    expect(mapped?.well_bottomhole_parent_id).toBe('new-main-id');
+  });
+
+  it('remapBottomholePasteRefs does not map linked_pad_id from well batch twins', () => {
+    const mapped = remapBottomholePasteRefs(
+      { [WELL_BOTTOMHOLE_LINKED_PAD_ID]: 'old-pad' },
+      new Map([['old-pad', 'well-id-by-mistake']]),
+    );
+    expect(mapped?.[WELL_BOTTOMHOLE_LINKED_PAD_ID]).toBe('old-pad');
+  });
+
+  it('buildMapBatchPasteRequest strips linked_pad_id when pad is not in selection', () => {
+    const padId = 'pad-not-pasted';
+    const well: InfraObject = {
+      ...pointInfra,
+      id: 'well-1',
+      subtype: 'well_bottomhole_nnb',
+      name: 'Забой_1',
+      properties: {
+        [WELL_BOTTOMHOLE_LINKED_PAD_ID]: padId,
+        well_bottomhole_tvd_m: 1500,
+      },
+    };
+    const items = buildClipboardFromSelection(
+      [],
+      [well],
+      [{ kind: 'infra', id: well.id }],
+    );
+    const req = buildMapBatchPasteRequest(applyOffsetToClipboard(items, 38, 56), {
+      existingPois: [],
+      nextPoiAutoName: () => 'POI_1',
+      nextAutoName: () => 'name',
+      mergeProperties: (_st, props) => props,
+    });
+    expect(req.infra_points).toHaveLength(1);
+    expect(req.infra_points[0]?.create.properties?.[WELL_BOTTOMHOLE_LINKED_PAD_ID]).toBeUndefined();
+  });
+
+  it('buildMapBatchPasteRequest strips linked_pad_id from GS line when pad is not in selection', () => {
+    const padId = 'pad-not-pasted';
+    const gsBottomhole: InfraObject = {
+      id: 'bh-gs-1',
+      project_id: 'p1',
+      name: 'GS-1',
+      subtype: 'well_bottomhole_gs',
+      lon: 37.61,
+      lat: 55.751,
+      end_lon: 37.65,
+      end_lat: 55.755,
+      coordinates: [
+        [37.61, 55.751],
+        [37.65, 55.755],
+      ],
+      layer_id: 'layer-1',
+      properties: {
+        [WELL_BOTTOMHOLE_LINKED_PAD_ID]: padId,
+        well_bottomhole_heel_tvd_m: 1500,
+        well_bottomhole_toe_tvd_m: 1500,
+      },
+    } as unknown as InfraObject;
+    const items = buildClipboardFromSelection([], [gsBottomhole], [
+      { kind: 'infra', id: gsBottomhole.id },
+    ]);
+    const req = buildMapBatchPasteRequest(applyOffsetToClipboard(items, 38, 56), {
+      existingPois: [],
+      nextPoiAutoName: () => 'POI_1',
+      nextAutoName: () => 'GS_1',
+      mergeProperties: (_st, props) => props,
+    });
+    expect(req.infra_lines).toHaveLength(1);
+    expect(req.infra_lines[0]?.create.properties?.[WELL_BOTTOMHOLE_LINKED_PAD_ID]).toBeUndefined();
   });
 
   it('buildMapBatchPasteRequest maps gas_pad to oil_pad create + target_subtype', () => {

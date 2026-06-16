@@ -17,7 +17,15 @@ from app.models import (
 )
 from app.services.pad_earthwork.pad_dem_repository import delete_pad_dem_files_for_object_ids
 from app.services.graph_builder import build_network_from_lines, prune_disconnected_nodes
-from app.services.well_trajectory.bottomhole_properties import is_bottomhole_subtype, read_linked_pad_id
+from app.services.well_trajectory.bottomhole_properties import (
+    is_bottomhole_subtype,
+    read_linked_pad_id,
+    read_parent_id,
+)
+from app.services.well_trajectory.bottomhole_validation import (
+    resolve_bottomhole_delete_cascade,
+    validate_bottomhole_can_delete,
+)
 from app.services.well_trajectory.service import resync_pads_after_bottomhole_deletes
 
 COORD_MATCH_EPS = 1e-6
@@ -93,16 +101,40 @@ async def delete_infra_objects_batch(
         return 0, False
 
     delete_ids = await resolve_infra_delete_ids(db, project_id, object_ids)
+    delete_ids = await resolve_bottomhole_delete_cascade(db, project_id, delete_ids)
 
     objs = (
         await db.execute(select(InfrastructureObject).where(InfrastructureObject.id.in_(delete_ids)))
     ).scalars().all()
+    for obj in objs:
+        await validate_bottomhole_can_delete(
+            db,
+            project_id=project_id,
+            obj=obj,
+            delete_ids=delete_ids,
+        )
+
     pad_ids_to_resync: set[UUID] = set()
     for obj in objs:
         if is_bottomhole_subtype(obj.subtype or ""):
-            linked_pad = read_linked_pad_id(obj.properties or {})
+            props = obj.properties or {}
+            linked_pad = read_linked_pad_id(props)
             if linked_pad is not None:
                 pad_ids_to_resync.add(linked_pad)
+            else:
+                parent_id = read_parent_id(props)
+                if parent_id is not None:
+                    parent = next((o for o in objs if o.id == parent_id), None)
+                    if parent is None:
+                        parent = (
+                            await db.execute(
+                                select(InfrastructureObject).where(InfrastructureObject.id == parent_id)
+                            )
+                        ).scalar_one_or_none()
+                    if parent is not None:
+                        parent_pad = read_linked_pad_id(parent.properties or {})
+                        if parent_pad is not None:
+                            pad_ids_to_resync.add(parent_pad)
 
     await db.execute(
         update(PoiInfrastructureAnalysis)

@@ -4,35 +4,31 @@ import { wellTrajectoryApi } from '../../lib/api/wellTrajectoryApi';
 import { readWellTrajectoryStepM } from '../../lib/padClusteringCalcSettings';
 import { wellTrajectoryQueryKeys } from '../../hooks/useWellTrajectoryGeoJson';
 import {
-  WELL_BOTTOMHOLE_GS_HEEL_ID,
-  WELL_BOTTOMHOLE_GS_ENTRY_MODE,
+  BOTTOMHOLE_ROLE_OPTIONS,
   DEFAULT_GS_ENTRY_MODE,
-  GS_ENTRY_MODE_OPTIONS,
-  readGsEntryMode,
-  WELL_BOTTOMHOLE_LINKED_PAD_ID,
-  WELL_BOTTOMHOLE_TARGET_AZI,
-  WELL_BOTTOMHOLE_TARGET_INC,
-  WELL_BOTTOMHOLE_TVD_M,
-  WELL_BOTTOMHOLE_HEEL_TVD_M,
-  WELL_BOTTOMHOLE_TOE_TVD_M,
-  WELL_BOTTOMHOLE_WELL_INDEX,
   DEFAULT_NNB_INC,
-  readBottomholeLinkedPadId,
-  readBottomholeTvdM,
-  readGsHeelTvdM,
-  readGsToeTvdM,
+  GS_ENTRY_MODE_OPTIONS,
+  GS_HEEL_LABEL,
+  GS_TOE_LABEL,
+  WELL_BOTTOMHOLE_GS_HEEL_ID,
+  gsEndpointRangeLabel,
+  isLateralBottomhole,
+  listProjectBottomholes,
 } from '../../lib/wellBottomholeProperties';
 import { AppSelect } from '../AppSelect';
 import { DeferredNumberInput } from '../DeferredNumberInput';
 import { FieldLabel, PanelSection, PanelSubsection, ReadOnlyValue } from './panelUi';
 import { translateWellTrajectoryUserMessage } from '../../lib/wellTrajectoryUserMessages';
+import type { BottomholeFormFields } from './bottomholeFormFields';
 
 interface InfraBottomholeDetailSectionProps {
   projectId: string;
   infraObject: InfraObject;
+  fields: BottomholeFormFields;
+  onFieldsChange: (patch: Partial<BottomholeFormFields>) => void;
   padOptions: InfraObject[];
+  infraObjects: InfraObject[];
   readOnly: boolean;
-  onPropertiesChange: (patch: Record<string, unknown>) => void;
 }
 
 function NumberField({
@@ -86,26 +82,19 @@ function NumberField({
 export function InfraBottomholeDetailSection({
   projectId,
   infraObject,
+  fields,
+  onFieldsChange,
   padOptions,
+  infraObjects,
   readOnly,
-  onPropertiesChange,
 }: InfraBottomholeDetailSectionProps) {
   const queryClient = useQueryClient();
-  const props = infraObject.properties ?? {};
-  const linkedPadId = readBottomholeLinkedPadId(props) ?? '';
+  const linkedPadId = fields.linkedPadId;
+  const isLateral = fields.role === 'lateral';
   const isGsLine = infraObject.subtype === 'well_bottomhole_gs';
   const isGsHeelOrLine =
     infraObject.subtype === 'well_bottomhole_gs_heel' || isGsLine;
-  const tvdM = readBottomholeTvdM(props);
-  const heelTvdM = readGsHeelTvdM(props);
-  const toeTvdM = readGsToeTvdM(props);
-  const wellIndexRaw = props[WELL_BOTTOMHOLE_WELL_INDEX];
-  const wellIndex =
-    wellIndexRaw === '' || wellIndexRaw == null ? '' : String(wellIndexRaw);
-  const targetInc = props[WELL_BOTTOMHOLE_TARGET_INC];
-  const targetAzi = props[WELL_BOTTOMHOLE_TARGET_AZI];
-  const gsHeelId = props[WELL_BOTTOMHOLE_GS_HEEL_ID];
-  const gsEntryMode = readGsEntryMode(props);
+  const gsHeelId = infraObject.properties?.[WELL_BOTTOMHOLE_GS_HEEL_ID];
 
   const linkedPad = padOptions.find((p) => p.id === linkedPadId);
   const stepM = readWellTrajectoryStepM({
@@ -115,6 +104,13 @@ export function InfraBottomholeDetailSection({
   const padSelectOptions = [
     { value: '', label: '— выберите куст —' },
     ...padOptions.map((pad) => ({ value: pad.id, label: pad.name })),
+  ];
+
+  const mainBottomholeOptions = [
+    { value: '', label: '— выберите основной забой —' },
+    ...listProjectBottomholes(infraObjects)
+      .filter((bh) => bh.id !== infraObject.id && !isLateralBottomhole(bh))
+      .map((bh) => ({ value: bh.id, label: bh.name })),
   ];
 
   const designMut = useMutation({
@@ -135,34 +131,64 @@ export function InfraBottomholeDetailSection({
   return (
     <PanelSection title="Параметры забоя" card>
       <label className="object-detail-panel__field">
-        <FieldLabel>Куст</FieldLabel>
+        <FieldLabel>Роль</FieldLabel>
         <div className="object-detail-panel__field-control">
           <AppSelect
             variant="compact"
-            value={linkedPadId}
+            value={fields.role}
             readOnly={readOnly || infraObject.subtype === 'well_bottomhole_gs_toe'}
             onChange={(value) =>
-              onPropertiesChange({ [WELL_BOTTOMHOLE_LINKED_PAD_ID]: value || undefined })
+              onFieldsChange({
+                role: value === 'lateral' ? 'lateral' : 'main',
+                parentId: value === 'lateral' ? fields.parentId : '',
+              })
             }
-            options={padSelectOptions}
-            placeholder="— выберите куст —"
+            options={BOTTOMHOLE_ROLE_OPTIONS}
           />
         </div>
       </label>
 
+      {isLateral ? (
+        <label className="object-detail-panel__field">
+          <FieldLabel>Родительский забой</FieldLabel>
+          <div className="object-detail-panel__field-control">
+            <AppSelect
+              variant="compact"
+              value={fields.parentId}
+              readOnly={readOnly}
+              onChange={(value) => onFieldsChange({ parentId: value })}
+              options={mainBottomholeOptions}
+              placeholder="— выберите основной забой —"
+            />
+          </div>
+        </label>
+      ) : (
+        <label className="object-detail-panel__field">
+          <FieldLabel>Куст</FieldLabel>
+          <div className="object-detail-panel__field-control">
+            <AppSelect
+              variant="compact"
+              value={linkedPadId}
+              readOnly={readOnly || infraObject.subtype === 'well_bottomhole_gs_toe'}
+              onChange={(value) => onFieldsChange({ linkedPadId: value })}
+              options={padSelectOptions}
+              placeholder="— выберите куст —"
+            />
+          </div>
+        </label>
+      )}
+
       <NumberField
         label="Скважина №"
-        value={wellIndex}
-        readOnly={readOnly}
+        value={fields.wellIndex}
+        readOnly={readOnly || isLateral}
         min={0}
         max={63}
         integer
         allowEmpty
         placeholder="Авто"
         onCommit={(v) =>
-          onPropertiesChange({
-            [WELL_BOTTOMHOLE_WELL_INDEX]: v === '' ? undefined : Number(v),
-          })
+          onFieldsChange({ wellIndex: v === '' ? '' : String(typeof v === 'number' ? v : Number(v)) })
         }
       />
       <p className="object-detail-panel__hint">0…63, пусто — номер подберётся автоматически.</p>
@@ -170,36 +196,36 @@ export function InfraBottomholeDetailSection({
       {isGsLine ? (
         <div className="object-detail-panel__pair-grid">
           <div className="object-detail-panel__pair-grid-row">
-            <FieldLabel unit="м">TVD heel</FieldLabel>
-            <FieldLabel unit="м">TVD toe</FieldLabel>
+            <FieldLabel unit="м">TVD {GS_HEEL_LABEL}</FieldLabel>
+            <FieldLabel unit="м">TVD {GS_TOE_LABEL}</FieldLabel>
           </div>
           <div className="object-detail-panel__pair-grid-row">
             <div className="object-detail-panel__field-control">
               {readOnly ? (
-                <ReadOnlyValue>{heelTvdM}</ReadOnlyValue>
+                <ReadOnlyValue>{fields.heelTvdM}</ReadOnlyValue>
               ) : (
                 <DeferredNumberInput
                   min={1}
                   className="input object-detail-panel__input"
-                  value={heelTvdM}
+                  value={fields.heelTvdM}
                   onCommit={(v) => {
                     if (v === '' || !Number.isFinite(v)) return;
-                    onPropertiesChange({ [WELL_BOTTOMHOLE_HEEL_TVD_M]: Number(v) });
+                    onFieldsChange({ heelTvdM: String(v) });
                   }}
                 />
               )}
             </div>
             <div className="object-detail-panel__field-control">
               {readOnly ? (
-                <ReadOnlyValue>{toeTvdM}</ReadOnlyValue>
+                <ReadOnlyValue>{fields.toeTvdM}</ReadOnlyValue>
               ) : (
                 <DeferredNumberInput
                   min={1}
                   className="input object-detail-panel__input"
-                  value={toeTvdM}
+                  value={fields.toeTvdM}
                   onCommit={(v) => {
                     if (v === '' || !Number.isFinite(v)) return;
-                    onPropertiesChange({ [WELL_BOTTOMHOLE_TOE_TVD_M]: Number(v) });
+                    onFieldsChange({ toeTvdM: String(v) });
                   }}
                 />
               )}
@@ -214,12 +240,12 @@ export function InfraBottomholeDetailSection({
         <NumberField
           label="TVD"
           unit="м"
-          value={tvdM}
+          value={fields.tvdM}
           readOnly={readOnly}
           min={1}
           onCommit={(v) => {
             if (v === '' || !Number.isFinite(v)) return;
-            onPropertiesChange({ [WELL_BOTTOMHOLE_TVD_M]: Number(v) });
+            onFieldsChange({ tvdM: String(v) });
           }}
         />
       )}
@@ -228,13 +254,13 @@ export function InfraBottomholeDetailSection({
         <NumberField
           label="Зенитный угол на забое"
           unit="°"
-          value={targetInc ?? DEFAULT_NNB_INC}
+          value={fields.targetInc}
           readOnly={readOnly}
           min={0}
           max={360}
           onCommit={(v) => {
             if (v === '' || !Number.isFinite(v)) return;
-            onPropertiesChange({ [WELL_BOTTOMHOLE_TARGET_INC]: Number(v) });
+            onFieldsChange({ targetInc: String(v) });
           }}
         />
       )}
@@ -246,12 +272,10 @@ export function InfraBottomholeDetailSection({
             <div className="object-detail-panel__field-control">
               <AppSelect
                 variant="compact"
-                value={gsEntryMode}
+                value={fields.gsEntryMode}
                 readOnly={readOnly}
                 onChange={(value) =>
-                  onPropertiesChange({
-                    [WELL_BOTTOMHOLE_GS_ENTRY_MODE]: value || DEFAULT_GS_ENTRY_MODE,
-                  })
+                  onFieldsChange({ gsEntryMode: value || DEFAULT_GS_ENTRY_MODE })
                 }
                 options={GS_ENTRY_MODE_OPTIONS.map((opt) => ({
                   value: opt.value,
@@ -261,7 +285,7 @@ export function InfraBottomholeDetailSection({
             </div>
           </label>
           <p className="object-detail-panel__hint">
-            «Любая» — алгоритм подберёт точку вдоль пятка–стока (min MD).
+            «Любая» — алгоритм подберёт точку вдоль {gsEndpointRangeLabel()} (min MD).
           </p>
         </>
       )}
@@ -271,27 +295,25 @@ export function InfraBottomholeDetailSection({
         <NumberField
           label="Азимут цели"
           unit="°"
-          value={targetAzi ?? ''}
+          value={fields.targetAzi}
           readOnly={readOnly}
           min={0}
           max={360}
           allowEmpty
           placeholder="Из схемы куста"
           onCommit={(v) =>
-            onPropertiesChange({
-              [WELL_BOTTOMHOLE_TARGET_AZI]: v === '' ? undefined : Number(v),
-            })
+            onFieldsChange({ targetAzi: v === '' ? '' : String(v) })
           }
         />
       )}
 
       {infraObject.subtype === 'well_bottomhole_gs_toe' && typeof gsHeelId === 'string' && (
         <p className="object-detail-panel__meta">
-          Связанная пятка: <span className="font-mono">{gsHeelId.slice(0, 8)}…</span>
+          Связанный {GS_HEEL_LABEL}: <span className="font-mono">{gsHeelId.slice(0, 8)}…</span>
         </p>
       )}
 
-      {linkedPadId && !readOnly && (
+      {linkedPadId && !readOnly && !isLateral && (
         <PanelSubsection title="Расчёт траектории">
           <button
             type="button"

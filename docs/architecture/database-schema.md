@@ -1,7 +1,7 @@
 # Схема базы данных
 
 > **Параметры ввода:** id полей и значения по умолчанию — [input-parameters.md](../product/input-parameters.md).  
-> **Геометрия объектов и якоря расчёта:** [map-objects-and-spatial-calculations.md](../features/map-objects-and-spatial-calculations.md).
+> **Геометрия объектов и якоря расчёта:** [map-objects-and-spatial-calculations.md](../features/map/map-objects-and-spatial-calculations.md).
 
 ## ER-диаграмма
 
@@ -571,7 +571,7 @@ CREATE INDEX idx_points_of_interest_geometry ON points_of_interest USING GIST (g
 
 ### Таблица poi_flow_schematic_layouts (макет PFD на POI)
 
-Пользовательский макет схемы потоков: позиции узлов, ручные блоки, сохранённые лимиты. Расчётная топология пересобирается при GET (см. [fluid-flow-schematic.md](../features/fluid-flow-schematic.md) §6).
+Пользовательский макет схемы потоков: позиции узлов, ручные блоки, сохранённые лимиты. Расчётная топология пересобирается при GET (см. [fluid-flow-schematic.md](../features/flows/fluid-flow-schematic.md) §6).
 
 ```sql
 CREATE TABLE poi_flow_schematic_layouts (
@@ -646,7 +646,7 @@ CREATE INDEX idx_infrastructure_objects_subtype ON infrastructure_objects(subtyp
 CREATE INDEX idx_infrastructure_objects_geometry ON infrastructure_objects USING GIST (geometry);
 ```
 
-**Ключи `properties` для PFD (MVP):** `throughput_capacity_annual` (number), `capacity_unit` (`thousand_t_per_year` | `thousand_m3_per_year`) — см. [map-objects-and-spatial-calculations.md](../features/map-objects-and-spatial-calculations.md) §1.6.
+**Ключи `properties` для PFD (MVP):** `throughput_capacity_annual` (number), `capacity_unit` (`thousand_t_per_year` | `thousand_m3_per_year`) — см. [map-objects-and-spatial-calculations.md](../features/map/map-objects-and-spatial-calculations.md) §1.6.
 
 ### Таблица poi_infrastructure_analysis (анализ окружения точки — 9 подтипов)
 
@@ -693,7 +693,7 @@ CREATE INDEX idx_poi_analysis_anchor_geometry ON poi_infrastructure_analysis USI
 
 ### Planned: топология сети (не MVP)
 
-Явный граф для линейной инфраструктуры. Спецификация: [map-objects-and-spatial-calculations.md](../features/map-objects-and-spatial-calculations.md) §5.
+Явный граф для линейной инфраструктуры. Спецификация: [map-objects-and-spatial-calculations.md](../features/map/map-objects-and-spatial-calculations.md) §5.
 
 ```sql
 CREATE TABLE infrastructure_networks (

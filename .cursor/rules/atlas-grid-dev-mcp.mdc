@@ -21,12 +21,14 @@ For **repository development** tasks, use the **`atlas-grid-dev`** MCP server �
 ## Setup (local, one-time)
 
 1. Ensure `decision-matrix/backend/venv` exists
-2. Run `.\scripts\get-atlas-grid-token.ps1` (includes `atlas-grid-dev` by default) or copy from [`.cursor/mcp.json.example`](../mcp.json.example)
+2. Run `.\scripts\get-atlas-grid-token.ps1` (includes `atlas-grid-dev` by default; `-NoDevMcp` to skip) or copy from [`.cursor/mcp.json.example`](../mcp.json.example)
 3. Cursor → Settings → Tools & MCP → Reload
 
 Entrypoint: `python -m app.assistant.dev.stdio_mcp` (cwd: `decision-matrix/backend`).
 
+**Windows:** Cursor may ignore `cwd` for stdio MCP — `env.PYTHONPATH` must point to `decision-matrix/backend` (script sets this automatically). Without it: `ModuleNotFoundError: No module named 'app'`.
+
 ## Docs
 
 - [dev/README.md](decision-matrix/backend/app/assistant/dev/README.md)
-- [assistant-tools.md §11](docs/features/assistant-tools.md)
+- [assistant-tools.md §11](docs/features/assistant/assistant-tools.md)

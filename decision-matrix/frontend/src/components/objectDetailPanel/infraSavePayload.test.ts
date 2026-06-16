@@ -5,6 +5,7 @@ import {
   WELL_BOTTOMHOLE_TOE_TVD_M,
 } from '../../lib/wellBottomholeProperties';
 import { buildInfraSavePayload, type InfraSaveDraft } from './infraSavePayload';
+import { EMPTY_BOTTOMHOLE_FORM_FIELDS } from './bottomholeFormFields';
 
 function gsObject(): InfraObject {
   return {
@@ -56,9 +57,10 @@ function baseDraft(overrides: Partial<InfraSaveDraft> = {}): InfraSaveDraft {
     padMarginTopM: '',
     padMarginEndM: '',
     pointFootprintLineConnections: {},
-    bottomholePropsPatch: {
-      [WELL_BOTTOMHOLE_HEEL_TVD_M]: 1300,
-      [WELL_BOTTOMHOLE_TOE_TVD_M]: 1600,
+    bottomholeFields: {
+      ...EMPTY_BOTTOMHOLE_FORM_FIELDS,
+      heelTvdM: '1300',
+      toeTvdM: '1600',
     },
     ...overrides,
   };

@@ -16,7 +16,9 @@ const LAYER_BUTTONS: {
   { key: 'wellheads', label: 'Устья', title: 'Маркеры устьев' },
   { key: 'wellLabels', label: 'Подписи', title: 'Подписи скважин' },
   { key: 'trajectories', label: 'Траек.', title: 'Линии траекторий' },
-  { key: 'bottomholes', label: 'Забои', title: 'Маркеры забоев' },
+  { key: 'clearancePairs', label: 'SF', title: 'Пары с нарушением SF (ближайший подход)' },
+  { key: 'pywellgeoBranches', label: 'Ветви', title: 'Ветви PyWellGeo' },
+  { key: 'bottomholes', label: 'Забои', title: 'Маркеры и подписи забоев' },
 ];
 
 type PadClusteringScene3DLayerTogglesProps = {
@@ -24,6 +26,8 @@ type PadClusteringScene3DLayerTogglesProps = {
   onChange: (layers: PadClusteringScene3DLayers) => void;
   envelopeAvailable: boolean;
   trajectoriesAvailable: boolean;
+  clearanceAvailable: boolean;
+  pywellgeoAvailable: boolean;
   bottomholesAvailable: boolean;
 };
 
@@ -32,6 +36,8 @@ export function PadClusteringScene3DLayerToggles({
   onChange,
   envelopeAvailable,
   trajectoriesAvailable,
+  clearanceAvailable,
+  pywellgeoAvailable,
   bottomholesAvailable,
 }: PadClusteringScene3DLayerTogglesProps) {
   const toggle = (key: PadClusteringScene3DLayerKey) => {
@@ -52,6 +58,8 @@ export function PadClusteringScene3DLayerToggles({
         {LAYER_BUTTONS.map(({ key, label, title }) => {
           if (key === 'envelope' && !envelopeAvailable) return null;
           if (key === 'trajectories' && !trajectoriesAvailable) return null;
+          if (key === 'clearancePairs' && !clearanceAvailable) return null;
+          if (key === 'pywellgeoBranches' && !pywellgeoAvailable) return null;
           if (key === 'bottomholes' && !bottomholesAvailable) return null;
           const active = layers[key];
           return (

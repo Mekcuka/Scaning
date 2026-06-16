@@ -1,6 +1,10 @@
 import type { WellTrajectoryGeoJsonFeature } from '../api/wellTrajectoryApi';
 import type { InfraObject } from '../api';
-import { wellTrajectoryDisplayColor, wellTrajectoryPaletteColor } from '../wellTrajectoryClearance';
+import {
+  WELL_TRAJECTORY_MAP_LATERAL_COLOR,
+  WELL_TRAJECTORY_MAP_MAIN_COLOR,
+  wellTrajectoryPaletteColor,
+} from '../wellTrajectoryClearance';
 import {
   buildMap3dInfraBottomholeInstances,
   filterGeoJsonBottomholesByInfra,
@@ -81,19 +85,25 @@ export function buildMap3dWellTrajectoryInstances(
 ): Map3dWellTrajectoryInstance[] {
   const out: Map3dWellTrajectoryInstance[] = [];
   for (const f of features) {
-    if (f.properties.kind !== 'trajectory') continue;
+    const kind = f.properties.kind;
+    if (kind !== 'trajectory' && kind !== 'pywellgeo_branch') continue;
     const parsed = parseTrajectoryPath3d(f.geometry.coordinates);
     if (!parsed) continue;
     const wellIndex = f.properties.well_index ?? 0;
-    const threshold = f.properties.sf_warning_threshold ?? 1;
-    const colorHex = wellTrajectoryDisplayColor(wellIndex, f.properties.min_sf, threshold);
+    const colorHex =
+      kind === 'pywellgeo_branch' ? WELL_TRAJECTORY_MAP_LATERAL_COLOR : WELL_TRAJECTORY_MAP_MAIN_COLOR;
+    const branchName = (f.properties as { branch_name?: string }).branch_name;
+    const branchId = (f.properties as { branch_id?: string }).branch_id;
     out.push({
-      id: `${f.properties.infra_object_id ?? 'pad'}:${wellIndex}`,
+      id:
+        kind === 'pywellgeo_branch'
+          ? `pwg:${f.properties.infra_object_id ?? 'pad'}:${wellIndex}:${branchId ?? branchName ?? 'lat'}`
+          : `${f.properties.infra_object_id ?? 'pad'}:${wellIndex}`,
       path: parsed.path,
       alts: parsed.alts,
-      radiusM: MAP3D_WELL_TRAJECTORY_RADIUS_M,
+      radiusM: kind === 'pywellgeo_branch' ? MAP3D_WELL_TRAJECTORY_RADIUS_M * 0.85 : MAP3D_WELL_TRAJECTORY_RADIUS_M,
       colorHex,
-      opacity: 0.88,
+      opacity: kind === 'pywellgeo_branch' ? 0.92 : 0.88,
       wellIndex,
       padId: f.properties.infra_object_id,
     });
@@ -176,7 +186,7 @@ export function buildMap3dWellPlanLineInstances(
         Number.isFinite(bhAlt) ? bhAlt : 0,
       ],
       radiusM: MAP3D_WELL_PLAN_LINE_RADIUS_M,
-      colorHex: '#1565c0',
+      colorHex: WELL_TRAJECTORY_MAP_MAIN_COLOR,
       opacity: 0.55,
       wellIndex,
       padId: f.properties.infra_object_id,

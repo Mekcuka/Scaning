@@ -24,7 +24,6 @@ from app.schemas import (
     AutoroadConnectResponse,
     FacilityInfraObjectCreate,
     InfraObjectCreate,
-    InfraObjectResponse,
     InfraObjectUpdate,
     MapBatchDeleteRequest,
     MapBatchDeleteResponse,
@@ -43,7 +42,7 @@ from app.services.job_enqueue import commit_and_schedule, create_and_schedule_jo
 from app.services.line_endpoint_rules import LineEndpointRuleError
 from app.services.map_batch_paste import apply_map_batch_paste
 from app.services.project_jobs import JOB_TYPE_AUTOROAD_CONNECT, ActiveProjectJobError
-from app.services.serializers import infra_to_response
+from app.services.serializers import infra_to_public_json
 
 
 async def handle_list_infra_objects(
@@ -55,7 +54,7 @@ async def handle_list_infra_objects(
     q: str | None = None,
     bbox: str | None = None,
     visible_layers_only: bool = True,
-) -> list[InfraObjectResponse]:
+) -> list[dict]:
     await get_user_project(project_id, user, db)
     qry = (
         select(InfrastructureObject)
@@ -80,7 +79,7 @@ async def handle_list_infra_objects(
         except ValueError as e:
             raise HTTPException(status_code=400, detail="Invalid bbox format") from e
     result = await db.execute(qry)
-    return [infra_to_response(obj) for obj in result.scalars().all()]
+    return [infra_to_public_json(obj) for obj in result.scalars().all()]
 
 
 async def handle_clear_project_infrastructure(
@@ -99,7 +98,7 @@ async def handle_create_infra_object(
     data: InfraObjectCreate,
     user: User,
     db: AsyncSession,
-) -> InfraObjectResponse:
+) -> dict:
     await require_infra_write(project_id, user, db)
     subtype = data.subtype.lower().strip()
     try:
@@ -114,7 +113,7 @@ async def handle_create_infra_object(
         raise HTTPException(status_code=400, detail=str(e)) from e
     await db.commit()
     await db.refresh(obj)
-    return infra_to_response(obj)
+    return infra_to_public_json(obj)
 
 
 async def handle_create_facility_infra_object(
@@ -122,7 +121,7 @@ async def handle_create_facility_infra_object(
     data: FacilityInfraObjectCreate,
     user: User,
     db: AsyncSession,
-) -> InfraObjectResponse:
+) -> dict:
     await require_infra_write(project_id, user, db)
     payload = InfraObjectCreate(
         name=data.name,
@@ -139,7 +138,7 @@ async def handle_create_facility_infra_object(
         raise HTTPException(status_code=400, detail=str(e)) from e
     await db.commit()
     await db.refresh(obj)
-    return infra_to_response(obj)
+    return infra_to_public_json(obj)
 
 
 async def handle_autoroad_connect(
@@ -204,7 +203,7 @@ async def handle_update_infra_object(
     data: InfraObjectUpdate,
     user: User,
     db: AsyncSession,
-) -> InfraObjectResponse:
+) -> dict:
     project = await require_infra_write(project_id, user, db)
     obj = await get_infra_object(object_id, project_id, db)
     try:
@@ -220,7 +219,7 @@ async def handle_update_infra_object(
         raise HTTPException(status_code=400, detail=str(e)) from e
     await db.commit()
     await db.refresh(obj)
-    return infra_to_response(obj)
+    return infra_to_public_json(obj)
 
 
 async def handle_batch_delete(

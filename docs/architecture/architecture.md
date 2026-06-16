@@ -1,9 +1,9 @@
 # Архитектура приложения
 
 > **Параметры ввода:** [input-parameters.md](../product/input-parameters.md). Актуальная SQL-схема — [database-schema.md](database-schema.md).  
-> **Геометрия и пространственные расчёты:** [map-objects-and-spatial-calculations.md](../features/map-objects-and-spatial-calculations.md).  
+> **Геометрия и пространственные расчёты:** [map-objects-and-spatial-calculations.md](../features/map/map-objects-and-spatial-calculations.md).  
 > **Расчётные функции:** [calculation-functions.md](../calculations/calculation-functions.md).  
-> **Схема потоков (PFD):** [fluid-flow-schematic.md](../features/fluid-flow-schematic.md) — отдельный визуальный поток от анализа окружения; использует граф сети и POI, не таблицу `poi_infrastructure_analysis`.  
+> **Схема потоков (PFD):** [fluid-flow-schematic.md](../features/flows/fluid-flow-schematic.md) — отдельный визуальный поток от анализа окружения; использует граф сети и POI, не таблицу `poi_infrastructure_analysis`.  
 > **Статус реализации:** [implementation-status.md](../planning/implementation-status.md).  
 > **Границы модулей (SOLID):** [module-boundaries.md](module-boundaries.md), [solid-refactoring-plan.md](../planning/solid-refactoring-plan.md).  
 > **Автопостроение сети автодорог (сервис):** [autoroad-network-plan.md](../autoroad/autoroad-network-plan.md).  
@@ -172,7 +172,7 @@ map/
 
 **Пространственный анализ (MVP):** см. [calculation-functions.md](../calculations/calculation-functions.md) §1 (`find_nearest_object_by_subtype`, `calc_geodesic_distance_km`, `calc_anchor_geometry`).
 
-**3D-атрибуты объектов (L2):** `render_3d_*` в `properties`, defaults L1 — [`render_3d_properties.py`](../../decision-matrix/backend/app/geo/render_3d_properties.py), [`shared/l1_extrusion_heights.json`](../../decision-matrix/shared/l1_extrusion_heights.json). См. [map-3d-features.md](../features/map-3d-features.md).
+**3D-атрибуты объектов (L2):** `render_3d_*` в `properties`, defaults L1 — [`render_3d_properties.py`](../../decision-matrix/backend/app/geo/render_3d_properties.py), [`shared/l1_extrusion_heights.json`](../../decision-matrix/shared/l1_extrusion_heights.json). См. [map-3d-features.md](../features/map/map-3d-features.md).
 
 **API Endpoints**:
 ```
@@ -527,9 +527,9 @@ analytics/  [папка зарезервирована для v1.3+]
 
 Реализация 2D: `frontend/src/components/MapView.tsx` (обёртка) + `frontend/src/components/mapView/` (OpenLayers).  
 Страница: `frontend/src/pages/MapPage.tsx` (оркестратор) + `frontend/src/pages/map/` (layout-компоненты).  
-Реализация 3D: `frontend/src/components/MapView3D.tsx`, `frontend/src/lib/map3d/` — см. [map-3d-features.md](../features/map-3d-features.md).
+Реализация 3D: `frontend/src/components/MapView3D.tsx`, `frontend/src/lib/map3d/` — см. [map-3d-features.md](../features/map/map-3d-features.md).
 
-**Слои на карте (OpenLayers, 2D):** подложка, пороговые радиусы, линии подключения POI (анализ), линии/точки инфраструктуры, превью рисования. **Расчётный граф** (`infrastructure_nodes` / `infrastructure_edges`) **на карте не отображается** — только в БД и в API для «Потоков» / логистики. См. [map-objects-and-spatial-calculations.md](../features/map-objects-and-spatial-calculations.md) §5–§6.
+**Слои на карте (OpenLayers, 2D):** подложка, пороговые радиусы, линии подключения POI (анализ), линии/точки инфраструктуры, превью рисования. **Расчётный граф** (`infrastructure_nodes` / `infrastructure_edges`) **на карте не отображается** — только в БД и в API для «Потоков» / логистики. См. [map-objects-and-spatial-calculations.md](../features/map/map-objects-and-spatial-calculations.md) §5–§6.
 
 **Режим 3D (MapLibre + Three.js, view-only):** те же объекты из API → `geoJson.ts` + custom layers (glTF точки, трубы линий), MapTiler terrain, без редактирования. Переключатель 2D|3D на MapPage; также Matrix и превью отчёта.
 

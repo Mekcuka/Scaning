@@ -2,7 +2,8 @@ import { useCallback, useEffect, useImperativeHandle, useMemo, useRef, forwardRe
 import * as THREE from 'three';
 import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
 import type { InfraObject } from '../../lib/api';
-import type { WellTrajectory } from '../../lib/api/wellTrajectoryApi';
+import type { ClearancePair, WellTrajectory } from '../../lib/api/wellTrajectoryApi';
+import type { PyWellGeoPlotSegment } from '../../lib/api/pywellgeoApi';
 import type { PadDemPreview } from '../../lib/padEarthworkDemPreview';
 import {
   bottomholesSceneRevision,
@@ -18,7 +19,14 @@ import {
   type PadClusteringScene3DLayers,
 } from '../../lib/padClusteringScene3dLayers';
 import { trajectoriesSceneRevision } from '../../lib/padClusteringSceneTrajectories';
+import {
+  buildClearancePairLines,
+  clearancePairsSceneRevision,
+} from '../../lib/padClusteringScene3dClearance';
+import { buildPyWellGeoBranchLines, buildPyWellGeoNodeMarker, type PyWellGeoSelectedNodeMarker } from '../../lib/padClusteringScene3dPyWellGeo';
 import { PadClusteringPlanOverlay } from './PadClusteringPlanOverlay';
+import { PadClusteringBottomholeLabelsOverlay } from './PadClusteringBottomholeLabelsOverlay';
+import { PadClusteringClearancePairsOverlay } from './PadClusteringClearancePairsOverlay';
 import { PadClusteringScene3DCompass } from './PadClusteringScene3DCompass';
 import { PadClusteringWellLabelsOverlay } from './PadClusteringWellLabelsOverlay';
 import {
@@ -64,10 +72,16 @@ export type PadClusteringScene3DProps = {
   padLon: number;
   padLat: number;
   trajectories: WellTrajectory[];
+  clearancePairs?: ClearancePair[];
+  pywellgeoSegments?: PyWellGeoPlotSegment[];
+  pywellgeoSelectedNode?: PyWellGeoSelectedNodeMarker | null;
+  pywellgeoLateralTarget?: PyWellGeoSelectedNodeMarker | null;
   sceneLayers: PadClusteringScene3DLayers;
   selectedWellIndex?: number | null;
   sfWarningThreshold?: number;
   trajectoriesHiddenReason?: string | null;
+  /** When this key changes (e.g. pad id), the camera is re-framed; otherwise orbit is preserved. */
+  sceneResetKey?: string | null;
   onWellSelect?: (wellIndex: number | null) => void;
   onCameraStateChange?: (state: PadClusteringScene3DCameraState) => void;
 };
@@ -107,10 +121,15 @@ export const PadClusteringScene3D = forwardRef<PadClusteringScene3DHandle, PadCl
       padLon,
       padLat,
       trajectories,
+      clearancePairs = [],
+      pywellgeoSegments = [],
+      pywellgeoSelectedNode = null,
+      pywellgeoLateralTarget = null,
       sceneLayers,
       selectedWellIndex = null,
       sfWarningThreshold = 1,
       trajectoriesHiddenReason = null,
+      sceneResetKey = null,
       onWellSelect,
       onCameraStateChange,
     },
@@ -128,6 +147,7 @@ export const PadClusteringScene3D = forwardRef<PadClusteringScene3DHandle, PadCl
     const onWellSelectRef = useRef(onWellSelect);
     const selectedWellIndexRef = useRef(selectedWellIndex);
     const sceneLayersRef = useRef(sceneLayers);
+    const lastSceneResetKeyRef = useRef<string | null>(null);
     const sceneRef = useRef<{
       scene: THREE.Scene;
       camera: THREE.PerspectiveCamera;
@@ -146,6 +166,10 @@ export const PadClusteringScene3D = forwardRef<PadClusteringScene3DHandle, PadCl
     const trajectoriesRevision = useMemo(
       () => trajectoriesSceneRevision(trajectories),
       [trajectories],
+    );
+    const clearanceRevision = useMemo(
+      () => clearancePairsSceneRevision(clearancePairs),
+      [clearancePairs],
     );
     const bottomholesRevision = useMemo(
       () => bottomholesSceneRevision(bottomholes),
@@ -411,6 +435,15 @@ export const PadClusteringScene3D = forwardRef<PadClusteringScene3DHandle, PadCl
       const ctx = sceneRef.current;
       if (!ctx) return undefined;
 
+      const padChanged =
+        sceneResetKey != null && sceneResetKey !== lastSceneResetKeyRef.current;
+      if (padChanged) {
+        lastSceneResetKeyRef.current = sceneResetKey;
+        userOrbitRef.current = false;
+        pendingAutoFrameRef.current = true;
+        cameraPresetRef.current = null;
+      }
+
       if (sceneRootRef.current) {
         ctx.content.remove(sceneRootRef.current);
         disposeObject3D(sceneRootRef.current);
@@ -454,26 +487,71 @@ export const PadClusteringScene3D = forwardRef<PadClusteringScene3DHandle, PadCl
         trajGroup.add(buildTrajectoryLines(trajectories, kbM, sfWarningThreshold));
       }
       root.add(trajGroup);
-      root.add(buildBottomholeLayer(bottomholes, trajectories, padLon, padLat, kbM));
+
+      const clearanceGroup = new THREE.Group();
+      clearanceGroup.name = 'layer-clearance-pairs';
+      if (trajectories.length > 0 && clearancePairs.length > 0) {
+        clearanceGroup.add(
+          buildClearancePairLines(trajectories, clearancePairs, kbM, sfWarningThreshold),
+        );
+      }
+      root.add(clearanceGroup);
+
+      const geoGroup = new THREE.Group();
+      geoGroup.name = 'layer-pywellgeo-branches';
+      if (pywellgeoSegments.length > 0) {
+        geoGroup.add(buildPyWellGeoBranchLines(pywellgeoSegments, kbM));
+      }
+      root.add(geoGroup);
+
+      if (pywellgeoSelectedNode) {
+        root.add(
+          wrapSceneLayer(
+            'layer-pywellgeo-selected-node',
+            buildPyWellGeoNodeMarker(pywellgeoSelectedNode, kbM),
+          ),
+        );
+      }
+
+      if (pywellgeoLateralTarget) {
+        root.add(
+          wrapSceneLayer(
+            'layer-pywellgeo-lateral-target',
+            buildPyWellGeoNodeMarker(pywellgeoLateralTarget, kbM),
+          ),
+        );
+      }
+
+      root.add(
+        buildBottomholeLayer(bottomholes, trajectories, padLon, padLat, kbM, {
+          padId: sceneResetKey ?? undefined,
+          pywellgeoSegments,
+          pywellgeoWellIndex: selectedWellIndex,
+        }),
+      );
 
       applyPadClusteringLayerVisibility(root, sceneLayersRef.current);
 
       sceneRootRef.current = root;
       ctx.content.add(root);
 
-      userOrbitRef.current = false;
-      pendingAutoFrameRef.current = true;
-      tryAutoFrame();
-      let raf2 = 0;
-      const raf1 = requestAnimationFrame(() => {
+      if (pendingAutoFrameRef.current && !userOrbitRef.current) {
         tryAutoFrame();
-        raf2 = requestAnimationFrame(() => tryAutoFrame());
-      });
+        let raf2 = 0;
+        const raf1 = requestAnimationFrame(() => {
+          if (pendingAutoFrameRef.current && !userOrbitRef.current) tryAutoFrame();
+          raf2 = requestAnimationFrame(() => {
+            if (pendingAutoFrameRef.current && !userOrbitRef.current) tryAutoFrame();
+          });
+        });
 
-      return () => {
-        cancelAnimationFrame(raf1);
-        cancelAnimationFrame(raf2);
-      };
+        return () => {
+          cancelAnimationFrame(raf1);
+          cancelAnimationFrame(raf2);
+        };
+      }
+
+      return undefined;
     }, [
       sketch,
       referenceElevationM,
@@ -488,9 +566,15 @@ export const PadClusteringScene3D = forwardRef<PadClusteringScene3DHandle, PadCl
       padLat,
       trajectories,
       trajectoriesRevision,
+      clearancePairs,
+      clearanceRevision,
+      pywellgeoSegments,
+      pywellgeoSelectedNode,
+      pywellgeoLateralTarget,
       sfWarningThreshold,
       selectedWellIndex,
       kbM,
+      sceneResetKey,
       tryAutoFrame,
     ]);
 
@@ -523,15 +607,32 @@ export const PadClusteringScene3D = forwardRef<PadClusteringScene3DHandle, PadCl
             trajectories={trajectories}
             kbM={kbM}
             selectedWellIndex={selectedWellIndex}
+            sfWarningThreshold={sfWarningThreshold}
             visible={sceneLayers.wellLabels}
             getSceneView={getSceneView}
           />
-          <PadClusteringScene3DCompass getCompassView={getCompassView} />
+          <PadClusteringClearancePairsOverlay
+            trajectories={trajectories}
+            clearancePairs={clearancePairs}
+            kbM={kbM}
+            visible={sceneLayers.clearancePairs && sceneLayers.trajectories}
+            getSceneView={getSceneView}
+          />
+          <PadClusteringBottomholeLabelsOverlay
+            bottomholes={bottomholes}
+            trajectories={trajectories}
+            padLon={padLon}
+            padLat={padLat}
+            kbM={kbM}
+            visible={sceneLayers.bottomholes}
+            getSceneView={getSceneView}
+          />
           <canvas
             ref={canvasRef}
             className="pad-earthwork-scene3d__canvas"
             aria-label="3D-сцена кустования"
           />
+          <PadClusteringScene3DCompass getCompassView={getCompassView} />
         </div>
       </div>
     );

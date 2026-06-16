@@ -15,7 +15,14 @@ import {
   stripSandVolumeProperties,
   type SandVolumeInputMode,
 } from '../../lib/infraSandVolumes';
-import { isBottomholeSubtype, WELL_BOTTOMHOLE_GS_SUBTYPE } from '../../lib/wellBottomholeProperties';
+import {
+  bottomholeFormFieldsToProperties,
+  type BottomholeFormFields,
+} from './bottomholeFormFields';
+import {
+  isBottomholeSubtype,
+  WELL_BOTTOMHOLE_GS_SUBTYPE,
+} from '../../lib/wellBottomholeProperties';
 import { mergeEntryDate, objectShowsEntryDate } from '../../lib/infraEntryDate';
 import {
   mergePadWellParams,
@@ -69,7 +76,7 @@ export type InfraSaveDraft = {
   padMarginTopM: string;
   padMarginEndM: string;
   pointFootprintLineConnections: PointFootprintLineConnections;
-  bottomholePropsPatch: Record<string, unknown>;
+  bottomholeFields: BottomholeFormFields;
 };
 
 export function buildInfraSavePayload(
@@ -107,7 +114,7 @@ export function buildInfraSavePayload(
     padMarginTopM,
     padMarginEndM,
     pointFootprintLineConnections,
-    bottomholePropsPatch,
+    bottomholeFields,
   } = draft;
 
   const payload: Record<string, unknown> = {
@@ -184,10 +191,8 @@ export function buildInfraSavePayload(
       Object.keys(pointFootprintLineConnections).length ? pointFootprintLineConnections : null,
     );
   }
-  if (Object.keys(bottomholePropsPatch).length > 0) {
-    props = { ...props, ...bottomholePropsPatch };
-  }
   if (isBottomholeSubtype(subtype)) {
+    props = { ...props, ...bottomholeFormFieldsToProperties(bottomholeFields) };
     props = stripSandVolumeProperties(props);
   }
   payload.properties = props;

@@ -10,7 +10,7 @@ import { stripProjectPrefix } from '../projectRoutes';
 export function deriveActiveTab(pathname: string): string | null {
   const path = stripProjectPrefix(pathname);
   if (path === '/map') return 'map';
-  if (path === '/pad-clustering') return 'pad-clustering';
+  if (path.startsWith('/pad-clustering')) return 'pad-clustering';
   if (path === '/matrix') return 'matrix';
   if (path === '/projects' || path === '/') return null;
   if (path.startsWith('/projects/')) return 'project-detail';

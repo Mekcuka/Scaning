@@ -238,8 +238,10 @@ def test_patch_targets_and_geojson(client: TestClient):
     )
     assert geo.status_code == 200
     kinds = {f["properties"]["kind"] for f in geo.json()["features"]}
-    assert "trajectory_plan" in kinds
     assert "bottomhole_target" in kinds
+    assert "bottomhole_target_3d" in kinds
+    # Stub trajectories are not drawn as trajectory_plan until after «Рассчитать»
+    assert "trajectory_plan" not in kinds
 
     last = client.get(
         f"/api/v1/projects/{pid}/infrastructure/objects/{oid}/well-trajectory/last",
@@ -288,14 +290,11 @@ def test_design_all_from_targets(client: TestClient):
 
 def test_project_geojson(client: TestClient):
     pid, headers, oid = _seed_oil_pad(client)
-    _save_wells_local(client, pid, oid, headers, well_count=1)
-    client.post(
-        f"/api/v1/projects/{pid}/infrastructure/objects/{oid}/well-trajectory/generate-from-layout",
-        headers=headers,
-    )
+    _design_all_wells(client, pid, oid, headers, count=1)
     res = client.get(f"/api/v1/projects/{pid}/well-trajectory/geojson", headers=headers)
     assert res.status_code == 200
-    assert len(res.json()["features"]) >= 1
+    kinds = {f["properties"]["kind"] for f in res.json()["features"]}
+    assert "trajectory_plan" in kinds or "trajectory" in kinds
 
 
 def _design_all_wells(client: TestClient, pid: str, oid: str, headers: dict[str, str], count: int):
@@ -347,6 +346,35 @@ def test_pad_clearance_two_wells_sync(client: TestClient):
     assert last_body["clearance_computed_at"]
     assert len(last_body["clearance_pairs"]) == 1
     assert last_body["trajectories"][0]["clearance"]["min_sf"] > 0
+
+
+def test_generate_from_layout_clears_clearance(client: TestClient):
+    pid, headers, oid = _seed_oil_pad(client)
+    _save_wells_local(client, pid, oid, headers, well_count=2)
+    _design_all_wells(client, pid, oid, headers, count=2)
+
+    clearance = client.post(
+        f"/api/v1/projects/{pid}/infrastructure/objects/{oid}/well-trajectory/clearance",
+        headers=headers,
+    )
+    assert clearance.status_code == 200, clearance.text
+
+    gen = client.post(
+        f"/api/v1/projects/{pid}/infrastructure/objects/{oid}/well-trajectory/generate-from-layout",
+        headers=headers,
+    )
+    assert gen.status_code == 200, gen.text
+
+    last = client.get(
+        f"/api/v1/projects/{pid}/infrastructure/objects/{oid}/well-trajectory/last",
+        headers=headers,
+    )
+    assert last.status_code == 200
+    last_body = last.json()
+    assert not last_body.get("clearance_computed_at")
+    assert not last_body.get("clearance_pairs")
+    for traj in last_body["trajectories"]:
+        assert "clearance" not in traj
 
 
 def test_project_clearance_enqueues_job_when_many_wells(client: TestClient, monkeypatch):

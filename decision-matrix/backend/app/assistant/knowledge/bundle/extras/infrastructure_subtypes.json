@@ -8,7 +8,8 @@
       "water_pipeline",
       "power_line",
       "methanol_pipeline",
-      "additional_line"
+      "additional_line",
+      "well_bottomhole_gs"
     ],
     "analysis_internal": [
       "autoroad",
@@ -102,6 +103,7 @@
     "gtes": ["gtes", "gpes", "vies"],
     "bottomhole": [
       "well_bottomhole_nnb",
+      "well_bottomhole_gs",
       "well_bottomhole_gs_heel",
       "well_bottomhole_gs_toe"
     ]
@@ -154,8 +156,9 @@
     "additional_facility": "Доп. объект",
     "offplot": "ВО",
     "well_bottomhole_nnb": "Забой (ННБ)",
-    "well_bottomhole_gs_heel": "ГС — heel",
-    "well_bottomhole_gs_toe": "ГС — toe"
+    "well_bottomhole_gs": "ГС",
+    "well_bottomhole_gs_heel": "ГС — Т1",
+    "well_bottomhole_gs_toe": "ГС — Т3"
   },
   "categories": {
     "autoroad": "road",
@@ -187,6 +190,7 @@
     "offplot": "area_facility",
     "additional_facility": "area_facility",
     "well_bottomhole_nnb": "well",
+    "well_bottomhole_gs": "well",
     "well_bottomhole_gs_heel": "well",
     "well_bottomhole_gs_toe": "well"
   },

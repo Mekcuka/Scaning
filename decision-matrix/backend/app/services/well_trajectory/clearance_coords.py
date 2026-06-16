@@ -63,6 +63,22 @@ def _project_anchor(pads: list[InfrastructureObject]) -> tuple[float, float]:
     return sum(lons) / len(lons), sum(lats) / len(lats)
 
 
+def _survey_eligible_for_clearance(survey: dict[str, Any]) -> bool:
+    """Only designed/imported trajectories; exclude vertical stubs (welleng needs >2 stations)."""
+    if not isinstance(survey, dict):
+        return False
+    if survey.get("source") == "stub":
+        return False
+    stations = survey.get("stations") or []
+    if not isinstance(stations, list) or len(stations) < 2:
+        return False
+    source = survey.get("source")
+    if source in ("calculated", "imported"):
+        return True
+    # Legacy trajectories without source: require enough stations for ISCWSA interpolation.
+    return source is None and len(stations) >= 3
+
+
 def _station_arrays(
     well: dict[str, Any],
     *,
@@ -133,6 +149,14 @@ def collect_project_wells_for_clearance(
                 continue
             well_index = int(well.get("well_index", len(meta)))
             name = str(well.get("name") or f"Скв-{well_index + 1}")
+            survey = well.get("survey") or {}
+            if not _survey_eligible_for_clearance(survey):
+                src = survey.get("source") if isinstance(survey, dict) else None
+                if src == "stub":
+                    skips.append(f"{pad.name} / {name}: stub trajectory (not for SF)")
+                else:
+                    skips.append(f"{pad.name} / {name}: survey not designed/imported")
+                continue
             arrays = _station_arrays(
                 well,
                 pad=pad,

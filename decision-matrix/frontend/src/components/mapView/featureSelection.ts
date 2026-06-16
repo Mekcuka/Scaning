@@ -4,7 +4,21 @@ import VectorLayer from 'ol/layer/Vector';
 import VectorSource from 'ol/source/Vector';
 import { transform } from 'ol/proj';
 import { linkCoordMatch } from '../../lib/infraLinks';
+import { parseGsLineEndpointFeatureId } from '../../lib/wellBottomholeProperties';
 import type { MapFeatureSelection } from './types';
+
+export function resolveInfraMapFeatureSelection(
+  featureId: string,
+  infraObjectId?: string,
+): MapFeatureSelection {
+  const objectId = infraObjectId ?? featureId;
+  const gsParsed = parseGsLineEndpointFeatureId(featureId);
+  return {
+    kind: 'infra',
+    id: objectId,
+    ...(gsParsed ? { gsEndpoint: gsParsed.endpoint } : {}),
+  };
+}
 
 export function resolveFeatureSelection(f: Feature): MapFeatureSelection | null {
   const features = f.get('features') as Feature[] | undefined;

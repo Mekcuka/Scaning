@@ -119,7 +119,7 @@
 - [x] Пороговые круги вокруг POI
 - [x] **Страница «Импорт»** (отдельный маршрут): API + файлы + история
 - [x] Координаты курсора, линии по выбранной POI
-- [x] **3D-режим** (post-plan, [map-3d-features.md](../features/map-3d-features.md))
+- [x] **3D-режим** (post-plan, [map-3d-features.md](../features/map/map-3d-features.md))
 
 ### Результат
 - [x] Работающий UI для аутентификации
@@ -167,7 +167,7 @@
 - [x] Линии/статусы на карте по выбранной POI
 - [x] PDF отчёта (клиентский print; server PDF — post-MVP)
 - [x] Excel: таблицы экрана «Параметры» (`exportExcel.ts`)
-- [x] **Экспорт GeoJSON и координат проекта** — `/data/export`, клиент (`lib/projectExport/`, [project-export.md](../features/project-export.md))
+- [x] **Экспорт GeoJSON и координат проекта** — `/data/export`, клиент (`lib/projectExport/`, [project-export.md](../features/import-export/project-export.md))
 - [ ] Полный экспорт матрицы/отчёта в Excel
 
 ### Результат
@@ -234,15 +234,15 @@
 
 > Не входило в этапы 1–7, но **готово** в коде (июнь 2026).
 
-- [x] **Схема потоков (PFD)** — `/flows/*`, React Flow, маршруты по сети ([fluid-flow-schematic.md](../features/fluid-flow-schematic.md))
+- [x] **Схема потоков (PFD)** — `/flows/*`, React Flow, маршруты по сети ([fluid-flow-schematic.md](../features/flows/fluid-flow-schematic.md))
 - [x] **Экономическая схема потоков** — вкладка «Потоки → Экономика»
 - [x] **Логистика песка** — `/flows/logistics`, timeline, analyze API
 - [x] **Автосеть автодорог** — Steiner tree, UI «Сеть», BFF plan/apply ([autoroad-network-plan.md](../autoroad/autoroad-network-plan.md))
-- [x] **Импорт Искра** — `spark_import.py` ([spark-import-mapping.md](../features/spark-import-mapping.md))
-- [x] **Импорт 3D** — custom GLB, `/data/import-3d` ([map-3d-features.md](../features/map-3d-features.md))
-- [x] **Журнал задач** — панель в шапке + `/admin/jobs` ([task-log-panel.md](../features/task-log-panel.md))
-- [x] **Экспорт проекта** — `/data/export` ([project-export.md](../features/project-export.md))
-- [x] **Импорт (карточки)** — `/data/import` ([project-import.md](../features/project-import.md))
+- [x] **Импорт Искра** — `spark_import.py` ([spark-import-mapping.md](../features/import-export/spark-import-mapping.md))
+- [x] **Импорт 3D** — custom GLB, `/data/import-3d` ([map-3d-features.md](../features/map/map-3d-features.md))
+- [x] **Журнал задач** — панель в шапке + `/admin/jobs` ([task-log-panel.md](../features/jobs/task-log-panel.md))
+- [x] **Экспорт проекта** — `/data/export` ([project-export.md](../features/import-export/project-export.md))
+- [x] **Импорт (карточки)** — `/data/import` ([project-import.md](../features/import-export/project-import.md))
 - [x] **Админка пользователей** — `/admin/users`, RBAC, stats
 - [x] **Граф сети** — build/list nodes/edges (для расчётов, не на карте)
 

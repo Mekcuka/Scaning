@@ -49,7 +49,7 @@ const NAV: NavItem[] = [
   { to: '/projects', permissionPath: '/projects', icon: FolderOpen, label: 'Проекты', end: true },
   { to: '/map', permissionPath: '/map', icon: Map, label: 'Карта', end: true },
   {
-    to: '/pad-clustering',
+    section: 'pad-clustering',
     permissionPath: '/pad-clustering',
     icon: Layers,
     label: 'Кустование',
@@ -104,8 +104,8 @@ export function AppLayout() {
   const [navOpen, setNavOpen] = useState(false);
 
   const isMapPage = logicalPath === '/map';
-  const isPadClusteringPage = logicalPath === '/pad-clustering';
-  const isFullHeightPage = isMapPage || isPadClusteringPage;
+  const isPadClusteringWorkspace = logicalPath.startsWith('/pad-clustering/workspace');
+  const isFullHeightPage = isMapPage || isPadClusteringWorkspace;
 
   useEffect(() => {
     setNavOpen(false);

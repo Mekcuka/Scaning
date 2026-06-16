@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { coordForSave, formatCoord, parseCoord, roundCoord, coordStringForCopy, formatNumberFull } from './coords';
+import { coordForSave, formatCoord, parseCoord, parseCoordTriple, roundCoord, coordStringForCopy, formatNumberFull } from './coords';
 
 describe('coords', () => {
   it('formatCoord shows 3 decimals', () => {
@@ -30,5 +30,15 @@ describe('coords', () => {
 
   it('coordStringForCopy uses parsed edit with full precision', () => {
     expect(coordStringForCopy('61.103847291', 61.1)).toBe('61.103847291');
+  });
+
+  it('parseCoordTriple splits X, Y, Z clipboard text', () => {
+    expect(parseCoordTriple('37.611, 55.711, -1398.12')).toEqual({
+      x: '37.611',
+      y: '55.711',
+      z: '-1398.12',
+    });
+    expect(parseCoordTriple('37.611;55.711')).toEqual({ x: '37.611', y: '55.711' });
+    expect(parseCoordTriple('37.611')).toBeNull();
   });
 });

@@ -28,6 +28,10 @@ import {
 } from '../lib/lineEndpointRules';
 import type { MapUndoEntry } from '../lib/mapUndo';
 import { infraGeometryUndo, poiGeometryUndo } from '../lib/mapUndo';
+import {
+  buildGsLineEndpointMovePayload,
+  isGsBottomholeLine,
+} from '../lib/wellBottomholeProperties';
 
 export type UseMapGeometrySaveParams = {
   projectId: string | undefined;
@@ -148,6 +152,35 @@ export function useMapGeometrySave({
             });
           }
         } else {
+          if (
+            sel.kind === 'infra' &&
+            sel.gsEndpoint &&
+            infraBefore &&
+            isGsBottomholeLine(infraBefore)
+          ) {
+            const payload = buildGsLineEndpointMovePayload(
+              infraBefore,
+              sel.gsEndpoint,
+              rLon,
+              rLat,
+            );
+            if (payload) {
+              patchInfraObjectsInQueries(queryClient, projectId, (o) =>
+                o.id === sel.id ? { ...o, ...payload } : o,
+              );
+              touchInfraOverlay([sel.id]);
+              await mapApi.updateInfraObject(projectId, sel.id, payload);
+              if (saveSeq !== geometrySaveSeqRef.current) return;
+              pushUndo({
+                kind: 'patch_infra_geometry',
+                objectId: sel.id,
+                before: infraGeometryUndo(infraBefore),
+                label: `изменение геометрии «${infraBefore.name}»`,
+              });
+              return;
+            }
+          }
+
           const isMovedPoint =
             !!infraBefore && !LINE_SUBTYPES.includes(infraBefore.subtype as (typeof LINE_SUBTYPES)[number]);
           const updatedLinePayloads: {
@@ -316,6 +349,27 @@ export function useMapGeometrySave({
 
         const infraBefore = currentInfra.find((o) => o.id === sel.id);
         if (!infraBefore) continue;
+
+        if (
+          sel.kind === 'infra' &&
+          sel.gsEndpoint &&
+          isGsBottomholeLine(infraBefore) &&
+          !coords
+        ) {
+          const payload = buildGsLineEndpointMovePayload(
+            infraBefore,
+            sel.gsEndpoint,
+            rLon,
+            rLat,
+          );
+          if (payload) {
+            movedLineIds.add(sel.id);
+            movedPositionEntries.push({ id: sel.id, lon: rLon, lat: rLat });
+            infraEntries.push({ objectId: sel.id, before: infraGeometryUndo(infraBefore) });
+            lineSaves.push({ id: sel.id, payload, before: infraBefore });
+          }
+          continue;
+        }
 
         if (coords && coords.length >= 2) {
           movedLineIds.add(sel.id);

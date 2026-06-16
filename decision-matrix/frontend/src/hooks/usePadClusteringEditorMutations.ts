@@ -1,4 +1,4 @@
-import { useMutation } from '@tanstack/react-query';
+import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { defaultMapMutationsApi } from '../lib/api';
 import { padEarthworkApi } from '../lib/api/padEarthworkApi';
 import { wellTrajectoryApi, type WellTrajectoryLastResponse } from '../lib/api/wellTrajectoryApi';
@@ -8,6 +8,7 @@ import { maybeRegenerateTrajectoriesAfterLayoutChange } from '../lib/wellTraject
 import type { InfraObject } from '../lib/api';
 import type { PadClusteringCalcDraft, PadClusteringPadDraft } from '../lib/padClusteringSave';
 import { buildPadClusteringSaveProperties } from '../lib/padClusteringSave';
+import type { PadClusteringPyWellGeoDraft } from '../lib/padClusteringPyWellGeoSettings';
 import type { PlanShapeSketch, PlanVertex } from '../lib/padEarthworkSketch';
 import { useAppStore } from '../store';
 import {
@@ -24,10 +25,12 @@ export interface PadClusteringEditorMutationsInput {
   pad: InfraObject | null;
   activeDraft: PadClusteringPadDraft | null;
   activeCalcDraft: PadClusteringCalcDraft;
+  activeGeoDraft: PadClusteringPyWellGeoDraft;
   wellsLocal: PlanVertex[];
   invalidateAll: () => void;
   patchTrajectoryLast: (patch: Partial<WellTrajectoryLastResponse>) => void;
   setSavedCalcDraft: (draft: PadClusteringCalcDraft) => void;
+  setSavedGeoDraft: (draft: PadClusteringPyWellGeoDraft) => void;
   setLocalSketch: (sketch: PlanShapeSketch) => void;
   setLocalWellsLocal: (wells: PlanVertex[]) => void;
   setSketchDirty: (dirty: boolean) => void;
@@ -41,10 +44,12 @@ export function usePadClusteringEditorMutations(input: PadClusteringEditorMutati
     pad,
     activeDraft,
     activeCalcDraft,
+    activeGeoDraft,
     wellsLocal,
     invalidateAll,
     patchTrajectoryLast,
     setSavedCalcDraft,
+    setSavedGeoDraft,
     setLocalSketch,
     setLocalWellsLocal,
     setSketchDirty,
@@ -52,6 +57,7 @@ export function usePadClusteringEditorMutations(input: PadClusteringEditorMutati
   } = input;
 
   const pushToast = useAppStore((s) => s.pushToast);
+  const queryClient = useQueryClient();
 
   const savePadMut = useMutation({
     mutationFn: async () => {
@@ -60,12 +66,22 @@ export function usePadClusteringEditorMutations(input: PadClusteringEditorMutati
         pad.properties,
         activeDraft,
         activeCalcDraft,
+        activeGeoDraft,
       );
       if (!properties) throw new Error('Проверьте габариты площадки');
       return defaultMapMutationsApi.updateInfraObject(projectId, pad.id, { properties });
     },
     onSuccess: () => {
       setSavedCalcDraft(activeCalcDraft);
+      setSavedGeoDraft(activeGeoDraft);
+      if (projectId && padId) {
+        queryClient.setQueryData(['pywellgeoLast', projectId, padId], {
+          settings: activeGeoDraft.settings,
+          trees: activeGeoDraft.trees,
+          computed_at: null,
+          warnings: [],
+        });
+      }
       pushToast('success', 'Настройки куста сохранены');
       invalidateAll();
     },

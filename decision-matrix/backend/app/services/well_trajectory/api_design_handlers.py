@@ -32,6 +32,7 @@ from app.services.well_trajectory.schemas import (
     WellTrajectoryTargetsResponse,
     WellTrajectorySyncBottomholesResponse,
 )
+from app.services.well_trajectory.bottomhole_sync import fetch_bottomholes_for_pad
 from app.services.well_trajectory.service import (
     build_last_response,
     compute_all_trajectories,
@@ -42,7 +43,11 @@ from app.services.well_trajectory.service import (
     save_targets,
     sync_bottomholes_for_pad,
 )
-from app.services.well_trajectory.trajectory_store import read_trajectories_json, store_computed_at
+from app.services.well_trajectory.trajectory_store import (
+    read_trajectories_json,
+    store_computed_at,
+    trajectory_changed_indices,
+)
 from app.subtype_manifest import PAD_CLUSTER_SUBTYPES
 
 
@@ -63,7 +68,8 @@ async def handle_generate_from_layout(
     db: AsyncSession,
 ) -> WellTrajectoryGenerateResponse:
     project, obj = await read_pad_for_write(project_id, object_id, user, db)
-    response = run_planner(generate_trajectories_from_layout, obj)
+    bottomholes = await fetch_bottomholes_for_pad(db, project_id, obj.id)
+    response = run_planner(generate_trajectories_from_layout, obj, bottomholes=bottomholes)
     await persist_pad_trajectories(
         db,
         project=project,
@@ -71,6 +77,7 @@ async def handle_generate_from_layout(
         user=user,
         obj=obj,
         trajectories=response.trajectories,
+        clear_pywellgeo_indices=set(range(len(response.trajectories))),
     )
     await db.refresh(obj)
     return response
@@ -94,6 +101,7 @@ async def handle_design(
         user=user,
         obj=obj,
         trajectories=trajectories,
+        clear_pywellgeo_indices={body.well_index},
     )
     return response
 
@@ -114,6 +122,7 @@ async def handle_compute(
         obj=obj,
         trajectories=response.trajectories,
         props_postprocess=store_computed_at,
+        clear_pywellgeo_indices=set(range(len(response.trajectories))),
     )
     return response
 
@@ -162,6 +171,7 @@ async def handle_patch_targets(
         user=user,
         obj=obj,
         trajectories=response.trajectories,
+        clear_pywellgeo_indices={entry.well_index for entry in body.targets},
     )
     return response
 
@@ -182,6 +192,7 @@ async def handle_design_all(
         user=user,
         obj=obj,
         trajectories=response.trajectories,
+        clear_pywellgeo_indices=set(response.designed),
     )
     return response
 
@@ -193,7 +204,9 @@ async def handle_sync_bottomholes(
     db: AsyncSession,
 ) -> WellTrajectorySyncBottomholesResponse:
     project, obj = await read_pad_for_write(project_id, object_id, user, db)
+    before = read_trajectories_json(obj.properties)
     response = await sync_bottomholes_for_pad(db, obj, project_id=project_id)
+    changed = trajectory_changed_indices(before, response.trajectories)
     await persist_pad_trajectories(
         db,
         project=project,
@@ -201,6 +214,7 @@ async def handle_sync_bottomholes(
         user=user,
         obj=obj,
         trajectories=response.trajectories,
+        clear_pywellgeo_indices=changed,
     )
     return response
 
@@ -213,7 +227,10 @@ async def handle_design_from_bottomholes(
     db: AsyncSession,
 ) -> WellTrajectoryDesignFromBottomholesResponse:
     project, obj = await read_pad_for_write(project_id, object_id, user, db)
+    before = read_trajectories_json(obj.properties)
     response = await design_from_bottomholes(db, obj, body, project_id=project_id)
+    changed = trajectory_changed_indices(before, response.trajectories)
+    pywellgeo_clear = set(response.designed) | changed
     await persist_pad_trajectories(
         db,
         project=project,
@@ -221,5 +238,7 @@ async def handle_design_from_bottomholes(
         user=user,
         obj=obj,
         trajectories=response.trajectories,
+        props_postprocess=store_computed_at,
+        clear_pywellgeo_indices=pywellgeo_clear,
     )
     return response

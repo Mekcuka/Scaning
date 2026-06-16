@@ -16,6 +16,8 @@ describe('padClusteringScene3dLayers', () => {
       wellheads: true,
       wellLabels: true,
       trajectories: true,
+      clearancePairs: true,
+      pywellgeoBranches: true,
       bottomholes: true,
     });
   });

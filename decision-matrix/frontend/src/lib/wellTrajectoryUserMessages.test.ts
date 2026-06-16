@@ -15,7 +15,7 @@ describe('translateWellTrajectoryUserMessage', () => {
   });
 
   it('passes through already Russian text', () => {
-    const ru = 'Скв.2: пятка (heel) ГС без парного toe';
+    const ru = 'Скв.2: Т1 ГС без парного Т3';
     expect(translateWellTrajectoryUserMessage(ru)).toBe(ru);
   });
 });

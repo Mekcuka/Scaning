@@ -33,13 +33,19 @@ export function useMapViewWellTrajectorySync(
         infra_object_id: f.properties.infra_object_id,
         pad_name: f.properties.pad_name,
       };
-      if (kind === 'trajectory_plan' && showWellTrajectories) {
+      if ((kind === 'trajectory_plan' || kind === 'pywellgeo_branch') && showWellTrajectories) {
         const coords = f.geometry.coordinates as number[][];
         if (coords.length >= 2) {
+          const branchId = (f.properties as { branch_id?: string }).branch_id;
           planSource.addFeature(
             new Feature({
               geometry: new LineString(coords.map((c) => fromLonLat([c[0], c[1]]))),
               ...props,
+              branch_name: (f.properties as { branch_name?: string }).branch_name,
+              branch_id: branchId,
+              feature_key: branchId
+                ? `${f.properties.infra_object_id}:${f.properties.well_index}:${branchId}`
+                : `${f.properties.infra_object_id}:${f.properties.well_index}:${kind}`,
             }),
           );
         }

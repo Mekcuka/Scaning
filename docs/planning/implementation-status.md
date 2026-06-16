@@ -33,7 +33,7 @@
 | `/projects` | Список проектов | admin, analyst, viewer |
 | `/projects/:id` | Карточка проекта (POI, анализ) | ↑ |
 | `/map/{projectId}` | Карта (+ слой траекторий GeoJSON) | все |
-| `/pad-clustering/{projectId}` | Кустование (раскладка, траектории, 3D) | admin, analyst, data_manager, viewer |
+| `/pad-clustering/workspace/{projectId}` | Кустование — **Куст** (раскладка, траектории, 3D); subnav: **Сводка**, **Профиль** | admin, analyst, data_manager, viewer |
 | `/parameters/{projectId}` | Параметры (index → последняя вкладка) | admin, analyst, viewer |
 | `/parameters/capacity/{projectId}` | Пропускная способность | ↑ |
 | `/parameters/sand/{projectId}` | Песок / логистика | ↑ |
@@ -70,9 +70,9 @@
 | Граф сети | `api/v1/graph.py`, `graph_builder.py` | ✅ (визуализация/PFD; якорь `network_node` в анализе POI — post-MVP) |
 | Схема потоков | `api/v1/flow.py`, `fluid_flow_schematic.py`, `flow_schematic_merge.py` | ✅ |
 | Песок / логистика | `api/v1/sand_logistics.py`, `sand_logistics.py`, `sand_logistics_store.py` | ✅ (результат в БД; схема: timeline, полная топология на любом годе, layout/slice, адаптивные отступы) |
-| Земляные работы площадки | `pad-earthwork-planner` + BFF; все точечные объекты кроме `node` (включая **карьер песка**); карта: L/W/H, **Схема…**, DEM; режим **Площадки** (контуры footprint, **точки подключения** линий); **Параметры → Земляные работы** — табличное редактирование габаритов; **Параметры → Точки подключения** — шаблон cardinal + bulk apply; **Генератор** только кусты — [pad-earthwork.md](../features/pad-earthwork.md) | ✅ flat + plan + envelope + DEM + 3D preview + footprints |
-| Траектории скважин (3D) | `well-trajectory-planner` (welleng) + BFF — [well-trajectory.md](../features/well-trajectory.md), [план реализации](well-trajectory-implementation-plan.md), [оценка приложения](well-trajectory-app-assessment.md) | ✅ **M1 ✅, M2 ✅, M3 ✅, M4a ✅** — BFF, «Кустование», забои (+ **геометрия X/Y/Z**, dual TVD ГС, **точка входа `any`/heel/toe + SF**), GeoJSON 2D/3D, anti-collision SF, **импорт CSV / `.wbp`**, E2E smoke; WITSML 4b — в планах |
-| Оптимизация размещения кустов | BFF `pad-placement/*`, `services/pad_placement/` (`placement_optimize.py` — двухфазный перебор центра; `trajectory_design.py` — адаптивный entry ГС); jobs `pad_placement_compute` / `apply` — [pad-placement-optimization.md](../features/pad-placement-optimization.md), [plan](pad-placement-optimization-plan.md) | ✅ **M1–M5 + M2+** |
+| Земляные работы площадки | `pad-earthwork-planner` + BFF; все точечные объекты кроме `node` (включая **карьер песка**); карта: L/W/H, **Схема…**, DEM; режим **Площадки** (контуры footprint, **точки подключения** линий); **Параметры → Земляные работы** — табличное редактирование габаритов; **Параметры → Точки подключения** — шаблон cardinal + bulk apply; **Генератор** только кусты — [pad-earthwork.md](../features/pad-earthwork/pad-earthwork.md) | ✅ flat + plan + envelope + DEM + 3D preview + footprints |
+| Траектории скважин (3D) | `well-trajectory-planner` (welleng) + BFF — [well-trajectory.md](../features/well-trajectory/well-trajectory.md), [план реализации](../features/well-trajectory/well-trajectory-implementation-plan.md), [оценка приложения](../features/well-trajectory/well-trajectory-app-assessment.md) | ✅ **M1 ✅, M2 ✅, M3 ✅, M4a ✅** — BFF, «Кустование», забои (+ **геометрия X/Y/Z**, dual TVD ГС, **точка входа `any`/Т1/Т3 + SF**), GeoJSON 2D/3D, anti-collision SF, **импорт CSV / `.wbp`**, E2E smoke; WITSML 4b — в планах |
+| Оптимизация размещения кустов | BFF `pad-placement/*`, `services/pad_placement/` (`placement_optimize.py` — двухфазный перебор центра; `trajectory_design.py` — адаптивный entry ГС); jobs `pad_placement_compute` / `apply` — [pad-placement-optimization.md](../features/pad-placement/pad-placement-optimization.md), [plan](../features/pad-placement/pad-placement-optimization-plan.md) | ✅ **M1–M5 + M2+** |
 | Экономика потоков | `economic_flow_schematic.py`, `economic_rates.py` | ✅ |
 | Автосеть автодорог | `network-planner` + `planner_adapter.py`: Steiner tree, post-processing, preview overlay; BFF request/compute/apply | ✅ |
 | Autoroad Network Service (HTTP :8080) | `autoroad-network-planner` microservice / legacy `services/autoroad-network/` | ⬜ опционально (`AUTOROAD_NETWORK_INPROCESS=false`) |
@@ -96,7 +96,10 @@
 | `/dashboard/{projectId}` | `DashboardPage` | ✅ |
 | `/projects`, `/projects/:id` | `ProjectsPage`, `ProjectDetailPage` | ✅ |
 | `/map/{projectId}` | `MapPage` + `MapView` (2D) / `MapView3D` (+ слой траекторий GeoJSON) | ✅ |
-| `/pad-clustering/{projectId}` | `PadClusteringPage` — куст, траектории, 3D | ✅ |
+| `/pad-clustering/workspace/{projectId}` | `PadClusteringLayout` — subnav **Куст** / **Сводка** / **Профиль**; sidebar + 3D, read-only сводка, MD–TVD + Excel | ✅ |
+| `/pad-clustering/summary/{projectId}` | `PadClusteringSummaryPage` — единая таблица параметров расчёта | ✅ |
+| `/pad-clustering/profile/{projectId}` | `PadClusteringProfilePage` — график MD–TVD, станции, маркеры Т1/Т3 (ГС) | ✅ |
+| `/pad-clustering/{projectId}` | redirect → workspace | ✅ |
 | `/map/{projectId}` (режим «Оптимизация кустов») | `PadPlacementPanel`, preview GeoJSON, async compute, apply → новые кусты | ✅ |
 | `/parameters/*/{projectId}` | `ParametersPage`, `SandParametersPage`, … | ✅ |
 | `/matrix/{projectId}` | `MatrixPage` | ✅ |
@@ -111,13 +114,13 @@
 
 **Оболочка (`AppLayout`):** выход (иконка `LogOut`) в нижней панели сайдбара; в шапке — **заголовок страницы** (`PageHeaderOutlet`), **журнал задач** и переключатель **темы** (глобального селектора проекта в шапке нет). Активный проект — из **URL** (`:projectId`) и store; ссылки в sidebar строятся через `projectPath` / `ProjectLink`.
 
-**3D-карта:** `VITE_MAP_3D_ENABLED`, `VITE_MAPTILER_KEY`, `VITE_API_URL` (обязателен на GitHub Pages) — см. [map-3d-features.md](../features/map-3d-features.md), cross-origin auth — [auth-rbac.md](../architecture/auth-rbac.md).
+**3D-карта:** `VITE_MAP_3D_ENABLED`, `VITE_MAPTILER_KEY`, `VITE_API_URL` (обязателен на GitHub Pages) — см. [map-3d-features.md](../features/map/map-3d-features.md), cross-origin auth — [auth-rbac.md](../architecture/auth-rbac.md).
 
 **Панель «Слои» на `/map/{projectId}`:** переключатели подложки, групп подтипов, POI, радиусов — в `localStorage` на проект (`mapLayerPreferences.ts`, ключ `dm-map-layer-prefs:{projectId}`). Видимость импортированных слоёв (`infrastructure_layers.is_visible`) — в БД.
 
-**Загрузка объектов на карте:** гибрид полного кэша + bbox при просмотре (порог 80 объектов, буфер 12%, без лишних `GET` при мелком пане); синхронизация full+bbox кэшей при CRUD/геометрии (`mapQueries.ts`); API [`bbox_filter.py`](../../decision-matrix/backend/app/geo/bbox_filter.py). **Плавность 2D:** rAF на `pointermove`, spatial hit-test (`mapHitTest.ts`), точечный hover, `React.memo(MapView)`, idle-sync слоя при ≥150 объектах, LOD линий по умолчанию 1:500 000 — §6.1.2 [map-objects-and-spatial-calculations.md](../features/map-objects-and-spatial-calculations.md). **Drag точек в editMode:** `updateWhileInteracting` + [`mapFeatureGeometrySync.ts`](../../decision-matrix/frontend/src/lib/mapFeatureGeometrySync.ts).
+**Загрузка объектов на карте:** гибрид полного кэша + bbox при просмотре (порог 80 объектов, буфер 12%, без лишних `GET` при мелком пане); синхронизация full+bbox кэшей при CRUD/геометрии (`mapQueries.ts`); API [`bbox_filter.py`](../../decision-matrix/backend/app/geo/bbox_filter.py). **Плавность 2D:** rAF на `pointermove`, spatial hit-test (`mapHitTest.ts`), точечный hover, `React.memo(MapView)`, idle-sync слоя при ≥150 объектах, LOD линий по умолчанию 1:500 000 — §6.1.2 [map-objects-and-spatial-calculations.md](../features/map/map-objects-and-spatial-calculations.md). **Drag точек в editMode:** `updateWhileInteracting` + [`mapFeatureGeometrySync.ts`](../../decision-matrix/frontend/src/lib/mapFeatureGeometrySync.ts).
 
-**Рефакторинг frontend (июнь 2026):** монолиты разбиты без смены публичных импортов — `MapPage` ~3836→**~35** (`sections` из `useMapPageOrchestrator`), `MapView` ~2227→~58, `ObjectDetailPanel` ~1163→~168, `FlowSchematicEditor` / `SandLogisticsSubnetPanel` / `SandLogisticsTables` → barrels, `useMapPageOrchestrator` → `mapPageOrchestrator/*`, `useObjectDetailPanel` → sub-hooks, `setupModifyHandlers` / `setupTranslateHandlers` → submodules. **Pad earthwork (P2+):** `PadEarthworkSketchModal` ~1185→~116 + hooks/tabs, `lib/padEarthworkSketch.ts` → `padEarthworkSketch/*`, `InfraPadEarthworkSection` → hook + form. **CSS:** `index.css` ~9170 строк → `src/styles/` (35 файлов; `features/map/`, `components/app-modal/`; манифест `css-segments.mjs`, `npm run verify:css`). **Lint:** `npm run lint` — **0 errors, 0 warnings**. **UI guidelines** + Cursor rule `.cursor/rules/ui-guidelines.mdc`. Детали: [frontend-structure.md](../architecture/frontend-structure.md), [ui-guidelines.md](../architecture/ui-guidelines.md), [pad-earthwork.md](../features/pad-earthwork.md). Тесты: **581/581** Vitest, **16** E2E.
+**Рефакторинг frontend (июнь 2026):** монолиты разбиты без смены публичных импортов — `MapPage` ~3836→**~35** (`sections` из `useMapPageOrchestrator`), `MapView` ~2227→~58, `ObjectDetailPanel` ~1163→~168, `FlowSchematicEditor` / `SandLogisticsSubnetPanel` / `SandLogisticsTables` → barrels, `useMapPageOrchestrator` → `mapPageOrchestrator/*`, `useObjectDetailPanel` → sub-hooks, `setupModifyHandlers` / `setupTranslateHandlers` → submodules. **Pad earthwork (P2+):** `PadEarthworkSketchModal` ~1185→~116 + hooks/tabs, `lib/padEarthworkSketch.ts` → `padEarthworkSketch/*`, `InfraPadEarthworkSection` → hook + form. **CSS:** `index.css` ~9170 строк → `src/styles/` (35 файлов; `features/map/`, `components/app-modal/`; манифест `css-segments.mjs`, `npm run verify:css`). **Lint:** `npm run lint` — **0 errors, 0 warnings**. **UI guidelines** + Cursor rule `.cursor/rules/ui-guidelines.mdc`. Детали: [frontend-structure.md](../architecture/frontend-structure.md), [ui-guidelines.md](../architecture/ui-guidelines.md), [pad-earthwork.md](../features/pad-earthwork/pad-earthwork.md). Тесты: **581/581** Vitest, **16** E2E.
 
 **Рефакторинг backend (compliance P2, июнь 2026):** `fluid_routing`, `line_footprint_attach`, `point_footprint_line_connect` перенесены из `geo/` в `services/`; `import_connection_sync.py`; split `well_trajectory/service.py` (~700→~338 + модули). См. [module-boundaries.md](../architecture/module-boundaries.md), [consistency-review.md](consistency-review.md).
 
@@ -128,13 +131,13 @@
 ### Реализовано
 
 - **FR-1:** регистрация, вход, JWT cookies, refresh rotation, logout, 4 роли, admin users/stats, журнал фоновых задач (`/admin/jobs`), `published` для viewer.
-- **FR-2:** слои, объекты, рисование 2D, импорт (CSV, GeoJSON, KML, Shapefile, Spark, API connections), `import_logs`, поиск на карте, пространственный анализ, радиусы, линии POI→external. **Copy/paste группы (2D):** точное сохранение ломаной (`line_preserve_geometry`, привязка концов только к близнецам из выделения) — [map-objects-and-spatial-calculations.md](../features/map-objects-and-spatial-calculations.md) §6.1.0. **Производительность карты:** viewport `bbox` + буфер, throttling панорамирования, merge overlay, единый патч full+bbox кэшей, rAF/spatial hit-test/memo MapView, snap-index при рисовании линии, idle-sync слоя, LOD 1:500 000 — §6.1.2; ручной perf checklist — [testing-strategy.md](../testing/testing-strategy.md).
+- **FR-2:** слои, объекты, рисование 2D, импорт (CSV, GeoJSON, KML, Shapefile, Spark, API connections), `import_logs`, поиск на карте, пространственный анализ, радиусы, линии POI→external. **Copy/paste группы (2D):** точное сохранение ломаной (`line_preserve_geometry`, привязка концов только к близнецам из выделения) — [map-objects-and-spatial-calculations.md](../features/map/map-objects-and-spatial-calculations.md) §6.1.0. **Производительность карты:** viewport `bbox` + буфер, throttling панорамирования, merge overlay, единый патч full+bbox кэшей, rAF/spatial hit-test/memo MapView, snap-index при рисовании линии, idle-sync слоя, LOD 1:500 000 — §6.1.2; ручной perf checklist — [testing-strategy.md](../testing/testing-strategy.md).
 - **FR-4–7:** проекты, POI, 16 ставок, пороги, инженерные параметры, 9 строк анализа матрицы, стоимость, candidates, override.
 - **FR-8:** матрица (таблица + карточки), смена eng-параметров, фильтр превышений, мини-карта.
 - **FR-10:** иконки, радиусы, линии статусов.
 - **FR-11:** CRUD one-pagers, PPTX export, PDF через `window.print()`.
-- **Экспорт инфраструктуры:** `/data/export` — Excel/CSV координат, GeoJSON проекта (клиент, [project-export.md](../features/project-export.md)).
-- **Импорт (карточки):** `/data/import` — файлы, API, инклинометрия ([project-import.md](../features/project-import.md)).
+- **Экспорт инфраструктуры:** `/data/export` — Excel/CSV координат, GeoJSON проекта (клиент, [project-export.md](../features/import-export/project-export.md)).
+- **Импорт (карточки):** `/data/import` — файлы, API, инклинометрия ([project-import.md](../features/import-export/project-import.md)).
 
 ### Частично / упрощённо
 
@@ -166,7 +169,7 @@
 
 **Матрица и стоимость (9 строк):** 4 internal linear + 4 external Point + кустовые площадки — см. [calculation-functions.md](../calculations/calculation-functions.md).
 
-**Карта и импорт:** расширенный справочник подтипов (УКГ/ТСГ, метанол, БКНС, карьер, `gas_pipeline`, …) — [map-objects-and-spatial-calculations.md](../features/map-objects-and-spatial-calculations.md) §1.4, код `backend/app/geo/constants.py`.
+**Карта и импорт:** расширенный справочник подтипов (УКГ/ТСГ, метанол, БКНС, карьер, `gas_pipeline`, …) — [map-objects-and-spatial-calculations.md](../features/map/map-objects-and-spatial-calculations.md) §1.4, код `backend/app/geo/constants.py`.
 
 **Автопоиск ближайшего** (`EXTERNAL_POINT_SUBTYPES`): `gas_processing`, `gtes` (кластер gtes/gpes/vies), `substation`, `refinery`, `ground_pumping_station`, `sand_quarry`.
 
@@ -196,12 +199,12 @@
 | Тема | Файл |
 |------|------|
 | Требования | [requirements.md](../product/requirements.md) |
-| Потоки PFD | [fluid-flow-schematic.md](../features/fluid-flow-schematic.md) |
-| 3D-карта | [map-3d-features.md](../features/map-3d-features.md) |
-| Объекты карты | [map-objects-and-spatial-calculations.md](../features/map-objects-and-spatial-calculations.md) |
-| Импорт Искра | [spark-import-mapping.md](../features/spark-import-mapping.md) |
-| Земляные работы площадки | [pad-earthwork.md](../features/pad-earthwork.md) |
-| Траектории скважин (M1 ✅, M2 ✅, M3 ✅) | [well-trajectory.md](../features/well-trajectory.md), [план реализации](well-trajectory-implementation-plan.md), [roadmap](well-trajectory-roadmap.md) |
-| Оптимизация размещения кустов | [pad-placement-optimization.md](../features/pad-placement-optimization.md), [plan](pad-placement-optimization-plan.md), [data model](pad-placement-optimization-data-model.md) | ✅ M1–M5 + M2+ |
+| Потоки PFD | [fluid-flow-schematic.md](../features/flows/fluid-flow-schematic.md) |
+| 3D-карта | [map-3d-features.md](../features/map/map-3d-features.md) |
+| Объекты карты | [map-objects-and-spatial-calculations.md](../features/map/map-objects-and-spatial-calculations.md) |
+| Импорт Искра | [spark-import-mapping.md](../features/import-export/spark-import-mapping.md) |
+| Земляные работы площадки | [pad-earthwork.md](../features/pad-earthwork/pad-earthwork.md) |
+| Траектории скважин (M1 ✅, M2 ✅, M3 ✅) | [well-trajectory.md](../features/well-trajectory/well-trajectory.md), [план реализации](../features/well-trajectory/well-trajectory-implementation-plan.md), [roadmap](../features/well-trajectory/well-trajectory-roadmap.md) |
+| Оптимизация размещения кустов | [pad-placement-optimization.md](../features/pad-placement/pad-placement-optimization.md), [plan](../features/pad-placement/pad-placement-optimization-plan.md), [data model](../features/pad-placement/pad-placement-optimization-data-model.md) | ✅ M1–M5 + M2+ |
 | План (исторический) | [development-plan.md](development-plan.md) |
 | План развития | [system-evolution-plan.md](system-evolution-plan.md) |

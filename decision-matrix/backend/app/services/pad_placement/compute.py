@@ -17,6 +17,7 @@ from app.services.pad_placement.evaluate import (
 )
 from app.services.pad_placement.normalize import normalize_bottomholes
 from app.services.pad_placement.partition import (
+    MAX_PAD_PLACEMENT_WELLS,
     SYNC_MAX_PARTITIONS,
     SYNC_MAX_WELLS,
     estimate_partition_count,
@@ -77,10 +78,20 @@ async def build_request_preview(
     logical, norm_warnings = normalize_bottomholes(snapshots)
     n = len(logical)
     estimated = estimate_partition_count(n, body.params.max_wells_per_pad) if n else 0
-    sync_allowed = n <= SYNC_MAX_WELLS and estimated <= SYNC_MAX_PARTITIONS
+    if n <= SYNC_MAX_WELLS:
+        sync_allowed = estimated <= SYNC_MAX_PARTITIONS
+    elif n <= MAX_PAD_PLACEMENT_WELLS:
+        # k-means heuristic — safe to run synchronously up to the hard well cap.
+        sync_allowed = True
+    else:
+        sync_allowed = False
     warnings = load_warnings + norm_warnings
     if n == 0:
         warnings.append("No logical wells after normalization")
+    elif n > MAX_PAD_PLACEMENT_WELLS:
+        warnings.append(
+            f"Too many wells ({n}); maximum {MAX_PAD_PLACEMENT_WELLS} for pad placement"
+        )
     return PadPlacementRequestResponse(
         request_id=uuid4(),
         logical_well_count=n,
@@ -112,9 +123,9 @@ async def run_compute(
             f"Too many partition combinations ({estimated}); use async compute or reduce selection",
             status_code=400,
         )
-    if use_heuristic and n > 20:
+    if use_heuristic and n > MAX_PAD_PLACEMENT_WELLS:
         raise PadPlacementComputeError(
-            f"Too many wells ({n}); maximum 20 for pad placement",
+            f"Too many wells ({n}); maximum {MAX_PAD_PLACEMENT_WELLS} for pad placement",
             status_code=400,
         )
 

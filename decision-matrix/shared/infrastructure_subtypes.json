@@ -157,8 +157,8 @@
     "offplot": "ВО",
     "well_bottomhole_nnb": "Забой (ННБ)",
     "well_bottomhole_gs": "ГС",
-    "well_bottomhole_gs_heel": "ГС — heel",
-    "well_bottomhole_gs_toe": "ГС — toe"
+    "well_bottomhole_gs_heel": "ГС — Т1",
+    "well_bottomhole_gs_toe": "ГС — Т3"
   },
   "categories": {
     "autoroad": "road",

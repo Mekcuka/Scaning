@@ -4,7 +4,7 @@ HTTP microservice for simplified pad (oil/gas cluster) earthwork volume estimati
 
 Возможности: расчёт объёмов (`POST /v1/compute`), превью схемы, **автогенерация плана по скважинам** (`POST /v1/sketch/generate-from-wells`).
 
-Интеграция в СППР: [docs/features/pad-earthwork.md](../docs/features/pad-earthwork.md).
+Интеграция в СППР: [docs/features/pad-earthwork/pad-earthwork.md](../docs/features/pad-earthwork/pad-earthwork.md).
 
 ## Local development
 

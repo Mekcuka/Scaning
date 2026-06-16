@@ -27,5 +27,27 @@ def test_merge_infra_properties_patch_clears_nullable_keys():
     assert merged["sand_volume_m3"] == 12
 
 
+def test_merge_infra_properties_patch_clears_bottomhole_nullable_keys():
+    existing = {
+        "well_bottomhole_linked_pad_id": "pad-1",
+        "well_bottomhole_well_index": 2,
+        "well_bottomhole_target_azi": 90.0,
+        "well_bottomhole_heel_tvd_m": 1500.0,
+    }
+    merged = merge_infra_properties_patch(
+        existing,
+        {
+            "well_bottomhole_linked_pad_id": None,
+            "well_bottomhole_well_index": "",
+            "well_bottomhole_target_azi": None,
+            "well_bottomhole_heel_tvd_m": 1600.0,
+        },
+    )
+    assert "well_bottomhole_linked_pad_id" not in merged
+    assert "well_bottomhole_well_index" not in merged
+    assert "well_bottomhole_target_azi" not in merged
+    assert merged["well_bottomhole_heel_tvd_m"] == 1600.0
+
+
 def test_normalize_assigned_subtypes_legacy_pad():
     assert normalize_assigned_subtypes(["pad"]) == ["oil_pad"]

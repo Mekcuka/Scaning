@@ -5,13 +5,14 @@
 
 import { projectPath, stripProjectPrefix } from './projectRoutes';
 
-export type NavSection = 'parameters' | 'flows' | 'admin' | 'data';
+export type NavSection = 'parameters' | 'flows' | 'admin' | 'data' | 'pad-clustering';
 
 const SECTION_PREFIX: Record<NavSection, string> = {
   parameters: '/parameters',
   flows: '/flows',
   admin: '/admin',
   data: '/data',
+  'pad-clustering': '/pad-clustering',
 };
 
 const SECTION_DEFAULT: Record<NavSection, string> = {
@@ -19,6 +20,7 @@ const SECTION_DEFAULT: Record<NavSection, string> = {
   flows: '/flows/technology',
   admin: '/admin/users',
   data: '/data/export',
+  'pad-clustering': '/pad-clustering/workspace',
 };
 
 const ALLOWED_PATHS: Record<NavSection, readonly string[]> = {
@@ -33,6 +35,11 @@ const ALLOWED_PATHS: Record<NavSection, readonly string[]> = {
   flows: ['/flows/technology', '/flows/economic', '/flows/logistics'],
   admin: ['/admin/users', '/admin/jobs', '/admin/assistant'],
   data: ['/data/import', '/data/export', '/data/import-3d'],
+  'pad-clustering': [
+    '/pad-clustering/workspace',
+    '/pad-clustering/summary',
+    '/pad-clustering/profile',
+  ],
 };
 
 const STORAGE_KEY = 'dm-nav-last-section';

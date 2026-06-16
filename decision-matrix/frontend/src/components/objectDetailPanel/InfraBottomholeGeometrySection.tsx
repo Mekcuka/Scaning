@@ -1,6 +1,7 @@
 import { Copy, MapPin } from 'lucide-react';
+import type { ClipboardEvent } from 'react';
 import type { InfraObject } from '../../lib/api';
-import { coordStringForCopy, numberStringForCopy } from '../../lib/coords';
+import { coordStringForCopy, numberStringForCopy, parseCoordTriple } from '../../lib/coords';
 import { formatLengthMeters, lineLengthMeters } from '../../lib/mapMeasure';
 import {
   bottomholeShowsEndPoint,
@@ -9,11 +10,9 @@ import {
   readPadKbM,
   tvdFromElevation,
   type BottomholeCopySources,
-} from '../../lib/wellBottomholeElevation';import {
-  WELL_BOTTOMHOLE_HEEL_TVD_M,
-  WELL_BOTTOMHOLE_TOE_TVD_M,
-  WELL_BOTTOMHOLE_TVD_M,
-} from '../../lib/wellBottomholeProperties';
+} from '../../lib/wellBottomholeElevation';
+import { GS_HEEL_LABEL, GS_TOE_LABEL, gsEndpointRangeLabel } from '../../lib/wellBottomholeProperties';
+import type { BottomholeFormFields } from './bottomholeFormFields';
 import { DeferredNumberInput } from '../DeferredNumberInput';
 import { FieldLabel, PanelSection, StatChip } from './panelUi';
 
@@ -36,7 +35,7 @@ interface InfraBottomholeGeometrySectionProps {
   setZToe: (value: string) => void;
   linkedPad: InfraObject | null;
   copySources: BottomholeCopySources;
-  onBottomholePropsChange: (patch: Record<string, unknown>) => void;
+  onBottomholeFieldsChange: (patch: Partial<BottomholeFormFields>) => void;
   onCopyCoordinates: (text: string) => Promise<void>;
 }
 
@@ -97,6 +96,19 @@ function BottomholeXyzRow({
   z: string;
   onCommitZ: (value: number | '') => void;
 }) {
+  const handlePasteTriple = (event: ClipboardEvent<HTMLInputElement>) => {
+    if (readOnly) return;
+    const triple = parseCoordTriple(event.clipboardData.getData('text'));
+    if (!triple) return;
+    event.preventDefault();
+    setX(triple.x);
+    setY(triple.y);
+    if (triple.z != null && triple.z !== '') {
+      const n = Number(triple.z.replace(',', '.'));
+      if (Number.isFinite(n)) onCommitZ(n);
+    }
+  };
+
   return (
     <div className="object-detail-panel__coord-grid object-detail-panel__coord-grid--xyz">
       <label className="object-detail-panel__field">
@@ -108,6 +120,7 @@ function BottomholeXyzRow({
           readOnly={readOnly}
           disabled={readOnly}
           onChange={(e) => setX(e.target.value)}
+          onPaste={handlePasteTriple}
         />
       </label>
       <label className="object-detail-panel__field">
@@ -163,7 +176,7 @@ export function InfraBottomholeGeometrySection({
   setZToe,
   linkedPad,
   copySources,
-  onBottomholePropsChange,
+  onBottomholeFieldsChange,
   onCopyCoordinates,
 }: InfraBottomholeGeometrySectionProps) {
   const showEndPoint = bottomholeShowsEndPoint(subtype);
@@ -176,21 +189,21 @@ export function InfraBottomholeGeometrySection({
     if (value === '' || !Number.isFinite(value)) return;
     setZ(formatBottomholeElevation(value));
     const kbM = readPadKbM(linkedPad);
-    onBottomholePropsChange({ [WELL_BOTTOMHOLE_TVD_M]: tvdFromElevation(kbM, value) });
+    onBottomholeFieldsChange({ tvdM: String(tvdFromElevation(kbM, value)) });
   };
 
   const commitHeelZ = (value: number | '') => {
     if (value === '' || !Number.isFinite(value)) return;
     setZHeel(formatBottomholeElevation(value));
     const kbM = readPadKbM(linkedPad);
-    onBottomholePropsChange({ [WELL_BOTTOMHOLE_HEEL_TVD_M]: tvdFromElevation(kbM, value) });
+    onBottomholeFieldsChange({ heelTvdM: String(tvdFromElevation(kbM, value)) });
   };
 
   const commitToeZ = (value: number | '') => {
     if (value === '' || !Number.isFinite(value)) return;
     setZToe(formatBottomholeElevation(value));
     const kbM = readPadKbM(linkedPad);
-    onBottomholePropsChange({ [WELL_BOTTOMHOLE_TOE_TVD_M]: tvdFromElevation(kbM, value) });
+    onBottomholeFieldsChange({ toeTvdM: String(tvdFromElevation(kbM, value)) });
   };
 
   const formatCopyTriple = (
@@ -248,7 +261,7 @@ export function InfraBottomholeGeometrySection({
 
       <div className="object-detail-panel__coord-card">
         <p className="object-detail-panel__field-label object-detail-panel__field-label--section">
-          {showEndPoint ? 'Первая точка (heel)' : 'Координаты забоя'}
+          {showEndPoint ? `Первая точка (${GS_HEEL_LABEL})` : 'Координаты забоя'}
         </p>
         <BottomholeXyzRow
           readOnly={readOnly}
@@ -272,7 +285,7 @@ export function InfraBottomholeGeometrySection({
       {showEndPoint && (
         <div className="object-detail-panel__coord-card">
           <p className="object-detail-panel__field-label object-detail-panel__field-label--section">
-            Конечная точка (toe)
+            Конечная точка ({GS_TOE_LABEL})
           </p>
           <BottomholeXyzRow
             readOnly={readOnly}

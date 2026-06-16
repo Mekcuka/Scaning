@@ -1,6 +1,6 @@
 {
   "version": 1,
-  "article_count": 13,
+  "article_count": 14,
   "articles": [
     {
       "slug": "assistant-chat",
@@ -134,7 +134,7 @@
         "data_manager"
       ],
       "file": "articles/map-2d.md",
-      "char_count": 3200
+      "char_count": 4673
     },
     {
       "slug": "matrix",
@@ -175,7 +175,31 @@
         "data_manager"
       ],
       "file": "articles/navigation.md",
-      "char_count": 3034
+      "char_count": 3051
+    },
+    {
+      "slug": "pad-clustering-pywellgeo",
+      "title": "Кустование — PyWellGeo и доп.стволы",
+      "summary": "Кустование: PyWellGeo, доп.стволы, сводка расчёта и профиль MD–TVD (станции, Excel, Т1/Т3).",
+      "tags": [
+        "pad",
+        "clustering",
+        "pywellgeo",
+        "bottomhole",
+        "lateral",
+        "trajectory"
+      ],
+      "tab_hints": [
+        "pad-clustering"
+      ],
+      "roles": [
+        "viewer",
+        "analyst",
+        "admin",
+        "data_manager"
+      ],
+      "file": "articles/pad-clustering-pywellgeo.md",
+      "char_count": 4799
     },
     {
       "slug": "pad-earthwork-volumes",
@@ -225,7 +249,7 @@
         "data_manager"
       ],
       "file": "articles/pad-placement-optimization.md",
-      "char_count": 4089
+      "char_count": 5007
     },
     {
       "slug": "parameters-earthwork",

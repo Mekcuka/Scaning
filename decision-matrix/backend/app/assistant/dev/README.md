@@ -30,16 +30,43 @@ python -m app.assistant.dev.stdio_mcp
 Из корня репозитория:
 
 ```powershell
-.\scripts\get-atlas-grid-token.ps1 -IncludeDevMcp
+.\scripts\get-atlas-grid-token.ps1
 ```
 
-Добавит `atlas-grid` (HTTP + JWT) и `atlas-grid-dev` (stdio).
+Добавит `atlas-grid` (HTTP + JWT) и `atlas-grid-dev` (stdio). Отключить dev MCP: `-NoDevMcp`.
+
+Затем **Settings → Tools & MCP → Reload**.
 
 ### Вариант B — вручную
 
 Скопируйте блок `atlas-grid-dev` из [`.cursor/mcp.json.example`](../../../../.cursor/mcp.json.example), подставьте абсолютные пути к `venv\Scripts\python.exe` и `decision-matrix/backend`.
 
-Cursor → **Settings → Tools & MCP → Reload**.
+**Обязательно** задайте `PYTHONPATH` в `env` (тот же путь, что `cwd`):
+
+```json
+"atlas-grid-dev": {
+  "command": "<repo>/decision-matrix/backend/venv/Scripts/python.exe",
+  "args": ["-m", "app.assistant.dev.stdio_mcp"],
+  "cwd": "<repo>/decision-matrix/backend",
+  "env": {
+    "PYTHONPATH": "<repo>/decision-matrix/backend",
+    "ASSISTANT_DEV_MCP_DOMAIN_TOOLS": "false",
+    "ASSISTANT_DEV_MCP_USER_EMAIL": "admin@test.ru"
+  }
+}
+```
+
+### Windows / Cursor: почему нужен PYTHONPATH
+
+Cursor для stdio MCP **может не применять** `cwd` из `mcp.json` и запускать Python из корня workspace. Тогда `python -m app.assistant.dev.stdio_mcp` падает:
+
+```
+ModuleNotFoundError: No module named 'app'
+```
+
+В логе: `%APPDATA%\Cursor\logs\*\mcp-server-*-atlas-grid-dev.log`.
+
+`PYTHONPATH=<repo>/decision-matrix/backend` в `env` — надёжный обход. Скрипт `get-atlas-grid-token.ps1` задаёт его автоматически.
 
 ## Конфигурация
 

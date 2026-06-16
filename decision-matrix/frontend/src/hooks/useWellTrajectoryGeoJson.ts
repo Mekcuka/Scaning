@@ -6,7 +6,7 @@ export function useWellTrajectoryProjectGeoJson(projectId: string | null | undef
     queryKey: ['wellTrajectoryProjectGeoJson', projectId],
     queryFn: () => wellTrajectoryApi.getProjectGeoJson(projectId!),
     enabled: Boolean(projectId && enabled),
-    staleTime: 30_000,
+    staleTime: 0,
   });
 }
 

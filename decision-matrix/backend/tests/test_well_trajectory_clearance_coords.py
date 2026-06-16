@@ -66,3 +66,30 @@ def test_intra_pad_pair_indices():
     ]
     pairs = intra_pad_pair_indices(meta)
     assert pairs == [[0, 1]]
+
+
+def test_collect_skips_stub_wells_for_clearance():
+    trajectories = []
+    for i in range(4):
+        if i < 2:
+            stations = [
+                {"md": 0, "inc": 0, "azi": 90, "n": 0, "e": i * 9, "tvd": 0},
+                {"md": 500, "inc": 30, "azi": 90, "n": 200, "e": i * 9 + 50, "tvd": 400},
+                {"md": 2000, "inc": 90, "azi": 90, "n": 500, "e": i * 9 + 800, "tvd": 2500},
+            ]
+            src = "calculated"
+        else:
+            stations = [
+                {"md": 0, "inc": 0, "azi": 90, "n": 0, "e": i * 9, "tvd": 0},
+                {"md": 50, "inc": 0, "azi": 90, "n": 0, "e": i * 9, "tvd": 50},
+            ]
+            src = "stub"
+        trajectories.append(
+            {"well_index": i, "name": f"W{i}", "survey": {"source": src, "stations": stations}}
+        )
+    pad = _pad(37.62, 55.76, trajectories)
+    collection = collect_project_wells_for_clearance([pad])
+    assert len(collection.surveys) == 2
+    assert len(collection.meta) == 2
+    assert len(collection.skips) == 2
+    assert intra_pad_pair_indices(collection.meta) == [[0, 1]]

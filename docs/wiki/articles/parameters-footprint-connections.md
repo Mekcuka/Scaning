@@ -70,4 +70,4 @@ Earthwork-eligible — все точечные подтипы, **кроме «У
 - Габариты и поворот площадок: [parameters-earthwork.md](parameters-earthwork.md)
 - Режим «Площадки» на карте: [map-2d.md](map-2d.md)
 
-Техническая спецификация: [pad-earthwork.md](../../features/pad-earthwork.md) (§ «Привязка линий к ребру контура»).
+Техническая спецификация: [pad-earthwork.md](../../features/pad-earthwork/pad-earthwork.md) (§ «Привязка линий к ребру контура»).

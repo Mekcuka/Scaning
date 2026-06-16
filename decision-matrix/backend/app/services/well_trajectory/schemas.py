@@ -19,6 +19,7 @@ class WellTrajectorySettingsOut(BaseModel):
     stub_tvd_m: float = 100.0
     inc_heel: float = 90.0
     gs_entry_search_step_m: float = 30.0
+    dls_design: float = 3.0
 
 
 class WellTrajectoryLastResponse(BaseModel):

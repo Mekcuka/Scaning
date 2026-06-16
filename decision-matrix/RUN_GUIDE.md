@@ -57,9 +57,9 @@ npm run dev
 
 Frontend будет доступен на `http://127.0.0.1:5173`.
 
-**Журнал задач:** в шапке приложения (иконка слева от «Тема») — статусы расчётов и экспорт JSON запросов/ответов по **активному проекту** (`currentProjectId` в store). См. [docs/features/task-log-panel.md](../docs/features/task-log-panel.md).
+**Журнал задач:** в шапке приложения (иконка слева от «Тема») — статусы расчётов и экспорт JSON запросов/ответов по **активному проекту** (`currentProjectId` в store). См. [docs/features/jobs/task-log-panel.md](../docs/features/jobs/task-log-panel.md).
 
-**Данные (импорт / экспорт):** раздел **«Данные»** в боковом меню — подвкладки **Импорт** (`/data/import`), **Экспорт** (`/data/export`), **Импорт 3D** (`/data/import-3d`). На импорте и экспорте — выбор проекта в панели и **карточки** форматов/каналов. См. [docs/features/project-import.md](../docs/features/project-import.md), [project-export.md](../docs/features/project-export.md).
+**Данные (импорт / экспорт):** раздел **«Данные»** в боковом меню — подвкладки **Импорт** (`/data/import`), **Экспорт** (`/data/export`), **Импорт 3D** (`/data/import-3d`). На импорте и экспорте — выбор проекта в панели и **карточки** форматов/каналов. См. [docs/features/import-export/project-import.md](../docs/features/import-export/project-import.md), [project-export.md](../docs/features/import-export/project-export.md).
 
 ## 3) Повторный запуск (со второго раза)
 
@@ -122,12 +122,12 @@ python C:\Users\user\Documents\Cursore\scripts\sync-assistant-wiki.py
 
 Настройка в `backend/.env` — см. [`.env.example`](backend/.env.example) (Ollama, LM Studio, OpenRouter). Wiki RAG embeddings — `ASSISTANT_WIKI_EMBEDDING_*` (можно отдельно от chat LLM).
 
-- **Admin UI:** `/admin/assistant` — probe, override chat/embeddings, тест completion ([assistant-tools.md §8](../docs/features/assistant-tools.md)).
+- **Admin UI:** `/admin/assistant` — probe, override chat/embeddings, тест completion ([assistant-tools.md §8](../docs/features/assistant/assistant-tools.md)).
 - `GET /api/v1/assistant/status` → `provider_ready: true` только если отвечает `GET …/models`.
 - Если при отправке сообщения ошибка **OpenRouter 429** — исчерпан лимит бесплатной модели (`:free`); смените `ASSISTANT_LLM_MODEL` или подождите.
 - Сообщения в панели помощника зависят от провайдера ([`frontend/src/lib/assistant/chatErrors.ts`](frontend/src/lib/assistant/chatErrors.ts)).
 
-Подробнее: [chat/README.md](backend/app/assistant/chat/README.md), [assistant-tools.md §8–§10](../docs/features/assistant-tools.md).
+Подробнее: [chat/README.md](backend/app/assistant/chat/README.md), [assistant-tools.md §8–§10](../docs/features/assistant/assistant-tools.md).
 
 ### Пересоздание demo-пользователей
 
@@ -195,14 +195,14 @@ npm run dev
 
 ## 7) Карта (поведение UI)
 
-- **Расчётный граф** (узлы/рёбра `infrastructure_*`) **не рисуется на карте** — только объекты инфраструктуры, POI, линии анализа. Топология хранится в БД и используется в расчётах («Потоки», логистика песка). Подробнее: [map-objects-and-spatial-calculations.md](../docs/features/map-objects-and-spatial-calculations.md) §5–§6.
+- **Расчётный граф** (узлы/рёбра `infrastructure_*`) **не рисуется на карте** — только объекты инфраструктуры, POI, линии анализа. Топология хранится в БД и используется в расчётах («Потоки», логистика песка). Подробнее: [map-objects-and-spatial-calculations.md](../docs/features/map/map-objects-and-spatial-calculations.md) §5–§6.
 - **Горячие клавиши** (на странице карты, не в полях ввода): **E** — вкл/выкл «Редактирование на карте»; **Del** / **Backspace** — удалить выбранное; **Ctrl+Z** — отмена; **Enter** — завершить черновик линии; **Escape** — закрыть модал/поиск или выйти из рисования; в режиме **«Линия»** — **двойной ЛКМ** или **двойной ПКМ** завершить линию (в пустом месте создаётся узел `node`); в режиме **«Выбор»** + редактирование — **двойной ЛКМ** по **промежуточной** вершине удаляет её.
 - **Рисование линии:** начало — клик по точечному объекту на карте (координаты совпадают); середина — свободно; конец — на объекте (точное совпадение) или авто-`node`. Координаты в БД — полные; в строке внизу карты — 3 знака.
 - **Редактирование линий:** «Редактирование на карте» → «Выбор» → линия. Концы нельзя оставить без привязки к точечному объекту. Подсказки — в footer карты.
 - **Поиск на карте:** по названию, подтипу, имени слоя и строковым свойствам объектов.
 - **Удаление линий:** после удаления линейного объекта backend пересобирает топологию сети из оставшихся линий; при групповом удалении frontend вызывает `buildNetwork` один раз.
 - **Два порта frontend** (`5173` и `5174`): это **разные** dev-серверы и разные origin в браузере (`localStorage` / `sessionStorage` не общие). Держите **один** `npm run dev`; если 5173 занят — остановите старый процесс. На странице карты в dev показывается предупреждение, если frontend открыт не на порту **5173**.
-- **2.5D / 3D карта:** в `frontend/.env`: `VITE_MAP_3D_ENABLED=true` и `VITE_MAPTILER_KEY=<ключ MapTiler>`. Перезапустите `npm run dev`. На `/map` — **2D | 3D**; в слоях — спутник, **Рельеф (3D)**, **3D-модели** (glTF), фильтры подтипов. Рисование только в 2D. Точки: glTF + палитра слоя; линии: 3D-трубы **по прямым сегментам между вершинами** (как 2D), ЛЭП — пролёты проводов в плане как 2D. Документация: [docs/features/map-3d-features.md](../docs/features/map-3d-features.md), правила объектов: [map-objects-and-spatial-calculations.md](../docs/features/map-objects-and-spatial-calculations.md) §1.5.
+- **2.5D / 3D карта:** в `frontend/.env`: `VITE_MAP_3D_ENABLED=true` и `VITE_MAPTILER_KEY=<ключ MapTiler>`. Перезапустите `npm run dev`. На `/map` — **2D | 3D**; в слоях — спутник, **Рельеф (3D)**, **3D-модели** (glTF), фильтры подтипов. Рисование только в 2D. Точки: glTF + палитра слоя; линии: 3D-трубы **по прямым сегментам между вершинами** (как 2D), ЛЭП — пролёты проводов в плане как 2D. Документация: [docs/features/map/map-3d-features.md](../docs/features/map/map-3d-features.md), правила объектов: [map-objects-and-spatial-calculations.md](../docs/features/map/map-objects-and-spatial-calculations.md) §1.5.
 - **Локальный dev и `VITE_BASE_PATH`:** для `npm run dev` задайте `VITE_BASE_PATH=/` (или не задавайте переменную), иначе Vite может собрать base `/Scaning/` и страница login не откроется на `http://localhost:5173/`.
 - **Проверка перед релизом:**
 
@@ -301,7 +301,7 @@ npm run dev
 python -m pip install -e C:\Users\user\Documents\Cursore\well-trajectory-planner
   ```
 
-  Или перезапустите `run_local.py` — скрипт установит пакет сам. Отдельный микросервис: `cd pad-earthwork-planner && python run_server.py` (порт 8081). Подробнее: [docs/features/pad-earthwork.md](../docs/features/pad-earthwork.md).
+  Или перезапустите `run_local.py` — скрипт установит пакет сам. Отдельный микросервис: `cd pad-earthwork-planner && python run_server.py` (порт 8081). Подробнее: [docs/features/pad-earthwork/pad-earthwork.md](../docs/features/pad-earthwork/pad-earthwork.md).
 
 - **«Построить сеть» / Not Found** или **Method Not Allowed** на `/admin/assistant/llm-config`  
   Часто на порту `8000` висит **старый** uvicorn (без новых маршрутов). Предпочтительно запускать **`run_local.py`** — он освобождает порт и при занятости `8000` пишет актуальный порт в `backend/.dev-port` (например `8001`). Vite proxy читает этот файл на каждый запрос; если frontend уже был запущен до смены порта — перезапустите `npm run dev`.
@@ -332,4 +332,4 @@ python -m pip install -e C:\Users\user\Documents\Cursore\well-trajectory-planner
   Перелогиньтесь или обновите frontend: клиент синхронизирует Bearer/CSRF через `POST /auth/refresh`; при `Authorization: Bearer` CSRF не проверяется. См. [docs/architecture/auth-rbac.md](../docs/architecture/auth-rbac.md).
 
 - Custom GLB не отображаются в 3D после загрузки (прод, 404 в Network)  
-  На GitHub Pages файлы моделей запрашиваются с API с Bearer (`map3dCustomGlbFetch.ts`), не через cookie-only GLTFLoader. Ctrl+F5 (сброс кэша 404). См. [docs/features/map-3d-features.md](../docs/features/map-3d-features.md) § custom GLB.
+  На GitHub Pages файлы моделей запрашиваются с API с Bearer (`map3dCustomGlbFetch.ts`), не через cookie-only GLTFLoader. Ctrl+F5 (сброс кэша 404). См. [docs/features/map/map-3d-features.md](../docs/features/map/map-3d-features.md) § custom GLB.

@@ -11,17 +11,22 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.models import InfrastructureLayer, InfrastructureObject
 from app.services.well_trajectory.bottomhole_properties import (
     BOTTOMHOLE_SUBTYPES,
+    GS_HEEL_LABEL,
+    GS_TOE_LABEL,
     WELL_INDEX,
     azimuth_deg,
     bottomhole_plan_local,
     default_tvd_m_for_bottomhole,
     is_gs_bottomhole_line,
+    is_lateral_bottomhole,
+    is_main_bottomhole,
     read_gs_entry_mode,
     read_gs_heel_id,
     read_gs_heel_tvd_m,
     read_gs_line_endpoints,
     read_gs_toe_tvd_m,
     read_linked_pad_id,
+    read_parent_id,
     target_inc_azi,
 )
 from app.services.well_trajectory.coord_transform import lonlat_to_local
@@ -64,6 +69,43 @@ def _reset_well_to_stub(well: dict[str, Any], pad: InfrastructureObject) -> dict
             },
         ],
     }
+    return out
+
+
+def _target_affects_design(target: dict[str, Any] | None) -> dict[str, Any] | None:
+    if not isinstance(target, dict):
+        return None
+    keys = (
+        "profile",
+        "gs_entry_mode",
+        "heel_plan",
+        "plan",
+        "tvd_m",
+        "heel_tvd_m",
+        "toe_tvd_m",
+        "inc",
+        "azi",
+        "lon",
+        "lat",
+        "heel_lon",
+        "heel_lat",
+    )
+    return {k: target.get(k) for k in keys if k in target}
+
+
+def _apply_sync_target(
+    well: dict[str, Any],
+    pad: InfrastructureObject,
+    target: dict[str, Any],
+) -> dict[str, Any]:
+    """Attach bottomhole target; drop stale calculated survey when design inputs changed."""
+    prev_sig = _target_affects_design(well.get("target") if isinstance(well.get("target"), dict) else None)
+    if prev_sig == _target_affects_design(target) or not _well_has_bottomhole_design(well):
+        out = dict(well)
+        out["target"] = target
+        return out
+    out = _reset_well_to_stub(well, pad)
+    out["target"] = target
     return out
 
 
@@ -131,6 +173,42 @@ def bottomholes_for_pad_from_objects(
             linked.append(obj)
             linked_ids.add(obj.id)
 
+    main_ids_on_pad = {
+        obj.id for obj in linked if is_main_bottomhole(obj.properties or {})
+    }
+    for obj in objects:
+        if obj.id in linked_ids:
+            continue
+        if (obj.subtype or "").lower().strip() not in BOTTOMHOLE_SUBTYPES:
+            continue
+        props = obj.properties or {}
+        if not is_lateral_bottomhole(props):
+            continue
+        parent_id = read_parent_id(props)
+        if parent_id is not None and parent_id in main_ids_on_pad:
+            linked.append(obj)
+            linked_ids.add(obj.id)
+
+    missing_main_ids: set[UUID] = set()
+    for obj in linked:
+        props = obj.properties or {}
+        if not is_lateral_bottomhole(props):
+            continue
+        parent_id = read_parent_id(props)
+        if parent_id is not None and parent_id not in linked_ids:
+            missing_main_ids.add(parent_id)
+    for obj in objects:
+        if obj.id in linked_ids:
+            continue
+        if (obj.subtype or "").lower().strip() not in BOTTOMHOLE_SUBTYPES:
+            continue
+        props = obj.properties or {}
+        if not is_main_bottomhole(props):
+            continue
+        if obj.id in missing_main_ids:
+            linked.append(obj)
+            linked_ids.add(obj.id)
+
     return linked
 
 
@@ -180,7 +258,7 @@ def _assign_bottomhole_well_indices(
             occupied.add(stored)
             continue
         st = (obj.subtype or "").lower().strip()
-        if st == "well_bottomhole_gs_toe":
+        if st == "well_bottomhole_gs_toe" or is_lateral_bottomhole(props):
             continue
         if st == "well_bottomhole_gs":
             deferred.append(obj)
@@ -211,6 +289,21 @@ def _assign_bottomhole_well_indices(
             if heel.id == heel_id and heel.id in index_map:
                 index_map[obj.id] = index_map[heel.id]
                 break
+
+    for obj in bottomholes:
+        props = obj.properties or {}
+        if not is_lateral_bottomhole(props):
+            continue
+        stored = _read_stored_well_index(props)
+        if stored is not None:
+            index_map[obj.id] = stored
+            continue
+        parent_id = read_parent_id(props)
+        if parent_id is None:
+            continue
+        parent_idx = index_map.get(parent_id)
+        if parent_idx is not None:
+            index_map[obj.id] = parent_idx
 
     return index_map
 
@@ -254,7 +347,7 @@ def _build_gs_target_from_line(
 ) -> dict[str, Any]:
     endpoints = read_gs_line_endpoints(obj)
     if endpoints is None:
-        raise ValueError("ГС: не заданы координаты heel/toe")
+        raise ValueError(f"ГС: не заданы координаты {GS_HEEL_LABEL}/{GS_TOE_LABEL}")
     heel_lon, heel_lat, toe_lon, toe_lat = endpoints
     anchor_lon = float(pad.longitude)
     anchor_lat = float(pad.latitude)
@@ -288,8 +381,10 @@ def _build_gs_target(
     heel: InfrastructureObject,
     toe: InfrastructureObject,
 ) -> dict[str, Any]:
-    heel_e, heel_n, heel_lon, heel_lat, heel_tvd_m = bottomhole_plan_local(pad, heel)
-    toe_e, toe_n, toe_lon, toe_lat, toe_tvd_m = bottomhole_plan_local(pad, toe)
+    heel_e, heel_n, heel_lon, heel_lat, _ = bottomhole_plan_local(pad, heel)
+    toe_e, toe_n, toe_lon, toe_lat, _ = bottomhole_plan_local(pad, toe)
+    heel_tvd_m = read_gs_heel_tvd_m(pad, heel.properties or {})
+    toe_tvd_m = read_gs_toe_tvd_m(pad, toe.properties or {})
     azi = azimuth_deg(heel_n, heel_e, toe_n, toe_e)
     return {
         "source": "bottomhole_object",
@@ -330,6 +425,9 @@ def sync_bottomholes_to_trajectories(
 
     for obj in bottomholes:
         st = obj.subtype
+        props = obj.properties or {}
+        if is_lateral_bottomhole(props):
+            continue
         idx = index_map.get(obj.id)
         if idx is None:
             continue
@@ -343,16 +441,16 @@ def sync_bottomholes_to_trajectories(
             gs_line_by_well[idx] = obj
         elif st == "well_bottomhole_gs_heel":
             if idx in heels_by_well:
-                warnings.append(f"Скв.{idx + 1}: дубликат пятки (heel) ГС")
+                warnings.append(f"Скв.{idx + 1}: дубликат {GS_HEEL_LABEL} ГС")
             heels_by_well[idx] = obj
         elif st == "well_bottomhole_gs_toe":
             props = obj.properties or {}
             heel_id = read_gs_heel_id(props)
             if heel_id is None:
-                warnings.append(f"Toe ГС без привязки к пятке (heel), объект {obj.id}")
+                warnings.append(f"{GS_TOE_LABEL} ГС без привязки к {GS_HEEL_LABEL}, объект {obj.id}")
                 continue
             if heel_id in toes_by_heel:
-                warnings.append("Дубликат toe для одной пятки (heel) ГС")
+                warnings.append(f"Дубликат {GS_TOE_LABEL} для одного {GS_HEEL_LABEL} ГС")
             toes_by_heel[heel_id] = obj
 
     for idx, objs in by_well.items():
@@ -363,17 +461,21 @@ def sync_bottomholes_to_trajectories(
     assigned: set[int] = set()
     for idx in range(len(updated)):
         if idx in nnb_by_well:
-            well = dict(updated[idx])
-            well["target"] = _build_nnb_target(pad, nnb_by_well[idx])
-            updated[idx] = well
+            updated[idx] = _apply_sync_target(
+                updated[idx],
+                pad,
+                _build_nnb_target(pad, nnb_by_well[idx]),
+            )
             assigned.add(idx)
             continue
         gs_line = gs_line_by_well.get(idx)
         if gs_line is not None:
             try:
-                well = dict(updated[idx])
-                well["target"] = _build_gs_target_from_line(pad, gs_line)
-                updated[idx] = well
+                updated[idx] = _apply_sync_target(
+                    updated[idx],
+                    pad,
+                    _build_gs_target_from_line(pad, gs_line),
+                )
                 assigned.add(idx)
             except ValueError as exc:
                 warnings.append(f"Скв.{idx + 1}: {exc}")
@@ -383,11 +485,13 @@ def sync_bottomholes_to_trajectories(
             continue
         toe = toes_by_heel.get(heel.id)
         if toe is None:
-            warnings.append(f"Скв.{idx + 1}: пятка (heel) ГС без парного toe")
+            warnings.append(f"Скв.{idx + 1}: {GS_HEEL_LABEL} ГС без парного {GS_TOE_LABEL}")
             continue
-        well = dict(updated[idx])
-        well["target"] = _build_gs_target(pad, heel, toe)
-        updated[idx] = well
+        updated[idx] = _apply_sync_target(
+            updated[idx],
+            pad,
+            _build_gs_target(pad, heel, toe),
+        )
         assigned.add(idx)
 
     for idx in range(len(updated)):

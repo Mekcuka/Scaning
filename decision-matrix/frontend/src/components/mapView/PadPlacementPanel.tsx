@@ -16,6 +16,7 @@ import type {
 } from '../../lib/padPlacementTypes';
 import { findPadPlacementVariant } from '../../lib/padPlacementCompute';
 import { iconDataUrl } from '../../lib/mapIcons';
+import { GS_HEEL_LABEL } from '../../lib/wellBottomholeProperties';
 
 type Props = {
   items: MapGroupSelectionItem[];
@@ -122,7 +123,7 @@ export function PadPlacementPanel({
         </div>
         <p className="map-group-panel__summary">
           Greenfield: создаются только новые кусты. Клик или рамка на карте — выбор забоев (ННБ /
-          пятка ГС).
+          {GS_HEEL_LABEL} ГС).
         </p>
       </header>
 

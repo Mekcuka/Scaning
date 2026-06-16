@@ -9,7 +9,7 @@ import {
   type POI,
 } from './api';
 import { formValuesToPoiCreatePayload, poiToFormValues } from './poiParams';
-import { isLineSubtype } from './infraGeometry';
+import { getLineCoordinates, isLineSubtype } from './infraGeometry';
 import { refreshMapQueries } from './mapQueries';
 
 const MAX_UNDO_STACK = 50;
@@ -100,6 +100,20 @@ function poiSnapshotToCreate(poi: POI): CreatePoiPayload {
 }
 
 export function infraGeometryUndo(obj: InfraObject): InfraGeometryUndo {
+  if (isLineSubtype(obj.subtype)) {
+    const coords = getLineCoordinates(obj);
+    if (coords && coords.length >= 2) {
+      const first = coords[0]!;
+      const last = coords[coords.length - 1]!;
+      return {
+        lon: first[0]!,
+        lat: first[1]!,
+        end_lon: last[0]!,
+        end_lat: last[1]!,
+        coordinates: coords.map((c) => [c[0]!, c[1]!]),
+      };
+    }
+  }
   return {
     lon: obj.lon,
     lat: obj.lat,

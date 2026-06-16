@@ -2,7 +2,8 @@
 # Usage:
 #   .\scripts\get-atlas-grid-token.ps1              # prod HTTP MCP + atlas-grid-dev (default)
 #   .\scripts\get-atlas-grid-token.ps1 -McpUrl "http://127.0.0.1:8002/api/v1/mcp/"
-#   .\scripts\get-atlas-grid-token.ps1 -NoDevMcp    # HTTP MCP only
+#   .\scripts\get-atlas-grid-token.ps1 -NoDevMcp    # HTTP MCP only (skip atlas-grid-dev)
+#   .\scripts\get-atlas-grid-token.ps1 -IncludeDevMcp  # same as default; kept for compatibility
 param(
     [string]$ApiUrl = "https://erascaning.duckdns.org/api/v1",
     [string]$McpUrl = "https://erascaning.duckdns.org/api/v1/mcp/",
@@ -65,6 +66,8 @@ if ($includeDev) {
         args = @("-m", "app.assistant.dev.stdio_mcp")
         cwd = $backendDir
         env = @{
+            # Cursor may ignore cwd on stdio MCP — PYTHONPATH ensures `app` resolves
+            PYTHONPATH = $backendDir
             ASSISTANT_DEV_MCP_DOMAIN_TOOLS = "false"
             ASSISTANT_DEV_MCP_USER_EMAIL = "admin@test.ru"
         }

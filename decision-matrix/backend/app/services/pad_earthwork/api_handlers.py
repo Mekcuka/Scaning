@@ -42,7 +42,7 @@ from app.services.pad_earthwork.service import (
 )
 from app.services.project_access import resolve_project
 from app.services.project_jobs import JOB_TYPE_PAD_EARTHWORK_COMPUTE, ActiveProjectJobError
-from app.services.serializers import infra_to_response
+from app.services.serializers import infra_to_public_json
 
 
 async def read_earthwork_for_read(
@@ -216,7 +216,7 @@ async def handle_patch_params(
     )
     await db.commit()
     await db.refresh(updated)
-    return infra_to_response(updated)
+    return infra_to_public_json(updated)
 
 
 async def handle_sketch_generate(
@@ -249,4 +249,4 @@ async def handle_patch_sketch(
     )
     await db.commit()
     await db.refresh(updated)
-    return infra_to_response(updated)
+    return infra_to_public_json(updated)

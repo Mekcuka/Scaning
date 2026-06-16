@@ -24,16 +24,17 @@ When the user asks about **live application data** (projects, POI, infrastructur
 
 ## Available tools (RBAC-filtered)
 
-Read-only tools (~31): projects, POI, map layers/objects, analysis results, jobs, rates, flow, sand logistics, networks, one-pagers, imports, 3D models, session. **Mutating** (8 tools) заблокированы в HTTP MCP — `confirm_required`; подтверждение в панели AI-помощник. Admin read: `admin_list_jobs`, `admin_jobs_health`, `admin_list_users`, `admin_stats`, `admin_list_assistant_audit`. Полный список: `docs/features/assistant-tools.md` §2.
+Read-only tools (~31): projects, POI, map layers/objects, analysis results, jobs, rates, flow, sand logistics, networks, one-pagers, imports, 3D models, session. **Mutating** (8 tools) заблокированы в HTTP MCP — `confirm_required`; подтверждение в панели AI-помощник. Admin read: `admin_list_jobs`, `admin_jobs_health`, `admin_list_users`, `admin_stats`, `admin_list_assistant_audit`. Полный список: `docs/features/assistant/assistant-tools.md` §2.
 
 ## Auth
 
 - MCP requires Bearer JWT in `.cursor/mcp.json` (generated locally, gitignored).
-- On Windows, `${env:ATLAS_GRID_ACCESS_TOKEN}` in HTTP headers often fails — run `.\scripts\get-atlas-grid-token.ps1` instead (embeds token, ~60 min TTL; keeps `atlas-grid-dev` by default).
+- On Windows, `${env:ATLAS_GRID_ACCESS_TOKEN}` in HTTP headers often fails — run `.\scripts\get-atlas-grid-token.ps1` instead (embeds token, ~60 min TTL; keeps `atlas-grid-dev` by default with `PYTHONPATH` for stdio).
 - If MCP returns 401: re-run the script, then reload MCP in Cursor Settings.
-- Prod: `https://erascaning.duckdns.org/api/v1/mcp`; local: add `-McpUrl http://127.0.0.1:8000/api/v1/mcp`.
+- URL **must end with** `/mcp/` (trailing slash). Prod: `https://erascaning.duckdns.org/api/v1/mcp/`; local: `-ApiUrl http://127.0.0.1:8000/api/v1` and `-McpUrl http://127.0.0.1:8000/api/v1/mcp/`.
+- If `atlas-grid-dev` fails with `No module named 'app'`: re-run script (sets `PYTHONPATH`) or see [dev/README.md](decision-matrix/backend/app/assistant/dev/README.md).
 
 ## Docs
 
-- [assistant-tools.md](docs/features/assistant-tools.md) §9
+- [assistant-tools.md](docs/features/assistant/assistant-tools.md) §9
 - [transport/README.md](decision-matrix/backend/app/assistant/transport/README.md)

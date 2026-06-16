@@ -1,5 +1,3 @@
-"""Generate stub trajectories from pad well layout."""
-
 from __future__ import annotations
 
 from typing import Any
@@ -14,7 +12,10 @@ from app.services.pad_earthwork.properties import (
     PAD_HEIGHT_M,
     PAD_REFERENCE_ELEVATION_M,
 )
-from app.services.well_trajectory.pad_wells_bootstrap import ensure_pad_wells_local_on_object
+from app.services.well_trajectory.pad_wells_bootstrap import (
+    ensure_pad_wells_local_on_object,
+    trajectory_stub_well_count,
+)
 from app.services.well_trajectory.schemas import WellTrajectoryGenerateResponse
 from app.services.well_trajectory.settings_store import well_trajectory_settings_for_pad
 from app.services.well_trajectory.trajectory_adapter import get_well_trajectory_adapter
@@ -37,9 +38,14 @@ def well_to_dict(well: Any) -> dict[str, Any]:
     return well.model_dump(mode="json")
 
 
-def generate_trajectories_from_layout(obj: InfrastructureObject) -> WellTrajectoryGenerateResponse:
+def generate_trajectories_from_layout(
+    obj: InfrastructureObject,
+    *,
+    bottomholes: list[InfrastructureObject] | None = None,
+) -> WellTrajectoryGenerateResponse:
     assert_pad_object(obj)
-    wells_local, _ = ensure_pad_wells_local_on_object(obj)
+    stub_count = trajectory_stub_well_count(obj, bottomholes)
+    wells_local, _ = ensure_pad_wells_local_on_object(obj, exact_well_count=stub_count)
     if not wells_local:
         raise HTTPException(
             status_code=400,

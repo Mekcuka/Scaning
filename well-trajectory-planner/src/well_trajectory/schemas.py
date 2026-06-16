@@ -34,6 +34,7 @@ class ConnectorDesignRequest(BaseModel):
     start: ConnectorPoint
     end: ConnectorPoint
     step_m: float = Field(default=30.0, gt=0, le=500)
+    dls_design: float = Field(default=3.0, gt=0, le=30)
     units: Literal["metric"] = "metric"
     azi_reference: Literal["grid", "magnetic", "true"] = "grid"
 
@@ -59,6 +60,7 @@ class HorizontalDesignRequest(BaseModel):
     inc_heel: float = Field(default=90.0, ge=0, le=180)
     entry_mode: Literal["any", "heel", "toe"] = "any"
     entry_search_step_m: float = Field(default=30.0, gt=0, le=500)
+    dls_design: float = Field(default=3.0, gt=0, le=30)
 
 
 class HorizontalDesignResponse(BaseModel):

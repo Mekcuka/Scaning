@@ -19,8 +19,8 @@ When the user asks about **live application data**, use the **`atlas-grid`** MCP
 | Question type | Action |
 |---------------|--------|
 | Live data (projects, POI, jobs, analysis, infra on map) | **MCP** (`CallMcpTool` → `atlas-grid`) |
-| Source code, architecture, docs in repo | Read/edit files |
-| Local pytest, git | Shell / repo tools |
+| Source code, architecture, docs in repo | Read/edit files or **`atlas-grid-dev`** (`search_codebase_tool`) |
+| Local pytest, git | **`atlas-grid-dev`** (`run_pytest_tool`, `git_status_tool`) — not raw shell when MCP available |
 
 ## MCP workflow
 
@@ -73,11 +73,13 @@ More scenarios: [examples.md](examples.md)
 .\scripts\get-atlas-grid-token.ps1
 ```
 
-- **Local backend:** add `-McpUrl http://127.0.0.1:8000/api/v1/mcp`
+Скрипт настраивает HTTP MCP и по умолчанию добавляет `atlas-grid-dev` (stdio). Для dev MCP на Windows в `env` задаётся `PYTHONPATH` — см. [dev/README.md](../../../decision-matrix/backend/app/assistant/dev/README.md).
+
+- **Local backend:** add `-ApiUrl http://127.0.0.1:8000/api/v1` and `-McpUrl http://127.0.0.1:8000/api/v1/mcp/`
 - Token TTL ~60 min. On 401: re-run script, reload MCP in Cursor Settings.
-- Prod URL: `https://erascaning.duckdns.org/api/v1/mcp`
+- Prod URL: `https://erascaning.duckdns.org/api/v1/mcp/` (**trailing slash required**)
 
 ## Docs
 
-- [assistant-tools.md](../../../docs/features/assistant-tools.md) — parameters and responses
+- [assistant-tools.md](../../../docs/features/assistant/assistant-tools.md) — parameters and responses
 - [transport/README.md](../../../decision-matrix/backend/app/assistant/transport/README.md) — MCP transport

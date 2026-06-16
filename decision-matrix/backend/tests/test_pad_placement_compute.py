@@ -194,7 +194,7 @@ def test_pad_placement_compute_gs_unified_line_valid(client: TestClient):
     variant = result["variants"][0]
     assert variant["invalid"] is False
     pad = variant["pads"][0]
-    assert "не заданы координаты heel/toe" not in " ".join(pad.get("warnings", []))
+    assert "не заданы координаты Т1/Т3" not in " ".join(pad.get("warnings", []))
     assert pad["trajectories"][0]["survey"]["source"] == "calculated"
     assert pad["trajectories"][0].get("design", {}).get("profile") == "horizontal"
 
@@ -228,3 +228,44 @@ def test_pad_placement_compute_gs_unified_line_valid(client: TestClient):
     assert len(traj) >= 1
     assert traj[0]["survey"]["source"] == "calculated"
     assert traj[0].get("design", {}).get("profile") == "horizontal"
+
+
+def test_pad_placement_request_sync_allowed_for_ten_wells(client: TestClient):
+    project, headers = create_test_project(client, name="test_pad_placement_ten")
+    pid = project["id"]
+    layer = create_test_layer(client, pid, headers)
+
+    ids = []
+    for i in range(10):
+        obj = _create_bottomhole(
+            client,
+            pid,
+            layer["id"],
+            headers,
+            name=f"BH-{i}",
+            subtype="well_bottomhole_nnb",
+            lon=37.62 + i * 0.001,
+            lat=55.76 + i * 0.001,
+            properties={"well_bottomhole_tvd_m": 1500},
+        )
+        ids.append(obj["id"])
+
+    req = client.post(
+        f"/api/v1/projects/{pid}/pad-placement/request",
+        json={"bottomhole_ids": ids, "params": {"top_k": 1}},
+        headers=headers,
+    )
+    assert req.status_code == 200, req.text
+    body = req.json()
+    assert body["logical_well_count"] == 10
+    assert body["sync_allowed"] is True
+
+    comp = client.post(
+        f"/api/v1/projects/{pid}/pad-placement/compute",
+        json={
+            "bottomhole_ids": ids,
+            "params": {"top_k": 1, "center_optimize": False},
+        },
+        headers=headers,
+    )
+    assert comp.status_code == 200, comp.text

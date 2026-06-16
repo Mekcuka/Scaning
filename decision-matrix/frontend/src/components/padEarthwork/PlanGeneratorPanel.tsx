@@ -42,6 +42,8 @@ export interface PlanGeneratorPanelProps {
   onGenerate: () => void;
   hasPreview?: boolean;
   wellCountOnCanvas?: number;
+  padWellCountDerivedFromBottomholes?: boolean;
+  linkedBottomholesCount?: number;
 }
 
 function GeneratorField({
@@ -112,6 +114,8 @@ export function PlanGeneratorPanel({
   onGenerate,
   hasPreview = false,
   wellCountOnCanvas = 0,
+  padWellCountDerivedFromBottomholes = false,
+  linkedBottomholesCount = 0,
 }: PlanGeneratorPanelProps) {
   const canGenerate =
     parsePositive(padWellCount) != null &&
@@ -200,9 +204,14 @@ export function PlanGeneratorPanel({
           <GeneratorField
             label="Кол-во"
             value={padWellCount}
-            readOnly={readOnly}
+            readOnly={readOnly || padWellCountDerivedFromBottomholes}
             min={1}
             step={1}
+            hint={
+              padWellCountDerivedFromBottomholes
+                ? `По забоям на карте (${linkedBottomholesCount})`
+                : undefined
+            }
             onChange={setPadWellCount}
           />
           <GeneratorField

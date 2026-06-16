@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import math
 from datetime import UTC, datetime
 from typing import Any
 from uuid import UUID
@@ -32,6 +33,12 @@ from app.services.well_trajectory.trajectory_store import (
 from app.subtype_manifest import PAD_CLUSTER_SUBTYPES
 
 CLEARANCE_SYNC_MAX_WELLS = 12
+
+
+def _finite_sf(value: float) -> float | None:
+    if not math.isfinite(value):
+        return None
+    return value
 
 
 async def fetch_project_pads(db: AsyncSession, project_id: UUID) -> list[InfrastructureObject]:
@@ -101,9 +108,12 @@ def _apply_clearance_to_pads(
 
     response_pairs: list[dict[str, Any]] = []
     for pr in pair_results:
+        min_sf = _finite_sf(pr.min_sf)
+        if min_sf is None:
+            continue
         ma = meta[pr.well_a]
         mb = meta[pr.well_b]
-        record = _pair_record(ma, mb, min_sf=pr.min_sf, warning=pr.warning)
+        record = _pair_record(ma, mb, min_sf=min_sf, warning=pr.warning)
         response_pairs.append(record)
         pair_key = (
             min(ma.well_index, mb.well_index),
@@ -120,8 +130,8 @@ def _apply_clearance_to_pads(
             pairs_by_pad.setdefault(pad_id, []).append(record)
         for m in (ma, mb):
             prev = well_min_sf.get(m.well_key)
-            if prev is None or pr.min_sf < prev:
-                well_min_sf[m.well_key] = pr.min_sf
+            if prev is None or min_sf < prev:
+                well_min_sf[m.well_key] = min_sf
 
     for pad in pads:
         trajectories = read_trajectories_json(pad.properties)

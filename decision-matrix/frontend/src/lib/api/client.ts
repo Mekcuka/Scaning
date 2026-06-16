@@ -130,6 +130,17 @@ export function formatApiError(detail: unknown, fallback: string): string {
         ? `Слишком много объектов для одной вставки (${count}). Разбейте выделение на части.`
         : 'Слишком много объектов для одной вставки. Разбейте выделение на части.';
     }
+    if (/Async jobs disabled/i.test(detail)) {
+      return 'Фоновые задачи недоступны. Уменьшите выборку или перезапустите backend с ARQ worker.';
+    }
+    if (/Too many wells \((\d+)\); maximum (\d+) for pad placement/i.test(detail)) {
+      const m = /Too many wells \((\d+)\); maximum (\d+) for pad placement/i.exec(detail);
+      const count = m?.[1];
+      const max = m?.[2] ?? '20';
+      return count
+        ? `Слишком много забоев (${count}). За один расчёт кустования — не более ${max}. Уберите лишние из списка.`
+        : `Слишком много забоев. За один расчёт кустования — не более ${max}.`;
+    }
     return API_ERROR_MESSAGES_RU[detail] ?? detail;
   }
   if (Array.isArray(detail)) {

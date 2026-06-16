@@ -1,6 +1,6 @@
 # Хранение custom GLB на production VM
 
-> Связано: [DEPLOY.md](../../DEPLOY.md) § Custom GLB, [map-3d-features.md](../features/map-3d-features.md) § Custom GLB, инициатива **H0.1** в [system-evolution-plan.md](../planning/system-evolution-plan.md).
+> Связано: [DEPLOY.md](../../DEPLOY.md) § Custom GLB, [map-3d-features.md](../features/map/map-3d-features.md) § Custom GLB, инициатива **H0.1** в [system-evolution-plan.md](../planning/system-evolution-plan.md).
 
 ## Назначение
 

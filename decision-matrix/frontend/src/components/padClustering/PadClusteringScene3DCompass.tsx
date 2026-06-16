@@ -29,7 +29,7 @@ export function PadClusteringScene3DCompass({ getCompassView }: PadClusteringSce
   }, [getCompassView]);
 
   return (
-    <div className="pad-clustering-scene3d-compass" aria-hidden>
+    <div className="pad-clustering-scene3d-compass" role="img" aria-label="Ориентация: север">
       <svg viewBox="-20 -20 40 40" className="pad-clustering-scene3d-compass__svg">
         <g style={{ transform: `rotate(${rotationDeg}deg)`, transformOrigin: '0 0' }}>
           <line x1={0} y1={4} x2={0} y2={-12} stroke="currentColor" strokeWidth={2} />

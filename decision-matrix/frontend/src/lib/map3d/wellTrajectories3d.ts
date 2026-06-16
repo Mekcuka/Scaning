@@ -12,7 +12,7 @@ export function wellTrajectories3dGeoJson(
   return {
     type: 'FeatureCollection',
     features: features
-      .filter((f) => f.properties.kind === 'trajectory')
+      .filter((f) => f.properties.kind === 'trajectory' || f.properties.kind === 'pywellgeo_branch')
       .map((f) => ({
         type: 'Feature' as const,
         properties: f.properties,

@@ -28,13 +28,15 @@ from app.services.well_trajectory.schemas import (
     ConnectorEndIn,
 )
 from app.services.well_trajectory.bottomhole_sync import (
+    _reset_well_to_stub,
+    _well_has_bottomhole_design,
     fetch_bottomholes_for_pad,
     sync_bottomholes_to_trajectories,
 )
-from app.services.well_trajectory.bottomhole_properties import DEFAULT_NNB_INC, DEFAULT_TVD_M
+from app.services.well_trajectory.bottomhole_properties import DEFAULT_NNB_INC, DEFAULT_TVD_M, GS_HEEL_LABEL
 from app.services.well_trajectory.pad_wells_bootstrap import (
     ensure_pad_wells_local_on_object,
-    required_well_count_from_bottomholes,
+    trajectory_stub_well_count,
 )
 from app.services.well_trajectory.trajectory_store import (
     read_computed_at,
@@ -243,16 +245,19 @@ def _ensure_pad_ready_for_bottomholes(
     obj: InfrastructureObject,
     bottomholes: list[InfrastructureObject],
 ) -> list[str]:
-    """Expand wells layout and trajectory stubs when linked bottomholes need more slots."""
+    """Expand wells layout and trajectory stubs when linked bottomholes need slots."""
     warnings: list[str] = []
-    min_wells = required_well_count_from_bottomholes(obj, bottomholes)
-    wells, expanded = ensure_pad_wells_local_on_object(obj, min_well_count=min_wells)
+    stub_count = trajectory_stub_well_count(obj, bottomholes)
+    if bottomholes:
+        wells, expanded = ensure_pad_wells_local_on_object(obj, exact_well_count=stub_count)
+    else:
+        wells, expanded = ensure_pad_wells_local_on_object(obj, min_well_count=stub_count)
     if expanded:
-        warnings.append(f"Раскладка устья скважин расширена до {len(wells)}")
+        warnings.append(f"Раскладка устья скважин обновлена до {len(wells)}")
 
     trajectories = read_trajectories_json(obj.properties)
     if len(trajectories) != len(wells):
-        gen = generate_trajectories_from_layout(obj)
+        gen = generate_trajectories_from_layout(obj, bottomholes=bottomholes)
         obj.properties = store_trajectories_json(obj.properties, gen.trajectories)
         if len(trajectories) < len(wells):
             warnings.append(f"Заготовки траекторий обновлены: {len(gen.trajectories)} скважин")
@@ -275,6 +280,15 @@ async def design_from_bottomholes(
 
     if not trajectories:
         raise HTTPException(status_code=400, detail="Нет сохранённых траекторий")
+
+    for idx in range(len(trajectories)):
+        well = trajectories[idx]
+        if not isinstance(well, dict):
+            continue
+        if isinstance(well.get("target"), dict):
+            continue
+        if _well_has_bottomhole_design(well):
+            trajectories[idx] = _reset_well_to_stub(well, obj)
 
     indices = body.well_indices if body.well_indices is not None else list(range(len(trajectories)))
     designed: list[int] = []
@@ -322,7 +336,7 @@ async def design_from_bottomholes(
                         off_m = 0.0
                     if abs(off_m) > 50:
                         warnings.append(
-                            f"Скв.{idx + 1}: точка входа смещена на {off_m:.0f} м от пятки"
+                            f"Скв.{idx + 1}: точка входа смещена на {off_m:.0f} м от {GS_HEEL_LABEL}"
                         )
         except HTTPException:
             skipped.append(idx)

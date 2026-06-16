@@ -3,6 +3,7 @@ import type * as THREE from 'three';
 import type { WellTrajectory } from '../../lib/api/wellTrajectoryApi';
 import { clusteringWellLabel } from '../../lib/padClusteringScene3dLayers';
 import type { PlanVertex } from '../../lib/padEarthworkSketch';
+import { formatMinSf } from '../../lib/wellTrajectoryClearance';
 import { planWellheadWorldPosition, worldToOverlayPx } from '../../lib/padScene3dProjection';
 
 export type SceneViewSnapshot = {
@@ -17,6 +18,7 @@ type LabelPlacement = {
   x: number;
   y: number;
   selected: boolean;
+  sfWarn: boolean;
 };
 
 type PadClusteringWellLabelsOverlayProps = {
@@ -24,6 +26,7 @@ type PadClusteringWellLabelsOverlayProps = {
   trajectories: WellTrajectory[];
   kbM: number;
   selectedWellIndex: number | null;
+  sfWarningThreshold: number;
   visible: boolean;
   getSceneView: () => SceneViewSnapshot;
 };
@@ -33,6 +36,7 @@ export function PadClusteringWellLabelsOverlay({
   trajectories,
   kbM,
   selectedWellIndex,
+  sfWarningThreshold,
   visible,
   getSceneView,
 }: PadClusteringWellLabelsOverlayProps) {
@@ -56,15 +60,22 @@ export function PadClusteringWellLabelsOverlay({
       for (let index = 0; index < wellsLocal.length; index += 1) {
         const well = wellsLocal[index]!;
         const traj = trajectories.find((t) => (t.well_index ?? -1) === index);
+        const minSf = traj?.clearance?.min_sf;
+        const baseLabel = clusteringWellLabel(index, traj?.name);
+        const label =
+          minSf != null && Number.isFinite(minSf)
+            ? `${baseLabel} · SF ${formatMinSf(minSf)}`
+            : baseLabel;
         const world = planWellheadWorldPosition(well.east_m, well.north_m, kbM);
         const px = worldToOverlayPx(view.camera, view.width, view.height, world);
         if (!px) continue;
         next.push({
           index,
-          label: clusteringWellLabel(index, traj?.name),
+          label,
           x: px.x,
           y: px.y,
           selected: selectedWellIndex === index,
+          sfWarn: minSf != null && Number.isFinite(minSf) && minSf < sfWarningThreshold,
         });
       }
       setLabels((prev) => {
@@ -85,7 +96,7 @@ export function PadClusteringWellLabelsOverlay({
     };
     tick();
     return () => cancelAnimationFrame(raf);
-  }, [visible, wellsLocal, trajectories, kbM, selectedWellIndex, getSceneView]);
+  }, [visible, wellsLocal, trajectories, kbM, selectedWellIndex, sfWarningThreshold, getSceneView]);
 
   if (!visible || labels.length === 0) return null;
 
@@ -96,7 +107,7 @@ export function PadClusteringWellLabelsOverlay({
           key={item.index}
           className={`pad-clustering-well-label${
             item.selected ? ' pad-clustering-well-label--selected' : ''
-          }`}
+          }${item.sfWarn ? ' pad-clustering-well-label--sf-warn' : ''}`}
           style={{ left: item.x, top: item.y }}
         >
           {item.label}

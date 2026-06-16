@@ -13,7 +13,6 @@ from app.schemas import (
     AutoroadConnectResponse,
     FacilityInfraObjectCreate,
     InfraObjectCreate,
-    InfraObjectResponse,
     InfraObjectUpdate,
     MapBatchDeleteRequest,
     MapBatchDeleteResponse,
@@ -35,7 +34,7 @@ from app.services.map_objects.api_handlers import (
 objects_router = APIRouter(tags=["map-objects"])
 
 
-@objects_router.get("/projects/{project_id}/infrastructure/objects", response_model=list[InfraObjectResponse])
+@objects_router.get("/projects/{project_id}/infrastructure/objects")
 async def list_infra_objects(
     project_id: UUID,
     user: User = Depends(get_current_user),
@@ -66,7 +65,7 @@ async def clear_project_infrastructure_route(
     return await handle_clear_project_infrastructure(project_id, user, db)
 
 
-@objects_router.post("/projects/{project_id}/infrastructure/objects", response_model=InfraObjectResponse, status_code=201)
+@objects_router.post("/projects/{project_id}/infrastructure/objects", status_code=201)
 async def create_infra_object(
     project_id: UUID,
     data: InfraObjectCreate,
@@ -78,7 +77,6 @@ async def create_infra_object(
 
 @objects_router.post(
     "/projects/{project_id}/infrastructure/facility-objects",
-    response_model=InfraObjectResponse,
     status_code=201,
 )
 async def create_facility_infra_object(
@@ -102,9 +100,7 @@ async def autoroad_connect_objects(
     return await handle_autoroad_connect(project_id, data, user, db)
 
 
-@objects_router.patch(
-    "/projects/{project_id}/infrastructure/objects/{object_id}", response_model=InfraObjectResponse
-)
+@objects_router.patch("/projects/{project_id}/infrastructure/objects/{object_id}")
 async def update_infra_object(
     project_id: UUID,
     object_id: UUID,

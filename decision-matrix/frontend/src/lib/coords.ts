@@ -65,6 +65,17 @@ export function coordStringForCopy(displayValue: string, original: number): stri
   return numberStringForCopy(displayValue, original, formatCoord);
 }
 
+/** Parse clipboard text like "X, Y" or "X, Y, Z" (comma/semicolon/tab separated). */
+export function parseCoordTriple(text: string): { x: string; y: string; z?: string } | null {
+  const parts = text
+    .trim()
+    .split(/[,;\t]+/)
+    .map((part) => part.trim().replace(/\s/g, '').replace(',', '.'))
+    .filter(Boolean);
+  if (parts.length < 2) return null;
+  return { x: parts[0]!, y: parts[1]!, ...(parts[2] ? { z: parts[2] } : {}) };
+}
+
 export function formatCoordPair(lon: number, lat: number): string {
   return `${formatCoord(lat)}°N, ${formatCoord(lon)}°E`;
 }

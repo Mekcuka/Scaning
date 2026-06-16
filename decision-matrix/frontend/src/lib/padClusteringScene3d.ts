@@ -2,22 +2,30 @@
 
 import * as THREE from 'three';
 import type { InfraObject } from './api';
+import type { PyWellGeoPlotSegment } from './api/pywellgeoApi';
 import type { WellTrajectory } from './api/wellTrajectoryApi';
 import { metersPerDegree } from './padFootprintGeo';
 import type { PlanVertex } from './padEarthworkSketch';
 import { planEastToSceneX, planNorthToSceneZ } from './padEarthworkScene3d';
 import {
   buildGsBottomholeConnectors,
+  buildLateralBottomholeConnectors,
+  isLateralBottomhole,
+  lateralBottomholeIdsWithBranchCoverage,
   readBottomholeTvdM,
   readGsHeelTvdM,
   readGsLineEndpoints,
   readGsToeTvdM,
+  type LateralBranchPlanEndpoint,
   WELL_BOTTOMHOLE_WELL_INDEX,
+  GS_HEEL_LABEL,
+  GS_TOE_LABEL,
 } from './wellBottomholeProperties';
 import {
   wellTrajectoryDisplayColorHex,
   wellTrajectoryPaletteColorHex,
 } from './wellTrajectoryClearance';
+import { clusteringWellLabel } from './padClusteringScene3dLayers';
 
 export type ScenePoint = { x: number; y: number; z: number };
 
@@ -245,6 +253,7 @@ function readBottomholeWellIndex(props: Record<string, unknown> | undefined): nu
 }
 
 function bottomholeMarkerColor(obj: InfraObject, fallbackIndex: number): number {
+  if (isLateralBottomhole(obj)) return 0x7b1fa2;
   const idx = readBottomholeWellIndex(obj.properties);
   if (idx != null) return wellTrajectoryPaletteColorHex(idx);
   const bySubtype = BOTTOMHOLE_SUBTYPE_COLORS[obj.subtype];
@@ -431,18 +440,190 @@ export function bottomholesSceneRevision(bottomholes: InfraObject[]): string {
     .join('|');
 }
 
+export type BottomholeLabelAnchor = {
+  id: string;
+  label: string;
+  eastM: number;
+  northM: number;
+  tvdM: number;
+  gsRole?: 'heel' | 'toe';
+};
+
+function bottomholeDisplayLabel(obj: InfraObject, gsRole?: 'heel' | 'toe'): string {
+  const base = obj.name?.trim() || 'Забой';
+  if (gsRole === 'heel') return `${base} · ${GS_HEEL_LABEL}`;
+  if (gsRole === 'toe') return `${base} · ${GS_TOE_LABEL}`;
+  return base;
+}
+
+/** Screen labels for bottomhole markers (infra GS/NNB or trajectory targets). */
+export function collectBottomholeLabelAnchors(
+  bottomholes: InfraObject[],
+  trajectories: WellTrajectory[],
+  anchorLon: number,
+  anchorLat: number,
+): BottomholeLabelAnchor[] {
+  const out: BottomholeLabelAnchor[] = [];
+
+  if (bottomholes.length > 0) {
+    for (const obj of bottomholes) {
+      const endpoints = readGsLineEndpoints(obj);
+      if (endpoints) {
+        const heelLocal = lonLatToLocalEnu(endpoints.heelLon, endpoints.heelLat, anchorLon, anchorLat);
+        const toeLocal = lonLatToLocalEnu(endpoints.toeLon, endpoints.toeLat, anchorLon, anchorLat);
+        out.push({
+          id: `${obj.id}:heel`,
+          label: bottomholeDisplayLabel(obj, 'heel'),
+          eastM: heelLocal.east_m,
+          northM: heelLocal.north_m,
+          tvdM: readGsHeelTvdM(obj.properties),
+          gsRole: 'heel',
+        });
+        out.push({
+          id: `${obj.id}:toe`,
+          label: bottomholeDisplayLabel(obj, 'toe'),
+          eastM: toeLocal.east_m,
+          northM: toeLocal.north_m,
+          tvdM: readGsToeTvdM(obj.properties),
+          gsRole: 'toe',
+        });
+        continue;
+      }
+      const local = lonLatToLocalEnu(obj.lon, obj.lat, anchorLon, anchorLat);
+      out.push({
+        id: obj.id,
+        label: bottomholeDisplayLabel(obj),
+        eastM: local.east_m,
+        northM: local.north_m,
+        tvdM: readBottomholeTvdM(obj.properties),
+      });
+    }
+    return out;
+  }
+
+  trajectories.forEach((well, index) => {
+    const target = well.target;
+    if (!target?.tvd_m) return;
+    const plan = target.plan;
+    let east = plan?.east_m;
+    let north = plan?.north_m;
+    if (east == null || north == null) {
+      const stations = well.survey?.stations ?? [];
+      const last = stations[stations.length - 1];
+      if (last) {
+        east = Number(last.e ?? 0);
+        north = Number(last.n ?? 0);
+      }
+    }
+    if (east == null || north == null || !Number.isFinite(east) || !Number.isFinite(north)) return;
+    const wi = well.well_index ?? index;
+    out.push({
+      id: `traj-bh:${wi}`,
+      label: `${clusteringWellLabel(wi, well.name)} · забой`,
+      eastM: east,
+      northM: north,
+      tvdM: target.tvd_m,
+    });
+  });
+
+  return out;
+}
+
+function lateralBranchPlanEndpointsFromPyWellGeoSegments(
+  segments: PyWellGeoPlotSegment[],
+  padId: string,
+  wellIndex: number,
+  anchorLon: number,
+  anchorLat: number,
+): LateralBranchPlanEndpoint[] {
+  const { lon: mPerDegLon, lat: mPerDegLat } = metersPerDegree(anchorLat);
+  const out: LateralBranchPlanEndpoint[] = [];
+  for (const seg of segments) {
+    const name = (seg.name || '').toLowerCase();
+    if (name === 'main') continue;
+    const east = seg.to_xyz[0];
+    const north = seg.to_xyz[1];
+    if (!Number.isFinite(east) || !Number.isFinite(north)) continue;
+    out.push({
+      padId,
+      wellIndex,
+      lon: anchorLon + east / mPerDegLon,
+      lat: anchorLat + north / mPerDegLat,
+    });
+  }
+  return out;
+}
+
+export type BuildBottomholeLayerOptions = {
+  padId?: string;
+  pywellgeoSegments?: PyWellGeoPlotSegment[];
+  pywellgeoWellIndex?: number | null;
+};
+
+export function buildLateralBottomholeConnectorLines(
+  bottomholes: InfraObject[],
+  anchorLon: number,
+  anchorLat: number,
+  kbM: number,
+  options?: BuildBottomholeLayerOptions,
+): THREE.Group {
+  const padId = options?.padId;
+  const wellIndex = options?.pywellgeoWellIndex;
+  const segments = options?.pywellgeoSegments ?? [];
+  const covered =
+    padId && wellIndex != null && segments.length > 0
+      ? lateralBottomholeIdsWithBranchCoverage(
+          bottomholes,
+          lateralBranchPlanEndpointsFromPyWellGeoSegments(
+            segments,
+            padId,
+            wellIndex,
+            anchorLon,
+            anchorLat,
+          ),
+        )
+      : undefined;
+
+  const group = new THREE.Group();
+  group.name = 'layer-lateral-bottomhole-connectors';
+  for (const conn of buildLateralBottomholeConnectors(bottomholes, { excludeLateralIds: covered })) {
+    const parent = bottomholes.find((o) => o.id === conn.parentId);
+    const lateral = bottomholes.find((o) => o.id === conn.lateralId);
+    if (!parent || !lateral) continue;
+    const parentProps = parent.properties ?? {};
+    const lateralProps = lateral.properties ?? {};
+    const parentTvd = readBottomholeTvdM(parentProps);
+    const lateralTvd = readBottomholeTvdM(lateralProps);
+    addGsConnectorLine(
+      group,
+      conn.coordinates[0]![0]!,
+      conn.coordinates[0]![1]!,
+      conn.coordinates[1]![0]!,
+      conn.coordinates[1]![1]!,
+      parentTvd,
+      lateralTvd,
+      anchorLon,
+      anchorLat,
+      kbM,
+    );
+  }
+  return group;
+}
+
 export function buildBottomholeLayer(
   bottomholes: InfraObject[],
   trajectories: WellTrajectory[],
   anchorLon: number,
   anchorLat: number,
   kbM: number,
+  options?: BuildBottomholeLayerOptions,
 ): THREE.Group {
   const group = new THREE.Group();
   group.name = 'layer-bottomholes';
 
   if (bottomholes.length > 0) {
     group.add(buildGsBottomholeConnectorLines(bottomholes, anchorLon, anchorLat, kbM));
+    group.add(buildLateralBottomholeConnectorLines(bottomholes, anchorLon, anchorLat, kbM, options));
     group.add(buildBottomholeMarkersFromInfra(bottomholes, anchorLon, anchorLat, kbM));
   } else if (trajectories.length > 0) {
     const fromTraj = buildBottomholeMarkers(trajectories, kbM);

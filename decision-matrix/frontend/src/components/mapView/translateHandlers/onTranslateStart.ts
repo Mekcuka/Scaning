@@ -1,9 +1,10 @@
 import Feature from 'ol/Feature';
 import Point from 'ol/geom/Point';
+import { transform } from 'ol/proj';
 import type Translate from 'ol/interaction/Translate';
 import type { LinkedLineDragState } from '../types';
 import type { MapSetupContext } from '../mapSetupContext';
-import { collectLinkedLinesForPoint } from './collectLinkedLinesForPoint';
+import { collectLinkedLinesForInfraMapPoint } from './collectLinkedLinesForPoint';
 import { readFeatureGeometry } from './readFeatureGeometry';
 
 export function bindTranslateStartHandler(ctx: MapSetupContext, translate: Translate) {
@@ -44,13 +45,16 @@ export function bindTranslateStartHandler(ctx: MapSetupContext, translate: Trans
       const geom = f.getGeometry();
       if (!id || kind !== 'infra' || !(geom instanceof Point)) return;
       const pointObj = infraObjectsRef.current.find((o) => o.id === id);
-      if (!pointObj) return;
+      const [pointLon, pointLat] = pointObj
+        ? [pointObj.lon, pointObj.lat]
+        : transform(geom.getCoordinates(), 'EPSG:3857', 'EPSG:4326');
       mergedLinks.push(
-        ...collectLinkedLinesForPoint(
+        ...collectLinkedLinesForInfraMapPoint(
           lineSourceRef.current,
           id,
-          pointObj.lon,
-          pointObj.lat,
+          pointLon,
+          pointLat,
+          infraObjectsRef.current,
           selectedLineIds,
         ),
       );

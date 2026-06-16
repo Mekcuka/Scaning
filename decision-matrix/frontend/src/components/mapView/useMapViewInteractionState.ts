@@ -62,7 +62,9 @@ export function useMapViewInteractionState(
         drawMode === 'point' ||
         drawMode === 'poi' ||
         drawMode === 'bottomhole_nnb' ||
-        drawMode === 'bottomhole_gs';
+        drawMode === 'bottomhole_gs' ||
+        drawMode === 'bottomhole_lateral_nnb' ||
+        drawMode === 'bottomhole_lateral_gs';
       const cursor = pasteActive || isRuler || isPointPlace || boxDrawing
         ? 'crosshair'
         : canTranslate

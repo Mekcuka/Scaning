@@ -1,5 +1,7 @@
 /** Пользовательские сообщения траекторий / забоев (API + legacy EN). */
 
+import { GS_HEEL_LABEL, GS_TOE_LABEL } from './wellBottomholeProperties';
+
 const EN_TO_RU: Record<string, string> = {
   'No trajectories; run generate-from-layout first':
     'Нет заготовок траекторий; сначала выполните «Из схемы куста»',
@@ -22,15 +24,15 @@ const EN_PATTERNS: { re: RegExp; repl: (m: RegExpMatchArray) => string }[] = [
   },
   {
     re: /^Duplicate GS heel for well_index (\d+)$/,
-    repl: (m) => `Скв.${Number(m[1]) + 1}: дубликат пятки (heel) ГС`,
+    repl: (m) => `Скв.${Number(m[1]) + 1}: дубликат ${GS_HEEL_LABEL} ГС`,
   },
   {
     re: /^GS toe (.+) has no gs_heel_id$/,
-    repl: () => 'Toe ГС без привязки к пятке (heel)',
+    repl: () => `${GS_TOE_LABEL} ГС без привязки к ${GS_HEEL_LABEL}`,
   },
   {
     re: /^Duplicate toe for heel (.+)$/,
-    repl: () => 'Дубликат toe для одной пятки (heel) ГС',
+    repl: () => `Дубликат ${GS_TOE_LABEL} для одного ${GS_HEEL_LABEL} ГС`,
   },
   {
     re: /^well_index (\d+): more than expected bottomhole objects$/,
@@ -38,7 +40,7 @@ const EN_PATTERNS: { re: RegExp; repl: (m: RegExpMatchArray) => string }[] = [
   },
   {
     re: /^well_index (\d+): GS heel without paired toe$/,
-    repl: (m) => `Скв.${Number(m[1]) + 1}: пятка (heel) ГС без парного toe`,
+    repl: (m) => `Скв.${Number(m[1]) + 1}: ${GS_HEEL_LABEL} ГС без парного ${GS_TOE_LABEL}`,
   },
   {
     re: /^well_index (\d+): design failed$/,
