@@ -1,7 +1,9 @@
 """API response builders for map entities."""
 
-from app.core.json_public import json_public_roundtrip
+from typing import Any
 from uuid import UUID
+
+from app.core.json_public import json_public_roundtrip
 
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
