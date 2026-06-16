@@ -3,8 +3,6 @@
 import json
 from uuid import uuid4
 
-import pytest
-
 from app.models import InfrastructureObject
 from app.services.serializers import infra_to_public_json, infra_to_response
 
@@ -36,9 +34,8 @@ def test_infra_to_public_json_deep_pywellgeo_tree():
     obj = _make_oil_pad(props)
 
     resp = infra_to_response(obj)
-    with pytest.raises((ValueError, Exception), match="Circular reference|depth exceeded"):
-        resp.model_dump(mode="json")
-
+    # Pydantic model_dump may hit depth guard on very deep trees (version-dependent);
+    # infra_to_public_json must always serialize for HTTP.
     payload = infra_to_public_json(obj)
     text = json.dumps(payload)
     assert "pad_pywellgeo_trees_json" in text

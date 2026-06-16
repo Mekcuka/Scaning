@@ -4,10 +4,7 @@ from __future__ import annotations
 
 import json
 
-import pytest
-
 from app.services.well_trajectory.pywellgeo_public import add_branch_response_json
-from app.services.well_trajectory.pywellgeo_schemas import PyWellGeoAddBranchResponse
 
 
 def _deep_tree(depth: int) -> dict:
@@ -43,10 +40,7 @@ def test_add_branch_response_json_deep_tree():
         "tree": _deep_tree(depth),
         "source": "lateral",
     }
-    pydantic_resp = PyWellGeoAddBranchResponse(tree=record, warnings=["max DLS lateral: 2.50 °/30m"])
-    with pytest.raises((ValueError, Exception), match="Circular reference|depth exceeded"):
-        pydantic_resp.model_dump(mode="json")
-
+    # Pydantic model_dump may hit depth guard (version-dependent); public JSON path must not.
     payload = add_branch_response_json(record, ["max DLS lateral: 2.50 °/30m"])
     text = json.dumps(payload)
     assert payload["tree"]["well_index"] == 0

@@ -28,6 +28,8 @@ test.describe('PyWellGeo tab smoke', () => {
       layerId,
       subtype: 'oil_pad',
       name: 'E2E_PyWellGeo',
+      lon: 37.62,
+      lat: 55.76,
     });
 
     const lastRes = await request.get(
