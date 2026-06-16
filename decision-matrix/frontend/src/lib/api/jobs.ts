@@ -17,6 +17,31 @@ export interface ProjectJobResponse {
   started_at?: string | null;
   finished_at?: string | null;
   created_at?: string | null;
+  steps_total?: number | null;
+  steps_completed?: number | null;
+  current_step?: { seq: number; step_code: string; title: string } | null;
+}
+
+export interface JobStepResponse {
+  id: string;
+  seq: number;
+  step_code: string;
+  title: string;
+  status: string;
+  started_at?: string | null;
+  finished_at?: string | null;
+  duration_ms?: number | null;
+  detail?: Record<string, unknown> | null;
+  error_message?: string | null;
+}
+
+export interface JobStepListResponse {
+  job_id: string;
+  project_id: string;
+  steps: JobStepResponse[];
+  progress?: number | null;
+  steps_total: number;
+  steps_completed: number;
 }
 
 export interface ProjectJobListResponse {

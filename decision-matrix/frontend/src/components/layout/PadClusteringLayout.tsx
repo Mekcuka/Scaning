@@ -61,16 +61,20 @@ function PadClusteringLayoutInner() {
 
   const isWorkspace = location.pathname.includes('/pad-clustering/workspace/');
   const isProfile = location.pathname.includes('/pad-clustering/profile/');
+  const isSummary = location.pathname.includes('/pad-clustering/summary/');
 
   const padSubtitle = useMemo(() => {
     if (!projectId) return 'Выберите активный проект на дашборде или в списке проектов.';
+    if (isSummary) {
+      return `${activeProject?.name ?? 'Проект'} · сводка по всем кустам`;
+    }
     const parts = [activeProject?.name ?? 'Проект'];
     if (pad) {
       parts.push(pad.name);
       parts.push(SUBTYPE_LABELS[pad.subtype] ?? pad.subtype);
     }
     return parts.join(' · ');
-  }, [activeProject?.name, pad, projectId]);
+  }, [activeProject?.name, isSummary, pad, projectId]);
 
   usePageHeader({ title: 'Кустование', subtitle: padSubtitle }, [padSubtitle]);
 
@@ -105,49 +109,51 @@ function PadClusteringLayoutInner() {
       <div
         className={`pad-clustering-page${isWorkspace ? '' : ' pad-clustering-page--scroll'}`}
       >
-        <div className="pad-clustering-page__chrome">
-          <header className="pad-clustering-page__header">
-            <div className="pad-clustering-page__toolbar">
-              <div className="pad-clustering-page__pad-select">
-                <span className="pad-clustering-page__select-label">Куст</span>
-                <AppSelect
-                  options={pads.map((p) => ({ value: p.id, label: p.name }))}
-                  value={activePadId}
-                  onChange={handlePadChange}
-                  disabled={infraLoading || pads.length === 0}
-                  placeholder={infraLoading ? 'Загрузка…' : 'Нет кустов'}
-                  ariaLabel="Кустовая площадка"
-                  variant="sm"
-                />
-              </div>
-              {isProfile && activePadId && pads.length > 0 && <PadClusteringProfileSubjectSelect />}
-              {pad && (
-                <Link
-                  to={`/map?select=${pad.id}`}
-                  className="btn btn--ghost btn--sm pad-clustering-page__map-link"
-                  title="Открыть куст на карте"
+        {!isSummary ? (
+          <div className="pad-clustering-page__chrome">
+            <header className="pad-clustering-page__header">
+              <div className="pad-clustering-page__toolbar">
+                <div className="pad-clustering-page__pad-select">
+                  <span className="pad-clustering-page__select-label">Куст</span>
+                  <AppSelect
+                    options={pads.map((p) => ({ value: p.id, label: p.name }))}
+                    value={activePadId}
+                    onChange={handlePadChange}
+                    disabled={infraLoading || pads.length === 0}
+                    placeholder={infraLoading ? 'Загрузка…' : 'Нет кустов'}
+                    ariaLabel="Кустовая площадка"
+                    variant="sm"
+                  />
+                </div>
+                {isProfile && activePadId && pads.length > 0 && <PadClusteringProfileSubjectSelect />}
+                {pad && (
+                  <Link
+                    to={`/map?select=${pad.id}`}
+                    className="btn btn--ghost btn--sm pad-clustering-page__map-link"
+                    title="Открыть куст на карте"
+                  >
+                    <MapPin size={16} aria-hidden />
+                    <span className="pad-clustering-page__map-link-label">Карта</span>
+                  </Link>
+                )}
+                <button
+                  type="button"
+                  className={`btn btn--primary btn--sm${isAnyDirty ? ' pad-clustering-page__save--dirty' : ''}`}
+                  disabled={readOnly || !activePadId || savePadMut.isPending}
+                  onClick={() => savePadMut.mutate()}
+                  title={isAnyDirty ? 'Есть несохранённые изменения' : 'Сохранить параметры куста'}
                 >
-                  <MapPin size={16} aria-hidden />
-                  <span className="pad-clustering-page__map-link-label">Карта</span>
-                </Link>
-              )}
-              <button
-                type="button"
-                className={`btn btn--primary btn--sm${isAnyDirty ? ' pad-clustering-page__save--dirty' : ''}`}
-                disabled={readOnly || !activePadId || savePadMut.isPending}
-                onClick={() => savePadMut.mutate()}
-                title={isAnyDirty ? 'Есть несохранённые изменения' : 'Сохранить параметры куста'}
-              >
-                <Save size={16} aria-hidden />
-                {savePadMut.isPending
-                  ? 'Сохранение…'
-                  : isAnyDirty
-                    ? 'Сохранить *'
-                    : 'Сохранить'}
-              </button>
-            </div>
-          </header>
-        </div>
+                  <Save size={16} aria-hidden />
+                  {savePadMut.isPending
+                    ? 'Сохранение…'
+                    : isAnyDirty
+                      ? 'Сохранить *'
+                      : 'Сохранить'}
+                </button>
+              </div>
+            </header>
+          </div>
+        ) : null}
 
         {pads.length === 0 && !infraLoading && (
           <div className="pad-clustering-page__empty-state">
@@ -164,7 +170,7 @@ function PadClusteringLayoutInner() {
 
         {infraLoading && pads.length === 0 && <PageSkeleton lines={4} />}
 
-        {activePadId && pads.length > 0 && <Outlet />}
+        {pads.length > 0 && (isSummary || activePadId) && <Outlet />}
       </div>
     </div>
   );

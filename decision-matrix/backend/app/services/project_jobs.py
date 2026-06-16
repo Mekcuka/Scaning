@@ -168,31 +168,49 @@ async def create_project_job(
 
 
 async def mark_job_running(db: AsyncSession, job: ProjectJob) -> None:
+    previous = job.status
     job.status = JOB_STATUS_RUNNING
     job.started_at = datetime.now(timezone.utc)
     await db.flush()
+    from app.services.job_realtime_events import notify_job_status_changed
+
+    await notify_job_status_changed(job, previous_status=previous)
 
 
 async def mark_job_completed(db: AsyncSession, job: ProjectJob, result: dict[str, Any]) -> None:
+    previous = job.status
     job.status = JOB_STATUS_COMPLETED
     job.result = result
     job.error_message = None
     job.finished_at = datetime.now(timezone.utc)
+    if job.progress is None:
+        job.progress = 1.0
     await db.flush()
+    from app.services.job_realtime_events import notify_job_status_changed
+
+    await notify_job_status_changed(job, previous_status=previous)
 
 
 async def mark_job_failed(db: AsyncSession, job: ProjectJob, message: str) -> None:
+    previous = job.status
     job.status = JOB_STATUS_FAILED
     job.error_message = message[:4000]
     job.finished_at = _utcnow()
     await db.flush()
+    from app.services.job_realtime_events import notify_job_status_changed
+
+    await notify_job_status_changed(job, previous_status=previous)
 
 
 async def mark_job_cancelled(db: AsyncSession, job: ProjectJob, message: str = "Отменено пользователем") -> None:
+    previous = job.status
     job.status = JOB_STATUS_CANCELLED
     job.error_message = message[:4000]
     job.finished_at = _utcnow()
     await db.flush()
+    from app.services.job_realtime_events import notify_job_status_changed
+
+    await notify_job_status_changed(job, previous_status=previous)
 
 
 async def cancel_active_job(

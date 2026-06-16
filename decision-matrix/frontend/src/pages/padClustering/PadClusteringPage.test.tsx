@@ -143,7 +143,7 @@ describe('PadClusteringLayout', () => {
       }),
     ] as never);
     renderPadClustering('/pad-clustering/summary/p1');
-    await waitFor(() => expect(screen.getByRole('heading', { name: 'Куст' })).toBeInTheDocument());
+    await waitFor(() => expect(screen.getByRole('heading', { name: 'Кусты' })).toBeInTheDocument());
     expect(screen.getByRole('heading', { name: 'Забои и доп. стволы' })).toBeInTheDocument();
   });
 });

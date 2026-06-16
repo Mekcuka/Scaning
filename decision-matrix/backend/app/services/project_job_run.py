@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import logging
+from datetime import datetime, timezone
 from typing import Any
 from uuid import UUID
 
@@ -12,6 +13,13 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.core.config import settings
 from app.core.database import async_session
 from app.models import ImportLog, ProjectJob
+from app.services.job_step_defs import JOB_STEPS
+from app.services.job_steps import (
+    STEP_STATUS_OK,
+    append_job_step,
+    update_job_progress,
+    update_job_step,
+)
 from app.services.project_jobs import (
     JOB_STATUS_PENDING,
     JOB_STATUS_RUNNING,
@@ -30,6 +38,46 @@ from app.services.project_jobs import (
 )
 
 logger = logging.getLogger(__name__)
+
+
+class StepContext:
+    """Records a single job step: creates a 'running' row on enter, finalizes on exit.
+
+    Steps use a short separate DB session (see job_steps.append_job_step) so they
+    survive rollback and are visible to the WebSocket layer immediately.
+    """
+
+    def __init__(self, job: ProjectJob, seq: int, step_code: str, title: str) -> None:
+        self.job = job
+        self.seq = seq
+        self.step_code = step_code
+        self.title = title
+        self.step_id: UUID | None = None
+
+    async def __aenter__(self) -> "StepContext":
+        step = await append_job_step(
+            self.job.id,
+            self.job.project_id,
+            seq=self.seq,
+            step_code=self.step_code,
+            title=self.title,
+        )
+        self.step_id = step.id
+        return self
+
+    async def __aexit__(self, exc_type, exc, tb) -> bool:
+        if self.step_id is None:
+            return False
+        if exc is None:
+            await update_job_step(self.step_id, status=STEP_STATUS_OK)
+        # On exception: do not mark step as 'error' here — let it propagate so
+        # the outer execute_project_job marks the whole job failed. The step
+        # remains 'running', which is acceptable: the job is failed anyway.
+        return False
+
+    async def update_progress(self, db: AsyncSession) -> float | None:
+        """Recalculate job.progress after this step completes."""
+        return await update_job_progress(db, self.job)
 
 
 async def _acquire_project_advisory_lock(db: AsyncSession, project_id: UUID) -> None:
@@ -245,26 +293,7 @@ async def execute_project_job(job_id: UUID) -> None:
                 await mark_job_running(db, job)
                 await db.flush()
 
-            if job.job_type == JOB_TYPE_AUTOROAD_CONNECT:
-                result = await _run_autoroad_connect(db, job)
-            elif job.job_type == JOB_TYPE_IMPORT_FILE:
-                result = await _run_import_file(db, job)
-            elif job.job_type == JOB_TYPE_SAND_LOGISTICS_ANALYZE:
-                result = await _run_sand_logistics(db, job)
-            elif job.job_type == JOB_TYPE_POI_ANALYZE_ALL:
-                result = await _run_poi_analyze_all(db, job)
-            elif job.job_type == JOB_TYPE_PAD_EARTHWORK_COMPUTE:
-                result = await _run_pad_earthwork_compute(db, job)
-            elif job.job_type == JOB_TYPE_WELL_TRAJECTORY_COMPUTE:
-                result = await _run_well_trajectory_compute(db, job)
-            elif job.job_type == JOB_TYPE_WELL_TRAJECTORY_IMPORT:
-                result = await _run_well_trajectory_import(db, job)
-            elif job.job_type == JOB_TYPE_PAD_PLACEMENT_COMPUTE:
-                result = await _run_pad_placement_compute(db, job)
-            elif job.job_type == JOB_TYPE_PAD_PLACEMENT_APPLY:
-                result = await _run_pad_placement_apply(db, job)
-            else:
-                raise ValueError(f"Unsupported job_type: {job.job_type}")
+            result = await _execute_job_body(db, job)
 
             job = await db.get(ProjectJob, job_id)
             if job and job.status == JOB_STATUS_RUNNING:
@@ -278,3 +307,78 @@ async def execute_project_job(job_id: UUID) -> None:
                 if job and job.status == JOB_STATUS_RUNNING:
                     await mark_job_failed(db2, job, str(e))
                     await db2.commit()
+
+
+async def _execute_job_body(db: AsyncSession, job: ProjectJob) -> dict[str, Any]:
+    """Dispatch to the type-specific runner, recording coarse-grained steps.
+
+    Each _run_* is wrapped in a single high-level step. This gives meaningful
+    progress (0/1 → 1/1 = 100% for single-phase jobs) without threading a
+    callback into every service. The service can later be instrumented with
+    finer steps by inserting append_job_step calls inside it.
+    """
+    steps_def = JOB_STEPS.get(job.job_type, [("run", "Выполнение расчёта")])
+    total = len(steps_def)
+
+    if total == 1:
+        # Single-step job: record one running step around the whole run.
+        code, title = steps_def[0]
+        async with StepContext(job, seq=1, step_code=code, title=title):
+            return await _dispatch_run(db, job)
+
+    # Multi-step job: for v1 we record one summary step covering all internal
+    # work (the service APIs don't expose phase boundaries yet). Each phase is
+    # recorded as a separate row so the UI can show the plan; transitions to
+    # 'ok' happen as a batch at the end.
+    recorded_ids: list[UUID] = []
+    for seq, (code, title) in enumerate(steps_def, start=1):
+        step = await append_job_step(
+            job.id,
+            job.project_id,
+            seq=seq,
+            step_code=code,
+            title=title,
+            status="pending" if seq > 1 else "running",
+        )
+        recorded_ids.append(step.id)
+
+    try:
+        result = await _dispatch_run(db, job)
+    except Exception:
+        # Mark the first still-pending/running step as error for visibility.
+        from app.services.job_steps import STEP_STATUS_ERROR, update_job_step
+
+        for sid in recorded_ids:
+            await update_job_step(sid, status=STEP_STATUS_ERROR, error_message="Шаг не завершён")
+        raise
+
+    # Mark all steps ok and recalc progress
+    from app.services.job_steps import STEP_STATUS_OK, update_job_step
+
+    for sid in recorded_ids:
+        await update_job_step(sid, status=STEP_STATUS_OK)
+    await update_job_progress(db, job)
+    await db.flush()
+    return result
+
+
+async def _dispatch_run(db: AsyncSession, job: ProjectJob) -> dict[str, Any]:
+    if job.job_type == JOB_TYPE_AUTOROAD_CONNECT:
+        return await _run_autoroad_connect(db, job)
+    elif job.job_type == JOB_TYPE_IMPORT_FILE:
+        return await _run_import_file(db, job)
+    elif job.job_type == JOB_TYPE_SAND_LOGISTICS_ANALYZE:
+        return await _run_sand_logistics(db, job)
+    elif job.job_type == JOB_TYPE_POI_ANALYZE_ALL:
+        return await _run_poi_analyze_all(db, job)
+    elif job.job_type == JOB_TYPE_PAD_EARTHWORK_COMPUTE:
+        return await _run_pad_earthwork_compute(db, job)
+    elif job.job_type == JOB_TYPE_WELL_TRAJECTORY_COMPUTE:
+        return await _run_well_trajectory_compute(db, job)
+    elif job.job_type == JOB_TYPE_WELL_TRAJECTORY_IMPORT:
+        return await _run_well_trajectory_import(db, job)
+    elif job.job_type == JOB_TYPE_PAD_PLACEMENT_COMPUTE:
+        return await _run_pad_placement_compute(db, job)
+    elif job.job_type == JOB_TYPE_PAD_PLACEMENT_APPLY:
+        return await _run_pad_placement_apply(db, job)
+    raise ValueError(f"Unsupported job_type: {job.job_type}")

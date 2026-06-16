@@ -6,6 +6,7 @@ import {
   buildBottomholeSummaryTable,
   buildPadSummaryRows,
   buildPadSummaryTable,
+  buildPadsSummaryTable,
   buildTrajectorySummaryRows,
   buildTransposedSummaryTable,
   buildUnifiedSummaryRows,
@@ -115,6 +116,36 @@ describe('padClusteringSummaryRows', () => {
     expect(groups[1]!.find((r) => r.label === 'Роль')?.value).toBe('Доп.ствол');
   });
 
+  it('buildPadsSummaryTable transposes one row per pad', () => {
+    const padA = makeInfraPoint({ id: 'pad-a', subtype: 'oil_pad', name: 'Куст_A' });
+    const padB = makeInfraPoint({ id: 'pad-b', subtype: 'oil_pad', name: 'Куст_B' });
+    const table = buildPadsSummaryTable([
+      {
+        padId: 'pad-a',
+        rows: buildPadSummaryRows({
+          pad: padA,
+          kbM: 100,
+          wellsLocalCount: 2,
+          trajectoryComputedAt: null,
+          demSource: null,
+        }),
+      },
+      {
+        padId: 'pad-b',
+        rows: buildPadSummaryRows({
+          pad: padB,
+          kbM: 200,
+          wellsLocalCount: 4,
+          trajectoryComputedAt: null,
+          demSource: null,
+        }),
+      },
+    ]);
+    expect(table.rows).toHaveLength(2);
+    expect(table.rows.map((row) => row.label)).toEqual(['Куст_A', 'Куст_B']);
+    expect(table.paramLabels).toContain('KB, м');
+  });
+
   it('buildPadSummaryTable transposes pad params into columns', () => {
     const pad = makeInfraPoint({ id: 'pad-1', subtype: 'oil_pad', name: 'Куст_A' });
     const padRows = buildPadSummaryRows({
@@ -200,6 +231,22 @@ describe('padClusteringSummaryRows', () => {
     const table = buildBottomholeSummaryTable(groups);
     expect(table.rows.map((r) => r.label)).toEqual(['Забой · Main BH', 'Доп.ствол · Lat BH']);
     expect(table.paramLabels).toContain('Роль');
+  });
+
+  it('buildBottomholeSummaryTable puts Куст and Скважина № first', () => {
+    const main = makeInfraPoint({
+      id: 'main-1',
+      subtype: 'well_bottomhole_nnb',
+      name: 'Main BH',
+      properties: { well_bottomhole_role: 'main', well_bottomhole_well_index: 2 },
+    });
+    const rows = buildBottomholeSummaryRows([main], new Map([['main-1', 'Main BH']]))[0]!;
+    const table = buildBottomholeSummaryTable([rows], ['main-1'], ['Куст 1']);
+    const singleLabels = table.columns
+      .filter((col) => col.kind === 'single')
+      .map((col) => (col.kind === 'single' ? col.label : ''));
+    expect(singleLabels.slice(0, 2)).toEqual(['Куст', 'Скважина №']);
+    expect(table.paramLabels.slice(0, 2)).toEqual(['Куст', 'Скважина №']);
   });
 
   it('buildTransposedSummaryTable groups nested coordinate columns', () => {

@@ -4,6 +4,7 @@ import { Activity, ChevronDown, ChevronRight, Download, X } from 'lucide-react';
 
 import { defaultProjectJobsApi } from '../lib/api';
 import { useActiveProjectJob } from '../hooks/useActiveProjectJob';
+import { useJobRealtime } from '../hooks/useJobRealtime';
 import {
   ACTIVE_JOB_STATUSES,
   jobStatusLabel,
@@ -132,6 +133,14 @@ function EntryCard({
   const canCancel =
     entry.kind === 'project_job' && ACTIVE_JOB_STATUSES.has(entry.job.status);
 
+  const progress =
+    entry.kind === 'project_job' && typeof entry.job.progress === 'number'
+      ? Math.round(entry.job.progress * 100)
+      : null;
+  const stepsTotal = entry.kind === 'project_job' ? entry.job.steps_total ?? null : null;
+  const stepsCompleted = entry.kind === 'project_job' ? entry.job.steps_completed ?? null : null;
+  const currentStep = entry.kind === 'project_job' ? entry.job.current_step ?? null : null;
+
   return (
     <article className="task-log-entry">
       <div className="task-log-entry-head">
@@ -179,6 +188,24 @@ function EntryCard({
           </>
         )}
       </div>
+      {progress !== null && (
+        <div className="task-log-progress" role="progressbar" aria-valuenow={progress} aria-valuemin={0} aria-valuemax={100}>
+          <div className="task-log-progress-head">
+            <span className="text-xs">
+              {currentStep ? `${currentStep.seq}. ${currentStep.title}` : 'Выполняется…'}
+            </span>
+            <span className="text-xs font-mono" style={{ color: 'var(--text-muted)' }}>
+              {progress}%{stepsTotal && stepsCompleted !== null ? ` · ${stepsCompleted}/${stepsTotal}` : ''}
+            </span>
+          </div>
+          <div className="task-log-progress-track">
+            <div
+              className="task-log-progress-fill"
+              style={{ width: `${progress}%` }}
+            />
+          </div>
+        </div>
+      )}
       {expanded && (
         <div className="task-log-entry-body">
           {entry.kind === 'http_flow' && <HttpStepsBlock steps={entry.steps} />}
@@ -223,7 +250,8 @@ export function TaskLogPanel({ projectId }: { projectId: string | null }) {
   useEffect(() => {
     if (projectId) hydrateProject(projectId);
   }, [projectId, hydrateProject]);
-  const { activeProjectJob } = useActiveProjectJob(projectId);
+  const { connected: wsConnected } = useJobRealtime(projectId);
+  const { activeProjectJob } = useActiveProjectJob(projectId, { realtimeConnected: wsConnected });
 
   const { data: jobsList } = useQuery({
     queryKey: ['projectJobs', projectId],

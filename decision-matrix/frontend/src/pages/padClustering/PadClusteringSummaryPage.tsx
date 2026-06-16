@@ -3,68 +3,37 @@ import { useMemo } from 'react';
 import { PageSkeleton } from '../../components/PageSkeleton';
 import { PadClusteringSummaryTable } from '../../components/padClustering/PadClusteringSummaryTable';
 import { usePadClusteringEditorContext } from '../../contexts/PadClusteringEditorContext';
-import {
-  buildBottomholeSummaryRows,
-  buildBottomholeSummaryTable,
-  buildPadSummaryRows,
-  buildPadSummaryTable,
-} from '../../lib/padClusteringSummaryRows';
+import { usePadClusteringProjectSummary } from '../../hooks/usePadClusteringProjectSummary';
 import './pad-clustering-page.css';
 
+const EMPTY_PADS_HINT = 'В проекте нет кустов со скважинами (забои, устья или траектории).';
 const EMPTY_BOTTOMHOLES_HINT =
   'Привяжите забои на карте или синхронизируйте с вкладки «Куст».';
 
 export function PadClusteringSummaryPage() {
-  const {
-    activePadId,
-    isLoading,
-    pad,
-    kbM,
-    wellsLocalCount,
-    trajectoryComputedAt,
-    demSource,
-    trajectories,
-    linkedBottomholes,
-  } = usePadClusteringEditorContext();
+  const { projectId, pads, infraLoading, infraObjects } = usePadClusteringEditorContext();
 
-  const bottomholeNameById = useMemo(
-    () => new Map(linkedBottomholes.map((b) => [b.id, b.name])),
-    [linkedBottomholes],
+  const { padTable, bottomholeTable, padsWithWellsCount, isLoading } = usePadClusteringProjectSummary(
+    projectId,
+    pads,
+    infraObjects,
   );
 
-  const padTable = useMemo(
-    () =>
-      buildPadSummaryTable(
-        buildPadSummaryRows({
-          pad,
-          kbM,
-          wellsLocalCount,
-          trajectoryComputedAt,
-          demSource,
-          trajectories,
-        }),
-      ),
-    [pad, kbM, wellsLocalCount, trajectoryComputedAt, demSource, trajectories],
+  const padRowHeaderLabel = useMemo(
+    () => (padTable.rows.length > 1 ? 'Куст' : 'Раздел'),
+    [padTable.rows.length],
   );
 
-  const bottomholeTable = useMemo(
-    () =>
-      buildBottomholeSummaryTable(
-        buildBottomholeSummaryRows(linkedBottomholes, bottomholeNameById, trajectories),
-      ),
-    [linkedBottomholes, bottomholeNameById, trajectories],
-  );
-
-  if (!activePadId) return null;
-  if (isLoading && !pad) return <PageSkeleton lines={8} />;
+  if (infraLoading && pads.length === 0) return <PageSkeleton lines={8} />;
+  if (isLoading && padsWithWellsCount === 0 && pads.length > 0) return <PageSkeleton lines={8} />;
 
   return (
     <div className="pad-clustering-summary">
       <PadClusteringSummaryTable
-        title="Куст"
+        title="Кусты"
         table={padTable}
-        rowHeaderLabel="Раздел"
-        emptyHint="Нет данных по кусту."
+        rowHeaderLabel={padRowHeaderLabel}
+        emptyHint={EMPTY_PADS_HINT}
       />
       <PadClusteringSummaryTable
         title="Забои и доп. стволы"

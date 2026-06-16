@@ -627,8 +627,35 @@ class ProjectJobResponse(BaseModel):
     started_at: datetime | None = None
     finished_at: datetime | None = None
     created_at: datetime | None = None
+    steps_total: int | None = None
+    steps_completed: int | None = None
+    current_step: dict | None = None
 
     model_config = {"from_attributes": True}
+
+
+class JobStepResponse(BaseModel):
+    id: UUID
+    seq: int
+    step_code: str
+    title: str
+    status: str
+    started_at: datetime | None = None
+    finished_at: datetime | None = None
+    duration_ms: int | None = None
+    detail: dict | None = None
+    error_message: str | None = None
+
+    model_config = {"from_attributes": True}
+
+
+class JobStepListResponse(BaseModel):
+    job_id: UUID
+    project_id: UUID
+    steps: list[JobStepResponse]
+    progress: float | None = None
+    steps_total: int = 0
+    steps_completed: int = 0
 
 
 class ProjectJobAdminItem(ProjectJobResponse):

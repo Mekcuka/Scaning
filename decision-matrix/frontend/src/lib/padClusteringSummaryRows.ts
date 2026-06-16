@@ -40,7 +40,7 @@ export type TransposedSummaryTable = {
   columns: TransposedSummaryColumn[];
   /** Flat value keys in column order. */
   paramLabels: string[];
-  rows: { label: string; values: Record<string, string> }[];
+  rows: { key: string; label: string; values: Record<string, string> }[];
 };
 
 function summaryRowKey(row: SummaryRow): string {
@@ -82,38 +82,99 @@ function flatColumnKeys(columns: TransposedSummaryColumn[]): string[] {
   );
 }
 
+/** Pin single columns by label; grouped columns keep relative order at the end. */
+function reorderSummaryTableColumns(
+  table: TransposedSummaryTable,
+  leadingLabels: string[],
+): TransposedSummaryTable {
+  const singles: Extract<TransposedSummaryColumn, { kind: 'single' }>[] = [];
+  const groups: Extract<TransposedSummaryColumn, { kind: 'group' }>[] = [];
+  for (const col of table.columns) {
+    if (col.kind === 'single') singles.push(col);
+    else groups.push(col);
+  }
+  const byLabel = new Map(singles.map((col) => [col.label, col]));
+  const orderedSingles: typeof singles = [];
+  const used = new Set<string>();
+  for (const label of leadingLabels) {
+    const col = byLabel.get(label);
+    if (col) {
+      orderedSingles.push(col);
+      used.add(label);
+    }
+  }
+  for (const col of singles) {
+    if (!used.has(col.label)) orderedSingles.push(col);
+  }
+  const columns = [...orderedSingles, ...groups];
+  return { ...table, columns, paramLabels: flatColumnKeys(columns) };
+}
+
+const BOTTOMHOLE_SUMMARY_LEADING_COLUMNS = ['Куст', 'Скважина №'];
+
 /** Parameters as columns, entities as rows. */
 export function buildTransposedSummaryTable(
-  groups: { rowLabel: string; params: SummaryRow[] }[],
+  groups: { rowLabel: string; rowKey?: string; params: SummaryRow[] }[],
 ): TransposedSummaryTable {
   const columns = buildTransposedColumnsFromParams(groups);
   const paramLabels = flatColumnKeys(columns);
-  const rows = groups.map((group) => ({
+  const rows = groups.map((group, index) => ({
+    key: group.rowKey ?? `${group.rowLabel}:${index}`,
     label: group.rowLabel,
     values: Object.fromEntries(group.params.map((param) => [summaryRowKey(param), param.value])),
   }));
   return { columns, paramLabels, rows };
 }
 
-export function buildPadSummaryTable(padRows: SummaryRow[]): TransposedSummaryTable {
+export function buildPadSummaryTable(padRows: SummaryRow[], padId?: string): TransposedSummaryTable {
   if (padRows.length === 0) {
     return { columns: [], paramLabels: [], rows: [] };
   }
-  return buildTransposedSummaryTable([{ rowLabel: 'Куст', params: padRows }]);
+  return buildTransposedSummaryTable([
+    { rowLabel: 'Куст', rowKey: padId ?? 'pad', params: padRows },
+  ]);
+}
+
+/** One row per pad; params as columns (excludes duplicate «Имя»). */
+export function buildPadsSummaryTable(
+  entries: { padId: string; rows: SummaryRow[] }[],
+): TransposedSummaryTable {
+  if (entries.length === 0) {
+    return { columns: [], paramLabels: [], rows: [] };
+  }
+  const groups = entries.map(({ padId, rows }) => {
+    const rowLabel = rows.find((row) => row.label === 'Имя')?.value ?? padId;
+    const params = rows.filter((row) => row.label !== 'Имя');
+    return { rowLabel, rowKey: padId, params };
+  });
+  return buildTransposedSummaryTable(groups);
 }
 
 export function buildBottomholeSummaryTable(
   bottomholeGroups: SummaryRow[][],
+  objectIds: string[] = [],
+  padNames: string[] = [],
 ): TransposedSummaryTable {
-  const groups = bottomholeGroups.map((group) => {
+  const groups = bottomholeGroups.map((group, index) => {
     const name = group.find((row) => row.label === 'Имя')?.value ?? '—';
     const role = group.find((row) => row.label === 'Роль')?.value ?? '';
     const isLateral = role === 'Доп.ствол';
     const rowLabel = isLateral ? `Доп.ствол · ${name}` : `Забой · ${name}`;
+    const padName = padNames[index]?.trim();
     const params = group.filter((row) => row.label !== 'Отступ' && row.label !== 'Имя');
-    return { rowLabel, params };
+    if (padName) {
+      params.unshift({ label: 'Куст', value: padName });
+    }
+    return {
+      rowLabel,
+      rowKey: objectIds[index] ?? `${rowLabel}:${index}`,
+      params,
+    };
   });
-  return buildTransposedSummaryTable(groups);
+  return reorderSummaryTableColumns(
+    buildTransposedSummaryTable(groups),
+    BOTTOMHOLE_SUMMARY_LEADING_COLUMNS,
+  );
 }
 
 export type UnifiedSummaryRow =

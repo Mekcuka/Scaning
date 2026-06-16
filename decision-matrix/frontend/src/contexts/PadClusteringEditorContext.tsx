@@ -13,11 +13,13 @@ import { useActiveProject } from '../hooks/useActiveProject';
 import { filterPadObjects, usePadClusteringEditor } from '../hooks/usePadClusteringEditor';
 import { usePermissions } from '../hooks/usePermissions';
 import { useProjectInfraObjects } from '../hooks/useProjectData';
+import type { InfraObject } from '../lib/api';
 
 type PadClusteringEditorValue = ReturnType<typeof usePadClusteringEditor> & {
   projectId: string | null;
   activePadId: string;
   pads: ReturnType<typeof filterPadObjects>;
+  infraObjects: InfraObject[];
   infraLoading: boolean;
   readOnly: boolean;
   selectedWellIndex: number | null;
@@ -77,6 +79,7 @@ export function PadClusteringEditorProvider({ children }: { children: ReactNode 
       projectId: projectId ?? null,
       activePadId,
       pads,
+      infraObjects,
       infraLoading,
       readOnly,
       selectedWellIndex,
@@ -88,6 +91,7 @@ export function PadClusteringEditorProvider({ children }: { children: ReactNode 
       projectId,
       activePadId,
       pads,
+      infraObjects,
       infraLoading,
       readOnly,
       selectedWellIndex,

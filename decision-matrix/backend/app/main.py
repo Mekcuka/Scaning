@@ -16,6 +16,7 @@ from slowapi.errors import RateLimitExceeded
 from sqlalchemy import text
 
 from app.api.v1.router import router
+from app.api.v1.jobs_ws import jobs_ws_router
 from app.assistant.transport import mcp_lifespan, mount_assistant_mcp
 from app.core.config import settings
 from app.core.database import Base, async_session, engine
@@ -143,6 +144,8 @@ app.add_middleware(
 )
 
 app.include_router(router, prefix="/api/v1")
+# WebSocket routes live outside the CSRF-protected HTTP router.
+app.include_router(jobs_ws_router, prefix="/api/v1")
 
 if settings.ASSISTANT_MCP_ENABLED:
     mount_assistant_mcp(app)

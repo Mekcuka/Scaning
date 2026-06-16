@@ -34,6 +34,7 @@ deploy/*.env.local
 !.vscode/extensions.json
 .cursor/mcp.json
 .cursor/mcp.local.json
+.cursor/hooks/state/
 .DS_Store
 Thumbs.db
 

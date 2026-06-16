@@ -1,6 +1,6 @@
 import { create } from 'zustand';
 
-import type { ProjectJobResponse } from '../api';
+import type { ProjectJobResponse, JobStepResponse } from '../api';
 import { HTTP_FLOW_PATH_LABELS } from './jobLabels';
 import type { HttpStep, TaskLogEntry, TaskLogStatus } from './types';
 
@@ -35,6 +35,40 @@ function newId(): string {
 }
 
 const TERMINAL_JOB_STATUSES = new Set(['completed', 'failed', 'cancelled']);
+const TERMINAL_STEP_STATUSES = new Set(['ok', 'warn', 'error', 'skipped']);
+
+function mergeJobFields(
+  existing: ProjectJobResponse,
+  patch: Partial<ProjectJobResponse>,
+): ProjectJobResponse {
+  const next = { ...existing };
+  for (const [key, value] of Object.entries(patch) as [keyof ProjectJobResponse, unknown][]) {
+    if (value === undefined) continue;
+    if ((key === 'status' || key === 'job_type') && value === '') continue;
+    (next as Record<string, unknown>)[key] = value;
+  }
+  return next;
+}
+
+function recomputeJobFromSteps(
+  job: ProjectJobResponse,
+  stepsById: Record<string, JobStepResponse>,
+): ProjectJobResponse {
+  const steps = Object.values(stepsById).sort((a, b) => a.seq - b.seq);
+  const stepsTotal = steps.length;
+  const stepsCompleted = steps.filter((s) => TERMINAL_STEP_STATUSES.has(s.status)).length;
+  const running = steps.find((s) => s.status === 'running');
+  const progress = stepsTotal > 0 ? Math.round((stepsCompleted / stepsTotal) * 10000) / 10000 : job.progress;
+  return {
+    ...job,
+    steps_total: stepsTotal || job.steps_total,
+    steps_completed: stepsCompleted,
+    progress: progress ?? job.progress,
+    current_step: running
+      ? { seq: running.seq, step_code: running.step_code, title: running.title }
+      : job.current_step,
+  };
+}
 
 function httpFlowLabelForPath(path: string): string {
   const tail = path.split('/').slice(-2).join('/');
@@ -115,6 +149,8 @@ type TaskLogState = {
     httpFlowId?: string | null;
   }) => void;
   updateJob: (job: ProjectJobResponse, httpSteps?: HttpStep[]) => void;
+  patchJob: (projectId: string, jobId: string, patch: Partial<ProjectJobResponse>) => void;
+  updateStep: (projectId: string, jobId: string, step: JobStepResponse) => void;
   mergeJobsFromApi: (projectId: string, jobs: ProjectJobResponse[]) => void;
   finalizeHttpFlowForPath: (projectId: string, path: string, status: TaskLogStatus) => void;
   clearProject: (projectId: string) => void;
@@ -271,18 +307,74 @@ export const useTaskLogStore = create<TaskLogState>((set, get) => ({
     set((s) => {
       let list = s.byProject[projectId] ?? loadProjectEntries(projectId);
       const existing = list.find((e) => e.kind === 'project_job' && e.id === job.id);
+      const mergedJob = existing?.kind === 'project_job' ? mergeJobFields(existing.job, job) : job;
       const entry: TaskLogEntry = {
         kind: 'project_job',
         id: job.id,
         projectId,
-        job,
+        job: mergedJob,
         httpSteps: httpSteps ?? (existing?.kind === 'project_job' ? existing.httpSteps : []),
+        stepsById: existing?.kind === 'project_job' ? existing.stepsById : undefined,
+        updatedAt: Date.now(),
+      };
+      if (TERMINAL_JOB_STATUSES.has(mergedJob.status)) {
+        list = finalizeLinkedHttpFlows(list, job.id, jobStatusToFlowStatus(mergedJob.status));
+      }
+      return { byProject: upsertProjectEntry({ ...s.byProject, [projectId]: list }, projectId, entry) };
+    });
+  },
+
+  patchJob: (projectId, jobId, patch) => {
+    set((s) => {
+      const list = s.byProject[projectId] ?? loadProjectEntries(projectId);
+      const existing = list.find((e) => e.kind === 'project_job' && e.id === jobId);
+      if (!existing || existing.kind !== 'project_job') return s;
+      let job = mergeJobFields(existing.job, patch);
+      if (existing.stepsById && Object.keys(existing.stepsById).length > 0) {
+        job = recomputeJobFromSteps(job, existing.stepsById);
+      }
+      const entry: TaskLogEntry = {
+        ...existing,
+        job,
         updatedAt: Date.now(),
       };
       if (TERMINAL_JOB_STATUSES.has(job.status)) {
-        list = finalizeLinkedHttpFlows(list, job.id, jobStatusToFlowStatus(job.status));
+        const nextList = finalizeLinkedHttpFlows(list, jobId, jobStatusToFlowStatus(job.status));
+        return { byProject: upsertProjectEntry({ ...s.byProject, [projectId]: nextList }, projectId, entry) };
       }
-      return { byProject: upsertProjectEntry({ ...s.byProject, [projectId]: list }, projectId, entry) };
+      return { byProject: upsertProjectEntry(s.byProject, projectId, entry) };
+    });
+  },
+
+  updateStep: (projectId, jobId, step) => {
+    set((s) => {
+      const list = s.byProject[projectId] ?? loadProjectEntries(projectId);
+      const existing = list.find((e) => e.kind === 'project_job' && e.id === jobId);
+      const stepsById = {
+        ...(existing?.kind === 'project_job' ? existing.stepsById : undefined),
+        [step.id]: step,
+      };
+      const baseJob =
+        existing?.kind === 'project_job'
+          ? existing.job
+          : ({
+              id: jobId,
+              project_id: projectId,
+              job_type: '',
+              status: 'running',
+              payload: {},
+            } satisfies ProjectJobResponse);
+      const job = recomputeJobFromSteps(baseJob, stepsById);
+      const entry: TaskLogEntry = {
+        kind: 'project_job',
+        id: jobId,
+        projectId,
+        job,
+        httpSteps: existing?.kind === 'project_job' ? existing.httpSteps : [],
+        stepsById,
+        updatedAt: Date.now(),
+      };
+      return { byProject: upsertProjectEntry(s.byProject, projectId, entry) };
     });
   },
 

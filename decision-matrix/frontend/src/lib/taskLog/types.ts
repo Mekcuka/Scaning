@@ -1,4 +1,4 @@
-import type { ProjectJobResponse } from '../api';
+import type { ProjectJobResponse, JobStepResponse } from '../api';
 
 export type TaskLogStatus = 'running' | 'completed' | 'failed' | 'cancelled';
 
@@ -32,6 +32,7 @@ export type TaskLogEntry =
       job: ProjectJobResponse;
       httpSteps: HttpStep[];
       updatedAt: number;
+      stepsById?: Record<string, JobStepResponse>;
     };
 
 export type TaskLogExportPayload = {

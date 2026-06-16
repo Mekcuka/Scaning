@@ -7,6 +7,8 @@ import { useTaskLogStore } from '../lib/taskLog/store';
 
 export type UseActiveProjectJobOptions = {
   jobsApi?: ProjectJobsApiPort;
+  /** When true, REST polling is disabled (WebSocket is connected). */
+  realtimeConnected?: boolean;
 };
 
 export function useActiveProjectJob(
@@ -14,16 +16,18 @@ export function useActiveProjectJob(
   options: UseActiveProjectJobOptions = {},
 ) {
   const jobsApi = options.jobsApi ?? defaultProjectJobsApi;
+  const realtimeConnected = options.realtimeConnected ?? false;
   const updateJob = useTaskLogStore((s) => s.updateJob);
 
   const query = useQuery({
-    queryKey: ['activeJob', projectId],
+    queryKey: ['activeJob', projectId, realtimeConnected],
     queryFn: async () => {
       if (!projectId) return null;
       return jobsApi.getActiveProjectJob(projectId);
     },
     enabled: Boolean(projectId),
     refetchInterval: (q) => {
+      if (realtimeConnected) return false;
       const job = q.state.data;
       return job && ACTIVE_JOB_STATUSES.has(job.status) ? 2000 : false;
     },

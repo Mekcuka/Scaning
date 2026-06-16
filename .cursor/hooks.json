@@ -1,0 +1,42 @@
+{
+  "version": 1,
+  "hooks": {
+    "beforeShellExecution": [
+      {
+        "command": "python .cursor/hooks/gate-push-tests.py",
+        "matcher": "git\\s+push",
+        "failClosed": true,
+        "timeout": 300
+      }
+    ],
+    "afterFileEdit": [
+      {
+        "command": "python .cursor/hooks/lint-frontend.py",
+        "matcher": "Write|StrReplace|TabWrite",
+        "failClosed": false,
+        "timeout": 60
+      }
+    ],
+    "subagentStop": [
+      {
+        "command": "python .cursor/hooks/qa-loop-bugbot.py",
+        "matcher": "bugbot",
+        "failClosed": false,
+        "loop_limit": 2
+      },
+      {
+        "command": "python .cursor/hooks/chain-after-explore.py",
+        "matcher": "explore",
+        "failClosed": false,
+        "loop_limit": 1
+      }
+    ],
+    "stop": [
+      {
+        "command": "python .cursor/hooks/remind-tests-if-frontend.py",
+        "failClosed": false,
+        "loop_limit": 1
+      }
+    ]
+  }
+}
