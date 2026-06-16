@@ -21,6 +21,7 @@ from app.services.job_steps import (
     update_job_step,
 )
 from app.services.project_jobs import (
+    ACTIVE_STATUSES,
     JOB_STATUS_PENDING,
     JOB_STATUS_RUNNING,
     JOB_TYPE_AUTOROAD_CONNECT,
@@ -34,7 +35,7 @@ from app.services.project_jobs import (
     JOB_TYPE_PAD_PLACEMENT_APPLY,
     mark_job_completed,
     mark_job_failed,
-    mark_job_running,
+    try_claim_pending_job,
 )
 
 logger = logging.getLogger(__name__)
@@ -284,14 +285,19 @@ async def execute_project_job(job_id: UUID) -> None:
             return
         if job.status not in (JOB_STATUS_PENDING, JOB_STATUS_RUNNING):
             return
+        if job.status == JOB_STATUS_RUNNING:
+            # Another worker already claimed this job (ARQ retry / race with watchdog).
+            return
         try:
             await _acquire_project_advisory_lock(db, job.project_id)
-            job = await db.get(ProjectJob, job_id)
-            if not job or job.status not in (JOB_STATUS_PENDING, JOB_STATUS_RUNNING):
+            job = await try_claim_pending_job(db, job_id)
+            if job is None:
                 return
-            if job.status == JOB_STATUS_PENDING:
-                await mark_job_running(db, job)
-                await db.flush()
+            # Commit claim before step journal writes (separate sessions) — required for SQLite.
+            await db.commit()
+            job = await db.get(ProjectJob, job_id)
+            if job is None or job.status != JOB_STATUS_RUNNING:
+                return
 
             result = await _execute_job_body(db, job)
 
@@ -304,7 +310,12 @@ async def execute_project_job(job_id: UUID) -> None:
             await db.rollback()
             async with async_session() as db2:
                 job = await db2.get(ProjectJob, job_id)
-                if job and job.status == JOB_STATUS_RUNNING:
+                if not job or job.status not in ACTIVE_STATUSES:
+                    return
+                if job.status == JOB_STATUS_PENDING:
+                    claimed = await try_claim_pending_job(db2, job_id)
+                    job = claimed or job
+                if job.status == JOB_STATUS_RUNNING:
                     await mark_job_failed(db2, job, str(e))
                     await db2.commit()
 
@@ -317,6 +328,9 @@ async def _execute_job_body(db: AsyncSession, job: ProjectJob) -> dict[str, Any]
     callback into every service. The service can later be instrumented with
     finer steps by inserting append_job_step calls inside it.
     """
+    if settings.is_sqlite:
+        return await _dispatch_run(db, job)
+
     steps_def = JOB_STEPS.get(job.job_type, [("run", "Выполнение расчёта")])
     total = len(steps_def)
 

@@ -1,6 +1,7 @@
 import { MapLayersPanel } from '../../components/MapLayersPanel';
 import type { InfraLayer } from '../../lib/api';
 import type { MapLayerOpenSections } from '../../lib/mapLayerPreferences';
+import type { Map3dQuality } from '../../lib/map3d/map3dQuality';
 import { THRESHOLD_META } from './mapConstants';
 
 export type MapPageLayersSidebarProps = {
@@ -32,6 +33,8 @@ export type MapPageLayersSidebarProps = {
   onShowWellBottomholesChange: (visible: boolean) => void;
   showWellTrajectories3d: boolean;
   onShowWellTrajectories3dChange: (visible: boolean) => void;
+  map3dQuality: Map3dQuality;
+  onMap3dQualityChange: (quality: Map3dQuality) => void;
 };
 
 export function MapPageLayersSidebar({
@@ -63,6 +66,8 @@ export function MapPageLayersSidebar({
   onShowWellBottomholesChange,
   showWellTrajectories3d,
   onShowWellTrajectories3dChange,
+  map3dQuality,
+  onMap3dQualityChange,
 }: MapPageLayersSidebarProps) {
   return (
     <>
@@ -103,6 +108,8 @@ export function MapPageLayersSidebar({
           onShowWellBottomholesChange={onShowWellBottomholesChange}
           showWellTrajectories3d={showWellTrajectories3d}
           onShowWellTrajectories3dChange={mapIn3d ? onShowWellTrajectories3dChange : undefined}
+          map3dQuality={map3dQuality}
+          onMap3dQualityChange={mapIn3d ? onMap3dQualityChange : undefined}
           onClose={onClose}
         />
       </aside>

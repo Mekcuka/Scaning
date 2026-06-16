@@ -21,9 +21,11 @@ async_session = async_sessionmaker(engine, class_=AsyncSession, expire_on_commit
 if settings.is_sqlite:
 
     @event.listens_for(engine.sync_engine, "connect")
-    def _sqlite_enable_foreign_keys(dbapi_connection, _connection_record) -> None:
+    def _sqlite_pragmas(dbapi_connection, _connection_record) -> None:
         cursor = dbapi_connection.cursor()
         cursor.execute("PRAGMA foreign_keys=ON")
+        cursor.execute("PRAGMA journal_mode=WAL")
+        cursor.execute("PRAGMA busy_timeout=30000")
         cursor.close()
 
 

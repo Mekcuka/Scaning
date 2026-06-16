@@ -25,6 +25,10 @@ describe('mapLayerPreferences', () => {
     expect(loaded.openSections.objects).toBe(true);
   });
 
+  it('defaults map3dQuality to balanced', () => {
+    expect(defaultMapLayerPreferences().map3dQuality).toBe('balanced');
+  });
+
   it('keeps separate storage per project id', () => {
     const a = defaultMapLayerPreferences();
     a.showModels = false;

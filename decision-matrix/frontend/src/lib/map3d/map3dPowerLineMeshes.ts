@@ -6,6 +6,11 @@ import {
   powerLineVertexHasTower,
   type PowerLineWireEndpoint,
 } from './map3dPowerLineEndpoints';
+import type { Map3dQuality } from './map3dQuality';
+import {
+  powerLineWireRadialForQuality,
+  powerLineWireSegmentsForQuality,
+} from './map3dQuality';
 import {
   createPowerLineGlowMaterial,
   createPowerLineMetalMaterial,
@@ -118,6 +123,7 @@ export type PowerLineBuildInput = {
   opacity: number;
   towerHeightM: number;
   selected: boolean;
+  quality?: Map3dQuality;
   /** Tests: procedural towers; production uses glTF via lines layer. */
   towerMode?: 'gltf' | 'procedural';
 };
@@ -159,6 +165,7 @@ export function createPowerLineGroup(input: PowerLineBuildInput): PowerLineBuild
     opacity,
     towerHeightM,
     selected,
+    quality = 'balanced',
     towerMode = 'gltf',
   } = input;
   if (path.length < 2) return null;
@@ -231,8 +238,9 @@ export function createPowerLineGroup(input: PowerLineBuildInput): PowerLineBuild
       );
       // Straight span in plan (as 2D LineString); light vertical sag only.
       const curve = new THREE.LineCurve3(start, end);
-      const segments = Math.max(4, Math.min(24, Math.ceil(len / 10)));
-      const geom = new THREE.TubeGeometry(curve, segments, wireRadius, 6, false);
+      const segments = powerLineWireSegmentsForQuality(len, quality);
+      const radial = powerLineWireRadialForQuality(quality);
+      const geom = new THREE.TubeGeometry(curve, segments, wireRadius, radial, false);
       const mesh = new THREE.Mesh(geom, wireMat);
       root.add(mesh);
     }

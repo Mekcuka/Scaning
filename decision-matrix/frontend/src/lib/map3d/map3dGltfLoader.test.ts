@@ -4,6 +4,7 @@ import {
   anchorGltfGroupAtFootprint,
   applyGltfInstanceColor,
   applyGltfInstanceSelection,
+  scaleGltfGroupToHeightM,
 } from './map3dGltfLoader';
 
 describe('applyGltfInstanceColor', () => {
@@ -45,6 +46,20 @@ describe('anchorGltfGroupAtFootprint', () => {
     expect(Math.abs(center.x)).toBeLessThan(1e-4);
     expect(Math.abs(center.z)).toBeLessThan(1e-4);
     expect(box.min.y).toBeCloseTo(0, 4);
+  });
+});
+
+describe('scaleGltfGroupToHeightM', () => {
+  it('uses max dimension (not Y-only) so wide assets match heightM', () => {
+    const group = new THREE.Group();
+    const mesh = new THREE.Mesh(new THREE.BoxGeometry(20, 4, 10));
+    mesh.position.y = 2;
+    group.add(mesh);
+    scaleGltfGroupToHeightM(group, 8);
+    group.updateMatrixWorld(true);
+    const size = new THREE.Box3().setFromObject(group).getSize(new THREE.Vector3());
+    const maxDim = Math.max(size.x, size.y, size.z);
+    expect(maxDim).toBeCloseTo(8, 2);
   });
 });
 

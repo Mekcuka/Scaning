@@ -63,6 +63,14 @@ vi.mock('maplibre-gl', () => {
     getBearing() {
       return 0;
     }
+    getBounds() {
+      return {
+        getWest: () => 30,
+        getEast: () => 40,
+        getSouth: () => 50,
+        getNorth: () => 60,
+      };
+    }
     remove() {}
   }
 
@@ -128,6 +136,8 @@ vi.mock('../lib/map3d/map3dLinesLayer', () => ({
   Map3dLinesCustomLayer: class {
     id = 'dm-3d-lines';
     setInstances = vi.fn();
+    setHighlight = vi.fn();
+    setQuality = vi.fn();
   },
   setMap3dLinesLayerVisible: vi.fn(),
 }));
@@ -139,6 +149,8 @@ vi.mock('../lib/map3d/map3dModelsLayer', () => ({
     id = 'dm-3d-models';
     setInstances = vi.fn();
     setVisible = vi.fn();
+    setHighlight = vi.fn();
+    setQuality = vi.fn();
   },
   setMap3dModelsLayerVisible: vi.fn(),
 }));
@@ -150,6 +162,8 @@ vi.mock('../lib/map3d/map3dWellTrajectoriesLayer', () => ({
     setLayerData = vi.fn();
     setInstances = vi.fn();
     setVisible = vi.fn();
+    setHighlight = vi.fn();
+    setQuality = vi.fn();
   },
   setMap3dWellTrajectoriesLayerVisible,
 }));

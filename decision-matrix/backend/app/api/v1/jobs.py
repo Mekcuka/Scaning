@@ -17,7 +17,7 @@ from app.schemas import (
     ProjectJobListResponse,
     ProjectJobResponse,
 )
-from app.services.job_queue import schedule_project_job
+from app.services.job_queue import enqueue_project_job, kick_stuck_pending_job
 from app.services.job_steps import get_job_step, list_job_steps
 from app.services.project_jobs import (
     ALLOWED_JOB_TYPES,
@@ -83,7 +83,7 @@ async def create_project_job_endpoint(
         ) from e
     await db.commit()
     await db.refresh(job)
-    schedule_project_job(job.id)
+    await enqueue_project_job(job.id)
     return ProjectJobCreateResponse(
         job_id=job.id,
         job_type=job.job_type,
@@ -119,6 +119,7 @@ async def get_active_project_job(
     job = await get_active_job_for_project(db, project_id)
     if not job:
         return None
+    kick_stuck_pending_job(job)
     return await _job_response(job, db)
 
 
@@ -160,6 +161,10 @@ async def get_project_job(
     job = await db.get(ProjectJob, job_id)
     if not job or job.project_id != project_id:
         raise HTTPException(status_code=404, detail="Job not found")
+    kick_stuck_pending_job(job)
+    if await expire_stale_job_if_needed(db, job):
+        await db.commit()
+        await db.refresh(job)
     return await _job_response(job, db)
 
 

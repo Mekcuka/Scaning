@@ -20,16 +20,17 @@ export function useActiveProjectJob(
   const updateJob = useTaskLogStore((s) => s.updateJob);
 
   const query = useQuery({
-    queryKey: ['activeJob', projectId, realtimeConnected],
+    queryKey: ['activeJob', projectId],
     queryFn: async () => {
       if (!projectId) return null;
       return jobsApi.getActiveProjectJob(projectId);
     },
     enabled: Boolean(projectId),
+    refetchOnWindowFocus: false,
     refetchInterval: (q) => {
       if (realtimeConnected) return false;
       const job = q.state.data;
-      return job && ACTIVE_JOB_STATUSES.has(job.status) ? 2000 : false;
+      return job && ACTIVE_JOB_STATUSES.has(job.status) ? 5000 : false;
     },
   });
 

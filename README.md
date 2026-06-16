@@ -33,6 +33,65 @@ npm run dev
 - Frontend: http://localhost:5173  
 - API / Swagger: http://127.0.0.1:8000/api/v1/docs  
 
+### Docker (PostgreSQL + API)
+
+Полный backend с **PostgreSQL + PostGIS** в контейнерах. Frontend запускается отдельно (как в блоке выше).
+
+**Требования:** Docker Desktop (Windows), контейнеры должны быть запущены.
+
+**Первый запуск** — из корня репозитория:
+
+```powershell
+cd C:\Users\user\Documents\Cursore
+
+# env-файлы (если ещё не созданы)
+Copy-Item deploy\db.env.example deploy\db.env
+Copy-Item decision-matrix\backend\.env.example decision-matrix\backend\.env
+
+# PostgreSQL + API
+docker compose -f deploy/docker-compose.dev.yml up --build
+```
+
+**Повторный запуск** (без пересборки образа):
+
+```powershell
+cd C:\Users\user\Documents\Cursore
+docker compose -f deploy/docker-compose.dev.yml up
+```
+
+**В фоне:**
+
+```powershell
+docker compose -f deploy/docker-compose.dev.yml up -d
+```
+
+**Остановить:**
+
+```powershell
+docker compose -f deploy/docker-compose.dev.yml stop
+docker compose -f deploy/docker-compose.dev.yml down   # удалить контейнеры
+```
+
+- API / Swagger: http://127.0.0.1:8000/api/v1/docs  
+- PostgreSQL: `localhost:5432` (user `sppr`, db `sppr`, пароль `sppr_secret` — см. `deploy/docker-compose.dev.yml`)
+
+Frontend в другом терминале:
+
+```powershell
+cd C:\Users\user\Documents\Cursore\decision-matrix\frontend
+npm run dev
+```
+
+Отдельные микросервисы для отладки (не нужны для обычной работы — на проде они встроены в API):
+
+| Сервис | Папка | Команда |
+|--------|-------|---------|
+| Земляные работы куста | `pad-earthwork-planner` | `docker compose up --build` |
+| Автосеть | `autoroad-network-planner` | `docker compose up --build` |
+| Траектории скважин | `well-trajectory-planner` | `docker compose up --build` |
+
+Подробнее: [CONTRIBUTING.md](CONTRIBUTING.md), продакшен-стек: [DEPLOY.md](DEPLOY.md).
+
 ### Cursor MCP (агент в IDE)
 
 Из корня репозитория:

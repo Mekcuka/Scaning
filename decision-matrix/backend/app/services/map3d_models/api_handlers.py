@@ -34,6 +34,7 @@ from app.services.map3d_custom_models import (
     validate_glb_upload,
     write_model_file_atomic,
 )
+from app.services.map3d_glb_optimize import optimize_glb_upload
 from app.services.project_access import can_assign_map3d_custom_model
 
 
@@ -84,6 +85,7 @@ async def handle_upload(
 ) -> Map3dCustomModelResponse:
     await get_user_project(project_id, user, db)
     raw = await validate_glb_upload(file)
+    stored, _compressed = optimize_glb_upload(raw)
     height = float(target_height_m) if target_height_m is not None else DEFAULT_TARGET_HEIGHT_M
     if height <= 0 or height > 500:
         raise HTTPException(status_code=400, detail="target_height_m must be between 0 and 500")
@@ -94,15 +96,15 @@ async def handle_upload(
         filename=filename,
         display_name=default_display_name(filename),
         target_height_m=height,
-        file_size_bytes=len(raw),
-        content_sha256=compute_sha256(raw),
+        file_size_bytes=len(stored),
+        content_sha256=compute_sha256(stored),
         created_by_user_id=user.id,
     )
     db.add(row)
     await db.flush()
 
     try:
-        write_model_file_atomic(project_id, row.id, raw)
+        write_model_file_atomic(project_id, row.id, stored)
     except Exception:
         await db.rollback()
         raise HTTPException(status_code=500, detail="Failed to store model file") from None

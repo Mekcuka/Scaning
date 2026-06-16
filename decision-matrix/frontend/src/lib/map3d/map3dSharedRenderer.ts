@@ -1,5 +1,6 @@
 import type { Map as MapLibreMap } from 'maplibre-gl';
 import * as THREE from 'three';
+import { consumeMap3dRenderPasses, map3dDebugPassesEnabled } from './map3dRenderDebug';
 
 /** Один Three.js renderer на карту — два custom-слоя на одном GL-контексте ломают WebGL в Electron/Cursor. */
 const rendererByMap = new WeakMap<MapLibreMap, THREE.WebGLRenderer>();
@@ -40,5 +41,11 @@ export function releaseMap3dThreeRenderer(map: MapLibreMap): void {
 
 /** Сброс GL-состояния после Three.js — иначе MapLibre теряет extrusion/terrain (Electron). */
 export function finishMap3dThreeFrame(renderer: THREE.WebGLRenderer): void {
+  if (map3dDebugPassesEnabled()) {
+    const passes = consumeMap3dRenderPasses();
+    if (passes > 0) {
+      console.debug('[map3d] Three.js render passes:', passes);
+    }
+  }
   renderer.resetState();
 }

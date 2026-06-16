@@ -11,6 +11,7 @@ import {
 import type { MapView3DHandle } from '../../components/MapView3D';
 import type { AnalysisRow, InfraLayer, InfraObject, POI } from '../../lib/api';
 import type { SavedMapViewState } from '../../lib/mapViewState';
+import type { Map3dQuality } from '../../lib/map3d/map3dQuality';
 import type { MeasureLabel, FootprintEdgeHighlight } from '../../components/mapView/types';
 import { previewSegmentMeasureLabel } from '../../lib/mapMeasure';
 const MapView3D = lazy(() => import('../../components/MapView3D'));
@@ -89,6 +90,7 @@ export type MapPageCanvasProps = {
   showWellTrajectories: boolean;
   showWellBottomholes: boolean;
   showWellTrajectories3d: boolean;
+  map3dQuality: Map3dQuality;
   isBottomholeDrawActive: boolean;
   gsHeelDraft: { lon: number; lat: number } | null;
   padPlacementPreviewFeatures: {
@@ -161,6 +163,7 @@ export function MapPageCanvas({
   showWellTrajectories,
   showWellBottomholes,
   showWellTrajectories3d,
+  map3dQuality,
   isBottomholeDrawActive,
   gsHeelDraft,
   padPlacementPreviewFeatures,
@@ -247,6 +250,7 @@ export function MapPageCanvas({
               wellTrajectoryFeatures={wellTrajectoryFeatures}
               showWellTrajectories3d={showWellTrajectories3d}
               showWellBottomholes={showWellBottomholes}
+              map3dQuality={map3dQuality}
               height="100%"
             />
           </Suspense>

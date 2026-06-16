@@ -62,6 +62,7 @@ import {
   wellTrajectories3dGeoJson,
   setMap3dWellTrajectoriesVisibility,
 } from '../lib/map3d/wellTrajectories3d';
+import { DEFAULT_MAP3D_QUALITY, type Map3dQuality } from '../lib/map3d/map3dQuality';
 import { useAppStore } from '../store';
 import type { MapFeatureSelection, MapFocusTarget, ThresholdCircle } from './MapView';
 
@@ -85,6 +86,8 @@ export interface MapView3DProps {
   terrainExaggeration?: number;
   /** Procedural 3D models for point objects (Three.js custom layer). */
   showModels?: boolean;
+  /** 3D rendering quality preset. */
+  map3dQuality?: Map3dQuality;
   showRadii?: boolean;
   /** 3D well trajectory lines from project GeoJSON. */
   wellTrajectoryFeatures?: import('../lib/api/wellTrajectoryApi').WellTrajectoryGeoJsonFeature[];
@@ -164,6 +167,7 @@ const MapView3D = forwardRef<MapView3DHandle, MapView3DProps>(function MapView3D
     showTerrain = false,
     terrainExaggeration = DEFAULT_TERRAIN_EXAGGERATION,
     showModels = true,
+    map3dQuality = DEFAULT_MAP3D_QUALITY,
     showRadii = true,
     wellTrajectoryFeatures = [],
     showWellTrajectories3d = true,
@@ -254,7 +258,7 @@ const MapView3D = forwardRef<MapView3DHandle, MapView3DProps>(function MapView3D
       bearing: initial.bearing,
       maxPitch: 85,
       attributionControl: {},
-      canvasContextAttributes: { antialias: false, preserveDrawingBuffer: true },
+      canvasContextAttributes: { antialias: true },
     });
 
     map.addControl(new maplibregl.NavigationControl({ visualizePitch: true }), 'top-right');
@@ -275,9 +279,10 @@ const MapView3D = forwardRef<MapView3DHandle, MapView3DProps>(function MapView3D
           infraObjects,
           snapPool,
           layers,
-          selectedFeatureId,
+          selectedFeatureId: null,
         }),
       );
+      linesLayer.setQuality(map3dQuality);
       setMap3dLinesLayerVisible(linesLayer, true);
       setMap3dInfraLinesPickOnly(map, true);
       if (showModels) {
@@ -288,9 +293,10 @@ const MapView3D = forwardRef<MapView3DHandle, MapView3DProps>(function MapView3D
             pois,
             layers,
             showModels: true,
-            selectedFeatureId,
+            selectedFeatureId: null,
           }),
         );
+        modelsLayer.setQuality(map3dQuality);
         setMap3dModelsLayerVisible(modelsLayer, true);
       } else {
         setMap3dModelsLayerVisible(modelsLayer, false);
@@ -313,6 +319,7 @@ const MapView3D = forwardRef<MapView3DHandle, MapView3DProps>(function MapView3D
         wellTrajectoriesLayer,
         showWellTrajectories3d || showWellBottomholes,
       );
+      wellTrajectoriesLayer.setQuality(map3dQuality);
       setMap3dWellTrajectoriesVisibility(map, showWellTrajectories3d);
     });
 
@@ -405,7 +412,7 @@ const MapView3D = forwardRef<MapView3DHandle, MapView3DProps>(function MapView3D
           infraObjects,
           snapPool,
           layers,
-          selectedFeatureId,
+          selectedFeatureId: null,
         }),
       );
       setMap3dLinesLayerVisible(linesLayerRef.current, true);
@@ -414,7 +421,31 @@ const MapView3D = forwardRef<MapView3DHandle, MapView3DProps>(function MapView3D
 
     if (map.isStyleLoaded()) applyLines();
     else map.once('load', applyLines);
-  }, [infraObjects, snapPool, layers, selectedFeatureId, showTerrain]);
+  }, [infraObjects, snapPool, layers, showTerrain]);
+
+  useEffect(() => {
+    const map = mapRef.current;
+    if (!map) return;
+    const apply = () => {
+      linesLayerRef.current.setHighlight(selectedFeatureId);
+      modelsLayerRef.current.setHighlight(selectedFeatureId);
+      wellTrajectoriesLayerRef.current.setHighlight(selectedFeatureId);
+    };
+    if (map.isStyleLoaded()) apply();
+    else map.once('load', apply);
+  }, [selectedFeatureId]);
+
+  useEffect(() => {
+    const map = mapRef.current;
+    if (!map) return;
+    const apply = () => {
+      linesLayerRef.current.setQuality(map3dQuality);
+      modelsLayerRef.current.setQuality(map3dQuality);
+      wellTrajectoriesLayerRef.current.setQuality(map3dQuality);
+    };
+    if (map.isStyleLoaded()) apply();
+    else map.once('load', apply);
+  }, [map3dQuality]);
 
   useEffect(() => {
     const map = mapRef.current;
@@ -424,15 +455,14 @@ const MapView3D = forwardRef<MapView3DHandle, MapView3DProps>(function MapView3D
       const modelsLayer = modelsLayerRef.current;
       if (showModels) {
         ensureMap3dModelsLayer(map, modelsLayer);
-        modelsLayer.setInstances(
-          buildMap3dModelInstances({
-            infraObjects,
-            pois,
-            layers,
-            showModels: true,
-            selectedFeatureId,
-          }),
-        );
+        const modelInstances = buildMap3dModelInstances({
+          infraObjects,
+          pois,
+          layers,
+          showModels: true,
+          selectedFeatureId: null,
+        });
+        modelsLayer.setInstances(modelInstances);
         setMap3dModelsLayerVisible(modelsLayer, true);
       } else {
         setMap3dModelsLayerVisible(modelsLayer, false);
@@ -444,7 +474,7 @@ const MapView3D = forwardRef<MapView3DHandle, MapView3DProps>(function MapView3D
 
     if (map.isStyleLoaded()) applyModels();
     else map.once('load', applyModels);
-  }, [showModels, infraObjects, snapPool, pois, layers, selectedFeatureId, customGltfAssetsRevision]);
+  }, [showModels, infraObjects, snapPool, pois, layers, customGltfAssetsRevision]);
 
   useEffect(() => {
     const map = mapRef.current;

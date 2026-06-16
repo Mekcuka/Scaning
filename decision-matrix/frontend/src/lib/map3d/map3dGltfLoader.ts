@@ -1,5 +1,6 @@
 import * as THREE from 'three';
 import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
+import { DRACOLoader } from 'three/addons/loaders/DRACOLoader.js';
 import { MAP3D_OBJECT_SCALE } from './map3dConfig';
 import { fetchProjectCustomGlbBlob, isProjectCustomGlbFileUrl } from './map3dCustomGlbFetch';
 import { isCustomGltfAssetId, resolveGltfAssetDef } from './map3dCustomAssets';
@@ -12,7 +13,16 @@ import {
 
 const loader = new GLTFLoader();
 loader.setWithCredentials(true);
+const dracoLoader = new DRACOLoader();
+dracoLoader.setDecoderPath('https://www.gstatic.com/draco/versioned/decoders/1.5.7/');
+loader.setDRACOLoader(dracoLoader);
 const prototypeCache = new Map<string, Promise<THREE.Group>>();
+/** Colored normalized template (assetId + colorHex) — height scale applied per instance clone. */
+const coloredTemplateCache = new Map<string, Promise<THREE.Group>>();
+
+function coloredTemplateKey(assetId: string, colorHex: string): string {
+  return `${assetId.trim().toLowerCase()}:${colorHex.trim().toLowerCase()}`;
+}
 
 const _worldPos = new THREE.Vector3();
 
@@ -131,9 +141,9 @@ function applyGltfInstanceAppearance(
 ): void {
   if (isCustomGltfAssetId(assetId)) {
     applyGltfInstanceSelection(group, selected);
-  } else {
-    applyGltfInstanceColor(group, colorHex, selected);
+    return;
   }
+  applyGltfInstanceColor(group, colorHex, selected);
 }
 
 /** Footprint center on lon/lat (XZ=0), base on ground (Y=0) — MapLibre anchor point. */
@@ -210,16 +220,48 @@ export function loadGltfPrototype(assetId: string): Promise<THREE.Group> {
   return pending;
 }
 
+/** Cached colored clone at normalized prototype height (no per-instance height scale). */
+export function loadColoredGltfTemplate(assetId: string, colorHex: string): Promise<THREE.Group> {
+  const key = coloredTemplateKey(assetId, colorHex);
+  let pending = coloredTemplateCache.get(key);
+  if (!pending) {
+    pending = loadGltfPrototype(assetId).then((proto) => {
+      const group = proto.clone(true);
+      applyGltfInstanceAppearance(group, assetId, colorHex, false);
+      return group;
+    }).catch((err) => {
+      coloredTemplateCache.delete(key);
+      throw err;
+    });
+    coloredTemplateCache.set(key, pending);
+  }
+  return pending;
+}
+
 /** Instance-ready clone (normalized scale; bundled assets use layer palette, custom GLB keeps textures). */
 export async function cloneGltfModel(
   assetId: string,
   colorHex: string,
   selected = false,
 ): Promise<THREE.Group> {
-  const proto = await loadGltfPrototype(assetId);
-  const group = proto.clone(true);
-  applyGltfInstanceAppearance(group, assetId, colorHex, selected);
+  const group = (await loadColoredGltfTemplate(assetId, colorHex)).clone(true);
+  if (selected) {
+    applyGltfInstanceAppearance(group, assetId, colorHex, true);
+  }
   return group;
+}
+
+/** Scale an already-normalized glTF group to the target scene height (meters). */
+export function scaleGltfGroupToHeightM(group: THREE.Group, heightM: number): void {
+  group.updateMatrixWorld(true);
+  const box = new THREE.Box3().setFromObject(group);
+  const size = box.getSize(new THREE.Vector3());
+  // Match normalizePrototype (max axis) — Y-only scaling breaks assets oriented along X/Z.
+  const h = Math.max(size.x, size.y, size.z, 0.001);
+  if (heightM > 0 && Number.isFinite(heightM)) {
+    group.scale.multiplyScalar(heightM / h);
+    anchorGltfGroupAtFootprint(group);
+  }
 }
 
 /** Clone and scale so the model's height matches `heightM` (scene meters, incl. MAP3D scales). */
@@ -230,15 +272,11 @@ export async function cloneGltfModelToHeight(
   selected = false,
 ): Promise<THREE.Group> {
   const group = await cloneGltfModel(assetId, colorHex, selected);
-  const box = new THREE.Box3().setFromObject(group);
-  const h = Math.max(box.max.y - box.min.y, 0.001);
-  if (heightM > 0 && Number.isFinite(heightM)) {
-    group.scale.multiplyScalar(heightM / h);
-    anchorGltfGroupAtFootprint(group);
-  }
+  scaleGltfGroupToHeightM(group, heightM);
   return group;
 }
 
 export function clearGltfPrototypeCache(): void {
   prototypeCache.clear();
+  coloredTemplateCache.clear();
 }

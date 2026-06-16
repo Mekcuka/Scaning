@@ -14,7 +14,7 @@ import { useMapInfraData } from '../useMapInfraData';
 import { useMapSearchFilter } from '../useMapSearchFilter';
 import { useMapSelection } from '../useMapSelection';
 import { useProjectLayers, useProjectPois } from '../useProjectData';
-import { useActiveProjectJob } from '../useActiveProjectJob';
+import { useProjectJobBusy } from '../useProjectJobBusy';
 import { refreshMapQueries } from '../../lib/mapQueries';
 import { queryKeys } from '../../lib/queryKeys';
 import { useMapUndo } from '../../lib/mapUndo';
@@ -48,7 +48,7 @@ export function useMapPageMapData(params: {
   const queryClient = useQueryClient();
 
   const { data: pois = [] } = useProjectPois(projectId);
-  const { projectJobBusy } = useActiveProjectJob(projectId);
+  const projectJobBusy = useProjectJobBusy(projectId);
 
   useEffect(() => {
     if (pois.length > 0 && !edit.selectedPoiId) edit.setSelectedPoiId(pois[0].id);

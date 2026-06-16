@@ -5,7 +5,7 @@ import type { ProjectJobCreateResponse } from '../../lib/api/jobs';
 import { refreshMapQueries } from '../../lib/mapQueries';
 import { PAD_CLUSTER_SUBTYPES } from '../../lib/api/subtypes';
 import { useActiveProject } from '../../hooks/useActiveProject';
-import { useActiveProjectJob } from '../../hooks/useActiveProjectJob';
+import { useProjectJobBusy, useStoredActiveProjectJob } from '../../hooks/useProjectJobBusy';
 import { usePermissions } from '../../hooks/usePermissions';
 import { useProjectInfraObjects } from '../../hooks/useProjectData';
 import { useAppStore } from '../../store';
@@ -36,7 +36,8 @@ export function useImportWellSurveysWorkflow() {
   const [preview, setPreview] = useState<WellTrajectoryImportPreviewResponse | null>(null);
   const [useAsync, setUseAsync] = useState(false);
   const [interpolate, setInterpolate] = useState(true);
-  const { projectJobBusy, activeProjectJob } = useActiveProjectJob(projectId);
+  const projectJobBusy = useProjectJobBusy(projectId);
+  const activeProjectJob = useStoredActiveProjectJob(projectId);
 
   const padOptions = useMemo(
     () =>

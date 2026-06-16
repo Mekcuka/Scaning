@@ -71,8 +71,6 @@ async def lifespan(app: FastAPI):
 
     if settings.is_sqlite:
         Path("data").mkdir(exist_ok=True)
-    else:
-        run_alembic_upgrade()
 
     async def init_db() -> None:
         async with engine.begin() as conn:
@@ -92,6 +90,8 @@ async def lifespan(app: FastAPI):
 
         try:
             await asyncio.wait_for(init_db(), timeout=30.0)
+            if not settings.is_sqlite and settings.ENVIRONMENT == "production":
+                run_alembic_upgrade()
             if settings.DEMO_USERS_ENABLED and not settings.is_sqlite:
                 async with async_session() as db:
                     created = await ensure_demo_users(db)

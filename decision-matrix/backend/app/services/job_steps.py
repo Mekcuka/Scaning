@@ -6,18 +6,24 @@ survive rollback and are immediately visible to the realtime UI.
 
 from __future__ import annotations
 
+import asyncio
 import logging
+from collections.abc import Awaitable, Callable
 from datetime import datetime, timezone
-from typing import Any
+from typing import Any, TypeVar
 from uuid import UUID
 
 from sqlalchemy import func, select
+from sqlalchemy.exc import OperationalError
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.core.config import settings
 from app.core.database import async_session
 from app.models import ProjectJob, ProjectJobStep
 
 logger = logging.getLogger(__name__)
+
+T = TypeVar("T")
 
 STEP_STATUS_PENDING = "pending"
 STEP_STATUS_RUNNING = "running"
@@ -54,6 +60,37 @@ def _duration_ms(started_at: datetime | None, finished_at: datetime | None) -> i
     return int((end - start).total_seconds() * 1000)
 
 
+def _is_sqlite_lock_error(exc: BaseException) -> bool:
+    msg = str(exc).lower()
+    return "database is locked" in msg or "database is busy" in msg
+
+
+async def _with_sqlite_write_retry(
+    operation: Callable[[], Awaitable[T]],
+    *,
+    attempts: int = 8,
+    base_delay_s: float = 0.05,
+) -> T:
+    """Retry short writes when SQLite blocks concurrent sessions."""
+    if not settings.is_sqlite:
+        return await operation()
+    delay = base_delay_s
+    last_exc: BaseException | None = None
+    for attempt in range(attempts):
+        try:
+            return await operation()
+        except OperationalError as exc:
+            if not _is_sqlite_lock_error(exc):
+                raise
+            last_exc = exc
+            if attempt + 1 >= attempts:
+                break
+            await asyncio.sleep(delay)
+            delay = min(delay * 2, 1.0)
+    assert last_exc is not None
+    raise last_exc
+
+
 async def append_job_step(
     job_id: UUID,
     project_id: UUID,
@@ -74,23 +111,27 @@ async def append_job_step(
     started = now if status == STEP_STATUS_RUNNING else None
     finished = now if status in TERMINAL_STEP_STATUSES else None
 
-    async with async_session() as db:
-        step = ProjectJobStep(
-            job_id=job_id,
-            project_id=project_id,
-            seq=seq,
-            step_code=step_code,
-            title=title,
-            status=status,
-            started_at=started,
-            finished_at=finished,
-            duration_ms=_duration_ms(started, finished),
-            detail=detail,
-            error_message=error_message,
-        )
-        db.add(step)
-        await db.commit()
-        await db.refresh(step)
+    async def _insert_step() -> ProjectJobStep:
+        async with async_session() as db:
+            step = ProjectJobStep(
+                job_id=job_id,
+                project_id=project_id,
+                seq=seq,
+                step_code=step_code,
+                title=title,
+                status=status,
+                started_at=started,
+                finished_at=finished,
+                duration_ms=_duration_ms(started, finished),
+                detail=detail,
+                error_message=error_message,
+            )
+            db.add(step)
+            await db.commit()
+            await db.refresh(step)
+            return step
+
+    step = await _with_sqlite_write_retry(_insert_step)
 
     try:
         from app.services.job_events import publish_job_event
@@ -114,12 +155,16 @@ async def append_job_step(
 
 async def _sync_job_progress_after_step(step: ProjectJobStep) -> None:
     """Recalculate job.progress in a short session and publish job.progress event."""
-    async with async_session() as db:
-        job = await db.get(ProjectJob, step.job_id)
-        if job is None:
-            return
-        await update_job_progress(db, job)
-        await db.commit()
+
+    async def _sync() -> None:
+        async with async_session() as db:
+            job = await db.get(ProjectJob, step.job_id)
+            if job is None:
+                return
+            await update_job_progress(db, job)
+            await db.commit()
+
+    await _with_sqlite_write_retry(_sync)
 
 
 async def update_job_step(
@@ -130,24 +175,31 @@ async def update_job_step(
     error_message: str | None = None,
 ) -> ProjectJobStep | None:
     """Transition a step to a terminal/running status + publish event."""
-    async with async_session() as db:
-        step = await db.get(ProjectJobStep, step_id)
-        if step is None:
-            return None
-        now = _utcnow()
-        step.status = status
-        if status == STEP_STATUS_RUNNING and step.started_at is None:
-            step.started_at = now
-        if status in TERMINAL_STEP_STATUSES:
-            step.finished_at = now
-            step.duration_ms = _duration_ms(step.started_at, now)
-        if detail is not None:
-            step.detail = detail
-        if error_message is not None:
-            step.error_message = error_message[:4000]
-        await db.commit()
-        await db.refresh(step)
+    async def _update_step() -> ProjectJobStep | None:
+        async with async_session() as db:
+            step = await db.get(ProjectJobStep, step_id)
+            if step is None:
+                return None
+            now = _utcnow()
+            step.status = status
+            if status == STEP_STATUS_RUNNING and step.started_at is None:
+                step.started_at = now
+            if status in TERMINAL_STEP_STATUSES:
+                step.finished_at = now
+                step.duration_ms = _duration_ms(step.started_at, now)
+            if detail is not None:
+                step.detail = detail
+            if error_message is not None:
+                step.error_message = error_message[:4000]
+            await db.commit()
+            await db.refresh(step)
+            return step
 
+    step = await _with_sqlite_write_retry(_update_step)
+    if step is None:
+        return None
+
+    event_time = step.finished_at or step.started_at or _utcnow()
     try:
         from app.services.job_events import publish_job_event
 
@@ -157,7 +209,7 @@ async def update_job_step(
                 "type": "job.step_updated",
                 "job_id": str(step.job_id),
                 "project_id": str(step.project_id),
-                "timestamp": now.isoformat(),
+                "timestamp": event_time.isoformat(),
                 "step": _step_to_dict(step),
             },
         )

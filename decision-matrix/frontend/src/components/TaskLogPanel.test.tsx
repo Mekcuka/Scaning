@@ -13,19 +13,6 @@ vi.mock('../lib/api', () => ({
   },
 }));
 
-vi.mock('../hooks/useActiveProjectJob', () => ({
-  useActiveProjectJob: () => ({
-    activeProjectJob: null,
-    projectJobBusy: false,
-    isLoading: false,
-    refetch: vi.fn(),
-  }),
-}));
-
-vi.mock('../hooks/useJobRealtime', () => ({
-  useJobRealtime: () => ({ connected: false, lastEvent: null, readyState: 0 }),
-}));
-
 describe('TaskLogPanel', () => {
   it('renders toggle and opens panel', async () => {
     const user = userEvent.setup();

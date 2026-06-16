@@ -21,6 +21,8 @@ class Settings(BaseSettings):
     REDIS_URL: str = ""
     ARQ_QUEUE_NAME: str = "decision-matrix"
     JOBS_SYNC_FALLBACK: bool = True
+    # If ARQ enqueue succeeds but worker does not pick up the job, run in-process after this delay.
+    JOB_QUEUE_WATCHDOG_SECONDS: int = 15
     # Expire stuck jobs so a new calculation can start (worker down / crash).
     JOB_STALE_PENDING_SECONDS: int = 900
     JOB_STALE_RUNNING_SECONDS: int = 660

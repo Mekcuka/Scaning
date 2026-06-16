@@ -3,8 +3,7 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { Activity, ChevronDown, ChevronRight, Download, X } from 'lucide-react';
 
 import { defaultProjectJobsApi } from '../lib/api';
-import { useActiveProjectJob } from '../hooks/useActiveProjectJob';
-import { useJobRealtime } from '../hooks/useJobRealtime';
+import { useStoredActiveProjectJob } from '../hooks/useProjectJobBusy';
 import {
   ACTIVE_JOB_STATUSES,
   jobStatusLabel,
@@ -250,8 +249,7 @@ export function TaskLogPanel({ projectId }: { projectId: string | null }) {
   useEffect(() => {
     if (projectId) hydrateProject(projectId);
   }, [projectId, hydrateProject]);
-  const { connected: wsConnected } = useJobRealtime(projectId);
-  const { activeProjectJob } = useActiveProjectJob(projectId, { realtimeConnected: wsConnected });
+  const activeProjectJob = useStoredActiveProjectJob(projectId);
 
   const { data: jobsList } = useQuery({
     queryKey: ['projectJobs', projectId],

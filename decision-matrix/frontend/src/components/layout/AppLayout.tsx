@@ -32,6 +32,7 @@ import {
 import { ToastStack } from '../ToastStack';
 import { ReadOnlyBanner } from '../ReadOnlyBanner';
 import { AssistantPanel } from '../assistant/AssistantPanel';
+import { ProjectJobSync } from '../ProjectJobSync';
 import { TaskLogPanel } from '../TaskLogPanel';
 import { PageHeaderOutlet, PageHeaderProvider } from './pageHeaderContext';
 
@@ -226,6 +227,7 @@ export function AppLayout() {
           <PageHeaderOutlet />
           <div className="app-header-toolbar">
             <div className="app-header-actions">
+              <ProjectJobSync projectId={projectId ?? null} />
               <AssistantPanel />
               <TaskLogPanel projectId={projectId ?? null} />
               <button type="button" className="btn btn-ghost p-2 shrink-0" onClick={toggleTheme} title="Тема">

@@ -23,6 +23,7 @@ import {
   pointFeatureStyles,
   footprintModePointHitStyle,
   padFootprintFeatureStyles,
+  emptyMapStyle,
 } from './styles';
 
 function createInfraPointLayerStyle(refs: MapViewRefs) {
@@ -37,7 +38,7 @@ function createInfraPointLayerStyle(refs: MapViewRefs) {
     const opacityByLayer = layerOpacityMap(layersRef.current);
     const op = layerId ? opacityByLayer[layerId] ?? 1 : 1;
     const scale = op < 0.5 ? 0.85 : 1;
-    if (op <= 0) return new Style({});
+    if (op <= 0) return emptyMapStyle;
     const hovered = !!selectionId && hoveredIdRef.current === selectionId;
     const emphasized = !!selectionId && emphasisFeatureIdsRef.current.has(selectionId);
     if (
@@ -53,7 +54,7 @@ function createInfraPointLayerStyle(refs: MapViewRefs) {
 function createPadFootprintLayerStyle(refs: MapViewRefs) {
   const { layersRef, hoveredIdRef, emphasisFeatureIdsRef, infraSymbologyRef } = refs;
   return (feature: FeatureLike) => {
-    if (infraSymbologyRef.current !== 'footprints') return new Style({});
+    if (infraSymbologyRef.current !== 'footprints') return emptyMapStyle;
     const subtype = feature.get('subtype') as string;
     const id = feature.get('id') as string;
     const layerId = feature.get('layer_id') as string | undefined;

@@ -24,6 +24,7 @@ from app.services.project_jobs import (
     is_job_stale,
     list_recent_jobs,
     mark_job_completed,
+    try_claim_pending_job,
 )
 
 
@@ -233,3 +234,43 @@ async def _test_expire_stale_job_if_needed():
         )
         assert await expire_stale_job_if_needed(db, job)
         assert job.status == JOB_STATUS_FAILED
+
+
+def test_try_claim_pending_job_is_atomic():
+    asyncio.run(_test_try_claim_pending_job_is_atomic())
+
+
+async def _test_try_claim_pending_job_is_atomic():
+    from app.services.project_jobs import JOB_STATUS_RUNNING
+
+    async with async_session() as db:
+        user = User(
+            email=f"jobs-claim-{uuid4().hex[:8]}@test.ru",
+            username="jobs_claim",
+            password_hash=get_password_hash("password1"),
+            role=UserRole.analyst.value,
+        )
+        db.add(user)
+        await db.flush()
+        project = Project(user_id=user.id, name="JobsClaim", status="draft")
+        db.add(project)
+        await db.flush()
+        job = await create_project_job(
+            db,
+            project_id=project.id,
+            user_id=user.id,
+            job_type=JOB_TYPE_POI_ANALYZE_ALL,
+            payload={},
+        )
+        await db.commit()
+        job_id = job.id
+
+        async with async_session() as db2:
+            claimed = await try_claim_pending_job(db2, job_id)
+            assert claimed is not None
+            assert claimed.status == JOB_STATUS_RUNNING
+            await db2.commit()
+
+        async with async_session() as db3:
+            second = await try_claim_pending_job(db3, job_id)
+            assert second is None

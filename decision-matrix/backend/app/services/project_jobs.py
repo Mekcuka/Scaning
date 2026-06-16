@@ -6,7 +6,7 @@ from datetime import datetime, timezone
 from typing import Any
 from uuid import UUID
 
-from sqlalchemy import func, select
+from sqlalchemy import func, select, update
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -175,6 +175,27 @@ async def mark_job_running(db: AsyncSession, job: ProjectJob) -> None:
     from app.services.job_realtime_events import notify_job_status_changed
 
     await notify_job_status_changed(job, previous_status=previous)
+
+
+async def try_claim_pending_job(db: AsyncSession, job_id: UUID) -> ProjectJob | None:
+    """Atomically move pending → running. Returns None if already claimed or finished."""
+    now = _utcnow()
+    result = await db.execute(
+        update(ProjectJob)
+        .where(
+            ProjectJob.id == job_id,
+            ProjectJob.status == JOB_STATUS_PENDING,
+        )
+        .values(status=JOB_STATUS_RUNNING, started_at=now)
+        .returning(ProjectJob)
+    )
+    job = result.scalar_one_or_none()
+    if job is None:
+        return None
+    from app.services.job_realtime_events import notify_job_status_changed
+
+    await notify_job_status_changed(job, previous_status=JOB_STATUS_PENDING)
+    return job
 
 
 async def mark_job_completed(db: AsyncSession, job: ProjectJob, result: dict[str, Any]) -> None:
