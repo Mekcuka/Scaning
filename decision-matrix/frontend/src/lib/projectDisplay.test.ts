@@ -1,6 +1,26 @@
 import { describe, expect, it } from 'vitest';
-import { filterProjectsByQuery, filterProjectsOwnedByUser } from './projectDisplay';
+import {
+  ellipsisText,
+  filterProjectsByQuery,
+  filterProjectsOwnedByUser,
+  projectStatus,
+} from './projectDisplay';
 import { makeProject } from '../test/fixtures/projects';
+
+describe('projectStatus', () => {
+  it('returns Russian labels for known status codes', () => {
+    expect(projectStatus('draft').label).toBe('Черновик');
+    expect(projectStatus('in_progress').label).toBe('В работе');
+    expect(projectStatus('calculated').label).toBe('Расчитан');
+  });
+});
+
+describe('ellipsisText', () => {
+  it('uses em dash for empty values', () => {
+    expect(ellipsisText('', 10)).toBe('—');
+    expect(ellipsisText(null, 10)).toBe('—');
+  });
+});
 
 describe('filterProjectsOwnedByUser', () => {
   it('returns only projects owned by the user', () => {

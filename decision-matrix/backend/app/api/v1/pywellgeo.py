@@ -6,6 +6,7 @@ from fastapi import APIRouter, Depends, File, Query, UploadFile
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.api.deps import get_current_user
+from app.core.compute_rate_limit import ComputeRateLimitDep
 from app.core.database import get_db
 from app.models import User
 from app.services.well_trajectory.pywellgeo_handlers import (
@@ -108,6 +109,7 @@ async def post_pywellgeo_compute(
     project_id: UUID,
     object_id: UUID,
     body: PyWellGeoComputeRequest,
+    _rate: ComputeRateLimitDep,
     user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
 ) -> PyWellGeoComputeResponse:

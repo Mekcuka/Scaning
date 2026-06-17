@@ -20,12 +20,13 @@ class Settings(BaseSettings):
     LOG_JSON: bool = False
     REDIS_URL: str = ""
     ARQ_QUEUE_NAME: str = "decision-matrix"
-    JOBS_SYNC_FALLBACK: bool = True
+    JOBS_SYNC_FALLBACK: bool = False
     # If ARQ enqueue succeeds but worker does not pick up the job, run in-process after this delay.
-    JOB_QUEUE_WATCHDOG_SECONDS: int = 15
+    JOB_QUEUE_WATCHDOG_SECONDS: int = 60
     # Expire stuck jobs so a new calculation can start (worker down / crash).
     JOB_STALE_PENDING_SECONDS: int = 900
-    JOB_STALE_RUNNING_SECONDS: int = 660
+    # Must be > worker job_timeout (600s) + safety margin to avoid expiring healthy jobs.
+    JOB_STALE_RUNNING_SECONDS: int = 1200
     AUTOROAD_NETWORK_SERVICE_URL: str = ""
     AUTOROAD_NETWORK_INPROCESS: bool = True
     PAD_EARTHWORK_SERVICE_URL: str = ""
@@ -77,6 +78,36 @@ class Settings(BaseSettings):
     ASSISTANT_WIKI_RAG_KEYWORD_WEIGHT: float = 0.35
     ASSISTANT_WIKI_RAG_VECTOR_WEIGHT: float = 0.65
     ASSISTANT_WIKI_RAG_MIN_SCORE: float = 0.15
+
+    # === Backend stability: DB pool (phase 2) ===
+    DB_POOL_SIZE: int = 10
+    DB_MAX_OVERFLOW: int = 20
+    DB_POOL_PRE_PING: bool = True
+    DB_POOL_RECYCLE_SECONDS: int = 1800
+    DB_POOL_TIMEOUT_SECONDS: float = 30.0
+
+    # === Backend stability: web server (phase 6) ===
+    UVICORN_WORKERS: int = 1
+
+    # === Backend stability: microservice HTTP timeouts (phase 4) ===
+    HTTP_CONNECT_TIMEOUT_SECONDS: float = 10.0
+    HTTP_READ_TIMEOUT_SECONDS: float = 60.0
+
+    # === Backend stability: retry / circuit breaker (phase 4) ===
+    MICROSERVICE_RETRY_MAX_ATTEMPTS: int = 3
+    MICROSERVICE_RETRY_BASE_BACKOFF_SECONDS: float = 0.5
+    MICROSERVICE_CIRCUIT_FAILURE_THRESHOLD: int = 5
+    MICROSERVICE_CIRCUIT_RESET_TIMEOUT_SECONDS: int = 60
+
+    # === Backend stability: worker / queue (phase 5) ===
+    ARQ_MAX_JOBS: int = 4
+
+    # === Backend stability: health checks (phase 5) ===
+    HEALTH_CHECK_MICROSERVICES: bool = True
+    HEALTH_CHECK_TIMEOUT_SECONDS: float = 2.0
+
+    # === Backend stability: rate limit on compute endpoints (phase 5) ===
+    COMPUTE_RATE_LIMIT: str = "30/minute"
 
     @property
     def jobs_use_queue(self) -> bool:

@@ -74,6 +74,8 @@ export function createInstancedMeshFromPrototype(
 ): THREE.InstancedMesh | null {
   const geometry = mergePrototypeGeometries(prototype);
   if (!geometry || count < 1) return null;
+  // InstancedMesh shares one material — vertex palette must survive merge.
+  if (!geometry.getAttribute('color')) return null;
   const instanced = new THREE.InstancedMesh(geometry, material, count);
   instanced.instanceMatrix.setUsage(THREE.DynamicDrawUsage);
   return instanced;

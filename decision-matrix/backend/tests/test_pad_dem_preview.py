@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import asyncio
 from pathlib import Path
-from unittest.mock import patch
+from unittest.mock import AsyncMock, patch
 from uuid import uuid4
 
 import numpy as np
@@ -120,8 +120,8 @@ def test_build_dem_preview_api(client, tmp_path: Path, monkeypatch):
 
     dem_bytes = _make_dem_geotiff_bytes(elevation=110.0)
     with patch(
-        "app.services.pad_earthwork.pad_dem_repository.fetch_opentopography_dem",
-        return_value=dem_bytes,
+        "app.services.pad_earthwork.pad_dem_repository.fetch_opentopography_dem_async",
+        new=AsyncMock(return_value=dem_bytes),
     ):
         pid, headers, oid = _seed_oil_pad(client)
         fetch = client.post(

@@ -28,6 +28,24 @@ deploy/*.env.local
 **/data/*.db-*
 **/data/exports/
 
+# Runtime binary assets (local / Docker volumes)
+**/data/map3d_models/
+**/data/pad_dem/
+**/app/data/pad_dem/
+
+# Backend vendor staging (CI/Docker only)
+decision-matrix/backend/network-planner-vendor/
+decision-matrix/backend/pad-earthwork-vendor/
+decision-matrix/backend/well-trajectory-vendor/
+
+# Staged shared copy for Docker (source: decision-matrix/shared/)
+decision-matrix/backend/shared/
+
+# Cursor debug artifacts
+.cursor/mcp-dev-stderr*.txt
+.cursor/debug-*.log
+decision-matrix/backend/.dev-port
+
 # IDE & OS
 .idea/
 .vscode/

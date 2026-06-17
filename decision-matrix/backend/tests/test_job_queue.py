@@ -36,7 +36,7 @@ async def _test_enqueue_project_job_uses_worker_queue_name(monkeypatch):
                 with patch.object(job_queue, "_fire_and_forget") as fire:
                     await job_queue.enqueue_project_job(uuid4())
                     watchdog.assert_called_once()
-                    fire.assert_called()
+                    fire.assert_not_called()
 
     mock_pool.enqueue_job.assert_awaited_once()
     call = mock_pool.enqueue_job.await_args
@@ -85,7 +85,7 @@ async def _test_enqueue_arq_schedules_watchdog_even_without_sync_fallback(monkey
                 with patch.object(job_queue, "_fire_and_forget") as fire:
                     await job_queue.enqueue_project_job(job_id)
                     watchdog.assert_called_once_with(job_id)
-                    fire.assert_called()
+                    fire.assert_not_called()
 
     job_queue._arq_pool = None
 

@@ -19,9 +19,11 @@ from app.api.v1.router import router
 from app.api.v1.jobs_ws import jobs_ws_router
 from app.assistant.transport import mcp_lifespan, mount_assistant_mcp
 from app.core.config import settings
+from app.core.http_client import close_http_client, set_main_event_loop
 from app.core.database import Base, async_session, engine
 from app.core.error_handlers import register_exception_handlers
 from app.core.middleware import RequestLoggingMiddleware
+from app.core.health_checks import build_health_payload
 from app.core.rate_limit import limiter
 from app.core.sqlite_migrate import patch_postgres_schema, patch_sqlite_schema
 from app.core.startup_checks import validate_production_settings
@@ -40,18 +42,62 @@ def configure_logging() -> None:
         logging.basicConfig(level=level, format="%(levelname)s %(name)s: %(message)s")
 
 
-def run_alembic_upgrade() -> None:
-    proc = subprocess.run(
-        [sys.executable, "-m", "alembic", "upgrade", "head"],
-        cwd=BACKEND_ROOT,
-        capture_output=True,
-        text=True,
-    )
+ALEMBIC_LOCK_KEY = 0x4D47_525A  # "MGRZ" — stable advisory lock key for migrations
+ALEMBIC_LOCK_ACQUIRE_TIMEOUT = 60.0
+ALEMBIC_LOCK_POLL_INTERVAL = 1.0
+ALEMBIC_SUBPROCESS_TIMEOUT = 180
+
+
+def _run_alembic_subprocess() -> None:
+    """Synchronous alembic upgrade with timeout. Raises RuntimeError on failure or timeout."""
+    try:
+        proc = subprocess.run(
+            [sys.executable, "-m", "alembic", "upgrade", "head"],
+            cwd=BACKEND_ROOT,
+            capture_output=True,
+            text=True,
+            timeout=ALEMBIC_SUBPROCESS_TIMEOUT,
+        )
+    except subprocess.TimeoutExpired as exc:
+        logger.error("Alembic upgrade timed out after %ss", ALEMBIC_SUBPROCESS_TIMEOUT)
+        raise RuntimeError("Alembic upgrade timed out") from exc
     if proc.returncode != 0:
         logger.error("Alembic upgrade failed: %s", (proc.stderr or proc.stdout).strip())
         raise RuntimeError("Alembic upgrade failed")
     if proc.stdout.strip():
         logger.info("Alembic: %s", proc.stdout.strip())
+
+
+async def run_alembic_upgrade_async() -> None:
+    """Run alembic upgrade under a Postgres advisory lock.
+
+    With multiple uvicorn workers, only the first one acquires the lock and runs
+    migrations; others wait for the lock to be released (migrations done).
+    SQLite and non-prod environments skip the lock and run unconditionally.
+    """
+    if settings.is_sqlite or settings.ENVIRONMENT != "production":
+        _run_alembic_subprocess()
+        return
+
+    deadline = asyncio.get_event_loop().time() + ALEMBIC_LOCK_ACQUIRE_TIMEOUT
+    async with engine.begin() as conn:
+        acquired = False
+        while asyncio.get_event_loop().time() < deadline:
+            result = await conn.execute(text(f"SELECT pg_try_advisory_lock({ALEMBIC_LOCK_KEY})"))
+            if result.scalar():
+                acquired = True
+                break
+            await asyncio.sleep(ALEMBIC_LOCK_POLL_INTERVAL)
+        if not acquired:
+            raise RuntimeError(
+                f"Could not acquire alembic advisory lock within {ALEMBIC_LOCK_ACQUIRE_TIMEOUT}s"
+            )
+        try:
+            logger.info("Acquired alembic advisory lock; running migrations")
+            await asyncio.to_thread(_run_alembic_subprocess)
+        finally:
+            await conn.execute(text(f"SELECT pg_advisory_unlock({ALEMBIC_LOCK_KEY})"))
+            logger.info("Released alembic advisory lock")
 
 
 def alembic_head_revision() -> str | None:
@@ -68,6 +114,7 @@ def alembic_head_revision() -> str | None:
 async def lifespan(app: FastAPI):
     configure_logging()
     validate_production_settings()
+    set_main_event_loop(asyncio.get_running_loop())
 
     if settings.is_sqlite:
         Path("data").mkdir(exist_ok=True)
@@ -91,7 +138,7 @@ async def lifespan(app: FastAPI):
         try:
             await asyncio.wait_for(init_db(), timeout=30.0)
             if not settings.is_sqlite and settings.ENVIRONMENT == "production":
-                run_alembic_upgrade()
+                await run_alembic_upgrade_async()
             if settings.DEMO_USERS_ENABLED and not settings.is_sqlite:
                 async with async_session() as db:
                     created = await ensure_demo_users(db)
@@ -108,6 +155,7 @@ async def lifespan(app: FastAPI):
         yield
 
     await engine.dispose()
+    await close_http_client()
 
 
 app = FastAPI(
@@ -159,18 +207,4 @@ async def root():
 
 @app.get("/health")
 async def health():
-    db_ok = False
-    try:
-        async with async_session() as db:
-            await db.execute(text("SELECT 1"))
-            db_ok = True
-    except Exception:
-        logger.exception("Health check database probe failed")
-
-    status = "ok" if db_ok else "degraded"
-    return {
-        "status": status,
-        "database": "ok" if db_ok else "error",
-        "environment": settings.ENVIRONMENT,
-        "alembic_head": alembic_head_revision(),
-    }
+    return await build_health_payload(alembic_head=alembic_head_revision())

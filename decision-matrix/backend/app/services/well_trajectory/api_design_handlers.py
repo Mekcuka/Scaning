@@ -14,7 +14,7 @@ from app.services.well_trajectory.api_common import (
     persist_pad_trajectories,
     read_pad_for_read,
     read_pad_for_write,
-    run_planner,
+    run_planner_async,
 )
 from app.services.well_trajectory.geojson import build_pad_geojson, build_project_geojson
 from app.services.well_trajectory.schemas import (
@@ -69,7 +69,7 @@ async def handle_generate_from_layout(
 ) -> WellTrajectoryGenerateResponse:
     project, obj = await read_pad_for_write(project_id, object_id, user, db)
     bottomholes = await fetch_bottomholes_for_pad(db, project_id, obj.id)
-    response = run_planner(generate_trajectories_from_layout, obj, bottomholes=bottomholes)
+    response = await run_planner_async(generate_trajectories_from_layout, obj, bottomholes=bottomholes)
     await persist_pad_trajectories(
         db,
         project=project,
@@ -91,7 +91,7 @@ async def handle_design(
     db: AsyncSession,
 ) -> WellTrajectoryDesignResponse:
     project, obj = await read_pad_for_write(project_id, object_id, user, db)
-    response = run_planner(design_well_trajectory, obj, body)
+    response = await run_planner_async(design_well_trajectory, obj, body)
     trajectories = read_trajectories_json(obj.properties)
     trajectories[body.well_index] = response.trajectory
     await persist_pad_trajectories(
@@ -113,7 +113,7 @@ async def handle_compute(
     db: AsyncSession,
 ) -> WellTrajectoryComputeResponse:
     project, obj = await read_pad_for_write(project_id, object_id, user, db)
-    response = run_planner(compute_all_trajectories, obj)
+    response = await run_planner_async(compute_all_trajectories, obj)
     await persist_pad_trajectories(
         db,
         project=project,
@@ -184,7 +184,7 @@ async def handle_design_all(
     db: AsyncSession,
 ) -> WellTrajectoryDesignAllResponse:
     project, obj = await read_pad_for_write(project_id, object_id, user, db)
-    response = run_planner(design_all_from_targets, obj, body)
+    response = await run_planner_async(design_all_from_targets, obj, body)
     await persist_pad_trajectories(
         db,
         project=project,

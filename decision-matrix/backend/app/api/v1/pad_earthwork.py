@@ -6,6 +6,7 @@ from fastapi import APIRouter, Depends
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.api.deps import get_current_user
+from app.core.compute_rate_limit import ComputeRateLimitDep
 from app.core.database import get_db
 from app.models import User
 from app.services.pad_earthwork.api_handlers import (
@@ -95,6 +96,7 @@ async def post_pad_earthwork_dem_preview(
 async def post_pad_earthwork_compute(
     project_id: UUID,
     object_id: UUID,
+    _rate: ComputeRateLimitDep,
     body: PadEarthworkComputeRequest | None = None,
     user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),

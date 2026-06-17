@@ -19,7 +19,7 @@ from app.services.pad_earthwork.dem_store import (
     compute_dem_bbox,
     dem_file_path,
     dem_source_label,
-    fetch_opentopography_dem,
+    fetch_opentopography_dem_async,
     store_dem_file,
     validate_geotiff,
 )
@@ -172,7 +172,7 @@ async def ensure_pad_dem(
         if path.is_file():
             return str(row.id), path, {}
 
-    raw = fetch_opentopography_dem(bbox)
+    raw = await fetch_opentopography_dem_async(bbox)
     validate_geotiff(raw)
     now = datetime.now(UTC)
     source = dem_source_label()

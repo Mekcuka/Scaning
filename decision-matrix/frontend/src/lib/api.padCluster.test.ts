@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import {
   infraSubtypeSelectOptions,
+  MAP_DRAWABLE_LINE_SUBTYPES,
   MAP_DRAWABLE_POINT_SUBTYPES,
   PAD_CLUSTER_SUBTYPES,
   pointMenuLabel,
@@ -48,6 +49,10 @@ describe('infraSubtypeSelectOptions pad cluster', () => {
     expect(MAP_DRAWABLE_POINT_SUBTYPES).not.toContain('well_bottomhole_nnb');
     expect(MAP_DRAWABLE_POINT_SUBTYPES).not.toContain('well_bottomhole_gs_heel');
     expect(MAP_DRAWABLE_POINT_SUBTYPES).not.toContain('well_bottomhole_gs_toe');
+  });
+
+  it('excludes ГС from «Линия» menu (создание через кнопку «Забой»)', () => {
+    expect(MAP_DRAWABLE_LINE_SUBTYPES).not.toContain('well_bottomhole_gs');
   });
 
   it('locks methanol_facility subtype in detail panel', () => {

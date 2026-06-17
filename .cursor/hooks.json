@@ -17,6 +17,14 @@
         "timeout": 60
       }
     ],
+    "afterShellExecution": [
+      {
+        "command": "python .cursor/hooks/mark-tests-after-frontend-test.py",
+        "matcher": "npm run test",
+        "failClosed": false,
+        "timeout": 10
+      }
+    ],
     "subagentStop": [
       {
         "command": "python .cursor/hooks/qa-loop-bugbot.py",

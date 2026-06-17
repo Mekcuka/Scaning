@@ -6,6 +6,7 @@ from fastapi import APIRouter, Body, Depends
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.api.deps import get_current_user
+from app.core.compute_rate_limit import ComputeRateLimitDep
 from app.core.database import get_db
 from app.models import User
 from app.schemas import SandLogisticsAnalyzeRequest, SandLogisticsAnalyzeResponse
@@ -32,6 +33,7 @@ async def get_sand_logistics_result_endpoint(
 @sand_logistics_router.post("/projects/{project_id}/sand-logistics/analyze")
 async def post_sand_logistics_analyze(
     project_id: UUID,
+    _rate: ComputeRateLimitDep,
     body: SandLogisticsAnalyzeRequest | None = Body(default=None),
     user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),

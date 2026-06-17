@@ -16,7 +16,7 @@ from app.schemas import (
     Map3dCustomModelResponse,
     Map3dCustomModelUpdate,
 )
-from app.services.map3d_models.api_handlers import (
+from app.services.map3d.api_handlers import (
     handle_apply_preview,
     handle_assign,
     handle_delete,

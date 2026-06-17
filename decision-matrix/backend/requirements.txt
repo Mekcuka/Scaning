@@ -20,6 +20,8 @@ slowapi>=0.1.9
 arq>=0.26.0
 redis[hiredis]>=5.0.0
 python-pptx>=1.0.2
+tenacity>=8.2.0
+circuitbreaker>=1.4.0
 # network-planner: pip install -e ../../../autoroad-network-planner[steinerpy]
 # pad-earthwork-planner: pip install -e ../../../pad-earthwork-planner
 steinerpy>=1.0.0

@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import asyncio
 from dataclasses import dataclass
 from datetime import UTC, datetime
 from typing import Any
@@ -156,7 +157,8 @@ async def run_compute(
         if variant is None:
             continue
         if body.params.sf_check:
-            variant = score_variant_sf(
+            variant = await asyncio.to_thread(
+                score_variant_sf,
                 variant,
                 existing_pads=existing_pads,
                 params=body.params,

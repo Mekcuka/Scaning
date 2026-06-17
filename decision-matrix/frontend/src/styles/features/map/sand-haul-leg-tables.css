@@ -58,9 +58,9 @@
   transform: rotate(90deg);
 }
 
-.parameters-table__haul-leg {
-  min-width: 8.5rem;
-  max-width: 14rem;
+.parameters-table__haul-cell {
+  min-width: 5.5rem;
+  max-width: 12rem;
 }
 
 .sand-haul-leg-alloc-list li {

@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import asyncio
 from typing import Any
 from uuid import UUID
 
@@ -52,9 +53,10 @@ def planner_unavailable_http(exc: Exception) -> HTTPException:
     return HTTPException(status_code=503, detail=msg)
 
 
-def run_planner(fn: Any, /, *args: Any, **kwargs: Any) -> Any:
+async def run_planner_async(fn: Any, /, *args: Any, **kwargs: Any) -> Any:
+    """Run CPU-bound planner work in a worker thread; map RuntimeError to 503."""
     try:
-        return fn(*args, **kwargs)
+        return await asyncio.to_thread(fn, *args, **kwargs)
     except RuntimeError as exc:
         raise planner_unavailable_http(exc) from exc
 

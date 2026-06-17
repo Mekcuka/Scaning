@@ -12,7 +12,6 @@ from app.services.well_trajectory.api_common import (
     planner_unavailable_http,
     read_pad_for_read,
     read_pad_for_write,
-    run_planner,
 )
 from app.services.well_trajectory.api_design_handlers import (
     handle_compute,
@@ -65,5 +64,4 @@ __all__ = [
     "read_pad_for_read",
     "read_pad_for_write",
     "read_upload",
-    "run_planner",
 ]

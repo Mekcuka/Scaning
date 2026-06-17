@@ -66,8 +66,9 @@
 | `lint-frontend.py` | `afterFileEdit` (frontend .ts/.tsx) | сообщит об ESLint ошибках |
 | `qa-loop-bugbot.py` | `subagentStop` (bugbot) | loop к Builder при findings (max 2) |
 | `chain-after-explore.py` | `subagentStop` (explore) | напоминает Planner создать артефакты |
-| `remind-tests-if-frontend.py` | `stop` | напоминает прогнать тесты после правок FE |
-| `mark-tests-ok.py` | ручной запуск | снимает блокировку push |
+| `remind-tests-if-frontend.py` | `stop` | напоминает о тестах **только если** в сессии правили `frontend/src` и нет свежего `last_tests_ok.marker` |
+| `mark-tests-after-frontend-test.py` | `afterShellExecution` (`npm run test`) | авто-обновляет `last_tests_ok.marker` после зелёного test |
+| `mark-tests-ok.py` | ручной запуск | снимает блокировку push и remind |
 
 ### Снять блокировку push
 
@@ -100,6 +101,8 @@ python .cursor/hooks/mark-tests-ok.py
     ├── qa-loop-bugbot.py
     ├── chain-after-explore.py
     ├── remind-tests-if-frontend.py
+    ├── mark-tests-after-frontend-test.py
+    ├── hook_state.py
     ├── mark-tests-ok.py
     └── state/                     ← маркеры (gitignored)
 ```
@@ -113,6 +116,18 @@ python .cursor/hooks/mark-tests-ok.py
 - Push без тестов (заблокировано hook'ом)
 - Параллельный Builder (контракт дрейфит) — только последовательно
 - Авто-handoff без approval пользователя
+
+## Kaiten (скрам-доска)
+
+Фазы конвейера можно синхронизировать с доской Kaiten:
+
+```powershell
+python scripts/sync-kaiten-features.py --status   # фазы без API
+python scripts/sync-kaiten-features.py --init     # создать карточки
+python scripts/sync-kaiten-features.py            # обновить колонки
+```
+
+Настройка: [docs/features/kaiten-integration.md](../../docs/features/kaiten-integration.md). После handoff между ролями агент может запускать sync.
 
 ## Связанные правила
 

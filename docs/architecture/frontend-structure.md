@@ -365,6 +365,29 @@ objectDetailPanel/
 
 ---
 
+## `lib/` — доменные подпапки (июнь 2026)
+
+Плоские файлы сгруппированы по доменам; **публичные импорты сохранены** через re-export stubs в корне `lib/`:
+
+| Подпапка | Файлы (≈) | Stub-примеры |
+|----------|-----------|--------------|
+| [`lib/padClustering/`](../../decision-matrix/frontend/src/lib/padClustering/) | 28 | `padClusteringScene3d.ts` → `./padClustering/padClusteringScene3d` |
+| [`lib/map2d/`](../../decision-matrix/frontend/src/lib/map2d/) | 33 | `mapClipboard.ts`, `mapUndo.ts`, `mapHitTest.ts` |
+| [`lib/wellTrajectory/`](../../decision-matrix/frontend/src/lib/wellTrajectory/) | 12 | `wellTrajectoryProfile.ts`, `wellBottomholeProperties.ts` |
+| [`lib/infra/`](../../decision-matrix/frontend/src/lib/infra/) | 13 | `infraGeometry.ts`, `infraPadEarthwork.ts` |
+
+React вне чистой логики:
+
+| Было | Стало | Stub |
+|------|-------|------|
+| `lib/flowSchematicContext.tsx` | `contexts/flowSchematicPropagationContext.tsx` | `lib/flowSchematicContext.tsx` |
+| `lib/projectDisplay.tsx` | `lib/projectDisplay/index.tsx` | `lib/projectDisplay.tsx` |
+| `lib/ieSubtypeIcons.tsx` | `components/infra/ieSubtypeIcons.tsx` | `lib/ieSubtypeIcons.tsx` |
+
+Карта монорепо: [repo-layout.md](repo-layout.md).
+
+---
+
 ## Куда смотреть при доработках
 
 | Задача | Файлы |
@@ -384,6 +407,10 @@ objectDetailPanel/
 | Схема потоков (PFD) | `flowSchematicEditor/FlowSchematicEditorInner.tsx`, `FlowEdge.tsx`, `FlowNode.tsx` |
 | Земляные работы (модалка) | `padEarthwork/usePadEarthworkSketchModal.ts`, `PadEarthworkSketchPlanTab.tsx`, `lib/padEarthworkSketch/*` |
 | Земляные работы (карточка) | `objectDetailPanel/useInfraPadEarthworkSection.ts`, `InfraPadEarthworkSectionForm.tsx` |
+| Кластеризация кустов | `lib/padClustering/*`, `components/padClustering/` |
+| 2D-карта (clipboard, undo) | `lib/map2d/*` |
+| Траектории / bottomhole | `lib/wellTrajectory/*` |
+| Инфра-геометрия | `lib/infra/*` |
 | Тесты карты | `MapPage.*.test.tsx`, `MapView.smoke.test.tsx`, `mapPageHarness.tsx` |
 | E2E клики по карте | `setupViewHandlers.ts` (`__dmOlMap` при `VITE_E2E_MAP_HOOK`), `e2e/helpers.ts` (`clickMapLonLat`) |
 

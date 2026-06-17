@@ -19,7 +19,7 @@ from app.services.well_trajectory.api_common import (
     import_options,
     read_pad_for_read,
     read_pad_for_write,
-    run_planner,
+    run_planner_async,
 )
 from app.services.well_trajectory.import_service import (
     ImportOptions,
@@ -139,7 +139,7 @@ async def handle_import_preview(
 ) -> WellTrajectoryImportPreviewResponse:
     obj = await read_pad_for_read(project_id, object_id, user, db)
     file_bytes = await read_upload(file)
-    preview = run_planner(
+    preview = await run_planner_async(
         preview_import,
         obj,
         format=format,  # type: ignore[arg-type]
@@ -179,7 +179,7 @@ async def _handle_import_file(
     content: str | bytes = (
         file_bytes.decode("utf-8", errors="replace") if format == "csv" else file_bytes
     )
-    preview = run_planner(preview_import, obj, format=format, content=content, options=options)
+    preview = await run_planner_async(preview_import, obj, format=format, content=content, options=options)
     queued = await maybe_enqueue_import_job(
         db,
         project_id=project_id,
@@ -193,7 +193,7 @@ async def _handle_import_file(
     )
     if queued is not None:
         return queued
-    result = run_planner(commit_import, obj, format=format, content=content, options=options)
+    result = await run_planner_async(commit_import, obj, format=format, content=content, options=options)
     return await apply_import_commit(
         db, project=project, project_id=project_id, user=user, obj=obj, result=result
     )

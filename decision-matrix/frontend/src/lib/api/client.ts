@@ -118,6 +118,9 @@ const API_ERROR_MESSAGES_RU: Record<string, string> = {
     'Сервер API устарел: нет GET /admin/assistant/llm-config. Перезапустите backend локально или задеployьте новую версию.',
   'Not Found':
     'Маршрут API не найден. Перезапустите backend (run_local.py) или задеployьте новую версию.',
+  microservice_unavailable: 'Сервис расчёта временно недоступен. Попробуйте позже.',
+  microservice_timeout: 'Сервис расчёта не ответил за отведённое время. Попробуйте позже.',
+  microservice_error: 'Ошибка сервиса расчёта. Обратитесь к администратору.',
 };
 
 export function formatApiError(detail: unknown, fallback: string): string {

@@ -1,0 +1,340 @@
+{
+  "tasks": {
+    "pipeline-map3d-performance": {
+      "card_id": 66190428,
+      "board_id": 1804562,
+      "external_id": "scaning:map3d-performance",
+      "linked_from": "C:/Users/user/Documents/Cursore/docs/features/map3d-performance/kaiten.json"
+    },
+    "pipeline-websocket-journal": {
+      "card_id": 66190440,
+      "board_id": 1804562,
+      "external_id": "scaning:websocket-journal",
+      "linked_from": "C:/Users/user/Documents/Cursore/docs/features/websocket-journal/kaiten.json"
+    },
+    "ws-push-ci": {
+      "card_id": 66191646,
+      "board_id": 1804562,
+      "external_id": "scaning:task:ws-push-ci",
+      "column_key": "in_progress"
+    },
+    "ws-e2e-analyze": {
+      "card_id": 66191648,
+      "board_id": 1804562,
+      "external_id": "scaning:task:ws-e2e-analyze",
+      "column_key": "queue"
+    },
+    "ws-cancel-job": {
+      "card_id": 66191649,
+      "board_id": 1804562,
+      "external_id": "scaning:task:ws-cancel-job",
+      "column_key": "queue"
+    },
+    "map3d-deploy": {
+      "card_id": 66191654,
+      "board_id": 1804562,
+      "external_id": "scaning:task:map3d-deploy",
+      "column_key": "in_progress"
+    },
+    "map3d-worker-tubes": {
+      "card_id": 66191655,
+      "board_id": 1804562,
+      "external_id": "scaning:task:map3d-worker-tubes",
+      "column_key": "queue"
+    },
+    "fr-profile": {
+      "card_id": 66191656,
+      "board_id": 1804562,
+      "external_id": "scaning:task:fr-profile",
+      "column_key": "queue"
+    },
+    "fr-audit-log": {
+      "card_id": 66191657,
+      "board_id": 1804562,
+      "external_id": "scaning:task:fr-audit-log",
+      "column_key": "queue"
+    },
+    "fr-email-confirm": {
+      "card_id": 66191658,
+      "board_id": 1804562,
+      "external_id": "scaning:task:fr-email-confirm",
+      "column_key": "queue"
+    },
+    "fr-onboarding": {
+      "card_id": 66191659,
+      "board_id": 1804562,
+      "external_id": "scaning:task:fr-onboarding",
+      "column_key": "queue"
+    },
+    "fr-network-node": {
+      "card_id": 66191662,
+      "board_id": 1804562,
+      "external_id": "scaning:task:fr-network-node",
+      "column_key": "queue"
+    },
+    "fr-osm-2d": {
+      "card_id": 66191665,
+      "board_id": 1804562,
+      "external_id": "scaning:task:fr-osm-2d",
+      "column_key": "queue"
+    },
+    "fr-layer-dnd": {
+      "card_id": 66191667,
+      "board_id": 1804562,
+      "external_id": "scaning:task:fr-layer-dnd",
+      "column_key": "queue"
+    },
+    "fr-server-pdf": {
+      "card_id": 66191668,
+      "board_id": 1804562,
+      "external_id": "scaning:task:fr-server-pdf",
+      "column_key": "queue"
+    },
+    "fr-excel-matrix": {
+      "card_id": 66191670,
+      "board_id": 1804562,
+      "external_id": "scaning:task:fr-excel-matrix",
+      "column_key": "queue"
+    },
+    "fr-i18n": {
+      "card_id": 66191672,
+      "board_id": 1804562,
+      "external_id": "scaning:task:fr-i18n",
+      "column_key": "queue"
+    },
+    "asst-7-3": {
+      "card_id": 66191673,
+      "board_id": 1804562,
+      "external_id": "scaning:task:asst-7-3",
+      "column_key": "queue"
+    },
+    "asst-7-4": {
+      "card_id": 66191674,
+      "board_id": 1804562,
+      "external_id": "scaning:task:asst-7-4",
+      "column_key": "in_progress"
+    },
+    "well-witsml": {
+      "card_id": 66191676,
+      "board_id": 1804562,
+      "external_id": "scaning:task:well-witsml",
+      "column_key": "queue"
+    },
+    "well-settings": {
+      "card_id": 66191677,
+      "board_id": 1804562,
+      "external_id": "scaning:task:well-settings",
+      "column_key": "queue"
+    },
+    "well-recalc-prompt": {
+      "card_id": 66191680,
+      "board_id": 1804562,
+      "external_id": "scaning:task:well-recalc-prompt",
+      "column_key": "queue"
+    },
+    "well-mcp-tools": {
+      "card_id": 66191681,
+      "board_id": 1804562,
+      "external_id": "scaning:task:well-mcp-tools",
+      "column_key": "queue"
+    },
+    "pad-dem": {
+      "card_id": 66191683,
+      "board_id": 1804562,
+      "external_id": "scaning:task:pad-dem",
+      "column_key": "queue"
+    },
+    "pad-forbidden": {
+      "card_id": 66191686,
+      "board_id": 1804562,
+      "external_id": "scaning:task:pad-forbidden",
+      "column_key": "queue"
+    },
+    "map3d-l2-props": {
+      "card_id": 66191687,
+      "board_id": 1804562,
+      "external_id": "scaning:task:map3d-l2-props",
+      "column_key": "queue"
+    },
+    "map3d-s3": {
+      "card_id": 66191688,
+      "board_id": 1804562,
+      "external_id": "scaning:task:map3d-s3",
+      "column_key": "queue"
+    },
+    "map3d-report": {
+      "card_id": 66191690,
+      "board_id": 1804562,
+      "external_id": "scaning:task:map3d-report",
+      "column_key": "queue"
+    },
+    "h0-backup-db": {
+      "card_id": 66191691,
+      "board_id": 1804562,
+      "external_id": "scaning:task:h0-backup-db",
+      "column_key": "queue"
+    },
+    "h0-smoke-prod": {
+      "card_id": 66191692,
+      "board_id": 1804562,
+      "external_id": "scaning:task:h0-smoke-prod",
+      "column_key": "queue"
+    },
+    "h0-logs-alerts": {
+      "card_id": 66191694,
+      "board_id": 1804562,
+      "external_id": "scaning:task:h0-logs-alerts",
+      "column_key": "queue"
+    },
+    "h0-runbook": {
+      "card_id": 66191698,
+      "board_id": 1804562,
+      "external_id": "scaning:task:h0-runbook",
+      "column_key": "queue"
+    },
+    "h1-load-map": {
+      "card_id": 66191700,
+      "board_id": 1804562,
+      "external_id": "scaning:task:h1-load-map",
+      "column_key": "queue"
+    },
+    "h1-bench-matrix": {
+      "card_id": 66191702,
+      "board_id": 1804562,
+      "external_id": "scaning:task:h1-bench-matrix",
+      "column_key": "queue"
+    },
+    "h1-coverage-gates": {
+      "card_id": 66191706,
+      "board_id": 1804562,
+      "external_id": "scaning:task:h1-coverage-gates",
+      "column_key": "queue"
+    },
+    "h1-husky": {
+      "card_id": 66191708,
+      "board_id": 1804562,
+      "external_id": "scaning:task:h1-husky",
+      "column_key": "queue"
+    },
+    "h2-sharing": {
+      "card_id": 66191710,
+      "board_id": 1804562,
+      "external_id": "scaning:task:h2-sharing",
+      "column_key": "queue"
+    },
+    "h3-celery-import": {
+      "card_id": 66191711,
+      "board_id": 1804562,
+      "external_id": "scaning:task:h3-celery-import",
+      "column_key": "queue"
+    },
+    "h3-managed-pg": {
+      "card_id": 66191712,
+      "board_id": 1804562,
+      "external_id": "scaning:task:h3-managed-pg",
+      "column_key": "queue"
+    },
+    "h5-sso": {
+      "card_id": 66191715,
+      "board_id": 1804562,
+      "external_id": "scaning:task:h5-sso",
+      "column_key": "queue"
+    },
+    "h5-multitenant": {
+      "card_id": 66191718,
+      "board_id": 1804562,
+      "external_id": "scaning:task:h5-multitenant",
+      "column_key": "queue"
+    },
+    "done-auth": {
+      "card_id": 66191719,
+      "board_id": 1804562,
+      "external_id": "scaning:task:done-auth",
+      "column_key": "done"
+    },
+    "done-map-2d": {
+      "card_id": 66191720,
+      "board_id": 1804562,
+      "external_id": "scaning:task:done-map-2d",
+      "column_key": "done"
+    },
+    "done-map-3d-view": {
+      "card_id": 66191721,
+      "board_id": 1804562,
+      "external_id": "scaning:task:done-map-3d-view",
+      "column_key": "done"
+    },
+    "done-pad-earthwork": {
+      "card_id": 66191723,
+      "board_id": 1804562,
+      "external_id": "scaning:task:done-pad-earthwork",
+      "column_key": "done"
+    },
+    "done-well-m1-m4a": {
+      "card_id": 66191724,
+      "board_id": 1804562,
+      "external_id": "scaning:task:done-well-m1-m4a",
+      "column_key": "done"
+    },
+    "done-pad-placement": {
+      "card_id": 66191729,
+      "board_id": 1804562,
+      "external_id": "scaning:task:done-pad-placement",
+      "column_key": "done"
+    },
+    "done-autoroad": {
+      "card_id": 66191730,
+      "board_id": 1804562,
+      "external_id": "scaning:task:done-autoroad",
+      "column_key": "done"
+    },
+    "done-flows": {
+      "card_id": 66191731,
+      "board_id": 1804562,
+      "external_id": "scaning:task:done-flows",
+      "column_key": "done"
+    },
+    "done-sand": {
+      "card_id": 66191732,
+      "board_id": 1804562,
+      "external_id": "scaning:task:done-sand",
+      "column_key": "done"
+    },
+    "done-import-export": {
+      "card_id": 66191733,
+      "board_id": 1804562,
+      "external_id": "scaning:task:done-import-export",
+      "column_key": "done"
+    },
+    "done-matrix": {
+      "card_id": 66191736,
+      "board_id": 1804562,
+      "external_id": "scaning:task:done-matrix",
+      "column_key": "done"
+    },
+    "done-reports": {
+      "card_id": 66191738,
+      "board_id": 1804562,
+      "external_id": "scaning:task:done-reports",
+      "column_key": "done"
+    },
+    "done-assistant-core": {
+      "card_id": 66191741,
+      "board_id": 1804562,
+      "external_id": "scaning:task:done-assistant-core",
+      "column_key": "done"
+    },
+    "done-admin-jobs": {
+      "card_id": 66191744,
+      "board_id": 1804562,
+      "external_id": "scaning:task:done-admin-jobs",
+      "column_key": "done"
+    },
+    "done-ws-code": {
+      "card_id": 66191745,
+      "board_id": 1804562,
+      "external_id": "scaning:task:done-ws-code",
+      "column_key": "done"
+    }
+  }
+}

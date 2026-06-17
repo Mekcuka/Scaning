@@ -1,0 +1,30 @@
+{
+  "base_url": "https://wowa7777.kaiten.ru/api/latest",
+  "space_id": 798204,
+  "board_id": 1804562,
+  "lane_id": 2263302,
+  "board_title": "Sprint",
+  "columns": {
+    "queue": {
+      "id": 6235329,
+      "title": "Бэклог спринта"
+    },
+    "in_progress": {
+      "id": 6235330,
+      "title": "В работе"
+    },
+    "done": {
+      "id": 6235331,
+      "title": "Готово"
+    }
+  },
+  "card_title_prefix": "[Scaning]",
+  "github_repo": "https://github.com/Mekcuka/Scaning",
+  "role_labels": {
+    "Planner": "Planner",
+    "Builder": "Builder",
+    "Reviewer": "Reviewer",
+    "Integrator": "Integrator",
+    "Done": "Done"
+  }
+}

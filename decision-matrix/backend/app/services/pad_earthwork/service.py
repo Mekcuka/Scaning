@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import asyncio
 from datetime import UTC, datetime
 from typing import Any
 from uuid import UUID
@@ -12,7 +13,10 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.models import InfrastructureObject
 from app.services.pad_earthwork.dem_store import compute_dem_bbox
 from app.services.pad_earthwork.pad_dem_repository import ensure_pad_dem
-from app.services.pad_earthwork.earthwork_adapter import get_pad_earthwork_adapter
+from app.services.pad_earthwork.earthwork_adapter import (
+    HttpPadEarthworkAdapter,
+    get_pad_earthwork_adapter,
+)
 from app.services.pad_earthwork.earthwork_store import (
     merge_pad_params_patch,
     planner_response_to_bff,
@@ -392,7 +396,10 @@ async def compute_pad_earthwork_for_object(
     adapter = get_pad_earthwork_adapter()
     DemNotSupportedError = dem_not_supported_error()
     try:
-        raw = adapter.compute(req)
+        if isinstance(adapter, HttpPadEarthworkAdapter):
+            raw = await adapter.compute_async(req)
+        else:
+            raw = await asyncio.to_thread(adapter.compute, req)
     except DemNotSupportedError as exc:
         raise HTTPException(status_code=501, detail=str(exc)) from exc
     now = datetime.now(UTC)

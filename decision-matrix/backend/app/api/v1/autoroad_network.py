@@ -8,6 +8,7 @@ from fastapi import APIRouter, Depends
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.api.deps import get_current_user
+from app.core.compute_rate_limit import ComputeRateLimitDep
 from app.core.database import get_db
 from app.models import User
 from app.schemas import AutoroadConnectResponse
@@ -64,6 +65,7 @@ async def autoroad_network_build_request(
 async def autoroad_network_compute(
     project_id: UUID,
     data: NetworkPlanRequest,
+    _rate: ComputeRateLimitDep,
     user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
 ):

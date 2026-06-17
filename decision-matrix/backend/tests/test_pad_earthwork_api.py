@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 from pathlib import Path
-from unittest.mock import patch
+from unittest.mock import AsyncMock, patch
 
 import numpy as np
 import pytest
@@ -94,8 +94,8 @@ def test_dem_compute_with_mock_opentopography(client: TestClient, tmp_path: Path
     dem_bytes = _make_dem_geotiff_bytes(elevation=105.0)
 
     with patch(
-        "app.services.pad_earthwork.pad_dem_repository.fetch_opentopography_dem",
-        return_value=dem_bytes,
+        "app.services.pad_earthwork.pad_dem_repository.fetch_opentopography_dem_async",
+        new=AsyncMock(return_value=dem_bytes),
     ):
         pid, headers, oid = _seed_oil_pad(client)
         res = client.post(
@@ -138,12 +138,12 @@ def test_dem_compute_rotated_large_pad_expanded_bbox(client: TestClient, tmp_pat
     dem_bytes = _make_dem_geotiff_bytes(elevation=150.0)
     captured: dict[str, tuple[float, float, float, float]] = {}
 
-    def _capture_fetch(bbox, **kwargs):
+    async def _capture_fetch(bbox, **kwargs):
         captured["bbox"] = bbox
         return dem_bytes
 
     with patch(
-        "app.services.pad_earthwork.pad_dem_repository.fetch_opentopography_dem",
+        "app.services.pad_earthwork.pad_dem_repository.fetch_opentopography_dem_async",
         side_effect=_capture_fetch,
     ):
         pid, headers, oid = _seed_oil_pad(client)
@@ -183,8 +183,8 @@ def test_dem_fetch_endpoint(client: TestClient, tmp_path: Path, monkeypatch):
     dem_bytes = _make_dem_geotiff_bytes()
 
     with patch(
-        "app.services.pad_earthwork.pad_dem_repository.fetch_opentopography_dem",
-        return_value=dem_bytes,
+        "app.services.pad_earthwork.pad_dem_repository.fetch_opentopography_dem_async",
+        new=AsyncMock(return_value=dem_bytes),
     ):
         pid, headers, oid = _seed_oil_pad(client)
         res = client.post(

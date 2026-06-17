@@ -12,3 +12,4 @@
 | [pad-earthwork/](pad-earthwork/) | Земляные работы куста | [pad-earthwork.md](pad-earthwork/pad-earthwork.md), [adr-pywellgeo-gpl.md](pad-earthwork/adr-pywellgeo-gpl.md) |
 | [well-trajectory/](well-trajectory/) | Траектории, «Кустование» | [well-trajectory.md](well-trajectory/well-trajectory.md), [roadmap](well-trajectory/well-trajectory-roadmap.md) |
 | [pad-placement/](pad-placement/) | Оптимизация размещения кустов | [pad-placement-optimization.md](pad-placement/pad-placement-optimization.md) |
+| — | Kaiten ↔ конвейер оркестрации | [kaiten-integration.md](kaiten-integration.md) |

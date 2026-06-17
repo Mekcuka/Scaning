@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import asyncio
 import math
 from datetime import UTC, datetime
 from typing import Any
@@ -219,7 +220,8 @@ async def run_clearance_for_project(
     eff_threshold = threshold if threshold is not None else _resolve_threshold(pads)
     collection = collect_project_wells_for_clearance(pads)
     pair_indices = all_pair_indices(len(collection.surveys))
-    return _run_clearance(
+    return await asyncio.to_thread(
+        _run_clearance,
         collection,
         pair_indices=pair_indices,
         threshold=eff_threshold,
@@ -241,7 +243,8 @@ async def run_clearance_for_pad(
     eff_threshold = threshold if threshold is not None else well_trajectory_settings_for_pad(pad).sf_warning_threshold
     collection = collect_project_wells_for_clearance(pads, pad_filter=pad_id)
     pair_indices = intra_pad_pair_indices(collection.meta)
-    return _run_clearance(
+    return await asyncio.to_thread(
+        _run_clearance,
         collection,
         pair_indices=pair_indices,
         threshold=eff_threshold,

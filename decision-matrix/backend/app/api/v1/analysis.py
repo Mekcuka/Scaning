@@ -8,6 +8,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.api.deps import get_current_user
 from app.api.v1.project_deps import get_poi, get_user_project
+from app.core.compute_rate_limit import ComputeRateLimitDep
 from app.core.database import get_db
 from app.models import User
 from app.models.enums import AccessLevel
@@ -21,7 +22,10 @@ analysis_router = APIRouter(tags=["analysis"])
 
 @analysis_router.post("/projects/{project_id}/pois/analyze-all")
 async def analyze_all_pois(
-    project_id: UUID, user: User = Depends(get_current_user), db: AsyncSession = Depends(get_db)
+    project_id: UUID,
+    _rate: ComputeRateLimitDep,
+    user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
 ):
     await get_user_project(project_id, user, db, min_access=AccessLevel.write)
     if jobs_async_enabled():

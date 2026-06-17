@@ -8,6 +8,7 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.api.deps import get_current_user
+from app.core.compute_rate_limit import ComputeRateLimitDep
 from app.core.database import get_db
 from app.models import InfrastructureEdge, InfrastructureNetwork, InfrastructureNode, Project, User
 from app.models.enums import AccessLevel, WriteScope
@@ -62,7 +63,10 @@ async def list_networks(
 
 @graph_router.post("/projects/{project_id}/infrastructure/networks/build", response_model=NetworkResponse)
 async def build_network(
-    project_id: UUID, user: User = Depends(get_current_user), db: AsyncSession = Depends(get_db)
+    project_id: UUID,
+    _rate: ComputeRateLimitDep,
+    user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
 ):
     await _project(project_id, user, db, min_access=AccessLevel.write)
     net = await build_network_from_lines(db, project_id)

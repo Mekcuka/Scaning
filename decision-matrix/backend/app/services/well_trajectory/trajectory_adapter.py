@@ -3,11 +3,15 @@
 from __future__ import annotations
 
 import logging
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Any
 
 import httpx
 
 from app.core.config import settings
+from app.core.circuit_breaker import well_trajectory_breaker
+from app.core.http_client import get_http_client, run_on_main_loop
+from app.core.http_retry import retry_microservice_call
+from app.core.microservice_errors import map_httpx_error
 from app.services.well_trajectory.planner_bridge import (
     clearance_pairs,
     design_connector,
@@ -62,74 +66,125 @@ class InProcessWellTrajectoryAdapter:
 
 
 class HttpWellTrajectoryAdapter:
+    """HTTP client adapter using the shared httpx.AsyncClient.
+
+    Public methods keep a sync signature for callers running inside
+    ``asyncio.to_thread``; they delegate to async implementations on the main loop.
+    """
+
     def __init__(self, base_url: str) -> None:
         self._base_url = base_url.rstrip("/")
         self._timeout = settings.WELL_TRAJECTORY_HTTP_TIMEOUT_SECONDS
 
+    async def _post_json(self, path: str, payload: dict[str, Any]) -> dict[str, Any]:
+        async def _call() -> dict[str, Any]:
+            client = await get_http_client()
+            url = f"{self._base_url}{path}"
+            try:
+                res = await client.post(url, json=payload, timeout=self._timeout)
+                res.raise_for_status()
+                return res.json()
+            except Exception as exc:
+                raise map_httpx_error(exc, service_name="well-trajectory") from exc
+
+        async def _with_retry() -> dict[str, Any]:
+            return await retry_microservice_call(_call, service_name="well-trajectory")
+
+        return await well_trajectory_breaker.call(_with_retry)
+
+    async def _post_multipart(self, path: str, *, files: dict[str, Any]) -> dict[str, Any]:
+        async def _call() -> dict[str, Any]:
+            client = await get_http_client()
+            url = f"{self._base_url}{path}"
+            try:
+                res = await client.post(url, files=files, timeout=self._timeout)
+                res.raise_for_status()
+                return res.json()
+            except Exception as exc:
+                raise map_httpx_error(exc, service_name="well-trajectory") from exc
+
+        async def _with_retry() -> dict[str, Any]:
+            return await retry_microservice_call(_call, service_name="well-trajectory")
+
+        return await well_trajectory_breaker.call(_with_retry)
+
+    def _schemas(self, name: str) -> Any:
+        return __import__("well_trajectory.schemas", fromlist=[name])
+
+    async def design_connector_async(
+        self, request: ConnectorDesignRequest
+    ) -> ConnectorDesignResponse:
+        ConnectorDesignResponse = self._schemas("ConnectorDesignResponse")
+        data = await self._post_json("/v1/design/connector", request.model_dump(mode="json"))
+        return ConnectorDesignResponse.model_validate(data)
+
     def design_connector(self, request: ConnectorDesignRequest) -> ConnectorDesignResponse:
-        schemas = __import__("well_trajectory.schemas", fromlist=["ConnectorDesignResponse"])
-        ConnectorDesignResponse = schemas.ConnectorDesignResponse
-        url = f"{self._base_url}/v1/design/connector"
-        with httpx.Client(timeout=self._timeout) as client:
-            res = client.post(url, json=request.model_dump(mode="json"))
-            res.raise_for_status()
-            return ConnectorDesignResponse.model_validate(res.json())
+        return run_on_main_loop(self.design_connector_async(request), timeout=self._timeout)
+
+    async def design_horizontal_async(
+        self, request: HorizontalDesignRequest
+    ) -> HorizontalDesignResponse:
+        HorizontalDesignResponse = self._schemas("HorizontalDesignResponse")
+        data = await self._post_json("/v1/design/horizontal", request.model_dump(mode="json"))
+        return HorizontalDesignResponse.model_validate(data)
 
     def design_horizontal(self, request: HorizontalDesignRequest) -> HorizontalDesignResponse:
-        schemas = __import__("well_trajectory.schemas", fromlist=["HorizontalDesignResponse"])
-        HorizontalDesignResponse = schemas.HorizontalDesignResponse
-        url = f"{self._base_url}/v1/design/horizontal"
-        with httpx.Client(timeout=self._timeout) as client:
-            res = client.post(url, json=request.model_dump(mode="json"))
-            res.raise_for_status()
-            return HorizontalDesignResponse.model_validate(res.json())
+        return run_on_main_loop(self.design_horizontal_async(request), timeout=self._timeout)
+
+    async def interpolate_survey_async(
+        self, request: SurveyInterpolateRequest
+    ) -> SurveyInterpolateResponse:
+        SurveyInterpolateResponse = self._schemas("SurveyInterpolateResponse")
+        data = await self._post_json("/v1/survey/interpolate", request.model_dump(mode="json"))
+        return SurveyInterpolateResponse.model_validate(data)
 
     def interpolate_survey(self, request: SurveyInterpolateRequest) -> SurveyInterpolateResponse:
-        schemas = __import__("well_trajectory.schemas", fromlist=["SurveyInterpolateResponse"])
-        SurveyInterpolateResponse = schemas.SurveyInterpolateResponse
-        url = f"{self._base_url}/v1/survey/interpolate"
-        with httpx.Client(timeout=self._timeout) as client:
-            res = client.post(url, json=request.model_dump(mode="json"))
-            res.raise_for_status()
-            return SurveyInterpolateResponse.model_validate(res.json())
+        return run_on_main_loop(self.interpolate_survey_async(request), timeout=self._timeout)
+
+    async def generate_from_pad_layout_async(
+        self, request: PadGenerateFromLayoutRequest
+    ) -> PadGenerateFromLayoutResponse:
+        PadGenerateFromLayoutResponse = self._schemas("PadGenerateFromLayoutResponse")
+        data = await self._post_json(
+            "/v1/pad/generate-from-layout", request.model_dump(mode="json")
+        )
+        return PadGenerateFromLayoutResponse.model_validate(data)
 
     def generate_from_pad_layout(
         self, request: PadGenerateFromLayoutRequest
     ) -> PadGenerateFromLayoutResponse:
-        schemas = __import__("well_trajectory.schemas", fromlist=["PadGenerateFromLayoutResponse"])
-        PadGenerateFromLayoutResponse = schemas.PadGenerateFromLayoutResponse
-        url = f"{self._base_url}/v1/pad/generate-from-layout"
-        with httpx.Client(timeout=self._timeout) as client:
-            res = client.post(url, json=request.model_dump(mode="json"))
-            res.raise_for_status()
-            return PadGenerateFromLayoutResponse.model_validate(res.json())
+        return run_on_main_loop(
+            self.generate_from_pad_layout_async(request), timeout=self._timeout
+        )
+
+    async def clearance_pairs_async(
+        self, request: ClearancePairsRequest
+    ) -> ClearancePairsResponse:
+        ClearancePairsResponse = self._schemas("ClearancePairsResponse")
+        data = await self._post_json("/v1/clearance/pairs", request.model_dump(mode="json"))
+        return ClearancePairsResponse.model_validate(data)
 
     def clearance_pairs(self, request: ClearancePairsRequest) -> ClearancePairsResponse:
-        schemas = __import__("well_trajectory.schemas", fromlist=["ClearancePairsResponse"])
-        ClearancePairsResponse = schemas.ClearancePairsResponse
-        url = f"{self._base_url}/v1/clearance/pairs"
-        with httpx.Client(timeout=self._timeout) as client:
-            res = client.post(url, json=request.model_dump(mode="json"))
-            res.raise_for_status()
-            return ClearancePairsResponse.model_validate(res.json())
+        return run_on_main_loop(self.clearance_pairs_async(request), timeout=self._timeout)
+
+    async def import_csv_async(self, content: str) -> ImportParseResponse:
+        ImportParseResponse = self._schemas("ImportParseResponse")
+        data = await self._post_json("/v1/import/csv", {"content": content})
+        return ImportParseResponse.model_validate(data)
 
     def import_csv(self, content: str) -> ImportParseResponse:
-        schemas = __import__("well_trajectory.schemas", fromlist=["ImportParseResponse"])
-        ImportParseResponse = schemas.ImportParseResponse
-        url = f"{self._base_url}/v1/import/csv"
-        with httpx.Client(timeout=self._timeout) as client:
-            res = client.post(url, json={"content": content})
-            res.raise_for_status()
-            return ImportParseResponse.model_validate(res.json())
+        return run_on_main_loop(self.import_csv_async(content), timeout=self._timeout)
+
+    async def import_wbp_async(self, data: bytes) -> ImportParseResponse:
+        ImportParseResponse = self._schemas("ImportParseResponse")
+        payload = await self._post_multipart(
+            "/v1/import/wbp",
+            files={"file": ("survey.wbp", data, "application/octet-stream")},
+        )
+        return ImportParseResponse.model_validate(payload)
 
     def import_wbp(self, data: bytes) -> ImportParseResponse:
-        schemas = __import__("well_trajectory.schemas", fromlist=["ImportParseResponse"])
-        ImportParseResponse = schemas.ImportParseResponse
-        url = f"{self._base_url}/v1/import/wbp"
-        with httpx.Client(timeout=self._timeout) as client:
-            res = client.post(url, files={"file": ("survey.wbp", data, "application/octet-stream")})
-            res.raise_for_status()
-            return ImportParseResponse.model_validate(res.json())
+        return run_on_main_loop(self.import_wbp_async(data), timeout=self._timeout)
 
 
 def get_well_trajectory_adapter() -> InProcessWellTrajectoryAdapter | HttpWellTrajectoryAdapter:

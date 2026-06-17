@@ -19,7 +19,7 @@ import { usePermissions } from '../hooks/usePermissions';
 import { queryKeys } from '../lib/queryKeys';
 import { useProjectSandLogistics } from '../hooks/useProjectSandLogistics';
 import { DeferredNumberInput } from '../components/DeferredNumberInput';
-import { SandHaulLegDetails } from '../components/logistics/SandHaulLegDetails';
+import { SandHaulLegParameterCells } from '../components/logistics/SandHaulLegParameterCells';
 import {
   TableExcelExportBodyCell,
   TableExcelExportButton,
@@ -167,7 +167,13 @@ export function SandParametersPage() {
                   <th scope="col">Объём песка (спрос), м³</th>
                   <th scope="col">План Σ, м³</th>
                   <th scope="col">Спрос на дату</th>
-                  <th scope="col">Плечо возки</th>
+                  <th scope="col">Карьер</th>
+                  <th scope="col" className="text-right">
+                    Объём, м³
+                  </th>
+                  <th scope="col" className="text-right">
+                    Расстояние, км
+                  </th>
                   <th scope="col" className="table-excel-export-th">
                     <TableExcelExportButton
                       filename="parametry-obem-peska.xlsx"
@@ -235,14 +241,10 @@ export function SandParametersPage() {
                       <td className="tabular-nums">
                         {sandLogistics?.as_of ? fmtM3(effectiveOnDate) : '—'}
                       </td>
-                      <td className="parameters-table__haul-leg align-top">
-                        <SandHaulLegDetails
-                          variant="parameters-row"
-                          objectId={obj.id}
-                          sandLogistics={sandLogistics ?? undefined}
-                          asOf={sandLogistics?.as_of}
-                        />
-                      </td>
+                      <SandHaulLegParameterCells
+                        objectId={obj.id}
+                        sandLogistics={sandLogistics ?? undefined}
+                      />
                       <TableExcelExportBodyCell />
                     </tr>
                   );

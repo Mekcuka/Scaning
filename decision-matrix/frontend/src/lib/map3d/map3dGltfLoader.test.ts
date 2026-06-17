@@ -25,10 +25,37 @@ describe('applyGltfInstanceColor', () => {
     const mat = out.material as THREE.MeshStandardMaterial;
     expect(mat.vertexColors).toBe(true);
     expect(mat.map).toBeNull();
+    expect(mat.transparent).toBe(false);
+    expect(mat.depthWrite).toBe(true);
+    expect(mat.depthTest).toBe(true);
     expect(out.geometry.getAttribute('color')).toBeTruthy();
     const colors = out.geometry.getAttribute('color') as THREE.BufferAttribute;
     expect(colors.count).toBeGreaterThan(0);
     expect(colors.getX(0)).not.toBe(colors.getX(colors.count - 1));
+  });
+
+  it('forces opaque depth state on transparent glTF materials', () => {
+    const group = new THREE.Group();
+    const mesh = new THREE.Mesh(
+      new THREE.BoxGeometry(2, 4, 2),
+      new THREE.MeshStandardMaterial({
+        color: '#888888',
+        transparent: true,
+        opacity: 0.5,
+        depthWrite: false,
+      }),
+    );
+    mesh.position.y = 2;
+    group.add(mesh);
+    group.updateWorldMatrix(true, true);
+
+    applyGltfInstanceColor(group, '#c62828', false);
+
+    const mat = (group.children[0] as THREE.Mesh).material as THREE.MeshStandardMaterial;
+    expect(mat.transparent).toBe(false);
+    expect(mat.opacity).toBe(1);
+    expect(mat.depthWrite).toBe(true);
+    expect(mat.depthTest).toBe(true);
   });
 });
 

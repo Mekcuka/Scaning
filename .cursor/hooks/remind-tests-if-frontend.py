@@ -1,62 +1,37 @@
 #!/usr/bin/env python3
-"""Remind: если агент менял frontend, но не запускал тесты — напоминает перед завершением.
+"""Напоминание прогнать frontend-тесты — только после правок FE в текущей сессии.
 
-Срабатывает на stop (агент завершил turn). loop_limit=1.
-Проверяет маркер свежих правок в frontend/src и отсутствие свежего тест-прогона.
+Срабатывает на stop, если afterFileEdit отметил frontend_touched.marker позже,
+чем last_tests_ok.marker (см. mark-tests-ok.py / успешный npm run test).
+
+Не срабатывает на вопросы, деплой, dashboard и т.п. без правок frontend/src.
 """
 import json
 import sys
 import os
-import time
+
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+from hook_state import frontend_needs_test_reminder
 
 
-STATE_DIR = os.path.join(os.getcwd(), ".cursor", "hooks", "state")
-FRONTEND_SRC = os.path.join(os.getcwd(), "decision-matrix", "frontend", "src")
-MAX_RELEVANT_AGE = 1800  # 30 минут — правка считается «недавней»
-
-
-def parse_hook_input():
+def main() -> None:
     try:
-        data = json.load(sys.stdin)
+        json.load(sys.stdin)
     except (json.JSONDecodeError, ValueError):
-        return {}
-    return data
+        pass
 
-
-def has_recent_frontend_edit():
-    if not os.path.isdir(FRONTEND_SRC):
-        return False
-    now = time.time()
-    for root, _dirs, files in os.walk(FRONTEND_SRC):
-        if "node_modules" in root or ".vite" in root:
-            continue
-        for f in files:
-            if not f.endswith((".ts", ".tsx", ".css")):
-                continue
-            path = os.path.join(root, f)
-            try:
-                if now - os.path.getmtime(path) < MAX_RELEVANT_AGE:
-                    return True
-            except OSError:
-                continue
-    return False
-
-
-def main():
-    data = parse_hook_input()
-    _ = data  # не используем, но читаем для корректного потока
-
-    if not has_recent_frontend_edit():
+    if not frontend_needs_test_reminder():
         print(json.dumps({}))
         sys.exit(0)
 
-    # Есть недавние правки frontend — напоминаем прогнать тесты
     print(json.dumps({
         "followup_message": (
-            "Обнаружены недавние правки в decision-matrix/frontend/src. "
-            "Перед завершением задачи прогоните:\n"
+            "В этой сессии менялся decision-matrix/frontend/src, но после правок "
+            "не зафиксирован прогон тестов.\n"
+            "Перед handoff Reviewer, push или завершением FE-задачи выполните:\n"
             "  cd decision-matrix/frontend && npm run lint && npm run test\n"
-            "Если переходите к фазе Reviewer — тесты обязательны."
+            "  python .cursor/hooks/mark-tests-ok.py\n"
+            "(mark-tests-ok — после зелёного lint+test; иначе push-гейт заблокирует push.)"
         ),
     }))
     sys.exit(0)

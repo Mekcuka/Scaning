@@ -5,21 +5,19 @@
     python .cursor/hooks/mark-tests-ok.py
 
 Создаёт маркер, который gate-push-tests.py считает «свежим тест-прогоном».
-Это снимает блокировку push.
+Это снимает блокировку push и напоминание remind-tests-if-frontend.py.
 """
 import os
 import sys
-import time
+
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+from hook_state import TESTS_OK_MARKER, touch_tests_ok
 
 
 def main():
-    state_dir = os.path.join(os.getcwd(), ".cursor", "hooks", "state")
-    os.makedirs(state_dir, exist_ok=True)
-    marker = os.path.join(state_dir, "last_tests_ok.marker")
-    with open(marker, "w", encoding="utf-8") as f:
-        f.write(str(time.time()))
-    print(f"Маркер создан: {marker}")
-    print("Push-гейт (gate-push-tests.py) теперь разрешит push, если нет новых правок кода.")
+    touch_tests_ok()
+    print(f"Маркер создан: {TESTS_OK_MARKER}")
+    print("Push-гейт и remind-tests-if-frontend.py учитывают этот прогон.")
 
 
 if __name__ == "__main__":

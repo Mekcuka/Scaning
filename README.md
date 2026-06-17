@@ -49,6 +49,7 @@ Copy-Item deploy\db.env.example deploy\db.env
 Copy-Item decision-matrix\backend\.env.example decision-matrix\backend\.env
 
 # PostgreSQL + API
+.\scripts\stage-backend-vendors.ps1
 docker compose -f deploy/docker-compose.dev.yml up --build
 ```
 
@@ -115,6 +116,6 @@ npm run dev
 
 ## Документация
 
-[docs/](docs/) — требования, архитектура, [auth-rbac.md](docs/architecture/auth-rbac.md), **[статус реализации](docs/planning/implementation-status.md)**, [экспорт проекта](docs/features/import-export/project-export.md), [земляные работы куста](docs/features/pad-earthwork/pad-earthwork.md), [траектории скважин](docs/features/well-trajectory/well-trajectory.md) (M1–M3 ✅), [оптимизация размещения кустов](docs/features/pad-placement/pad-placement-optimization.md) (✅), [оценка настроек для траекторий](docs/features/well-trajectory/well-trajectory-app-assessment.md), [план реализации](docs/features/well-trajectory/well-trajectory-implementation-plan.md), [план SOLID](docs/planning/solid-refactoring-plan.md), [границы модулей](docs/architecture/module-boundaries.md), план разработки.
+[docs/](docs/) — требования, архитектура, [карта монорепо](docs/architecture/repo-layout.md), [auth-rbac.md](docs/architecture/auth-rbac.md), **[статус реализации](docs/planning/implementation-status.md)**, [экспорт проекта](docs/features/import-export/project-export.md), [земляные работы куста](docs/features/pad-earthwork/pad-earthwork.md), [траектории скважин](docs/features/well-trajectory/well-trajectory.md) (M1–M3 ✅), [оптимизация размещения кустов](docs/features/pad-placement/pad-placement-optimization.md) (✅), [оценка настроек для траекторий](docs/features/well-trajectory/well-trajectory-app-assessment.md), [план реализации](docs/features/well-trajectory/well-trajectory-implementation-plan.md), [план SOLID](docs/planning/solid-refactoring-plan.md), [границы модулей](docs/architecture/module-boundaries.md), план разработки.
 
 Микросервисы в монорепо: `autoroad-network-planner/` (автосеть), `pad-earthwork-planner/` (объёмы кустовой площадки, порт 8081), `well-trajectory-planner/` (траектории скважин, порт 8082).

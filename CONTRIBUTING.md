@@ -20,11 +20,15 @@ npm ci
 npm run dev
 ```
 
-Optional full stack via Docker:
+Optional full stack via Docker (stage vendor copies first — dirs are gitignored, not stored in the repo):
 
 ```bash
+# From repo root
+./scripts/stage-backend-vendors.sh   # or .\scripts\stage-backend-vendors.ps1 on Windows
 docker compose -f deploy/docker-compose.dev.yml up --build
 ```
+
+Pytest CI installs microservices from repo root (`autoroad-network-planner/`, etc.) directly — no vendor staging needed for local pytest.
 
 ## Checks before PR
 

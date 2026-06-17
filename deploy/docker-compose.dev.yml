@@ -34,8 +34,10 @@ services:
       CORS_ORIGINS: http://localhost:5173,http://127.0.0.1:5173
       COOKIE_SECURE: "false"
       PAD_DEM_DATA_ROOT: /app/data/pad_dem
+      MAP3D_MODELS_ROOT: /app/data/map3d_models
     volumes:
       - sppr_pad_dem_data:/app/data/pad_dem
+      - sppr_map3d_models:/app/data/map3d_models
     depends_on:
       db:
         condition: service_healthy
@@ -43,3 +45,4 @@ services:
 volumes:
   sppr_pg_data:
   sppr_pad_dem_data:
+  sppr_map3d_models:

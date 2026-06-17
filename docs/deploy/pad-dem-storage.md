@@ -12,7 +12,9 @@ GeoTIFF рельефа для расчёта выемки (`oil_pad` / `gas_pad`
 |------|------|
 | Хост VM | `/opt/decision-matrix/shared/pad_dem/{project_id}/{asset_id}.tif` |
 | Контейнер `api` / `worker` | `/app/data/pad_dem/{project_id}/{asset_id}.tif` |
-| Переменная (опционально) | `PAD_DEM_DATA_ROOT` в `app.env` (default: `backend/data/pad_dem` → `/app/data/pad_dem`) |
+| Переменная (опционально) | `PAD_DEM_DATA_ROOT` в `app.env` (default: `backend/data/pad_dem` через `app.core.paths.data_dir`) |
+
+Локально без env файлы лежат в `decision-matrix/backend/data/pad_dem/` (не в `app/data/`). В Docker dev/prod — volume → `/app/data/pad_dem`.
 
 При смене области расчёта (контур, padding) файл **перезаписывается** (тот же `asset_id`); устаревший legacy-файл из properties удаляется.
 

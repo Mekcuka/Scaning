@@ -93,14 +93,18 @@ export function powerLineWireRadialForQuality(quality: Map3dQuality): number {
   }
 }
 
-/** Viewport culling on all presets — avoids O(n) draw work when zoomed out. */
-export function cullingEnabledForQuality(_quality: Map3dQuality): boolean {
-  return true;
+/** Viewport culling: off on «Полное», on for lighter presets (see data-model.md). */
+export function cullingEnabledForQuality(quality: Map3dQuality): boolean {
+  return quality !== 'full';
 }
 
-/** GPU instancing for repeated bundled glTF — only on «Полное» after visual QA. */
-export function instancingEnabledForQuality(quality: Map3dQuality): boolean {
-  return quality === 'full';
+/**
+ * GPU instancing for repeated bundled glTF (target: «Полное»).
+ * Временно выключено: instanced-путь давал артефакты на точечных моделях
+ * (нулевые матрицы culled-инстансов, merge без vertex colors).
+ */
+export function instancingEnabledForQuality(_quality: Map3dQuality): boolean {
+  return false;
 }
 
 /** Full preset: no depth bias on models (original sharp shading). */

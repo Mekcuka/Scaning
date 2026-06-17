@@ -75,7 +75,7 @@
 | Оптимизация размещения кустов | BFF `pad-placement/*`, `services/pad_placement/` (`placement_optimize.py` — двухфазный перебор центра; `trajectory_design.py` — адаптивный entry ГС); jobs `pad_placement_compute` / `apply` — [pad-placement-optimization.md](../features/pad-placement/pad-placement-optimization.md), [plan](../features/pad-placement/pad-placement-optimization-plan.md) | ✅ **M1–M5 + M2+** |
 | Экономика потоков | `economic_flow_schematic.py`, `economic_rates.py` | ✅ |
 | Автосеть автодорог | `network-planner` + `planner_adapter.py`: Steiner tree, post-processing, preview overlay; BFF request/compute/apply | ✅ |
-| Autoroad Network Service (HTTP :8080) | `autoroad-network-planner` microservice / legacy `services/autoroad-network/` | ⬜ опционально (`AUTOROAD_NETWORK_INPROCESS=false`) |
+| Autoroad Network Service (HTTP :8080) | `autoroad-network-planner/` microservice | ⬜ опционально (`AUTOROAD_NETWORK_INPROCESS=false`) |
 | AI Assistant (Tool Registry) | `app/assistant/` — 39 tools (31 read + 8 mutating), HTTP MCP, chat UI + SSE, dev stdio MCP, `tests/test_assistant_*` | ✅ фазы 1–8 |
 | AI Assistant (фаза 9) | mutating tools + confirm, HTTP MCP block, audit log, rate limits, MCP UX, dev domain proxy, admin LLM override — [assistant.md §18](../architecture/assistant.md) | ✅ |
 | AI Assistant (фаза 7) | tool routing (`tool_router.py`), formatters registry (`chat/formatters/`, tool-first, analysis/admin/flow/sand, `answer_source`) — [assistant.md §16](../architecture/assistant.md) | ✅ 7.1–7.2, 7.5 |

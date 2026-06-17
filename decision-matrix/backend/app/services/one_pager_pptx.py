@@ -66,9 +66,9 @@ GANTT_COLORS = [
 
 
 def _exports_dir() -> Path:
-    root = Path(__file__).resolve().parents[2] / "data" / "exports"
-    root.mkdir(parents=True, exist_ok=True)
-    return root
+    from app.core.paths import data_dir
+
+    return data_dir("exports")
 
 
 def _fmt_font(run, *, size: int = 10, bold: bool = False, color: RGBColor | None = None) -> None:

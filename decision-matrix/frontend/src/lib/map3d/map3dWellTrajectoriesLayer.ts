@@ -20,7 +20,12 @@ import { buildMap3dLinearFeatureMatrix } from './map3dThreeMatrix';
 import { renderMap3dSceneOnce, type Map3dRenderItem } from './map3dLayerRender';
 import type { Map3dQuality } from './map3dQuality';
 import { cullingEnabledForQuality, tubeSegmentCapForQuality } from './map3dQuality';
-import { isLonLatInExpandedBounds } from './map3dViewportCull';
+import {
+  clearViewportCullFreezeForMap,
+  freezeViewportCullForMap,
+  isLonLatInExpandedBounds,
+  shouldApplyViewportCull,
+} from './map3dViewportCull';
 
 type CachedAnchor = {
   translateX: number;
@@ -114,6 +119,8 @@ export class Map3dWellTrajectoriesCustomLayer implements CustomLayerInterface {
 
   private readonly projMatrix = new THREE.Matrix4();
   private readonly rotX = new THREE.Matrix4();
+  private moveStartHandler: (() => void) | null = null;
+  private moveEndHandler: (() => void) | null = null;
 
   private ensureLights(): void {
     if (this.lightsReady) return;
@@ -214,9 +221,26 @@ export class Map3dWellTrajectoriesCustomLayer implements CustomLayerInterface {
     this.renderer = acquireMap3dThreeRenderer(map, gl);
     this.ensureLights();
     this.rebuildRenderables();
+
+    this.moveStartHandler = () => {
+      freezeViewportCullForMap(map);
+    };
+    this.moveEndHandler = () => {
+      clearViewportCullFreezeForMap(map);
+      map.triggerRepaint();
+    };
+    map.on('movestart', this.moveStartHandler);
+    map.on('moveend', this.moveEndHandler);
   }
 
   onRemove(): void {
+    if (this.map) {
+      if (this.moveStartHandler) this.map.off('movestart', this.moveStartHandler);
+      if (this.moveEndHandler) this.map.off('moveend', this.moveEndHandler);
+      clearViewportCullFreezeForMap(this.map);
+    }
+    this.moveStartHandler = null;
+    this.moveEndHandler = null;
     for (const r of this.renderables) disposeGroup(r.group);
     this.renderables = [];
     this.scene.clear();
@@ -232,15 +256,17 @@ export class Map3dWellTrajectoriesCustomLayer implements CustomLayerInterface {
     const items: Map3dRenderItem[] = [];
 
     for (const r of this.renderables) {
-      if (this.cullingEnabled && !isLonLatInExpandedBounds(this.map, r.anchor.lon, r.anchor.lat)) {
-        continue;
+      if (
+        !shouldApplyViewportCull(this.map, this.cullingEnabled)
+        || isLonLatInExpandedBounds(this.map, r.anchor.lon, r.anchor.lat)
+      ) {
+        buildMap3dLinearFeatureMatrix(r.anchor, 1, r.localMatrix, this.rotX);
+        items.push({
+          group: r.group,
+          localMatrix: r.localMatrix,
+          depthPass: r.depthPass,
+        });
       }
-      buildMap3dLinearFeatureMatrix(r.anchor, 1, r.localMatrix, this.rotX);
-      items.push({
-        group: r.group,
-        localMatrix: r.localMatrix,
-        depthPass: r.depthPass,
-      });
     }
 
     renderMap3dSceneOnce(this.renderer, this.scene, this.camera, this.projMatrix, items, {

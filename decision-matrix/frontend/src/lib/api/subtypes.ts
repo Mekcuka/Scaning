@@ -211,6 +211,11 @@ export const MAP_DRAWABLE_POINT_SUBTYPES = POINT_SUBTYPES.filter(
   (s) => !IMPORT_ONLY_POINT_SET.has(s) && !BOTTOMHOLE_SUBTYPE_SET.has(s),
 );
 
+/** Подтипы в меню «Линия» (без ГС — отдельная кнопка «Забой» на панели). */
+export const MAP_DRAWABLE_LINE_SUBTYPES = LINE_SUBTYPES.filter(
+  (s) => s !== 'well_bottomhole_gs',
+);
+
 export function isImmutablePointSubtype(subtype: string): boolean {
   return (IMMUTABLE_POINT_SUBTYPES as readonly string[]).includes(subtype);
 }

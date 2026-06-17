@@ -11,7 +11,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.models import InfrastructureObject, User
 from app.schemas import InfraObjectUpdate
 from app.services.infra_update import update_infra_object_record
-from app.services.well_trajectory.api_common import read_pad_for_read, read_pad_for_write, run_planner
+from app.services.well_trajectory.api_common import read_pad_for_read, read_pad_for_write, run_planner_async
 from app.services.well_trajectory.design_lateral import design_lateral_xyz, parse_bottomhole_ref
 from app.services.well_trajectory.pywellgeo_public import add_branch_response_json
 from app.services.well_trajectory.pywellgeo_ops import (
@@ -334,7 +334,7 @@ async def handle_azim_dip(
     db: AsyncSession,
 ) -> PyWellGeoAzimDipResponse:
     await read_pad_for_read(project_id, object_id, user, db)
-    result = run_planner(
+    result = await run_planner_async(
         run_pywellgeo,
         "azim_dip_convert",
         body.model_dump(mode="json"),
@@ -350,7 +350,7 @@ async def handle_water_properties(
     db: AsyncSession,
 ) -> PyWellGeoWaterPropertiesResponse:
     await read_pad_for_read(project_id, object_id, user, db)
-    result = run_planner(
+    result = await run_planner_async(
         run_pywellgeo,
         "water_properties",
         body.model_dump(mode="json"),
@@ -368,7 +368,7 @@ async def handle_dc1d_build(
     await read_pad_for_read(project_id, object_id, user, db)
     payload = body.model_dump(mode="json")
     well_index = payload.pop("well_index")
-    result = run_planner(run_pywellgeo, "dc1d_build", payload)
+    result = await run_planner_async(run_pywellgeo, "dc1d_build", payload)
     wells = result.get("wells") or []
     if not wells:
         raise ValueError("DC1D build returned no wells")
@@ -389,4 +389,4 @@ async def handle_coordinate_transform(
     db: AsyncSession,
 ) -> dict:
     await read_pad_for_read(project_id, object_id, user, db)
-    return run_planner(run_pywellgeo, "coordinate_transform", body.model_dump(mode="json"))
+    return await run_planner_async(run_pywellgeo, "coordinate_transform", body.model_dump(mode="json"))

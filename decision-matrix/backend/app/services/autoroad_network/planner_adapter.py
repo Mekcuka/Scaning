@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import asyncio
 import logging
 import os
 from functools import lru_cache
@@ -14,6 +15,10 @@ if TYPE_CHECKING:
     from network_planner.schemas.io import PlanRequest, PlanResponse
 
 from app.core.config import settings
+from app.core.circuit_breaker import autoroad_breaker
+from app.core.http_client import get_http_client
+from app.core.http_retry import retry_microservice_call
+from app.core.microservice_errors import MicroserviceError, map_httpx_error
 from app.services.autoroad_connect import AutoroadConnectPlan, PlannedLine, PlannedNode
 from app.services.autoroad_network.schemas import (
     NetworkPlanRequest,
@@ -94,21 +99,21 @@ async def get_solver_status_http() -> SolverStatusResponse:
     base = settings.AUTOROAD_NETWORK_SERVICE_URL.strip().rstrip("/")
     if not base:
         return get_solver_status()
-    async with httpx.AsyncClient(timeout=10.0) as client:
-        sp = False
-        gs = False
-        try:
-            r = await client.get(f"{base}/v1/steinerpy/status")
-            if r.is_success:
-                sp = bool(r.json().get("available"))
-        except Exception:
-            logger.debug("steinerpy status fetch failed", exc_info=True)
-        try:
-            r = await client.get(f"{base}/v1/geosteiner/status")
-            if r.is_success:
-                gs = bool(r.json().get("available"))
-        except Exception:
-            logger.debug("geosteiner status fetch failed", exc_info=True)
+    client = await get_http_client()
+    sp = False
+    gs = False
+    try:
+        r = await client.get(f"{base}/v1/steinerpy/status", timeout=10.0)
+        if r.is_success:
+            sp = bool(r.json().get("available"))
+    except Exception:
+        logger.debug("steinerpy status fetch failed", exc_info=True)
+    try:
+        r = await client.get(f"{base}/v1/geosteiner/status", timeout=10.0)
+        if r.is_success:
+            gs = bool(r.json().get("available"))
+    except Exception:
+        logger.debug("geosteiner status fetch failed", exc_info=True)
     return SolverStatusResponse(
         steinerpy=sp,
         geosteiner=gs,
@@ -364,24 +369,56 @@ def run_planner_inprocess(
         raise
 
 
+async def run_planner_inprocess_async(
+    planner_req: PlanRequest,
+    solver: Literal["geosteiner", "steinerpy"],
+) -> tuple[PlanResponse, list[str]]:
+    """Async wrapper around CPU-bound run_planner_inprocess.
+
+    The Steiner tree solver is CPU-bound and can take several seconds; running it
+    in asyncio.to_thread prevents blocking the event loop (and other requests).
+    """
+    return await asyncio.to_thread(run_planner_inprocess, planner_req, solver)
+
+
 async def run_planner_http(
     planner_req: PlanRequest,
     solver: Literal["geosteiner", "steinerpy"],
 ) -> tuple[PlanResponse, list[str]]:
     base = settings.AUTOROAD_NETWORK_SERVICE_URL.strip().rstrip("/")
     if not base:
-        return run_planner_inprocess(planner_req, solver)
+        return await run_planner_inprocess_async(planner_req, solver)
 
     PlanResponse = _network_planner()["PlanResponse"]
     url = f"{base}/v1/plan/{solver}"
+
+    async def _http_call() -> tuple[PlanResponse, list[str]]:
+        async def _post() -> PlanResponse:
+            client = await get_http_client()
+            try:
+                r = await client.post(
+                    url, json=planner_req.model_dump(mode="json"), timeout=120.0
+                )
+                r.raise_for_status()
+                return PlanResponse.model_validate(r.json())
+            except Exception as exc:
+                raise map_httpx_error(exc, service_name="autoroad-network") from exc
+
+        async def _with_retry() -> PlanResponse:
+            return await retry_microservice_call(_post, service_name="autoroad-network")
+
+        resp = await autoroad_breaker.call(_with_retry)
+        return resp, []
+
     try:
-        async with httpx.AsyncClient(timeout=120.0) as client:
-            r = await client.post(url, json=planner_req.model_dump(mode="json"))
-            r.raise_for_status()
-            return PlanResponse.model_validate(r.json()), []
-    except Exception:
-        logger.warning("autoroad network HTTP planner failed, falling back in-process", exc_info=True)
-        return run_planner_inprocess(planner_req, solver)
+        return await _http_call()
+    except MicroserviceError:
+        raise
+    except httpx.HTTPError:
+        logger.warning(
+            "autoroad network HTTP planner failed, falling back in-process", exc_info=True
+        )
+        return await run_planner_inprocess_async(planner_req, solver)
 
 
 async def _compute_network_plan(req: NetworkPlanRequest) -> NetworkPlanResponse:
@@ -406,7 +443,7 @@ async def _compute_network_plan(req: NetworkPlanRequest) -> NetworkPlanResponse:
             solver = "geosteiner"
 
     if settings.AUTOROAD_NETWORK_INPROCESS:
-        resp, fb = run_planner_inprocess(planner_req, solver)
+        resp, fb = await run_planner_inprocess_async(planner_req, solver)
     else:
         resp, fb = await run_planner_http(planner_req, solver)
 

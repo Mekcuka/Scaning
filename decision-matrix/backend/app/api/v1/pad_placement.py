@@ -8,6 +8,7 @@ from fastapi import APIRouter, Depends, Query
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.api.deps import get_current_user
+from app.core.compute_rate_limit import ComputeRateLimitDep
 from app.core.database import get_db
 from app.models import User
 from app.services.pad_placement.api_handlers import (
@@ -49,6 +50,7 @@ async def pad_placement_request(
 async def pad_placement_compute(
     project_id: UUID,
     data: PadPlacementComputeRequest,
+    _rate: ComputeRateLimitDep,
     async_mode: bool = Query(False, alias="async"),
     user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),

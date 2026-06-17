@@ -8,7 +8,7 @@ import type { DrawMode, SelectMode } from '../../../components/MapView';
 
 import {
 
-  LINE_SUBTYPES,
+  MAP_DRAWABLE_LINE_SUBTYPES,
 
   MAP_DRAWABLE_POINT_SUBTYPES,
 
@@ -778,7 +778,7 @@ export function MapPageToolbarDrawGroup({
 
         >
 
-          {LINE_SUBTYPES.map((st) => (
+          {MAP_DRAWABLE_LINE_SUBTYPES.map((st) => (
 
             <button
 

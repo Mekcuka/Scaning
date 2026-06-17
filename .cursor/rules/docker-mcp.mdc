@@ -1,0 +1,60 @@
+---
+description: Use Docker MCP Gateway (MCP_DOCKER) for containers, compose, and image builds
+alwaysApply: true
+---
+
+# Docker MCP (MCP_DOCKER)
+
+For **Docker and container** tasks, use the **`MCP_DOCKER`** MCP server (Docker MCP Gateway) — not ad-hoc shell guesses when MCP tools are available.
+
+## When to use MCP_DOCKER
+
+- `docker compose up`, `down`, `ps`, logs, build errors
+- Diagnosing failed image builds (`failed to solve`, missing `COPY` paths)
+- Container health, ports, volumes, networking
+- Finding and enabling Docker-related MCP servers via `mcp-find` / `mcp-add`
+
+Prefer MCP over raw `docker` in the shell when the gateway exposes the needed tool. If a tool is missing, use `mcp-find` (query: `docker`, `compose`, `container`) and `mcp-add` before falling back to shell.
+
+## When NOT to use MCP_DOCKER
+
+- Editing **source code** in the repo — file tools
+- **pytest**, **git**, codebase search — **`atlas-grid-dev`** ([atlas-grid-dev-mcp.mdc](atlas-grid-dev-mcp.mdc))
+- Live app data (projects, jobs) — **`atlas-grid`** ([atlas-grid-mcp.mdc](atlas-grid-mcp.mdc))
+
+## Setup
+
+- Configured in **user** Cursor MCP: `%USERPROFILE%\.cursor\mcp.json` → server `MCP_DOCKER`
+- Command: `docker mcp gateway run --profile profile`
+- Requires **Docker Desktop** running on Windows
+- Cursor → **Settings → Tools & MCP** → enable `MCP_DOCKER` for Agent → **Reload**
+- If MCP is unavailable in the session: use shell (`docker compose`, `docker ps`, `docker logs`) and say that MCP was not attached
+
+## Local backend image (`deploy/docker-compose.dev.yml`)
+
+Before first `docker compose` build, stage vendor copies (same as CI `deploy-yandex-vm.yml`):
+
+```powershell
+.\scripts\stage-backend-vendors.ps1
+```
+
+Or manually:
+
+```powershell
+Copy-Item -Recurse -Force decision-matrix\shared decision-matrix\backend\shared
+Copy-Item -Recurse -Force autoroad-network-planner decision-matrix\backend\network-planner-vendor
+Copy-Item -Recurse -Force pad-earthwork-planner decision-matrix\backend\pad-earthwork-vendor
+Copy-Item -Recurse -Force well-trajectory-planner decision-matrix\backend\well-trajectory-vendor
+```
+
+Vendor directories are **gitignored** — do not commit them; re-run staging after microservice changes before `--build`.
+
+Then from repo root: `docker compose -f deploy/docker-compose.dev.yml up --build` (first time / after Dockerfile or vendor changes). Daily start: `up` or `up -d` without `--build`.
+
+See [README.md](README.md) § Docker and [DEPLOY.md](DEPLOY.md) for prod stack.
+
+## Docs
+
+- [CONTRIBUTING.md](CONTRIBUTING.md) — optional Docker dev stack
+- [deploy/docker-compose.dev.yml](deploy/docker-compose.dev.yml) — local PostgreSQL + API
+- [deploy/docker-compose.yml](deploy/docker-compose.yml) — prod VM stack

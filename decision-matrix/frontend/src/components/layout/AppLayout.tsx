@@ -21,7 +21,7 @@ import { usePermissions } from '../../hooks/usePermissions';
 import { canSeeNav, ROLE_LABELS } from '../../lib/permissions';
 import { useActiveProject } from '../../hooks/useActiveProject';
 import { useProjectPathBuilder } from '../../hooks/useProjectPath';
-import { stripProjectPrefix } from '../../lib/projectRoutes';
+import { projectIdFromPathname, projectPath, stripProjectPrefix } from '../../lib/projectRoutes';
 import { APP_LOGO_MARK, APP_NAME } from '../../lib/branding';
 import {
   navLinkTargetForSection,
@@ -29,6 +29,7 @@ import {
   rememberSectionFromPath,
   type NavSection,
 } from '../../lib/sectionNavMemory';
+import { AppSelect } from '../AppSelect';
 import { ToastStack } from '../ToastStack';
 import { ReadOnlyBanner } from '../ReadOnlyBanner';
 import { AssistantPanel } from '../assistant/AssistantPanel';
@@ -97,7 +98,7 @@ export function AppLayout() {
   const { user, logout } = useAuthStore();
   const { role } = usePermissions();
   const { theme, toggleTheme, toasts, dismissToast } = useAppStore();
-  const { projectId, activeProject } = useActiveProject();
+  const { projectId, activeProject, projects, setProjectId, hasProjects } = useActiveProject();
   const buildProjectPath = useProjectPathBuilder();
   const navigate = useNavigate();
   const { pathname } = useLocation();
@@ -140,6 +141,18 @@ export function AppLayout() {
   );
 
   const closeNav = () => setNavOpen(false);
+
+  const handleProjectChange = (id: string) => {
+    if (!id) return;
+    setProjectId(id);
+    const urlProjectId = projectIdFromPathname(pathname);
+    if (urlProjectId) {
+      navigate(projectPath(id, logicalPath));
+    }
+  };
+
+  const showProjectPicker =
+    logicalPath !== '/' && logicalPath !== '/projects' && hasProjects;
 
   return (
     <PageHeaderProvider>
@@ -227,6 +240,24 @@ export function AppLayout() {
           <PageHeaderOutlet />
           <div className="app-header-toolbar">
             <div className="app-header-actions">
+              {showProjectPicker && (
+                <label className="app-header-project flex items-center gap-2 text-sm min-w-0">
+                  <span className="app-header-project-label" style={{ color: 'var(--text-muted)' }}>
+                    Проект:
+                  </span>
+                  <AppSelect
+                    variant="toolbar"
+                    icon={<FolderOpen size={14} aria-hidden />}
+                    ariaLabel="Проект"
+                    value={projectId ?? ''}
+                    onChange={handleProjectChange}
+                    options={projects.map((p) => ({
+                      value: p.id,
+                      label: p.name || p.id,
+                    }))}
+                  />
+                </label>
+              )}
               <ProjectJobSync projectId={projectId ?? null} />
               <AssistantPanel />
               <TaskLogPanel projectId={projectId ?? null} />

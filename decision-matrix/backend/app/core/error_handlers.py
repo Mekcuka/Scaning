@@ -8,6 +8,7 @@ from fastapi.exceptions import RequestValidationError, ResponseValidationError
 from fastapi.responses import JSONResponse
 
 from app.core.config import settings
+from app.core.microservice_errors import MicroserviceError
 
 logger = logging.getLogger(__name__)
 
@@ -33,6 +34,28 @@ def _error_detail(exc: Exception, *, fallback: str = "Internal server error") ->
 
 
 def register_exception_handlers(app: FastAPI) -> None:
+    @app.exception_handler(MicroserviceError)
+    async def microservice_error_handler(request: Request, exc: MicroserviceError):
+        request_id = getattr(request.state, "request_id", None)
+        headers: dict[str, str] = {}
+        if exc.status_code == 503:
+            headers["Retry-After"] = "5"
+        content: dict[str, object] = {
+            "detail": exc.error_code,
+            "request_id": request_id,
+            "microservice": exc.service_name,
+        }
+        if exc.upstream_status is not None:
+            content["upstream_status"] = exc.upstream_status
+        logger.warning(
+            "Microservice error [%s] service=%s code=%s upstream=%s",
+            request_id,
+            exc.service_name,
+            exc.error_code,
+            exc.upstream_status,
+        )
+        return JSONResponse(status_code=exc.status_code, content=content, headers=headers)
+
     @app.exception_handler(HTTPException)
     async def http_exception_handler(request: Request, exc: HTTPException):
         request_id = getattr(request.state, "request_id", None)

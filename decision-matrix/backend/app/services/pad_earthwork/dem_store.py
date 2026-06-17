@@ -14,6 +14,8 @@ import httpx
 from fastapi import HTTPException
 
 from app.core.config import settings
+from app.core.http_client import get_http_client, run_on_main_loop
+from app.core.http_retry import retry_microservice_call
 from app.services.pad_earthwork.gdal_proj import configure_rasterio_proj
 
 OPENTOPOGRAPHY_GLOBAL_DEM_URL = "https://portal.opentopography.org/API/globaldem"
@@ -38,13 +40,14 @@ def _validate_opentopography_api_key(key: str) -> None:
 
 
 def pad_dem_root() -> Path:
+    from app.core.paths import data_dir
+
     env_root = (settings.PAD_DEM_DATA_ROOT or os.environ.get("PAD_DEM_DATA_ROOT") or "").strip()
     if env_root:
         root = Path(env_root)
-    else:
-        root = Path(__file__).resolve().parents[2] / "data" / "pad_dem"
-    root.mkdir(parents=True, exist_ok=True)
-    return root
+        root.mkdir(parents=True, exist_ok=True)
+        return root
+    return data_dir("pad_dem")
 
 
 def dem_file_path(project_id: UUID, asset_id: str) -> Path:
@@ -108,30 +111,7 @@ def _is_geotiff_bytes(raw: bytes) -> bool:
     return len(raw) >= 4 and raw[:2] in (b"II", b"MM") and raw[2:4] in (b"*\x00", b"\x00*")
 
 
-def fetch_opentopography_dem(
-    bbox: tuple[float, float, float, float],
-    *,
-    demtype: str | None = None,
-    api_key: str | None = None,
-) -> bytes:
-    key = _normalize_opentopography_api_key(api_key or settings.OPENTOPOGRAPHY_API_KEY or "")
-    _validate_opentopography_api_key(key)
-    west, south, east, north = bbox
-    params = {
-        "demtype": (demtype or settings.OPENTOPOGRAPHY_DEM_TYPE or "COP30").strip(),
-        "south": south,
-        "north": north,
-        "west": west,
-        "east": east,
-        "outputFormat": "GTiff",
-        "API_Key": key,
-    }
-    timeout = max(10, int(settings.OPENTOPOGRAPHY_TIMEOUT_SECONDS))
-    try:
-        with httpx.Client(timeout=timeout) as client:
-            response = client.get(OPENTOPOGRAPHY_GLOBAL_DEM_URL, params=params)
-    except httpx.HTTPError as exc:
-        raise HTTPException(status_code=502, detail="dem_fetch_failed") from exc
+def _parse_opentopography_response(response: httpx.Response) -> bytes:
     if response.status_code == 401:
         body_text = response.text.strip()
         if "Not a valid format API Key" in body_text or "API Key required" in body_text:
@@ -158,6 +138,63 @@ def fetch_opentopography_dem(
     if not _is_geotiff_bytes(content):
         raise HTTPException(status_code=502, detail="dem_fetch_not_geotiff")
     return content
+
+
+def _dem_fetch_params(
+    bbox: tuple[float, float, float, float],
+    *,
+    demtype: str | None,
+    api_key: str | None,
+) -> tuple[dict[str, Any], int, str]:
+    key = _normalize_opentopography_api_key(api_key or settings.OPENTOPOGRAPHY_API_KEY or "")
+    _validate_opentopography_api_key(key)
+    west, south, east, north = bbox
+    params = {
+        "demtype": (demtype or settings.OPENTOPOGRAPHY_DEM_TYPE or "COP30").strip(),
+        "south": south,
+        "north": north,
+        "west": west,
+        "east": east,
+        "outputFormat": "GTiff",
+        "API_Key": key,
+    }
+    timeout = max(10, int(settings.OPENTOPOGRAPHY_TIMEOUT_SECONDS))
+    return params, timeout, key
+
+
+async def fetch_opentopography_dem_async(
+    bbox: tuple[float, float, float, float],
+    *,
+    demtype: str | None = None,
+    api_key: str | None = None,
+) -> bytes:
+    params, timeout, _key = _dem_fetch_params(bbox, demtype=demtype, api_key=api_key)
+
+    async def _call() -> bytes:
+        client = await get_http_client()
+        try:
+            response = await client.get(
+                OPENTOPOGRAPHY_GLOBAL_DEM_URL, params=params, timeout=float(timeout)
+            )
+        except httpx.HTTPError as exc:
+            raise HTTPException(status_code=502, detail="dem_fetch_failed") from exc
+        return _parse_opentopography_response(response)
+
+    return await retry_microservice_call(_call, service_name="opentopography")
+
+
+def fetch_opentopography_dem(
+    bbox: tuple[float, float, float, float],
+    *,
+    demtype: str | None = None,
+    api_key: str | None = None,
+) -> bytes:
+    """Sync wrapper for callers in worker threads."""
+    _params, timeout, _key = _dem_fetch_params(bbox, demtype=demtype, api_key=api_key)
+    return run_on_main_loop(
+        fetch_opentopography_dem_async(bbox, demtype=demtype, api_key=api_key),
+        timeout=float(timeout),
+    )
 
 
 def validate_geotiff(raw: bytes) -> None:

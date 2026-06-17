@@ -102,25 +102,19 @@ def kick_stuck_pending_job(job: ProjectJob) -> bool:
 
 
 async def enqueue_project_job(job_id: UUID) -> None:
-    """Try ARQ worker queue, always also start in-process execution (try_claim is idempotent)."""
-    queued_to_arq = False
+    """Enqueue to ARQ worker; in-process fallback only when configured."""
     if settings.jobs_use_queue:
         try:
             await asyncio.wait_for(
                 _enqueue_to_arq(job_id),
                 timeout=ARQ_ENQUEUE_TIMEOUT_SECONDS,
             )
-            queued_to_arq = True
+            _schedule_pending_job_watchdog(job_id)
+            return
         except Exception:
-            logger.exception(
-                "ARQ enqueue failed for job %s, using in-process fallback only",
-                job_id,
-            )
+            logger.exception("ARQ enqueue failed for job %s", job_id)
+            if settings.JOBS_SYNC_FALLBACK:
+                _fire_and_forget(execute_project_job(job_id))
+            return
+
     _fire_and_forget(execute_project_job(job_id))
-    if queued_to_arq:
-        _schedule_pending_job_watchdog(job_id)
-
-
-def schedule_project_job(job_id: UUID) -> None:
-    """Fire-and-forget enqueue from sync context (legacy callers)."""
-    _fire_and_forget(enqueue_project_job(job_id))

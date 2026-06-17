@@ -4,7 +4,12 @@ import maplibregl, {
   type Map as MapLibreMap,
 } from 'maplibre-gl';
 import * as THREE from 'three';
-import { cloneGltfModelToHeight, applyGltfInstanceColor, applyGltfInstanceSelection, loadGltfPrototype, scaleGltfGroupToHeightM } from './map3dGltfLoader';
+import {
+  cloneGltfModelToHeight,
+  applyGltfInstanceSelection,
+  loadColoredGltfTemplate,
+  scaleGltfGroupToHeightM,
+} from './map3dGltfLoader';
 import { buildMap3dLinearFeatureMatrix, buildMap3dPointModelMatrix } from './map3dThreeMatrix';
 import {
   powerLineNodeTowerRenderHeightM,
@@ -20,7 +25,13 @@ import {
 } from './map3dSharedRenderer';
 import type { Map3dModelInstance } from './map3dModelInstances';
 import type { Map3dQuality } from './map3dQuality';
-import { isLonLatInExpandedBounds } from './map3dViewportCull';
+import {
+  clearViewportCullFreezeForMap,
+  freezeViewportCullForMap,
+  isLonLatInExpandedBounds,
+  shouldApplyViewportCull,
+  viewportLoadMarginDegForMap,
+} from './map3dViewportCull';
 import {
   createInstancedMeshFromPrototype,
   disposeInstancedMesh,
@@ -127,6 +138,9 @@ export class Map3dModelsCustomLayer implements CustomLayerInterface {
   private visible = true;
   private lightsAdded = false;
   private moveEndHandler: (() => void) | null = null;
+  private moveStartHandler: (() => void) | null = null;
+  private moveHandler: (() => void) | null = null;
+  private lastTerrainTransformMs = 0;
   private meshLoadGeneration = 0;
   private selectedHighlightId: string | null = null;
   private quality: Map3dQuality = 'balanced';
@@ -136,7 +150,10 @@ export class Map3dModelsCustomLayer implements CustomLayerInterface {
   private readonly projMatrix = new THREE.Matrix4();
   private readonly localMatrix = new THREE.Matrix4();
   private readonly rotX = new THREE.Matrix4();
-  private readonly zeroMatrix = new THREE.Matrix4().makeScale(0, 0, 0);
+  /** Culled instanced slots: off-map, not at scene origin (avoids depth junk). */
+  private readonly hiddenInstanceMatrix = new THREE.Matrix4()
+    .makeTranslation(0, -1e6, 0)
+    .scale(new THREE.Vector3(0, 0, 0));
 
   setVisible(v: boolean): void {
     this.visible = v;
@@ -226,11 +243,16 @@ export class Map3dModelsCustomLayer implements CustomLayerInterface {
 
   private isInstanceInLoadView(inst: Map3dModelInstance): boolean {
     if (!this.map) return true;
-    return isLonLatInExpandedBounds(this.map, inst.lon, inst.lat);
+    return isLonLatInExpandedBounds(
+      this.map,
+      inst.lon,
+      inst.lat,
+      viewportLoadMarginDegForMap(this.map),
+    );
   }
 
   private isInstanceVisibleForRender(inst: Map3dModelInstance): boolean {
-    if (!this.cullingEnabled || !this.map) return true;
+    if (!this.map || !shouldApplyViewportCull(this.map, this.cullingEnabled)) return true;
     return isLonLatInExpandedBounds(this.map, inst.lon, inst.lat);
   }
 
@@ -310,21 +332,39 @@ export class Map3dModelsCustomLayer implements CustomLayerInterface {
       bucket.instances.map((inst) => [inst.id, this.instanceHeightM(inst)] as const),
     );
 
-    void loadGltfPrototype(assetId)
-      .then((proto) => {
+    for (const inst of bucket.instances) {
+      this.instancedInstanceIds.add(inst.id);
+    }
+
+    const fallbackToIndividual = (): void => {
+      for (const inst of bucket.instances) {
+        this.instancedInstanceIds.delete(inst.id);
+        this.loadIndividualGltfInst(inst, gen);
+      }
+    };
+
+    void loadColoredGltfTemplate(assetId, first.color)
+      .then((template) => {
         if (gen !== this.meshLoadGeneration) return;
-        const colored = proto.clone(true);
-        applyGltfInstanceColor(colored, first.color, false);
+        const colored = template.clone(true);
         scaleGltfGroupToHeightM(colored, refHeightM);
         const material = new THREE.MeshStandardMaterial({
           color: '#ffffff',
           vertexColors: true,
           roughness: 0.72,
           metalness: 0.05,
+          transparent: false,
+          opacity: 1,
+          depthWrite: true,
+          depthTest: true,
+          side: THREE.FrontSide,
+          polygonOffset: true,
+          polygonOffsetFactor: 1,
+          polygonOffsetUnits: 1,
         });
         const mesh = createInstancedMeshFromPrototype(colored, bucket.instances.length, material);
         if (!mesh) {
-          for (const inst of bucket.instances) this.loadIndividualGltfInst(inst, gen);
+          fallbackToIndividual();
           return;
         }
         mesh.frustumCulled = false;
@@ -334,14 +374,12 @@ export class Map3dModelsCustomLayer implements CustomLayerInterface {
           refHeightM,
           heightById,
         });
-        for (const inst of bucket.instances) {
-          this.instancedInstanceIds.add(inst.id);
-        }
         this.scene.add(mesh);
         this.requestRepaint();
       })
       .catch(() => {
-        for (const inst of bucket.instances) this.loadIndividualGltfInst(inst, gen);
+        if (gen !== this.meshLoadGeneration) return;
+        fallbackToIndividual();
       });
   }
 
@@ -416,19 +454,40 @@ export class Map3dModelsCustomLayer implements CustomLayerInterface {
     this.rebuildTransformCache();
     void this.rebuildSceneMeshes();
 
+    this.moveStartHandler = () => {
+      freezeViewportCullForMap(map);
+    };
+    map.on('movestart', this.moveStartHandler);
+
     this.moveEndHandler = () => {
+      clearViewportCullFreezeForMap(map);
       this.rebuildTransformCache();
       this.loadPendingVisible();
       this.requestRepaint();
     };
     map.on('moveend', this.moveEndHandler);
+
+    this.moveHandler = () => {
+      if (!map.getTerrain()) return;
+      const now = performance.now();
+      if (now - this.lastTerrainTransformMs < 120) return;
+      this.lastTerrainTransformMs = now;
+      this.rebuildTransformCache();
+      this.requestRepaint();
+    };
+    map.on('move', this.moveHandler);
   }
 
   onRemove(): void {
-    if (this.map && this.moveEndHandler) {
-      this.map.off('moveend', this.moveEndHandler);
+    if (this.map) {
+      if (this.moveStartHandler) this.map.off('movestart', this.moveStartHandler);
+      if (this.moveEndHandler) this.map.off('moveend', this.moveEndHandler);
+      if (this.moveHandler) this.map.off('move', this.moveHandler);
+      clearViewportCullFreezeForMap(this.map);
     }
+    this.moveStartHandler = null;
     this.moveEndHandler = null;
+    this.moveHandler = null;
     this.scheduleRepaint = null;
 
     this.clearAllMeshes();
@@ -469,7 +528,7 @@ export class Map3dModelsCustomLayer implements CustomLayerInterface {
         const id = instanceIds[i]!;
         const inst = this.instances.find((x) => x.id === id);
         if (!inst || !this.isInstanceVisibleForRender(inst)) {
-          setInstancedMatrixAt(mesh, i, this.zeroMatrix);
+          setInstancedMatrixAt(mesh, i, this.hiddenInstanceMatrix);
           continue;
         }
         const t = this.transformCache.get(id);

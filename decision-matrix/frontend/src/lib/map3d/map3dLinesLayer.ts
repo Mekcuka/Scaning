@@ -22,7 +22,12 @@ import { buildMap3dLinearFeatureMatrix } from './map3dThreeMatrix';
 import { renderMap3dSceneOnce, type Map3dRenderItem } from './map3dLayerRender';
 import type { Map3dQuality } from './map3dQuality';
 import { cullingEnabledForQuality, tubeSegmentCapForQuality } from './map3dQuality';
-import { isLonLatInExpandedBounds } from './map3dViewportCull';
+import {
+  clearViewportCullFreezeForMap,
+  freezeViewportCullForMap,
+  isLonLatInExpandedBounds,
+  shouldApplyViewportCull,
+} from './map3dViewportCull';
 
 export const MAP3D_LINES_LAYER_ID = 'dm-3d-lines';
 
@@ -82,6 +87,7 @@ export class Map3dLinesCustomLayer implements CustomLayerInterface {
   private tubeRebuildGeneration = 0;
   private visible = true;
   private moveEndHandler: (() => void) | null = null;
+  private moveStartHandler: (() => void) | null = null;
   private selectedHighlightId: string | null = null;
   private quality: Map3dQuality = 'balanced';
   private cullingEnabled = true;
@@ -304,7 +310,13 @@ export class Map3dLinesCustomLayer implements CustomLayerInterface {
     this.ensureLights();
     this.rebuildRenderables();
 
+    this.moveStartHandler = () => {
+      freezeViewportCullForMap(map);
+    };
+    map.on('movestart', this.moveStartHandler);
+
     this.moveEndHandler = () => {
+      clearViewportCullFreezeForMap(map);
       this.refreshAltsFromTerrain();
       const sig = this.altSignature();
       if (sig !== this.lastAltSignature) {
@@ -316,7 +328,12 @@ export class Map3dLinesCustomLayer implements CustomLayerInterface {
   }
 
   onRemove(): void {
-    if (this.map && this.moveEndHandler) this.map.off('moveend', this.moveEndHandler);
+    if (this.map) {
+      if (this.moveStartHandler) this.map.off('movestart', this.moveStartHandler);
+      if (this.moveEndHandler) this.map.off('moveend', this.moveEndHandler);
+      clearViewportCullFreezeForMap(this.map);
+    }
+    this.moveStartHandler = null;
     this.moveEndHandler = null;
     for (const r of this.renderables) disposeGroup(r.group);
     this.renderables = [];
@@ -333,13 +350,15 @@ export class Map3dLinesCustomLayer implements CustomLayerInterface {
     const items: Map3dRenderItem[] = [];
 
     for (const r of this.renderables) {
-      if (this.cullingEnabled && !isLonLatInExpandedBounds(this.map, r.anchor.lon, r.anchor.lat)) {
-        continue;
+      if (
+        !shouldApplyViewportCull(this.map, this.cullingEnabled)
+        || isLonLatInExpandedBounds(this.map, r.anchor.lon, r.anchor.lat)
+      ) {
+        const instId = r.key.split(':')[1] ?? '';
+        const scaleMul = instId === this.selectedHighlightId ? 1.03 : 1;
+        buildMap3dLinearFeatureMatrix(r.anchor, scaleMul, r.localMatrix, this.rotX);
+        items.push({ group: r.group, localMatrix: r.localMatrix, depthPass: 'opaque' });
       }
-      const instId = r.key.split(':')[1] ?? '';
-      const scaleMul = instId === this.selectedHighlightId ? 1.03 : 1;
-      buildMap3dLinearFeatureMatrix(r.anchor, scaleMul, r.localMatrix, this.rotX);
-      items.push({ group: r.group, localMatrix: r.localMatrix, depthPass: 'opaque' });
     }
 
     renderMap3dSceneOnce(this.renderer, this.scene, this.camera, this.projMatrix, items);

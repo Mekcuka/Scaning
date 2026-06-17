@@ -32,6 +32,71 @@ function stripMaps(mat: THREE.MeshStandardMaterial): void {
   mat.roughnessMap = null;
   mat.metalnessMap = null;
   mat.aoMap = null;
+  mat.alphaMap = null;
+}
+
+/** Bundled Kenney GLB often has alphaMode BLEND — breaks depth inside multi-mesh models. */
+function ensureOpaqueBundledMaterial(
+  mat: THREE.MeshStandardMaterial,
+  selected: boolean,
+): void {
+  stripMaps(mat);
+  mat.vertexColors = true;
+  mat.color.set('#ffffff');
+  mat.emissive.set(selected ? '#ffffff' : '#000000');
+  mat.emissiveIntensity = selected ? 0.18 : 0;
+  mat.roughness = 0.72;
+  mat.metalness = 0.05;
+  mat.transparent = false;
+  mat.opacity = 1;
+  mat.alphaTest = 0;
+  mat.depthWrite = true;
+  mat.depthTest = true;
+  mat.side = THREE.FrontSide;
+  mat.polygonOffset = true;
+  mat.polygonOffsetFactor = 1;
+  mat.polygonOffsetUnits = 1;
+}
+
+function ensureOpaqueLambertMaterial(mat: THREE.MeshLambertMaterial): void {
+  mat.map = null;
+  mat.vertexColors = true;
+  mat.color.set('#ffffff');
+  mat.transparent = false;
+  mat.opacity = 1;
+  mat.depthWrite = true;
+  mat.depthTest = true;
+  mat.side = THREE.FrontSide;
+}
+
+function ensureOpaqueBasicMaterial(mat: THREE.MeshBasicMaterial): void {
+  mat.map = null;
+  mat.vertexColors = true;
+  mat.color.set('#ffffff');
+  mat.transparent = false;
+  mat.opacity = 1;
+  mat.depthWrite = true;
+  mat.depthTest = true;
+  mat.side = THREE.FrontSide;
+}
+
+function sanitizePrototypeMaterial(m: THREE.Material): void {
+  if (m instanceof THREE.MeshStandardMaterial) {
+    m.transparent = false;
+    m.opacity = 1;
+    m.alphaTest = 0;
+    m.depthWrite = true;
+    m.depthTest = true;
+    m.side = THREE.FrontSide;
+    return;
+  }
+  if (m instanceof THREE.MeshLambertMaterial || m instanceof THREE.MeshBasicMaterial) {
+    m.transparent = false;
+    m.opacity = 1;
+    m.depthWrite = true;
+    m.depthTest = true;
+    m.side = THREE.FrontSide;
+  }
 }
 
 /** Height-based vertex colors + no Kenney atlas — visible multi-tone palette. */
@@ -65,21 +130,11 @@ function applyMeshVertexPalette(
   const setupMaterial = (m: THREE.Material): THREE.Material => {
     const mat = m.clone();
     if (mat instanceof THREE.MeshStandardMaterial) {
-      stripMaps(mat);
-      mat.vertexColors = true;
-      mat.color.set('#ffffff');
-      mat.emissive.set(selected ? '#ffffff' : '#000000');
-      mat.emissiveIntensity = selected ? 0.18 : 0;
-      mat.roughness = 0.72;
-      mat.metalness = 0.05;
+      ensureOpaqueBundledMaterial(mat, selected);
     } else if (mat instanceof THREE.MeshLambertMaterial) {
-      mat.map = null;
-      mat.vertexColors = true;
-      mat.color.set('#ffffff');
+      ensureOpaqueLambertMaterial(mat);
     } else if (mat instanceof THREE.MeshBasicMaterial) {
-      mat.map = null;
-      mat.vertexColors = true;
-      mat.color.set('#ffffff');
+      ensureOpaqueBasicMaterial(mat);
     }
     return mat;
   };
@@ -115,9 +170,21 @@ export function applyGltfInstanceSelection(group: THREE.Group, selected: boolean
     if (mat instanceof THREE.MeshStandardMaterial) {
       mat.emissive.set(selected ? '#ffffff' : '#000000');
       mat.emissiveIntensity = selected ? 0.12 : 0;
+      if (mat.opacity >= 1) {
+        mat.transparent = false;
+        mat.depthWrite = true;
+      }
+      mat.depthTest = true;
+      mat.side = THREE.FrontSide;
     } else if (mat instanceof THREE.MeshLambertMaterial) {
       mat.emissive.set(selected ? '#ffffff' : '#000000');
       mat.emissiveIntensity = selected ? 0.1 : 0;
+      if (mat.opacity >= 1) {
+        mat.transparent = false;
+        mat.depthWrite = true;
+      }
+      mat.depthTest = true;
+      mat.side = THREE.FrontSide;
     }
     return mat;
   };
@@ -180,7 +247,7 @@ function normalizePrototype(scene: THREE.Group, def: Map3dGltfAssetDef): THREE.G
     mesh.receiveShadow = false;
     const mats = Array.isArray(mesh.material) ? mesh.material : [mesh.material];
     for (const m of mats) {
-      if (m && 'side' in m) (m as THREE.Material).side = THREE.FrontSide;
+      if (m) sanitizePrototypeMaterial(m);
     }
   });
 

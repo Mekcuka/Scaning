@@ -48,14 +48,14 @@ describe('map3dQuality', () => {
     expect(tubeRadialSegmentsForQuality(10, 'performance')).toBe(4);
   });
 
-  it('viewport culling on all presets', () => {
-    expect(cullingEnabledForQuality('full')).toBe(true);
+  it('viewport culling off on full, on for lighter presets', () => {
+    expect(cullingEnabledForQuality('full')).toBe(false);
     expect(cullingEnabledForQuality('balanced')).toBe(true);
     expect(cullingEnabledForQuality('performance')).toBe(true);
   });
 
-  it('instancing only on full preset', () => {
-    expect(instancingEnabledForQuality('full')).toBe(true);
+  it('instancing disabled until instanced path visual QA passes', () => {
+    expect(instancingEnabledForQuality('full')).toBe(false);
     expect(instancingEnabledForQuality('balanced')).toBe(false);
     expect(instancingEnabledForQuality('performance')).toBe(false);
   });

@@ -9,6 +9,9 @@ import sys
 import os
 import subprocess
 
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+from hook_state import touch_frontend_touched
+
 
 def parse_hook_input():
     try:
@@ -71,6 +74,8 @@ def main():
         # Разрешаем — не наш файл
         print(json.dumps({"permission": "allow"}))
         sys.exit(0)
+
+    touch_frontend_touched()
 
     result, err = run_lint(edited)
     if err:

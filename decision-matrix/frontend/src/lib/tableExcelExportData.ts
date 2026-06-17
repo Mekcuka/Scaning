@@ -42,6 +42,23 @@ export function haulLegsExportText(consumer: SandLogisticsConsumerRow | null): s
     .join('; ');
 }
 
+function haulLegsForObject(
+  sandLogistics: SandLogisticsResult | null | undefined,
+  objectId: string,
+): SandHaulLegRow[] {
+  const consumer = sandLogistics ? findSandLogisticsConsumer(sandLogistics, objectId) : null;
+  if (!consumer?.in_service) return [];
+  return buildHaulLegRows(consumer);
+}
+
+function haulLegColumnExport(
+  legs: SandHaulLegRow[],
+  pick: (leg: SandHaulLegRow) => string,
+): string {
+  if (legs.length === 0) return '';
+  return legs.map(pick).join('; ');
+}
+
 export function capacityTableExportColumns(): ExcelColumn<InfraObject>[] {
   return [
     { header: 'Объект', value: (o) => o.name },
@@ -116,10 +133,22 @@ export function sandDemandTableExportColumns(
       },
     },
     {
-      header: 'Плечо возки',
+      header: 'Карьер',
       value: (o) =>
-        haulLegsExportText(
-          sandLogistics ? findSandLogisticsConsumer(sandLogistics, o.id) : null,
+        haulLegColumnExport(haulLegsForObject(sandLogistics, o.id), (leg) => leg.quarry_name || '—'),
+    },
+    {
+      header: 'Объём, м³',
+      value: (o) =>
+        haulLegColumnExport(haulLegsForObject(sandLogistics, o.id), (leg) =>
+          formatHaulLegM3(leg.allocated_m3),
+        ),
+    },
+    {
+      header: 'Расстояние, км',
+      value: (o) =>
+        haulLegColumnExport(haulLegsForObject(sandLogistics, o.id), (leg) =>
+          formatHaulLegKm(leg.distance_km),
         ),
     },
   ];

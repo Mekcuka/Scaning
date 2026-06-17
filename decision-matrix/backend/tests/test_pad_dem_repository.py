@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import asyncio
 from pathlib import Path
-from unittest.mock import patch
+from unittest.mock import AsyncMock, patch
 from uuid import UUID
 
 import pytest
@@ -43,11 +43,14 @@ def test_ensure_pad_dem_cache_hit_and_bbox_change_overwrites(
     dem_bytes = _make_dem_geotiff_bytes(elevation=105.0)
     fetch_calls = {"n": 0}
 
-    def _fetch(_bbox, **kwargs):
+    async def _fetch(_bbox, **kwargs):
         fetch_calls["n"] += 1
         return dem_bytes
 
-    with patch("app.services.pad_earthwork.pad_dem_repository.fetch_opentopography_dem", side_effect=_fetch):
+    with patch(
+        "app.services.pad_earthwork.pad_dem_repository.fetch_opentopography_dem_async",
+        side_effect=_fetch,
+    ):
         pid, headers, oid = _create_pad(client)
         obj = asyncio.run(_load_infra_object(oid))
         corners = _footprint_corners(float(obj.longitude), float(obj.latitude), length_m=10, width_m=10)
@@ -105,8 +108,8 @@ def test_delete_infra_object_removes_pad_dem_row_and_file(
     dem_bytes = _make_dem_geotiff_bytes()
 
     with patch(
-        "app.services.pad_earthwork.pad_dem_repository.fetch_opentopography_dem",
-        return_value=dem_bytes,
+        "app.services.pad_earthwork.pad_dem_repository.fetch_opentopography_dem_async",
+        new=AsyncMock(return_value=dem_bytes),
     ):
         pid, headers, oid = _create_pad(client)
         res = client.post(
@@ -150,8 +153,8 @@ def test_dem_fetch_creates_db_row(client: TestClient, tmp_path: Path, monkeypatc
     monkeypatch.setattr(settings, "PAD_DEM_DATA_ROOT", str(tmp_path / "pad_dem"))
 
     with patch(
-        "app.services.pad_earthwork.pad_dem_repository.fetch_opentopography_dem",
-        return_value=_make_dem_geotiff_bytes(),
+        "app.services.pad_earthwork.pad_dem_repository.fetch_opentopography_dem_async",
+        new=AsyncMock(return_value=_make_dem_geotiff_bytes()),
     ):
         pid, headers, oid = _create_pad(client)
         res = client.post(

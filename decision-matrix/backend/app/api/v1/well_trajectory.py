@@ -6,6 +6,7 @@ from fastapi import APIRouter, Depends, File, Query, UploadFile
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.api.deps import get_current_user
+from app.core.compute_rate_limit import ComputeRateLimitDep
 from app.core.database import get_db
 from app.models import User
 from app.services.well_trajectory.api_handlers import (
@@ -68,6 +69,7 @@ async def get_well_trajectory_last(
 async def post_well_trajectory_generate_from_layout(
     project_id: UUID,
     object_id: UUID,
+    _rate: ComputeRateLimitDep,
     user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
 ):
@@ -82,6 +84,7 @@ async def post_well_trajectory_design(
     project_id: UUID,
     object_id: UUID,
     body: WellTrajectoryDesignRequest,
+    _rate: ComputeRateLimitDep,
     user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
 ):
@@ -95,6 +98,7 @@ async def post_well_trajectory_design(
 async def post_well_trajectory_compute(
     project_id: UUID,
     object_id: UUID,
+    _rate: ComputeRateLimitDep,
     user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
 ):
@@ -148,6 +152,7 @@ async def post_well_trajectory_design_all(
     project_id: UUID,
     object_id: UUID,
     body: WellTrajectoryDesignAllRequest,
+    _rate: ComputeRateLimitDep,
     user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
 ):
@@ -175,6 +180,7 @@ async def post_well_trajectory_design_from_bottomholes(
     project_id: UUID,
     object_id: UUID,
     body: WellTrajectoryDesignFromBottomholesRequest,
+    _rate: ComputeRateLimitDep,
     user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
 ):
@@ -187,6 +193,7 @@ async def post_well_trajectory_design_from_bottomholes(
 )
 async def post_project_well_trajectory_clearance(
     project_id: UUID,
+    _rate: ComputeRateLimitDep,
     async_mode: bool = Query(default=False, alias="async"),
     user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
@@ -201,6 +208,7 @@ async def post_project_well_trajectory_clearance(
 async def post_pad_well_trajectory_clearance(
     project_id: UUID,
     object_id: UUID,
+    _rate: ComputeRateLimitDep,
     async_mode: bool = Query(default=False, alias="async"),
     user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
@@ -215,6 +223,7 @@ async def post_pad_well_trajectory_clearance(
 async def post_well_trajectory_import_preview(
     project_id: UUID,
     object_id: UUID,
+    _rate: ComputeRateLimitDep,
     format: str = Query(..., pattern="^(csv|wbp)$"),
     file: UploadFile = File(...),
     user: User = Depends(get_current_user),
@@ -230,6 +239,7 @@ async def post_well_trajectory_import_preview(
 async def post_well_trajectory_import_csv(
     project_id: UUID,
     object_id: UUID,
+    _rate: ComputeRateLimitDep,
     file: UploadFile = File(...),
     async_mode: bool = Query(default=False, alias="async"),
     step_m: float | None = Query(default=None, gt=0, le=500),
@@ -249,6 +259,7 @@ async def post_well_trajectory_import_csv(
 async def post_well_trajectory_import_wbp(
     project_id: UUID,
     object_id: UUID,
+    _rate: ComputeRateLimitDep,
     file: UploadFile = File(...),
     async_mode: bool = Query(default=False, alias="async"),
     step_m: float | None = Query(default=None, gt=0, le=500),
