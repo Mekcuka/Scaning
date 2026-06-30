@@ -1,4 +1,5 @@
 import { Link } from 'react-router-dom';
+import { Button, Card } from 'antd';
 import { ProjectLink } from '../components/ProjectLink';
 import {
   CircleDot,
@@ -90,7 +91,7 @@ export function ExportPage() {
       )}
 
       {workflow.projectId && !busy && !hasObjects && (
-        <div className="export-empty card">
+        <Card size="small" className="export-empty">
           <Map size={28} aria-hidden className="export-empty__icon" />
           <h2 className="export-empty__title">В проекте пока нет объектов</h2>
           <p className="export-empty__hint">
@@ -98,16 +99,18 @@ export function ExportPage() {
             выгрузки.
           </p>
           <div className="export-empty__actions">
-            <ProjectLink to="/map" className="btn btn-primary text-sm">
-              <Map size={16} aria-hidden />
-              Открыть карту
+            <ProjectLink to="/map">
+              <Button type="primary" size="small" icon={<Map size={16} aria-hidden />}>
+                Открыть карту
+              </Button>
             </ProjectLink>
-            <ProjectLink to="/data/import" className="btn btn-secondary text-sm">
-              <Upload size={16} aria-hidden />
-              Импорт данных
+            <ProjectLink to="/data/import">
+              <Button size="small" icon={<Upload size={16} aria-hidden />}>
+                Импорт данных
+              </Button>
             </ProjectLink>
           </div>
-        </div>
+        </Card>
       )}
 
       {workflow.hasProjects && (
@@ -122,24 +125,25 @@ export function ExportPage() {
             formats={['xlsx', 'csv']}
             disabled={pointDisabled}
           >
-            <button
-              type="button"
-              className="btn btn-primary text-sm export-option__btn"
+            <Button
+              type="primary"
+              size="small"
+              className="export-option__btn"
               disabled={pointDisabled}
+              icon={<FileSpreadsheet size={16} aria-hidden />}
               onClick={workflow.exportPointsExcel}
             >
-              <FileSpreadsheet size={16} aria-hidden />
               Excel
-            </button>
-            <button
-              type="button"
-              className="btn btn-secondary text-sm export-option__btn"
+            </Button>
+            <Button
+              size="small"
+              className="export-option__btn"
               disabled={pointDisabled}
+              icon={<Download size={16} aria-hidden />}
               onClick={workflow.exportPointsCsv}
             >
-              <Download size={16} aria-hidden />
               CSV
-            </button>
+            </Button>
           </ExportOptionCard>
 
           <ExportOptionCard
@@ -152,15 +156,16 @@ export function ExportPage() {
             formats={['geojson']}
             disabled={disabled}
           >
-            <button
-              type="button"
-              className="btn btn-primary text-sm export-option__btn export-option__btn--wide"
+            <Button
+              type="primary"
+              size="small"
+              className="export-option__btn export-option__btn--wide"
               disabled={disabled}
+              icon={<Download size={16} aria-hidden />}
               onClick={workflow.exportGeoJson}
             >
-              <Download size={16} aria-hidden />
               Скачать .geojson
-            </button>
+            </Button>
           </ExportOptionCard>
 
           <ExportOptionCard
@@ -177,24 +182,25 @@ export function ExportPage() {
             formats={['xlsx', 'csv']}
             disabled={disabled}
           >
-            <button
-              type="button"
-              className="btn btn-primary text-sm export-option__btn"
+            <Button
+              type="primary"
+              size="small"
+              className="export-option__btn"
               disabled={disabled}
+              icon={<FileSpreadsheet size={16} aria-hidden />}
               onClick={workflow.exportAllExcel}
             >
-              <FileSpreadsheet size={16} aria-hidden />
               Excel
-            </button>
-            <button
-              type="button"
-              className="btn btn-secondary text-sm export-option__btn"
+            </Button>
+            <Button
+              size="small"
+              className="export-option__btn"
               disabled={disabled}
+              icon={<Download size={16} aria-hidden />}
               onClick={workflow.exportAllCsv}
             >
-              <Download size={16} aria-hidden />
               CSV
-            </button>
+            </Button>
           </ExportOptionCard>
         </div>
       )}

@@ -1,5 +1,5 @@
 import { AlertTriangle, ChevronDown, KeyRound, Save } from 'lucide-react';
-import { AdminAssistantModelField } from './AdminAssistantModelField';
+import { Button, Card, Input, Space } from 'antd';import { AdminAssistantModelField } from './AdminAssistantModelField';
 import type { AdminAssistantPageView } from './useAdminAssistantPage';
 
 export function AdminAssistantOverrideForm({ view }: { view: AdminAssistantPageView }) {
@@ -27,7 +27,7 @@ export function AdminAssistantOverrideForm({ view }: { view: AdminAssistantPageV
   if (!config) return null;
 
   return (
-    <section className="card admin-assistant-override-card">
+    <Card size="small" className="admin-assistant-override-card">
       <div className="admin-assistant-card-head">
         <h2>Временный override</h2>
       </div>
@@ -70,16 +70,15 @@ export function AdminAssistantOverrideForm({ view }: { view: AdminAssistantPageV
             <>
               <label className="admin-assistant-field">
                 <span className="admin-assistant-field__label">Base URL</span>
-                <input
-                  className="input input--mono"
+                <Input
+                  className="input--mono"
                   value={overrideForm.base_url}
                   onChange={(e) => setOverrideForm((f) => ({ ...f, base_url: e.target.value }))}
                   placeholder="https://openrouter.ai/api/v1"
                   disabled={busy}
                   autoComplete="off"
                   spellCheck={false}
-                />
-              </label>
+                />              </label>
               <label className="admin-assistant-field">
                 <span className="admin-assistant-field__label">Model</span>
                 <AdminAssistantModelField
@@ -92,20 +91,19 @@ export function AdminAssistantOverrideForm({ view }: { view: AdminAssistantPageV
               <div className="admin-assistant-form-row">
                 <label className="admin-assistant-field">
                   <span className="admin-assistant-field__label">Max tokens</span>
-                  <input
-                    className="input input--mono"
+                  <Input
+                    className="input--mono"
                     type="number"
                     min={1}
                     value={overrideForm.max_tokens}
                     onChange={(e) => setOverrideForm((f) => ({ ...f, max_tokens: e.target.value }))}
                     placeholder="1024"
                     disabled={busy}
-                  />
-                </label>
+                  />                </label>
                 <label className="admin-assistant-field">
                   <span className="admin-assistant-field__label">Timeout (с)</span>
-                  <input
-                    className="input input--mono"
+                  <Input
+                    className="input--mono"
                     type="number"
                     min={1}
                     value={overrideForm.timeout_seconds}
@@ -114,24 +112,20 @@ export function AdminAssistantOverrideForm({ view }: { view: AdminAssistantPageV
                     }
                     placeholder="120"
                     disabled={busy}
-                  />
-                </label>
+                  />                </label>
               </div>
               <label className="admin-assistant-field">
                 <span className="admin-assistant-field__label inline-flex items-center gap-1">
                   <KeyRound size={14} aria-hidden />
                   API key
                 </span>
-                <input
-                  className="input"
-                  type="password"
+                <Input.Password
                   autoComplete="new-password"
                   value={overrideForm.api_key}
                   onChange={(e) => setOverrideForm((f) => ({ ...f, api_key: e.target.value }))}
                   placeholder="Пусто — не менять текущий ключ"
                   disabled={busy}
-                />
-              </label>
+                />              </label>
             </>
           )}
 
@@ -170,8 +164,8 @@ export function AdminAssistantOverrideForm({ view }: { view: AdminAssistantPageV
                     <>
                       <label className="admin-assistant-field">
                         <span className="admin-assistant-field__label">Embedding base URL</span>
-                        <input
-                          className="input input--mono"
+                        <Input
+                          className="input--mono"
                           value={overrideForm.embedding_base_url}
                           onChange={(e) =>
                             setOverrideForm((f) => ({ ...f, embedding_base_url: e.target.value }))
@@ -180,13 +174,10 @@ export function AdminAssistantOverrideForm({ view }: { view: AdminAssistantPageV
                           disabled={busy}
                           autoComplete="off"
                           spellCheck={false}
-                        />
-                      </label>
+                        />                      </label>
                       <label className="admin-assistant-field">
                         <span className="admin-assistant-field__label">Embedding API key</span>
-                        <input
-                          className="input"
-                          type="password"
+                        <Input.Password
                           value={overrideForm.embedding_api_key}
                           onChange={(e) =>
                             setOverrideForm((f) => ({ ...f, embedding_api_key: e.target.value }))
@@ -194,14 +185,13 @@ export function AdminAssistantOverrideForm({ view }: { view: AdminAssistantPageV
                           placeholder="Пусто — не менять"
                           disabled={busy}
                           autoComplete="new-password"
-                        />
-                      </label>
+                        />                      </label>
                     </>
                   )}
                   <label className="admin-assistant-field">
                     <span className="admin-assistant-field__label">Embedding model</span>
-                    <input
-                      className="input input--mono"
+                    <Input
+                      className="input--mono"
                       value={overrideForm.embedding_model}
                       onChange={(e) =>
                         setOverrideForm((f) => ({ ...f, embedding_model: e.target.value }))
@@ -210,8 +200,7 @@ export function AdminAssistantOverrideForm({ view }: { view: AdminAssistantPageV
                       disabled={busy}
                       autoComplete="off"
                       spellCheck={false}
-                    />
-                    <span className="admin-assistant-field__hint">
+                    />                    <span className="admin-assistant-field__hint">
                       LM Studio: загрузите embedding-модель или укажите отдельный Ollama endpoint.
                     </span>
                   </label>
@@ -222,37 +211,29 @@ export function AdminAssistantOverrideForm({ view }: { view: AdminAssistantPageV
         </div>
 
         <div className="admin-assistant-form-actions">
-          <button
-            type="button"
-            className="btn btn-secondary"
-            disabled={busy || config.partial}
-            onClick={() => testMut.mutate()}
-          >
-            {testMut.isPending ? 'Тест…' : 'Тестовый запрос'}
-          </button>
-          <button type="submit" className="btn btn-primary" disabled={busy || !canApplyOverride}>
-            {updateMut.isPending ? 'Применение…' : 'Применить'}
-          </button>
-          <button
-            type="button"
-            className="btn btn-secondary"
-            disabled={busy || !hasOverride}
-            onClick={() => resetMut.mutate()}
-          >
-            {resetMut.isPending ? 'Сброс…' : 'Сбросить override'}
-          </button>
-          <button
-            type="button"
-            className="btn btn-ghost btn-sm"
-            disabled={busy || !overrideForm.base_url.trim()}
-            onClick={saveCurrentAsPreset}
-            title="Сохранить в localStorage (без секретов)"
-          >
-            <Save size={14} aria-hidden />
-            Сохранить пресет
-          </button>
+          <Space wrap>
+            <Button disabled={busy || config.partial} loading={testMut.isPending} onClick={() => testMut.mutate()}>
+              {testMut.isPending ? 'Тест…' : 'Тестовый запрос'}
+            </Button>
+            <Button type="primary" htmlType="submit" loading={updateMut.isPending} disabled={busy || !canApplyOverride}>
+              {updateMut.isPending ? 'Применение…' : 'Применить'}
+            </Button>
+            <Button disabled={busy || !hasOverride} loading={resetMut.isPending} onClick={() => resetMut.mutate()}>
+              {resetMut.isPending ? 'Сброс…' : 'Сбросить override'}
+            </Button>
+            <Button
+              type="text"
+              size="small"
+              icon={<Save size={14} aria-hidden />}
+              disabled={busy || !overrideForm.base_url.trim()}
+              onClick={saveCurrentAsPreset}
+              title="Сохранить в localStorage (без секретов)"
+            >
+              Сохранить пресет
+            </Button>
+          </Space>
         </div>
       </form>
-    </section>
+    </Card>
   );
 }

@@ -1,4 +1,5 @@
 import { AlertTriangle, RefreshCw, Stethoscope, XCircle } from 'lucide-react';
+import { Button, Card, Space } from 'antd';
 import { PageSkeleton } from '../components/PageSkeleton';
 import { AdminAssistantConfigPanel } from '../components/admin-assistant/AdminAssistantConfigPanel';
 import { AdminAssistantHelpTab } from '../components/admin-assistant/AdminAssistantHelpTab';
@@ -46,31 +47,34 @@ export function AdminAssistantPage() {
 
       <div className="admin-assistant-toolbar">
         <div className="admin-assistant-form-actions" style={{ marginTop: 0 }}>
-          <button
-            type="button"
-            className="btn btn-secondary btn-sm"
-            onClick={() => {
-              view.setProbeExpanded(true);
-              view.probeMut.mutate();
-            }}
-            disabled={view.busy || view.config?.partial}
-          >
-            <Stethoscope size={14} aria-hidden />
-            {view.probeMut.isPending ? 'Проверка…' : 'Проверить подключение'}
-          </button>
-          <button
-            type="button"
-            className="btn btn-secondary btn-sm"
-            onClick={() => void view.refetch()}
-            disabled={view.isFetching}
-          >
-            <RefreshCw
-              size={14}
-              className={view.isFetching ? 'animate-spin' : undefined}
-              aria-hidden
-            />
-            Обновить
-          </button>
+          <Space>
+            <Button
+              size="small"
+              icon={<Stethoscope size={14} aria-hidden />}
+              onClick={() => {
+                view.setProbeExpanded(true);
+                view.probeMut.mutate();
+              }}
+              loading={view.probeMut.isPending}
+              disabled={view.busy || view.config?.partial}
+            >
+              {view.probeMut.isPending ? 'Проверка…' : 'Проверить подключение'}
+            </Button>
+            <Button
+              size="small"
+              icon={
+                <RefreshCw
+                  size={14}
+                  className={view.isFetching ? 'animate-spin' : undefined}
+                  aria-hidden
+                />
+              }
+              onClick={() => void view.refetch()}
+              loading={view.isFetching}
+            >
+              Обновить
+            </Button>
+          </Space>
         </div>
       </div>
 
@@ -80,9 +84,9 @@ export function AdminAssistantPage() {
           <span>
             {view.error instanceof Error ? view.error.message : 'Не удалось загрузить конфигурацию LLM'}
           </span>
-          <button type="button" className="btn btn-secondary btn-sm" onClick={() => void view.refetch()}>
+          <Button size="small" onClick={() => void view.refetch()}>
             Повторить
-          </button>
+          </Button>
         </div>
       )}
 
@@ -99,9 +103,9 @@ export function AdminAssistantPage() {
       {view.pageTab === 'main' && (
         <div className="admin-assistant-stack">
           {view.isLoading && !view.config ? (
-            <div className="card">
+            <Card size="small">
               <PageSkeleton lines={6} />
-            </div>
+            </Card>
           ) : view.config ? (
             <div className="admin-assistant-stack">
               <AdminAssistantMetricsBar

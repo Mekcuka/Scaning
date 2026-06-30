@@ -1,5 +1,6 @@
 import { ProjectLink } from '../../components/ProjectLink';
 import { MapPin } from 'lucide-react';
+import { Button } from 'antd';
 import { LINE_SUBTYPES } from '../../lib/api';
 import { configuredTemplateCount } from './footprintConnectionTemplateUi';
 
@@ -55,9 +56,10 @@ export function FootprintConnectionsPageHeader({
           )}
         </div>
       </div>
-      <ProjectLink to="/map" className="btn btn-secondary btn-sm shrink-0">
-        <MapPin size={14} className="inline mr-1" />
-        Открыть карту
+      <ProjectLink to="/map">
+        <Button size="small" className="shrink-0" icon={<MapPin size={14} />}>
+          Открыть карту
+        </Button>
       </ProjectLink>
     </header>
   );

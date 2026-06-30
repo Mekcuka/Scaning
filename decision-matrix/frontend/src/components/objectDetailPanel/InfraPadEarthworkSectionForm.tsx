@@ -1,4 +1,5 @@
 import { clampNdsDeg, DEFAULT_PAD_NDS_DEG, isPadSubtype } from '../../lib/infraPadEarthwork';
+import { Button, Input } from 'antd';
 import type { InfraObject } from '../../lib/api';
 import { ReferenceElevationDemMinButton } from '../padEarthwork/ReferenceElevationDemMinButton';
 import { FieldLabel } from './panelUi';
@@ -75,8 +76,8 @@ export function InfraPadEarthworkSectionForm({
       <div className="object-detail-panel__coord-grid">
         <label className="object-detail-panel__field">
           <FieldLabel>Длина, м</FieldLabel>
-          <input
-            className="input object-detail-panel__input"
+          <Input
+            className="object-detail-panel__input"
             type="number"
             min={0}
             step="any"
@@ -88,8 +89,8 @@ export function InfraPadEarthworkSectionForm({
         </label>
         <label className="object-detail-panel__field">
           <FieldLabel>Ширина, м</FieldLabel>
-          <input
-            className="input object-detail-panel__input"
+          <Input
+            className="object-detail-panel__input"
             type="number"
             min={0}
             step="any"
@@ -101,8 +102,8 @@ export function InfraPadEarthworkSectionForm({
         </label>
         <label className="object-detail-panel__field">
           <FieldLabel>Высота насыпи, м</FieldLabel>
-          <input
-            className="input object-detail-panel__input"
+          <Input
+            className="object-detail-panel__input"
             type="number"
             min={0}
             step="any"
@@ -115,8 +116,8 @@ export function InfraPadEarthworkSectionForm({
         <label className="object-detail-panel__field">
           <FieldLabel>Опорная отметка, м</FieldLabel>
           <div className="object-detail-panel__field-control object-detail-panel__field-control--ref-dem-min">
-            <input
-              className="input object-detail-panel__input"
+            <Input
+              className="object-detail-panel__input"
               type="number"
               step="any"
               value={referenceElevationM}
@@ -142,8 +143,8 @@ export function InfraPadEarthworkSectionForm({
       </div>
       <label className="object-detail-panel__field">
         <FieldLabel>{isPad ? 'НДС, °' : 'Поворот, °'}</FieldLabel>
-        <input
-          className="input object-detail-panel__input"
+        <Input
+          className="object-detail-panel__input"
           type="number"
           min={0}
           max={360}
@@ -187,35 +188,31 @@ export function InfraPadEarthworkSectionForm({
       </fieldset>
       {!readOnly && (
         <div className="object-detail-panel__actions-row">
-          <button type="button" className="btn btn-secondary btn-sm" onClick={() => setSketchOpen(true)}>
+          <Button size="small" onClick={() => setSketchOpen(true)}>
             Схема…
-          </button>
+          </Button>
           {terrainMode === 'dem' && (
-            <button
-              type="button"
-              className="btn btn-secondary btn-sm"
-              disabled={fetchDemMutation.isPending || computeMutation.isPending}
+            <Button
+              size="small"
+              loading={fetchDemMutation.isPending}
+              disabled={computeMutation.isPending}
               onClick={() => fetchDemMutation.mutate()}
             >
               {fetchDemMutation.isPending ? 'Загрузка DEM…' : 'Загрузить DEM'}
-            </button>
+            </Button>
           )}
-          <button
-            type="button"
-            className="btn btn-secondary btn-sm"
-            disabled={computeMutation.isPending || fetchDemMutation.isPending}
+          <Button
+            size="small"
+            loading={computeMutation.isPending}
+            disabled={fetchDemMutation.isPending}
             onClick={() => computeMutation.mutate()}
           >
             {computeMutation.isPending ? 'Расчёт…' : 'Рассчитать'}
-          </button>
+          </Button>
           {fillM3 != null && (
-            <button
-              type="button"
-              className="btn btn-secondary btn-sm"
-              onClick={() => setSandDemandM3(String(fillM3))}
-            >
+            <Button size="small" onClick={() => setSandDemandM3(String(fillM3))}>
               Применить {fillM3.toLocaleString('ru-RU')} м³ к спросу песка
-            </button>
+            </Button>
           )}
         </div>
       )}

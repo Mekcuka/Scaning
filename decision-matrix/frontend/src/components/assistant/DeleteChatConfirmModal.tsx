@@ -1,4 +1,5 @@
 import { createPortal } from 'react-dom';
+import { Button, Space } from 'antd';
 
 import { AppModal } from '../AppModal';
 
@@ -26,26 +27,20 @@ export function DeleteChatConfirmModal({
       closeOnBackdrop={!isPending}
       overlayClassName="app-modal-overlay--stacked"
       footer={
-        <>
-          <button
-            type="button"
-            className="btn btn-secondary"
-            data-testid="delete-chat-cancel"
-            onClick={onClose}
-            disabled={isPending}
-          >
+        <Space>
+          <Button data-testid="delete-chat-cancel" onClick={onClose} disabled={isPending}>
             Отмена
-          </button>
-          <button
-            type="button"
-            className="btn btn-primary"
+          </Button>
+          <Button
+            type="primary"
+            danger
             data-testid="delete-chat-confirm"
             onClick={onConfirm}
-            disabled={isPending}
+            loading={isPending}
           >
             {isPending ? 'Удаление…' : 'Удалить'}
-          </button>
-        </>
+          </Button>
+        </Space>
       }
     >
       <p className="text-sm mb-2">

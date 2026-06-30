@@ -1,5 +1,6 @@
 import type { RefObject } from 'react';
 import { Upload } from 'lucide-react';
+import { Button, Card } from 'antd';
 import { formatCoord } from '../../lib/coords';
 import { IMPORT_CSV_TEMPLATE } from './importCsvTemplate';
 import type { ImportPreviewRejectedRow } from './importFormat';
@@ -118,9 +119,9 @@ export function ImportFilesSection({
 
   const actions = (
     <>
-      <button
-        type="button"
-        className="btn btn-secondary text-sm export-option__btn"
+      <Button
+        size="small"
+        className="export-option__btn"
         disabled={busy || readOnly}
         onClick={() => {
           const f = fileInputRef.current?.files?.[0];
@@ -128,10 +129,10 @@ export function ImportFilesSection({
         }}
       >
         Превью (dry-run)
-      </button>
-      <button
-        type="button"
-        className="btn btn-secondary text-sm export-option__btn"
+      </Button>
+      <Button
+        size="small"
+        className="export-option__btn"
         onClick={() => {
           const blob = new Blob([IMPORT_CSV_TEMPLATE], { type: 'text/csv;charset=utf-8;' });
           const url = URL.createObjectURL(blob);
@@ -145,7 +146,7 @@ export function ImportFilesSection({
         }}
       >
         Шаблон CSV
-      </button>
+      </Button>
     </>
   );
 
@@ -154,13 +155,13 @@ export function ImportFilesSection({
   }
 
   return (
-    <div className="card">
+    <Card size="small">
       <div className="flex items-center gap-2 mb-4">
         <Upload size={18} />
         <h2 className="font-semibold">Импорт файлов</h2>
       </div>
       {content}
       <div className="flex gap-2 mt-3">{actions}</div>
-    </div>
+    </Card>
   );
 }

@@ -228,7 +228,7 @@
   color: #b91c1c;
 }
 
-.admin-assistant-page > .card {
+.admin-assistant-page > .ant-card {
   margin-top: 0;
 }
 
@@ -372,7 +372,7 @@
   }
 }
 
-.admin-assistant-grid > .card {
+.admin-assistant-grid > .ant-card {
   display: flex;
   flex-direction: column;
   gap: 0.25rem;
@@ -636,7 +636,7 @@
   line-height: 1.35;
 }
 
-.admin-assistant-form-actions .btn {
+.admin-assistant-form-actions .ant-btn {
   min-width: 7.5rem;
 }
 

@@ -1,4 +1,5 @@
 import { Copy, Scissors, X } from 'lucide-react';
+import { Button, Space } from 'antd';
 
 interface ObjectDetailPanelHeaderProps {
   readOnly: boolean;
@@ -54,39 +55,39 @@ export function ObjectDetailPanelHeader({
           <span className="object-detail-panel__badge">{isPoi ? 'Точка интереса' : subtypeLabel}</span>
         </div>
       </div>
-      <div className="flex items-center gap-0.5 shrink-0">
+      <Space size={2} className="shrink-0">
         {onCopy && (
-          <button
-            type="button"
-            className="btn btn-ghost btn-icon-touch"
+          <Button
+            type="text"
+            size="small"
+            className="btn-icon-touch"
+            icon={<Copy size={15} />}
             onClick={onCopy}
             title="Копировать (Ctrl+C)"
             aria-label="Копировать"
-          >
-            <Copy size={15} />
-          </button>
+          />
         )}
         {onCut && (
-          <button
-            type="button"
-            className="btn btn-ghost btn-icon-touch"
+          <Button
+            type="text"
+            size="small"
+            className="btn-icon-touch"
+            icon={<Scissors size={15} />}
             onClick={onCut}
             title="Вырезать (Ctrl+X)"
             aria-label="Вырезать"
-          >
-            <Scissors size={15} />
-          </button>
+          />
         )}
-        <button
-          type="button"
-          className="btn btn-ghost btn-icon-touch object-detail-panel__close"
+        <Button
+          type="text"
+          size="small"
+          className="btn-icon-touch object-detail-panel__close"
+          icon={<X size={16} />}
           onClick={onClose}
           title="Закрыть (Esc)"
           aria-label="Закрыть"
-        >
-          <X size={16} />
-        </button>
-      </div>
+        />
+      </Space>
     </header>
   );
 }

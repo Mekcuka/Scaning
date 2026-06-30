@@ -1,5 +1,6 @@
 import type { ReactNode } from 'react';
 import { Calculator, Mountain, Route } from 'lucide-react';
+import { Input } from 'antd';
 import { AppSelect } from '../AppSelect';
 import type { PadClusteringCalcDraft, AziReference } from '../../lib/padClusteringCalcSettings';
 import { AZI_REFERENCE_OPTIONS, ERROR_MODEL_OPTIONS } from '../../lib/padClusteringCalcSettings';
@@ -102,8 +103,7 @@ export function PadClusteringCalculationPanel({
       >
         <CalcSubsection title="Станции и азимут">
           <CalcField label="Шаг станций (survey), м">
-            <input
-              className="input"
+            <Input
               type="number"
               min={1}
               max={500}
@@ -125,8 +125,7 @@ export function PadClusteringCalculationPanel({
             />
           </CalcField>
           <CalcField label="Модель погрешностей" span={2} hint="ISCWSA — для расчёта clearance между скважинами">
-            <input
-              className="input"
+            <Input
               list="pad-clustering-error-models"
               value={draft.errorModel}
               readOnly={readOnly}
@@ -144,8 +143,7 @@ export function PadClusteringCalculationPanel({
             span={2}
             hint="Ограничение искривления connector welleng при расчёте ННБ и ГС"
           >
-            <input
-              className="input"
+            <Input
               type="number"
               min={0.1}
               max={30}
@@ -160,8 +158,7 @@ export function PadClusteringCalculationPanel({
 
         <CalcSubsection title="Глубины">
           <CalcField label="TVD заготовки, м" hint="Вертикальный участок от устья">
-            <input
-              className="input"
+            <Input
               type="number"
               min={1}
               max={10000}
@@ -173,8 +170,7 @@ export function PadClusteringCalculationPanel({
             />
           </CalcField>
           <CalcField label="TVD забоя по умолч., м" hint="Если у забоя на карте TVD не задан">
-            <input
-              className="input"
+            <Input
               type="number"
               min={1}
               max={10000}
@@ -189,8 +185,7 @@ export function PadClusteringCalculationPanel({
 
         <CalcSubsection title="Горизонтальные скважины">
           <CalcField label={`Inc на ${GS_HEEL_LABEL} (ГС), °`}>
-            <input
-              className="input"
+            <Input
               type="number"
               min={0}
               max={180}
@@ -202,8 +197,7 @@ export function PadClusteringCalculationPanel({
             />
           </CalcField>
           <CalcField label="Шаг поиска входа ГС, м">
-            <input
-              className="input"
+            <Input
               type="number"
               min={1}
               max={500}
@@ -215,8 +209,7 @@ export function PadClusteringCalculationPanel({
             />
           </CalcField>
           <CalcField label="Порог SF" span={2} hint="Предупреждение anti-collision ниже этого значения">
-            <input
-              className="input"
+            <Input
               type="number"
               min={0.1}
               max={10}
@@ -247,8 +240,7 @@ export function PadClusteringCalculationPanel({
             <span className="pad-clustering-field__label">Оболочка (envelope) вокруг контура</span>
           </label>
           <CalcField label="Ширина оболочки, м">
-            <input
-              className="input"
+            <Input
               type="number"
               min={0}
               max={100}

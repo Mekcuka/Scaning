@@ -1,6 +1,7 @@
 import { useMemo, useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { Link } from 'react-router-dom';
+import { Button, Card } from 'antd';
 import { ProjectLink } from '../components/ProjectLink';
 import { FileOutput, Grid3X3, Map, Plus, Trash2 } from 'lucide-react';
 import { defaultProjectsListApi, type Project } from '../lib/api';
@@ -118,14 +119,16 @@ export function DashboardPage() {
         </ProjectLink>
       </div>
 
-      <div className="card card--flush projects-table-card">
+      <Card className="projects-table-card" styles={{ body: { padding: 0 } }}>
         <ProjectsTableCardHeader
           title="Мои проекты"
           search={projectSearch}
           onSearchChange={setProjectSearch}
           actions={
-            <Link to="/projects" className="btn btn-primary btn-sm">
-              Список
+            <Link to="/projects">
+              <Button type="primary" size="small">
+                Список
+              </Button>
             </Link>
           }
         />
@@ -191,24 +194,18 @@ export function DashboardPage() {
                       </td>
                       <td className="col-actions">
                         <div className="projects-table-actions">
-                          <Link
-                            to={`/projects/${p.id}`}
-                            className="btn btn-secondary btn-sm"
-                            onClick={() => openProject(p)}
-                          >
-                            Открыть
+                          <Link to={`/projects/${p.id}`} onClick={() => openProject(p)}>
+                            <Button size="small">Открыть</Button>
                           </Link>
                           {canDeleteProject(user?.role, user?.id, p) && (
-                            <button
-                              type="button"
-                              className="btn btn-secondary btn-sm p-2"
+                            <Button
+                              size="small"
+                              icon={<Trash2 size={14} className="text-red-600" />}
                               onClick={(e) => openDeleteDialog(p, e)}
                               disabled={deleteMut.isPending}
                               title="Удалить проект"
                               aria-label={`Удалить ${p.name}`}
-                            >
-                              <Trash2 size={14} className="text-red-600" />
-                            </button>
+                            />
                           )}
                         </div>
                       </td>
@@ -219,7 +216,7 @@ export function DashboardPage() {
             </table>
           )}
         </div>
-      </div>
+      </Card>
       {deleteConfirmModal}
     </div>
   );

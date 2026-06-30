@@ -1,4 +1,5 @@
 import { FolderOpen } from 'lucide-react';
+import { Card } from 'antd';
 import { AppSelect } from '../../components/AppSelect';
 import type { Project } from '../../lib/api';
 
@@ -10,7 +11,7 @@ type Props = {
 
 export function ExportProjectPanel({ projects, projectId, onProjectChange }: Props) {
   return (
-    <section className="export-setup card">
+    <Card size="small" className="export-setup">
       <div className="export-setup__header export-setup__header--only">
         <div className="export-setup__title-wrap">
           <span className="export-setup__icon" aria-hidden>
@@ -39,6 +40,6 @@ export function ExportProjectPanel({ projects, projectId, onProjectChange }: Pro
           />
         </label>
       </div>
-    </section>
+    </Card>
   );
 }

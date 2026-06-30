@@ -1,4 +1,5 @@
 import { createPortal } from 'react-dom';
+import { Button, Space } from 'antd';
 
 import { AppModal } from '../AppModal';
 
@@ -18,16 +19,14 @@ export function WikiRagHelpModal({ open, onClose, onApplyEmbeddingPreset }: Prop
       onClose={onClose}
       size="md"
       footer={
-        <>
+        <Space>
           {onApplyEmbeddingPreset ? (
-            <button type="button" className="btn btn-secondary" onClick={onApplyEmbeddingPreset}>
-              Подставить nomic-embed-text
-            </button>
+            <Button onClick={onApplyEmbeddingPreset}>Подставить nomic-embed-text</Button>
           ) : null}
-          <button type="button" className="btn btn-primary" onClick={onClose}>
+          <Button type="primary" onClick={onClose}>
             Понятно
-          </button>
-        </>
+          </Button>
+        </Space>
       }
     >
       <ul className="admin-assistant-help-list">

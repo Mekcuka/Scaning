@@ -2,6 +2,7 @@ import { ProjectLink } from '../../components/ProjectLink';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { useCallback, useEffect, useMemo, useState, useTransition } from 'react';
 import { Network } from 'lucide-react';
+import { Button, Card, Input } from 'antd';
 import { analyzeSandLogisticsAndWait } from '../../lib/runApiJob';
 import {
   SandLogisticsSubnetPanel,
@@ -198,7 +199,7 @@ export function FlowLogisticsPage() {
   const showViewSlice = viewYears.length > 1;
 
   return (
-    <section className="card p-4 flow-schematic-window space-y-6">
+    <Card className="flow-schematic-window" classNames={{ body: 'p-4 space-y-6' }}>
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div>
           <p className="flow-schematic-window-subtitle text-sm text-[var(--text-muted)]">
@@ -214,9 +215,9 @@ export function FlowLogisticsPage() {
         <div className="flex flex-wrap items-end gap-3 shrink-0">
           <label className="flex flex-col gap-1 text-xs text-[var(--text-muted)]">
             Горизонт с
-            <input
+            <Input
               type="date"
-              className="input input-sm"
+              size="small"
               value={horizonFrom}
               readOnly
               title="Минимальная дата ввода объектов и автодорог"
@@ -224,9 +225,9 @@ export function FlowLogisticsPage() {
           </label>
           <label className="flex flex-col gap-1 text-xs text-[var(--text-muted)]">
             Горизонт по
-            <input
+            <Input
               type="date"
-              className="input input-sm"
+              size="small"
               value={horizonTo}
               onChange={(e) => {
                 const next = e.target.value || autoBounds?.horizonTo || todayIsoLocal();
@@ -236,25 +237,26 @@ export function FlowLogisticsPage() {
             />
           </label>
           {autoBounds && (
-            <button
-              type="button"
-              className="btn btn-secondary text-sm shrink-0"
+            <Button
+              size="small"
+              className="shrink-0"
               onClick={() => {
                 setHorizonTo(autoBounds.horizonTo);
                 if (projectId) saveSandLogisticsHorizonTo(projectId, autoBounds.horizonTo);
               }}
             >
               Подставить автоматически
-            </button>
+            </Button>
           )}
-          <button
-            type="button"
-            className="btn btn-primary shrink-0"
-            disabled={!projectId || analyzeMut.isPending}
+          <Button
+            type="primary"
+            className="shrink-0"
+            disabled={!projectId}
+            loading={analyzeMut.isPending}
             onClick={() => analyzeMut.mutate()}
           >
             {analyzeMut.isPending ? 'Расчёт…' : 'Рассчитать логистику песка'}
-          </button>
+          </Button>
         </div>
       </div>
 
@@ -380,6 +382,6 @@ export function FlowLogisticsPage() {
           Нажмите «Рассчитать логистику песка», чтобы получить таблицы и диаграммы.
         </p>
       )}
-    </section>
+    </Card>
   );
 }

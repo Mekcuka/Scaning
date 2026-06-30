@@ -1,4 +1,5 @@
 import { Trash2 } from 'lucide-react';
+import { Button, Space } from 'antd';
 
 interface ObjectDetailPanelFooterProps {
   readOnly: boolean;
@@ -20,31 +21,28 @@ export function ObjectDetailPanelFooter({
   return (
     <footer className="object-detail-panel__footer">
       {!readOnly && (
-        <>
-          <button
-            type="button"
-            className="btn btn-primary object-detail-panel__save"
-            disabled={saving || !isDirty}
+        <Space>
+          <Button
+            type="primary"
+            className="object-detail-panel__save"
+            disabled={!isDirty}
+            loading={saving}
             onClick={handleSave}
             title="Сохранить (Ctrl+S)"
           >
             {saving ? 'Сохранение…' : 'Сохранить'}
-          </button>
-          <button
-            type="button"
-            className="btn btn-secondary object-detail-panel__delete"
+          </Button>
+          <Button
+            danger
+            className="object-detail-panel__delete"
             disabled={saving || deleteDisabled}
+            icon={<Trash2 size={15} />}
             onClick={onDelete}
-            title={
-              deleteDisabled
-                ? 'Удаление недоступно'
-                : 'Удалить объект'
-            }
+            title={deleteDisabled ? 'Удаление недоступно' : 'Удалить объект'}
           >
-            <Trash2 size={15} />
             Удалить
-          </button>
-        </>
+          </Button>
+        </Space>
       )}
     </footer>
   );

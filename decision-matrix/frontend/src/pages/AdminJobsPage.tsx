@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { keepPreviousData, useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { RefreshCw } from 'lucide-react';
+import { Button, Card, Input, Select, Space, Spin, Tag, Typography } from 'antd';
 import { defaultAdminJobsApi, type ProjectJobAdminItem } from '../lib/api';
 import {
   ACTIVE_JOB_STATUSES as ACTIVE_STATUSES,
@@ -38,18 +39,16 @@ function listHasActiveJobs(items: ProjectJobAdminItem[] | undefined): boolean {
   return (items ?? []).some((j) => ACTIVE_STATUSES.has(j.status));
 }
 
-function statusBadgeClass(status: string): string {
+function statusTagColor(status: string): 'success' | 'warning' | 'error' | 'default' {
   switch (status) {
     case 'completed':
-      return 'badge badge-success';
-    case 'running':
-      return 'badge badge-warning';
+      return 'success';
     case 'failed':
-      return 'badge badge-danger';
+      return 'error';
     case 'cancelled':
-      return 'badge badge-muted';
+      return 'default';
     default:
-      return 'badge badge-warning';
+      return 'warning';
   }
 }
 
@@ -168,40 +167,41 @@ export function AdminJobsPage() {
 
   return (
     <div className="page-stack">
-      <div className="card mb-4">
+      <Card className="mb-4">
         <div className="flex flex-wrap items-center justify-between gap-3 mb-3">
-          <h2 className="text-lg font-semibold">Очередь и worker</h2>
-          <div className="flex items-center gap-2">
+          <Typography.Title level={5} className="!mb-0">
+            Очередь и worker
+          </Typography.Title>
+          <Space>
             {autoRefreshing && (
-              <span className="text-xs" style={{ color: 'var(--text-muted)' }}>
+              <Typography.Text type="secondary" className="text-xs">
                 Автообновление
-              </span>
+              </Typography.Text>
             )}
-            <button type="button" className="btn btn-secondary btn-sm" onClick={refreshAll}>
-              <RefreshCw size={14} className={isRefreshing ? 'animate-spin' : ''} aria-hidden />
+            <Button size="small" onClick={refreshAll} icon={<RefreshCw size={14} className={isRefreshing ? 'animate-spin' : ''} />}>
               Обновить
-            </button>
-          </div>
+            </Button>
+          </Space>
         </div>
         <div className="flex flex-wrap gap-4 text-sm">
           <div>
-            <span style={{ color: 'var(--text-muted)' }}>Redis: </span>
-            <span className={health?.redis_ok ? 'text-green-700' : 'text-red-700'}>
+            <Typography.Text type="secondary">Redis: </Typography.Text>
+            <Typography.Text type={health?.redis_ok ? 'success' : 'danger'}>
               {health?.redis_ok ? 'доступен' : 'недоступен'}
-            </span>
+            </Typography.Text>
             {!health?.redis_ok && health?.redis_error && (
-              <span className="ml-1" style={{ color: 'var(--text-muted)' }}>
+              <Typography.Text type="secondary" className="ml-1">
                 ({health.redis_error})
-              </span>
+              </Typography.Text>
             )}
           </div>
           <div>
-            <span style={{ color: 'var(--text-muted)' }}>Очередь: </span>
+            <Typography.Text type="secondary">Очередь: </Typography.Text>
             {health?.queue_name ?? '—'}
             {health && !health.jobs_use_queue && (
-              <span className="ml-1" style={{ color: 'var(--text-muted)' }}>
+              <Typography.Text type="secondary" className="ml-1">
                 (синхронный режим)
-              </span>
+              </Typography.Text>
             )}
           </div>
         </div>
@@ -216,161 +216,152 @@ export function AdminJobsPage() {
           ))}
         </div>
         {health && !health.redis_ok && (counts.pending ?? 0) > 0 && (
-          <p className="text-sm mt-3" style={{ color: 'var(--text-muted)' }}>
+          <Typography.Paragraph type="secondary" className="text-sm mt-3 mb-0">
             Задачи в статусе «В очереди» могут не выполняться, пока Redis и worker недоступны.
-          </p>
+          </Typography.Paragraph>
         )}
-      </div>
+      </Card>
 
-      <div className="card mb-4 flex flex-wrap gap-3 items-end">
-        <label className="flex flex-col gap-1 text-sm">
-          <span style={{ color: 'var(--text-muted)' }}>Статус</span>
-          <select
-            className="input input-sm"
-            value={statusFilter}
-            onChange={(e) => setStatusFilter(e.target.value)}
-          >
-            <option value="">Все</option>
-            {JOB_STATUSES.map((s) => (
-              <option key={s} value={s}>
-                {STATUS_LABELS[s]}
-              </option>
-            ))}
-          </select>
-        </label>
-        <label className="flex flex-col gap-1 text-sm">
-          <span style={{ color: 'var(--text-muted)' }}>Тип задачи</span>
-          <select
-            className="input input-sm"
-            value={jobTypeFilter}
-            onChange={(e) => setJobTypeFilter(e.target.value)}
-          >
-            <option value="">Все</option>
-            {JOB_TYPES.map((t) => (
-              <option key={t} value={t}>
-                {jobTypeLabel(t)}
-              </option>
-            ))}
-          </select>
-        </label>
-        <label className="flex flex-col gap-1 text-sm min-w-[12rem]">
-          <span style={{ color: 'var(--text-muted)' }}>ID проекта</span>
-          <input
-            className="input input-sm"
-            placeholder="UUID проекта"
-            value={projectIdFilter}
-            onChange={(e) => setProjectIdFilter(e.target.value)}
-          />
-        </label>
-      </div>
+      <Card className="mb-4">
+        <Space wrap size="middle" align="end">
+          <label className="flex flex-col gap-1 text-sm">
+            <Typography.Text type="secondary">Статус</Typography.Text>
+            <Select
+              size="small"
+              style={{ minWidth: 140 }}
+              value={statusFilter}
+              onChange={setStatusFilter}
+              options={[
+                { value: '', label: 'Все' },
+                ...JOB_STATUSES.map((s) => ({ value: s, label: STATUS_LABELS[s] })),
+              ]}
+            />
+          </label>
+          <label className="flex flex-col gap-1 text-sm">
+            <Typography.Text type="secondary">Тип задачи</Typography.Text>
+            <Select
+              size="small"
+              style={{ minWidth: 180 }}
+              value={jobTypeFilter}
+              onChange={setJobTypeFilter}
+              options={[
+                { value: '', label: 'Все' },
+                ...JOB_TYPES.map((t) => ({ value: t, label: jobTypeLabel(t) })),
+              ]}
+            />
+          </label>
+          <label className="flex flex-col gap-1 text-sm min-w-[12rem]">
+            <Typography.Text type="secondary">ID проекта</Typography.Text>
+            <Input
+              size="small"
+              placeholder="UUID проекта"
+              value={projectIdFilter}
+              onChange={(e) => setProjectIdFilter(e.target.value)}
+            />
+          </label>
+        </Space>
+      </Card>
 
-      <div className="card overflow-x-auto">
+      <Card>
         {isLoading ? (
-          <p style={{ color: 'var(--text-muted)' }}>Загрузка...</p>
+          <Spin />
         ) : (
           <>
             <div className="flex flex-wrap items-center justify-between gap-3 mb-3">
-              <p className="text-sm" style={{ color: 'var(--text-muted)' }}>
+              <Typography.Text type="secondary" className="text-sm">
                 {totalJobs === 0
                   ? 'Показано 0 из 0'
                   : `Показано ${rangeFrom}–${rangeTo} из ${totalJobs}`}
-              </p>
+              </Typography.Text>
               {totalJobs > PAGE_SIZE && (
-                <div className="flex items-center gap-2">
-                  <button
-                    type="button"
-                    className="btn btn-secondary btn-sm"
-                    disabled={page <= 1}
-                    onClick={() => setPage((p) => Math.max(1, p - 1))}
-                  >
+                <Space>
+                  <Button size="small" disabled={page <= 1} onClick={() => setPage((p) => Math.max(1, p - 1))}>
                     Назад
-                  </button>
-                  <span className="text-sm tabular" style={{ color: 'var(--text-muted)' }}>
+                  </Button>
+                  <Typography.Text type="secondary" className="text-sm tabular">
                     Страница {page} из {totalPages}
-                  </span>
-                  <button
-                    type="button"
-                    className="btn btn-secondary btn-sm"
+                  </Typography.Text>
+                  <Button
+                    size="small"
                     disabled={page >= totalPages}
                     onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
                   >
                     Вперёд
-                  </button>
-                </div>
+                  </Button>
+                </Space>
               )}
             </div>
-            <table className="w-full text-sm">
-              <thead>
-                <tr className="border-b" style={{ borderColor: 'var(--border)' }}>
-                  <th className="text-left py-2 px-2">Создана</th>
-                  <th className="text-left py-2 px-2">Проект</th>
-                  <th className="text-left py-2 px-2">Кто</th>
-                  <th className="text-left py-2 px-2">Тип</th>
-                  <th className="text-left py-2 px-2">Статус</th>
-                  <th className="text-left py-2 px-2">Длительность</th>
-                  <th className="text-left py-2 px-2">Ошибка</th>
-                  <th className="text-left py-2 px-2">Действия</th>
-                </tr>
-              </thead>
-              <tbody>
-                {(list?.items ?? []).map((job) => {
-                  const canCancel = job.status === 'pending' || job.status === 'running';
-                  return (
-                    <tr key={job.id} className="border-b" style={{ borderColor: 'var(--border)' }}>
-                      <td className="py-2 px-2 whitespace-nowrap">{formatDt(job.created_at)}</td>
-                      <td className="py-2 px-2">
-                        <Link to={`/projects/${job.project_id}`} className="text-blue-600 hover:underline">
-                          {job.project_name || job.project_id?.slice(0, 8) || '—'}
-                        </Link>
-                      </td>
-                      <td className="py-2 px-2">
-                        <div>{job.user_email || '—'}</div>
-                        {job.user_username && (
-                          <div className="text-xs" style={{ color: 'var(--text-muted)' }}>
-                            {job.user_username}
-                          </div>
-                        )}
-                      </td>
-                      <td className="py-2 px-2">{jobTypeLabel(job.job_type)}</td>
-                      <td className="py-2 px-2">
-                        <span className={statusBadgeClass(job.status)}>
-                          {STATUS_LABELS[job.status] ?? job.status}
-                        </span>
-                      </td>
-                      <td className="py-2 px-2 whitespace-nowrap">
-                        {formatDuration(job.started_at, job.finished_at)}
-                      </td>
-                      <td className="py-2 px-2 max-w-[12rem]" title={job.error_message ?? undefined}>
-                        {truncate(job.error_message)}
-                      </td>
-                      <td className="py-2 px-2">
-                        {canCancel ? (
-                          <button
-                            type="button"
-                            className="btn btn-secondary btn-sm"
-                            disabled={cancelMutation.isPending}
-                            title="Отменить задачу"
-                            onClick={() => cancelMutation.mutate(job.id)}
-                          >
-                            Отменить
-                          </button>
-                        ) : (
-                          <span style={{ color: 'var(--text-muted)' }}>—</span>
-                        )}
-                      </td>
-                    </tr>
-                  );
-                })}
-              </tbody>
-            </table>
+            <div className="overflow-x-auto">
+              <table className="w-full text-sm">
+                <thead>
+                  <tr className="border-b" style={{ borderColor: 'var(--border)' }}>
+                    <th className="text-left py-2 px-2">Создана</th>
+                    <th className="text-left py-2 px-2">Проект</th>
+                    <th className="text-left py-2 px-2">Кто</th>
+                    <th className="text-left py-2 px-2">Тип</th>
+                    <th className="text-left py-2 px-2">Статус</th>
+                    <th className="text-left py-2 px-2">Длительность</th>
+                    <th className="text-left py-2 px-2">Ошибка</th>
+                    <th className="text-left py-2 px-2">Действия</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {(list?.items ?? []).map((job) => {
+                    const canCancel = job.status === 'pending' || job.status === 'running';
+                    return (
+                      <tr key={job.id} className="border-b" style={{ borderColor: 'var(--border)' }}>
+                        <td className="py-2 px-2 whitespace-nowrap">{formatDt(job.created_at)}</td>
+                        <td className="py-2 px-2">
+                          <Link to={`/projects/${job.project_id}`}>{job.project_name || job.project_id?.slice(0, 8) || '—'}</Link>
+                        </td>
+                        <td className="py-2 px-2">
+                          <div>{job.user_email || '—'}</div>
+                          {job.user_username && (
+                            <Typography.Text type="secondary" className="text-xs">
+                              {job.user_username}
+                            </Typography.Text>
+                          )}
+                        </td>
+                        <td className="py-2 px-2">{jobTypeLabel(job.job_type)}</td>
+                        <td className="py-2 px-2">
+                          <Tag color={statusTagColor(job.status)}>
+                            {STATUS_LABELS[job.status] ?? job.status}
+                          </Tag>
+                        </td>
+                        <td className="py-2 px-2 whitespace-nowrap">
+                          {formatDuration(job.started_at, job.finished_at)}
+                        </td>
+                        <td className="py-2 px-2 max-w-[12rem]" title={job.error_message ?? undefined}>
+                          {truncate(job.error_message)}
+                        </td>
+                        <td className="py-2 px-2">
+                          {canCancel ? (
+                            <Button
+                              size="small"
+                              disabled={cancelMutation.isPending}
+                              title="Отменить задачу"
+                              onClick={() => cancelMutation.mutate(job.id)}
+                            >
+                              Отменить
+                            </Button>
+                          ) : (
+                            <Typography.Text type="secondary">—</Typography.Text>
+                          )}
+                        </td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </div>
             {(list?.items.length ?? 0) === 0 && (
-              <p className="py-4 text-center" style={{ color: 'var(--text-muted)' }}>
+              <Typography.Paragraph type="secondary" className="py-4 text-center mb-0">
                 Задач не найдено
-              </p>
+              </Typography.Paragraph>
             )}
           </>
         )}
-      </div>
+      </Card>
     </div>
   );
 }

@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { X } from 'lucide-react';
+import { Button } from 'antd';
 
 const DISMISS_KEY = 'dev-port-banner-dismiss';
 const EXPECTED_PORT = '5173';
@@ -52,15 +53,12 @@ export function DevPortBanner() {
         </a>{' '}
         и остановите лишний dev-сервер.
       </span>
-      <button
-        type="button"
-        className="btn btn-sm btn-secondary"
+      <Button
+        size="small"
+        icon={<X size={14} />}
         onClick={dismiss}
         aria-label="Скрыть предупреждение"
-        style={{ padding: '0.25rem 0.5rem' }}
-      >
-        <X size={14} />
-      </button>
+      />
     </div>
   );
 }

@@ -1,4 +1,6 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import { Card } from 'antd';
+import { AppSelect } from '../components/AppSelect';
 import { defaultAdminUsersApi } from '../lib/api';
 import { ROLE_LABELS, type UserRole } from '../lib/permissions';
 import { useAppStore, useAuthStore } from '../store';
@@ -51,17 +53,17 @@ export function AdminUsersPage() {
             ['Проекты', stats.projects],
             ['POI', stats.pois],
           ].map(([label, value]) => (
-            <div key={label as string} className="card text-center">
+            <Card key={label as string} size="small" className="text-center">
               <div className="text-2xl font-bold">{value}</div>
               <div className="text-sm" style={{ color: 'var(--text-muted)' }}>
                 {label}
               </div>
-            </div>
+            </Card>
           ))}
         </div>
       )}
 
-      <div className="card overflow-x-auto">
+      <Card size="small" className="overflow-x-auto">
         {isLoading ? (
           <p style={{ color: 'var(--text-muted)' }}>Загрузка...</p>
         ) : (
@@ -88,19 +90,13 @@ export function AdminUsersPage() {
                     {u.project_count}
                   </td>
                   <td className="py-2 px-2 admin-users-table__col-fit">
-                    <select
-                      className="input input-sm input--fit"
+                    <AppSelect
+                      variant="sm"
+                      className="admin-users-table__role-select"
                       value={u.role}
-                      onChange={(e) =>
-                        updateMutation.mutate({ id: u.id, role: e.target.value })
-                      }
-                    >
-                      {ROLES.map((r) => (
-                        <option key={r} value={r}>
-                          {ROLE_LABELS[r]}
-                        </option>
-                      ))}
-                    </select>
+                      onChange={(role) => updateMutation.mutate({ id: u.id, role })}
+                      options={ROLES.map((r) => ({ value: r, label: ROLE_LABELS[r] }))}
+                    />
                   </td>
                   <td className="py-2 px-2 admin-users-table__col-fit">
                     <label className="flex items-center gap-2">
@@ -119,7 +115,7 @@ export function AdminUsersPage() {
             </tbody>
           </table>
         )}
-      </div>
+      </Card>
     </div>
   );
 }

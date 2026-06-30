@@ -1,4 +1,5 @@
 import { forwardRef, lazy, Suspense, useState } from 'react';
+import { Button, Space } from 'antd';
 import { MapView, type MapFocusTarget } from '../../../components/MapView';
 import type { AnalysisRow, InfraLayer, InfraObject, POI } from '../../../lib/api';
 import { isMap3dEnabled } from '../../../lib/map3d/map3dConfig';
@@ -81,22 +82,22 @@ export const OnePagerPreview = forwardRef<HTMLDivElement, Props>(function OnePag
 
         <div className="one-pager-map" data-map-capture-root>
           {map3dOn && (
-            <div className="flex gap-1 mb-1 justify-end">
-              <button
-                type="button"
-                className={`btn btn-xs ${reportMapMode === '2d' ? 'btn-primary' : 'btn-secondary'}`}
+            <Space size={4} className="mb-1 justify-end w-full">
+              <Button
+                size="small"
+                type={reportMapMode === '2d' ? 'primary' : 'default'}
                 onClick={() => setReportMapMode('2d')}
               >
                 2D
-              </button>
-              <button
-                type="button"
-                className={`btn btn-xs ${reportMapMode === '3d' ? 'btn-primary' : 'btn-secondary'}`}
+              </Button>
+              <Button
+                size="small"
+                type={reportMapMode === '3d' ? 'primary' : 'default'}
                 onClick={() => setReportMapMode('3d')}
               >
                 3D
-              </button>
-            </div>
+              </Button>
+            </Space>
           )}
           {use3d ? (
             <Suspense fallback={<div style={{ height: 220 }}>Загрузка 3D…</div>}>

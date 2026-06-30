@@ -112,7 +112,7 @@
   margin-top: 8px;
 }
 
-.object-detail-panel__actions-row .btn {
+.object-detail-panel__actions-row .ant-btn {
   width: 100%;
   min-height: 32px;
   justify-content: center;
@@ -121,7 +121,7 @@
   line-height: 1.25;
 }
 
-.object-detail-panel__actions-row .btn:nth-child(3) {
+.object-detail-panel__actions-row .ant-btn:nth-child(3) {
   grid-column: 1 / -1;
 }
 
@@ -241,7 +241,7 @@
   gap: 4px;
 }
 
-.footprint-line-connect__subtype-row .btn-sm {
+.footprint-line-connect__subtype-row .ant-btn-sm {
   flex: 1 1 auto;
   min-width: 0;
   padding-inline: 6px;

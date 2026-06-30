@@ -1,10 +1,12 @@
 import { useMemo } from 'react';
 import { Layers, LineChart, MapPin, Save, Table2 } from 'lucide-react';
-import { Link, NavLink, Outlet, useLocation } from 'react-router-dom';
+import { Outlet, useLocation, useNavigate } from 'react-router-dom';
+import { Button } from 'antd';
 
 import { AppSelect } from '../AppSelect';
 import { PageSkeleton } from '../PageSkeleton';
 import { ProjectLink } from '../ProjectLink';
+import { SubnavTabs } from './SubnavTabs';
 import { usePageHeader } from './pageHeaderContext';
 import {
   PadClusteringEditorProvider,
@@ -46,6 +48,7 @@ function PadClusteringProfileSubjectSelect() {
 function PadClusteringLayoutInner() {
   const buildPath = useProjectPathBuilder();
   const location = useLocation();
+  const navigate = useNavigate();
   const { activeProject } = useActiveProject();
   const {
     projectId,
@@ -91,20 +94,19 @@ function PadClusteringLayoutInner() {
 
   return (
     <div className="pad-clustering-layout">
-      <nav className="parameters-subnav" aria-label="Разделы кустования">
-        {SUBNAV_TABS.map(({ suffix, label, icon: Icon }) => (
-          <NavLink
-            key={suffix}
-            to={buildPath(suffix)}
-            className={({ isActive }) =>
-              `parameters-subnav__tab${isActive ? ' parameters-subnav__tab--active' : ''}`
-            }
-          >
-            <Icon size={16} aria-hidden />
-            {label}
-          </NavLink>
-        ))}
-      </nav>
+      <SubnavTabs
+        ariaLabel="Разделы кустования"
+        tabs={SUBNAV_TABS.map(({ suffix, label, icon: Icon }) => ({
+          key: suffix,
+          to: buildPath(suffix),
+          label: (
+            <span className="inline-flex items-center gap-2">
+              <Icon size={16} aria-hidden />
+              {label}
+            </span>
+          ),
+        }))}
+      />
 
       <div
         className={`pad-clustering-page${isWorkspace ? '' : ' pad-clustering-page--scroll'}`}
@@ -127,29 +129,31 @@ function PadClusteringLayoutInner() {
                 </div>
                 {isProfile && activePadId && pads.length > 0 && <PadClusteringProfileSubjectSelect />}
                 {pad && (
-                  <Link
-                    to={`/map?select=${pad.id}`}
-                    className="btn btn--ghost btn--sm pad-clustering-page__map-link"
+                  <Button
+                    type="text"
+                    size="small"
+                    icon={<MapPin size={16} aria-hidden />}
                     title="Открыть куст на карте"
+                    onClick={() => navigate(`/map?select=${pad.id}`)}
                   >
-                    <MapPin size={16} aria-hidden />
                     <span className="pad-clustering-page__map-link-label">Карта</span>
-                  </Link>
+                  </Button>
                 )}
-                <button
-                  type="button"
-                  className={`btn btn--primary btn--sm${isAnyDirty ? ' pad-clustering-page__save--dirty' : ''}`}
+                <Button
+                  type="primary"
+                  size="small"
+                  icon={<Save size={16} aria-hidden />}
                   disabled={readOnly || !activePadId || savePadMut.isPending}
                   onClick={() => savePadMut.mutate()}
                   title={isAnyDirty ? 'Есть несохранённые изменения' : 'Сохранить параметры куста'}
+                  className={isAnyDirty ? 'pad-clustering-page__save--dirty' : undefined}
                 >
-                  <Save size={16} aria-hidden />
                   {savePadMut.isPending
                     ? 'Сохранение…'
                     : isAnyDirty
                       ? 'Сохранить *'
                       : 'Сохранить'}
-                </button>
+                </Button>
               </div>
             </header>
           </div>

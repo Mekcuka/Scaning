@@ -1,3 +1,4 @@
+import { Button, Space } from 'antd';
 import { AppModal } from './AppModal';
 import type { Project } from '../lib/api';
 
@@ -24,25 +25,20 @@ export function DeleteProjectConfirmModal({
       size="sm"
       closeOnBackdrop={!isPending}
       footer={
-        <>
-          <button
-            type="button"
-            className="btn btn-secondary"
-            onClick={onClose}
-            disabled={isPending}
-          >
+        <Space>
+          <Button onClick={onClose} disabled={isPending}>
             Отмена
-          </button>
-          <button
-            type="button"
-            className="btn btn-primary"
+          </Button>
+          <Button
+            type="primary"
+            danger
             data-testid="delete-project-confirm"
             onClick={onConfirm}
-            disabled={isPending}
+            loading={isPending}
           >
             {isPending ? 'Удаление…' : 'Удалить'}
-          </button>
-        </>
+          </Button>
+        </Space>
       }
     >
       <p className="text-sm mb-2">

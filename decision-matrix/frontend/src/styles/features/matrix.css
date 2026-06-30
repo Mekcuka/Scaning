@@ -409,7 +409,7 @@ table.data-table--projects .col-actions {
   white-space: nowrap;
 }
 
-.projects-table-card > .card-header .btn {
+.projects-table-card > .card-header .ant-btn {
   flex-shrink: 0;
   white-space: nowrap;
 }

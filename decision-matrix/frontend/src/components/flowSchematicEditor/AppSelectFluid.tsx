@@ -1,5 +1,6 @@
 import type { FluidKind } from '../../lib/flowSchematic';
 import { FLUID_LABELS } from '../../lib/flowSchematic';
+import { AppSelect } from '../AppSelect';
 
 export function AppSelectFluid({
   value,
@@ -9,17 +10,16 @@ export function AppSelectFluid({
   onChange: (f: FluidKind) => void;
 }) {
   return (
-    <select
-      className="input input-sm w-full"
+    <AppSelect
+      variant="sm"
+      fullWidth
       value={value}
-      onChange={(e) => onChange(e.target.value as FluidKind)}
+      onChange={(v) => onChange(v as FluidKind)}
       title="Тип флюида для новой связи"
-    >
-      {(['oil', 'water', 'gas'] as const).map((f) => (
-        <option key={f} value={f}>
-          {FLUID_LABELS[f]}
-        </option>
-      ))}
-    </select>
+      options={(['oil', 'water', 'gas'] as const).map((f) => ({
+        value: f,
+        label: FLUID_LABELS[f],
+      }))}
+    />
   );
 }

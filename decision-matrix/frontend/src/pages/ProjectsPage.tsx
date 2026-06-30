@@ -2,6 +2,7 @@ import { useMemo, useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { Link } from 'react-router-dom';
 import { Plus, Trash2 } from 'lucide-react';
+import { Button, Card, Form, Input, Space, Spin } from 'antd';
 import { defaultProjectsListApi, defaultProjectsWriteApi, type Project } from '../lib/api';
 import { queryKeys } from '../lib/queryKeys';
 import { normalizeProjectsList } from '../lib/normalizeProjectsList';
@@ -102,25 +103,25 @@ export function ProjectsPage() {
   return (
     <div className="projects-page">
       {isLoading ? (
-        <p style={{ color: 'var(--text-muted)' }}>Загрузка…</p>
+        <Spin />
       ) : (
         <>
-          <div className="card card--flush projects-table-card">
+          <Card className="projects-table-card" styles={{ body: { padding: 0 } }}>
             <ProjectsTableCardHeader
               title="Таблица проектов"
               search={projectSearch}
               onSearchChange={setProjectSearch}
               actions={
                 canCreateProject ? (
-                  <button
-                    type="button"
-                    className="btn btn-primary btn-sm"
+                  <Button
+                    type="primary"
+                    size="small"
                     aria-label="Новый проект"
+                    icon={<Plus size={14} className="projects-table-card__btn-icon" />}
                     onClick={() => setShowForm(true)}
                   >
-                    <Plus size={14} className="inline projects-table-card__btn-icon" />
                     <span className="projects-table-card__btn-label">Новый</span>
-                  </button>
+                  </Button>
                 ) : null
               }
             />
@@ -213,24 +214,18 @@ export function ProjectsPage() {
                         </td>
                         <td className="col-actions">
                           <div className="projects-table-actions">
-                            <Link
-                              to={`/projects/${p.id}`}
-                              className="btn btn-secondary btn-sm"
-                              onClick={() => openProject(p)}
-                            >
-                              Открыть
+                            <Link to={`/projects/${p.id}`} onClick={() => openProject(p)}>
+                              <Button size="small">Открыть</Button>
                             </Link>
                             {canDeleteProject(currentUser?.role, currentUser?.id, p) && (
-                            <button
-                              type="button"
-                              className="btn btn-secondary btn-sm p-2"
-                              onClick={(e) => openDeleteDialog(p, e)}
-                              disabled={deleteMut.isPending}
-                              title="Удалить проект"
-                              aria-label={`Удалить ${p.name}`}
-                            >
-                              <Trash2 size={14} className="text-red-600" />
-                            </button>
+                              <Button
+                                size="small"
+                                icon={<Trash2 size={14} className="text-red-600" />}
+                                onClick={(e) => openDeleteDialog(p, e)}
+                                disabled={deleteMut.isPending}
+                                title="Удалить проект"
+                                aria-label={`Удалить ${p.name}`}
+                              />
                             )}
                           </div>
                         </td>
@@ -240,7 +235,7 @@ export function ProjectsPage() {
                 </table>
               )}
             </div>
-          </div>
+          </Card>
         </>
       )}
       {showForm && canCreateProject ? (
@@ -249,24 +244,20 @@ export function ProjectsPage() {
           onClose={closeCreateModal}
           size="sm"
           footer={
-            <>
-              <button
-                type="button"
-                className="btn btn-secondary"
-                onClick={closeCreateModal}
-                disabled={createMut.isPending}
-              >
+            <Space>
+              <Button onClick={closeCreateModal} disabled={createMut.isPending}>
                 Отмена
-              </button>
-              <button
-                type="submit"
+              </Button>
+              <Button
+                type="primary"
+                htmlType="submit"
                 form="new-project-form"
-                className="btn btn-primary"
-                disabled={!name.trim() || createMut.isPending}
+                disabled={!name.trim()}
+                loading={createMut.isPending}
               >
                 {createMut.isPending ? 'Создание…' : 'Создать'}
-              </button>
-            </>
+              </Button>
+            </Space>
           }
         >
           <form
@@ -277,24 +268,22 @@ export function ProjectsPage() {
               createMut.mutate();
             }}
           >
-            <div className="form-group">
-              <label htmlFor="new-project-name">Название</label>
-              <input
+            <Form.Item label="Название" htmlFor="new-project-name" className="mb-3">
+              <Input
                 id="new-project-name"
                 value={name}
                 required
                 onChange={(e) => setName(e.target.value)}
               />
-            </div>
-            <div className="form-group mb-0">
-              <label htmlFor="new-project-description">Описание</label>
-              <textarea
+            </Form.Item>
+            <Form.Item label="Описание" htmlFor="new-project-description" className="mb-0">
+              <Input.TextArea
                 id="new-project-description"
                 value={description}
                 onChange={(e) => setDescription(e.target.value)}
                 rows={3}
               />
-            </div>
+            </Form.Item>
           </form>
         </AppModal>
       ) : null}

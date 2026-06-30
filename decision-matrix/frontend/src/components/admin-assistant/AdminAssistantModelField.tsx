@@ -1,3 +1,6 @@
+import { Input } from 'antd';
+import { AppSelect } from '../AppSelect';
+
 const CUSTOM_MODEL = '__custom__';
 
 type Props = {
@@ -14,8 +17,8 @@ export function AdminAssistantModelField({ value, options, disabled, onChange }:
 
   if (!hasList) {
     return (
-      <input
-        className="input input--mono"
+      <Input
+        className="input--mono"
         value={value}
         onChange={(e) => onChange(e.target.value)}
         placeholder="openai/gpt-4o-mini"
@@ -26,32 +29,31 @@ export function AdminAssistantModelField({ value, options, disabled, onChange }:
     );
   }
 
+  const selectOptions = [
+    { value: '', label: '— выберите модель —' },
+    ...options.map((m) => ({ value: m, label: m })),
+    { value: CUSTOM_MODEL, label: 'Другая модель…' },
+  ];
+
   return (
     <div className="admin-assistant-model-field">
-      <select
-        className="input input--mono"
+      <AppSelect
+        className="input--mono"
         value={selectValue}
-        onChange={(e) => {
-          const next = e.target.value;
+        disabled={disabled}
+        fullWidth
+        onChange={(next) => {
           if (next === CUSTOM_MODEL) {
             if (inList) onChange('');
             return;
           }
           onChange(next);
         }}
-        disabled={disabled}
-      >
-        <option value="">— выберите модель —</option>
-        {options.map((m) => (
-          <option key={m} value={m}>
-            {m}
-          </option>
-        ))}
-        <option value={CUSTOM_MODEL}>Другая модель…</option>
-      </select>
+        options={selectOptions}
+      />
       {(selectValue === CUSTOM_MODEL || (value && !inList)) && (
-        <input
-          className="input input--mono"
+        <Input
+          className="input--mono"
           value={value}
           onChange={(e) => onChange(e.target.value)}
           placeholder="имя модели в провайдере"

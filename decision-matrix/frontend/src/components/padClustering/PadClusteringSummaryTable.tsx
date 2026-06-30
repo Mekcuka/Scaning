@@ -1,5 +1,6 @@
 import { useMemo, useState } from 'react';
 import { Search } from 'lucide-react';
+import { Button, Input } from 'antd';
 
 import type { TransposedSummaryTable } from '../../lib/padClusteringSummaryRows';
 import {
@@ -183,9 +184,8 @@ export function PadClusteringSummaryTable({
         <div className="pad-clustering-summary__toolbar">
           <label className="pad-clustering-summary__search">
             <Search size={15} aria-hidden />
-            <input
+            <Input
               type="search"
-              className="input"
               placeholder="Поиск по таблице…"
               value={search}
               onChange={(event) => setSearch(event.target.value)}
@@ -197,13 +197,13 @@ export function PadClusteringSummaryTable({
               Показано {visibleRows.length} из {table.rows.length}
             </span>
             {filtersActive ? (
-              <button
-                type="button"
-                className="btn btn--secondary btn--sm pad-clustering-summary__reset"
+              <Button
+                size="small"
+                className="pad-clustering-summary__reset"
                 onClick={resetFilters}
               >
                 Сбросить
-              </button>
+              </Button>
             ) : null}
           </div>
         </div>

@@ -37,7 +37,7 @@ export function PoiCreateNumberField({
         <DeferredNumberInput
           min={min}
           integer={integer}
-          className="input poi-create-form__num-input"
+          className="poi-create-form__num-input"
           value={fieldValue}
           onCommit={(v) => onCommit(v as number)}
         />

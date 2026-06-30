@@ -1,7 +1,16 @@
+/**
+ * Пресеты качества 3D-слоя (Three.js): плотность геометрии линий/труб, viewport culling, GPU instancing.
+ * Точечные glTF-модели не упрощаются по пресету — качество влияет в основном на линии и ЛЭП.
+ */
 export type Map3dQuality = 'full' | 'balanced' | 'performance';
 
+/** Пресет по умолчанию в UI и слоях карты. */
 export const DEFAULT_MAP3D_QUALITY: Map3dQuality = 'balanced';
 
+/**
+ * Верхняя граница сегментов вдоль оси трубы (TubeGeometry).
+ * full — гладкие длинные трассы; performance — жёсткий потолок для FPS.
+ */
 export function tubeSegmentCapForQuality(quality: Map3dQuality): number {
   switch (quality) {
     case 'full':
@@ -15,6 +24,7 @@ export function tubeSegmentCapForQuality(quality: Map3dQuality): number {
   }
 }
 
+/** Минимум сегментов вдоль трубы даже на коротком участке (избегаем «ломаных» углов). */
 export function tubeMinSegmentsForQuality(quality: Map3dQuality): number {
   switch (quality) {
     case 'full':
@@ -28,7 +38,7 @@ export function tubeMinSegmentsForQuality(quality: Map3dQuality): number {
   }
 }
 
-/** Meters per tubular segment along the path — lower quality = coarser. */
+/** Шаг вдоль пути, м на один сегмент трубы — чем грубее пресет, тем реже точки по длине. */
 export function tubeLengthStepMForQuality(quality: Map3dQuality): number {
   switch (quality) {
     case 'full':
@@ -42,6 +52,10 @@ export function tubeLengthStepMForQuality(quality: Map3dQuality): number {
   }
 }
 
+/**
+ * Радиальные сегменты поперечного сечения трубы (окружность).
+ * balanced ≈ 55% от базового каталога; performance фиксирует 4 (минимально читаемый круг).
+ */
 export function tubeRadialSegmentsForQuality(base: number, quality: Map3dQuality): number {
   const n = Math.max(4, base);
   switch (quality) {
@@ -56,6 +70,10 @@ export function tubeRadialSegmentsForQuality(base: number, quality: Map3dQuality
   }
 }
 
+/**
+ * Число сегментов трубы по длине пути: clamp(minSeg, ceil(length/step), cap).
+ * Используется для линий инфраструктуры и траекторий скважин.
+ */
 export function computeLineTubeSegmentCount(
   pathLengthM: number,
   quality: Map3dQuality,
@@ -66,6 +84,10 @@ export function computeLineTubeSegmentCount(
   return Math.max(minSeg, Math.min(cap, Math.ceil(Math.max(1, pathLengthM) / step)));
 }
 
+/**
+ * Сегменты провода ЛЭП вдоль пролёта (кривая провисания).
+ * Делитель в ceil(len/divisor): full 5 м, balanced 12 м, performance 28 м; границы min/max на пресет.
+ */
 export function powerLineWireSegmentsForQuality(spanLenM: number, quality: Map3dQuality): number {
   const len = Math.max(1, spanLenM);
   switch (quality) {
@@ -80,6 +102,7 @@ export function powerLineWireSegmentsForQuality(spanLenM: number, quality: Map3d
   }
 }
 
+/** Радиальные сегменты цилиндра провода ЛЭП (толщина «жилы» в сечении). */
 export function powerLineWireRadialForQuality(quality: Map3dQuality): number {
   switch (quality) {
     case 'full':
@@ -93,25 +116,35 @@ export function powerLineWireRadialForQuality(quality: Map3dQuality): number {
   }
 }
 
-/** Viewport culling: off on «Полное», on for lighter presets (see data-model.md). */
+/**
+ * Viewport culling: выключен на «Полное» (full), включён на balanced/performance.
+ * Объекты вне видимой области MapLibre не попадают в draw-call (см. map3dViewportCull).
+ */
 export function cullingEnabledForQuality(quality: Map3dQuality): boolean {
   return quality !== 'full';
 }
 
 /**
- * GPU instancing for repeated bundled glTF (target: «Полное»).
- * Временно выключено: instanced-путь давал артефакты на точечных моделях
+ * GPU instancing для повторяющихся bundled glTF (целевой режим — пресет full).
+ * Временно выключено на всех пресетах: instanced-путь давал артефакты на точечных моделях
  * (нулевые матрицы culled-инстансов, merge без vertex colors).
  */
 export function instancingEnabledForQuality(_quality: Map3dQuality): boolean {
   return false;
 }
 
-/** Full preset: no depth bias on models (original sharp shading). */
+/**
+ * Polygon offset на моделях (смещение depth для борьбы с z-fighting).
+ * Сейчас отключён на всех пресетах — исходное резкое затенение без bias.
+ */
 export function modelUsesPolygonOffset(_quality: Map3dQuality): boolean {
   return false;
 }
 
+/**
+ * Выбор представления точки: glTF из каталога или процедурная заглушка.
+ * zoom/quality зарезервированы под LOD; пока при наличии glTF всегда glTF.
+ */
 export function resolveModelRepresentation(
   _zoom: number,
   _quality: Map3dQuality,
@@ -121,7 +154,7 @@ export function resolveModelRepresentation(
   return 'gltf';
 }
 
-/** Point models: original vertex palette at every preset (quality affects lines only). */
+/** Точечные модели: исходная палитра вершин на любом пресете (flat shading не применяется). */
 export function modelUsesFlatShading(_quality: Map3dQuality): boolean {
   return false;
 }

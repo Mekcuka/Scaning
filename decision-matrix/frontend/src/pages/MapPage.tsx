@@ -1,3 +1,4 @@
+import { Card } from 'antd';
 import { DevPortBanner } from '../components/DevPortBanner';
 import { usePageHeader } from '../components/layout/pageHeaderContext';
 import { useMapPageOrchestrator } from '../hooks/useMapPageOrchestrator';
@@ -23,7 +24,10 @@ export function MapPage() {
 
       <DevPortBanner />
 
-      <div className="card map-page-card flex flex-1 flex-col min-h-0 overflow-hidden">
+      <Card
+        className="card--flush map-page-card flex flex-1 flex-col min-h-0 overflow-hidden"
+        styles={{ body: { padding: 0, flex: 1, minHeight: 0, display: 'flex', flexDirection: 'column' } }}
+      >
         <MapPageToolbar {...sections.toolbar} />
 
         <div className="map-layout">
@@ -38,7 +42,7 @@ export function MapPage() {
             <MapPageFooter {...sections.footer} />
           </div>
         </div>
-      </div>
+      </Card>
 
       {autoroadConfirmModal}
       {lineSplitConfirmModal}

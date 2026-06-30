@@ -1,4 +1,5 @@
 import { ClipboardPaste, Copy, PenLine, Scissors, Trash2, Undo2 } from 'lucide-react';
+import { Button } from 'antd';
 
 export type MapPageToolbarEditGroupProps = {
   mapEditEnabled: boolean;
@@ -39,9 +40,11 @@ export function MapPageToolbarEditGroup({
 }: MapPageToolbarEditGroupProps) {
   return (
     <div className="map-tools-group map-tools-group--edit">
-      <button
-        type="button"
-        className={`btn btn-sm map-tool-btn ${mapEditEnabled ? 'btn-primary active' : 'btn-secondary'}`}
+      <Button
+        size="small"
+        type={mapEditEnabled ? 'primary' : 'default'}
+        className={`map-tool-btn ${mapEditEnabled ? 'active' : ''}`}
+        icon={<PenLine size={14} />}
         title={
           !canEditMap
             ? 'Редактирование недоступно в режиме просмотра'
@@ -54,52 +57,47 @@ export function MapPageToolbarEditGroup({
         }
         disabled={!canEditMap || mapIn3d}
         onClick={onToggleMapEdit}
-      >
-        <PenLine size={14} />
-      </button>
-      <button
-        type="button"
-        className="btn btn-sm map-tool-btn btn-secondary"
+      />
+      <Button
+        size="small"
+        className="map-tool-btn"
+        icon={<Undo2 size={14} />}
         title="Отменить последнее действие (Ctrl+Z)"
         aria-label="Отменить"
         disabled={!canEditMap || !canUndo}
         onClick={onUndo}
-      >
-        <Undo2 size={14} />
-      </button>
-      <button
-        type="button"
-        className="btn btn-sm map-tool-btn btn-secondary"
+      />
+      <Button
+        size="small"
+        className="map-tool-btn"
+        icon={<Copy size={14} />}
         title="Копировать (Ctrl+C)"
         aria-label="Копировать"
         disabled={!canCopy}
         onClick={onCopy}
-      >
-        <Copy size={14} />
-      </button>
-      <button
-        type="button"
-        className="btn btn-sm map-tool-btn btn-secondary"
+      />
+      <Button
+        size="small"
+        className="map-tool-btn"
+        icon={<ClipboardPaste size={14} />}
         title="Вставить (Ctrl+V)"
         aria-label="Вставить"
         disabled={!canPaste}
         onClick={onPaste}
-      >
-        <ClipboardPaste size={14} />
-      </button>
-      <button
-        type="button"
-        className="btn btn-sm map-tool-btn btn-secondary"
+      />
+      <Button
+        size="small"
+        className="map-tool-btn"
+        icon={<Scissors size={14} />}
         title="Вырезать (Ctrl+X)"
         aria-label="Вырезать"
         disabled={!canCut}
         onClick={onCut}
-      >
-        <Scissors size={14} />
-      </button>
-      <button
-        type="button"
-        className="btn btn-sm map-tool-btn btn-secondary"
+      />
+      <Button
+        size="small"
+        className="map-tool-btn"
+        icon={<Trash2 size={14} />}
         title={
           !canDelete
             ? selectedOnMapCount === 0
@@ -108,11 +106,10 @@ export function MapPageToolbarEditGroup({
             : `Удалить выбранные объекты (${selectedOnMapCount})`
         }
         disabled={!canDelete || selectedOnMapCount === 0 || deletePending}
+        loading={deletePending}
         aria-label="Удалить выбранное"
         onClick={onDelete}
-      >
-        <Trash2 size={14} />
-      </button>
+      />
     </div>
   );
 }

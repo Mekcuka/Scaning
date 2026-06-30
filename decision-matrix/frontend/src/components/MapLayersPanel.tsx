@@ -1,5 +1,6 @@
 import { useMemo, useState, type ReactNode } from 'react';
 import { ChevronDown, ChevronRight, Gauge, Sparkles, X, Zap } from 'lucide-react';
+import { Button } from 'antd';
 import {
   BOTTOMHOLE_LAYER_SUBTYPES,
   BOTTOMHOLE_LAYER_UI_ENTRIES,
@@ -413,14 +414,14 @@ export function MapLayersPanel({
       <div className="map-layers-panel-head">
         <h3 className="map-layers-panel-title">Слои</h3>
         {onClose ? (
-          <button
-            type="button"
-            className="btn btn-ghost p-1 shrink-0 map-layers-close"
+          <Button
+            type="text"
+            size="small"
+            className="map-layers-close shrink-0"
             aria-label="Закрыть"
+            icon={<X size={15} strokeWidth={1.75} />}
             onClick={onClose}
-          >
-            <X size={15} strokeWidth={1.75} />
-          </button>
+          />
         ) : null}
       </div>
 

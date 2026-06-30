@@ -1,4 +1,5 @@
 import { Zap } from 'lucide-react';
+import { Button } from 'antd';
 
 export type MapPageAnalyzeActionsProps = {
   projectId: string | null;
@@ -28,26 +29,27 @@ export function MapPageAnalyzeActions({
   if (showSplit) {
     return (
       <div className="map-analyze-split" role="group" aria-label="Анализ окружения">
-        <button
-          type="button"
-          className="btn btn-primary map-analyze-split__segment map-analyze-split__segment--left shrink-0"
+        <Button
+          type="primary"
+          className="map-analyze-split__segment map-analyze-split__segment--left shrink-0"
+          icon={<Zap size={16} className="map-analyze-split__icon" aria-hidden />}
+          loading={analyzePending}
           onClick={onAnalyzeAll}
-          disabled={analyzePending}
           title={`Пересчитать анализ для всех ${poisCount} точек интереса`}
         >
-          <Zap size={16} className="map-analyze-split__icon" aria-hidden />
           <span className="map-analyze-label">
             {analyzePending ? 'Расчёт…' : `Все точки (${poisCount})`}
           </span>
           <span className="map-analyze-label-short">
             {analyzePending ? '…' : `Все (${poisCount})`}
           </span>
-        </button>
-        <button
-          type="button"
-          className="btn btn-primary map-analyze-split__segment map-analyze-split__segment--right shrink-0"
+        </Button>
+        <Button
+          type="primary"
+          className="map-analyze-split__segment map-analyze-split__segment--right shrink-0"
+          loading={analyzePending}
+          disabled={!selectedPoiId}
           onClick={onAnalyzeSelected}
-          disabled={!selectedPoiId || analyzePending}
           title={
             selectedPoiName
               ? `Анализ только для «${selectedPoiName}»`
@@ -60,25 +62,25 @@ export function MapPageAnalyzeActions({
           <span className="map-analyze-label-short">
             {analyzePending ? '…' : 'Выбранная'}
           </span>
-        </button>
+        </Button>
       </div>
     );
   }
 
   return (
-    <button
-      type="button"
-      className="btn btn-primary shrink-0"
+    <Button
+      type="primary"
+      className="shrink-0"
+      icon={<Zap size={16} aria-hidden />}
+      loading={analyzePending}
       onClick={onAnalyzeAll}
-      disabled={analyzePending}
       title="Пересчитать анализ окружения"
     >
-      <Zap size={16} className="inline mr-1" aria-hidden />
       <span className="map-analyze-label">
         {analyzePending ? 'Расчёт…' : 'Анализировать окружение'}
       </span>
       <span className="map-analyze-label-short">{analyzePending ? '…' : 'Анализ'}</span>
-    </button>
+    </Button>
   );
 }
 

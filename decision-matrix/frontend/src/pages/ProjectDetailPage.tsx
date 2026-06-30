@@ -1,4 +1,5 @@
 import { useParams, Link } from 'react-router-dom';
+import { Button, Card } from 'antd';
 import { projectPath } from '../lib/projectRoutes';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useState, useEffect } from 'react';
@@ -156,20 +157,19 @@ export function ProjectDetailPage() {
       <div className="page-toolbar page-toolbar--actions-only">
         <div className="page-toolbar-actions">
           {pois.length > 0 && canWriteProject && (
-            <button
-              type="button"
-              className="btn btn-primary"
+            <Button
+              type="primary"
+              icon={<Zap size={16} />}
+              loading={analyzeMut.isPending}
               onClick={() => analyzeMut.mutate()}
-              disabled={analyzeMut.isPending}
               title={
                 pois.length > 1
                   ? `Пересчитать анализ для всех ${pois.length} точек`
                   : 'Пересчитать анализ окружения'
               }
             >
-              <Zap size={16} className="inline mr-1" />
               {analyzeMut.isPending ? 'Расчёт…' : analyzeLabel}
-            </button>
+            </Button>
           )}
         </div>
       </div>
@@ -196,7 +196,11 @@ export function ProjectDetailPage() {
       </nav>
 
       <div className="project-detail-grid">
-        <aside className="card card--flush project-detail-sidebar" aria-label="Точки интереса">
+        <Card
+          className="card--flush project-detail-sidebar"
+          styles={{ body: { padding: 0 } }}
+          aria-label="Точки интереса"
+        >
           <div className="card-header">
             <h2>Точки интереса</h2>
             <span className="project-detail-sidebar__count">{pois.length}</span>
@@ -204,8 +208,8 @@ export function ProjectDetailPage() {
           {pois.length === 0 ? (
             <div className="project-detail-empty">
               <p>Нет точек интереса в этом проекте.</p>
-              <Link to={projectHref('/map')} className="btn btn-secondary btn-sm">
-                Добавить на карте
+              <Link to={projectHref('/map')}>
+                <Button size="small">Добавить на карте</Button>
               </Link>
             </div>
           ) : (
@@ -243,19 +247,19 @@ export function ProjectDetailPage() {
               })}
             </ul>
           )}
-        </aside>
+        </Card>
 
         <main className="project-detail-main">
           {pois.length === 0 || !selectedPoi ? (
-            <div className="card project-detail-empty project-detail-empty--panel">
+            <Card size="small" className="project-detail-empty project-detail-empty--panel">
               <p>
                 {pois.length === 0
                   ? 'Создайте точку интереса на карте, чтобы настроить параметры и запустить анализ.'
                   : 'Выберите точку интереса в списке слева.'}
               </p>
-            </div>
+            </Card>
           ) : (
-            <div className="card card--flush project-detail-panel object-detail-panel">
+            <Card className="card--flush project-detail-panel object-detail-panel" styles={{ body: { padding: 0 } }}>
               <header className="project-detail-panel__header">
                 <div className="project-detail-panel__header-text">
                   <h2 className="project-detail-panel__title">{selectedPoi.name}</h2>
@@ -272,9 +276,10 @@ export function ProjectDetailPage() {
                     </span>
                   </div>
                 </div>
-                <Link to={projectHref('/map')} className="btn btn-secondary btn-sm project-detail-panel__map-link">
-                  <MapPin size={14} aria-hidden />
-                  На карте
+                <Link to={projectHref('/map')}>
+                  <Button size="small" className="project-detail-panel__map-link" icon={<MapPin size={14} aria-hidden />}>
+                    На карте
+                  </Button>
                 </Link>
               </header>
 
@@ -357,22 +362,22 @@ export function ProjectDetailPage() {
                       <div className="project-detail-empty project-detail-empty--compact">
                         <p>Анализ окружения не выполнен для этой точки.</p>
                         {canWriteProject && (
-                          <button
-                            type="button"
-                            className="btn btn-primary btn-sm"
+                          <Button
+                            type="primary"
+                            size="small"
+                            icon={<Zap size={14} />}
+                            loading={analyzeMut.isPending}
                             onClick={() => analyzeMut.mutate()}
-                            disabled={analyzeMut.isPending}
                           >
-                            <Zap size={14} className="inline mr-1" />
                             {analyzeMut.isPending ? 'Расчёт…' : 'Анализировать окружение'}
-                          </button>
+                          </Button>
                         )}
                       </div>
                     )}
                   </div>
                 )}
               </div>
-            </div>
+            </Card>
           )}
         </main>
       </div>

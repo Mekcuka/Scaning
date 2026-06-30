@@ -2,6 +2,7 @@ import { useMemo, useState } from 'react';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { ProjectLink } from '../components/ProjectLink';
 import { MapPin, Search } from 'lucide-react';
+import { Button, Card, Input } from 'antd';
 import { SUBTYPE_LABELS, defaultMapMutationsApi, type InfraObject } from '../lib/api';
 import { padEarthworkApi } from '../lib/api/padEarthworkApi';
 import {
@@ -115,9 +116,9 @@ export function EarthworkParametersPage() {
   if (!projectId) {
     return (
       <div className="parameters-page">
-        <div className="card text-sm" style={{ color: 'var(--text-muted)' }}>
+        <Card size="small" className="text-sm" style={{ color: 'var(--text-muted)' }}>
           Выберите проект в шапке приложения.
-        </div>
+        </Card>
       </div>
     );
   }
@@ -130,19 +131,19 @@ export function EarthworkParametersPage() {
             ? 'Сохранение при выходе из поля или Enter. Схема контура и расчёт объёмов — на карте, вкладка «Логистика».'
             : 'Просмотр параметров площадки объектов'}
         </p>
-        <ProjectLink to="/map" className="btn btn-secondary btn-sm shrink-0">
-          <MapPin size={14} className="inline mr-1" />
-          Открыть карту
+        <ProjectLink to="/map">
+          <Button size="small" className="shrink-0" icon={<MapPin size={14} />}>
+            Открыть карту
+          </Button>
         </ProjectLink>
       </div>
 
-      <div className="card card--flush parameters-card">
+      <Card className="card--flush parameters-card" styles={{ body: { padding: 0 } }}>
         <div className="parameters-toolbar">
           <label className="parameters-search">
             <Search size={16} aria-hidden />
-            <input
+            <Input
               type="search"
-              className="input"
               placeholder="Поиск по названию или подтипу…"
               value={search}
               onChange={(e) => setSearch(e.target.value)}
@@ -197,7 +198,7 @@ export function EarthworkParametersPage() {
                             allowEmpty
                             min={col.min}
                             max={col.max}
-                            className="input parameters-table__input"
+                            className="parameters-table__input"
                             placeholder="—"
                             value={padParamDisplayValue(obj, col.field)}
                             readOnly={!canWriteProject}
@@ -218,7 +219,7 @@ export function EarthworkParametersPage() {
             </table>
           </div>
         )}
-      </div>
+      </Card>
     </div>
   );
 }

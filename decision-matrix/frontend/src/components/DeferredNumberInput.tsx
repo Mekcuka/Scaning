@@ -1,4 +1,5 @@
 import { useEffect, useState, type KeyboardEvent } from 'react';
+import { Input } from 'antd';
 
 export type DeferredNumberInputProps = {
   value: number | string;
@@ -38,7 +39,7 @@ function formatDraft(value: number | string, groupDigits?: boolean): string {
 
 function parseDraft(
   raw: string,
-  options: { allowEmpty?: boolean; integer?: boolean; min?: number; max?: number }
+  options: { allowEmpty?: boolean; integer?: boolean; min?: number; max?: number },
 ): number | string | null {
   const trimmed = raw.trim();
   if (trimmed === '') return options.allowEmpty ? '' : null;
@@ -101,28 +102,17 @@ export function DeferredNumberInput({
     setEditing(false);
   };
 
-  if (readOnly || disabled) {
-    return (
-      <input
-        type="text"
-        readOnly
-        disabled={disabled}
-        className={className}
-        title={title}
-        value={formatDraft(value, groupDigits)}
-      />
-    );
-  }
-
   return (
-    <input
+    <Input
       type="text"
       inputMode="decimal"
       className={className}
       placeholder={placeholder}
       title={title}
       value={draft}
-      onFocus={() => setEditing(true)}
+      readOnly={readOnly}
+      disabled={disabled}
+      onFocus={() => !readOnly && !disabled && setEditing(true)}
       onChange={(e) => setDraft(e.target.value)}
       onBlur={commit}
       onKeyDown={(e) => {

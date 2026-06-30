@@ -1,4 +1,5 @@
 import { History } from 'lucide-react';
+import { Card } from 'antd';
 import type { ImportLog } from '../../lib/api';
 
 type Props = {
@@ -8,7 +9,7 @@ type Props = {
 
 export function ImportHistorySection({ history, isLoading }: Props) {
   return (
-    <section className="import-history card">
+    <Card size="small" className="import-history">
       <div className="import-history__head">
         <span className="import-history__icon" aria-hidden>
           <History size={20} />
@@ -52,6 +53,6 @@ export function ImportHistorySection({ history, isLoading }: Props) {
           </tbody>
         </table>
       </div>
-    </section>
+    </Card>
   );
 }

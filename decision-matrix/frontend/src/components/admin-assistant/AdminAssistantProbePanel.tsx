@@ -1,5 +1,5 @@
 import { ChevronDown, Loader2 } from 'lucide-react';
-
+import { Card } from 'antd';
 import type { AssistantLlmProbeDetail, AssistantLlmProbeSlice } from '../../lib/api';
 
 function statusChip(slice: AssistantLlmProbeSlice) {
@@ -60,7 +60,7 @@ export function AdminAssistantProbePanel({
   onFixEmbeddings,
 }: Props) {
   return (
-    <section className="admin-assistant-probe-panel card">
+    <Card size="small" className="admin-assistant-probe-panel">
       <button
         type="button"
         className="admin-assistant-probe-panel__toggle"
@@ -127,6 +127,6 @@ export function AdminAssistantProbePanel({
           )}
         </div>
       )}
-    </section>
+    </Card>
   );
 }

@@ -13,6 +13,7 @@ import {
 } from '@xyflow/react';
 import '@xyflow/react/dist/style.css';
 import { LayoutGrid, MousePointer2 } from 'lucide-react';
+import { Button } from 'antd';
 import { FlowSchematicEditPanel } from './FlowSchematicEditPanel';
 import type { EconomicFlowSchematicDto, EconomicNodeData } from '../lib/economicFlowSchematic';
 import {
@@ -200,10 +201,16 @@ function EconomicFlowSchematicInner({ schematic }: { schematic: EconomicFlowSche
         >
           <div className="flow-schematic-edit-panel-section">
             <span className="flow-schematic-edit-panel-label">Инструмент</span>
-            <button type="button" className="btn btn-sm btn-primary w-full justify-start" disabled>
-              <MousePointer2 size={16} />
+            <Button
+              type="primary"
+              size="small"
+              block
+              className="justify-start"
+              disabled
+              icon={<MousePointer2 size={16} />}
+            >
               Выбор
-            </button>
+            </Button>
             <p className="flow-schematic-edit-panel-hint">
               ЛКМ по полю — перемещение. Shift + ЛКМ — рамка выделения. Перетаскивайте блоки для
               удобства просмотра.
@@ -212,15 +219,17 @@ function EconomicFlowSchematicInner({ schematic }: { schematic: EconomicFlowSche
 
           <div className="flow-schematic-edit-panel-section">
             <span className="flow-schematic-edit-panel-label">Действия</span>
-            <button
-              type="button"
-              className="btn btn-sm btn-ghost w-full justify-start"
+            <Button
+              type="text"
+              size="small"
+              block
+              className="justify-start"
+              icon={<LayoutGrid size={16} />}
               onClick={autoLayout}
               title="Авто-раскладка"
             >
-              <LayoutGrid size={16} />
               Раскладка
-            </button>
+            </Button>
           </div>
         </FlowSchematicEditPanel>
       </div>

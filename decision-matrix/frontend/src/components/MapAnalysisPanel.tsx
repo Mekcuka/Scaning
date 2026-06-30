@@ -1,3 +1,4 @@
+import { Card } from 'antd';
 import type { AnalysisResult, AnalysisRow, POI } from '../lib/api';
 import {
   formatAnalysisKm,
@@ -35,8 +36,12 @@ export function MapAnalysisPanel({
   if (external.length === 0) return null;
 
   return (
-    <div
-      className="card p-2 text-[11px] leading-tight max-h-[min(50vh,360px)] overflow-auto"
+    <Card
+      size="small"
+      className="map-analysis-panel"
+      classNames={{
+        body: 'p-2 text-[11px] leading-tight max-h-[min(50vh,360px)] overflow-auto',
+      }}
       style={{ borderColor: 'var(--border)' }}
     >
       <div
@@ -98,6 +103,6 @@ export function MapAnalysisPanel({
           </tbody>
         </table>
       </div>
-    </div>
+    </Card>
   );
 }

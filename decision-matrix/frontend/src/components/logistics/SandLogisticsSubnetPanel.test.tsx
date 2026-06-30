@@ -88,7 +88,7 @@ describe('SandLogisticsSubnetPanel', () => {
       expect(screen.getAllByText(/Карьер песка_2/i).length).toBeGreaterThan(0);
     });
 
-    const lineStyleTrigger = screen.getByRole('button', { name: /Форма линий на схеме/i });
+    const lineStyleTrigger = screen.getByRole('combobox', { name: /Форма линий на схеме/i });
     for (const label of ['Изгибы', 'Ступеньки', 'Прямые']) {
       await user.click(lineStyleTrigger);
       await user.click(screen.getByRole('option', { name: label }));

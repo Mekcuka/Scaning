@@ -1,5 +1,7 @@
 import { ProjectLink } from '../../components/ProjectLink';
 import { MapPin, Target } from 'lucide-react';
+import { Button, Input } from 'antd';
+import { AppSelect } from '../AppSelect';
 import type { InfraObject } from '../../lib/api';
 import { SUBTYPE_LABELS } from '../../lib/api';
 import {
@@ -56,9 +58,10 @@ export function PadClusteringBottomholesSection({
       {bottomholes.length === 0 ? (
         <div className="pad-clustering-empty-inline">
           <p>Нет привязанных объектов-забоев.</p>
-          <ProjectLink to="/map" className="btn btn--secondary btn--sm">
-            <MapPin size={14} aria-hidden />
-            Добавить на карте
+          <ProjectLink to="/map">
+            <Button size="small" icon={<MapPin size={14} />}>
+              Добавить на карте
+            </Button>
           </ProjectLink>
         </div>
       ) : (
@@ -149,8 +152,8 @@ function BottomholeRow({
       <td className="pad-clustering-bottomholes-table__type">{roleLabel}</td>
       <td className="pad-clustering-bottomholes-table__type">{subtypeLabel}</td>
       <td>
-        <input
-          className="input pad-clustering-bottomholes-table__input"
+        <Input
+          className="pad-clustering-bottomholes-table__input"
           type="number"
           min={0}
           max={63}
@@ -167,8 +170,8 @@ function BottomholeRow({
         />
       </td>
       <td>
-        <input
-          className="input pad-clustering-bottomholes-table__input"
+        <Input
+          className="pad-clustering-bottomholes-table__input"
           type="number"
           min={1}
           disabled={readOnly || saving}
@@ -185,8 +188,8 @@ function BottomholeRow({
       </td>
       <td>
         {isNnb ? (
-          <input
-            className="input pad-clustering-bottomholes-table__input"
+          <Input
+            className="pad-clustering-bottomholes-table__input"
             type="number"
             min={0}
             max={360}
@@ -202,8 +205,8 @@ function BottomholeRow({
       </td>
       <td>
         {showAzi ? (
-          <input
-            className="input pad-clustering-bottomholes-table__input"
+          <Input
+            className="pad-clustering-bottomholes-table__input"
             type="number"
             min={0}
             max={360}
@@ -225,24 +228,23 @@ function BottomholeRow({
       </td>
       <td>
         {isGsHeel ? (
-          <select
-            className="input pad-clustering-bottomholes-table__input"
+          <AppSelect
+            variant="compact"
+            className="pad-clustering-bottomholes-table__input"
             disabled={readOnly || saving}
-            defaultValue={gsEntryMode}
+            value={gsEntryMode}
             key={`${bottomhole.id}-entry-${gsEntryMode}`}
-            aria-label={`Точка входа для ${bottomhole.name}`}
-            onChange={(e) =>
+            ariaLabel={`Точка входа для ${bottomhole.name}`}
+            onChange={(value) =>
               onSave({
-                [WELL_BOTTOMHOLE_GS_ENTRY_MODE]: e.target.value || DEFAULT_GS_ENTRY_MODE,
+                [WELL_BOTTOMHOLE_GS_ENTRY_MODE]: value || DEFAULT_GS_ENTRY_MODE,
               })
             }
-          >
-            {GS_ENTRY_MODE_OPTIONS.map((opt) => (
-              <option key={opt.value} value={opt.value}>
-                {opt.label}
-              </option>
-            ))}
-          </select>
+            options={GS_ENTRY_MODE_OPTIONS.map((opt) => ({
+              value: opt.value,
+              label: opt.label,
+            }))}
+          />
         ) : (
           <span className="pad-clustering-bottomholes-table__na">—</span>
         )}

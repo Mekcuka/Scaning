@@ -8,6 +8,7 @@ import {
   Trash2,
   X,
 } from 'lucide-react';
+import { Button } from 'antd';
 import type { MapGroupSelectionItem } from './MapGroupSelectionPanel';
 import { PadPlacementParamsSection } from './PadPlacementParamsSection';
 import type {
@@ -110,15 +111,15 @@ export function PadPlacementPanel({
             </span>
           </div>
           <div className="map-group-panel__header-actions">
-            <button
-              type="button"
-              className="btn btn-ghost btn-icon-touch map-group-panel__icon-btn"
+            <Button
+              type="text"
+              size="small"
+              className="map-group-panel__icon-btn"
+              icon={<X size={16} />}
               onClick={onClose}
               title="Закрыть"
               aria-label="Закрыть"
-            >
-              <X size={16} />
-            </button>
+            />
           </div>
         </div>
         <p className="map-group-panel__summary">
@@ -160,16 +161,15 @@ export function PadPlacementPanel({
             <span>Забои</span>
             <span className="pad-placement-panel__list-count">{items.length}</span>
           </button>
-          <button
-            type="button"
-            className="btn btn-ghost btn-sm p-1"
+          <Button
+            type="text"
+            size="small"
+            icon={<Trash2 size={14} />}
             disabled={items.length === 0 || busy}
             title="Очистить список"
             aria-label="Очистить список"
             onClick={onClear}
-          >
-            <Trash2 size={14} />
-          </button>
+          />
         </div>
 
         {!listCollapsed && (
@@ -289,22 +289,27 @@ export function PadPlacementPanel({
       </div>
 
       <footer className="pad-placement-panel__footer">
-        <button
-          type="button"
-          className="btn btn-primary btn-sm flex-1"
-          disabled={!canCompute || computePending}
+        <Button
+          type="primary"
+          size="small"
+          block
+          className="flex-1"
+          disabled={!canCompute}
+          loading={computePending}
           onClick={onCompute}
         >
           {computePending ? 'Расчёт…' : 'Рассчитать'}
-        </button>
-        <button
-          type="button"
-          className="btn btn-secondary btn-sm flex-1"
-          disabled={!canApply || applyPending}
+        </Button>
+        <Button
+          size="small"
+          block
+          className="flex-1"
+          disabled={!canApply}
+          loading={applyPending}
           onClick={onApply}
         >
           {applyPending ? 'Применение…' : 'Применить'}
-        </button>
+        </Button>
       </footer>
     </div>
   );

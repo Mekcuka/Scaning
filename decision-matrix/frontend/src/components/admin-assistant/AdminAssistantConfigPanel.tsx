@@ -1,4 +1,5 @@
 import { Zap } from 'lucide-react';
+import { Card } from 'antd';
 import type { AssistantLlmConfigDetail } from '../../lib/api';
 import { apiKeySourceLabel, ConfigValue, envDiff } from './adminAssistantDisplay';
 
@@ -12,7 +13,7 @@ export function AdminAssistantConfigPanel({
   onCopy: (msg: string) => void;
 }) {
   return (
-    <section className="card">
+    <Card size="small">
       <div className="admin-assistant-card-head">
         <h2>Текущая конфигурация</h2>
         {hasOverride && (
@@ -122,6 +123,6 @@ export function AdminAssistantConfigPanel({
         <code>ASSISTANT_WIKI_EMBEDDING_*</code> в <code>app.env</code> и перезапуск контейнера API
         (см. DEPLOY.md).
       </p>
-    </section>
+    </Card>
   );
 }

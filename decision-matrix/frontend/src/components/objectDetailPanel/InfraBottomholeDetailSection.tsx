@@ -1,4 +1,5 @@
 import { useMutation, useQueryClient } from '@tanstack/react-query';
+import { Button } from 'antd';
 import type { InfraObject } from '../../lib/api';
 import { wellTrajectoryApi } from '../../lib/api/wellTrajectoryApi';
 import { readWellTrajectoryStepM } from '../../lib/padClusteringCalcSettings';
@@ -68,7 +69,7 @@ function NumberField({
             integer={integer}
             min={min}
             max={max}
-            className="input object-detail-panel__input"
+            className="object-detail-panel__input"
             placeholder={placeholder}
             value={value}
             onCommit={onCommit}
@@ -206,7 +207,7 @@ export function InfraBottomholeDetailSection({
               ) : (
                 <DeferredNumberInput
                   min={1}
-                  className="input object-detail-panel__input"
+                  className="object-detail-panel__input"
                   value={fields.heelTvdM}
                   onCommit={(v) => {
                     if (v === '' || !Number.isFinite(v)) return;
@@ -221,7 +222,7 @@ export function InfraBottomholeDetailSection({
               ) : (
                 <DeferredNumberInput
                   min={1}
-                  className="input object-detail-panel__input"
+                  className="object-detail-panel__input"
                   value={fields.toeTvdM}
                   onCommit={(v) => {
                     if (v === '' || !Number.isFinite(v)) return;
@@ -315,14 +316,15 @@ export function InfraBottomholeDetailSection({
 
       {linkedPadId && !readOnly && !isLateral && (
         <PanelSubsection title="Расчёт траектории">
-          <button
-            type="button"
-            className="btn btn-secondary btn-sm object-detail-panel__copy-btn object-detail-panel__copy-btn--block"
-            disabled={designMut.isPending}
+          <Button
+            block
+            size="small"
+            className="object-detail-panel__copy-btn object-detail-panel__copy-btn--block"
+            loading={designMut.isPending}
             onClick={() => designMut.mutate()}
           >
             {designMut.isPending ? 'Расчёт…' : 'Пересчитать траекторию с куста'}
-          </button>
+          </Button>
           {designMut.error && (
             <p className="object-detail-panel__hint odp-traj-error">
               {translateWellTrajectoryUserMessage(

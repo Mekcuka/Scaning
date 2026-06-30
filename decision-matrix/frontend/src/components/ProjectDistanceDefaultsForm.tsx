@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { Save } from 'lucide-react';
+import { Button, Card } from 'antd';
 import { defaultProjectsRatesApi, type DistanceDefaults } from '../lib/api';
 import { useAppStore } from '../store';
 import { usePermissions } from '../hooks/usePermissions';
@@ -63,7 +64,7 @@ export function ProjectDistanceDefaultsForm({
   const body = (
     <>
       {DISTANCE_PARAMETER_GROUPS.map((group) => (
-        <div key={group.id} className={compact ? 'rates-distance-block' : 'card mb-4'}>
+        <Card key={group.id} size="small" className={compact ? 'rates-distance-block' : 'mb-4'}>
           <h3 className={compact ? 'rates-distance-title' : 'font-semibold mb-3'}>
             {group.label}
             <span className="text-xs font-normal ml-2" style={{ color: 'var(--text-muted)' }}>
@@ -84,14 +85,14 @@ export function ProjectDistanceDefaultsForm({
               </label>
             ))}
           </div>
-        </div>
+        </Card>
       ))}
     </>
   );
 
   if (compact) {
     return (
-      <div className="card card--flush rates-distance-card">
+      <Card className="card--flush rates-distance-card" styles={{ body: { padding: 0 } }}>
         <div className="card-header">
           <div>
             <h2 className="!text-sm">Расстояние</h2>
@@ -103,18 +104,20 @@ export function ProjectDistanceDefaultsForm({
         <div className="rates-distance-body">{body}</div>
         {!effectiveReadOnly && (
           <div className="rates-distance-footer">
-            <button
-              type="button"
-              className="btn btn-primary btn-sm w-full"
+            <Button
+              type="primary"
+              size="small"
+              block
               disabled={saveMut.isPending}
+              loading={saveMut.isPending}
+              icon={<Save size={14} />}
               onClick={() => saveMut.mutate(values)}
             >
-              <Save size={14} className="inline mr-1" />
               {saveMut.isPending ? 'Сохранение…' : 'Сохранить расстояния'}
-            </button>
+            </Button>
           </div>
         )}
-      </div>
+      </Card>
     );
   }
 
@@ -122,14 +125,15 @@ export function ProjectDistanceDefaultsForm({
     <div>
       {body}
       {!effectiveReadOnly && (
-        <button
-          type="button"
-          className="btn btn-primary"
+        <Button
+          type="primary"
           disabled={saveMut.isPending}
+          loading={saveMut.isPending}
+          icon={<Save size={16} />}
           onClick={() => saveMut.mutate(values)}
         >
-          <Save size={16} /> {saveMut.isPending ? 'Сохранение…' : 'Сохранить параметры проекта'}
-        </button>
+          {saveMut.isPending ? 'Сохранение…' : 'Сохранить параметры проекта'}
+        </Button>
       )}
     </div>
   );

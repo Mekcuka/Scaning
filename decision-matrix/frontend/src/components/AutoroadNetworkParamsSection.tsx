@@ -1,5 +1,6 @@
 import { ChevronDown, ChevronRight } from 'lucide-react';
 import { useState } from 'react';
+import { MapToolbarButton } from '../pages/map/mapPageToolbar/MapToolbarButton';
 import type {
   AutoroadPlannerOptions,
   AutoroadPlannerParamScope,
@@ -139,17 +140,15 @@ export function AutoroadNetworkParamsSection({
               aria-label="Какие параметры показать"
             >
               {(['both', 'steinerpy', 'geosteiner'] as const).map((s) => (
-                <button
+                <MapToolbarButton
                   key={s}
-                  type="button"
-                  className={`btn btn-sm map-tool-btn rounded-none border-0 ${
-                    scope === s ? 'btn-primary active' : 'btn-secondary'
-                  }`}
+                  active={scope === s}
+                  className="rounded-none border-0"
                   aria-pressed={scope === s}
                   onClick={() => setScope(s)}
                 >
                   {scopeLabel(s)}
-                </button>
+                </MapToolbarButton>
               ))}
             </div>
             {scope === 'both' ? (
@@ -158,28 +157,24 @@ export function AutoroadNetworkParamsSection({
                 role="group"
                 aria-label="Солвер расчёта"
               >
-                <button
-                  type="button"
-                  className={`btn btn-sm map-tool-btn rounded-none border-0 ${
-                    options.solver === 'geosteiner' ? 'btn-primary active' : 'btn-secondary'
-                  }`}
+                <MapToolbarButton
+                  active={options.solver === 'geosteiner'}
+                  className="rounded-none border-0"
                   disabled={!!solverStatus && !solverStatus.geosteiner}
                   aria-pressed={options.solver === 'geosteiner'}
                   onClick={() => setSolver('geosteiner')}
                 >
                   GS
-                </button>
-                <button
-                  type="button"
-                  className={`btn btn-sm map-tool-btn rounded-none border-0 ${
-                    options.solver === 'steinerpy' ? 'btn-primary active' : 'btn-secondary'
-                  }`}
+                </MapToolbarButton>
+                <MapToolbarButton
+                  active={options.solver === 'steinerpy'}
+                  className="rounded-none border-0"
                   disabled={!!solverStatus && !solverStatus.steinerpy}
                   aria-pressed={options.solver === 'steinerpy'}
                   onClick={() => setSolver('steinerpy')}
                 >
                   SP
-                </button>
+                </MapToolbarButton>
               </div>
             ) : null}
           </div>

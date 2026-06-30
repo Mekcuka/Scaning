@@ -1,3 +1,4 @@
+import { Card } from 'antd';
 import type { ReactNode } from 'react';
 
 type FormatTag = 'xlsx' | 'csv' | 'geojson';
@@ -40,8 +41,9 @@ export function ExportOptionCard({
     formats.map((format) => FORMAT_LABELS[format]);
 
   return (
-    <section
-      className={`export-option card export-option--${accent}${disabled ? ' export-option--disabled' : ''}`}
+    <Card
+      className={`export-option export-option--${accent}${disabled ? ' export-option--disabled' : ''}`}
+      styles={{ body: { padding: 0 } }}
     >
       <div className="export-option__head">
         <span className="export-option__icon" aria-hidden>
@@ -75,6 +77,6 @@ export function ExportOptionCard({
       {!disabled && children ? (
         <div className="export-option__actions">{children}</div>
       ) : null}
-    </section>
+    </Card>
   );
 }

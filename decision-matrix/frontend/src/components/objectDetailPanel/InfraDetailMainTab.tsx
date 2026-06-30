@@ -1,4 +1,5 @@
 import { Copy, MapPin } from 'lucide-react';
+import { Button, Input } from 'antd';
 import type { InfraLayer, InfraObject } from '../../lib/api';
 import { capacityUnitLabel, type InfraCapacityUnit } from '../../lib/infraCapacity';
 import { AppSelect } from '../AppSelect';
@@ -224,8 +225,8 @@ export function InfraDetailMainTab({
                       {formatEntryDate(entryDate)}
                     </ReadOnlyValue>
                   ) : (
-                    <input
-                      className="input object-detail-panel__input"
+                    <Input
+                      className="object-detail-panel__input"
                       type="date"
                       value={entryDate}
                       onChange={(e) => setEntryDate(e.target.value)}
@@ -245,7 +246,7 @@ export function InfraDetailMainTab({
                     <DeferredNumberInput
                       allowEmpty
                       min={0}
-                      className="input object-detail-panel__input"
+                      className="object-detail-panel__input"
                       placeholder="Не задана"
                       value={capacityValue}
                       disabled={saving}
@@ -269,7 +270,7 @@ export function InfraDetailMainTab({
                       min={1}
                       max={64}
                       integer
-                      className="input object-detail-panel__input"
+                      className="object-detail-panel__input"
                       placeholder="Не задано"
                       value={padWellCount}
                       disabled={saving || padWellCountDerivedFromBottomholes}
@@ -340,8 +341,8 @@ export function InfraDetailMainTab({
             <div className="object-detail-panel__coord-grid">
               <label className="object-detail-panel__field">
                 <FieldLabel>{isLine ? 'Начало — долгота' : 'Долгота'}</FieldLabel>
-                <input
-                  className="input object-detail-panel__input object-detail-panel__input--mono"
+                <Input
+                  className="object-detail-panel__input object-detail-panel__input--mono"
                   value={lon}
                   inputMode="decimal"
                   readOnly={readOnly}
@@ -351,8 +352,8 @@ export function InfraDetailMainTab({
               </label>
               <label className="object-detail-panel__field">
                 <FieldLabel>{isLine ? 'Начало — широта' : 'Широта'}</FieldLabel>
-                <input
-                  className="input object-detail-panel__input object-detail-panel__input--mono"
+                <Input
+                  className="object-detail-panel__input object-detail-panel__input--mono"
                   value={lat}
                   inputMode="decimal"
                   readOnly={readOnly}
@@ -361,14 +362,15 @@ export function InfraDetailMainTab({
                 />
               </label>
             </div>
-            <button
-              type="button"
-              className="btn btn-secondary btn-sm object-detail-panel__copy-btn object-detail-panel__copy-btn--block"
+            <Button
+              block
+              size="small"
+              className="object-detail-panel__copy-btn object-detail-panel__copy-btn--block"
+              icon={<Copy size={14} aria-hidden />}
               onClick={() => void copyCoordinates()}
             >
-              <Copy size={14} aria-hidden />
               Копировать координаты
-            </button>
+            </Button>
           </div>
           {isLine && (
             <p className="object-detail-panel__hint object-detail-panel__hint--with-icon">
@@ -394,8 +396,8 @@ export function InfraDetailMainTab({
       <PanelSection title="Описание" card>
         <label className="object-detail-panel__field">
           <FieldLabel>Комментарий</FieldLabel>
-          <textarea
-            className="input object-detail-panel__textarea object-detail-panel__textarea--compact"
+          <Input.TextArea
+            className="object-detail-panel__textarea object-detail-panel__textarea--compact"
             value={description}
             rows={4}
             placeholder="Заметки к объекту…"

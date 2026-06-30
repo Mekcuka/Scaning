@@ -237,14 +237,14 @@
   pointer-events: none;
 }
 
-.import-3d-upload-meta {
+.import-3d-upload-meta.ant-form-item {
   display: flex;
   flex-direction: column;
   gap: 0.35rem;
   max-width: 12rem;
 }
 
-.import-3d-upload-meta__height {
+.import-3d-upload-meta__height.ant-input-number {
   width: 100%;
 }
 
@@ -474,8 +474,15 @@
   opacity: 0.55;
 }
 
-.import-3d-subtype-grid-fieldset .form-label {
+.import-3d-subtype-grid-fieldset .import-3d-field-label {
   margin-bottom: 0.5rem;
+}
+
+.import-3d-field-label {
+  display: block;
+  font-size: 0.8125rem;
+  font-weight: 500;
+  color: var(--text-muted);
 }
 
 .import-3d-subtype-grid {

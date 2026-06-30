@@ -7,10 +7,16 @@ import {
   Save,
   RotateCcw,
 } from 'lucide-react';
+import { Button } from 'antd';
 import type { FlowEditorTool, FluidKind } from '../../lib/flowSchematic';
 import { ADD_NODE_TEMPLATES } from '../../lib/flowSchematic';
 import { FlowSchematicEditPanel } from '../FlowSchematicEditPanel';
+import { AppSelect } from '../AppSelect';
 import { AppSelectFluid } from './AppSelectFluid';
+
+function toolBtnType(active: boolean): 'primary' | 'text' {
+  return active ? 'primary' : 'text';
+}
 
 export function FlowSchematicEditorPanel({
   tool,
@@ -51,33 +57,39 @@ export function FlowSchematicEditorPanel({
     >
       <div className="flow-schematic-edit-panel-section">
         <span className="flow-schematic-edit-panel-label">Инструмент</span>
-        <button
-          type="button"
-          className={`btn btn-sm w-full justify-start ${tool === 'select' ? 'btn-primary' : 'btn-ghost'}`}
+        <Button
+          size="small"
+          block
+          className="justify-start"
+          type={toolBtnType(tool === 'select')}
+          icon={<MousePointer2 size={16} />}
           title="Выбор и перемещение"
           onClick={() => onToolChange('select')}
         >
-          <MousePointer2 size={16} />
           Выбор
-        </button>
-        <button
-          type="button"
-          className={`btn btn-sm w-full justify-start ${tool === 'connect' ? 'btn-primary' : 'btn-ghost'}`}
+        </Button>
+        <Button
+          size="small"
+          block
+          className="justify-start"
+          type={toolBtnType(tool === 'connect')}
+          icon={<Link2 size={16} />}
           title="Соединить блоки"
           onClick={() => onToolChange('connect')}
         >
-          <Link2 size={16} />
           Связь
-        </button>
-        <button
-          type="button"
-          className={`btn btn-sm w-full justify-start ${tool === 'add' ? 'btn-primary' : 'btn-ghost'}`}
+        </Button>
+        <Button
+          size="small"
+          block
+          className="justify-start"
+          type={toolBtnType(tool === 'add')}
+          icon={<Plus size={16} />}
           title="Клик по полю — добавить блок"
           onClick={() => onToolChange('add')}
         >
-          <Plus size={16} />
           Блок
-        </button>
+        </Button>
       </div>
 
       {tool === 'connect' && (
@@ -90,75 +102,85 @@ export function FlowSchematicEditorPanel({
       {tool === 'add' && (
         <div className="flow-schematic-edit-panel-section">
           <span className="flow-schematic-edit-panel-label">Тип блока</span>
-          <select
-            className="input input-sm w-full"
-            value={addTemplateIndex}
-            onChange={(e) => onAddTemplateIndexChange(Number(e.target.value))}
-          >
-            {ADD_NODE_TEMPLATES.map((t, i) => (
-              <option key={`${t.kind}-${t.label}-${i}`} value={i}>
-                {t.label}
-              </option>
-            ))}
-          </select>
+          <AppSelect
+            variant="sm"
+            fullWidth
+            value={String(addTemplateIndex)}
+            onChange={(v) => onAddTemplateIndexChange(Number(v))}
+            options={ADD_NODE_TEMPLATES.map((t, i) => ({
+              value: String(i),
+              label: t.label,
+            }))}
+          />
         </div>
       )}
 
       <div className="flow-schematic-edit-panel-section">
         <span className="flow-schematic-edit-panel-label">Действия</span>
-        <button
-          type="button"
-          className="btn btn-sm btn-ghost w-full justify-start"
+        <Button
+          size="small"
+          block
+          className="justify-start"
+          type="text"
           onClick={onEditSelectedLabel}
           title="Переименовать"
         >
           Подпись…
-        </button>
-        <button
-          type="button"
-          className="btn btn-sm btn-ghost w-full justify-start"
+        </Button>
+        <Button
+          size="small"
+          block
+          className="justify-start"
+          type="text"
+          icon={<LayoutGrid size={16} />}
           onClick={onAutoLayout}
           title="Авто-раскладка"
         >
-          <LayoutGrid size={16} />
           Раскладка
-        </button>
-        <button
-          type="button"
-          className="btn btn-sm btn-ghost w-full justify-start"
+        </Button>
+        <Button
+          size="small"
+          block
+          className="justify-start"
+          type="text"
+          icon={<Trash2 size={16} />}
           onClick={onDeleteSelected}
           title="Удалить выбранное"
         >
-          <Trash2 size={16} />
           Удалить
-        </button>
+        </Button>
       </div>
 
       <div className="flow-schematic-edit-panel-section">
         <span className="flow-schematic-edit-panel-label">Схема</span>
-        <button
-          type="button"
-          className="btn btn-sm btn-primary w-full justify-start"
+        <Button
+          size="small"
+          block
+          className="justify-start"
+          type="primary"
+          icon={<Save size={16} />}
           onClick={onSave}
-          disabled={saving}
+          loading={saving}
         >
-          <Save size={16} />
           {saving ? 'Сохранение…' : 'Сохранить'}
-        </button>
-        <button
-          type="button"
-          className="btn btn-sm btn-ghost w-full justify-start"
+        </Button>
+        <Button
+          size="small"
+          block
+          className="justify-start"
+          type="text"
+          icon={<RotateCcw size={16} />}
           onClick={onReset}
           disabled={resetting || saving}
+          loading={resetting}
           title={
             isCustom
               ? 'Удалить пользовательскую схему и пересчитать по POI и сети'
               : 'Пересчитать схему по текущим параметрам POI и сети'
           }
         >
-          <RotateCcw size={16} />
           {resetting ? 'Пересчёт…' : isCustom ? 'Сброс' : 'Пересчитать'}
-        </button>
+        </Button>
       </div>
 
       <p className="flow-schematic-edit-panel-hint">

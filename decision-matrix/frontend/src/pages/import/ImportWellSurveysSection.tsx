@@ -1,5 +1,7 @@
 import type { RefObject } from 'react';
 import { Download, Route } from 'lucide-react';
+import { Button, Card, Form } from 'antd';
+import { AppSelect } from '../../components/AppSelect';
 import type { WellTrajectoryImportPreviewResponse } from '../../lib/api/wellTrajectoryApi';
 import { IMPORT_WELL_SURVEY_CSV_TEMPLATE } from './importWellSurveyCsvTemplate';
 
@@ -50,20 +52,21 @@ export function ImportWellSurveysSection({
         <p className="import-option__hint">Выберите проект для импорта траекторий на куст.</p>
       )}
 
-      <label className="block text-sm mb-1">Куст (oil_pad / gas_pad)</label>
-      <select
-        className="input w-full"
-        value={padId}
-        disabled={readOnly || !hasProjects || busy}
-        onChange={(e) => setPadId(e.target.value)}
-      >
-        <option value="">— выберите куст —</option>
-        {padOptions.map((pad) => (
-          <option key={pad.id} value={pad.id}>
-            {pad.name} ({pad.subtype})
-          </option>
-        ))}
-      </select>
+      <Form.Item label="Куст (oil_pad / gas_pad)" className="mb-3">
+        <AppSelect
+          placeholder="— выберите куст —"
+          value={padId}
+          disabled={readOnly || !hasProjects || busy}
+          onChange={setPadId}
+          options={[
+            { value: '', label: '— выберите куст —' },
+            ...padOptions.map((pad) => ({
+              value: pad.id,
+              label: `${pad.name} (${pad.subtype})`,
+            })),
+          ]}
+        />
+      </Form.Item>
 
       <div
         role="button"
@@ -148,9 +151,10 @@ export function ImportWellSurveysSection({
 
   const actions = (
     <>
-      <button
-        type="button"
-        className="btn btn-secondary text-sm export-option__btn"
+      <Button
+        size="small"
+        className="export-option__btn"
+        icon={<Download size={16} aria-hidden />}
         onClick={() => {
           const blob = new Blob([IMPORT_WELL_SURVEY_CSV_TEMPLATE], { type: 'text/csv;charset=utf-8' });
           const url = URL.createObjectURL(blob);
@@ -161,18 +165,19 @@ export function ImportWellSurveysSection({
           URL.revokeObjectURL(url);
         }}
       >
-        <Download size={16} aria-hidden />
         Шаблон CSV
-      </button>
+      </Button>
       {preview ? (
-        <button
-          type="button"
-          className="btn btn-primary text-sm export-option__btn export-option__btn--wide"
+        <Button
+          type="primary"
+          size="small"
+          className="export-option__btn export-option__btn--wide"
           disabled={readOnly || busy || preview.wells.length === 0}
+          loading={busy}
           onClick={() => void onCommit()}
         >
           Импортировать на куст
-        </button>
+        </Button>
       ) : null}
     </>
   );
@@ -182,13 +187,13 @@ export function ImportWellSurveysSection({
   }
 
   return (
-    <div className="card mb-6">
+    <Card size="small" className="mb-6">
       <div className="flex items-center gap-2 mb-4">
         <Route size={18} />
         <h2 className="font-semibold">Импорт инклинометрии</h2>
       </div>
       {content}
       <div className="flex flex-wrap gap-2 mt-3">{actions}</div>
-    </div>
+    </Card>
   );
 }

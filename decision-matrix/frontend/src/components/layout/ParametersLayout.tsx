@@ -1,6 +1,7 @@
-import { NavLink, Outlet } from 'react-router-dom';
 import { LandPlot, Calendar, Coins, Gauge, Mountain, Link2 } from 'lucide-react';
+import { Outlet } from 'react-router-dom';
 import { useProjectPathBuilder } from '../../hooks/useProjectPath';
+import { SubnavTabs } from './SubnavTabs';
 
 const TABS = [
   { suffix: '/parameters/capacity', label: 'Пропускная способность', icon: Gauge },
@@ -16,20 +17,19 @@ export function ParametersLayout() {
 
   return (
     <div className="parameters-layout">
-      <nav className="parameters-subnav" aria-label="Разделы параметров">
-        {TABS.map(({ suffix, label, icon: Icon }) => (
-          <NavLink
-            key={suffix}
-            to={buildPath(suffix)}
-            className={({ isActive }) =>
-              `parameters-subnav__tab${isActive ? ' parameters-subnav__tab--active' : ''}`
-            }
-          >
-            <Icon size={16} aria-hidden />
-            {label}
-          </NavLink>
-        ))}
-      </nav>
+      <SubnavTabs
+        ariaLabel="Разделы параметров"
+        tabs={TABS.map(({ suffix, label, icon: Icon }) => ({
+          key: suffix,
+          to: buildPath(suffix),
+          label: (
+            <span className="inline-flex items-center gap-2">
+              <Icon size={16} aria-hidden />
+              {label}
+            </span>
+          ),
+        }))}
+      />
       <Outlet />
     </div>
   );

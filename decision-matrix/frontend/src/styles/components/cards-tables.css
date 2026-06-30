@@ -1,14 +1,14 @@
-.card {
-  background: var(--surface);
-  border: 1px solid var(--border);
-  border-radius: var(--radius);
-  padding: 20px;
-  box-shadow: var(--shadow);
+/* Ant Card bridge — BEM modifiers on <Card className="…"> */
+.ant-card.card--flush .ant-card-body {
+  padding: 0;
 }
 
-.card--flush {
-  padding: 0;
+.ant-card.card--flush {
   overflow: hidden;
+}
+
+.ant-card.flow-schematic-window .ant-card-body {
+  min-width: 0;
 }
 
 .card-header {
@@ -26,7 +26,7 @@
   font-weight: 600;
 }
 
-.card--flush .table-wrap {
+.ant-card.card--flush .table-wrap {
   padding: 0;
   max-width: 100%;
 }
@@ -62,32 +62,6 @@
   margin-bottom: 4px;
   color: var(--text-muted);
 }
-.password-field {
-  position: relative;
-}
-.password-field input {
-  width: 100%;
-  padding-right: 40px;
-}
-.password-field__toggle {
-  position: absolute;
-  right: 8px;
-  top: 50%;
-  transform: translateY(-50%);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  padding: 4px;
-  border: none;
-  background: transparent;
-  color: var(--text-muted);
-  cursor: pointer;
-  border-radius: 4px;
-}
-.password-field__toggle:hover {
-  color: var(--text);
-  background: var(--bg-hover, rgba(0, 0, 0, 0.05));
-}
 
 input[type='number'] {
   -moz-appearance: textfield;
@@ -118,5 +92,10 @@ table.data-table {
   width: 1%;
   white-space: nowrap;
   font-variant-numeric: tabular-nums;
+}
+
+.admin-users-table .admin-users-table__role-select {
+  width: auto;
+  min-width: 9rem;
 }
 

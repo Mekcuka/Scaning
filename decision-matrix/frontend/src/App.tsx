@@ -2,6 +2,7 @@ import { Suspense } from 'react';
 import { BrowserRouter, Routes, Route, Navigate, useLocation } from 'react-router-dom';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { ErrorBoundary } from './components/ErrorBoundary';
+import { AntThemeProvider } from './providers/AntThemeProvider';
 import { AppLayout } from './components/layout/AppLayout';
 import {
   LegacyPathPreserveRedirect,
@@ -159,9 +160,11 @@ export default function App() {
   return (
     <div className="app-viewport">
       <QueryClientProvider client={queryClient}>
-        <BrowserRouter basename={import.meta.env.BASE_URL}>
-          <AppRoutes />
-        </BrowserRouter>
+        <AntThemeProvider>
+          <BrowserRouter basename={import.meta.env.BASE_URL}>
+            <AppRoutes />
+          </BrowserRouter>
+        </AntThemeProvider>
       </QueryClientProvider>
     </div>
   );

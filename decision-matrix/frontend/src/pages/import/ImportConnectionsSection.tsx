@@ -1,4 +1,5 @@
 import { Link as LinkIcon } from 'lucide-react';
+import { Button, Card, Form, Input } from 'antd';
 import { AppSelect } from '../../components/AppSelect';
 import type { ImportConnection, ImportConnectionCreate } from '../../lib/api';
 import type { UseMutationResult } from '@tanstack/react-query';
@@ -37,25 +38,22 @@ export function ImportConnectionsSection({
 }: Props) {
   const fields = (
     <>
-      <div className="form-group">
-        <label>Название</label>
-        <input
+      <Form.Item label="Название" className="mb-3">
+        <Input
           value={connForm.name}
           disabled={readOnly}
           onChange={(e) => setConnForm({ ...connForm, name: e.target.value })}
         />
-      </div>
-      <div className="form-group">
-        <label>URL REST API</label>
-        <input
+      </Form.Item>
+      <Form.Item label="URL REST API" className="mb-3">
+        <Input
           value={connForm.api_url}
           disabled={readOnly}
           onChange={(e) => setConnForm({ ...connForm, api_url: e.target.value })}
           placeholder="https://api.example.com/v1/infrastructure"
         />
-      </div>
-      <div className="form-group">
-        <label>Тип аутентификации</label>
+      </Form.Item>
+      <Form.Item label="Тип аутентификации" className="mb-3">
         <AppSelect
           value={connForm.auth_type || 'bearer'}
           readOnly={readOnly}
@@ -66,19 +64,16 @@ export function ImportConnectionsSection({
             { value: 'basic', label: 'Basic (user:password)' },
           ]}
         />
-      </div>
-      <div className="form-group">
-        <label>Учётные данные</label>
-        <input
-          type="password"
+      </Form.Item>
+      <Form.Item label="Учётные данные" className="mb-3">
+        <Input.Password
           value={connForm.credentials}
           disabled={readOnly}
           onChange={(e) => setConnForm({ ...connForm, credentials: e.target.value })}
         />
-      </div>
+      </Form.Item>
       {connections.length > 0 && (
-        <div className="form-group">
-          <label>Сохранённые подключения</label>
+        <Form.Item label="Сохранённые подключения" className="mb-3">
           <AppSelect
             placeholder="— выберите —"
             value={selectedConnId ?? ''}
@@ -89,37 +84,38 @@ export function ImportConnectionsSection({
               ...connections.map((c) => ({ value: c.id, label: c.name })),
             ]}
           />
-        </div>
+        </Form.Item>
       )}
     </>
   );
 
   const actions = (
     <>
-      <button
-        type="button"
-        className="btn btn-primary text-sm export-option__btn"
+      <Button
+        type="primary"
+        size="small"
+        className="export-option__btn"
         disabled={!projectId || readOnly}
         onClick={() => saveConnMut.mutate()}
       >
         Сохранить
-      </button>
-      <button
-        type="button"
-        className="btn btn-secondary text-sm export-option__btn"
+      </Button>
+      <Button
+        size="small"
+        className="export-option__btn"
         disabled={!projectId || !selectedConnId || readOnly}
         onClick={() => selectedConnId && testConnMut.mutate(selectedConnId)}
       >
         Тест
-      </button>
-      <button
-        type="button"
-        className="btn btn-secondary text-sm export-option__btn export-option__btn--wide"
+      </Button>
+      <Button
+        size="small"
+        className="export-option__btn export-option__btn--wide"
         disabled={!projectId || !selectedConnId || readOnly}
         onClick={() => selectedConnId && syncConnMut.mutate(selectedConnId)}
       >
         Синхронизировать
-      </button>
+      </Button>
     </>
   );
 
@@ -128,13 +124,13 @@ export function ImportConnectionsSection({
   }
 
   return (
-    <div className="card">
+    <Card size="small">
       <div className="flex items-center gap-2 mb-4">
         <LinkIcon size={18} />
         <h2 className="font-semibold">Подключение API</h2>
       </div>
       {fields}
       <div className="flex flex-wrap gap-2 mt-2">{actions}</div>
-    </div>
+    </Card>
   );
 }

@@ -3,6 +3,7 @@ import { render, type RenderOptions } from '@testing-library/react';
 import { MemoryRouter, type MemoryRouterProps } from 'react-router-dom';
 import type { ReactElement, ReactNode } from 'react';
 import { PageHeaderOutlet, PageHeaderProvider } from '../components/layout/pageHeaderContext';
+import { AntThemeProvider } from '../providers/AntThemeProvider';
 
 export type RenderWithProvidersOptions = RenderOptions & {
   router?: MemoryRouterProps;
@@ -29,12 +30,14 @@ export function renderWithProviders(
   function Wrapper({ children }: { children: ReactNode }) {
     return (
       <QueryClientProvider client={queryClient}>
-        <MemoryRouter {...router}>
-          <PageHeaderProvider>
-            <PageHeaderOutlet />
-            {children}
-          </PageHeaderProvider>
-        </MemoryRouter>
+        <AntThemeProvider>
+          <MemoryRouter {...router}>
+            <PageHeaderProvider>
+              <PageHeaderOutlet />
+              {children}
+            </PageHeaderProvider>
+          </MemoryRouter>
+        </AntThemeProvider>
       </QueryClientProvider>
     );
   }

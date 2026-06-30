@@ -1,6 +1,7 @@
 import { Fragment, useEffect, useMemo, useState } from 'react';
 import { useMutation, useQueries, useQueryClient } from '@tanstack/react-query';
 import { LayoutGrid, Table, Zap } from 'lucide-react';
+import { Button, Card, Space } from 'antd';
 import {
   defaultMapAnalysisApi,
   defaultProjectsPoiWriteApi,
@@ -156,54 +157,57 @@ export function MatrixPage() {
       <div className="page-toolbar page-toolbar--actions-only">
         <div className="page-toolbar-actions">
           {projectId && pois.length > 0 && canWriteProject && (
-            <button
-              type="button"
-              className="btn btn-primary"
+            <Button
+              type="primary"
+              icon={<Zap size={16} />}
+              loading={analyzeMut.isPending}
               onClick={() => analyzeMut.mutate()}
-              disabled={analyzeMut.isPending}
               title={
                 pois.length > 1
                   ? `Пересчитать анализ для всех ${pois.length} точек`
                   : 'Пересчитать анализ окружения'
               }
             >
-              <Zap size={16} className="inline mr-1" />
               {analyzeMut.isPending
                 ? 'Расчёт…'
                 : pois.length > 1
                   ? `Анализ (${pois.length})`
                   : 'Анализ'}
-            </button>
+            </Button>
           )}
-          <button
-            type="button"
-            className={`btn ${viewMode === 'table' ? 'btn-primary' : 'btn-secondary'}`}
-            onClick={() => {
-              setViewModeTouched(true);
-              setViewMode('table');
-            }}
-          >
-            <Table size={16} /> Таблица
-          </button>
-          <button
-            type="button"
-            className={`btn ${viewMode === 'cards' ? 'btn-primary' : 'btn-secondary'}`}
-            onClick={() => {
-              setViewModeTouched(true);
-              setViewMode('cards');
-            }}
-          >
-            <LayoutGrid size={16} /> Карточки
-          </button>
+          <Space>
+            <Button
+              type={viewMode === 'table' ? 'primary' : 'default'}
+              icon={<Table size={16} />}
+              onClick={() => {
+                setViewModeTouched(true);
+                setViewMode('table');
+              }}
+            >
+              Таблица
+            </Button>
+            <Button
+              type={viewMode === 'cards' ? 'primary' : 'default'}
+              icon={<LayoutGrid size={16} />}
+              onClick={() => {
+                setViewModeTouched(true);
+                setViewMode('cards');
+              }}
+            >
+              Карточки
+            </Button>
+          </Space>
         </div>
       </div>
 
       {pois.length === 0 ? (
-            <div className="card text-sm" style={{ color: 'var(--text-muted)' }}>
-              В проекте нет точек интереса. Добавьте POI на карте.
-            </div>
+            <Card>
+              <p className="text-sm mb-0" style={{ color: 'var(--text-muted)' }}>
+                В проекте нет точек интереса. Добавьте POI на карте.
+              </p>
+            </Card>
           ) : viewMode === 'table' ? (
-            <div className="card p-0 table-wrap matrix-table-wrap">
+            <Card className="matrix-table-wrap" styles={{ body: { padding: 0 } }}>
               <table className="data-table matrix-table">
                 <thead>
                   <tr>
@@ -288,7 +292,7 @@ export function MatrixPage() {
                     ))}
                 </tbody>
               </table>
-            </div>
+            </Card>
           ) : (
             <MatrixCardsPanel
               matrixRows={matrixRows}

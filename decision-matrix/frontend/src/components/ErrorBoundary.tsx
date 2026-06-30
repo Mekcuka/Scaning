@@ -1,4 +1,5 @@
 import { Component, type ErrorInfo, type ReactNode } from 'react';
+import { Button } from 'antd';
 
 type Props = {
   children: ReactNode;
@@ -37,13 +38,9 @@ export class ErrorBoundary extends Component<Props, State> {
           <p className="text-sm mb-4" style={{ color: 'var(--text-muted)' }}>
             Обновите страницу. Если проблема повторяется, обратитесь к администратору.
           </p>
-          <button
-            type="button"
-            className="btn btn-primary"
-            onClick={() => window.location.reload()}
-          >
+          <Button type="primary" onClick={() => window.location.reload()}>
             Обновить
-          </button>
+          </Button>
         </div>
       );
     }

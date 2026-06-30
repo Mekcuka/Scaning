@@ -1,4 +1,5 @@
 import { Bot, CheckCircle2, ChevronDown, Copy, XCircle } from 'lucide-react';
+import { Button, Card } from 'antd';
 import { LLM_PROVIDERS } from './adminAssistantConstants';
 import { copyText } from './adminAssistantDisplay';
 import type { AdminAssistantPageView } from './useAdminAssistantPage';
@@ -18,17 +19,12 @@ export function AdminAssistantHelpTab({ view }: { view: AdminAssistantPageView }
 
   return (
     <div className="admin-assistant-stack">
-      <section className="card">
+      <Card size="small">
         <div className="admin-assistant-card-head">
           <h2>Справка: провайдеры LLM</h2>
-          <button
-            type="button"
-            className="btn btn-ghost btn-sm"
-            onClick={() => setProvidersOpen((v) => !v)}
-            aria-expanded={providersOpen}
-          >
+          <Button type="text" size="small" onClick={() => setProvidersOpen((v) => !v)} aria-expanded={providersOpen}>
             {providersOpen ? 'Свернуть' : 'Развернуть'}
-          </button>
+          </Button>
         </div>
         {localPresets.length > 0 && (
           <div className="admin-assistant-local-presets">
@@ -53,9 +49,8 @@ export function AdminAssistantHelpTab({ view }: { view: AdminAssistantPageView }
               <article key={p.name} className="admin-assistant-provider-card">
                 <div className="admin-assistant-provider-card__head">
                   <span className="admin-assistant-provider-card__name">{p.name}</span>
-                  <button
-                    type="button"
-                    className="btn btn-secondary btn-sm"
+                  <Button
+                    size="small"
                     onClick={() =>
                       applyProviderPreset(
                         p.base_url,
@@ -65,7 +60,7 @@ export function AdminAssistantHelpTab({ view }: { view: AdminAssistantPageView }
                     }
                   >
                     Подставить
-                  </button>
+                  </Button>
                 </div>
                 <dl>
                   <div>
@@ -92,9 +87,9 @@ export function AdminAssistantHelpTab({ view }: { view: AdminAssistantPageView }
             ))}
           </div>
         )}
-      </section>
+      </Card>
 
-      <section className="card">
+      <Card size="small">
         <button
           type="button"
           className="admin-assistant-mcp-toggle"
@@ -143,7 +138,7 @@ export function AdminAssistantHelpTab({ view }: { view: AdminAssistantPageView }
             )}
           </div>
         )}
-      </section>
+      </Card>
     </div>
   );
 }

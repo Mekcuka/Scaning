@@ -34,7 +34,7 @@ export function PoiNumberField({
         <DeferredNumberInput
           min={min}
           integer={integer}
-          className="input object-detail-panel__input"
+          className="object-detail-panel__input"
           value={fieldValue}
           onCommit={(v) => onCommit(v as number)}
         />

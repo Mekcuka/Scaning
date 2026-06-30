@@ -9,9 +9,8 @@
 | 1 | `styles/tokens.css` | монолит 3–40 |
 | 2 | `styles/base.css` | 41–69 |
 | 3 | `styles/layout/app-shell.css` | 70–96 |
-| 4 | `styles/components/buttons.css` | 97–134 |
-| 5 | `styles/components/forms.css` | 135–239 |
-| 6 | `styles/components/cards-tables.css` | 240–350 |
+| 4 | `styles/components/forms.css` | (legacy `buttons.css` удалён в B11) |
+| 5 | `styles/components/cards-tables.css` | |
 | 7 | `styles/features/matrix.css` | 351–810 |
 | 8 | `styles/features/map/page-layout.css` | бывш. map-core 811–865 |
 | 9 | `styles/features/map/layers-panel.css` | 866–1183 |

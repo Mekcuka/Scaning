@@ -244,7 +244,7 @@
 }
 
 .map-tool-btn.active,
-.map-tool-btn.btn-primary {
+.map-tool-btn.ant-btn-primary {
   background: var(--primary);
   color: #fff;
   border-color: var(--primary);

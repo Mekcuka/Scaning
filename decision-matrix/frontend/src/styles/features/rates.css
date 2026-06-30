@@ -184,7 +184,8 @@ td.table-excel-export-td {
   border-bottom: none;
 }
 
-.rates-input {
+.rates-input,
+.ant-input-number.rates-input {
   max-width: 7.75rem;
   margin-left: auto;
   min-height: 2rem;

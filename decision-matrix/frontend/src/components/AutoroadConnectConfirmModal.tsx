@@ -1,4 +1,5 @@
 import { AlertTriangle, Route } from 'lucide-react';
+import { Button, Space } from 'antd';
 import { AppModal } from './AppModal';
 import type { AutoroadPreviewSummary } from '../lib/autoroadConnectMessages';
 
@@ -37,25 +38,19 @@ export function AutoroadConnectConfirmModal({
       size="sm"
       closeOnBackdrop={!applying}
       footer={
-        <>
-          <button
-            type="button"
-            className="btn btn-secondary"
-            onClick={onClose}
-            disabled={applying}
-          >
+        <Space>
+          <Button onClick={onClose} disabled={applying}>
             Отмена
-          </button>
-          <button
-            type="button"
-            className="btn btn-primary"
+          </Button>
+          <Button
+            type="primary"
             data-testid="autoroad-connect-confirm"
             onClick={onConfirm}
-            disabled={applying}
+            loading={applying}
           >
             {applying ? 'Применение…' : 'Применить'}
-          </button>
-        </>
+          </Button>
+        </Space>
       }
     >
       <div className="autoroad-confirm-intro">

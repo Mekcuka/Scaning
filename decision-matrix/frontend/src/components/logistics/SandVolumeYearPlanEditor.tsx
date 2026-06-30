@@ -1,5 +1,6 @@
 import { Plus, Trash2 } from 'lucide-react';
 import { useMemo, useState } from 'react';
+import { Button, Input } from 'antd';
 
 type YearRow = { year: string; volume: string };
 
@@ -90,9 +91,10 @@ export function SandVolumeYearPlanEditor({
         <ul className="space-y-1">
           {rows.map((row, index) => (
             <li key={`${row.year}-${index}`} className="flex items-center gap-2">
-              <input
+              <Input
+                size="small"
                 type="number"
-                className="input input-sm input--w24"
+                className="input--w24"
                 min={2000}
                 max={2100}
                 step={1}
@@ -102,9 +104,10 @@ export function SandVolumeYearPlanEditor({
                 onChange={(e) => updateRow(index, { year: e.target.value })}
                 aria-label="Год"
               />
-              <input
+              <Input
+                size="small"
                 type="number"
-                className="input input-sm input--grow"
+                className="input--grow"
                 min={0}
                 step="any"
                 placeholder="м³"
@@ -115,14 +118,14 @@ export function SandVolumeYearPlanEditor({
                 aria-label={`Объём за ${row.year}`}
               />
               {!readOnly && (
-                <button
-                  type="button"
-                  className="btn btn-ghost btn-sm shrink-0 p-1"
+                <Button
+                  type="text"
+                  size="small"
+                  className="shrink-0 p-1"
                   aria-label={`Удалить ${row.year}`}
+                  icon={<Trash2 size={14} />}
                   onClick={() => removeRow(index)}
-                >
-                  <Trash2 size={14} />
-                </button>
+                />
               )}
             </li>
           ))}
@@ -130,9 +133,10 @@ export function SandVolumeYearPlanEditor({
       )}
       {!readOnly && (
         <div className="flex items-center gap-2">
-          <input
+          <Input
+            size="small"
             type="number"
-            className="input input-sm input--w24"
+            className="input--w24"
             min={2000}
             max={2100}
             step={1}
@@ -141,10 +145,9 @@ export function SandVolumeYearPlanEditor({
             onChange={(e) => setNewYear(e.target.value)}
             aria-label="Новый год"
           />
-          <button type="button" className="btn btn-secondary btn-sm" onClick={addYear}>
-            <Plus size={14} className="inline mr-1" />
+          <Button size="small" icon={<Plus size={14} />} onClick={addYear}>
             Добавить год
-          </button>
+          </Button>
         </div>
       )}
       {rows.length > 0 && (

@@ -1,3 +1,4 @@
+import { Input } from 'antd';
 import { AppSelect } from '../AppSelect';
 import { DeferredNumberInput } from '../DeferredNumberInput';
 import { POI_WATER_VOLUME_UNIT, calcPadsPreview, poiProductionVolumeUnit } from '../../lib/poiParams';
@@ -19,9 +20,10 @@ export function PoiBasicAccordionSection({
     <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
       <div className="form-group mb-0">
         <label>Название</label>
-        <input
+        <Input
           value={value.name}
           readOnly={readOnly}
+          disabled={readOnly}
           onChange={(e) => patch({ name: e.target.value })}
         />
       </div>
@@ -103,18 +105,20 @@ export function PoiBasicAccordionSection({
       </div>
       <div className="form-group mb-0">
         <label>Долгота</label>
-        <input
+        <Input
           value={value.lon}
           readOnly={readOnly || coordsReadOnly}
+          disabled={readOnly || coordsReadOnly}
           step="0.001"
           onChange={(e) => patch({ lon: e.target.value })}
         />
       </div>
       <div className="form-group mb-0">
         <label>Широта</label>
-        <input
+        <Input
           value={value.lat}
           readOnly={readOnly || coordsReadOnly}
+          disabled={readOnly || coordsReadOnly}
           step="0.001"
           onChange={(e) => patch({ lat: e.target.value })}
         />
@@ -122,7 +126,7 @@ export function PoiBasicAccordionSection({
       {!readOnly && (
         <div className="form-group mb-0 md:col-span-2">
           <label>Описание</label>
-          <textarea
+          <Input.TextArea
             className="min-h-[52px]"
             value={value.description}
             onChange={(e) => patch({ description: e.target.value })}

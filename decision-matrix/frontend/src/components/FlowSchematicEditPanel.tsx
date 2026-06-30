@@ -1,5 +1,6 @@
 import { useEffect, useState, type ReactNode } from 'react';
 import { PanelRightClose, PanelRightOpen } from 'lucide-react';
+import { Button } from 'antd';
 
 const STORAGE_PREFIX = 'flow-schematic-panel-';
 
@@ -56,15 +57,15 @@ export function FlowSchematicEditPanel({
     <aside className="flow-schematic-edit-panel" aria-label={ariaLabel}>
       <div className="flow-schematic-edit-panel-head">
         <h3 className="flow-schematic-edit-panel-title">{title}</h3>
-        <button
-          type="button"
-          className="flow-schematic-edit-panel-close btn btn-ghost btn-sm p-1.5"
+        <Button
+          type="text"
+          size="small"
+          className="flow-schematic-edit-panel-close"
+          icon={<PanelRightClose size={16} aria-hidden />}
           onClick={() => setOpen(false)}
           title="Скрыть панель"
           aria-label="Скрыть панель"
-        >
-          <PanelRightClose size={16} aria-hidden />
-        </button>
+        />
       </div>
       {children}
     </aside>

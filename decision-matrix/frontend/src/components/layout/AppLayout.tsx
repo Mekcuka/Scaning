@@ -1,21 +1,30 @@
-import { useEffect, useState } from 'react';
-import { NavLink, Outlet, useLocation, useNavigate } from 'react-router-dom';
+import { useEffect, useMemo, useState } from 'react';
+import { Outlet, useLocation, useNavigate } from 'react-router-dom';
 import {
-  LayoutDashboard,
-  Map,
-  FolderOpen,
-  Grid3X3,
-  FileText,
-  GitBranch,
-  Shield,
-  LogOut,
-  Moon,
-  Sun,
+  Layout,
   Menu,
-  SlidersHorizontal,
-  Layers,
-  Database,
-} from 'lucide-react';
+  Button,
+  Avatar,
+  Typography,
+  Drawer,
+  type MenuProps,
+} from 'antd';
+import {
+  DashboardOutlined,
+  FolderOpenOutlined,
+  EnvironmentOutlined,
+  AppstoreOutlined,
+  SlidersOutlined,
+  PartitionOutlined,
+  TableOutlined,
+  FileTextOutlined,
+  DatabaseOutlined,
+  SafetyOutlined,
+  MenuOutlined,
+  MoonOutlined,
+  SunOutlined,
+  LogoutOutlined,
+} from '@ant-design/icons';
 import { useAuthStore, useAppStore } from '../../store';
 import { usePermissions } from '../../hooks/usePermissions';
 import { canSeeNav, ROLE_LABELS } from '../../lib/permissions';
@@ -30,16 +39,18 @@ import {
   type NavSection,
 } from '../../lib/sectionNavMemory';
 import { AppSelect } from '../AppSelect';
-import { ToastStack } from '../ToastStack';
 import { ReadOnlyBanner } from '../ReadOnlyBanner';
 import { AssistantPanel } from '../assistant/AssistantPanel';
 import { ProjectJobSync } from '../ProjectJobSync';
 import { TaskLogPanel } from '../TaskLogPanel';
 import { PageHeaderOutlet, PageHeaderProvider } from './pageHeaderContext';
 
+const { Sider, Header, Content } = Layout;
+
 type NavItem = {
+  key: string;
   label: string;
-  icon: typeof LayoutDashboard;
+  icon: React.ReactNode;
   end: boolean;
   permissionPath: string;
   to?: string;
@@ -47,37 +58,41 @@ type NavItem = {
 };
 
 const NAV: NavItem[] = [
-  { to: '/', permissionPath: '/', icon: LayoutDashboard, label: 'Дашборд', end: true },
-  { to: '/projects', permissionPath: '/projects', icon: FolderOpen, label: 'Проекты', end: true },
-  { to: '/map', permissionPath: '/map', icon: Map, label: 'Карта', end: true },
+  { key: 'dashboard', to: '/', permissionPath: '/', icon: <DashboardOutlined />, label: 'Дашборд', end: true },
+  { key: 'projects', to: '/projects', permissionPath: '/projects', icon: <FolderOpenOutlined />, label: 'Проекты', end: true },
+  { key: 'map', to: '/map', permissionPath: '/map', icon: <EnvironmentOutlined />, label: 'Карта', end: true },
   {
+    key: 'pad-clustering',
     section: 'pad-clustering',
     permissionPath: '/pad-clustering',
-    icon: Layers,
+    icon: <AppstoreOutlined />,
     label: 'Кустование',
     end: true,
   },
   {
+    key: 'parameters',
     section: 'parameters',
     permissionPath: '/parameters',
-    icon: SlidersHorizontal,
+    icon: <SlidersOutlined />,
     label: 'Параметры',
     end: true,
   },
-  { section: 'flows', permissionPath: '/flows', icon: GitBranch, label: 'Потоки', end: true },
-  { to: '/matrix', permissionPath: '/matrix', icon: Grid3X3, label: 'Матрица', end: true },
-  { to: '/report', permissionPath: '/report', icon: FileText, label: 'Отчёты', end: true },
+  { key: 'flows', section: 'flows', permissionPath: '/flows', icon: <PartitionOutlined />, label: 'Потоки', end: true },
+  { key: 'matrix', to: '/matrix', permissionPath: '/matrix', icon: <TableOutlined />, label: 'Матрица', end: true },
+  { key: 'report', to: '/report', permissionPath: '/report', icon: <FileTextOutlined />, label: 'Отчёты', end: true },
   {
+    key: 'data',
     section: 'data',
     permissionPath: '/data',
-    icon: Database,
+    icon: <DatabaseOutlined />,
     label: 'Данные',
     end: true,
   },
   {
+    key: 'admin',
     section: 'admin',
     permissionPath: '/admin',
-    icon: Shield,
+    icon: <SafetyOutlined />,
     label: 'Администрирование',
     end: true,
   },
@@ -85,19 +100,70 @@ const NAV: NavItem[] = [
 
 function navItemTarget(
   item: NavItem,
-  projectPath: (suffix: string) => string,
+  projectPathFn: (suffix: string) => string,
   projectId?: string | null,
 ): string {
   if (item.section) return navLinkTargetForSection(item.section, projectId);
   const logical = item.to ?? '/';
   if (logical === '/projects') return '/projects';
-  return projectPath(logical);
+  return projectPathFn(logical);
+}
+
+function navSelectedKey(pathname: string, item: NavItem): boolean {
+  if (item.section) return pathBelongsToSection(pathname, item.section);
+  const logical = stripProjectPrefix(pathname);
+  const target = item.to ?? '/';
+  if (target === '/') return logical === '/' || logical.startsWith('/dashboard');
+  return logical === target || logical.startsWith(`${target}/`);
+}
+
+function SidebarBrand() {
+  return (
+    <div className="flex items-center gap-3 px-4 py-4 border-b border-white/10 shrink-0">
+      <div className="w-9 h-9 rounded-lg bg-blue-600 flex items-center justify-center text-white font-bold text-sm">
+        {APP_LOGO_MARK}
+      </div>
+      <Typography.Text className="!text-white font-semibold text-sm">{APP_NAME}</Typography.Text>
+    </div>
+  );
+}
+
+function SidebarFooter({
+  username,
+  roleLabel,
+  onLogout,
+}: {
+  username?: string;
+  roleLabel: string;
+  onLogout: () => void;
+}) {
+  return (
+    <div className="shrink-0 border-t border-white/10">
+      <div className="flex items-center gap-3 px-4 py-3">
+        <Avatar size={32} className="bg-blue-600 shrink-0">
+          {username?.slice(0, 2).toUpperCase() || '??'}
+        </Avatar>
+        <div className="flex-1 min-w-0">
+          <Typography.Text className="!text-white block truncate text-sm">{username}</Typography.Text>
+          <Typography.Text className="!text-white/60 block truncate text-xs">{roleLabel}</Typography.Text>
+        </div>
+      </div>
+      <Button
+        type="text"
+        className="!text-sidebar-text w-full !justify-start !rounded-none px-4 py-2.5 h-auto"
+        icon={<LogoutOutlined />}
+        onClick={onLogout}
+      >
+        Выход
+      </Button>
+    </div>
+  );
 }
 
 export function AppLayout() {
   const { user, logout } = useAuthStore();
   const { role } = usePermissions();
-  const { theme, toggleTheme, toasts, dismissToast } = useAppStore();
+  const { theme, toggleTheme } = useAppStore();
   const { projectId, activeProject, projects, setProjectId, hasProjects } = useActiveProject();
   const buildProjectPath = useProjectPathBuilder();
   const navigate = useNavigate();
@@ -117,20 +183,6 @@ export function AppLayout() {
     rememberSectionFromPath(pathname);
   }, [pathname]);
 
-  useEffect(() => {
-    if (!navOpen) return;
-    const onKey = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') setNavOpen(false);
-    };
-    const prevOverflow = document.body.style.overflow;
-    document.body.style.overflow = 'hidden';
-    window.addEventListener('keydown', onKey);
-    return () => {
-      document.body.style.overflow = prevOverflow;
-      window.removeEventListener('keydown', onKey);
-    };
-  }, [navOpen]);
-
   const handleLogout = async () => {
     await logout();
     navigate('/login');
@@ -140,7 +192,23 @@ export function AppLayout() {
     canSeeNav(role, item.permissionPath, { userId: user?.id, activeProject }),
   );
 
-  const closeNav = () => setNavOpen(false);
+  const selectedKey = useMemo(
+    () => visibleNav.find((item) => navSelectedKey(pathname, item))?.key ?? '',
+    [visibleNav, pathname],
+  );
+
+  const menuItems: MenuProps['items'] = visibleNav.map((item) => ({
+    key: item.key,
+    icon: item.icon,
+    label: item.label,
+  }));
+
+  const onMenuClick: MenuProps['onClick'] = ({ key }) => {
+    const item = visibleNav.find((n) => n.key === key);
+    if (!item) return;
+    navigate(navItemTarget(item, buildProjectPath, projectId));
+    setNavOpen(false);
+  };
 
   const handleProjectChange = (id: string) => {
     if (!id) return;
@@ -154,100 +222,80 @@ export function AppLayout() {
   const showProjectPicker =
     logicalPath !== '/' && logicalPath !== '/projects' && hasProjects;
 
+  const sidebarMenu = (
+    <>
+      <SidebarBrand />
+      <Menu
+        theme="dark"
+        mode="inline"
+        selectedKeys={selectedKey ? [selectedKey] : []}
+        items={menuItems}
+        onClick={onMenuClick}
+        style={{ flex: 1, borderInlineEnd: 0, overflow: 'auto' }}
+      />
+      <SidebarFooter
+        username={user?.username}
+        roleLabel={ROLE_LABELS[role] ?? user?.role ?? ''}
+        onLogout={handleLogout}
+      />
+    </>
+  );
+
   return (
     <PageHeaderProvider>
-    <div className="app-shell">
-      <ToastStack toasts={toasts} onDismiss={dismissToast} position="bottom" />
-      {navOpen && (
-        <button
-          type="button"
-          className="app-sidebar-backdrop"
-          aria-label="Закрыть меню"
-          onClick={closeNav}
-        />
-      )}
-      <aside
-        className={`app-sidebar w-56 h-full max-h-full flex flex-col shrink-0 overflow-hidden${
-          navOpen ? ' app-sidebar--open' : ''
-        }`}
-        style={{ background: 'var(--sidebar-bg)', color: 'var(--sidebar-text)' }}
-      >
-        <div className="flex items-center gap-3 p-4 border-b border-white/10 shrink-0">
-          <div className="w-9 h-9 rounded-lg bg-blue-600 flex items-center justify-center text-white font-bold text-sm">
-            {APP_LOGO_MARK}
-          </div>
-          <div className="font-semibold text-white text-sm">{APP_NAME}</div>
-        </div>
-        <nav className="flex-1 min-h-0 overflow-y-auto py-3">
-          {visibleNav.map((item) => {
-            const { icon: Icon, label, end } = item;
-            const target = navItemTarget(item, buildProjectPath, projectId);
-            return (
-            <NavLink
-              key={label}
-              to={target}
-              end={end}
-              onClick={closeNav}
-              className={({ isActive }) => {
-                const active = item.section
-                  ? pathBelongsToSection(pathname, item.section)
-                  : isActive;
-                return `flex items-center gap-3 px-4 py-2.5 text-sm transition-colors ${
-                  active ? 'bg-white/10 text-white' : 'hover:bg-white/5'
-                }`;
-              }}
-            >
-              <Icon size={18} />
-              {label}
-            </NavLink>
-            );
-          })}
-        </nav>
-        <div className="app-sidebar-footer shrink-0 border-t border-white/10">
-          <div className="app-sidebar-user flex items-center gap-3 px-4 py-3">
-            <div className="app-sidebar-user__avatar w-8 h-8 rounded-full bg-blue-600 flex items-center justify-center text-xs text-white font-medium shrink-0">
-              {user?.username?.slice(0, 2).toUpperCase() || '??'}
-            </div>
-            <div className="app-sidebar-user__meta flex-1 min-w-0">
-              <div className="text-sm text-white truncate">{user?.username}</div>
-              <div className="text-xs opacity-60 truncate">{ROLE_LABELS[role] ?? user?.role}</div>
-            </div>
-          </div>
-          <button
-            type="button"
-            className="app-sidebar-logout w-full flex items-center gap-3 px-4 py-2.5 text-sm transition-colors"
-            onClick={handleLogout}
-          >
-            <LogOut size={18} aria-hidden />
-            Выход
-          </button>
-        </div>
-      </aside>
-
-      <div className="app-content">
-        <header
-          className="app-header"
-          style={{ background: 'var(--surface)', borderColor: 'var(--border)', boxShadow: 'var(--shadow)' }}
+      <Layout className="app-shell" style={{ minHeight: '100vh', height: '100%' }}>
+        <Sider
+          width={224}
+          theme="dark"
+          breakpoint="lg"
+          collapsedWidth={0}
+          className="!hidden lg:!block"
+          style={{ height: '100vh', position: 'sticky', top: 0, left: 0 }}
         >
-          <button
-            type="button"
-            className="app-sidebar-toggle btn btn-ghost p-2 shrink-0"
-            onClick={() => setNavOpen(true)}
-            aria-label="Открыть меню"
+          <div className="flex flex-col h-full">{sidebarMenu}</div>
+        </Sider>
+
+        <Drawer
+          placement="left"
+          open={navOpen}
+          onClose={() => setNavOpen(false)}
+          width={280}
+          styles={{ body: { padding: 0, display: 'flex', flexDirection: 'column', height: '100%' } }}
+          className="lg:hidden"
+        >
+          {sidebarMenu}
+        </Drawer>
+
+        <Layout className="app-content min-h-0 min-w-0 flex-1">
+          <Header
+            className="app-header !px-4 !py-0 flex items-center gap-3"
+            style={{
+              background: 'var(--surface)',
+              borderBottom: '1px solid var(--border)',
+              boxShadow: 'var(--shadow)',
+              height: 'auto',
+              lineHeight: 'normal',
+              paddingTop: 8,
+              paddingBottom: 8,
+            }}
           >
-            <Menu size={20} />
-          </button>
-          <PageHeaderOutlet />
-          <div className="app-header-toolbar">
-            <div className="app-header-actions">
+            <Button
+              type="text"
+              className="lg:!hidden shrink-0"
+              icon={<MenuOutlined />}
+              aria-label="Открыть меню"
+              onClick={() => setNavOpen(true)}
+            />
+            <PageHeaderOutlet />
+            <div className="app-header-toolbar ml-auto flex items-center gap-2 shrink-0">
               {showProjectPicker && (
                 <label className="app-header-project flex items-center gap-2 text-sm min-w-0">
-                  <span className="app-header-project-label" style={{ color: 'var(--text-muted)' }}>
+                  <span className="app-header-project-label hidden sm:inline" style={{ color: 'var(--text-muted)' }}>
                     Проект:
                   </span>
                   <AppSelect
                     variant="toolbar"
-                    icon={<FolderOpen size={14} aria-hidden />}
+                    icon={<FolderOpenOutlined />}
                     ariaLabel="Проект"
                     value={projectId ?? ''}
                     onChange={handleProjectChange}
@@ -261,25 +309,28 @@ export function AppLayout() {
               <ProjectJobSync projectId={projectId ?? null} />
               <AssistantPanel />
               <TaskLogPanel projectId={projectId ?? null} />
-              <button type="button" className="btn btn-ghost p-2 shrink-0" onClick={toggleTheme} title="Тема">
-                {theme === 'light' ? <Moon size={18} /> : <Sun size={18} />}
-              </button>
+              <Button
+                type="text"
+                icon={theme === 'light' ? <MoonOutlined /> : <SunOutlined />}
+                onClick={toggleTheme}
+                title="Тема"
+                aria-label="Переключить тему"
+              />
             </div>
-          </div>
-        </header>
-        <ReadOnlyBanner />
-        <main
-          className={
-            isFullHeightPage
-              ? 'app-main app-main--map flex flex-1 min-h-0 flex-col overflow-hidden p-6'
-              : 'app-main flex-1 min-h-0 overflow-y-auto overflow-x-hidden p-6'
-          }
-          style={{ background: 'var(--bg)' }}
-        >
-          <Outlet />
-        </main>
-      </div>
-    </div>
+          </Header>
+          <ReadOnlyBanner />
+          <Content
+            className={
+              isFullHeightPage
+                ? 'app-main app-main--map flex flex-1 min-h-0 flex-col overflow-hidden p-6'
+                : 'app-main flex-1 min-h-0 overflow-y-auto overflow-x-hidden p-6'
+            }
+            style={{ background: 'var(--bg)' }}
+          >
+            <Outlet />
+          </Content>
+        </Layout>
+      </Layout>
     </PageHeaderProvider>
   );
 }

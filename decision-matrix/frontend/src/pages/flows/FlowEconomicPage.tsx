@@ -1,3 +1,4 @@
+import { Card } from 'antd';
 import { EconomicFlowSchematic } from '../../components/EconomicFlowSchematic';
 import { useFlowSchematicContext } from './flowSchematicContext';
 
@@ -14,7 +15,7 @@ export function FlowEconomicPage() {
   const economicErr = economicQuery.error;
 
   return (
-    <section className="card p-4 flow-schematic-window">
+    <Card className="flow-schematic-window" classNames={{ body: 'p-4' }}>
       <p className="flow-schematic-window-subtitle text-sm text-[var(--text-muted)] mb-4">
         Денежные потоки по цепочке технологической схемы
       </p>
@@ -38,6 +39,6 @@ export function FlowEconomicPage() {
           Экономическая схема будет доступна после загрузки технологического потока.
         </p>
       )}
-    </section>
+    </Card>
   );
 }

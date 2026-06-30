@@ -1,4 +1,5 @@
 import { Download } from 'lucide-react';
+import { Button } from 'antd';
 import { downloadExcel, type ExcelColumn } from '../lib/exportExcel';
 import { useAppStore } from '../store';
 
@@ -33,16 +34,16 @@ export function TableExcelExportButton<T>({
   };
 
   return (
-    <button
-      type="button"
+    <Button
+      type="text"
+      size="small"
       className="table-excel-export-btn"
       onClick={handleClick}
       disabled={disabled || rows.length === 0}
       title="Скачать Excel"
       aria-label="Скачать Excel"
-    >
-      <Download size={14} strokeWidth={2} aria-hidden />
-    </button>
+      icon={<Download size={14} strokeWidth={2} aria-hidden />}
+    />
   );
 }
 

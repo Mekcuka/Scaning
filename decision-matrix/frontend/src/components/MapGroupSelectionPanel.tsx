@@ -11,6 +11,7 @@ import {
   Trash2,
   X,
 } from 'lucide-react';
+import { Button } from 'antd';
 import { LINE_SUBTYPES } from '../lib/api';
 import { MAP_SUBTYPE_COLORS } from '../lib/mapIcons';
 
@@ -148,25 +149,25 @@ export function MapGroupSelectionPanel({
             <span className="map-group-panel__count">Выбрано: {items.length}</span>
           </div>
           <div className="map-group-panel__header-actions">
-            <button
-              type="button"
-              className="btn btn-ghost btn-icon-touch map-group-panel__icon-btn"
+            <Button
+              type="text"
+              size="small"
+              className="map-group-panel__icon-btn"
+              icon={listCollapsed ? <ChevronRight size={16} /> : <ChevronDown size={16} />}
               onClick={() => setListCollapsed((v) => !v)}
               title={listCollapsed ? 'Развернуть список' : 'Свернуть список'}
               aria-label={listCollapsed ? 'Развернуть список' : 'Свернуть список'}
               aria-expanded={!listCollapsed}
-            >
-              {listCollapsed ? <ChevronRight size={16} /> : <ChevronDown size={16} />}
-            </button>
-            <button
-              type="button"
-              className="btn btn-ghost btn-icon-touch map-group-panel__icon-btn"
+            />
+            <Button
+              type="text"
+              size="small"
+              className="map-group-panel__icon-btn"
+              icon={<X size={16} />}
               onClick={onClear}
               title="Сбросить выделение"
               aria-label="Сбросить выделение"
-            >
-              <X size={16} />
-            </button>
+            />
           </div>
         </div>
         {summary.length > 0 && (
@@ -287,46 +288,48 @@ export function MapGroupSelectionPanel({
       )}
 
       <div className="map-group-panel__actions">
-        <button
-          type="button"
-          className="btn btn-secondary map-group-panel__action"
+        <Button
+          size="small"
+          className="map-group-panel__action"
           disabled={!canCopy}
-          title="Копировать (Ctrl+C)"
+          icon={<Copy size={14} aria-hidden />}
           onClick={onCopy}
+          title="Копировать (Ctrl+C)"
         >
-          <Copy size={14} aria-hidden />
-          <span>Копировать</span>
-        </button>
-        <button
-          type="button"
-          className="btn btn-secondary map-group-panel__action"
+          Копировать
+        </Button>
+        <Button
+          size="small"
+          className="map-group-panel__action"
           disabled={!canPaste}
-          title="Вставить (Ctrl+V)"
+          icon={<ClipboardPaste size={14} aria-hidden />}
           onClick={onPaste}
+          title="Вставить (Ctrl+V)"
         >
-          <ClipboardPaste size={14} aria-hidden />
-          <span>Вставить</span>
-        </button>
-        <button
-          type="button"
-          className="btn btn-secondary map-group-panel__action"
+          Вставить
+        </Button>
+        <Button
+          size="small"
+          className="map-group-panel__action"
           disabled={!canCut}
-          title="Вырезать (Ctrl+X)"
+          icon={<Scissors size={14} aria-hidden />}
           onClick={onCut}
+          title="Вырезать (Ctrl+X)"
         >
-          <Scissors size={14} aria-hidden />
-          <span>Вырезать</span>
-        </button>
-        <button
-          type="button"
-          className="btn btn-secondary map-group-panel__action map-group-panel__action--danger"
+          Вырезать
+        </Button>
+        <Button
+          size="small"
+          danger
+          className="map-group-panel__action map-group-panel__action--danger"
           disabled={!canDelete || deletePending}
-          title={canDelete ? 'Удалить (Del)' : 'Недостаточно прав'}
+          loading={deletePending}
+          icon={<Trash2 size={14} aria-hidden />}
           onClick={onDelete}
+          title={canDelete ? 'Удалить (Del)' : 'Недостаточно прав'}
         >
-          <Trash2 size={14} aria-hidden />
-          <span>{deletePending ? 'Удаление…' : 'Удалить'}</span>
-        </button>
+          {deletePending ? 'Удаление…' : 'Удалить'}
+        </Button>
       </div>
     </div>
   );

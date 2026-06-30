@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef, useMemo } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { RotateCcw, Save } from 'lucide-react';
+import { Button, Card, Space } from 'antd';
 import { defaultProjectsRatesApi, type DistanceDefaults } from '../lib/api';
 import { useAppStore } from '../store';
 import { usePermissions } from '../hooks/usePermissions';
@@ -40,7 +41,7 @@ function RatesGroupTable({
   }));
 
   return (
-    <section className="card card--flush rates-group-card">
+    <Card className="card--flush rates-group-card" styles={{ body: { padding: 0 } }}>
       <div className="rates-group-head">
         <h3>{group.label}</h3>
         <div className="rates-group-head__actions">
@@ -74,7 +75,7 @@ function RatesGroupTable({
           </tbody>
         </table>
       </div>
-    </section>
+    </Card>
   );
 }
 
@@ -95,7 +96,7 @@ function DistanceGroupTable({
   }));
 
   return (
-    <section className="card card--flush rates-group-card">
+    <Card className="card--flush rates-group-card" styles={{ body: { padding: 0 } }}>
       <div className="rates-group-head">
         <h3>{group.label}</h3>
         <div className="rates-group-head__actions">
@@ -129,7 +130,7 @@ function DistanceGroupTable({
           </tbody>
         </table>
       </div>
-    </section>
+    </Card>
   );
 }
 
@@ -314,9 +315,9 @@ export function RatesPage() {
   if (!projectId) {
     return (
       <div className="rates-page">
-        <div className="card text-sm" style={{ color: 'var(--text-muted)' }}>
+        <Card size="small" className="text-sm" style={{ color: 'var(--text-muted)' }}>
           Выберите проект в шапке приложения.
-        </div>
+        </Card>
       </div>
     );
   }
@@ -349,26 +350,27 @@ export function RatesPage() {
         </div>
         <div className="rates-actions">
           {!canWriteProject ? null : (
-            <>
-              <button
-                type="button"
-                className="btn btn-secondary btn-sm"
+            <Space>
+              <Button
+                size="small"
+                icon={<RotateCcw size={14} />}
                 onClick={() => resetMut.mutate()}
-                disabled={resetMut.isPending || busy}
+                loading={resetMut.isPending}
+                disabled={busy}
               >
-                <RotateCcw size={14} className="inline mr-1" />
                 {resetMut.isPending ? 'Сброс…' : resetLabel}
-              </button>
-              <button
-                type="button"
-                className="btn btn-primary btn-sm"
+              </Button>
+              <Button
+                type="primary"
+                size="small"
+                icon={<Save size={14} />}
                 onClick={() => saveMut.mutate()}
-                disabled={saveMut.isPending || busy}
+                loading={saveMut.isPending}
+                disabled={busy}
               >
-                <Save size={14} className="inline mr-1" />
                 {saveMut.isPending ? 'Сохранение…' : 'Сохранить'}
-              </button>
-            </>
+              </Button>
+            </Space>
           )}
         </div>
       </header>

@@ -1,4 +1,5 @@
 import type { UseMutationResult } from '@tanstack/react-query';
+import { Button, Space } from 'antd';
 import { AppModal } from '../../components/AppModal';
 import { CandidatesModal } from '../../components/CandidatesModal';
 import { PoiCreateForm } from '../../components/poiParamsForm/PoiCreateForm';
@@ -52,19 +53,14 @@ export function MapPageModals({
           onClose={() => setDeleteConfirm(null)}
           size="sm"
           footer={
-            <>
-              <button
-                type="button"
-                className="btn btn-secondary"
-                onClick={() => setDeleteConfirm(null)}
-                disabled={deletePending}
-              >
+            <Space>
+              <Button onClick={() => setDeleteConfirm(null)} disabled={deletePending}>
                 Отмена
-              </button>
-              <button
-                type="button"
-                className="btn btn-primary"
-                disabled={deletePending}
+              </Button>
+              <Button
+                type="primary"
+                danger
+                loading={deletePending}
                 onClick={() => {
                   const action = deleteConfirm.onConfirm;
                   setDeleteConfirm(null);
@@ -72,8 +68,8 @@ export function MapPageModals({
                 }}
               >
                 {deletePending ? 'Удаление…' : 'Удалить'}
-              </button>
-            </>
+              </Button>
+            </Space>
           }
         >
           <p className="text-sm mb-2">{deleteConfirm.message}</p>
@@ -92,19 +88,17 @@ export function MapPageModals({
           size="md"
           overlayClassName="app-modal-overlay--poi-create"
           footer={
-            <>
-              <button type="button" className="btn btn-secondary" onClick={onClosePoiModal}>
-                Отмена
-              </button>
-              <button
-                type="button"
-                className="btn btn-primary"
+            <Space>
+              <Button onClick={onClosePoiModal}>Отмена</Button>
+              <Button
+                type="primary"
                 onClick={onSubmitPoi}
-                disabled={createPoiPending || !canWriteProject}
+                loading={createPoiPending}
+                disabled={!canWriteProject}
               >
                 {createPoiPending ? 'Сохранение…' : 'Сохранить точку'}
-              </button>
-            </>
+              </Button>
+            </Space>
           }
         >
           <PoiCreateForm

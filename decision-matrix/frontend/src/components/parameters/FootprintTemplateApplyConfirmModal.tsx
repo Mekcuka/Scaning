@@ -1,3 +1,4 @@
+import { Button, Space } from 'antd';
 import { AppModal } from '../AppModal';
 import { templateSummaryLines } from './footprintConnectionTemplateUi';
 import type { FootprintLineConnectionTemplate } from '../../lib/padFootprintLineAttach';
@@ -33,20 +34,19 @@ export function FootprintTemplateApplyConfirmModal({
       size="sm"
       closeOnBackdrop={!applying}
       footer={
-        <>
-          <button type="button" className="btn btn-secondary" onClick={onClose} disabled={applying}>
+        <Space>
+          <Button onClick={onClose} disabled={applying}>
             Отмена
-          </button>
-          <button
-            type="button"
-            className="btn btn-primary"
+          </Button>
+          <Button
+            type="primary"
             data-testid="footprint-template-apply-confirm"
             onClick={onConfirm}
-            disabled={applying}
+            loading={applying}
           >
             {applying ? 'Применение…' : 'Применить'}
-          </button>
-        </>
+          </Button>
+        </Space>
       }
     >
       <p className="footprint-connect-confirm__lead">

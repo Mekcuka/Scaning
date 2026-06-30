@@ -1,4 +1,5 @@
 import { LayoutGrid } from 'lucide-react';
+import { Button } from 'antd';
 import { AppSelect } from '../../AppSelect';
 import {
   SAND_LOGISTICS_EDGE_LABEL_MODE_OPTIONS,
@@ -87,15 +88,16 @@ export function SandLogisticsDisplayOptions({
       </div>
 
       <div className="flow-schematic-edit-panel-group">
-        <button
-          type="button"
-          className="btn btn-sm btn-secondary w-full justify-center gap-2"
+        <Button
+          size="small"
+          block
+          className="justify-center gap-2"
+          icon={<LayoutGrid size={16} />}
           onClick={onResetLayout}
           title="Вернуть раскладку по координатам карты"
         >
-          <LayoutGrid size={16} aria-hidden />
           По карте
-        </button>
+        </Button>
       </div>
     </>
   );

@@ -1,4 +1,5 @@
 import { AppModal } from '../AppModal';
+import { Button, Space } from 'antd';
 import type { PadEarthworkSketchModalProps } from './padEarthworkSketchModalState';
 import { PadEarthworkSketchPlanTab } from './PadEarthworkSketchPlanTab';
 import { PadEarthworkSketchScene3dTab } from './PadEarthworkSketchScene3dTab';
@@ -39,33 +40,26 @@ export function PadEarthworkSketchModal(props: PadEarthworkSketchModalProps) {
       overlayClassName="app-modal-overlay--pad-earthwork-sketch"
       footer={
         !readOnly ? (
-          <div className="pad-earthwork-sketch-modal__footer">
-            <button type="button" className="btn btn-secondary" onClick={onClose}>
-              Закрыть
-            </button>
-            <button type="button" className="btn btn-secondary" onClick={handleApplyToFields}>
-              Применить к полям
-            </button>
-            <button
-              type="button"
-              className="btn btn-secondary"
-              disabled={saveMutation.isPending || computeMutation.isPending || !canCompute}
+          <Space wrap className="pad-earthwork-sketch-modal__footer">
+            <Button onClick={onClose}>Закрыть</Button>
+            <Button onClick={handleApplyToFields}>Применить к полям</Button>
+            <Button
+              loading={saveMutation.isPending}
+              disabled={computeMutation.isPending || !canCompute}
               onClick={() => saveMutation.mutate()}
             >
               {saveMutation.isPending ? 'Сохранение…' : 'Сохранить'}
-            </button>
-            <button
-              type="button"
-              className="btn btn-primary"
-              disabled={computeMutation.isPending || saveMutation.isPending || !canCompute}
+            </Button>
+            <Button
+              type="primary"
+              loading={computeMutation.isPending}
+              disabled={saveMutation.isPending || !canCompute}
               onClick={() => computeMutation.mutate()}
             >
               {computeMutation.isPending ? 'Расчёт…' : 'Рассчитать'}
-            </button>
+            </Button>
             {fillM3 != null && (
-              <button
-                type="button"
-                className="btn btn-secondary"
+              <Button
                 disabled={sandDemandApplied}
                 onClick={() => {
                   onApplySandDemand(fillM3);
@@ -75,13 +69,11 @@ export function PadEarthworkSketchModal(props: PadEarthworkSketchModalProps) {
                 {sandDemandApplied
                   ? 'Принято'
                   : `Применить ${fillM3.toLocaleString('ru-RU')} м³ к песку`}
-              </button>
+              </Button>
             )}
-          </div>
+          </Space>
         ) : (
-          <button type="button" className="btn btn-secondary" onClick={onClose}>
-            Закрыть
-          </button>
+          <Button onClick={onClose}>Закрыть</Button>
         )
       }
     >

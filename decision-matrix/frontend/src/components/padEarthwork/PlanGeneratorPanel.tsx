@@ -1,5 +1,6 @@
 import { useMemo } from 'react';
 import { Sparkles } from 'lucide-react';
+import { Button } from 'antd';
 import { clampNdsDeg, DEFAULT_PAD_NDS_DEG } from '../../lib/infraPadEarthwork';
 import { padWellFieldsFromForm } from '../../lib/infraPadWells';
 import { generatePadFromWells, PadWellLayoutError } from '../../lib/padEarthworkSketch';
@@ -293,15 +294,16 @@ export function PlanGeneratorPanel({
       )}
 
       {!readOnly && (
-        <button
-          type="button"
-          className="btn btn-primary pad-earthwork-sketch-modal__generator-btn"
+        <Button
+          type="primary"
+          className="pad-earthwork-sketch-modal__generator-btn"
           disabled={!canGenerate || generating}
+          loading={generating}
+          icon={<Sparkles size={16} />}
           onClick={onGenerate}
         >
-          <Sparkles size={16} aria-hidden />
           {generating ? 'Генерация…' : 'Сгенерировать'}
-        </button>
+        </Button>
       )}
     </div>
   );

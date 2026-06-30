@@ -1,3 +1,4 @@
+import { Input } from 'antd';
 import { SAND_VOLUME_INPUT_MODE_OPTIONS, type SandVolumeInputMode } from '../../lib/infraSandVolumes';
 import type { SandLogisticsResult } from '../../lib/api';
 import { AppSelect } from '../AppSelect';
@@ -114,8 +115,8 @@ export function InfraDetailLogisticsTab({
             <div className="object-detail-panel__coord-grid">
               <label className="object-detail-panel__field">
                 <FieldLabel>Изначальный объём, м³</FieldLabel>
-                <input
-                  className="input object-detail-panel__input"
+                <Input
+                  className="object-detail-panel__input"
                   type="number"
                   min={0}
                   step="any"
@@ -127,8 +128,8 @@ export function InfraDetailLogisticsTab({
               </label>
               <label className="object-detail-panel__field">
                 <FieldLabel>Текущий объём, м³</FieldLabel>
-                <input
-                  className="input object-detail-panel__input"
+                <Input
+                  className="object-detail-panel__input"
                   type="number"
                   min={0}
                   step="any"
@@ -161,8 +162,8 @@ export function InfraDetailLogisticsTab({
               {sandVolumeMode === 'single' ? (
                 <label className="object-detail-panel__field">
                   <FieldLabel>Объём песка (спрос), м³</FieldLabel>
-                  <input
-                    className="input object-detail-panel__input"
+                  <Input
+                    className="object-detail-panel__input"
                     type="number"
                     min={0}
                     step="any"

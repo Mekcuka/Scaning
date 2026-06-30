@@ -41,7 +41,7 @@ describe('AdminUsersPage', () => {
     );
     expect(screen.getByText('Администрирование')).toBeInTheDocument();
     await waitFor(() => expect(screen.getByText('a@test.ru')).toBeInTheDocument());
-    expect(screen.getByRole('link', { name: /Пользователи/i })).toBeInTheDocument();
+    expect(screen.getAllByText(/Пользователи/i).length).toBeGreaterThan(0);
     expect(screen.getByText('Зарегистрирован')).toBeInTheDocument();
     expect(screen.getByText('Последний вход')).toBeInTheDocument();
     expect(

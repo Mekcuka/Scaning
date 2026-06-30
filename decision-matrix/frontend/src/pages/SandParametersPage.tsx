@@ -2,6 +2,7 @@ import { useMemo, useState } from 'react';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { ProjectLink } from '../components/ProjectLink';
 import { MapPin, Search } from 'lucide-react';
+import { Button, Card, Input } from 'antd';
 import { defaultMapMutationsApi, SUBTYPE_LABELS, type InfraObject } from '../lib/api';
 import {
   effectiveSandDemandForObject,
@@ -113,9 +114,9 @@ export function SandParametersPage() {
   if (!projectId) {
     return (
       <div className="parameters-page">
-        <div className="card text-sm" style={{ color: 'var(--text-muted)' }}>
+        <Card size="small" className="text-sm" style={{ color: 'var(--text-muted)' }}>
           Выберите проект в шапке приложения.
-        </div>
+        </Card>
       </div>
     );
   }
@@ -128,19 +129,19 @@ export function SandParametersPage() {
             ? 'Спрос потребителей для расчёта логистики песка. Сохранение при выходе из поля или Enter.'
             : 'Просмотр объёмов спроса песка по объектам'}
         </p>
-        <ProjectLink to="/map" className="btn btn-secondary btn-sm shrink-0">
-          <MapPin size={14} className="inline mr-1" />
-          Открыть карту
+        <ProjectLink to="/map">
+          <Button size="small" className="shrink-0" icon={<MapPin size={14} />}>
+            Открыть карту
+          </Button>
         </ProjectLink>
       </div>
 
-      <div className="card card--flush parameters-card">
+      <Card className="card--flush parameters-card" styles={{ body: { padding: 0 } }}>
         <div className="parameters-toolbar">
           <label className="parameters-search">
             <Search size={16} aria-hidden />
-            <input
+            <Input
               type="search"
-              className="input"
               placeholder="Поиск по названию или подтипу…"
               value={search}
               onChange={(e) => setSearch(e.target.value)}
@@ -215,7 +216,7 @@ export function SandParametersPage() {
                           <DeferredNumberInput
                             allowEmpty
                             min={0}
-                            className="input parameters-table__input"
+                            className="parameters-table__input"
                             placeholder="Не задан"
                             value={sandDemandDisplayValue(obj)}
                             readOnly={!canWriteProject}
@@ -253,7 +254,7 @@ export function SandParametersPage() {
             </table>
           </div>
         )}
-      </div>
+      </Card>
     </div>
   );
 }

@@ -1,4 +1,5 @@
 import { GitBranch } from 'lucide-react';
+import { Button, Space } from 'antd';
 import { AppModal } from './AppModal';
 import type { LineSplitConfirmSummary } from '../lib/lineSplitConfirmMessages';
 
@@ -22,19 +23,12 @@ export function LineSplitConfirmModal({ summary, onSkipSplit, onConfirmSplit }: 
       onClose={onSkipSplit}
       size="sm"
       footer={
-        <>
-          <button type="button" className="btn btn-secondary" onClick={onSkipSplit}>
-            {skipLabel}
-          </button>
-          <button
-            type="button"
-            className="btn btn-primary"
-            data-testid="line-split-confirm"
-            onClick={onConfirmSplit}
-          >
+        <Space>
+          <Button onClick={onSkipSplit}>{skipLabel}</Button>
+          <Button type="primary" data-testid="line-split-confirm" onClick={onConfirmSplit}>
             Разделить линию
-          </button>
-        </>
+          </Button>
+        </Space>
       }
     >
       <div className="autoroad-confirm-intro">

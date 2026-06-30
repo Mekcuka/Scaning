@@ -1,6 +1,7 @@
 import { Navigate } from 'react-router-dom';
 import { ProjectLink } from '../components/ProjectLink';
 import { Box, FileBox, Info, Map as MapIcon, Upload } from 'lucide-react';
+import { Button } from 'antd';
 import { Import3dPreview } from '../components/map3d/Import3dPreview';
 import { AppSelect } from '../components/AppSelect';
 import { SUBTYPE_LABELS } from '../lib/api';
@@ -131,7 +132,7 @@ export function Import3DPage() {
                 subtitle="Модель появится в «Модель 3D» на карте для выбранных типов объектов"
               >
                 <div className="import-3d-assign-field">
-                  <label className="form-label" htmlFor="import3d-assign-model">
+                  <label className="import-3d-field-label" htmlFor="import3d-assign-model">
                     3D-модель
                   </label>
                   <AppSelect
@@ -151,7 +152,7 @@ export function Import3DPage() {
                   className="import-3d-subtype-grid-fieldset"
                   disabled={!w.projectId || !w.assignModelId}
                 >
-                  <legend className="form-label">Типы объектов</legend>
+                  <legend className="import-3d-field-label">Типы объектов</legend>
                   <div className="import-3d-subtype-grid" role="group" aria-label="Типы объектов">
                     {w.assignableSubtypes.map((st) => {
                       const checked = w.assignSubtypes.includes(st);
@@ -182,7 +183,7 @@ export function Import3DPage() {
                   </label>
                   {w.assignApplyToObjects && assignReady && hasSubtypeSelection ? (
                     <fieldset className="import-3d-apply-mode" disabled={w.assignMut.isPending}>
-                      <legend className="form-label">Режим применения</legend>
+                      <legend className="import-3d-field-label">Режим применения</legend>
                       <label className="import-3d-apply-mode__option">
                         <input
                           type="radio"
@@ -211,10 +212,10 @@ export function Import3DPage() {
                   ) : null}
                 </div>
                 <div className="import-3d-assign-actions">
-                  <button
-                    type="button"
-                    className="btn btn-primary"
-                    disabled={!assignReady || w.assignMut.isPending}
+                  <Button
+                    type="primary"
+                    disabled={!assignReady}
+                    loading={w.assignMut.isPending}
                     onClick={() => {
                       if (
                         w.assignApplyToObjects &&
@@ -235,10 +236,8 @@ export function Import3DPage() {
                     }}
                   >
                     {w.assignMut.isPending ? 'Сохранение…' : 'Сохранить назначение'}
-                  </button>
-                  <button
-                    type="button"
-                    className="btn btn-secondary"
+                  </Button>
+                  <Button
                     disabled={!assignReady || w.assignMut.isPending}
                     onClick={() =>
                       w.assignMut.mutate({
@@ -250,11 +249,12 @@ export function Import3DPage() {
                     }
                   >
                     Снять все
-                  </button>
+                  </Button>
                   {assignReady && hasSubtypeSelection ? (
-                    <ProjectLink to="/map" className="btn btn-secondary import-3d-map-link">
-                      <MapIcon size={16} aria-hidden />
-                      Открыть карту 3D
+                    <ProjectLink to="/map">
+                      <Button icon={<MapIcon size={16} aria-hidden />} className="import-3d-map-link">
+                        Открыть карту 3D
+                      </Button>
                     </ProjectLink>
                   ) : (
                     <p className="import-3d-muted import-3d-assign-hint">

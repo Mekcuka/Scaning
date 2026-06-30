@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useState, type DragEvent, type RefObject } from 'react';
 import { Upload } from 'lucide-react';
+import { Button, Form, InputNumber } from 'antd';
 
 export function GlbUploadZone({
   fileInputRef,
@@ -77,31 +78,31 @@ export function GlbUploadZone({
           onChange={syncFileName}
         />
       </div>
-      <div className="import-3d-upload-meta">
-        <label className="form-label" htmlFor="import3d-target-height">
-          Высота модели (м)
-        </label>
-        <input
+      <Form.Item
+        label="Высота модели (м)"
+        htmlFor="import3d-target-height"
+        className="import-3d-upload-meta mb-0"
+      >
+        <InputNumber
           id="import3d-target-height"
-          type="number"
-          className="form-input import-3d-upload-meta__height"
+          className="import-3d-upload-meta__height w-full"
           min={0.1}
           max={500}
           step={0.1}
           value={targetHeightM}
           disabled={disabled}
-          onChange={(e) => onTargetHeightChange(Number(e.target.value) || 8)}
+          onChange={(v) => onTargetHeightChange(typeof v === 'number' ? v : 8)}
         />
-      </div>
+      </Form.Item>
       <div className="import-3d-assign-actions">
-        <button
-          type="button"
-          className="btn btn-primary"
+        <Button
+          type="primary"
           disabled={disabled || busy || !fileName}
+          loading={busy}
           onClick={onPick}
         >
           {busy ? 'Загрузка…' : 'Загрузить на сервер'}
-        </button>
+        </Button>
         {!fileName && !disabled ? (
           <p className="import-3d-muted import-3d-assign-hint">
             Выберите файл в зоне выше, чтобы загрузить

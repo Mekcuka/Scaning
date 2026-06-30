@@ -42,7 +42,7 @@ export function PoiThresholdGrid({
             ) : (
               <DeferredNumberInput
                 allowEmpty
-                className="input object-detail-panel__input"
+                className="object-detail-panel__input"
                 placeholder={defaults ? String(defaults[f.defaultKey]) : ''}
                 value={value[f.key]}
                 onCommit={(v) => patch({ [f.key]: String(v) })}

@@ -378,7 +378,7 @@
   flex-shrink: 0;
 }
 
-.assistant-panel-head-actions .btn {
+.assistant-panel-head-actions .ant-btn {
   width: 32px;
   height: 32px;
   display: inline-flex;

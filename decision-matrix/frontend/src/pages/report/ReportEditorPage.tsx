@@ -4,6 +4,7 @@ import { ProjectLink } from '../../components/ProjectLink';
 import { useProjectPathBuilder } from '../../hooks/useProjectPath';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { ArrowLeft, Download, FileText, Save, Sparkles } from 'lucide-react';
+import { Button, Card, Space } from 'antd';
 import { AppSelect } from '../../components/AppSelect';
 import {
   alignAnalysisRowsToMapObjects,
@@ -332,9 +333,9 @@ export function ReportEditorPage({ mode }: { mode: 'new' | 'edit' }) {
 
   if (mode === 'edit' && loadingSaved) {
     return (
-      <div className="card text-sm" style={{ color: 'var(--text-muted)' }}>
+      <Card size="small" className="text-sm" style={{ color: 'var(--text-muted)' }}>
         Загрузка отчёта…
-      </div>
+      </Card>
     );
   }
 
@@ -342,62 +343,66 @@ export function ReportEditorPage({ mode }: { mode: 'new' | 'edit' }) {
     <div className="report-editor">
       <div className="page-toolbar no-print">
         <div>
-          <ProjectLink to="/report" className="btn btn-secondary btn-sm">
-            <ArrowLeft size={14} /> К списку
+          <ProjectLink to="/report">
+            <Button size="small" icon={<ArrowLeft size={14} />}>
+              К списку
+            </Button>
           </ProjectLink>
         </div>
         <div className="page-toolbar-actions">
+          <Space wrap>
           {(mode === 'edit' || (mode === 'new' && hasAnalysis)) && (
             <>
-              <button type="button" className="btn btn-secondary" onClick={() => window.print()}>
-                <Download size={16} /> PDF
-              </button>
+              <Button icon={<Download size={16} />} onClick={() => window.print()}>
+                PDF
+              </Button>
               {mode === 'edit' && (
-                <button
-                  type="button"
-                  className="btn btn-secondary"
-                  disabled={pptxMut.isPending}
+                <Button
+                  icon={<FileText size={16} />}
+                  loading={pptxMut.isPending}
                   onClick={() => pptxMut.mutate()}
                 >
-                  <FileText size={16} /> PPTX
-                </button>
+                  PPTX
+                </Button>
               )}
             </>
           )}
           {!readOnly && mode === 'new' && (
-            <button
-              type="button"
-              className="btn btn-primary"
-              disabled={!activePoiId || !hasAnalysis || createMut.isPending}
+            <Button
+              type="primary"
+              icon={<Sparkles size={16} />}
+              disabled={!activePoiId || !hasAnalysis}
+              loading={createMut.isPending}
               onClick={() => createMut.mutate()}
             >
-              <Sparkles size={16} /> Сформировать отчёт
-            </button>
+              Сформировать отчёт
+            </Button>
           )}
           {!readOnly && mode === 'edit' && (
-            <button
-              type="button"
-              className="btn btn-primary"
-              disabled={updateMut.isPending}
+            <Button
+              type="primary"
+              icon={<Save size={16} />}
+              loading={updateMut.isPending}
               onClick={() => updateMut.mutate()}
             >
-              <Save size={16} /> Сохранить
-            </button>
+              Сохранить
+            </Button>
           )}
+          </Space>
         </div>
       </div>
 
       {!projectId ? (
-        <div className="card text-sm" style={{ color: 'var(--text-muted)' }}>
+        <Card size="small" className="text-sm" style={{ color: 'var(--text-muted)' }}>
           Выберите проект в шапке приложения.
-        </div>
+        </Card>
       ) : pois.length === 0 ? (
-        <div className="card text-sm" style={{ color: 'var(--text-muted)' }}>
+        <Card size="small" className="text-sm" style={{ color: 'var(--text-muted)' }}>
           В проекте нет точек интереса.
-        </div>
+        </Card>
       ) : mode === 'new' ? (
         <>
-          <div className="card report-setup-card no-print mb-4">
+          <Card size="small" className="report-setup-card no-print mb-4">
             <h2 className="report-setup-card__title">Параметры отчёта</h2>
             <p className="report-setup-card__hint text-sm" style={{ color: 'var(--text-muted)' }}>
               Выберите точку интереса, проверьте превью и нажмите «Сформировать отчёт».
@@ -420,7 +425,7 @@ export function ReportEditorPage({ mode }: { mode: 'new' | 'edit' }) {
                 Нет данных анализа для выбранной точки. Выполните анализ окружения на карте или в матрице.
               </p>
             )}
-          </div>
+          </Card>
           {hasAnalysis && activePoiId ? (
             <OnePagerPreview
               ref={previewRef}

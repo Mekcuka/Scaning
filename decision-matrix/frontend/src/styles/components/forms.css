@@ -1,11 +1,71 @@
-/* Shared text fields — .input, form-group, and select/textarea variants */
-.input,
-select.input,
-textarea.input,
-.rates-input,
-.form-group input:not([type='checkbox']):not([type='radio']):not([type='file']),
-.form-group select,
-.form-group textarea {
+/* Layout modifiers on Ant Design inputs */
+.ant-input.input--mono,
+textarea.ant-input.input--mono {
+  font-family: ui-monospace, 'Cascadia Code', 'Consolas', monospace;
+  font-size: 0.8125rem;
+}
+
+.ant-input.input--w24,
+.ant-input-number.input--w24 {
+  width: 6rem;
+  flex-shrink: 0;
+}
+
+.ant-input.input--grow {
+  flex: 1 1 0%;
+  min-width: 0;
+  width: auto;
+}
+
+.ant-input.rates-input,
+.ant-input-number.rates-input {
+  width: 100%;
+}
+
+/* Pad clustering — layout on migrated Ant inputs */
+.pad-clustering-field--cell .ant-input,
+.pad-clustering-field--cell .app-select,
+.pad-clustering-field .ant-input {
+  width: 100%;
+}
+
+.pad-clustering-field--inline .ant-input {
+  width: 4.5rem;
+}
+
+.pad-clustering-summary__search .ant-input {
+  width: 100%;
+  min-height: 2rem;
+  font-size: 0.8125rem;
+}
+
+.pad-clustering-bottomholes-table__input.ant-input,
+.pad-clustering-bottomholes-table__input.app-select {
+  width: 100%;
+  min-width: 0;
+}
+
+/* Admin assistant — mono fields */
+.admin-assistant-field .ant-input.input--mono,
+.admin-assistant-model-field .ant-input.input--mono,
+.admin-assistant-model-field .app-select.input--mono {
+  font-family: ui-monospace, 'Cascadia Code', 'Consolas', monospace;
+  font-size: 0.8125rem;
+}
+
+/* Accordion form-group — full width Ant inputs */
+.form-group .ant-input,
+.form-group textarea.ant-input,
+.form-group .ant-input-number {
+  width: 100%;
+}
+
+/* Legacy plain .input — PyWellGeo + pad-earthwork sketch (unmigrated) */
+.pad-clustering-geo-panel .input,
+.pad-clustering-geo-panel select.input,
+.pad-clustering-geo-panel textarea.input,
+.pad-earthwork-sketch-modal__generator-input.input,
+.pad-earthwork-dim-stepper__input.input {
   box-sizing: border-box;
   width: 100%;
   max-width: 100%;
@@ -25,87 +85,46 @@ textarea.input,
     background 0.15s ease;
 }
 
-textarea.input,
-.form-group textarea {
+.pad-clustering-geo-panel textarea.input {
   min-height: 4.5rem;
   resize: vertical;
 }
 
-select.input,
-.form-group select {
+.pad-clustering-geo-panel select.input {
   cursor: pointer;
 }
 
-.input::placeholder,
-.form-group input::placeholder,
-.form-group textarea::placeholder {
+.pad-clustering-geo-panel .input::placeholder,
+.pad-clustering-geo-panel textarea.input::placeholder {
   color: var(--text-muted);
   opacity: 0.85;
 }
 
-.input:hover:not(:disabled):not([readonly]),
-select.input:hover:not(:disabled),
-textarea.input:hover:not(:disabled):not([readonly]),
-.rates-input:hover:not(:disabled),
-.form-group input:hover:not(:disabled):not([readonly]),
-.form-group select:hover:not(:disabled),
-.form-group textarea:hover:not(:disabled):not([readonly]) {
+.pad-clustering-geo-panel .input:hover:not(:disabled):not([readonly]),
+.pad-clustering-geo-panel select.input:hover:not(:disabled),
+.pad-clustering-geo-panel textarea.input:hover:not(:disabled):not([readonly]),
+.pad-earthwork-sketch-modal__generator-input.input:hover:not(:disabled):not([readonly]),
+.pad-earthwork-dim-stepper__input.input:hover:not(:disabled):not([readonly]) {
   border-color: color-mix(in srgb, var(--primary) 28%, var(--border));
 }
 
-.input:focus,
-select.input:focus,
-textarea.input:focus,
-.rates-input:focus,
-.form-group input:focus,
-.form-group select:focus,
-.form-group textarea:focus {
+.pad-clustering-geo-panel .input:focus,
+.pad-clustering-geo-panel select.input:focus,
+.pad-clustering-geo-panel textarea.input:focus,
+.pad-earthwork-sketch-modal__generator-input.input:focus,
+.pad-earthwork-dim-stepper__input.input:focus {
   outline: none;
   border-color: var(--primary);
   box-shadow: 0 0 0 3px color-mix(in srgb, var(--primary) 18%, transparent);
 }
 
-.input:disabled,
-.input[readonly],
-select.input:disabled,
-textarea.input:disabled,
-.form-group input:disabled,
-.form-group input[readonly],
-.form-group select:disabled,
-.form-group textarea:disabled {
+.pad-clustering-geo-panel .input:disabled,
+.pad-clustering-geo-panel .input[readonly],
+.pad-clustering-geo-panel select.input:disabled,
+.pad-clustering-geo-panel textarea.input:disabled,
+.pad-earthwork-sketch-modal__generator-input.input:disabled,
+.pad-earthwork-dim-stepper__input.input:disabled {
   opacity: 0.65;
   cursor: not-allowed;
   background: var(--surface-2);
 }
-
-.input-sm,
-.input.input-sm,
-select.input.input-sm {
-  min-height: 2rem;
-  padding: 0.375rem 0.625rem;
-  font-size: 0.8125rem;
-  border-radius: 6px;
-}
-
-.input--mono {
-  font-family: ui-monospace, 'Cascadia Code', 'Consolas', monospace;
-  font-size: 0.8125rem;
-}
-
-.input--w24 {
-  width: 6rem;
-  flex-shrink: 0;
-}
-
-.input--grow {
-  flex: 1 1 0%;
-  min-width: 0;
-  width: auto;
-}
-
-.input--fit,
-select.input.input--fit {
-  width: auto;
-  max-width: none;
-}
-

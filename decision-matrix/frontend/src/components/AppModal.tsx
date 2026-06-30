@@ -1,6 +1,5 @@
-import { useEffect, useId, useRef, type ReactNode } from 'react';
-import { createPortal } from 'react-dom';
-import { X } from 'lucide-react';
+import type { ReactNode } from 'react';
+import { Modal, Typography } from 'antd';
 
 interface AppModalProps {
   title?: string;
@@ -14,13 +13,16 @@ interface AppModalProps {
   overlayClassName?: string;
 }
 
-const FOCUSABLE =
-  'button:not([disabled]), [href], input:not([disabled]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"])';
+const MODAL_WIDTH: Record<NonNullable<AppModalProps['size']>, number> = {
+  sm: 480,
+  md: 640,
+  lg: 900,
+};
 
 export function AppModal({
   title,
   subtitle,
-  titleId: titleIdProp,
+  titleId,
   onClose,
   children,
   footer,
@@ -28,83 +30,30 @@ export function AppModal({
   closeOnBackdrop = true,
   overlayClassName,
 }: AppModalProps) {
-  const autoTitleId = useId();
-  const titleId = titleIdProp ?? (title ? autoTitleId : undefined);
-  const panelRef = useRef<HTMLDivElement>(null);
-  const onCloseRef = useRef(onClose);
-  onCloseRef.current = onClose;
-
-  useEffect(() => {
-    const onKey = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') {
-        e.preventDefault();
-        e.stopImmediatePropagation();
-        onCloseRef.current();
-        return;
-      }
-      if (e.key === 'Tab' && panelRef.current) {
-        const nodes = panelRef.current.querySelectorAll<HTMLElement>(FOCUSABLE);
-        if (nodes.length === 0) return;
-        const first = nodes[0];
-        const last = nodes[nodes.length - 1];
-        if (e.shiftKey && document.activeElement === first) {
-          e.preventDefault();
-          last.focus();
-        } else if (!e.shiftKey && document.activeElement === last) {
-          e.preventDefault();
-          first.focus();
-        }
-      }
-    };
-    const prevOverflow = document.body.style.overflow;
-    document.body.style.overflow = 'hidden';
-    window.addEventListener('keydown', onKey, true);
-    const body = panelRef.current?.querySelector('.app-modal-body');
-    const focusTarget =
-      body?.querySelector<HTMLElement>(FOCUSABLE) ??
-      panelRef.current?.querySelector<HTMLElement>(FOCUSABLE);
-    focusTarget?.focus();
-    return () => {
-      document.body.style.overflow = prevOverflow;
-      window.removeEventListener('keydown', onKey, true);
-    };
-  }, []);
-
-  return createPortal(
-    <div
-      className={['app-modal-overlay', overlayClassName].filter(Boolean).join(' ')}
-      role="dialog"
-      aria-modal="true"
-      aria-labelledby={titleId}
-      onMouseDown={(e) => {
-        if (closeOnBackdrop && e.target === e.currentTarget) onClose();
-      }}
-    >
-      <div ref={panelRef} className={`app-modal-panel app-modal-panel--${size}`}>
-        <div className="app-modal-header">
-          {title ? (
-            <div className="app-modal-header__text">
-              <h2 id={titleId} className="app-modal-title">
-                {title}
-              </h2>
-              {subtitle ? <p className="app-modal-subtitle">{subtitle}</p> : null}
-            </div>
-          ) : (
-            <span />
-          )}
-          <button
-            type="button"
-            className="app-modal-close btn btn-ghost"
-            onClick={onClose}
-            aria-label="Закрыть"
-          >
-            <X size={20} />
-          </button>
-        </div>
-        <div className="app-modal-body">{children}</div>
-        {footer ? <div className="app-modal-footer">{footer}</div> : null}
+  const titleNode =
+    title || subtitle ? (
+      <div id={titleId}>
+        {title ? <span>{title}</span> : null}
+        {subtitle ? (
+          <Typography.Text type="secondary" className="block mt-1 text-sm font-normal">
+            {subtitle}
+          </Typography.Text>
+        ) : null}
       </div>
-    </div>,
-    document.body,
+    ) : undefined;
+
+  return (
+    <Modal
+      open
+      title={titleNode}
+      onCancel={onClose}
+      footer={footer !== undefined ? footer : null}
+      width={MODAL_WIDTH[size]}
+      destroyOnHidden
+      maskClosable={closeOnBackdrop}
+      wrapClassName={['app-modal-overlay', overlayClassName].filter(Boolean).join(' ')}
+    >
+      {children}
+    </Modal>
   );
 }

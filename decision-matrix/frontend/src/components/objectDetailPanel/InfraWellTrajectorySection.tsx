@@ -1,6 +1,7 @@
 import { useMemo } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { GitBranch } from 'lucide-react';
+import { Button } from 'antd';
 
 import {
   wellTrajectoryApi,
@@ -174,14 +175,15 @@ export function InfraWellTrajectorySection({
                 : 'Вкладка «Логистика» → «Земляные работы» или число скв. на кусте'}
             </p>
           </div>
-          <button
-            type="button"
-            className="btn btn-secondary btn-sm odp-traj-steps__action"
+          <Button
+            size="small"
+            className="odp-traj-steps__action"
             disabled={readOnly || pending}
+            loading={generateMut.isPending}
             onClick={() => generateMut.mutate()}
           >
             {generateMut.isPending ? '…' : 'Заготовки'}
-          </button>
+          </Button>
         </li>
 
         <li className={bottomholesReady ? 'odp-traj-steps__item--done' : ''}>
@@ -206,18 +208,20 @@ export function InfraWellTrajectorySection({
                 : 'Сначала разместите забои на карте'}
             </p>
           </div>
-          <button
-            type="button"
-            className="btn btn-primary btn-sm odp-traj-steps__action"
+          <Button
+            type="primary"
+            size="small"
+            className="odp-traj-steps__action"
             disabled={
               readOnly ||
               pending ||
               (trajectories.length === 0 && linkedBottomholes.length === 0)
             }
+            loading={designFromBottomholesMut.isPending}
             onClick={() => designFromBottomholesMut.mutate()}
           >
             {designFromBottomholesMut.isPending ? '…' : 'Рассчитать'}
-          </button>
+          </Button>
         </li>
 
         <li className={clearanceDone ? 'odp-traj-steps__item--done' : ''}>
@@ -230,14 +234,15 @@ export function InfraWellTrajectorySection({
                 : 'Нужны ≥2 скважины с рассчитанной траекторией'}
             </p>
           </div>
-          <button
-            type="button"
-            className="btn btn-secondary btn-sm odp-traj-steps__action"
+          <Button
+            size="small"
+            className="odp-traj-steps__action"
             disabled={readOnly || pending || !clearanceReady}
+            loading={runClearanceMut.isPending}
             onClick={() => runClearanceMut.mutate()}
           >
             {runClearanceMut.isPending ? '…' : 'SF'}
-          </button>
+          </Button>
         </li>
       </ol>
 

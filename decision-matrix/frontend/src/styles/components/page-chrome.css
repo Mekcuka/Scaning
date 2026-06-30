@@ -45,3 +45,29 @@
   justify-content: flex-end;
 }
 
+/* Ant Design integration overrides */
+/* ToastBridge: bottom-right like legacy toast-stack-bottom */
+.ant-message {
+  top: auto !important;
+  bottom: 20px;
+  right: 20px;
+  left: auto;
+  width: auto;
+  max-width: min(420px, calc(100vw - 24px));
+}
+
+.dm-subnav-tabs .ant-tabs-nav {
+  margin-bottom: 0;
+}
+
+.app-shell.ant-layout {
+  min-height: 100vh;
+  height: 100%;
+}
+
+.app-shell .ant-layout-sider-children {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+}
+

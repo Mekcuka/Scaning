@@ -1,5 +1,6 @@
 import type { ReactNode } from 'react';
 import { Grid3x3, Layers, Settings2 } from 'lucide-react';
+import { Input } from 'antd';
 import { PlanGeneratorPanel } from '../padEarthwork/PlanGeneratorPanel';
 import { PadClusteringCollapsibleSection } from './PadClusteringCollapsibleSection';
 import type { PadClusteringPadDraft } from '../../lib/padClusteringSave';
@@ -100,8 +101,7 @@ export function PadClusteringSettingsPanel({
         <div className="pad-clustering-field-grid">
           <label className="pad-clustering-field">
             <span>Длина, м</span>
-            <input
-              className="input"
+            <Input
               type="number"
               min={0}
               step="any"
@@ -113,8 +113,7 @@ export function PadClusteringSettingsPanel({
           </label>
           <label className="pad-clustering-field">
             <span>Ширина, м</span>
-            <input
-              className="input"
+            <Input
               type="number"
               min={0}
               step="any"
@@ -126,8 +125,7 @@ export function PadClusteringSettingsPanel({
           </label>
           <label className="pad-clustering-field">
             <span>Высота насыпи, м</span>
-            <input
-              className="input"
+            <Input
               type="number"
               min={0}
               step="any"
@@ -139,8 +137,7 @@ export function PadClusteringSettingsPanel({
           </label>
           <label className="pad-clustering-field">
             <span>Опорная отметка, м</span>
-            <input
-              className="input"
+            <Input
               type="number"
               step="any"
               value={draft.referenceElevationM}

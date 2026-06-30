@@ -1,3 +1,4 @@
+import { Input } from 'antd';
 import {
   FieldLabel,
   FluidToggle,
@@ -109,8 +110,8 @@ export function PoiBasicFlatSection({
         <div className="object-detail-panel__coord-grid">
           <label className="object-detail-panel__field">
             <FieldLabel>Долгота</FieldLabel>
-            <input
-              className="input object-detail-panel__input object-detail-panel__input--mono"
+            <Input
+              className="object-detail-panel__input object-detail-panel__input--mono"
               value={value.lon}
               readOnly={readOnly || coordsReadOnly}
               disabled={readOnly || coordsReadOnly}
@@ -120,8 +121,8 @@ export function PoiBasicFlatSection({
           </label>
           <label className="object-detail-panel__field">
             <FieldLabel>Широта</FieldLabel>
-            <input
-              className="input object-detail-panel__input object-detail-panel__input--mono"
+            <Input
+              className="object-detail-panel__input object-detail-panel__input--mono"
               value={value.lat}
               readOnly={readOnly || coordsReadOnly}
               disabled={readOnly || coordsReadOnly}
@@ -133,8 +134,8 @@ export function PoiBasicFlatSection({
         {!readOnly ? (
           <label className="object-detail-panel__field">
             <FieldLabel>Описание</FieldLabel>
-            <textarea
-              className="input object-detail-panel__textarea"
+            <Input.TextArea
+              className="object-detail-panel__textarea"
               value={value.description}
               placeholder="Необязательно"
               onChange={(e) => patch({ description: e.target.value })}

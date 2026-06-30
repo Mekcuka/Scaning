@@ -1,10 +1,11 @@
-import { NavLink, Outlet } from 'react-router-dom';
 import { Box, Download, Upload } from 'lucide-react';
+import { Outlet } from 'react-router-dom';
 import { usePermissions } from '../../hooks/usePermissions';
 import { useActiveProject } from '../../hooks/useActiveProject';
 import { useProjectPathBuilder } from '../../hooks/useProjectPath';
 import { canSeeNav } from '../../lib/permissions';
 import { useAuthStore } from '../../store';
+import { SubnavTabs } from './SubnavTabs';
 
 const TABS = [
   { suffix: '/data/import', label: 'Импорт', icon: Upload, permissionPath: '/data/import' },
@@ -22,22 +23,19 @@ export function DataLayout() {
 
   return (
     <div className="parameters-layout">
-      {visibleTabs.length > 0 && (
-        <nav className="parameters-subnav" aria-label="Разделы данных">
-          {visibleTabs.map(({ suffix, label, icon: Icon }) => (
-            <NavLink
-              key={suffix}
-              to={buildPath(suffix)}
-              className={({ isActive }) =>
-                `parameters-subnav__tab${isActive ? ' parameters-subnav__tab--active' : ''}`
-              }
-            >
+      <SubnavTabs
+        ariaLabel="Разделы данных"
+        tabs={visibleTabs.map(({ suffix, label, icon: Icon }) => ({
+          key: suffix,
+          to: buildPath(suffix),
+          label: (
+            <span className="inline-flex items-center gap-2">
               <Icon size={16} aria-hidden />
               {label}
-            </NavLink>
-          ))}
-        </nav>
-      )}
+            </span>
+          ),
+        }))}
+      />
       <Outlet />
     </div>
   );

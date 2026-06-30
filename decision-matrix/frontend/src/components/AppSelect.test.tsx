@@ -18,8 +18,8 @@ describe('AppSelect', () => {
         ]}
       />,
     );
-    await user.click(screen.getByRole('button', { name: 'Test select' }));
-    await user.click(screen.getByRole('option', { name: 'Beta' }));
+    await user.click(screen.getByRole('combobox', { name: 'Test select' }));
+    await user.click(screen.getByText('Beta'));
     expect(onChange).toHaveBeenCalledWith('b');
   });
 });

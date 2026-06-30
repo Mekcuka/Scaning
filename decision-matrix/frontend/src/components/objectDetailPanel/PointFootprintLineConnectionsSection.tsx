@@ -1,4 +1,5 @@
 import { useMemo, useState } from 'react';
+import { Button } from 'antd';
 import { LINE_SUBTYPES, SUBTYPE_LABELS, type InfraObject } from '../../lib/api';
 import {
   FOOTPRINT_CARDINAL_OPTIONS,
@@ -74,24 +75,19 @@ export function PointFootprintLineConnectionsSection({
       </p>
       {editable && templateHasEntries && (
         <div className="footprint-line-connect__template-row">
-          <button
-            type="button"
-            className="btn btn-secondary btn-sm"
-            disabled={templateLoading}
-            onClick={applyProjectTemplate}
-          >
+          <Button size="small" loading={templateLoading} onClick={applyProjectTemplate}>
             Применить шаблон проекта
-          </button>
+          </Button>
         </div>
       )}
       <div className="object-detail-panel__segment-row footprint-line-connect__subtype-row">
         {LINE_SUBTYPES.map((st) => {
           const configured = st in connections;
           return (
-            <button
+            <Button
               key={st}
-              type="button"
-              className={`btn btn-sm ${activeLineSubtype === st ? 'btn-primary' : 'btn-secondary'}`}
+              size="small"
+              type={activeLineSubtype === st ? 'primary' : 'default'}
               onClick={() => setActiveLineSubtype(st)}
             >
               {SUBTYPE_LABELS[st] ?? st}
@@ -100,7 +96,7 @@ export function PointFootprintLineConnectionsSection({
                   ·
                 </span>
               )}
-            </button>
+            </Button>
           );
         })}
       </div>
@@ -163,8 +159,7 @@ export function PointFootprintLineConnectionsSection({
                   <DeferredNumberInput
                     min={0}
                     max={1}
-                    step={0.01}
-                    className="input parameters-table__input footprint-connect-template__t-input"
+                    className="parameters-table__input footprint-connect-template__t-input"
                     value={activeT}
                     readOnly={!editable}
                     onCommit={(v) => {
@@ -240,17 +235,17 @@ export function PointFootprintLineConnectPickControls({
       <span className="object-detail-panel__hint">Выбор ребра на карте:</span>
       <div className="object-detail-panel__segment-group footprint-line-connect__subtype-row">
         {LINE_SUBTYPES.map((st) => (
-          <button
+          <Button
             key={st}
-            type="button"
-            className={`btn btn-sm ${pickLineSubtype === st ? 'btn-primary' : 'btn-secondary'}`}
+            size="small"
+            type={pickLineSubtype === st ? 'primary' : 'default'}
             onClick={() => onPickLineSubtypeChange(pickLineSubtype === st ? null : st)}
           >
             {SUBTYPE_LABELS[st] ?? st}
-          </button>
+          </Button>
         ))}
       </div>
     </div>
   );
 }
-
+

@@ -1,4 +1,5 @@
 import { Eye, Pencil } from 'lucide-react';
+import { Button } from 'antd';
 
 export function FlowSchematicMobileBanner({
   readOnly,
@@ -19,10 +20,9 @@ export function FlowSchematicMobileBanner({
           Режим просмотра на телефоне. Для редактирования схемы используйте компьютер или включите
           редактирование.
         </span>
-        <button type="button" className="btn btn-secondary btn-sm shrink-0" onClick={onEnableEdit}>
-          <Pencil size={14} className="inline mr-1" />
+        <Button size="small" className="shrink-0" icon={<Pencil size={14} />} onClick={onEnableEdit}>
           Редактировать
-        </button>
+        </Button>
       </div>
     );
   }
@@ -32,10 +32,9 @@ export function FlowSchematicMobileBanner({
       <div className="flow-mobile-view-banner">
         <Pencil size={16} className="shrink-0 text-[var(--primary)]" aria-hidden />
         <span className="flex-1 min-w-0">Режим редактирования на телефоне — упрощённая панель инструментов.</span>
-        <button type="button" className="btn btn-ghost btn-sm shrink-0" onClick={onDisableEdit}>
-          <Eye size={14} className="inline mr-1" />
+        <Button type="text" size="small" className="shrink-0" icon={<Eye size={14} />} onClick={onDisableEdit}>
           Только просмотр
-        </button>
+        </Button>
       </div>
     );
   }

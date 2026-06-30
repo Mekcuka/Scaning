@@ -159,7 +159,7 @@
   color: var(--text-muted);
 }
 
-.parameters-search .input {
+.parameters-search .ant-input {
   flex: 1;
   min-width: 0;
 }
@@ -193,13 +193,14 @@
   font-size: 0.8125rem;
 }
 
-.parameters-table__input {
+.parameters-table__input,
+.parameters-table__input.ant-input {
   width: 100%;
   max-width: 9rem;
   font-variant-numeric: tabular-nums;
 }
 
-.rates-distance-card .card-header h2 {
+.rates-distance-card.ant-card .card-header h2 {
   margin: 0;
 }
 
@@ -254,7 +255,8 @@
   color: var(--text-muted);
 }
 
-.rates-field .rates-input {
+.rates-field .rates-input,
+.rates-field .ant-input-number.rates-input {
   margin-left: 0;
   max-width: 100%;
   text-align: center;
@@ -558,7 +560,7 @@
   gap: 8px;
 }
 
-.footprint-connect-apply-panel__buttons .btn {
+.footprint-connect-apply-panel__buttons .ant-btn {
   width: 100%;
   justify-content: center;
 }

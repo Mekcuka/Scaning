@@ -1,4 +1,5 @@
 import { useMemo, useState } from 'react';
+import { Button } from 'antd';
 import { LINE_SUBTYPES, SUBTYPE_LABELS, type InfraObject } from '../../lib/api';
 import {
   FOOTPRINT_CARDINAL_OPTIONS,
@@ -109,13 +110,9 @@ export function FootprintLineConnectionTemplateForm({
           <div className="footprint-connect-template__editor-head">
             <h3 className="footprint-connect-template__editor-title">{activeLabel}</h3>
             {hasActiveEntry && !readOnly && (
-              <button
-                type="button"
-                className="btn btn-secondary btn-sm"
-                onClick={() => setEntry(activeLineSubtype, undefined)}
-              >
+              <Button size="small" onClick={() => setEntry(activeLineSubtype, undefined)}>
                 Сбросить
-              </button>
+              </Button>
             )}
           </div>
 
@@ -182,8 +179,7 @@ export function FootprintLineConnectionTemplateForm({
                 <DeferredNumberInput
                   min={0}
                   max={1}
-                  step={0.01}
-                  className="input parameters-table__input footprint-connect-template__t-input"
+                  className="parameters-table__input footprint-connect-template__t-input"
                   value={activeT}
                   readOnly={readOnly}
                   onCommit={(v) => {

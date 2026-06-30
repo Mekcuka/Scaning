@@ -1,22 +1,25 @@
 import { zodResolver } from '@hookform/resolvers/zod';
-import { useForm } from 'react-hook-form';
+import { Alert, Button, Card, Form, Input, Typography } from 'antd';
+import { Controller, useForm } from 'react-hook-form';
 import { Link, useNavigate } from 'react-router-dom';
 import { z } from 'zod';
 import { useAuthStore } from '../store';
 
-const schema = z.object({
-  email: z.string().email('Некорректный email'),
-  username: z.string().min(2, 'Минимум 2 символа'),
-  password: z
-    .string()
-    .min(8, 'Минимум 8 символов')
-    .regex(/[A-Za-z]/, 'Нужна буква')
-    .regex(/\d/, 'Нужна цифра'),
-  confirm: z.string(),
-}).refine((d) => d.password === d.confirm, {
-  message: 'Пароли не совпадают',
-  path: ['confirm'],
-});
+const schema = z
+  .object({
+    email: z.string().email('Некорректный email'),
+    username: z.string().min(2, 'Минимум 2 символа'),
+    password: z
+      .string()
+      .min(8, 'Минимум 8 символов')
+      .regex(/[A-Za-z]/, 'Нужна буква')
+      .regex(/\d/, 'Нужна цифра'),
+    confirm: z.string(),
+  })
+  .refine((d) => d.password === d.confirm, {
+    message: 'Пароли не совпадают',
+    path: ['confirm'],
+  });
 
 type FormData = z.infer<typeof schema>;
 
@@ -24,7 +27,7 @@ export function RegisterPage() {
   const registerUser = useAuthStore((s) => s.register);
   const navigate = useNavigate();
   const {
-    register,
+    control,
     handleSubmit,
     formState: { errors, isSubmitting },
     setError,
@@ -40,45 +43,71 @@ export function RegisterPage() {
   };
 
   return (
-    <div className="flex flex-1 min-h-0 items-center justify-center overflow-y-auto" style={{ background: 'var(--bg)' }}>
-      <div className="card w-full max-w-md mx-4">
-        <h1 className="text-xl font-bold mb-2">Регистрация</h1>
-        <p className="text-sm mb-6" style={{ color: 'var(--text-muted)' }}>
+    <div
+      className="flex flex-1 min-h-0 items-center justify-center overflow-y-auto p-4"
+      style={{ background: 'var(--bg)' }}
+    >
+      <Card className="w-full max-w-md">
+        <Typography.Title level={3}>Регистрация</Typography.Title>
+        <Typography.Paragraph type="secondary">
           Новые пользователи получают роль «Аналитик»
-        </p>
-        <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
-          <div className="form-group">
-            <label>Email</label>
-            <input type="email" {...register('email')} />
-            {errors.email && <p className="text-red-500 text-xs mt-1">{errors.email.message}</p>}
-          </div>
-          <div className="form-group">
-            <label>Имя</label>
-            <input type="text" {...register('username')} />
-            {errors.username && <p className="text-red-500 text-xs mt-1">{errors.username.message}</p>}
-          </div>
-          <div className="form-group">
-            <label>Пароль</label>
-            <input type="password" {...register('password')} />
-            {errors.password && <p className="text-red-500 text-xs mt-1">{errors.password.message}</p>}
-          </div>
-          <div className="form-group">
-            <label>Подтверждение пароля</label>
-            <input type="password" {...register('confirm')} />
-            {errors.confirm && <p className="text-red-500 text-xs mt-1">{errors.confirm.message}</p>}
-          </div>
-          {errors.root && <p className="text-red-500 text-sm">{errors.root.message}</p>}
-          <button type="submit" className="btn btn-primary w-full" disabled={isSubmitting}>
-            {isSubmitting ? 'Регистрация...' : 'Зарегистрироваться'}
-          </button>
+        </Typography.Paragraph>
+        <form onSubmit={handleSubmit(onSubmit)}>
+          <Form.Item
+            label="Email"
+            validateStatus={errors.email ? 'error' : undefined}
+            help={errors.email?.message}
+          >
+            <Controller
+              name="email"
+              control={control}
+              render={({ field }) => <Input {...field} type="email" />}
+            />
+          </Form.Item>
+          <Form.Item
+            label="Имя"
+            validateStatus={errors.username ? 'error' : undefined}
+            help={errors.username?.message}
+          >
+            <Controller
+              name="username"
+              control={control}
+              render={({ field }) => <Input {...field} />}
+            />
+          </Form.Item>
+          <Form.Item
+            label="Пароль"
+            validateStatus={errors.password ? 'error' : undefined}
+            help={errors.password?.message}
+          >
+            <Controller
+              name="password"
+              control={control}
+              render={({ field }) => <Input.Password {...field} />}
+            />
+          </Form.Item>
+          <Form.Item
+            label="Подтверждение пароля"
+            validateStatus={errors.confirm ? 'error' : undefined}
+            help={errors.confirm?.message}
+          >
+            <Controller
+              name="confirm"
+              control={control}
+              render={({ field }) => <Input.Password {...field} />}
+            />
+          </Form.Item>
+          {errors.root?.message && (
+            <Alert type="error" message={errors.root.message} className="mb-4" showIcon />
+          )}
+          <Button type="primary" htmlType="submit" block loading={isSubmitting}>
+            {isSubmitting ? 'Регистрация…' : 'Зарегистрироваться'}
+          </Button>
         </form>
-        <p className="text-sm mt-4 text-center" style={{ color: 'var(--text-muted)' }}>
-          Уже есть аккаунт?{' '}
-          <Link to="/login" className="text-blue-600 hover:underline">
-            Войти
-          </Link>
-        </p>
-      </div>
+        <Typography.Paragraph className="text-center mt-4 mb-0" type="secondary">
+          Уже есть аккаунт? <Link to="/login">Войти</Link>
+        </Typography.Paragraph>
+      </Card>
     </div>
   );
 }

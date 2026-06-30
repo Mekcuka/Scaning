@@ -1,5 +1,6 @@
 import type { ReactNode } from 'react';
 import type { LucideIcon } from 'lucide-react';
+import { Switch } from 'antd';
 
 export function PanelSection({
   title,
@@ -78,20 +79,7 @@ export function PanelSwitch({
         <span className="object-detail-panel__toggle-label">{label}</span>
         {description && <p className="object-detail-panel__hint">{description}</p>}
       </div>
-      <label
-        className={`map-layers-switch object-detail-panel__toggle-switch${
-          disabled ? ' map-layers-switch--disabled' : ''
-        }`}
-      >
-        <input
-          type="checkbox"
-          className="map-layers-switch-input"
-          checked={checked}
-          disabled={disabled}
-          onChange={(e) => onChange(e.target.checked)}
-        />
-        <span className="map-layers-switch-track" aria-hidden />
-      </label>
+      <Switch checked={checked} disabled={disabled} onChange={onChange} />
     </div>
   );
 }

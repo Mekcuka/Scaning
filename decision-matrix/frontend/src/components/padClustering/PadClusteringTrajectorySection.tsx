@@ -1,4 +1,5 @@
 import { Route } from 'lucide-react';
+import { Button } from 'antd';
 import { countDesignedTrajectories } from '../../lib/padClusteringWorkflow';
 import type { ClearancePair } from '../../lib/api/wellTrajectoryApi';
 import type { usePadClusteringEditor } from '../../hooks/usePadClusteringEditor';
@@ -101,14 +102,15 @@ export function PadClusteringTrajectorySection({
             <strong>Схема устьев</strong>
             <p>{wellsLocalCount > 0 ? `${wellsLocalCount} устьев на площадке` : 'Сгенерируйте контур слева'}</p>
           </div>
-          <button
-            type="button"
-            className="btn btn--secondary btn--sm pad-clustering-steps__action"
+          <Button
+            size="small"
+            className="pad-clustering-steps__action"
             disabled={readOnly || pending || wellsLocalCount === 0}
+            loading={generateFromLayoutMut.isPending}
             onClick={() => generateFromLayoutMut.mutate()}
           >
             {generateFromLayoutMut.isPending ? '…' : 'Заготовки'}
-          </button>
+          </Button>
         </li>
         <li className={linkedBottomholesCount > 0 ? 'pad-clustering-steps__item--done' : ''}>
           <span className="pad-clustering-steps__num">2</span>
@@ -120,14 +122,15 @@ export function PadClusteringTrajectorySection({
                 : 'Добавьте инструментом «Забой»'}
             </p>
           </div>
-          <button
-            type="button"
-            className="btn btn--secondary btn--sm pad-clustering-steps__action"
+          <Button
+            size="small"
+            className="pad-clustering-steps__action"
             disabled={readOnly || pending}
+            loading={syncBottomholesMut.isPending}
             onClick={() => syncBottomholesMut.mutate()}
           >
             {syncBottomholesMut.isPending ? '…' : 'Синхр.'}
-          </button>
+          </Button>
         </li>
         <li className={designedCount > 0 ? 'pad-clustering-steps__item--done' : ''}>
           <span className="pad-clustering-steps__num">3</span>
@@ -137,18 +140,20 @@ export function PadClusteringTrajectorySection({
               Шаг инклинометрии и модель погрешностей — вкладка «Расчёт».
             </p>
           </div>
-          <button
-            type="button"
-            className="btn btn--primary btn--sm pad-clustering-steps__action"
+          <Button
+            type="primary"
+            size="small"
+            className="pad-clustering-steps__action"
             disabled={
               readOnly ||
               pending ||
               (trajectories.length === 0 && linkedBottomholesCount === 0)
             }
+            loading={designFromBottomholesMut.isPending}
             onClick={() => designFromBottomholesMut.mutate()}
           >
             {designFromBottomholesMut.isPending ? '…' : 'Рассчитать'}
-          </button>
+          </Button>
         </li>
         <li className={clearancePairs.length > 0 ? 'pad-clustering-steps__item--done' : ''}>
           <span className="pad-clustering-steps__num">4</span>
@@ -160,14 +165,15 @@ export function PadClusteringTrajectorySection({
                 : 'Нужны ≥2 спроектированных скважины на кусте'}
             </p>
           </div>
-          <button
-            type="button"
-            className="btn btn--secondary btn--sm pad-clustering-steps__action"
+          <Button
+            size="small"
+            className="pad-clustering-steps__action"
             disabled={readOnly || pending || !clearanceReady}
+            loading={runClearanceMut.isPending}
             onClick={() => runClearanceMut.mutate()}
           >
             {runClearanceMut.isPending ? '…' : 'Рассчитать SF'}
-          </button>
+          </Button>
         </li>
       </ol>
 

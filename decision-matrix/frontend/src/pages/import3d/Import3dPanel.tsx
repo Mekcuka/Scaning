@@ -1,3 +1,4 @@
+import { Card } from 'antd';
 import type { ReactNode } from 'react';
 
 export function Import3dPanel({
@@ -16,7 +17,7 @@ export function Import3dPanel({
   children: ReactNode;
 }) {
   return (
-    <section className={`card import-3d-panel card--flush ${className}`.trim()}>
+    <Card className={`card--flush import-3d-panel ${className}`.trim()} styles={{ body: { padding: 0 } }}>
       <div className="card-header import-3d-panel__header">
         <div className="import-3d-panel__title-wrap">
           {step != null ? <span className="import-3d-step">{step}</span> : null}
@@ -30,6 +31,6 @@ export function Import3dPanel({
         </div>
       </div>
       <div className="import-3d-panel__body">{children}</div>
-    </section>
+    </Card>
   );
 }

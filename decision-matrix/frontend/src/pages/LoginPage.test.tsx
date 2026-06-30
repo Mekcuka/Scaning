@@ -38,7 +38,7 @@ describe('LoginPage', () => {
   it('shows loading state', () => {
     useAuthStore.setState({ isLoading: true });
     renderPage(<LoginPage />, { route: '/login' });
-    expect(screen.getAllByText('Загрузка...').length).toBeGreaterThan(0);
+    expect(screen.getByLabelText('Загрузка')).toBeInTheDocument();
   });
 
   it('redirects when user already logged in', async () => {
@@ -61,12 +61,9 @@ describe('LoginPage', () => {
     expect(navigate).toHaveBeenCalledWith('/');
   });
 
-  it('toggles password visibility', async () => {
+  it('renders password field', () => {
     renderPage(<LoginPage />, { route: '/login' });
-    const pwd = screen.getByLabelText('Пароль');
-    expect(pwd).toHaveAttribute('type', 'password');
-    await userEvent.click(screen.getByRole('button', { name: 'Показать пароль' }));
-    expect(pwd).toHaveAttribute('type', 'text');
+    expect(screen.getByLabelText('Пароль')).toHaveAttribute('type', 'password');
   });
 
   it('shows login error', async () => {

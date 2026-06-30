@@ -1,6 +1,7 @@
 import { useMemo, useState } from 'react';
 import { useSyncAssistantUiContext } from '../../lib/assistant/assistantContext';
-import { NavLink, Outlet, useLocation } from 'react-router-dom';
+import { Outlet, useLocation } from 'react-router-dom';
+import { Alert, Button, Card, Spin } from 'antd';
 import { ProjectLink } from '../../components/ProjectLink';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useActiveProject } from '../../hooks/useActiveProject';
@@ -15,6 +16,7 @@ import { useAppStore } from '../../store';
 import { stripProjectPrefix } from '../../lib/projectRoutes';
 import { useProjectPathBuilder } from '../../hooks/useProjectPath';
 import { FlowSchematicProvider } from './flowSchematicContext';
+import { SubnavTabs } from '../../components/layout/SubnavTabs';
 
 const TABS = [
   { suffix: '/flows/technology', label: 'Технологический поток', icon: Workflow },
@@ -153,9 +155,11 @@ export function FlowSchematicLayout() {
     <FlowSchematicProvider value={contextValue}>
       <div className="flow-schematic-page parameters-layout">
         {!projectId && (
-          <div className="card p-8 text-center text-[var(--text-muted)]">
-            Выберите проект в шапке, чтобы построить схему потоков.
-          </div>
+          <Card className="text-center">
+            <span className="text-[var(--text-muted)]">
+              Выберите проект в шапке, чтобы построить схему потоков.
+            </span>
+          </Card>
         )}
 
         {projectId && (
@@ -173,48 +177,59 @@ export function FlowSchematicLayout() {
             )}
 
             {needsNetwork && showPoiFlows && (
-              <div className="mb-4 rounded-lg border border-amber-500/40 bg-amber-500/10 px-4 py-3 text-sm">
-                {WARNING_LABELS.network_not_built}{' '}
-                <ProjectLink to="/map" className="font-medium text-[var(--accent)] underline">
-                  Перейти на карту
-                </ProjectLink>
-              </div>
+              <Alert
+                className="mb-4"
+                type="warning"
+                showIcon
+                message={
+                  <>
+                    {WARNING_LABELS.network_not_built}{' '}
+                    <ProjectLink to="/map" className="font-medium underline">
+                      Перейти на карту
+                    </ProjectLink>
+                  </>
+                }
+              />
             )}
 
-            <nav className="parameters-subnav" aria-label="Разделы схемы потоков">
-              {TABS.map(({ suffix, label, icon: Icon }) => (
-                <NavLink
-                  key={suffix}
-                  to={buildPath(suffix)}
-                  className={({ isActive }) =>
-                    `parameters-subnav__tab${isActive ? ' parameters-subnav__tab--active' : ''}`
-                  }
-                >
-                  <Icon size={16} aria-hidden />
-                  {label}
-                </NavLink>
-              ))}
-            </nav>
+            <SubnavTabs
+              ariaLabel="Разделы схемы потоков"
+              tabs={TABS.map(({ suffix, label, icon: Icon }) => ({
+                key: suffix,
+                to: buildPath(suffix),
+                label: (
+                  <span className="inline-flex items-center gap-2">
+                    <Icon size={16} aria-hidden />
+                    {label}
+                  </span>
+                ),
+              }))}
+            />
 
             {isLogisticsRoute || showPoiFlows ? (
               <Outlet />
             ) : poisLoading ? (
-              <div className="card p-8 text-center text-[var(--text-muted)]">Загрузка…</div>
+              <Card className="text-center">
+                <Spin />
+                <span className="ml-2 text-[var(--text-muted)]">Загрузка…</span>
+              </Card>
             ) : (
-              <div className="card p-8 text-center text-[var(--text-muted)] space-y-3">
-                <p>
+              <Card className="text-center space-y-3">
+                <p className="text-[var(--text-muted)]">
                   В проекте нет точек интереса. Добавьте POI на{' '}
-                  <ProjectLink to="/map" className="text-[var(--accent)] underline">
+                  <ProjectLink to="/map" className="underline">
                     карте
                   </ProjectLink>
                   , чтобы открыть технологический и экономический потоки.
                 </p>
                 <p>
-                  <ProjectLink to="/flows/logistics" className="btn btn-primary btn-sm">
-                    Открыть логистику песка
+                  <ProjectLink to="/flows/logistics">
+                    <Button type="primary" size="small">
+                      Открыть логистику песка
+                    </Button>
                   </ProjectLink>
                 </p>
-              </div>
+              </Card>
             )}
           </>
         )}

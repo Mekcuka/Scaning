@@ -1,6 +1,7 @@
 import { useEffect, useState, type ReactNode } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { Save } from 'lucide-react';
+import { Button } from 'antd';
 import {
   defaultProjectsDataApi,
   defaultProjectsMapSettingsApi,
@@ -162,15 +163,17 @@ export function PoiParamsPanel({
         >
           {footer ? <div className="project-detail-params-footer">{footer}</div> : <span />}
           {showSave && !effectiveReadOnly && selectedPoi && (
-            <button
-              type="button"
-              className={`btn btn-primary btn-sm${embedded ? '' : ' ml-auto'}`}
+            <Button
+              type="primary"
+              size="small"
+              className={embedded ? undefined : 'ml-auto'}
               disabled={saveMut.isPending}
+              loading={saveMut.isPending}
+              icon={<Save size={14} />}
               onClick={() => saveMut.mutate(formValuesToPoiPayload(form))}
             >
-              <Save size={14} />
               {saveMut.isPending ? 'Сохранение…' : 'Сохранить POI'}
-            </button>
+            </Button>
           )}
         </div>
       ) : null}

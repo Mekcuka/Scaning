@@ -1,4 +1,5 @@
 import { Link } from 'react-router-dom';
+import { Button } from 'antd';
 import { Info, Link as LinkIcon, Route, Upload } from 'lucide-react';
 import { PageSkeleton } from '../components/PageSkeleton';
 import { usePageHeader } from '../components/layout/pageHeaderContext';
@@ -140,9 +141,9 @@ export function ImportPage() {
               />
             }
           >
-            <button
-              type="button"
-              className="btn btn-secondary text-sm export-option__btn"
+            <Button
+              size="small"
+              className="export-option__btn"
               disabled={workflow.busy || workflow.readOnly}
               onClick={() => {
                 const f = workflow.fileInputRef.current?.files?.[0];
@@ -150,10 +151,10 @@ export function ImportPage() {
               }}
             >
               Превью (dry-run)
-            </button>
-            <button
-              type="button"
-              className="btn btn-secondary text-sm export-option__btn"
+            </Button>
+            <Button
+              size="small"
+              className="export-option__btn"
               disabled={workflow.readOnly}
               onClick={() => {
                 const input = workflow.fileInputRef.current;
@@ -161,7 +162,7 @@ export function ImportPage() {
               }}
             >
               Выбрать файл
-            </button>
+            </Button>
           </ExportOptionCard>
 
           <ExportOptionCard
@@ -195,34 +196,35 @@ export function ImportPage() {
               />
             }
           >
-            <button
-              type="button"
-              className="btn btn-primary text-sm export-option__btn"
+            <Button
+              type="primary"
+              size="small"
+              className="export-option__btn"
               disabled={!projectId || workflow.readOnly}
               onClick={() => workflow.saveConnMut.mutate()}
             >
               Сохранить
-            </button>
-            <button
-              type="button"
-              className="btn btn-secondary text-sm export-option__btn"
+            </Button>
+            <Button
+              size="small"
+              className="export-option__btn"
               disabled={!projectId || !workflow.selectedConnId || workflow.readOnly}
               onClick={() =>
                 workflow.selectedConnId && workflow.testConnMut.mutate(workflow.selectedConnId)
               }
             >
               Тест
-            </button>
-            <button
-              type="button"
-              className="btn btn-secondary text-sm export-option__btn export-option__btn--wide"
+            </Button>
+            <Button
+              size="small"
+              className="export-option__btn export-option__btn--wide"
               disabled={!projectId || !workflow.selectedConnId || workflow.readOnly}
               onClick={() =>
                 workflow.selectedConnId && workflow.syncConnMut.mutate(workflow.selectedConnId)
               }
             >
               Синхронизировать
-            </button>
+            </Button>
           </ExportOptionCard>
 
           <ExportOptionCard
@@ -262,9 +264,9 @@ export function ImportPage() {
               />
             }
           >
-            <button
-              type="button"
-              className="btn btn-secondary text-sm export-option__btn"
+            <Button
+              size="small"
+              className="export-option__btn"
               disabled={surveyWorkflow.readOnly}
               onClick={() => {
                 const blob = new Blob([IMPORT_WELL_SURVEY_CSV_TEMPLATE], {
@@ -279,29 +281,31 @@ export function ImportPage() {
               }}
             >
               Шаблон CSV
-            </button>
+            </Button>
             {surveyWorkflow.preview ? (
-              <button
-                type="button"
-                className="btn btn-primary text-sm export-option__btn export-option__btn--wide"
+              <Button
+                type="primary"
+                size="small"
+                className="export-option__btn export-option__btn--wide"
                 disabled={
                   surveyWorkflow.readOnly ||
                   surveyWorkflow.busy ||
                   surveyWorkflow.preview.wells.length === 0
                 }
+                loading={surveyWorkflow.busy}
                 onClick={() => void surveyWorkflow.onCommit()}
               >
                 Импортировать на куст
-              </button>
+              </Button>
             ) : (
-              <button
-                type="button"
-                className="btn btn-secondary text-sm export-option__btn"
+              <Button
+                size="small"
+                className="export-option__btn"
                 disabled={surveyWorkflow.readOnly || !surveyWorkflow.padId || surveyWorkflow.busy}
                 onClick={() => surveyWorkflow.fileInputRef.current?.click()}
               >
                 Выбрать файл
-              </button>
+              </Button>
             )}
           </ExportOptionCard>
         </div>

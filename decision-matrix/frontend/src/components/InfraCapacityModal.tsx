@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import { Button, Space } from 'antd';
 import { AppModal } from './AppModal';
 import { DeferredNumberInput } from './DeferredNumberInput';
 import {
@@ -48,14 +49,14 @@ export function InfraCapacityModal({
       onClose={onClose}
       size="sm"
       footer={
-        <div className="flex gap-2 justify-end w-full">
-          <button type="button" className="btn btn-secondary btn-sm" disabled={saving} onClick={onClose}>
+        <Space className="w-full justify-end">
+          <Button size="small" disabled={saving} onClick={onClose}>
             Отмена
-          </button>
-          <button type="button" className="btn btn-primary btn-sm" disabled={saving} onClick={handleApply}>
+          </Button>
+          <Button type="primary" size="small" loading={saving} onClick={handleApply}>
             {saving ? 'Сохранение…' : 'Применить'}
-          </button>
-        </div>
+          </Button>
+        </Space>
       }
     >
       <p className="text-sm mb-3" style={{ color: 'var(--text-muted)' }}>
@@ -66,7 +67,7 @@ export function InfraCapacityModal({
         <DeferredNumberInput
           allowEmpty
           min={0}
-          className="input object-detail-panel__input"
+          className="object-detail-panel__input"
           placeholder="Не задана"
           value={draft}
           disabled={saving}

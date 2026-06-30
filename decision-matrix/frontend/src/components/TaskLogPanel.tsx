@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { Activity, ChevronDown, ChevronRight, Download, X } from 'lucide-react';
+import { Badge, Button } from 'antd';
 
 import { defaultProjectJobsApi } from '../lib/api';
 import { useStoredActiveProjectJob } from '../hooks/useProjectJobBusy';
@@ -28,19 +29,17 @@ function formatTime(ts: number | string | null | undefined): string {
   }
 }
 
-function statusBadgeClass(status: string): string {
+function statusTagColor(status: string): 'success' | 'warning' | 'error' | 'default' {
   switch (status) {
     case 'completed':
-      return 'badge badge-success';
+      return 'success';
     case 'running':
     case 'pending':
-      return 'badge badge-warning';
+      return 'warning';
     case 'failed':
-      return 'badge badge-danger';
-    case 'cancelled':
-      return 'badge badge-muted';
+      return 'error';
     default:
-      return 'badge badge-muted';
+      return 'default';
   }
 }
 
@@ -150,26 +149,25 @@ function EntryCard({
         >
           {expanded ? <ChevronDown size={16} /> : <ChevronRight size={16} />}
           <span className="task-log-entry-title">{entryTitle(entry)}</span>
-          <span className={statusBadgeClass(entryStatus(entry))}>{jobStatusLabel(entryStatus(entry))}</span>
+          <Badge status={statusTagColor(entryStatus(entry))} text={jobStatusLabel(entryStatus(entry))} />
         </button>
         <div className="task-log-entry-actions">
-          <button
-            type="button"
-            className="btn btn-ghost btn-sm p-1"
+          <Button
+            type="text"
+            size="small"
+            icon={<Download size={14} />}
             title="Скачать JSON"
             onClick={() => onExport(entry)}
-          >
-            <Download size={14} />
-          </button>
+          />
           {canCancel && (
-            <button
-              type="button"
-              className="btn btn-ghost btn-sm"
-              disabled={cancelMut.isPending}
+            <Button
+              type="text"
+              size="small"
+              loading={cancelMut.isPending}
               onClick={() => cancelMut.mutate()}
             >
               Отменить
-            </button>
+            </Button>
           )}
         </div>
       </div>
@@ -330,23 +328,27 @@ export function TaskLogPanel({ projectId }: { projectId: string | null }) {
 
   return (
     <div className="task-log-anchor" ref={anchorRef}>
-      <button
-        type="button"
-        className="btn btn-ghost p-2 shrink-0 relative"
-        title="Журнал задач"
-        aria-expanded={open}
-        onClick={() => setOpen((v) => !v)}
-      >
-        <Activity size={18} />
+      <span className="relative shrink-0 inline-flex">
+        <Button
+          type="text"
+          icon={<Activity size={18} />}
+          title="Журнал задач"
+          aria-expanded={open}
+          onClick={() => setOpen((v) => !v)}
+        />
         {runningCount > 0 && <span className="task-log-badge">{runningCount}</span>}
-      </button>
+      </span>
       {open && (
         <div className="task-log-panel" ref={panelRef} role="dialog" aria-label="Журнал задач">
           <div className="task-log-panel-head">
             <h2 className="task-log-panel-title">Журнал задач</h2>
-            <button type="button" className="btn btn-ghost p-1" onClick={() => setOpen(false)} aria-label="Закрыть">
-              <X size={18} />
-            </button>
+            <Button
+              type="text"
+              size="small"
+              icon={<X size={18} />}
+              onClick={() => setOpen(false)}
+              aria-label="Закрыть"
+            />
           </div>
           <div className="task-log-panel-body">
             {mergedEntries.length === 0 ? (
@@ -370,15 +372,14 @@ export function TaskLogPanel({ projectId }: { projectId: string | null }) {
             )}
           </div>
           <div className="task-log-panel-foot">
-            <button
-              type="button"
-              className="btn btn-secondary btn-sm"
+            <Button
+              size="small"
+              icon={<Download size={14} />}
               disabled={mergedEntries.length === 0}
               onClick={handleExportAll}
             >
-              <Download size={14} className="mr-1 inline" />
               Экспорт всего
-            </button>
+            </Button>
           </div>
         </div>
       )}

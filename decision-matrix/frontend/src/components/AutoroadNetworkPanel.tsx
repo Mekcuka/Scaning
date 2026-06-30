@@ -10,6 +10,7 @@ import {
   Trash2,
   X,
 } from 'lucide-react';
+import { Button } from 'antd';
 import type { MapGroupSelectionItem } from './MapGroupSelectionPanel';
 import {
   AutoroadNetworkParamsSection,
@@ -115,15 +116,15 @@ export function AutoroadNetworkPanel({
             </span>
           </div>
           <div className="map-group-panel__header-actions">
-            <button
-              type="button"
-              className="btn btn-ghost btn-icon-touch map-group-panel__icon-btn"
+            <Button
+              type="text"
+              size="small"
+              className="map-group-panel__icon-btn"
+              icon={<X size={16} />}
               onClick={onClose}
               title="Закрыть"
               aria-label="Закрыть"
-            >
-              <X size={16} />
-            </button>
+            />
           </div>
         </div>
       </header>
@@ -134,30 +135,26 @@ export function AutoroadNetworkPanel({
           role="group"
           aria-label="Способ выбора терминалов"
         >
-          <button
-            type="button"
-            className={`btn btn-sm map-tool-btn rounded-none border-0 ${
-              pickMode === 'click' ? 'btn-primary active' : 'btn-secondary'
-            }`}
+          <Button
+            size="small"
+            type={pickMode === 'click' ? 'primary' : 'default'}
+            className={`map-tool-btn rounded-none border-0${pickMode === 'click' ? ' active' : ''}`}
+            icon={<MousePointer2 size={13} aria-hidden />}
             title="Клик по объекту"
             aria-label="По клику"
             aria-pressed={pickMode === 'click'}
             onClick={() => onPickModeChange('click')}
-          >
-            <MousePointer2 size={13} aria-hidden />
-          </button>
-          <button
-            type="button"
-            className={`btn btn-sm map-tool-btn rounded-none border-0 ${
-              pickMode === 'box' ? 'btn-primary active' : 'btn-secondary'
-            }`}
+          />
+          <Button
+            size="small"
+            type={pickMode === 'box' ? 'primary' : 'default'}
+            className={`map-tool-btn rounded-none border-0${pickMode === 'box' ? ' active' : ''}`}
+            icon={<BoxSelect size={13} aria-hidden />}
             title="Рамка на карте"
             aria-label="Рамкой"
             aria-pressed={pickMode === 'box'}
             onClick={() => onPickModeChange('box')}
-          >
-            <BoxSelect size={13} aria-hidden />
-          </button>
+          />
         </div>
         <button
           type="button"
@@ -211,16 +208,15 @@ export function AutoroadNetworkPanel({
           <span>Терминалы</span>
           <span className="autoroad-network-panel__list-count">{items.length}</span>
         </button>
-        <button
-          type="button"
-          className="btn btn-ghost btn-sm p-1"
+        <Button
+          type="text"
+          size="small"
+          icon={<Trash2 size={14} />}
           disabled={items.length === 0 || pending}
           title="Очистить список"
           aria-label="Очистить список"
           onClick={onClear}
-        >
-          <Trash2 size={14} />
-        </button>
+        />
       </div>
 
       {!listCollapsed && (
@@ -314,14 +310,17 @@ export function AutoroadNetworkPanel({
       </div>
 
       <footer className="autoroad-network-panel__footer">
-        <button
-          type="button"
-          className="btn btn-primary btn-sm flex-1"
+        <Button
+          type="primary"
+          size="small"
+          block
+          className="flex-1"
           disabled={!canPreview || pending}
+          loading={pending}
           onClick={onPreview}
         >
           {pending ? 'Расчёт…' : 'Рассчитать'}
-        </button>
+        </Button>
       </footer>
     </div>
   );

@@ -2,6 +2,7 @@ import { useMemo, useState } from 'react';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { ProjectLink } from '../components/ProjectLink';
 import { Undo2 } from 'lucide-react';
+import { Button, Card, Space } from 'antd';
 import {
   FootprintLineConnectionTemplateForm,
   templateHasEntries,
@@ -202,9 +203,9 @@ export function FootprintConnectionsParametersPage() {
   if (!projectId) {
     return (
       <div className="parameters-page">
-        <div className="card text-sm" style={{ color: 'var(--text-muted)' }}>
+        <Card size="small" className="text-sm" style={{ color: 'var(--text-muted)' }}>
           Выберите проект в шапке приложения.
-        </div>
+        </Card>
       </div>
     );
   }
@@ -237,7 +238,11 @@ export function FootprintConnectionsParametersPage() {
       />
 
       <div className="footprint-connect-page__grid">
-        <section className="card parameters-card footprint-connect-page__template" aria-labelledby="footprint-template-heading">
+        <Card
+          size="small"
+          className="parameters-card footprint-connect-page__template"
+          aria-labelledby="footprint-template-heading"
+        >
           <h2 id="footprint-template-heading" className="footprint-connect-section-title">
             Шаблон подключений
           </h2>
@@ -250,9 +255,13 @@ export function FootprintConnectionsParametersPage() {
               readOnly={!canWriteProject || busy}
             />
           )}
-        </section>
+        </Card>
 
-        <aside className="card parameters-card footprint-connect-apply-panel" aria-labelledby="footprint-apply-heading">
+        <Card
+          size="small"
+          className="parameters-card footprint-connect-apply-panel"
+          aria-labelledby="footprint-apply-heading"
+        >
           <h2 id="footprint-apply-heading" className="footprint-connect-section-title">
             Применить на карте
           </h2>
@@ -277,20 +286,17 @@ export function FootprintConnectionsParametersPage() {
             )}
           </div>
 
-          <div className="footprint-connect-apply-panel__buttons">
-            <button
-              type="button"
-              className="btn btn-primary"
+          <Space wrap className="footprint-connect-apply-panel__buttons">
+            <Button
+              type="primary"
               disabled={!canWriteProject || busy || earthworkObjects.length === 0}
               onClick={() =>
                 requestApply(earthworkObjects, 'Применить шаблон ко всем earthwork-точкам?')
               }
             >
               Применить ко всем
-            </button>
-            <button
-              type="button"
-              className="btn btn-secondary"
+            </Button>
+            <Button
               disabled={
                 !canWriteProject || busy || !subtypeFilter || filteredTargets.length === 0
               }
@@ -302,19 +308,18 @@ export function FootprintConnectionsParametersPage() {
               }
             >
               Применить к подтипу
-            </button>
+            </Button>
             {lastApplyUndo && (
-              <button
-                type="button"
-                className="btn btn-secondary"
+              <Button
+                icon={<Undo2 size={14} />}
                 disabled={!canWriteProject || busy}
+                loading={busy}
                 onClick={() => undoApplyMut.mutate(lastApplyUndo)}
               >
-                <Undo2 size={14} className="inline mr-1" />
                 Отменить последнее ({lastApplyUndo.entries.length})
-              </button>
+              </Button>
             )}
-          </div>
+          </Space>
 
           {progress && (
             <div className="map-paste-progress footprint-connect-apply-panel__progress">
@@ -336,7 +341,7 @@ export function FootprintConnectionsParametersPage() {
               <ProjectLink to="/map">карте</ProjectLink> (режим «Площадки»).
             </p>
           )}
-        </aside>
+        </Card>
       </div>
 
       <FootprintTemplateApplyConfirmModal

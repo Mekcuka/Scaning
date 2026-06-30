@@ -1,3 +1,4 @@
+import { Card } from 'antd';
 import { FlowSchematicEditor } from '../../components/FlowSchematicEditor';
 import { FLUID_COLORS, FLUID_LABELS, WARNING_LABELS } from '../../lib/flowSchematic';
 import { useFlowSchematicContext } from './flowSchematicContext';
@@ -22,7 +23,7 @@ export function FlowTechnologyPage() {
   const error = schematicQuery.error;
 
   return (
-    <section className="card p-4 flow-schematic-window">
+    <Card className="flow-schematic-window" classNames={{ body: 'p-4' }}>
       <p className="flow-schematic-window-subtitle text-sm text-[var(--text-muted)] mb-4">
         PFD: редактирование, рисование связей и сохранение схемы
       </p>
@@ -83,6 +84,6 @@ export function FlowTechnologyPage() {
             ))}
         </ul>
       )}
-    </section>
+    </Card>
   );
 }

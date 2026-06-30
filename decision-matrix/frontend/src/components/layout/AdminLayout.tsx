@@ -1,5 +1,6 @@
-import { NavLink, Outlet } from 'react-router-dom';
 import { Activity, Bot, Shield } from 'lucide-react';
+import { Outlet } from 'react-router-dom';
+import { SubnavTabs } from './SubnavTabs';
 
 const TABS = [
   { to: '/admin/users', label: 'Пользователи', icon: Shield },
@@ -10,20 +11,19 @@ const TABS = [
 export function AdminLayout() {
   return (
     <div className="parameters-layout">
-      <nav className="parameters-subnav" aria-label="Разделы администрирования">
-        {TABS.map(({ to, label, icon: Icon }) => (
-          <NavLink
-            key={to}
-            to={to}
-            className={({ isActive }) =>
-              `parameters-subnav__tab${isActive ? ' parameters-subnav__tab--active' : ''}`
-            }
-          >
-            <Icon size={16} aria-hidden />
-            {label}
-          </NavLink>
-        ))}
-      </nav>
+      <SubnavTabs
+        ariaLabel="Разделы администрирования"
+        tabs={TABS.map(({ to, label, icon: Icon }) => ({
+          key: to,
+          to,
+          label: (
+            <span className="inline-flex items-center gap-2">
+              <Icon size={16} aria-hidden />
+              {label}
+            </span>
+          ),
+        }))}
+      />
       <Outlet />
     </div>
   );

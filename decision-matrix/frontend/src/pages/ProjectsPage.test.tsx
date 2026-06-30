@@ -60,7 +60,7 @@ describe('ProjectsPage', () => {
   it('opens create form in modal', async () => {
     await openCreateModal();
     expect(screen.getByRole('dialog')).toBeInTheDocument();
-    expect(screen.getByRole('heading', { name: 'Новый проект' })).toBeInTheDocument();
+    expect(screen.getByText('Новый проект')).toBeInTheDocument();
     expect(screen.getByLabelText('Название')).toBeInTheDocument();
   });
 

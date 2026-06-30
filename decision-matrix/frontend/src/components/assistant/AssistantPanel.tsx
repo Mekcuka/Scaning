@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useRef, useState, useCallback } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { Loader2, MessageSquare, Plus, Send, Trash2, X } from 'lucide-react';
+import { Button } from 'antd';
 import { Link, useLocation } from 'react-router-dom';
 
 import { useAssistantChatContext } from '../../lib/assistant/assistantContext';
@@ -330,18 +331,18 @@ export function AssistantPanel() {
 
   return (
     <div className="assistant-anchor" ref={anchorRef}>
-      <button
-        type="button"
-        className="btn btn-ghost p-2 shrink-0 relative"
-        title="AI-помощник"
-        aria-expanded={open}
-        onClick={() => setOpen((v) => !v)}
-      >
-        <MessageSquare size={18} />
+      <span className="relative shrink-0 inline-flex">
+        <Button
+          type="text"
+          icon={<MessageSquare size={18} />}
+          title="AI-помощник"
+          aria-expanded={open}
+          onClick={() => setOpen((v) => !v)}
+        />
         {status?.enabled && !status.provider_ready && (
           <span className="assistant-badge assistant-badge--warn" title="LLM недоступен" />
         )}
-      </button>
+      </span>
       {open && (
         <div className="assistant-panel" ref={panelRef} role="dialog" aria-label="AI-помощник">
           <div className="assistant-panel-head">
@@ -349,37 +350,34 @@ export function AssistantPanel() {
               <h2 className="assistant-panel-title">AI-помощник</h2>
               <div className="assistant-panel-head-actions">
               {historyEnabled && (
-                <button
-                  type="button"
-                  className="btn btn-ghost p-1"
+                <Button
+                  type="text"
+                  size="small"
+                  icon={<Plus size={16} />}
                   onClick={handleNewChat}
                   aria-label="Новый чат"
                   title="Новый чат"
                   disabled={loading || streaming || sessionMutating}
-                >
-                  <Plus size={16} />
-                </button>
+                />
               )}
               {historyEnabled && sessionId && (
-                <button
-                  type="button"
-                  className="btn btn-ghost p-1"
+                <Button
+                  type="text"
+                  size="small"
+                  icon={<Trash2 size={16} />}
                   onClick={handleDeleteChat}
                   aria-label="Удалить диалог"
                   title="Удалить диалог"
                   disabled={loading || streaming || sessionMutating}
-                >
-                  <Trash2 size={16} />
-                </button>
+                />
               )}
-              <button
-                type="button"
-                className="btn btn-ghost p-1"
+              <Button
+                type="text"
+                size="small"
+                icon={<X size={18} />}
                 onClick={() => setOpen(false)}
                 aria-label="Закрыть"
-              >
-                <X size={18} />
-              </button>
+              />
               </div>
             </div>
             {historyEnabled && (
@@ -508,22 +506,17 @@ export function AssistantPanel() {
                 </p>
                 <p className="assistant-pending-desc">{pendingAction.description}</p>
                 <div className="assistant-pending-actions">
-                  <button
-                    type="button"
-                    className="btn btn-primary btn-sm"
+                  <Button
+                    type="primary"
+                    size="small"
                     disabled={loading}
                     onClick={handleConfirm}
                   >
                     Подтвердить
-                  </button>
-                  <button
-                    type="button"
-                    className="btn btn-ghost btn-sm"
-                    disabled={loading}
-                    onClick={handleCancelPending}
-                  >
+                  </Button>
+                  <Button type="text" size="small" disabled={loading} onClick={handleCancelPending}>
                     Отмена
-                  </button>
+                  </Button>
                 </div>
               </div>
             )}
@@ -537,14 +530,16 @@ export function AssistantPanel() {
               placeholder={chatAvailable ? 'Сообщение…' : 'LLM недоступен'}
               disabled={!chatAvailable || loading}
             />
-            <button
-              type="submit"
-              className="btn btn-primary p-2 shrink-0"
+            <Button
+              type="primary"
+              htmlType="submit"
+              className="shrink-0"
               disabled={!chatAvailable || loading || !input.trim()}
               aria-label="Отправить"
-            >
-              {loading ? <Loader2 size={18} className="animate-spin" /> : <Send size={18} />}
-            </button>
+              icon={
+                loading ? <Loader2 size={18} className="animate-spin" /> : <Send size={18} />
+              }
+            />
           </form>
         </div>
       )}

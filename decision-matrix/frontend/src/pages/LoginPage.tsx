@@ -1,7 +1,8 @@
 import { zodResolver } from '@hookform/resolvers/zod';
-import { Eye, EyeOff } from 'lucide-react';
-import { useEffect, useState } from 'react';
-import { useForm } from 'react-hook-form';
+import { EyeInvisibleOutlined, EyeOutlined } from '@ant-design/icons';
+import { Alert, Button, Card, Form, Input, Spin, Typography } from 'antd';
+import { useEffect } from 'react';
+import { Controller, useForm } from 'react-hook-form';
 import { Link, useNavigate } from 'react-router-dom';
 import { z } from 'zod';
 import { APP_LOGO_MARK, APP_NAME, APP_TAGLINE } from '../lib/branding';
@@ -17,9 +18,8 @@ type FormData = z.infer<typeof schema>;
 export function LoginPage() {
   const { login, user, isLoading } = useAuthStore();
   const navigate = useNavigate();
-  const [showPassword, setShowPassword] = useState(false);
   const {
-    register,
+    control,
     handleSubmit,
     formState: { errors, isSubmitting },
     setError,
@@ -45,65 +45,76 @@ export function LoginPage() {
 
   if (isLoading) {
     return (
-      <div className="flex flex-1 min-h-0 items-center justify-center" style={{ color: 'var(--text-muted)' }}>
-        Загрузка...
+      <div className="flex flex-1 min-h-0 items-center justify-center">
+        <Spin aria-label="Загрузка" />
       </div>
     );
   }
 
   return (
-    <div className="flex flex-1 min-h-0 items-center justify-center overflow-y-auto" style={{ background: 'var(--bg)' }}>
-      <div className="card w-full max-w-md mx-4">
+    <div
+      className="flex flex-1 min-h-0 items-center justify-center overflow-y-auto p-4"
+      style={{ background: 'var(--bg)' }}
+    >
+      <Card className="w-full max-w-md">
         <div className="flex items-center gap-3 mb-6">
           <div className="w-10 h-10 rounded-lg bg-blue-600 flex items-center justify-center text-white font-bold">
             {APP_LOGO_MARK}
           </div>
           <div>
-            <h1 className="text-xl font-bold">{APP_NAME}</h1>
-            <p className="text-sm" style={{ color: 'var(--text-muted)' }}>
-              {APP_TAGLINE}
-            </p>
+            <Typography.Title level={3} className="!mb-0">
+              {APP_NAME}
+            </Typography.Title>
+            <Typography.Text type="secondary">{APP_TAGLINE}</Typography.Text>
           </div>
         </div>
         <form onSubmit={handleSubmit(onSubmit)}>
-          <div className="form-group">
-            <label htmlFor="login-email">Email</label>
-            <input id="login-email" type="email" autoComplete="email" {...register('email')} />
-            {errors.email && <p className="text-red-500 text-xs mt-1">{errors.email.message}</p>}
-          </div>
-          <div className="form-group">
-            <label htmlFor="login-password">Пароль</label>
-            <div className="password-field">
-              <input
-                id="login-password"
-                type={showPassword ? 'text' : 'password'}
-                autoComplete="current-password"
-                {...register('password')}
-              />
-              <button
-                type="button"
-                className="password-field__toggle"
-                onClick={() => setShowPassword((v) => !v)}
-                aria-label={showPassword ? 'Скрыть пароль' : 'Показать пароль'}
-                tabIndex={-1}
-              >
-                {showPassword ? <EyeOff size={18} aria-hidden /> : <Eye size={18} aria-hidden />}
-              </button>
-            </div>
-            {errors.password && <p className="text-red-500 text-xs mt-1">{errors.password.message}</p>}
-          </div>
-          {errors.root && <p className="text-red-500 text-sm mb-3">{errors.root.message}</p>}
-          <button type="submit" className="btn btn-primary w-full" disabled={isSubmitting}>
-            {isSubmitting ? 'Вход...' : 'Войти'}
-          </button>
+          <Form.Item
+            label="Email"
+            validateStatus={errors.email ? 'error' : undefined}
+            help={errors.email?.message}
+            className="mb-4"
+          >
+            <Controller
+              name="email"
+              control={control}
+              render={({ field }) => (
+                <Input {...field} type="email" autoComplete="email" id="login-email" aria-label="Email" />
+              )}
+            />
+          </Form.Item>
+          <Form.Item
+            label="Пароль"
+            validateStatus={errors.password ? 'error' : undefined}
+            help={errors.password?.message}
+            className="mb-4"
+          >
+            <Controller
+              name="password"
+              control={control}
+              render={({ field }) => (
+                <Input.Password
+                  {...field}
+                  autoComplete="current-password"
+                  id="login-password"
+                  aria-label="Пароль"
+                  iconRender={(visible) => (visible ? <EyeOutlined /> : <EyeInvisibleOutlined />)}
+                />
+              )}
+            />
+          </Form.Item>
+          {errors.root?.message && (
+            <Alert type="error" message={errors.root.message} className="mb-4" showIcon />
+          )}
+          <Button type="primary" htmlType="submit" block loading={isSubmitting}>
+            {isSubmitting ? 'Вход…' : 'Войти'}
+          </Button>
         </form>
-        <p className="text-sm mt-4 text-center" style={{ color: 'var(--text-muted)' }}>
+        <Typography.Paragraph className="text-center mt-4 mb-0" type="secondary">
           Нет аккаунта?{' '}
-          <Link to="/register" className="text-blue-600 hover:underline">
-            Регистрация
-          </Link>
-        </p>
-      </div>
+          <Link to="/register">Регистрация</Link>
+        </Typography.Paragraph>
+      </Card>
     </div>
   );
 }

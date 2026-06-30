@@ -1,4 +1,5 @@
 import { Copy, MapPin } from 'lucide-react';
+import { Button, Input } from 'antd';
 import type { ClipboardEvent } from 'react';
 import type { InfraObject } from '../../lib/api';
 import { coordStringForCopy, numberStringForCopy, parseCoordTriple } from '../../lib/coords';
@@ -113,8 +114,8 @@ function BottomholeXyzRow({
     <div className="object-detail-panel__coord-grid object-detail-panel__coord-grid--xyz">
       <label className="object-detail-panel__field">
         <FieldLabel>X</FieldLabel>
-        <input
-          className="input object-detail-panel__input object-detail-panel__input--mono"
+        <Input
+          className="object-detail-panel__input object-detail-panel__input--mono"
           value={x}
           inputMode="decimal"
           readOnly={readOnly}
@@ -125,8 +126,8 @@ function BottomholeXyzRow({
       </label>
       <label className="object-detail-panel__field">
         <FieldLabel>Y</FieldLabel>
-        <input
-          className="input object-detail-panel__input object-detail-panel__input--mono"
+        <Input
+          className="object-detail-panel__input object-detail-panel__input--mono"
           value={y}
           inputMode="decimal"
           readOnly={readOnly}
@@ -137,8 +138,8 @@ function BottomholeXyzRow({
       <label className="object-detail-panel__field">
         <FieldLabel>Z</FieldLabel>
         {readOnly ? (
-          <input
-            className="input object-detail-panel__input object-detail-panel__input--mono"
+          <Input
+            className="object-detail-panel__input object-detail-panel__input--mono"
             value={z}
             readOnly
             disabled
@@ -146,7 +147,7 @@ function BottomholeXyzRow({
         ) : (
           <DeferredNumberInput
             allowEmpty
-            className="input object-detail-panel__input object-detail-panel__input--mono"
+            className="object-detail-panel__input object-detail-panel__input--mono"
             placeholder="—"
             value={z}
             onCommit={onCommitZ}
@@ -272,14 +273,15 @@ export function InfraBottomholeGeometrySection({
           z={showEndPoint ? zHeel : z}
           onCommitZ={showEndPoint ? commitHeelZ : commitPointZ}
         />
-        <button
-          type="button"
-          className="btn btn-secondary btn-sm object-detail-panel__copy-btn object-detail-panel__copy-btn--block"
+        <Button
+          block
+          size="small"
+          className="object-detail-panel__copy-btn object-detail-panel__copy-btn--block"
+          icon={<Copy size={14} aria-hidden />}
           onClick={showEndPoint ? copyHeelCoords : copyPointCoords}
         >
-          <Copy size={14} aria-hidden />
           Копировать координаты
-        </button>
+        </Button>
       </div>
 
       {showEndPoint && (
@@ -296,14 +298,15 @@ export function InfraBottomholeGeometrySection({
             z={zToe}
             onCommitZ={commitToeZ}
           />
-          <button
-            type="button"
-            className="btn btn-secondary btn-sm object-detail-panel__copy-btn object-detail-panel__copy-btn--block"
+          <Button
+            block
+            size="small"
+            className="object-detail-panel__copy-btn object-detail-panel__copy-btn--block"
+            icon={<Copy size={14} aria-hidden />}
             onClick={copyToeCoords}
           >
-            <Copy size={14} aria-hidden />
             Копировать координаты
-          </button>
+          </Button>
         </div>
       )}
 

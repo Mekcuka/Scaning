@@ -5,7 +5,6 @@ import {
   useMemo,
   useRef,
   useState,
-  type ChangeEvent,
   type ReactNode,
 } from 'react';
 import {
@@ -23,6 +22,7 @@ import {
   Loader2,
   Minimize2,
 } from 'lucide-react';
+import { Button, Upload as AntUpload } from 'antd';
 import { AppSelect } from '../AppSelect';
 import { PadClusteringCollapsibleSection } from './PadClusteringCollapsibleSection';
 import type { InfraObject } from '../../lib/api';
@@ -190,28 +190,28 @@ function GeoActionButton({
   accent?: boolean;
   onClick: () => void;
 }) {
+  const buttonType =
+    variant === 'primary' ? 'primary' : variant === 'ghost' ? 'text' : 'default';
+
   return (
-    <button
-      type="button"
+    <Button
+      type={buttonType}
+      size="small"
+      block={fullWidth}
       className={[
-        'btn',
-        `btn--${variant}`,
-        'btn--sm',
         'pad-clustering-geo-action-btn',
-        fullWidth ? 'pad-clustering-geo-action-btn--full' : '',
         accent ? 'pad-clustering-geo-action-btn--accent' : '',
-        loading ? 'pad-clustering-geo-action-btn--loading' : '',
       ]
         .filter(Boolean)
         .join(' ')}
-      disabled={disabled || loading}
+      disabled={disabled}
+      loading={loading}
       title={title}
-      aria-busy={loading || undefined}
+      icon={icon}
       onClick={onClick}
     >
-      {loading ? <Loader2 size={14} className="animate-spin" aria-hidden /> : icon}
-      <span>{loading ? loadingLabel ?? label : label}</span>
-    </button>
+      {loading ? loadingLabel ?? label : label}
+    </Button>
   );
 }
 
@@ -577,20 +577,6 @@ export function PadClusteringPyWellGeoPanel({
       setYamlError(null);
     });
 
-  const handleYamlFile = (e: ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
-    const reader = new FileReader();
-    reader.onload = () => {
-      const text = String(reader.result ?? '');
-      void handleYamlImport(text).catch(() => {
-        setYamlError('Ошибка импорта YAML');
-      });
-    };
-    reader.readAsText(file);
-    e.target.value = '';
-  };
-
   const handleAzimDip = () =>
     runAction('azim', async () => {
       const body =
@@ -803,14 +789,14 @@ export function PadClusteringPyWellGeoPanel({
             <p className="pad-clustering-geo-panel__empty">
               Импортируйте траекторию из рассчитанного survey welleng — узлы появятся здесь и на 3D-сцене.
             </p>
-            <button
-              type="button"
-              className="btn btn--primary btn--sm"
+            <Button
+              type="primary"
+              size="small"
               disabled={readOnly || !hasSurvey || !!busy}
               onClick={() => void handleSyncFromSurvey()}
             >
               Импортировать из survey
-            </button>
+            </Button>
           </div>
         ) : (
           <div className="pad-clustering-geo-tree-workspace">
@@ -950,9 +936,9 @@ export function PadClusteringPyWellGeoPanel({
                 </GeoField>
                 <div className="pad-clustering-geo-panel__action-bar pad-clustering-field--span2">
                   {selectedPath.length > 0 ? (
-                    <button
-                      type="button"
-                      className="btn btn--ghost btn--sm"
+                    <Button
+                      type="text"
+                      size="small"
                       disabled={readOnly}
                       onClick={() => {
                         updateCurrentTree(removeBranchAtPath(currentRecord.tree, selectedPath));
@@ -960,7 +946,7 @@ export function PadClusteringPyWellGeoPanel({
                       }}
                     >
                       Удалить ветку
-                    </button>
+                    </Button>
                   ) : null}
                 </div>
               </GeoSubsection>
@@ -1070,14 +1056,14 @@ export function PadClusteringPyWellGeoPanel({
                   </GeoField>
                 ) : null}
                 <div className="pad-clustering-geo-panel__action-bar pad-clustering-field--span2">
-                  <button
-                    type="button"
-                    className="btn btn--primary btn--sm"
+                  <Button
+                    type="primary"
+                    size="small"
                     disabled={readOnly || !!busy}
                     onClick={() => void handleAddLateral()}
                   >
                     Добавить боковой ствол
-                  </button>
+                  </Button>
                 </div>
                 <p className="pad-clustering-geo-panel__empty pad-clustering-field--span2">
                   Kick-off: узел «{nodeListTitle(selectedPath, selectedNode)}». Clearance welleng по-прежнему только по survey.
@@ -1152,11 +1138,31 @@ export function PadClusteringPyWellGeoPanel({
         defaultOpen={false}
       >
         <GeoActionBar layout="grid" title="Файл WellTree">
-          <label className="btn btn--secondary btn--sm pad-clustering-geo-file-btn pad-clustering-geo-action-btn pad-clustering-geo-action-btn--full">
-            <Upload size={14} aria-hidden />
-            <span>Импорт .yml</span>
-            <input type="file" accept=".yml,.yaml" disabled={readOnly} onChange={handleYamlFile} hidden />
-          </label>
+          <AntUpload
+            showUploadList={false}
+            accept=".yml,.yaml"
+            disabled={readOnly}
+            beforeUpload={(file) => {
+              const reader = new FileReader();
+              reader.onload = () => {
+                const text = String(reader.result ?? '');
+                void handleYamlImport(text).catch(() => {
+                  setYamlError('Ошибка импорта YAML');
+                });
+              };
+              reader.readAsText(file);
+              return false;
+            }}
+          >
+            <Button
+              size="small"
+              block
+              className="pad-clustering-geo-file-btn pad-clustering-geo-action-btn pad-clustering-geo-action-btn--full"
+              icon={<Upload size={14} />}
+            >
+              Импорт .yml
+            </Button>
+          </AntUpload>
           <GeoActionButton
             variant="ghost"
             fullWidth
@@ -1215,9 +1221,9 @@ export function PadClusteringPyWellGeoPanel({
             </>
           )}
           <div className="pad-clustering-geo-panel__action-bar pad-clustering-field--span2">
-            <button type="button" className="btn btn--secondary btn--sm" onClick={() => void handleAzimDip()}>
+            <Button size="small" onClick={() => void handleAzimDip()}>
               Конвертировать
-            </button>
+            </Button>
           </div>
           {azimResult ? <p className="pad-clustering-geo-panel__result">{azimResult}</p> : null}
         </GeoSubsection>
@@ -1230,9 +1236,9 @@ export function PadClusteringPyWellGeoPanel({
               onChange={(e) => setCoordPoints(e.target.value)}
             />
           </GeoField>
-          <button type="button" className="btn btn--ghost btn--sm" onClick={() => void handleCoordTransform()}>
+          <Button type="text" size="small" onClick={() => void handleCoordTransform()}>
             global → local
-          </button>
+          </Button>
           {coordResult ? <pre className="pad-clustering-geo-yaml-preview">{coordResult}</pre> : null}
         </GeoSubsection>
       </PadClusteringCollapsibleSection>

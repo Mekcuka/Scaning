@@ -55,9 +55,10 @@ describe('ReportEditorPage', () => {
     } as never);
     renderPage(<ReportEditorPage mode="new" />, { route: '/report/new' });
     await waitFor(() => expect(screen.getByText('Новый одностраничник')).toBeInTheDocument());
-    const generateBtn = await screen.findByRole('button', { name: /сформировать отчёт/i });
-    await waitFor(() => expect(generateBtn).toBeEnabled());
-    await userEvent.click(generateBtn);
+    await waitFor(() =>
+      expect(screen.getByRole('button', { name: /сформировать отчёт/i })).toBeEnabled(),
+    );
+    await userEvent.click(screen.getByRole('button', { name: /сформировать отчёт/i }));
     await waitFor(() => expect(api.createOnePager).toHaveBeenCalled());
   });
 

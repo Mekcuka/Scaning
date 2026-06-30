@@ -1,3 +1,4 @@
+import { Input } from 'antd';
 import type { InfraObject } from '../../lib/api';
 import { isLineSubtype } from '../../lib/infraGeometry';
 import {
@@ -79,8 +80,8 @@ export function InfraDetailExtraTab({
             </div>
             <div className="object-detail-panel__pair-grid-row">
               <div className="object-detail-panel__field-control">
-                <input
-                  className="input object-detail-panel__input"
+                <Input
+                  className="object-detail-panel__input"
                   type="number"
                   min={0}
                   step="any"
@@ -91,8 +92,8 @@ export function InfraDetailExtraTab({
                 />
               </div>
               <div className="object-detail-panel__field-control">
-                <input
-                  className="input object-detail-panel__input"
+                <Input
+                  className="object-detail-panel__input"
                   type="number"
                   min={0}
                   step="any"
@@ -113,8 +114,8 @@ export function InfraDetailExtraTab({
 
           <label className="object-detail-panel__field object-detail-panel__field--compact">
             <FieldLabel unit="×">Масштаб</FieldLabel>
-            <input
-              className="input object-detail-panel__input"
+            <Input
+              className="object-detail-panel__input"
               type="number"
               min={MIN_RENDER_3D_SCALE}
               max={MAX_RENDER_3D_SCALE}

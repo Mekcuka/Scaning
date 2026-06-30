@@ -1,5 +1,6 @@
 import { ProjectLink } from '../../components/ProjectLink';
 import { Download, FileText, Plus, Trash2 } from 'lucide-react';
+import { Button, Card, Space } from 'antd';
 import { useOnePagerList } from '../../hooks/useOnePagerList';
 import { useAppStore } from '../../store';
 import { usePermissions } from '../../hooks/usePermissions';
@@ -29,23 +30,25 @@ export function ReportListPage() {
       {projectId && canWriteProject && (
         <div className="page-toolbar page-toolbar--actions-only">
           <div className="page-toolbar-actions">
-            <ProjectLink to="/report/new" className="btn btn-primary">
-              <Plus size={16} /> Подготовить отчёт
+            <ProjectLink to="/report/new">
+              <Button type="primary" icon={<Plus size={16} />}>
+                Подготовить отчёт
+              </Button>
             </ProjectLink>
           </div>
         </div>
       )}
 
       {!projectId ? (
-        <div className="card text-sm" style={{ color: 'var(--text-muted)' }}>
+        <Card size="small" className="text-sm" style={{ color: 'var(--text-muted)' }}>
           Выберите проект в шапке приложения.
-        </div>
+        </Card>
       ) : isLoading ? (
-        <div className="card text-sm" style={{ color: 'var(--text-muted)' }}>
+        <Card size="small" className="text-sm" style={{ color: 'var(--text-muted)' }}>
           Загрузка…
-        </div>
+        </Card>
       ) : reports.length === 0 ? (
-        <div className="card text-sm" style={{ color: 'var(--text-muted)' }}>
+        <Card size="small" className="text-sm" style={{ color: 'var(--text-muted)' }}>
           Нет сохранённых одностраничников.
           {canWriteProject && (
             <>
@@ -53,9 +56,9 @@ export function ReportListPage() {
               <ProjectLink to="/report/new">Создать первый отчёт</ProjectLink>
             </>
           )}
-        </div>
+        </Card>
       ) : (
-        <div className="card overflow-x-auto">
+        <Card>
           <table className="data-table">
             <thead>
               <tr>
@@ -72,42 +75,46 @@ export function ReportListPage() {
                   <td>{r.report_date ?? '—'}</td>
                   <td>{STATUS_LABEL[r.generation_status] ?? r.generation_status}</td>
                   <td className="col-actions">
-                    <ProjectLink to={`/report/${r.id}`} className="btn btn-secondary btn-sm">
-                      <FileText size={14} /> Открыть
-                    </ProjectLink>
-                    <ProjectLink to={`/report/${r.id}?print=1`} className="btn btn-secondary btn-sm">
-                      <Download size={14} /> PDF
-                    </ProjectLink>
-                    {canWriteProject && (
-                      <button
-                        type="button"
-                        className="btn btn-secondary btn-sm"
-                        disabled={pptxMut.isPending}
-                        onClick={() => pptxMut.mutate(r.id)}
-                      >
-                        <FileText size={14} /> PPTX
-                      </button>
-                    )}
-                    {canWriteProject && (
-                      <button
-                        type="button"
-                        className="btn btn-secondary btn-sm"
-                        onClick={() => {
-                          if (window.confirm('Удалить одностраничник?')) {
-                            deleteMut.mutate(r.id);
-                          }
-                        }}
-                        disabled={deleteMut.isPending}
-                      >
-                        <Trash2 size={14} />
-                      </button>
-                    )}
+                    <Space size="small" wrap>
+                      <ProjectLink to={`/report/${r.id}`}>
+                        <Button size="small" icon={<FileText size={14} />}>
+                          Открыть
+                        </Button>
+                      </ProjectLink>
+                      <ProjectLink to={`/report/${r.id}?print=1`}>
+                        <Button size="small" icon={<Download size={14} />}>
+                          PDF
+                        </Button>
+                      </ProjectLink>
+                      {canWriteProject && (
+                        <Button
+                          size="small"
+                          icon={<FileText size={14} />}
+                          loading={pptxMut.isPending}
+                          onClick={() => pptxMut.mutate(r.id)}
+                        >
+                          PPTX
+                        </Button>
+                      )}
+                      {canWriteProject && (
+                        <Button
+                          size="small"
+                          icon={<Trash2 size={14} />}
+                          loading={deleteMut.isPending}
+                          onClick={() => {
+                            if (window.confirm('Удалить одностраничник?')) {
+                              deleteMut.mutate(r.id);
+                            }
+                          }}
+                        />
+                      )}
+                    </Space>
                   </td>
                 </tr>
               ))}
             </tbody>
           </table>
-        </div>
+        </Card>
       )}
     </div>
   );

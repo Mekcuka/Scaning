@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { ChevronDown, Droplets, Flame } from 'lucide-react';
+import { Input } from 'antd';
 
 import {
   POI_WATER_VOLUME_UNIT,
@@ -38,8 +39,8 @@ export function PoiCreateForm({ value, onChange, readOnly }: Props) {
         <div className="poi-create-form__row-top">
           <label className="poi-create-form__field poi-create-form__field--name">
             <span className="poi-create-form__label">Название</span>
-            <input
-              className="input poi-create-form__name-input"
+            <Input
+              className="poi-create-form__name-input"
               value={value.name}
               readOnly={readOnly}
               disabled={readOnly}
@@ -144,8 +145,8 @@ export function PoiCreateForm({ value, onChange, readOnly }: Props) {
       {!readOnly && (
         <label className="poi-create-form__field">
           <span className="poi-create-form__label">Описание</span>
-          <textarea
-            className="input poi-create-form__textarea"
+          <Input.TextArea
+            className="poi-create-form__textarea"
             value={value.description}
             rows={2}
             placeholder="Необязательно"
