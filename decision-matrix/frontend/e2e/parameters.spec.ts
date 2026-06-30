@@ -10,5 +10,5 @@ test('parameters tab shows capacity table', async ({ page, request }) => {
 
   await page.goto(`/parameters/capacity/${projectId}`);
   await expect(page).toHaveURL(new RegExp(`/parameters/capacity/${projectId}`));
-  await expect(page.getByRole('link', { name: 'Пропускная способность' })).toBeVisible();
+  await expect(page.getByRole('tab', { name: 'Пропускная способность' })).toBeVisible();
 });

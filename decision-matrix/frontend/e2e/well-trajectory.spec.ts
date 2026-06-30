@@ -144,7 +144,7 @@ test.describe('Well trajectory M2 smoke', () => {
     await page.goto(`/pad-clustering/workspace/${projectId}`);
     await expect(page.getByRole('heading', { name: 'Кустование' })).toBeVisible({ timeout: 20_000 });
 
-    const padSelect = page.getByRole('button', { name: 'Кустовая площадка' });
+    const padSelect = page.getByRole('combobox', { name: 'Кустовая площадка' });
     await padSelect.click();
     await page.getByRole('option', { name: 'E2E Куст UI' }).click();
 

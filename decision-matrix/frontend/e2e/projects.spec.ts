@@ -42,7 +42,7 @@ test.describe('Projects', () => {
     await page.getByRole('button', { name: 'Новый проект' }).click();
     const dialog = page.getByRole('dialog');
     await expect(dialog).toBeVisible();
-    await expect(dialog.getByRole('heading', { name: 'Новый проект' })).toBeVisible();
+    await expect(dialog).toContainText('Новый проект');
     await expect(dialog.getByRole('button', { name: 'Создать' })).toBeDisabled();
 
     await dialog.getByLabel('Название').fill(projectName);
