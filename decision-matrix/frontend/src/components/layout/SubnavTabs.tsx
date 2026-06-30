@@ -39,7 +39,7 @@ export function SubnavTabs({ tabs, ariaLabel }: Props) {
         key: tab.key,
         label: tab.label,
       }))}
-      style={{ marginBottom: 16 }}
+      style={{ marginBottom: 0 }}
     />
   );
 }

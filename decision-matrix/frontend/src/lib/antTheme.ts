@@ -34,6 +34,21 @@ export function buildAntTheme(mode: 'light' | 'dark'): ThemeConfig {
         darkItemBg: isDark ? SIDEBAR_DARK : SIDEBAR_LIGHT,
         darkSubMenuItemBg: isDark ? SIDEBAR_DARK : SIDEBAR_LIGHT,
       },
+      Card: {
+        borderRadiusLG: 10,
+        paddingLG: 16,
+        headerBg: isDark ? '#1a2638' : '#f0f4fa',
+      },
+      Tabs: {
+        inkBarColor: isDark ? DARK_PRIMARY : LIGHT_PRIMARY,
+        itemActiveColor: isDark ? '#e8f0fa' : '#0f1c2e',
+        itemColor: isDark ? '#8fa8c4' : '#5a6d85',
+        itemHoverColor: isDark ? '#e8f0fa' : '#0f1c2e',
+      },
+      Form: {
+        labelColor: isDark ? '#8fa8c4' : '#5a6d85',
+        itemMarginBottom: 16,
+      },
     },
   };
 }

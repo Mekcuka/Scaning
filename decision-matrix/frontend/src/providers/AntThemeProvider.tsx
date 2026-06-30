@@ -19,9 +19,9 @@ export function AntThemeProvider({ children }: Props) {
 
   return (
     <ConfigProvider locale={ruRU} theme={buildAntTheme(themeMode)}>
-      <App>
+      <App className="app-ant-root">
         <ToastBridge />
-        {children}
+        <div className="app-route-host">{children}</div>
       </App>
     </ConfigProvider>
   );

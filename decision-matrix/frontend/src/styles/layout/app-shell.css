@@ -6,12 +6,51 @@
   overflow: hidden;
 }
 
+/* Ant App + route host — fill viewport so .app-main can scroll */
+.app-viewport .app-ant-root.ant-app,
+.app-viewport .ant-app.app-ant-root {
+  display: flex;
+  flex-direction: column;
+  flex: 1 1 0%;
+  min-height: 0;
+  height: 100%;
+  max-height: 100%;
+  overflow: hidden;
+}
+
+.app-route-host {
+  display: flex;
+  flex-direction: column;
+  flex: 1 1 0%;
+  min-height: 0;
+  height: 100%;
+  max-height: 100%;
+  overflow: hidden;
+}
+
+.app-route-host .app-shell.ant-layout {
+  flex: 1 1 0%;
+  min-height: 0;
+  height: 100%;
+  max-height: 100%;
+}
+
 /* Single viewport shell — prevent body scroll “ribbon” of stacked layouts */
 .app-shell {
   display: flex;
-  flex: 1 1 auto;
+  flex: 1 1 0%;
   min-height: 0;
   height: 100%;
+  max-height: 100%;
+  overflow: hidden;
+}
+
+/* Ant Layout: horizontal shell (sider + content) */
+.app-shell.ant-layout {
+  display: flex;
+  flex-direction: row;
+  height: 100%;
+  min-height: 0;
   max-height: 100%;
   overflow: hidden;
 }
@@ -19,9 +58,39 @@
 .app-content {
   display: flex;
   flex-direction: column;
-  flex: 1 1 auto;
+  flex: 1 1 0%;
   min-height: 0;
   min-width: 0;
+  overflow: hidden;
+}
+
+.app-content.ant-layout {
+  display: flex;
+  flex-direction: column;
+  flex: 1 1 0%;
+  min-height: 0;
+  min-width: 0;
+  overflow: hidden;
+}
+
+/* Scroll lives in main; map/pad-clustering workspace fill height without page scroll */
+.app-main.ant-layout-content {
+  flex: 1 1 0%;
+  min-height: 0;
+}
+
+.app-main:not(.app-main--map).ant-layout-content {
+  flex: 1 1 0%;
+  height: 0;
+  overflow-y: auto;
+  overflow-x: hidden;
+  overscroll-behavior: contain;
+  -webkit-overflow-scrolling: touch;
+}
+
+.app-main--map.ant-layout-content {
+  display: flex;
+  flex-direction: column;
   overflow: hidden;
 }
 

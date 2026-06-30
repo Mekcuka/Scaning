@@ -86,7 +86,7 @@ describe('ProjectDetailPage', () => {
     await waitFor(() => expect(analyzeAllPoisAndWaitMock).toHaveBeenCalledWith('p1'));
   });
 
-  it('shows empty state with link to map when no pois', async () => {
+  it('shows empty state with button to open map when no pois', async () => {
     vi.mocked(api.getPois).mockResolvedValue([]);
 
     renderPage(
@@ -97,6 +97,6 @@ describe('ProjectDetailPage', () => {
     );
 
     await waitFor(() => expect(screen.getByText('Добавить на карте')).toBeInTheDocument());
-    expect(screen.getByRole('link', { name: /добавить на карте/i })).toHaveAttribute('href', '/map/p1');
+    expect(screen.getByRole('button', { name: /добавить на карте/i })).toBeInTheDocument();
   });
 });

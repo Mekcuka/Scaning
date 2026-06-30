@@ -42,6 +42,22 @@ test.describe('Flows logistics', () => {
     await expect(page.getByText(/рассчитано:/i)).toBeVisible();
   });
 
+  test('logistics page scrolls in app-main', async ({ page }) => {
+    await loginViaUi(page, email);
+
+    await page.goto(`/flows/logistics/${projectId}`);
+    await expect(page).toHaveURL(new RegExp(`/flows/logistics/${projectId}`));
+
+    const main = page.locator('.app-main');
+    await expect(main).toBeVisible();
+    const canScroll = await main.evaluate((el) => el.scrollHeight > el.clientHeight);
+    expect(canScroll).toBe(true);
+    await main.evaluate((el) => {
+      el.scrollTop = el.scrollHeight;
+    });
+    expect(await main.evaluate((el) => el.scrollTop)).toBeGreaterThan(0);
+  });
+
   test('timeline year slider changes view slice', async ({ page }) => {
     await loginViaUi(page, email);
     await page.goto(`/flows/logistics/${projectId}`);

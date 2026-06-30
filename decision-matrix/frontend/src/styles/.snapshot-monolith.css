@@ -75,12 +75,51 @@ body {
   overflow: hidden;
 }
 
+/* Ant App + route host — fill viewport so .app-main can scroll */
+.app-viewport .app-ant-root.ant-app,
+.app-viewport .ant-app.app-ant-root {
+  display: flex;
+  flex-direction: column;
+  flex: 1 1 0%;
+  min-height: 0;
+  height: 100%;
+  max-height: 100%;
+  overflow: hidden;
+}
+
+.app-route-host {
+  display: flex;
+  flex-direction: column;
+  flex: 1 1 0%;
+  min-height: 0;
+  height: 100%;
+  max-height: 100%;
+  overflow: hidden;
+}
+
+.app-route-host .app-shell.ant-layout {
+  flex: 1 1 0%;
+  min-height: 0;
+  height: 100%;
+  max-height: 100%;
+}
+
 /* Single viewport shell — prevent body scroll “ribbon” of stacked layouts */
 .app-shell {
   display: flex;
-  flex: 1 1 auto;
+  flex: 1 1 0%;
   min-height: 0;
   height: 100%;
+  max-height: 100%;
+  overflow: hidden;
+}
+
+/* Ant Layout: horizontal shell (sider + content) */
+.app-shell.ant-layout {
+  display: flex;
+  flex-direction: row;
+  height: 100%;
+  min-height: 0;
   max-height: 100%;
   overflow: hidden;
 }
@@ -88,9 +127,39 @@ body {
 .app-content {
   display: flex;
   flex-direction: column;
-  flex: 1 1 auto;
+  flex: 1 1 0%;
   min-height: 0;
   min-width: 0;
+  overflow: hidden;
+}
+
+.app-content.ant-layout {
+  display: flex;
+  flex-direction: column;
+  flex: 1 1 0%;
+  min-height: 0;
+  min-width: 0;
+  overflow: hidden;
+}
+
+/* Scroll lives in main; map/pad-clustering workspace fill height without page scroll */
+.app-main.ant-layout-content {
+  flex: 1 1 0%;
+  min-height: 0;
+}
+
+.app-main:not(.app-main--map).ant-layout-content {
+  flex: 1 1 0%;
+  height: 0;
+  overflow-y: auto;
+  overflow-x: hidden;
+  overscroll-behavior: contain;
+  -webkit-overflow-scrolling: touch;
+}
+
+.app-main--map.ant-layout-content {
+  display: flex;
+  flex-direction: column;
   overflow: hidden;
 }
 
@@ -156,12 +225,13 @@ textarea.ant-input.input--mono {
   width: 100%;
 }
 
-/* Legacy plain .input — PyWellGeo + pad-earthwork sketch (unmigrated) */
-.pad-clustering-geo-panel .input,
+/* Scoped layout for PyWellGeo + pad-earthwork sketch Ant inputs */
+.pad-clustering-geo-panel .ant-input,
+.pad-clustering-geo-panel .ant-input-affix-wrapper,
 .pad-clustering-geo-panel select.input,
-.pad-clustering-geo-panel textarea.input,
-.pad-earthwork-sketch-modal__generator-input.input,
-.pad-earthwork-dim-stepper__input.input {
+.pad-clustering-geo-panel textarea.ant-input,
+.pad-earthwork-sketch-modal__generator-input,
+.pad-earthwork-dim-stepper__input {
   box-sizing: border-box;
   width: 100%;
   max-width: 100%;
@@ -181,7 +251,8 @@ textarea.ant-input.input--mono {
     background 0.15s ease;
 }
 
-.pad-clustering-geo-panel textarea.input {
+.pad-clustering-geo-panel textarea.ant-input,
+.pad-clustering-geo-panel .pad-clustering-geo-textarea {
   min-height: 4.5rem;
   resize: vertical;
 }
@@ -190,36 +261,36 @@ textarea.ant-input.input--mono {
   cursor: pointer;
 }
 
-.pad-clustering-geo-panel .input::placeholder,
-.pad-clustering-geo-panel textarea.input::placeholder {
+.pad-clustering-geo-panel .ant-input::placeholder,
+.pad-clustering-geo-panel textarea.ant-input::placeholder {
   color: var(--text-muted);
   opacity: 0.85;
 }
 
-.pad-clustering-geo-panel .input:hover:not(:disabled):not([readonly]),
+.pad-clustering-geo-panel .ant-input:hover:not(:disabled):not([readonly]),
 .pad-clustering-geo-panel select.input:hover:not(:disabled),
-.pad-clustering-geo-panel textarea.input:hover:not(:disabled):not([readonly]),
-.pad-earthwork-sketch-modal__generator-input.input:hover:not(:disabled):not([readonly]),
-.pad-earthwork-dim-stepper__input.input:hover:not(:disabled):not([readonly]) {
+.pad-clustering-geo-panel textarea.ant-input:hover:not(:disabled):not([readonly]),
+.pad-earthwork-sketch-modal__generator-input:hover:not(:disabled):not([readonly]),
+.pad-earthwork-dim-stepper__input:hover:not(:disabled):not([readonly]) {
   border-color: color-mix(in srgb, var(--primary) 28%, var(--border));
 }
 
-.pad-clustering-geo-panel .input:focus,
+.pad-clustering-geo-panel .ant-input:focus,
 .pad-clustering-geo-panel select.input:focus,
-.pad-clustering-geo-panel textarea.input:focus,
-.pad-earthwork-sketch-modal__generator-input.input:focus,
-.pad-earthwork-dim-stepper__input.input:focus {
+.pad-clustering-geo-panel textarea.ant-input:focus,
+.pad-earthwork-sketch-modal__generator-input:focus,
+.pad-earthwork-dim-stepper__input:focus {
   outline: none;
   border-color: var(--primary);
   box-shadow: 0 0 0 3px color-mix(in srgb, var(--primary) 18%, transparent);
 }
 
-.pad-clustering-geo-panel .input:disabled,
-.pad-clustering-geo-panel .input[readonly],
+.pad-clustering-geo-panel .ant-input:disabled,
+.pad-clustering-geo-panel .ant-input[readonly],
 .pad-clustering-geo-panel select.input:disabled,
-.pad-clustering-geo-panel textarea.input:disabled,
-.pad-earthwork-sketch-modal__generator-input.input:disabled,
-.pad-earthwork-dim-stepper__input.input:disabled {
+.pad-clustering-geo-panel textarea.ant-input:disabled,
+.pad-earthwork-sketch-modal__generator-input:disabled,
+.pad-earthwork-dim-stepper__input:disabled {
   opacity: 0.65;
   cursor: not-allowed;
   background: var(--surface-2);
@@ -227,6 +298,9 @@ textarea.ant-input.input--mono {
 /* Ant Card bridge — BEM modifiers on <Card className="…"> */
 .ant-card.card--flush .ant-card-body {
   padding: 0;
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
 }
 
 .ant-card.card--flush {
@@ -722,7 +796,7 @@ table.data-table--projects .col-actions {
   min-width: 0;
 }
 
-.projects-table-card > .card-header {
+.ant-card.projects-table-card .card-header {
   gap: 12px;
   min-width: 0;
   flex-wrap: nowrap;
@@ -736,7 +810,7 @@ table.data-table--projects .col-actions {
   white-space: nowrap;
 }
 
-.projects-table-card > .card-header .ant-btn {
+.ant-card.projects-table-card .card-header .ant-btn {
   flex-shrink: 0;
   white-space: nowrap;
 }
@@ -862,6 +936,7 @@ table.data-table--projects .col-actions {
   grid-template-columns: 280px 1fr;
   flex: 1;
   min-height: 0;
+  overflow: hidden;
   border-top: 1px solid var(--border);
 }
 
@@ -871,16 +946,24 @@ table.data-table--projects .col-actions {
 }
 
 .map-sidebar-panel {
+  position: relative;
+  z-index: 3;
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  min-width: 0;
   border-right: 1px solid var(--border);
-  overflow-y: auto;
+  overflow: hidden;
   padding: 0;
   background: var(--surface);
+  isolation: isolate;
 }
 
 .map-layers-panel {
   display: flex;
   flex-direction: column;
-  min-height: 100%;
+  flex: 1;
+  min-height: 0;
 }
 
 .map-layers-panel-head {
@@ -905,6 +988,10 @@ table.data-table--projects .col-actions {
 }
 
 .map-layers-panel-body {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  overscroll-behavior: contain;
   padding: 6px 10px 14px;
 }
 
@@ -3685,21 +3772,21 @@ table.data-table--projects .col-actions {
   color: var(--text-muted);
 }
 
-.app-modal-overlay--poi-create .app-modal-panel {
+.app-modal-overlay--poi-create .ant-modal-content {
   max-height: min(92vh, 680px);
 }
 
-.app-modal-overlay--poi-create .app-modal-header {
+.app-modal-overlay--poi-create .ant-modal-header {
   padding: 16px 18px;
   border-bottom-color: color-mix(in srgb, var(--primary) 12%, var(--border));
 }
 
-.app-modal-overlay--poi-create .app-modal-body {
+.app-modal-overlay--poi-create .ant-modal-body {
   padding: 14px 18px 16px;
   background: color-mix(in srgb, var(--surface-2) 35%, var(--surface));
 }
 
-.app-modal-overlay--poi-create .app-modal-footer {
+.app-modal-overlay--poi-create .ant-modal-footer {
   padding: 14px 18px;
   gap: 10px;
   border-top-color: color-mix(in srgb, var(--primary) 12%, var(--border));
@@ -7199,13 +7286,74 @@ tr:hover .inline-table-edit-trigger,
   max-width: min(420px, calc(100vw - 24px));
 }
 
+.app-header.ant-layout-header {
+  flex-shrink: 0;
+}
+
+.dm-subnav-tabs {
+  margin-bottom: 16px;
+  padding-bottom: 12px;
+  border-bottom: 1px solid var(--border);
+}
+
 .dm-subnav-tabs .ant-tabs-nav {
   margin-bottom: 0;
 }
 
+.dm-subnav-tabs .ant-tabs-nav::before {
+  display: none;
+}
+
+.dm-subnav-tabs .ant-tabs-nav-list {
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.dm-subnav-tabs .ant-tabs-tab {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  margin: 0 !important;
+  padding: 8px 14px !important;
+  border-radius: 8px;
+  border: 1px solid var(--border);
+  background: var(--surface);
+  color: var(--text-muted);
+  font-size: 0.8125rem;
+  font-weight: 500;
+  transition:
+    background 0.15s ease,
+    border-color 0.15s ease,
+    color 0.15s ease;
+}
+
+.dm-subnav-tabs .ant-tabs-tab:hover {
+  color: var(--text);
+  border-color: color-mix(in srgb, var(--primary) 35%, var(--border));
+}
+
+.dm-subnav-tabs .ant-tabs-tab-active {
+  border-color: var(--primary);
+  background: color-mix(in srgb, var(--primary) 8%, var(--surface));
+  box-shadow: 0 0 0 1px color-mix(in srgb, var(--primary) 18%, transparent);
+}
+
+.dm-subnav-tabs .ant-tabs-tab-active .ant-tabs-tab-btn {
+  color: var(--text);
+  font-weight: 500;
+}
+
+.dm-subnav-tabs .ant-tabs-tab-btn {
+  color: inherit;
+}
+
+.dm-subnav-tabs .ant-tabs-ink-bar {
+  display: none;
+}
+
 .app-shell.ant-layout {
-  min-height: 100vh;
   height: 100%;
+  min-height: 0;
 }
 
 .app-shell .ant-layout-sider-children {
@@ -7214,47 +7362,34 @@ tr:hover .inline-table-edit-trigger,
   height: 100%;
 }
 
-/* App modal */
+/* App modal — Ant Modal bridge */
 .app-modal-overlay {
-  position: fixed;
-  inset: 0;
   z-index: 1250;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  padding: 16px;
-  background: rgba(7, 26, 46, 0.45);
 }
 
 .app-modal-overlay--stacked {
   z-index: 1400;
 }
 
-.app-modal-panel {
+.app-modal-overlay .ant-modal {
+  top: 0;
+  padding-bottom: 0;
+  max-width: calc(100vw - 32px);
+}
+
+.app-modal-overlay .ant-modal-content {
   display: flex;
   flex-direction: column;
   width: 100%;
   max-height: min(90vh, 720px);
+  overflow: hidden;
   border: 1px solid var(--border);
   border-radius: var(--radius);
   background: var(--surface);
   box-shadow: var(--shadow-lg);
-  overflow: hidden;
 }
 
-.app-modal-panel--sm {
-  max-width: 28rem;
-}
-
-.app-modal-panel--md {
-  max-width: 42rem;
-}
-
-.app-modal-panel--lg {
-  max-width: 56rem;
-}
-
-.app-modal-header {
+.app-modal-overlay .ant-modal-header {
   display: flex;
   align-items: center;
   justify-content: space-between;
@@ -7263,22 +7398,17 @@ tr:hover .inline-table-edit-trigger,
   border-bottom: 1px solid var(--border);
   background: var(--surface-2);
   flex-shrink: 0;
+  margin-bottom: 0;
 }
 
-.app-modal-title {
+.app-modal-overlay .ant-modal-title {
   margin: 0;
   font-size: 1rem;
   font-weight: 600;
+  line-height: 1.35;
 }
 
-.app-modal-close {
-  min-width: 44px;
-  min-height: 44px;
-  padding: 10px !important;
-  flex-shrink: 0;
-}
-
-.app-modal-body {
+.app-modal-overlay .ant-modal-body {
   flex: 1;
   min-height: 0;
   overflow-y: auto;
@@ -7286,7 +7416,7 @@ tr:hover .inline-table-edit-trigger,
   overscroll-behavior: contain;
 }
 
-.app-modal-footer {
+.app-modal-overlay .ant-modal-footer {
   display: flex;
   flex-wrap: wrap;
   gap: 8px;
@@ -7295,12 +7425,17 @@ tr:hover .inline-table-edit-trigger,
   border-top: 1px solid var(--border);
   background: var(--surface);
   flex-shrink: 0;
+  margin-top: 0;
+}
+
+.app-modal-overlay .ant-modal-close {
+  min-width: 44px;
+  min-height: 44px;
 }
 
 .app-touch-row {
   min-height: 44px;
 }
-
 .flow-mobile-view-banner {
   display: none;
 }
@@ -8861,8 +8996,8 @@ tr:hover .inline-table-edit-trigger,
   line-height: 1.4;
 }
 
-.app-modal-overlay--pad-earthwork-sketch .app-modal-panel--lg {
-  max-width: min(960px, 96vw);
+.app-modal-overlay--pad-earthwork-sketch .ant-modal {
+  max-width: min(960px, 96vw) !important;
 }
 
 .pad-earthwork-sketch-modal__unsaved-hint {
@@ -9181,7 +9316,7 @@ tr:hover .inline-table-edit-trigger,
     min-width: 36rem;
   }
 
-  .projects-table-card > .card-header {
+  .ant-card.projects-table-card .card-header {
     padding-inline: 16px;
   }
 
@@ -9273,7 +9408,7 @@ tr:hover .inline-table-edit-trigger,
     display: none;
   }
 
-  .projects-table-card > .card-header.projects-table-card__header {
+  .ant-card.projects-table-card .card-header.projects-table-card__header {
     flex-wrap: wrap;
   }
 
@@ -9284,7 +9419,7 @@ tr:hover .inline-table-edit-trigger,
     order: 2;
   }
 
-  .projects-table-card > .card-header.projects-table-card__header .ant-btn {
+  .ant-card.projects-table-card .card-header.projects-table-card__header .ant-btn {
     order: 3;
   }
 
@@ -9368,7 +9503,7 @@ tr:hover .inline-table-edit-trigger,
     margin-right: 0;
   }
 
-  .projects-table-card > .card-header .ant-btn {
+  .ant-card.projects-table-card .card-header .ant-btn {
     padding-inline: 0.5rem;
   }
 
@@ -9387,15 +9522,13 @@ tr:hover .inline-table-edit-trigger,
     padding: 0;
   }
 
-  .app-modal-panel {
+  .app-modal-overlay .ant-modal-content {
     max-height: min(92vh, 720px);
     border-radius: 14px 14px 0 0;
     padding-bottom: env(safe-area-inset-bottom);
   }
 
-  .app-modal-panel--sm,
-  .app-modal-panel--md,
-  .app-modal-panel--lg {
+  .app-modal-overlay .ant-modal {
     max-width: none;
   }
 
@@ -9526,7 +9659,11 @@ tr:hover .inline-table-edit-trigger,
     right: 0;
     bottom: 0;
     z-index: 1100;
+    display: flex;
+    flex-direction: column;
+    min-height: 0;
     max-height: min(72vh, 520px);
+    overflow: hidden;
     border-right: none;
     border-top: 1px solid var(--border);
     border-bottom: none;

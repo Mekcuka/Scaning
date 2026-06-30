@@ -79,7 +79,10 @@ export function MapPageLayersSidebar({
           onClick={onClose}
         />
       )}
-      <aside className={`map-sidebar-panel${open ? ' map-sidebar-panel--open' : ''}`}>
+      <aside
+        className={`map-sidebar-panel${open ? ' map-sidebar-panel--open' : ''}`}
+        onPointerDown={(e) => e.stopPropagation()}
+      >
         <MapLayersPanel
           layers={layers}
           isGroupVisible={isGroupVisible}

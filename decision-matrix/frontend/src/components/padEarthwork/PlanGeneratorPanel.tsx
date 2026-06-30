@@ -1,6 +1,6 @@
 import { useMemo } from 'react';
 import { Sparkles } from 'lucide-react';
-import { Button } from 'antd';
+import { Button, Input } from 'antd';
 import { clampNdsDeg, DEFAULT_PAD_NDS_DEG } from '../../lib/infraPadEarthwork';
 import { padWellFieldsFromForm } from '../../lib/infraPadWells';
 import { generatePadFromWells, PadWellLayoutError } from '../../lib/padEarthworkSketch';
@@ -73,8 +73,8 @@ function GeneratorField({
   return (
     <label className="pad-earthwork-sketch-modal__generator-field">
       <span className="pad-earthwork-sketch-modal__generator-label">{label}</span>
-      <input
-        className="input pad-earthwork-sketch-modal__generator-input"
+      <Input
+        className="pad-earthwork-sketch-modal__generator-input"
         type="number"
         min={min}
         max={max}

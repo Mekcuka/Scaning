@@ -1,4 +1,5 @@
 import { Minus, Plus } from 'lucide-react';
+import { Input } from 'antd';
 import type { ReactNode } from 'react';
 import { FieldLabel } from '../objectDetailPanel/panelUi';
 
@@ -49,8 +50,8 @@ export function DimensionStepper({
         >
           <Minus size={14} />
         </button>
-        <input
-          className="input pad-earthwork-dim-stepper__input"
+        <Input
+          className="pad-earthwork-dim-stepper__input"
           type="number"
           min={min}
           max={max}

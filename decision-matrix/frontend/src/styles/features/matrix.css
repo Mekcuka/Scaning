@@ -395,7 +395,7 @@ table.data-table--projects .col-actions {
   min-width: 0;
 }
 
-.projects-table-card > .card-header {
+.ant-card.projects-table-card .card-header {
   gap: 12px;
   min-width: 0;
   flex-wrap: nowrap;
@@ -409,7 +409,7 @@ table.data-table--projects .col-actions {
   white-space: nowrap;
 }
 
-.projects-table-card > .card-header .ant-btn {
+.ant-card.projects-table-card .card-header .ant-btn {
   flex-shrink: 0;
   white-space: nowrap;
 }

@@ -87,6 +87,7 @@
   grid-template-columns: 280px 1fr;
   flex: 1;
   min-height: 0;
+  overflow: hidden;
   border-top: 1px solid var(--border);
 }
 
@@ -96,9 +97,16 @@
 }
 
 .map-sidebar-panel {
+  position: relative;
+  z-index: 3;
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  min-width: 0;
   border-right: 1px solid var(--border);
-  overflow-y: auto;
+  overflow: hidden;
   padding: 0;
   background: var(--surface);
+  isolation: isolate;
 }
 

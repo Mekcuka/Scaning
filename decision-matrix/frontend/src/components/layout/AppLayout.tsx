@@ -266,7 +266,7 @@ export function AppLayout() {
           {sidebarMenu}
         </Drawer>
 
-        <Layout className="app-content min-h-0 min-w-0 flex-1">
+        <Layout className="app-content min-h-0 min-w-0 flex-1 flex flex-col overflow-hidden">
           <Header
             className="app-header !px-4 !py-0 flex items-center gap-3"
             style={{

@@ -18,6 +18,7 @@
 | Should Have | **~65%** |
 | Функции сверх базового ТЗ (3D, PFD, песок, Искра, расширенная карта) | реализованы, описаны в отдельных doc |
 | Автотесты | backend `app/` ~72%, frontend `pages/` ~79% ([testing-strategy.md](../testing/testing-strategy.md)) |
+| UI shell | **Ant Design 6** (`ConfigProvider`, Layout/Menu/Tabs) — [ant-design-migration](../features/ant-design-migration/plan.md); карта/flow — hybrid legacy CSS |
 
 ---
 

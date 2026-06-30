@@ -41,7 +41,8 @@
 
 ### Shell
 
-- `#root`, `.app-viewport`, `.app-shell`, `.app-content` — цепочка **без scroll на `body`**; контент скроллится внутри областей.
+- `#root`, `.app-viewport`, `.app-ant-root`, `.app-route-host`, `.app-shell`, `.app-content` — цепочка **без scroll на `body`**.
+- Прокрутка длинных страниц — в `.app-main` (`overflow-y: auto`); карта и workspace кустования — `.app-main--map` без page-scroll, scroll внутри панелей.
 - Не ломать `overflow: hidden` на shell без проверки карты и длинных форм.
 
 ### Страница
@@ -61,11 +62,11 @@
 
 ### Блоки контента
 
-| Класс | Назначение |
-|-------|------------|
-| `.card` | Белая/тёмная карточка с рамкой и тенью |
-| `.card--flush` | Карточка без внутренних отступов (таблицы, панели) |
-| `.card-header` | Заголовок карточки на `--surface-2` |
+| Компонент / класс | Назначение |
+|-------------------|------------|
+| Ant `Card` | Основная карточка контента (рамка, тень — из темы Ant) |
+| `.card--flush` на `Card` | Без внутренних отступов body (таблицы, панели) |
+| `.card-header` | Внутренний заголовок на `--surface-2` внутри `Card` |
 
 Фичевые обёртки (по аналогии): `.import-3d-panel`, `.parameters-layout__*`.
 
@@ -73,32 +74,48 @@
 
 ## 4. Примитивы (переиспользовать)
 
-### Кнопки
+> **Июнь 2026:** UI переводится на **Ant Design 6**. Новые экраны — компоненты `antd`; обёртки [`AppModal`](../../decision-matrix/frontend/src/components/AppModal.tsx), [`AppSelect`](../../decision-matrix/frontend/src/components/AppSelect.tsx) внутри используют Ant. Тема: [`AntThemeProvider`](../../decision-matrix/frontend/src/providers/AntThemeProvider.tsx). Детали: [ant-design-migration/plan.md](../../features/ant-design-migration/plan.md).
 
-```html
-<button type="button" class="btn btn-primary">Сохранить</button>
-<button type="button" class="btn btn-secondary">Отмена</button>
-<button type="button" class="btn btn-ghost btn-sm">…</button>
+### Кнопки (новый код)
+
+```tsx
+import { Button } from 'antd';
+<Button type="primary">Сохранить</Button>
+<Button>Отмена</Button>
+<Button type="text">…</Button>
 ```
 
-Классы: `.btn`, `.btn-primary`, `.btn-secondary`, `.btn-ghost`, `.btn-sm`.  
-Иконка + текст: `gap` уже в `.btn`; Lucide с `size={16}`.
+Legacy (карта, часть экранов): `.btn`, `.btn-primary`, `.btn-secondary`, `.btn-ghost`, `.btn-sm`.
 
-### Поля ввода
+### Поля ввода (новый код)
 
-- Обёртка: `.form-group` + `<label>` (стили label внутри form-group).
-- Поля: нативный `input` / `select` / `textarea` внутри `.form-group`, либо класс `.input`.
-- Focus/hover — единые для всех полей (не переопределять без нужды).
+Ant `Form` + `Form.Item` + `Input` / `InputNumber` / `DatePicker`.  
+Layout-модификаторы на Ant-полях: `input--mono`, `input--w24`, `input--grow`, `rates-input`, `object-detail-panel__input` — bridge в `forms.css` / feature CSS.
+
+Legacy plain `.input` остаётся только в `PadClusteringPyWellGeoPanel`, `PlanGeneratorPanel`, `DimensionStepper` (scoped в `forms.css`).  
+`.form-group` — layout-обёртка для аккордеонов POI (label + full-width Ant input).
 
 ### Селект
 
-Компонент [`AppSelect`](../../decision-matrix/frontend/src/components/AppSelect.tsx), классы `.app-select-*`.  
-Не собирать кастомный dropdown для стандартных списков.
+[`AppSelect`](../../decision-matrix/frontend/src/components/AppSelect.tsx) — обёртка над Ant `Select`.
+
+### Карточки (новый код)
+
+```tsx
+import { Card } from 'antd';
+<Card>…</Card>
+<Card className="card--flush" styles={{ body: { padding: 0 } }}>…</Card>
+```
+
+Внутренний заголовок: `<div className="card-header">`. Модификаторы `.card--flush`, `.card-header` — bridge в `cards-tables.css`.
 
 ### Модальные окна
 
-Компонент [`AppModal`](../../decision-matrix/frontend/src/components/AppModal.tsx): пропсы `title`, `subtitle`, размеры `sm` / `md` / `lg`.  
-Стили: `.app-modal-overlay`, `.app-modal-panel`, `.app-modal-header`, `.app-modal-body`, `.app-modal-footer`.
+[`AppModal`](../../decision-matrix/frontend/src/components/AppModal.tsx) — обёртка над Ant `Modal` (`title`, `subtitle`, `size` sm/md/lg).
+
+### Уведомления
+
+`useAppStore().pushToast` → Ant `message` через `ToastBridge`.
 
 ### Бейджи и числа
 
@@ -212,8 +229,8 @@
 
 - [ ] Заголовок через `usePageHeader` (или статика в `resolvePageHeader`); subtitle при необходимости
 - [ ] Кнопки действий — в теле страницы (toolbar / card actions), не в `app-header`
-- [ ] Контент в `.card` или фичевой панели с тем же визуальным языком
-- [ ] Кнопки через `.btn-*`; формы через `.form-group` / `AppSelect`
+- [ ] Контент в Ant `Card` (или фичевой панели с тем же визуальным языком)
+- [ ] Кнопки через Ant `Button`; формы через Ant `Form` / `AppSelect`
 - [ ] Модалки через `AppModal`, не копипаста overlay
 - [ ] CSS с префиксом фичи; цвета через `var(--*)`
 - [ ] Smoke в light + dark theme

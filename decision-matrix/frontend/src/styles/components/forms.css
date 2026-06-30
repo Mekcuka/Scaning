@@ -60,12 +60,13 @@ textarea.ant-input.input--mono {
   width: 100%;
 }
 
-/* Legacy plain .input — PyWellGeo + pad-earthwork sketch (unmigrated) */
-.pad-clustering-geo-panel .input,
+/* Scoped layout for PyWellGeo + pad-earthwork sketch Ant inputs */
+.pad-clustering-geo-panel .ant-input,
+.pad-clustering-geo-panel .ant-input-affix-wrapper,
 .pad-clustering-geo-panel select.input,
-.pad-clustering-geo-panel textarea.input,
-.pad-earthwork-sketch-modal__generator-input.input,
-.pad-earthwork-dim-stepper__input.input {
+.pad-clustering-geo-panel textarea.ant-input,
+.pad-earthwork-sketch-modal__generator-input,
+.pad-earthwork-dim-stepper__input {
   box-sizing: border-box;
   width: 100%;
   max-width: 100%;
@@ -85,7 +86,8 @@ textarea.ant-input.input--mono {
     background 0.15s ease;
 }
 
-.pad-clustering-geo-panel textarea.input {
+.pad-clustering-geo-panel textarea.ant-input,
+.pad-clustering-geo-panel .pad-clustering-geo-textarea {
   min-height: 4.5rem;
   resize: vertical;
 }
@@ -94,36 +96,36 @@ textarea.ant-input.input--mono {
   cursor: pointer;
 }
 
-.pad-clustering-geo-panel .input::placeholder,
-.pad-clustering-geo-panel textarea.input::placeholder {
+.pad-clustering-geo-panel .ant-input::placeholder,
+.pad-clustering-geo-panel textarea.ant-input::placeholder {
   color: var(--text-muted);
   opacity: 0.85;
 }
 
-.pad-clustering-geo-panel .input:hover:not(:disabled):not([readonly]),
+.pad-clustering-geo-panel .ant-input:hover:not(:disabled):not([readonly]),
 .pad-clustering-geo-panel select.input:hover:not(:disabled),
-.pad-clustering-geo-panel textarea.input:hover:not(:disabled):not([readonly]),
-.pad-earthwork-sketch-modal__generator-input.input:hover:not(:disabled):not([readonly]),
-.pad-earthwork-dim-stepper__input.input:hover:not(:disabled):not([readonly]) {
+.pad-clustering-geo-panel textarea.ant-input:hover:not(:disabled):not([readonly]),
+.pad-earthwork-sketch-modal__generator-input:hover:not(:disabled):not([readonly]),
+.pad-earthwork-dim-stepper__input:hover:not(:disabled):not([readonly]) {
   border-color: color-mix(in srgb, var(--primary) 28%, var(--border));
 }
 
-.pad-clustering-geo-panel .input:focus,
+.pad-clustering-geo-panel .ant-input:focus,
 .pad-clustering-geo-panel select.input:focus,
-.pad-clustering-geo-panel textarea.input:focus,
-.pad-earthwork-sketch-modal__generator-input.input:focus,
-.pad-earthwork-dim-stepper__input.input:focus {
+.pad-clustering-geo-panel textarea.ant-input:focus,
+.pad-earthwork-sketch-modal__generator-input:focus,
+.pad-earthwork-dim-stepper__input:focus {
   outline: none;
   border-color: var(--primary);
   box-shadow: 0 0 0 3px color-mix(in srgb, var(--primary) 18%, transparent);
 }
 
-.pad-clustering-geo-panel .input:disabled,
-.pad-clustering-geo-panel .input[readonly],
+.pad-clustering-geo-panel .ant-input:disabled,
+.pad-clustering-geo-panel .ant-input[readonly],
 .pad-clustering-geo-panel select.input:disabled,
-.pad-clustering-geo-panel textarea.input:disabled,
-.pad-earthwork-sketch-modal__generator-input.input:disabled,
-.pad-earthwork-dim-stepper__input.input:disabled {
+.pad-clustering-geo-panel textarea.ant-input:disabled,
+.pad-earthwork-sketch-modal__generator-input:disabled,
+.pad-earthwork-dim-stepper__input:disabled {
   opacity: 0.65;
   cursor: not-allowed;
   background: var(--surface-2);

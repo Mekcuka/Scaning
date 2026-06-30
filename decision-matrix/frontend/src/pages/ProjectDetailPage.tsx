@@ -1,4 +1,4 @@
-import { useParams, Link } from 'react-router-dom';
+import { useParams, Link, useNavigate } from 'react-router-dom';
 import { Button, Card } from 'antd';
 import { projectPath } from '../lib/projectRoutes';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
@@ -51,6 +51,7 @@ function poiSummaryLine(poi: POI): string {
 export function ProjectDetailPage() {
   const { canWriteProject, can } = usePermissions();
   const { id } = useParams<{ id: string }>();
+  const navigate = useNavigate();
   const projectHref = (suffix: string) => projectPath(id ?? '', suffix);
   const queryClient = useQueryClient();
   const setCurrentProjectId = useAppStore((s) => s.setCurrentProjectId);
@@ -208,9 +209,9 @@ export function ProjectDetailPage() {
           {pois.length === 0 ? (
             <div className="project-detail-empty">
               <p>Нет точек интереса в этом проекте.</p>
-              <Link to={projectHref('/map')}>
-                <Button size="small">Добавить на карте</Button>
-              </Link>
+              <Button size="small" onClick={() => navigate(projectHref('/map'))}>
+                Добавить на карте
+              </Button>
             </div>
           ) : (
             <ul className="project-detail-poi-nav" role="listbox" aria-label="Список точек интереса">
@@ -276,11 +277,14 @@ export function ProjectDetailPage() {
                     </span>
                   </div>
                 </div>
-                <Link to={projectHref('/map')}>
-                  <Button size="small" className="project-detail-panel__map-link" icon={<MapPin size={14} aria-hidden />}>
-                    На карте
-                  </Button>
-                </Link>
+                <Button
+                  size="small"
+                  className="project-detail-panel__map-link"
+                  icon={<MapPin size={14} aria-hidden />}
+                  onClick={() => navigate(projectHref('/map'))}
+                >
+                  На карте
+                </Button>
               </header>
 
               <div className="object-detail-panel__tabs" role="tablist" aria-label="Разделы точки">

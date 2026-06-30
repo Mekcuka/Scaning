@@ -1,44 +1,31 @@
-/* App modal */
+/* App modal — Ant Modal bridge */
 .app-modal-overlay {
-  position: fixed;
-  inset: 0;
   z-index: 1250;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  padding: 16px;
-  background: rgba(7, 26, 46, 0.45);
 }
 
 .app-modal-overlay--stacked {
   z-index: 1400;
 }
 
-.app-modal-panel {
+.app-modal-overlay .ant-modal {
+  top: 0;
+  padding-bottom: 0;
+  max-width: calc(100vw - 32px);
+}
+
+.app-modal-overlay .ant-modal-content {
   display: flex;
   flex-direction: column;
   width: 100%;
   max-height: min(90vh, 720px);
+  overflow: hidden;
   border: 1px solid var(--border);
   border-radius: var(--radius);
   background: var(--surface);
   box-shadow: var(--shadow-lg);
-  overflow: hidden;
 }
 
-.app-modal-panel--sm {
-  max-width: 28rem;
-}
-
-.app-modal-panel--md {
-  max-width: 42rem;
-}
-
-.app-modal-panel--lg {
-  max-width: 56rem;
-}
-
-.app-modal-header {
+.app-modal-overlay .ant-modal-header {
   display: flex;
   align-items: center;
   justify-content: space-between;
@@ -47,22 +34,17 @@
   border-bottom: 1px solid var(--border);
   background: var(--surface-2);
   flex-shrink: 0;
+  margin-bottom: 0;
 }
 
-.app-modal-title {
+.app-modal-overlay .ant-modal-title {
   margin: 0;
   font-size: 1rem;
   font-weight: 600;
+  line-height: 1.35;
 }
 
-.app-modal-close {
-  min-width: 44px;
-  min-height: 44px;
-  padding: 10px !important;
-  flex-shrink: 0;
-}
-
-.app-modal-body {
+.app-modal-overlay .ant-modal-body {
   flex: 1;
   min-height: 0;
   overflow-y: auto;
@@ -70,7 +52,7 @@
   overscroll-behavior: contain;
 }
 
-.app-modal-footer {
+.app-modal-overlay .ant-modal-footer {
   display: flex;
   flex-wrap: wrap;
   gap: 8px;
@@ -79,9 +61,14 @@
   border-top: 1px solid var(--border);
   background: var(--surface);
   flex-shrink: 0;
+  margin-top: 0;
+}
+
+.app-modal-overlay .ant-modal-close {
+  min-width: 44px;
+  min-height: 44px;
 }
 
 .app-touch-row {
   min-height: 44px;
 }
-

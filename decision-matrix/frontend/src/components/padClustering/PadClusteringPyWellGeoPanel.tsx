@@ -22,7 +22,7 @@ import {
   Loader2,
   Minimize2,
 } from 'lucide-react';
-import { Button, Upload as AntUpload } from 'antd';
+import { Button, Upload as AntUpload, Input } from 'antd';
 import { AppSelect } from '../AppSelect';
 import { PadClusteringCollapsibleSection } from './PadClusteringCollapsibleSection';
 import type { InfraObject } from '../../lib/api';
@@ -886,8 +886,7 @@ export function PadClusteringPyWellGeoPanel({
               <GeoSubsection title="Координаты и свойства">
                 {(['x', 'y', 'z'] as const).map((axis) => (
                   <GeoField key={axis} label={`${axis.toUpperCase()}, м`}>
-                    <input
-                      className="input"
+                    <Input
                       type="number"
                       step="any"
                       disabled={readOnly}
@@ -897,8 +896,7 @@ export function PadClusteringPyWellGeoPanel({
                   </GeoField>
                 ))}
                 <GeoField label="Радиус, м">
-                  <input
-                    className="input"
+                  <Input
                     type="number"
                     step="any"
                     disabled={readOnly}
@@ -927,8 +925,7 @@ export function PadClusteringPyWellGeoPanel({
                   </label>
                 </GeoField>
                 <GeoField label="Имя ветки">
-                  <input
-                    className="input"
+                  <Input
                     disabled={readOnly}
                     value={selectedNode.name}
                     onChange={(e) => patchNode({ name: e.target.value })}
@@ -965,8 +962,7 @@ export function PadClusteringPyWellGeoPanel({
                   />
                 </GeoField>
                 <GeoField label="Имя lateral">
-                  <input
-                    className="input"
+                  <Input
                     disabled={readOnly}
                     value={lateralName}
                     onChange={(e) => setLateralName(e.target.value)}
@@ -984,20 +980,20 @@ export function PadClusteringPyWellGeoPanel({
                 {lateralMode === 'azim_dip' ? (
                   <>
                     <GeoField label="Azim, °">
-                      <input className="input" disabled={readOnly} value={lateralAzim} onChange={(e) => setLateralAzim(e.target.value)} />
+                      <Input className="input" disabled={readOnly} value={lateralAzim} onChange={(e) => setLateralAzim(e.target.value)} />
                     </GeoField>
                     <GeoField label="Dip, °">
-                      <input className="input" disabled={readOnly} value={lateralDip} onChange={(e) => setLateralDip(e.target.value)} />
+                      <Input className="input" disabled={readOnly} value={lateralDip} onChange={(e) => setLateralDip(e.target.value)} />
                     </GeoField>
                     <GeoField label="Длина, м">
-                      <input className="input" disabled={readOnly} value={lateralLength} onChange={(e) => setLateralLength(e.target.value)} />
+                      <Input className="input" disabled={readOnly} value={lateralLength} onChange={(e) => setLateralLength(e.target.value)} />
                     </GeoField>
                   </>
                 ) : null}
                 {lateralMode === 'xyz' ? (
                   <GeoField label="XYZ (kick-off = первая точка)" span={2}>
-                    <textarea
-                      className="input pad-clustering-geo-textarea"
+                    <Input.TextArea
+                      className="pad-clustering-geo-textarea"
                       rows={3}
                       disabled={readOnly}
                       placeholder="0,0,-1500&#10;50,0,-1500&#10;100,0,-1600"
@@ -1043,8 +1039,7 @@ export function PadClusteringPyWellGeoPanel({
                     label="DLS проектирования, °/30m"
                     hint="Целевая кривизна welleng connector; меньше — положе траектория (default 3)."
                   >
-                    <input
-                      className="input"
+                    <Input
                       type="number"
                       min={0.1}
                       max={30}
@@ -1201,22 +1196,22 @@ export function PadClusteringPyWellGeoPanel({
           {azimMode === 'azim_dip_to_vector' ? (
             <>
               <GeoField label="Azim, °">
-                <input className="input" value={azimDeg} onChange={(e) => setAzimDeg(e.target.value)} />
+                <Input className="input" value={azimDeg} onChange={(e) => setAzimDeg(e.target.value)} />
               </GeoField>
               <GeoField label="Dip, °">
-                <input className="input" value={dipDeg} onChange={(e) => setDipDeg(e.target.value)} />
+                <Input className="input" value={dipDeg} onChange={(e) => setDipDeg(e.target.value)} />
               </GeoField>
             </>
           ) : (
             <>
               <GeoField label="X">
-                <input className="input" value={vecX} onChange={(e) => setVecX(e.target.value)} />
+                <Input className="input" value={vecX} onChange={(e) => setVecX(e.target.value)} />
               </GeoField>
               <GeoField label="Y">
-                <input className="input" value={vecY} onChange={(e) => setVecY(e.target.value)} />
+                <Input className="input" value={vecY} onChange={(e) => setVecY(e.target.value)} />
               </GeoField>
               <GeoField label="Z">
-                <input className="input" value={vecZ} onChange={(e) => setVecZ(e.target.value)} />
+                <Input className="input" value={vecZ} onChange={(e) => setVecZ(e.target.value)} />
               </GeoField>
             </>
           )}
@@ -1229,8 +1224,8 @@ export function PadClusteringPyWellGeoPanel({
         </GeoSubsection>
         <GeoSubsection title="ENU → локальные">
           <GeoField label="Точки x,y,z (построчно)" span={2}>
-            <textarea
-              className="input pad-clustering-geo-textarea"
+            <Input.TextArea
+              className="pad-clustering-geo-textarea"
               rows={3}
               value={coordPoints}
               onChange={(e) => setCoordPoints(e.target.value)}
@@ -1299,8 +1294,7 @@ export function PadClusteringPyWellGeoPanel({
       >
         <GeoSubsection title="По умолчанию">
           <GeoField label="Радиус ствола, м">
-            <input
-              className="input"
+            <Input
               type="number"
               step="any"
               disabled={readOnly}
@@ -1313,8 +1307,7 @@ export function PadClusteringPyWellGeoPanel({
             />
           </GeoField>
           <GeoField label="Tsurface, °C">
-            <input
-              className="input"
+            <Input
               type="number"
               step="any"
               disabled={readOnly}
@@ -1325,8 +1318,7 @@ export function PadClusteringPyWellGeoPanel({
             />
           </GeoField>
           <GeoField label="Градиент, °C/м">
-            <input
-              className="input"
+            <Input
               type="number"
               step="any"
               disabled={readOnly}
@@ -1337,8 +1329,7 @@ export function PadClusteringPyWellGeoPanel({
             />
           </GeoField>
           <GeoField label="Шаг coarsen, м">
-            <input
-              className="input"
+            <Input
               type="number"
               step="any"
               disabled={readOnly}

@@ -154,3 +154,37 @@
 - `AppModal.tsx`: `overlayClassName` перенесён в `wrapClassName` (stacked/poi-create/sketch z-index)
 - `ToastBridge.tsx`: CSS `.ant-message` bottom-right в `page-chrome.css` (без `message.config` — API hook не поддерживает)
 - `PadClusteringLayout.tsx`: ссылка «Карта» через `navigate()` вместо `<Link><Button>`
+
+## B16 — UI polish после Ant (2026-06-30)
+
+### B16.1 Viewport и скролл
+- `app-shell.css`: цепочка `#root` → `.app-ant-root` → `.app-route-host` → `.app-shell` → `.app-main` (`height: 0`, `overflow-y: auto`)
+- `AntThemeProvider.tsx`: обёртка `.app-route-host`
+- `AppLayout.tsx`: `flex flex-col` на `.app-content`
+- Карта: `page-layout.css`, `layers-panel.css`, `MapPageLayersSidebar.tsx` (`stopPropagation` на pointerdown)
+- `ui-guidelines.md` §3 — документирован `app-route-host`
+
+### B16.2 Card CSS bridge
+- `matrix.css`, `responsive/projects-table.css`, `mobile-global.css`: `.projects-table-card > .card-header` → `.ant-card.projects-table-card .card-header`
+- `cards-tables.css`: `.ant-card.card--flush .ant-card-body` — flex column + `min-height: 0`
+
+### B16.3 Subnav
+- `page-chrome.css`: pill-стили `.dm-subnav-tabs` (по образцу `.parameters-subnav__tab`)
+- `SubnavTabs.tsx`: margin через CSS
+- `antTheme.ts`: tokens `Tabs`
+
+### B16.4 AppModal bridge
+- `app-modal/core.css`: селекторы на `.ant-modal-content` / header / body / footer
+- `poi-create-form.css`, `pad-earthwork-sketch.css`, `mobile-global.css` — модификаторы overlay
+
+### B16.5 Примитивы
+- `AppSelect.tsx`: `value={value}` (сохранение пустой строки)
+- `PadClusteringPyWellGeoPanel`, `PlanGeneratorPanel`, `DimensionStepper` → Ant `Input`
+- `ProjectDetailPage`, `Import3DPage`: кнопки навигации через `navigate()` вместо `<Link><Button>`
+
+### B16.6 Тема
+- `antTheme.ts`: `Card`, `Tabs`, `Form` component tokens
+
+### B16.7 QA
+- E2E smoke: scroll в `.app-main` на parameters и flows/logistics
+- `verify:css`, lint, test; snapshot регенерирован

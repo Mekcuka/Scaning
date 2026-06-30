@@ -1,5 +1,5 @@
-import { Navigate } from 'react-router-dom';
-import { ProjectLink } from '../components/ProjectLink';
+import { Navigate, useNavigate } from 'react-router-dom';
+import { useProjectPathBuilder } from '../hooks/useProjectPath';
 import { Box, FileBox, Info, Map as MapIcon, Upload } from 'lucide-react';
 import { Button } from 'antd';
 import { Import3dPreview } from '../components/map3d/Import3dPreview';
@@ -13,6 +13,8 @@ import { useImport3dWorkflow } from './import3d/useImport3dWorkflow';
 
 export function Import3DPage() {
   const w = useImport3dWorkflow();
+  const navigate = useNavigate();
+  const buildProjectPath = useProjectPathBuilder();
 
   usePageHeader(
     {
@@ -251,11 +253,13 @@ export function Import3DPage() {
                     Снять все
                   </Button>
                   {assignReady && hasSubtypeSelection ? (
-                    <ProjectLink to="/map">
-                      <Button icon={<MapIcon size={16} aria-hidden />} className="import-3d-map-link">
-                        Открыть карту 3D
-                      </Button>
-                    </ProjectLink>
+                    <Button
+                      icon={<MapIcon size={16} aria-hidden />}
+                      className="import-3d-map-link"
+                      onClick={() => navigate(buildProjectPath('/map'))}
+                    >
+                      Открыть карту 3D
+                    </Button>
                   ) : (
                     <p className="import-3d-muted import-3d-assign-hint">
                       Выберите модель и отметьте один или несколько подтипов

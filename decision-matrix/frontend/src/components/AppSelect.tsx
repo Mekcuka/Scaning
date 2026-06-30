@@ -54,7 +54,7 @@ export function AppSelect({
       className={`app-select app-select--${variant} ${className}`.trim()}
       size={variantToSize(variant)}
       variant={variant === 'toolbar' ? 'borderless' : 'outlined'}
-      value={value || undefined}
+      value={value}
       onChange={(val) => {
         if (val != null && typeof val === 'object' && 'value' in val) {
           onChange(String((val as { value: string }).value));

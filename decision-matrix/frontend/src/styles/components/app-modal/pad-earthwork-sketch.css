@@ -772,8 +772,8 @@
   line-height: 1.4;
 }
 
-.app-modal-overlay--pad-earthwork-sketch .app-modal-panel--lg {
-  max-width: min(960px, 96vw);
+.app-modal-overlay--pad-earthwork-sketch .ant-modal {
+  max-width: min(960px, 96vw) !important;
 }
 
 .pad-earthwork-sketch-modal__unsaved-hint {
