@@ -57,16 +57,15 @@ test.describe('Flows logistics', () => {
     await loginViaUi(page, email);
     await page.goto(`/logistics/schematic/${projectId}`);
 
-    await page.getByRole('button', { name: /Рассчитать логистику песка/i }).click();
     await expect(page.getByText(/подсеть с карьерами/i)).toBeVisible({ timeout: 90_000 });
 
     const badge = page.locator('.sand-logistics-timeline__badge');
     await expect(badge).toBeVisible({ timeout: 15_000 });
     const before = await badge.textContent();
 
-    const stepNext = page.getByRole('button', { name: 'Следующий год' });
-    await expect(stepNext).toBeEnabled({ timeout: 15_000 });
-    await stepNext.click();
+    const yearTab = page.locator('.sand-logistics-timeline__year').nth(1);
+    await expect(yearTab).toBeVisible({ timeout: 15_000 });
+    await yearTab.click();
     await expect(badge).not.toHaveText(before ?? '');
   });
 });
