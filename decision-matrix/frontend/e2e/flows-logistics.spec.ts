@@ -41,6 +41,16 @@ test.describe('Flows logistics', () => {
     await page.getByRole('button', { name: /Рассчитать логистику песка/i }).click();
     await expect(page.getByText(/подсетей с карьерами/i)).toBeVisible({ timeout: 90_000 });
     await expect(page.getByText(/рассчитано:/i)).toBeVisible();
+
+    const timeline = page.getByRole("group", { name: "Временная шкала схемы" });
+    await timeline.scrollIntoViewIfNeeded();
+    await expect(timeline).toBeVisible({ timeout: 15_000 });
+    const badge = timeline.locator('.sand-logistics-timeline__badge');
+    const before = await badge.textContent();
+    const yearTab = timeline.locator('.sand-logistics-timeline__year').nth(1);
+    await expect(yearTab).toBeVisible();
+    await yearTab.click();
+    await expect(badge).not.toHaveText(before ?? "");
   });
 
   test('logistics page scrolls in app-main', async ({ page }) => {
@@ -52,22 +62,5 @@ test.describe('Flows logistics', () => {
     await expectAppMainScrollable(page);
   });
 
-  test('timeline year slider changes view slice', async ({ page }) => {
-    await page.setViewportSize({ width: 1280, height: 720 });
-    await loginViaUi(page, email);
-    await page.goto(`/logistics/schematic/${projectId}`);
-
-    await page.getByRole('button', { name: /Рассчитать логистику песка/i }).click();
-    await expect(page.getByText(/подсеть с карьерами/i)).toBeVisible({ timeout: 90_000 });
-
-    const badge = page.locator('.sand-logistics-timeline__badge');
-    await expect(badge).toBeVisible({ timeout: 15_000 });
-    const before = await badge.textContent();
-
-    const yearTab = page.locator('.sand-logistics-timeline__year').nth(1);
-    await expect(yearTab).toBeVisible({ timeout: 15_000 });
-    await yearTab.click();
-    await expect(badge).not.toHaveText(before ?? '');
-  });
 });
 
