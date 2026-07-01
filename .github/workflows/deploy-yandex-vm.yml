@@ -323,7 +323,7 @@ jobs:
           EOF
           APP_ENV=/opt/decision-matrix/shared/app.env
           if [[ -f "\$APP_ENV" ]]; then
-            for kv in ENVIRONMENT=production DEMO_USERS_ENABLED=false ALLOW_REGISTRATION=false AUTOROAD_NETWORK_INPROCESS=true AUTOROAD_NETWORK_SOLVER=steinerpy; do
+            for kv in ENVIRONMENT=production DEMO_USERS_ENABLED=false ALLOW_REGISTRATION=true AUTOROAD_NETWORK_INPROCESS=true AUTOROAD_NETWORK_SOLVER=steinerpy; do
               key="\${kv%%=*}"
               if grep -q "^\${key}=" "\$APP_ENV"; then
                 sed -i "s/^\${key}=.*/\${kv}/" "\$APP_ENV"

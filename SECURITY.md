@@ -17,7 +17,8 @@ Contact the maintainers privately with:
 ## Secrets and production
 
 - Never commit `.env`, deploy credentials, or API keys
-- Production must set `SECRET_KEY`, `DEMO_USERS_ENABLED=false`, and `ALLOW_REGISTRATION=false`
+- Production must set a unique `SECRET_KEY` and `DEMO_USERS_ENABLED=false`
+- `ALLOW_REGISTRATION` is operator-controlled (currently `true` in deploy templates); set `false` to close open signup
 - Rotate credentials if they were ever committed to git history
 
 ## Known hardening controls
