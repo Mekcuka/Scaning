@@ -53,6 +53,7 @@ test.describe('Flows logistics', () => {
   });
 
   test('timeline year slider changes view slice', async ({ page }) => {
+    await page.setViewportSize({ width: 1280, height: 720 });
     await loginViaUi(page, email);
     await page.goto(`/logistics/schematic/${projectId}`);
 

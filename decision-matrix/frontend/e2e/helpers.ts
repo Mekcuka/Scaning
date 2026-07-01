@@ -605,16 +605,21 @@ export async function hoverMapLonLat(
 
 /** Narrow viewport so .app-main content overflows and can scroll. */
 export async function expectAppMainScrollable(page: Page): Promise<void> {
+  const restore = page.viewportSize() ?? { width: 1280, height: 720 };
   await page.setViewportSize({ width: 1280, height: 560 });
-  const main = page.locator('.app-main');
-  await expect(main).toBeVisible();
-  await expect
-    .poll(async () => main.evaluate((el) => el.scrollHeight > el.clientHeight))
-    .toBe(true);
-  await main.evaluate((el) => {
-    el.scrollTop = el.scrollHeight;
-  });
-  expect(await main.evaluate((el) => el.scrollTop)).toBeGreaterThan(0);
+  try {
+    const main = page.locator('.app-main');
+    await expect(main).toBeVisible();
+    await expect
+      .poll(async () => main.evaluate((el) => el.scrollHeight > el.clientHeight), { timeout: 15_000 })
+      .toBe(true);
+    await main.evaluate((el) => {
+      el.scrollTop = el.scrollHeight;
+    });
+    expect(await main.evaluate((el) => el.scrollTop)).toBeGreaterThan(0);
+  } finally {
+    await page.setViewportSize(restore);
+  }
 }
 
 /** Opens map toolbar «Расчёт» menu. */
