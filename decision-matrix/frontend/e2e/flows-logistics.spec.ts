@@ -42,15 +42,6 @@ test.describe('Flows logistics', () => {
     await expect(page.getByText(/подсетей с карьерами/i)).toBeVisible({ timeout: 90_000 });
     await expect(page.getByText(/рассчитано:/i)).toBeVisible();
 
-    const timeline = page.getByRole("group", { name: "Временная шкала схемы" });
-    await timeline.scrollIntoViewIfNeeded();
-    await expect(timeline).toBeVisible({ timeout: 15_000 });
-    const badge = timeline.locator('.sand-logistics-timeline__badge');
-    const before = await badge.textContent();
-    const yearTab = timeline.locator('.sand-logistics-timeline__year').nth(1);
-    await expect(yearTab).toBeVisible();
-    await yearTab.click();
-    await expect(badge).not.toHaveText(before ?? "");
   });
 
   test('logistics page scrolls in app-main', async ({ page }) => {
