@@ -97,6 +97,9 @@ export const FootprintConnectionsParametersPage = lazy(() =>
 export const ParametersLayout = lazy(() =>
   import('../components/layout/ParametersLayout').then((m) => ({ default: m.ParametersLayout })),
 );
+export const LogisticsLayout = lazy(() =>
+  import('../components/layout/LogisticsLayout').then((m) => ({ default: m.LogisticsLayout })),
+);
 export const DataLayout = lazy(() =>
   import('../components/layout/DataLayout').then((m) => ({ default: m.DataLayout })),
 );

@@ -1,6 +1,6 @@
 {
   "version": 1,
-  "article_count": 14,
+  "article_count": 15,
   "articles": [
     {
       "slug": "assistant-chat",
@@ -46,19 +46,16 @@
     },
     {
       "slug": "flows-overview",
-      "title": "Потоки — технология, экономика, логистика",
-      "summary": "Три вкладки раздела Потоки — PFD, экономическая схема и логистика песка для выбранного POI.",
+      "title": "Потоки — технология и экономика",
+      "summary": "Две вкладки раздела Потоки — PFD и экономическая схема для выбранного POI.",
       "tags": [
         "flows",
         "pfd",
-        "economic",
-        "sand",
-        "logistics"
+        "economic"
       ],
       "tab_hints": [
         "flows/technology",
-        "flows/economic",
-        "flows/logistics"
+        "flows/economic"
       ],
       "roles": [
         "viewer",
@@ -67,7 +64,7 @@
         "data_manager"
       ],
       "file": "articles/flows-overview.md",
-      "char_count": 1056
+      "char_count": 972
     },
     {
       "slug": "import-3d",
@@ -113,6 +110,30 @@
       "char_count": 1547
     },
     {
+      "slug": "logistics-overview",
+      "title": "Логистика — схема и объёмы песка",
+      "summary": "Раздел Логистика — расчёт распределения песка по подсетям и массовое редактирование объёмов спроса.",
+      "tags": [
+        "logistics",
+        "sand",
+        "flows",
+        "parameters",
+        "ui"
+      ],
+      "tab_hints": [
+        "logistics/schematic",
+        "logistics/sand"
+      ],
+      "roles": [
+        "viewer",
+        "analyst",
+        "admin",
+        "data_manager"
+      ],
+      "file": "articles/logistics-overview.md",
+      "char_count": 1827
+    },
+    {
       "slug": "map-2d",
       "title": "Карта — режимы 2D, Площадки и 3D",
       "summary": "Панель слоёв, объекты инфраструктуры, POI; три режима карты — иконки 2D, контуры площадок, просмотр 3D.",
@@ -134,7 +155,7 @@
         "data_manager"
       ],
       "file": "articles/map-2d.md",
-      "char_count": 4673
+      "char_count": 4711
     },
     {
       "slug": "matrix",
@@ -175,7 +196,7 @@
         "data_manager"
       ],
       "file": "articles/navigation.md",
-      "char_count": 3051
+      "char_count": 3796
     },
     {
       "slug": "pad-clustering-pywellgeo",
@@ -199,7 +220,7 @@
         "data_manager"
       ],
       "file": "articles/pad-clustering-pywellgeo.md",
-      "char_count": 4799
+      "char_count": 6244
     },
     {
       "slug": "pad-earthwork-volumes",
@@ -225,7 +246,7 @@
         "data_manager"
       ],
       "file": "articles/pad-earthwork-volumes.md",
-      "char_count": 4313
+      "char_count": 4341
     },
     {
       "slug": "pad-placement-optimization",
@@ -249,7 +270,7 @@
         "data_manager"
       ],
       "file": "articles/pad-placement-optimization.md",
-      "char_count": 5007
+      "char_count": 5056
     },
     {
       "slug": "parameters-earthwork",
@@ -272,7 +293,7 @@
         "data_manager"
       ],
       "file": "articles/parameters-earthwork.md",
-      "char_count": 1835
+      "char_count": 1849
     },
     {
       "slug": "parameters-footprint-connections",
@@ -295,7 +316,7 @@
         "data_manager"
       ],
       "file": "articles/parameters-footprint-connections.md",
-      "char_count": 3380
+      "char_count": 3394
     },
     {
       "slug": "roles-rbac",

@@ -1,5 +1,6 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useState, type ReactNode } from 'react';
 import { Outlet, useLocation, useNavigate } from 'react-router-dom';
+import { useQueryClient } from '@tanstack/react-query';
 import {
   Layout,
   Menu,
@@ -20,6 +21,7 @@ import {
   FileTextOutlined,
   DatabaseOutlined,
   SafetyOutlined,
+  TruckOutlined,
   MenuOutlined,
   MoonOutlined,
   SunOutlined,
@@ -44,6 +46,10 @@ import { AssistantPanel } from '../assistant/AssistantPanel';
 import { ProjectJobSync } from '../ProjectJobSync';
 import { TaskLogPanel } from '../TaskLogPanel';
 import { PageHeaderOutlet, PageHeaderProvider } from './pageHeaderContext';
+import {
+  prefetchMapPage,
+  scheduleMapPageBundlePrefetch,
+} from '../../routes/prefetchRoutes';
 
 const { Sider, Header, Content } = Layout;
 
@@ -75,6 +81,14 @@ const NAV: NavItem[] = [
     permissionPath: '/parameters',
     icon: <SlidersOutlined />,
     label: 'Параметры',
+    end: true,
+  },
+  {
+    key: 'logistics',
+    section: 'logistics',
+    permissionPath: '/logistics',
+    icon: <TruckOutlined />,
+    label: 'Логистика',
     end: true,
   },
   { key: 'flows', section: 'flows', permissionPath: '/flows', icon: <PartitionOutlined />, label: 'Потоки', end: true },
@@ -150,7 +164,7 @@ function SidebarFooter({
       </div>
       <Button
         type="text"
-        className="!text-sidebar-text w-full !justify-start !rounded-none px-4 py-2.5 h-auto"
+        className="app-sidebar-logout w-full !justify-start !rounded-none px-4 py-2.5 !h-auto min-h-[44px]"
         icon={<LogoutOutlined />}
         onClick={onLogout}
       >
@@ -160,9 +174,19 @@ function SidebarFooter({
   );
 }
 
+function navMenuLabel(item: NavItem, onMapPrefetch?: () => void): ReactNode {
+  if (item.key !== 'map' || !onMapPrefetch) return item.label;
+  return (
+    <span onPointerEnter={onMapPrefetch} onFocus={onMapPrefetch}>
+      {item.label}
+    </span>
+  );
+}
+
 export function AppLayout() {
   const { user, logout } = useAuthStore();
   const { role } = usePermissions();
+  const queryClient = useQueryClient();
   const { theme, toggleTheme } = useAppStore();
   const { projectId, activeProject, projects, setProjectId, hasProjects } = useActiveProject();
   const buildProjectPath = useProjectPathBuilder();
@@ -173,7 +197,12 @@ export function AppLayout() {
 
   const isMapPage = logicalPath === '/map';
   const isPadClusteringWorkspace = logicalPath.startsWith('/pad-clustering/workspace');
-  const isFullHeightPage = isMapPage || isPadClusteringWorkspace;
+
+  const mainContentClassName = isMapPage
+    ? 'app-main app-main--map flex flex-1 min-h-0 flex-col overflow-hidden p-0'
+    : isPadClusteringWorkspace
+      ? 'app-main app-main--pad-clustering flex flex-1 min-h-0 flex-col overflow-hidden p-6'
+      : 'app-main flex-1 min-h-0 overflow-y-auto overflow-x-hidden p-6';
 
   useEffect(() => {
     setNavOpen(false);
@@ -182,6 +211,17 @@ export function AppLayout() {
   useEffect(() => {
     rememberSectionFromPath(pathname);
   }, [pathname]);
+
+  const canSeeMap = canSeeNav(role, '/map', { userId: user?.id, activeProject });
+
+  useEffect(() => {
+    if (!projectId || isMapPage || !canSeeMap) return;
+    scheduleMapPageBundlePrefetch();
+  }, [projectId, isMapPage, canSeeMap]);
+
+  const handleMapPrefetch = () => {
+    prefetchMapPage(queryClient, projectId);
+  };
 
   const handleLogout = async () => {
     await logout();
@@ -200,7 +240,7 @@ export function AppLayout() {
   const menuItems: MenuProps['items'] = visibleNav.map((item) => ({
     key: item.key,
     icon: item.icon,
-    label: item.label,
+    label: navMenuLabel(item, item.key === 'map' ? handleMapPrefetch : undefined),
   }));
 
   const onMenuClick: MenuProps['onClick'] = ({ key }) => {
@@ -320,11 +360,7 @@ export function AppLayout() {
           </Header>
           <ReadOnlyBanner />
           <Content
-            className={
-              isFullHeightPage
-                ? 'app-main app-main--map flex flex-1 min-h-0 flex-col overflow-hidden p-6'
-                : 'app-main flex-1 min-h-0 overflow-y-auto overflow-x-hidden p-6'
-            }
+            className={mainContentClassName}
             style={{ background: 'var(--bg)' }}
           >
             <Outlet />

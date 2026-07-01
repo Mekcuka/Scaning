@@ -1,3 +1,6 @@
+import { useMemo } from 'react';
+import type { ColumnsType } from 'antd/es/table';
+import { Button, Tag } from 'antd';
 import type { AnalysisRow } from '../lib/api';
 import {
   formatAnalysisKm,
@@ -8,6 +11,7 @@ import {
   statusLabelRu,
   subtypeDisplayLabel,
 } from '../lib/analysisDisplay';
+import { AppDataTable } from './AppDataTable';
 
 type AnalysisSections =
   | 'all'
@@ -19,7 +23,7 @@ type AnalysisSections =
 
 type PickCandidateHandler = (
   subtype: string,
-  paramType: 'external' | 'external_linear'
+  paramType: 'external' | 'external_linear',
 ) => void;
 
 type Props = {
@@ -33,19 +37,22 @@ type Props = {
   onFocusObject?: (row: AnalysisRow) => void;
 };
 
-function StatusBadge({ status }: { status: string }) {
-  return (
-    <span className={`badge ${overallStatusBadgeClass(status)}`}>
-      {statusLabelRu(status)}
-    </span>
-  );
+function statusTagColor(status: string): string {
+  const badgeClass = overallStatusBadgeClass(status);
+  if (badgeClass === 'badge-success') return 'success';
+  if (badgeClass === 'badge-danger') return 'error';
+  if (badgeClass === 'badge-muted') return 'default';
+  return 'warning';
+}
+
+function StatusTag({ status }: { status: string }) {
+  return <Tag color={statusTagColor(status)}>{statusLabelRu(status)}</Tag>;
 }
 
 function ExternalObjectsTable({
   title,
   rows,
   compact,
-  cellPad,
   onPickCandidate,
   onFocusObject,
   readOnly = false,
@@ -54,7 +61,6 @@ function ExternalObjectsTable({
   title: string;
   rows: AnalysisRow[];
   compact: boolean;
-  cellPad: string;
   readOnly?: boolean;
   onPickCandidate?: PickCandidateHandler;
   onFocusObject?: (row: AnalysisRow) => void;
@@ -62,21 +68,85 @@ function ExternalObjectsTable({
 }) {
   const showActions = !readOnly && !!onPickCandidate;
 
-  const renderActions = (row: AnalysisRow) => {
-    if (!showActions) return null;
-    if (row.status === 'not_required' || row.param_type === 'internal') return null;
-    if (row.param_type !== paramType) return null;
-    return (
-      <button
-        type="button"
-        className="text-blue-600 hover:underline whitespace-nowrap"
-        style={{ fontSize: compact ? '10px' : '12px' }}
-        onClick={() => onPickCandidate!(row.subtype, paramType)}
-      >
-        Другой
-      </button>
-    );
-  };
+  const columns = useMemo<ColumnsType<AnalysisRow>>(() => {
+    const cols: ColumnsType<AnalysisRow> = [
+      {
+        title: 'Подтип',
+        key: 'subtype',
+        className: 'font-medium',
+        render: (_, row) => subtypeDisplayLabel(row.subtype),
+      },
+      {
+        title: 'Объект',
+        key: 'object_name',
+        className: 'max-w-[120px]',
+        render: (_, row) =>
+          row.object_name && onFocusObject ? (
+            <Button
+              type="link"
+              size="small"
+              className="!h-auto !p-0 max-w-full truncate text-left"
+              title={`Показать на карте: ${row.object_name}`}
+              onClick={() => onFocusObject(row)}
+            >
+              {row.object_name}
+            </Button>
+          ) : (
+            <span className="block truncate px-1" title={row.object_name || undefined}>
+              {row.object_name || '—'}
+            </span>
+          ),
+      },
+      {
+        title: 'км',
+        key: 'distance_km',
+        className: 'tabular-nums',
+        render: (_, row) =>
+          row.distance_km != null ? `${formatAnalysisKm(row.distance_km)} км` : '—',
+      },
+      {
+        title: 'Лимит',
+        key: 'limit_km',
+        className: 'tabular-nums',
+        render: (_, row) => (row.limit_km != null ? `${formatAnalysisKm(row.limit_km)} км` : '—'),
+      },
+      {
+        title: 'Статус',
+        key: 'status',
+        render: (_, row) => <StatusTag status={row.status} />,
+      },
+      {
+        title: 'млн ₽',
+        key: 'cost',
+        align: 'right',
+        className: 'tabular-nums',
+        render: (_, row) => rowCostMln(row) ?? '—',
+      },
+    ];
+
+    if (showActions) {
+      cols.push({
+        title: '',
+        key: 'actions',
+        render: (_, row) => {
+          if (row.status === 'not_required' || row.param_type === 'internal') return null;
+          if (row.param_type !== paramType) return null;
+          return (
+            <Button
+              type="link"
+              size="small"
+              className={`whitespace-nowrap !h-auto !p-0 ${compact ? '!text-[10px]' : '!text-xs'}`}
+              onClick={() => onPickCandidate!(row.subtype, paramType)}
+            >
+              Другой
+            </Button>
+          );
+        },
+      });
+    }
+
+    return cols;
+  }, [compact, onFocusObject, onPickCandidate, paramType, showActions]);
 
   return (
     <section>
@@ -86,55 +156,12 @@ function ExternalObjectsTable({
       >
         {title}
       </h4>
-      <div className="table-wrap">
-        <table className="data-table w-full">
-          <thead>
-            <tr>
-              <th>Подтип</th>
-              <th>Объект</th>
-              <th>км</th>
-              <th>Лимит</th>
-              <th>Статус</th>
-              <th className="text-right">млн ₽</th>
-              {showActions ? <th></th> : null}
-            </tr>
-          </thead>
-          <tbody>
-            {rows.map((row) => (
-              <tr key={`${row.param_type}:${row.subtype}`} className={cellPad}>
-                <td className="font-medium">{subtypeDisplayLabel(row.subtype)}</td>
-                <td className="max-w-[120px] p-0">
-                  {row.object_name && onFocusObject ? (
-                    <button
-                      type="button"
-                      className="w-full text-left truncate px-1 py-0.5 rounded hover:bg-[var(--bg)] text-blue-600 hover:underline cursor-pointer"
-                      title={`Показать на карте: ${row.object_name}`}
-                      onClick={() => onFocusObject(row)}
-                    >
-                      {row.object_name}
-                    </button>
-                  ) : (
-                    <span className="block truncate px-1" title={row.object_name || undefined}>
-                      {row.object_name || '—'}
-                    </span>
-                  )}
-                </td>
-                <td className="tabular-nums">
-                  {row.distance_km != null ? `${formatAnalysisKm(row.distance_km)} км` : '—'}
-                </td>
-                <td className="tabular-nums">
-                  {row.limit_km != null ? `${formatAnalysisKm(row.limit_km)} км` : '—'}
-                </td>
-                <td>
-                  <StatusBadge status={row.status} />
-                </td>
-                <td className="text-right tabular-nums">{rowCostMln(row) ?? '—'}</td>
-                {showActions ? <td>{renderActions(row)}</td> : null}
-              </tr>
-            ))}
-          </tbody>
-        </table>
-      </div>
+      <AppDataTable
+        className="w-full"
+        rowKey={(row) => `${row.param_type}:${row.subtype}`}
+        columns={columns}
+        dataSource={rows}
+      />
     </section>
   );
 }
@@ -155,13 +182,79 @@ export function AnalysisEnvironmentTable({
     sections === 'all' || sections === 'external' || sections === 'mapConnectivity';
   const showPads = sections === 'all' || sections === 'pads';
 
+  const internalColumns = useMemo<ColumnsType<AnalysisRow>>(
+    () => [
+      {
+        title: 'Подтип',
+        key: 'subtype',
+        className: 'font-medium',
+        render: (_, row) => subtypeDisplayLabel(row.subtype),
+      },
+      {
+        title: 'Расчётная длина',
+        key: 'distance',
+        render: (_, row) => (
+          <>
+            <div>{formatAnalysisKm(row.distance_km)}</div>
+            {internalFormulaLabel(row) && (
+              <div style={{ color: 'var(--text-muted)', fontSize: compact ? '10px' : '11px' }}>
+                {internalFormulaLabel(row)}
+              </div>
+            )}
+          </>
+        ),
+      },
+      {
+        title: 'Статус',
+        key: 'status',
+        render: (_, row) => <StatusTag status={row.status} />,
+      },
+      {
+        title: 'млн ₽',
+        key: 'cost',
+        align: 'right',
+        className: 'tabular-nums',
+        render: (_, row) => rowCostMln(row) ?? '—',
+      },
+    ],
+    [compact],
+  );
+
+  const padsColumns = useMemo<ColumnsType<AnalysisRow>>(
+    () => [
+      {
+        title: 'Подтип',
+        key: 'subtype',
+        className: 'font-medium',
+        render: (_, row) => subtypeDisplayLabel(row.subtype),
+      },
+      {
+        title: 'Кол-во',
+        key: 'pads_count',
+        render: (_, row) => row.pads_count ?? '—',
+      },
+      {
+        title: 'Статус',
+        key: 'status',
+        render: (_, row) => <StatusTag status={row.status} />,
+      },
+      {
+        title: 'млн ₽',
+        key: 'cost',
+        align: 'right',
+        className: 'tabular-nums',
+        render: (_, row) => rowCostMln(row) ?? '—',
+      },
+    ],
+    [],
+  );
+
   if (rows.length === 0) return null;
   if (sections === 'external' && external.length === 0) return null;
   if (sections === 'externalLinear' && externalLinear.length === 0) return null;
   if (sections === 'internal' && internal.length === 0) return null;
   if (sections === 'pads' && pads.length === 0) return null;
 
-  const cellPad = compact ? 'py-1' : 'py-2';
   const fontSize = compact ? 'text-[11px]' : 'text-sm';
 
   return (
@@ -174,37 +267,12 @@ export function AnalysisEnvironmentTable({
           >
             Внутренние решения (удельные ставки)
           </h4>
-          <div className="table-wrap">
-            <table className="data-table w-full">
-              <thead>
-                <tr>
-                  <th>Подтип</th>
-                  <th>Расчётная длина</th>
-                  <th>Статус</th>
-                  <th className="text-right">млн ₽</th>
-                </tr>
-              </thead>
-              <tbody>
-                {internal.map((row) => (
-                  <tr key={row.subtype} className={cellPad}>
-                    <td className="font-medium">{subtypeDisplayLabel(row.subtype)}</td>
-                    <td>
-                      <div>{formatAnalysisKm(row.distance_km)}</div>
-                      {internalFormulaLabel(row) && (
-                        <div style={{ color: 'var(--text-muted)', fontSize: compact ? '10px' : '11px' }}>
-                          {internalFormulaLabel(row)}
-                        </div>
-                      )}
-                    </td>
-                    <td>
-                      <StatusBadge status={row.status} />
-                    </td>
-                    <td className="text-right tabular-nums">{rowCostMln(row) ?? '—'}</td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
+          <AppDataTable
+            className="w-full"
+            rowKey="subtype"
+            columns={internalColumns}
+            dataSource={internal}
+          />
         </section>
       )}
 
@@ -213,7 +281,6 @@ export function AnalysisEnvironmentTable({
           title="Внешние линейные объекты"
           rows={externalLinear}
           compact={compact}
-          cellPad={cellPad}
           readOnly={readOnly}
           paramType="external_linear"
           onPickCandidate={onPickCandidate}
@@ -226,7 +293,6 @@ export function AnalysisEnvironmentTable({
           title="Внешние объекты"
           rows={external}
           compact={compact}
-          cellPad={cellPad}
           readOnly={readOnly}
           paramType="external"
           onPickCandidate={onPickCandidate}
@@ -242,30 +308,12 @@ export function AnalysisEnvironmentTable({
           >
             Кустовые площадки
           </h4>
-          <div className="table-wrap">
-            <table className="data-table w-full">
-              <thead>
-                <tr>
-                  <th>Подтип</th>
-                  <th>Кол-во</th>
-                  <th>Статус</th>
-                  <th className="text-right">млн ₽</th>
-                </tr>
-              </thead>
-              <tbody>
-                {pads.map((row) => (
-                  <tr key={row.subtype} className={cellPad}>
-                    <td className="font-medium">{subtypeDisplayLabel(row.subtype)}</td>
-                    <td>{row.pads_count ?? '—'}</td>
-                    <td>
-                      <StatusBadge status={row.status} />
-                    </td>
-                    <td className="text-right tabular-nums">{rowCostMln(row) ?? '—'}</td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
+          <AppDataTable
+            className="w-full"
+            rowKey="subtype"
+            columns={padsColumns}
+            dataSource={pads}
+          />
         </section>
       )}
     </div>
@@ -285,9 +333,7 @@ export function AnalysisSummaryHeader({
       <div className="flex items-center gap-2">
         <span className="font-semibold">Анализ окружения</span>
         {overallStatus && (
-          <span className={`badge ${overallStatusBadgeClass(overallStatus)}`}>
-            {statusLabelRu(overallStatus)}
-          </span>
+          <Tag color={statusTagColor(overallStatus)}>{statusLabelRu(overallStatus)}</Tag>
         )}
       </div>
       {totalCostMln != null && (

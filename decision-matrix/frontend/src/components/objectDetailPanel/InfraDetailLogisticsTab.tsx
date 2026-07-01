@@ -7,6 +7,7 @@ import { SandVolumeYearPlanEditor } from '../logistics/SandVolumeYearPlanEditor'
 import type { InfraObject } from '../../lib/api';
 import { FieldLabel, PanelSection } from './panelUi';
 import { InfraPadEarthworkSection } from './InfraPadEarthworkSection';
+import type { PadEarthworkDetailBridge } from './padEarthworkDetailBridge';
 
 interface InfraDetailLogisticsTabProps {
   showPadEarthworkSection: boolean;
@@ -44,6 +45,7 @@ interface InfraDetailLogisticsTabProps {
   setPadWellSpacingM: (value: string) => void;
   padGroupSpacingM: string;
   setPadGroupSpacingM: (value: string) => void;
+  onPadEarthworkBridgeChange?: (bridge: PadEarthworkDetailBridge | null) => void;
 }
 
 export function InfraDetailLogisticsTab({
@@ -82,6 +84,7 @@ export function InfraDetailLogisticsTab({
   setPadWellSpacingM,
   padGroupSpacingM,
   setPadGroupSpacingM,
+  onPadEarthworkBridgeChange,
 }: InfraDetailLogisticsTabProps) {
   return (
     <>
@@ -107,6 +110,7 @@ export function InfraDetailLogisticsTab({
           setPadWellSpacingM={setPadWellSpacingM}
           padGroupSpacingM={padGroupSpacingM}
           setPadGroupSpacingM={setPadGroupSpacingM}
+          onPadEarthworkBridgeChange={onPadEarthworkBridgeChange}
         />
       )}
       {(showSandQuarryFields || showSandDemandField) && (

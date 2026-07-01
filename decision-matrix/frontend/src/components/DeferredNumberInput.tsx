@@ -16,6 +16,8 @@ export type DeferredNumberInputProps = {
   onKeyDown?: (event: KeyboardEvent<HTMLInputElement>) => void;
   /** Display spaces as thousands separators (e.g. 500 000). */
   groupDigits?: boolean;
+  /** Нативный `<input>` — для компактных встроенных полей (узлы схемы потоков). */
+  native?: boolean;
 };
 
 function stripNumericInput(raw: string): string {
@@ -74,6 +76,7 @@ export function DeferredNumberInput({
   title,
   onKeyDown,
   groupDigits = false,
+  native = false,
 }: DeferredNumberInputProps) {
   const [draft, setDraft] = useState(() => formatDraft(value, groupDigits));
   const [editing, setEditing] = useState(false);
@@ -102,6 +105,51 @@ export function DeferredNumberInput({
     setEditing(false);
   };
 
+  const handleKeyDown = (e: KeyboardEvent<HTMLInputElement>) => {
+    onKeyDown?.(e);
+    if (e.defaultPrevented) return;
+    if (e.key === 'Enter') {
+      e.preventDefault();
+      commit();
+      (e.target as HTMLInputElement).blur();
+    }
+    if (e.key === 'Escape') {
+      e.preventDefault();
+      cancel();
+      (e.target as HTMLInputElement).blur();
+    }
+  };
+
+  if (native) {
+    if (readOnly || disabled) {
+      return (
+        <input
+          type="text"
+          readOnly
+          disabled={disabled}
+          className={className}
+          title={title}
+          value={formatDraft(value, groupDigits)}
+        />
+      );
+    }
+
+    return (
+      <input
+        type="text"
+        inputMode="decimal"
+        className={className}
+        placeholder={placeholder}
+        title={title}
+        value={draft}
+        onFocus={() => setEditing(true)}
+        onChange={(e) => setDraft(e.target.value)}
+        onBlur={commit}
+        onKeyDown={handleKeyDown}
+      />
+    );
+  }
+
   return (
     <Input
       type="text"
@@ -115,20 +163,7 @@ export function DeferredNumberInput({
       onFocus={() => !readOnly && !disabled && setEditing(true)}
       onChange={(e) => setDraft(e.target.value)}
       onBlur={commit}
-      onKeyDown={(e) => {
-        onKeyDown?.(e);
-        if (e.defaultPrevented) return;
-        if (e.key === 'Enter') {
-          e.preventDefault();
-          commit();
-          (e.target as HTMLInputElement).blur();
-        }
-        if (e.key === 'Escape') {
-          e.preventDefault();
-          cancel();
-          (e.target as HTMLInputElement).blur();
-        }
-      }}
+      onKeyDown={handleKeyDown}
     />
   );
 }

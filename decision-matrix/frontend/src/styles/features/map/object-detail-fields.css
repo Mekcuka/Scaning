@@ -132,20 +132,9 @@
   margin-bottom: 0;
 }
 
-.object-detail-panel__copy-btn {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  gap: 6px;
+.object-detail-panel .ant-btn.object-detail-panel__copy-btn {
   max-width: 100%;
-  margin-top: 0;
-  padding: 6px 10px !important;
-  min-height: 32px;
   font-size: 0.75rem;
-}
-
-.object-detail-panel__copy-btn--block {
-  width: 100%;
 }
 
 .footprint-perimeter-picker {

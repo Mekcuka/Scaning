@@ -1,0 +1,20 @@
+/* Компактные диалоги подтверждения (удаление и т.п.) */
+.app-modal-overlay--confirm .ant-modal-container,
+.app-modal-overlay--confirm .ant-modal-content {
+  max-height: none;
+}
+
+.app-modal-overlay--confirm .ant-modal-header {
+  padding: 0 8px 4px 16px;
+  border-bottom: none;
+}
+
+.app-modal-overlay--confirm .ant-modal-body {
+  padding: 4px 16px 0;
+}
+
+.app-modal-overlay--confirm .ant-modal-footer {
+  padding: 10px 16px 12px;
+  border-top: none;
+  background: transparent;
+}

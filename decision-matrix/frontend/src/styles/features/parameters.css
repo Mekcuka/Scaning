@@ -3,6 +3,12 @@
   margin-bottom: 12px;
 }
 
+/* Отступ контента под pill-subnav (Параметры, Данные, Admin, Потоки) */
+.parameters-layout__body {
+  margin-top: 16px;
+  min-width: 0;
+}
+
 .parameters-layout__title {
   margin: 0 0 4px;
   font-size: 1.5rem;
@@ -200,10 +206,6 @@
   font-variant-numeric: tabular-nums;
 }
 
-.rates-distance-card.ant-card .card-header h2 {
-  margin: 0;
-}
-
 .rates-distance-body {
   padding: 10px 12px;
   display: flex;
@@ -273,7 +275,7 @@
   top: 0;
 }
 
-@media (max-width: 1280px) {
+@media (max-width: 1200px) {
   .rates-groups-grid {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }

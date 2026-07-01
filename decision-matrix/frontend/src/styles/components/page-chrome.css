@@ -132,3 +132,23 @@
   height: 100%;
 }
 
+/* Sidebar footer: Ant text button on dark sider */
+.app-shell .ant-layout-sider .app-sidebar-logout.ant-btn {
+  width: 100%;
+  justify-content: flex-start;
+  border: none;
+  border-radius: 0;
+  color: var(--sidebar-text) !important;
+  background: transparent;
+}
+
+.app-shell .ant-layout-sider .app-sidebar-logout.ant-btn .anticon {
+  color: inherit;
+}
+
+.app-shell .ant-layout-sider .app-sidebar-logout.ant-btn:hover,
+.app-shell .ant-layout-sider .app-sidebar-logout.ant-btn:focus-visible {
+  color: #fff !important;
+  background: rgba(255, 255, 255, 0.05) !important;
+}
+

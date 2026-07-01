@@ -83,6 +83,12 @@
   cursor: not-allowed;
 }
 
+.autoroad-network-panel__bulk-btn.ant-btn {
+  height: auto;
+  line-height: 1.2;
+  box-shadow: none;
+}
+
 .autoroad-network-panel__subtype-select {
   flex: 0 1 5.5rem;
   min-width: 0;
@@ -124,6 +130,11 @@
   font-weight: 600;
   color: inherit;
   cursor: pointer;
+}
+
+.autoroad-network-panel__list-toggle.ant-btn {
+  height: auto;
+  box-shadow: none;
 }
 
 .autoroad-network-panel__list-count {
@@ -220,6 +231,12 @@
   cursor: not-allowed;
 }
 
+.autoroad-network-panel__item-remove.ant-btn {
+  height: auto;
+  min-width: 0;
+  box-shadow: none;
+}
+
 .autoroad-network-panel__hint {
   flex-shrink: 0;
   margin: 0;
@@ -256,6 +273,12 @@
   color: inherit;
   cursor: pointer;
   text-align: left;
+}
+
+.autoroad-params__head.ant-btn {
+  height: auto;
+  box-shadow: none;
+  justify-content: flex-start;
 }
 
 .autoroad-params__head-title {

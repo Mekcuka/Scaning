@@ -25,8 +25,12 @@ describe('EarthworkParametersPage', () => {
     ] as never);
     renderPage(<EarthworkParametersPage />);
     await waitFor(() => expect(screen.getByText('Открыть карту')).toBeInTheDocument());
-    await waitFor(() => expect(screen.getByText('Длина, м')).toBeInTheDocument());
-    await waitFor(() => expect(screen.getByText('Поворот / НДС, °')).toBeInTheDocument());
+    await waitFor(() =>
+      expect(screen.getByRole('columnheader', { name: 'Длина, м' })).toBeInTheDocument(),
+    );
+    await waitFor(() =>
+      expect(screen.getByRole('columnheader', { name: 'Поворот / НДС, °' })).toBeInTheDocument(),
+    );
     expect(screen.getByText('ПС-1')).toBeInTheDocument();
   });
 });

@@ -10,12 +10,6 @@ import {
   type SandHaulLegRow,
 } from '../../lib/sandLogisticsHaulLegs';
 
-type Props = {
-  objectId: string;
-  sandLogistics: SandLogisticsResult | null | undefined;
-};
-
-const hintClass = 'parameters-haul-leg-hint text-xs text-[var(--text-muted)]';
 
 function HaulLegValueList({
   rows,
@@ -43,86 +37,79 @@ function HaulLegValueList({
   );
 }
 
-/** Три ячейки таблицы параметров: карьер, объём, расстояние. */
-export function SandHaulLegParameterCells({ objectId, sandLogistics }: Props) {
+export type SandHaulLegColumn = 'quarry' | 'volume' | 'distance';
+
+const hintClass = 'parameters-haul-leg-hint text-xs';
+
+export function renderSandHaulLegCell(
+  objectId: string,
+  sandLogistics: SandLogisticsResult | null | undefined,
+  column: SandHaulLegColumn,
+): ReactNode {
   const consumer = findSandLogisticsConsumer(sandLogistics, objectId);
   const warnings = consumerSandLogisticsWarnings(sandLogistics, objectId);
 
   if (!sandLogistics) {
-    return (
-      <>
-        <td className="parameters-table__haul-cell align-top" colSpan={3}>
-          <span className={hintClass}>
-            <ProjectLink to="/flows/logistics" className="text-[var(--primary)] hover:underline">
-              Расчёт
-            </ProjectLink>
-          </span>
-        </td>
-      </>
-    );
+    if (column === 'quarry') {
+      return (
+        <span className={hintClass}>
+          <ProjectLink to="/logistics/schematic" className="text-[var(--primary)] hover:underline">
+            Расчёт
+          </ProjectLink>
+        </span>
+      );
+    }
+    return <span className="text-[var(--text-muted)]">—</span>;
   }
 
   if (!consumer) {
-    return (
-      <>
-        <td className="parameters-table__haul-cell align-top">—</td>
-        <td className="parameters-table__haul-cell align-top tabular-nums">—</td>
-        <td className="parameters-table__haul-cell align-top tabular-nums text-[var(--text-muted)]">
-          —
-        </td>
-      </>
-    );
+    return <span className="text-[var(--text-muted)]">—</span>;
   }
 
   if (!consumer.in_service) {
-    return (
-      <>
-        <td className="parameters-table__haul-cell align-top">
-          <span className="parameters-haul-leg-hint text-xs text-amber-600" title="Не введён в эксплуатацию">
-            не введён
-          </span>
-        </td>
-        <td className="parameters-table__haul-cell align-top tabular-nums">—</td>
-        <td className="parameters-table__haul-cell align-top tabular-nums text-[var(--text-muted)]">
-          —
-        </td>
-      </>
-    );
+    if (column === 'quarry') {
+      return (
+        <span className="parameters-haul-leg-hint text-xs text-amber-600" title="Не введён в эксплуатацию">
+          не введён
+        </span>
+      );
+    }
+    return <span className="text-[var(--text-muted)]">—</span>;
   }
 
   const rows = buildHaulLegRows(consumer);
 
   if (rows.length === 0) {
     const warn = warnings[0];
-    return (
-      <>
-        <td className="parameters-table__haul-cell align-top">
-          <span className={hintClass} title={warn ?? 'Нет пути к карьеру или нулевой спрос'}>
-            {warn ? '⚠' : '—'}
-          </span>
-        </td>
-        <td className="parameters-table__haul-cell align-top tabular-nums">—</td>
-        <td className="parameters-table__haul-cell align-top tabular-nums text-[var(--text-muted)]">
-          —
-        </td>
-      </>
-    );
+    if (column === 'quarry') {
+      return (
+        <span className={hintClass} title={warn ?? 'Нет пути к карьеру или нулевой спрос'}>
+          {warn ? '⚠' : '—'}
+        </span>
+      );
+    }
+    return <span className="text-[var(--text-muted)]">—</span>;
   }
 
-  return (
-    <>
-      <td className="parameters-table__haul-cell align-top">
-        <HaulLegValueList
-          rows={rows}
-          render={(row) => <span className="font-medium">{row.quarry_name || '—'}</span>}
-        />
-      </td>
-      <td className="parameters-table__haul-cell align-top tabular-nums">
+  if (column === 'quarry') {
+    return (
+      <HaulLegValueList
+        rows={rows}
+        render={(row) => <span className="font-medium">{row.quarry_name || '—'}</span>}
+      />
+    );
+  }
+  if (column === 'volume') {
+    return (
+      <span className="tabular-nums">
         <HaulLegValueList rows={rows} render={(row) => formatHaulLegM3(row.allocated_m3)} />
-      </td>
-      <td className="parameters-table__haul-cell align-top tabular-nums text-[var(--text-muted)]">
-        <HaulLegValueList rows={rows} render={(row) => formatHaulLegKm(row.distance_km)} />
-      </td>
-    </>
+      </span>
+    );
+  }
+  return (
+    <span className="tabular-nums text-[var(--text-muted)]">
+      <HaulLegValueList rows={rows} render={(row) => formatHaulLegKm(row.distance_km)} />
+    </span>
   );
 }
+

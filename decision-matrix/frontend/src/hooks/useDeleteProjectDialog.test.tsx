@@ -33,15 +33,6 @@ describe('useDeleteProjectDialog', () => {
     vi.mocked(api.deleteProject).mockResolvedValue(undefined);
   });
 
-  it('mounts inside router without throwing', () => {
-    const qc = new QueryClient();
-    expect(() =>
-      renderHook(() => useDeleteProjectDialog(), {
-        wrapper: ({ children }) => withProviders(qc, children),
-      }),
-    ).not.toThrow();
-  });
-
   it('updates projects cache when previous cache was null (post-delete regression)', async () => {
     const qc = new QueryClient({ defaultOptions: { queries: { retry: false } } });
     qc.setQueryData(queryKeys.projects, null as never);

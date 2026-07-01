@@ -24,7 +24,7 @@ export function MapPageToolbarSearch({
   const searchBlurRef = useRef<number | null>(null);
 
   return (
-    <div ref={searchAnchorRef} className="map-tools-group map-tools-group--search relative">
+    <div ref={searchAnchorRef} className="map-canvas-search relative">
       <Search
         size={14}
         className="absolute left-2 top-1/2 -translate-y-1/2 opacity-40 pointer-events-none"
@@ -59,6 +59,7 @@ export function MapPageToolbarSearch({
         open={searchOpen && !!searchQ.trim()}
         onClose={() => onSearchOpenChange(false)}
         className="app-anchored-menu--flat"
+        matchAnchorWidth
         ariaLabel="Результаты поиска"
       >
         {searchSuggestions.length === 0 ? (

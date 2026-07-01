@@ -4,6 +4,7 @@ import { PadEarthworkSketchModal } from '../padEarthwork/PadEarthworkSketchModal
 import { PanelSection } from './panelUi';
 import { InfraPadEarthworkSectionForm } from './InfraPadEarthworkSectionForm';
 import { useInfraPadEarthworkSection } from './useInfraPadEarthworkSection';
+import type { PadEarthworkDetailBridge } from './padEarthworkDetailBridge';
 
 interface InfraPadEarthworkSectionProps {
   projectId: string;
@@ -26,6 +27,7 @@ interface InfraPadEarthworkSectionProps {
   setPadWellSpacingM: (value: string) => void;
   padGroupSpacingM: string;
   setPadGroupSpacingM: (value: string) => void;
+  onPadEarthworkBridgeChange?: (bridge: PadEarthworkDetailBridge | null) => void;
 }
 
 export function InfraPadEarthworkSection(props: InfraPadEarthworkSectionProps) {
@@ -50,6 +52,7 @@ export function InfraPadEarthworkSection(props: InfraPadEarthworkSectionProps) {
     setPadWellSpacingM,
     padGroupSpacingM,
     setPadGroupSpacingM,
+    onPadEarthworkBridgeChange,
   } = props;
 
   const model = useInfraPadEarthworkSection({
@@ -63,6 +66,7 @@ export function InfraPadEarthworkSection(props: InfraPadEarthworkSectionProps) {
     padWellsPerGroup,
     padWellSpacingM,
     padGroupSpacingM,
+    onBridgeChange: onPadEarthworkBridgeChange,
   });
 
   const isPad = isPadSubtype(infraObject.subtype);

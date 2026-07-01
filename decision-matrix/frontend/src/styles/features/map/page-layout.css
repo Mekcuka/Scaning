@@ -1,7 +1,8 @@
-/* Map page — fills main column below app header (like sidebar h-screen chain) */
+/* Map page — fills main column edge-to-edge */
 .map-page {
   flex: 1;
   min-height: 0;
+  height: 100%;
 }
 
 .map-page-actions {
@@ -70,8 +71,10 @@
   margin-bottom: 0;
   flex: 1;
   min-height: 0;
+  height: 100%;
   display: flex;
   flex-direction: column;
+  border-radius: 0;
 }
 
 .map-page-card.ant-card .ant-card-body {

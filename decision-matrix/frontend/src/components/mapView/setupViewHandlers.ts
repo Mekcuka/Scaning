@@ -1,4 +1,5 @@
 import { getPointResolution, transform } from 'ol/proj';
+import { MAP_FIT_VIEW_ICON_SVG, MAP_FIT_VIEW_LABEL } from '../../lib/map/fitViewIcon';
 import { lineLodForScale } from '../../lib/mapLineLod';
 import { MAP_BBOX_DEBOUNCE_MS } from '../../lib/mapBboxUtils';
 import {
@@ -124,10 +125,9 @@ export function setupViewHandlers(ctx: MapSetupContext): ViewHandlersCleanup {
     const fitBtn = document.createElement('button');
     fitBtn.type = 'button';
     fitBtn.className = 'ol-fit-view';
-    fitBtn.title = 'Показать все объекты';
-    fitBtn.setAttribute('aria-label', 'Показать все объекты');
-    fitBtn.innerHTML =
-      '<svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 7V5a2 2 0 0 1 2-2h2"/><path d="M17 3h2a2 2 0 0 1 2 2v2"/><path d="M21 17v2a2 2 0 0 1-2 2h-2"/><path d="M7 21H5a2 2 0 0 1-2-2v-2"/><circle cx="12" cy="12" r="3"/></svg>';
+    fitBtn.title = MAP_FIT_VIEW_LABEL;
+    fitBtn.setAttribute('aria-label', MAP_FIT_VIEW_LABEL);
+    fitBtn.innerHTML = MAP_FIT_VIEW_ICON_SVG;
     fitBtn.addEventListener('click', (e) => {
       e.preventDefault();
       onFitViewRef.current?.();

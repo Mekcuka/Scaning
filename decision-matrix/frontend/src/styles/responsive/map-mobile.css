@@ -1,0 +1,232 @@
+/* —— Map mobile —— */
+@media (max-width: 1023px) {
+  .map-page .page-header {
+    margin-bottom: 8px;
+  }
+
+  .map-page-header {
+    flex-wrap: wrap;
+    gap: 8px;
+  }
+
+  .map-page-header h1 {
+    font-size: 1.125rem;
+  }
+
+  .map-analyze-label {
+    display: none;
+  }
+
+  .map-analyze-label-short {
+    display: inline;
+  }
+
+  .map-layout {
+    grid-template-columns: 1fr;
+    grid-template-rows: 1fr;
+    position: relative;
+  }
+
+  .map-layers-toggle,
+  .map-layers-toggle-sep {
+    display: inline-flex;
+  }
+
+  .map-sidebar-backdrop {
+    position: fixed;
+    inset: 0;
+    z-index: 1090;
+    border: none;
+    padding: 0;
+    margin: 0;
+    background: rgba(7, 26, 46, 0.35);
+    cursor: pointer;
+  }
+
+  .map-sidebar-panel {
+    position: fixed;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    z-index: 1100;
+    display: flex;
+    flex-direction: column;
+    min-height: 0;
+    max-height: min(72vh, 520px);
+    overflow: hidden;
+    border-right: none;
+    border-top: 1px solid var(--border);
+    border-bottom: none;
+    transform: translateY(100%);
+    transition: transform 0.22s ease;
+    box-shadow: var(--shadow-lg);
+    padding-bottom: max(14px, env(safe-area-inset-bottom));
+  }
+
+  .map-sidebar-panel--open {
+    transform: translateY(0);
+  }
+
+  .map-sidebar-mobile-header {
+    display: none;
+  }
+
+  .map-layers-close {
+    display: inline-flex;
+  }
+
+  .object-detail-panel {
+    top: auto;
+    right: 0;
+    left: 0;
+    bottom: 0;
+    width: 100%;
+    max-width: none;
+    max-height: min(85vh, 640px);
+    border-radius: 12px 12px 0 0;
+    padding-bottom: env(safe-area-inset-bottom);
+  }
+
+  .map-tools {
+    gap: 8px 6px;
+    padding: 8px 10px;
+  }
+
+  .map-tools-group--poi {
+    flex: 1 1 100%;
+    width: 100%;
+    max-width: none;
+    margin-left: 0;
+    order: 10;
+  }
+
+  .map-tools-sep--poi {
+    margin-left: 0;
+    order: 9;
+    flex: 1 1 100%;
+    width: 100%;
+    height: 1px;
+    margin-inline: 0;
+  }
+
+  .map-tools-group--poi .app-select--toolbar {
+    max-width: none;
+    width: auto !important;
+  }
+
+  .map-tools-group--draw {
+    flex-wrap: wrap;
+    row-gap: 6px;
+  }
+
+  .map-tools-draw-actions {
+    flex: 0 0 auto;
+    min-width: 0;
+    justify-content: flex-start;
+  }
+
+  .map-tool-label {
+    display: none;
+  }
+
+  .map-tool-btn--action .map-tool-label {
+    display: inline;
+  }
+
+  .map-tools-sep:not(.map-display-mode-sep) {
+    display: none;
+  }
+
+  .map-tools .ant-btn.map-tool-btn {
+    min-height: 44px;
+    min-width: 44px;
+  }
+
+  .map-tools .ant-btn.map-tool-btn--with-label {
+    min-width: 44px;
+  }
+
+  .map-fullscreen-toggle,
+  .map-fullscreen-sep {
+    display: inline-flex;
+  }
+
+  .map-container {
+    touch-action: none;
+  }
+
+  .map-canvas-wrap:fullscreen {
+    background: var(--bg);
+    padding: 0;
+  }
+
+  .map-canvas-wrap:fullscreen .map-container {
+    height: 100% !important;
+  }
+
+  .map-group-panel {
+    top: auto !important;
+    left: 0 !important;
+    right: 0 !important;
+    bottom: 0 !important;
+    width: 100% !important;
+    max-width: none !important;
+    max-height: min(55vh, 380px) !important;
+    border-radius: 12px 12px 0 0;
+    padding-bottom: env(safe-area-inset-bottom);
+  }
+
+  .map-footer {
+    flex-wrap: wrap;
+    gap: 6px 12px;
+    font-size: 0.75rem;
+    line-height: 1.35;
+  }
+}
+
+@media (max-width: 640px) {
+  .map-tools-group--poi {
+    flex: 1 1 100%;
+    width: 100%;
+    max-width: none;
+  }
+
+  .map-tools-group--poi .app-select--toolbar {
+    max-width: none;
+    width: auto !important;
+  }
+
+  .map-canvas-search {
+    top: 72px;
+    left: 8px;
+    right: 8px;
+    width: auto;
+    max-width: none;
+  }
+
+  .map-tools-draw-actions {
+    flex: 1 1 100%;
+  }
+}
+
+@media (min-width: 1024px) {
+  .map-layers-toggle,
+  .map-layers-toggle-sep,
+  .map-sidebar-backdrop,
+  .map-sidebar-mobile-header {
+    display: none;
+  }
+
+  .map-analyze-label-short {
+    display: none;
+  }
+
+  .map-analyze-label {
+    display: inline;
+  }
+
+  .map-fullscreen-toggle,
+  .map-fullscreen-sep {
+    display: none;
+  }
+}

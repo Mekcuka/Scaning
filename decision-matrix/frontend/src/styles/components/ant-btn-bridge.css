@@ -1,0 +1,15 @@
+/* Ant Design 6: у кнопок без icon всё равно монтируется слот loading-icon — убираем его из раскладки */
+.app-ant-root .ant-btn:not(.ant-btn-loading):not(.ant-btn-icon-only) > .ant-btn-icon:has(.anticon-loading) {
+  width: 0 !important;
+  min-width: 0 !important;
+  margin: 0 !important;
+  padding: 0 !important;
+  overflow: hidden;
+  opacity: 0;
+  pointer-events: none;
+}
+
+/* Плоские кнопки — без drop-shadow снизу (primary/solid по умолчанию) */
+.app-ant-root .ant-btn:not(:focus-visible) {
+  box-shadow: none;
+}

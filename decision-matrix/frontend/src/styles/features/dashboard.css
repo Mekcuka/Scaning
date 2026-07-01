@@ -305,8 +305,8 @@ tr:hover .inline-table-edit-trigger,
   box-shadow: none;
 }
 
-.app-select--compact.project-status-select .app-select-trigger,
-.app-select--match-menu.app-select--compact .app-select-trigger {
+.app-select--compact.project-status-select.ant-select .ant-select-selector,
+.app-select--match-menu.app-select--compact.ant-select .ant-select-selector {
   width: 100%;
   min-width: 0;
   max-width: none;
@@ -314,65 +314,29 @@ tr:hover .inline-table-edit-trigger,
   min-height: 24px;
   padding: 3px 22px;
   justify-content: center;
-  position: relative;
 }
 
-.project-status-select .app-select-trigger {
+.project-status-select.ant-select .ant-select-selector {
   font-size: 0.72rem;
   font-weight: 600;
   border-radius: 20px;
 }
 
-.project-status-select .app-select-label {
-  max-width: none;
-  flex: 1;
+.project-status-select.ant-select .ant-select-selection-item {
   text-align: center;
 }
 
-.project-status-select .app-select-chevron {
-  position: absolute;
-  right: 6px;
-  top: 50%;
-  width: 12px;
-  height: 12px;
-  transform: translateY(-50%);
-}
-
-.project-status-select.app-select-open .app-select-chevron {
-  transform: translateY(-50%) rotate(180deg);
-}
-
-.app-select-menu--status .app-select-option {
-  position: relative;
-  justify-content: center;
-  text-align: center;
-  padding-left: 28px;
-  padding-right: 28px;
-}
-
-.app-select-menu--status .app-select-option-label {
-  flex: none;
-  text-align: center;
-}
-
-.app-select-menu--status .app-select-option-check {
-  position: absolute;
-  right: 8px;
-  top: 50%;
-  transform: translateY(-50%);
-}
-
-.project-status-select--draft .app-select-trigger {
+.project-status-select--draft.ant-select .ant-select-selector {
   background: var(--surface-3);
   color: var(--text-muted);
 }
 
-.project-status-select--in_progress .app-select-trigger {
+.project-status-select--in_progress.ant-select .ant-select-selector {
   background: var(--warning-bg);
   color: var(--warning);
 }
 
-.project-status-select--calculated .app-select-trigger {
+.project-status-select--calculated.ant-select .ant-select-selector {
   background: var(--success-bg);
   color: var(--success);
 }

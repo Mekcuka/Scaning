@@ -79,7 +79,7 @@
   min-height: 0;
 }
 
-.app-main:not(.app-main--map).ant-layout-content {
+.app-main:not(.app-main--map):not(.app-main--pad-clustering).ant-layout-content {
   flex: 1 1 0%;
   height: 0;
   overflow-y: auto;
@@ -89,6 +89,13 @@
 }
 
 .app-main--map.ant-layout-content {
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  padding: 0;
+}
+
+.app-main--pad-clustering.ant-layout-content {
   display: flex;
   flex-direction: column;
   overflow: hidden;

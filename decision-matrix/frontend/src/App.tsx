@@ -2,6 +2,7 @@ import { Suspense } from 'react';
 import { BrowserRouter, Routes, Route, Navigate, useLocation } from 'react-router-dom';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { ErrorBoundary } from './components/ErrorBoundary';
+import { MapPageSkeleton } from './components/MapPageSkeleton';
 import { AntThemeProvider } from './providers/AntThemeProvider';
 import { AppLayout } from './components/layout/AppLayout';
 import {
@@ -9,6 +10,7 @@ import {
   LegacyPrefixRedirect,
   LegacyProjectRedirect,
 } from './components/layout/LegacyProjectRedirect';
+import { ProjectPathRedirect } from './components/layout/ProjectPathRedirect';
 import { ProjectRouteLayout } from './components/layout/ProjectRouteLayout';
 import { SectionIndexRedirect } from './components/layout/SectionIndexRedirect';
 import { ProtectedRoute } from './components/ProtectedRoute';
@@ -42,6 +44,7 @@ import {
   PadClusteringWorkspacePage,
   MatrixPage,
   ParametersLayout,
+  LogisticsLayout,
   ParametersPage,
   ProjectDetailPage,
   ProjectsPage,
@@ -61,7 +64,11 @@ function ProjectRoutes() {
   return (
     <Route element={<ProjectRouteLayout />}>
       <Route path="/dashboard/:projectId" element={<DashboardPage />} />
-      <Route path="/map/:projectId" element={<MapPage />} />
+      <Route path="/map/:projectId" element={
+        <Suspense fallback={<MapPageSkeleton />}>
+          <MapPage />
+        </Suspense>
+      } />
       <Route path="/pad-clustering" element={<PadClusteringLayout />}>
         <Route path="workspace/:projectId" element={<PadClusteringWorkspacePage />} />
         <Route path="summary/:projectId" element={<PadClusteringSummaryPage />} />
@@ -70,14 +77,22 @@ function ProjectRoutes() {
       </Route>
       <Route path="/matrix/:projectId" element={<MatrixPage />} />
 
+      <Route path="/parameters/sand/:projectId" element={<ProjectPathRedirect suffix="/logistics/sand" />} />
+      <Route path="/flows/logistics/:projectId" element={<ProjectPathRedirect suffix="/logistics/schematic" />} />
+
       <Route path="/parameters" element={<ParametersLayout />}>
         <Route path="capacity/:projectId" element={<ParametersPage />} />
-        <Route path="sand/:projectId" element={<SandParametersPage />} />
         <Route path="earthwork/:projectId" element={<EarthworkParametersPage />} />
         <Route path="footprint-connections/:projectId" element={<FootprintConnectionsParametersPage />} />
         <Route path="entry-dates/:projectId" element={<EntryDatesParametersPage />} />
         <Route path="rates/:projectId" element={<RatesPage />} />
         <Route path=":projectId" element={<SectionIndexRedirect section="parameters" />} />
+      </Route>
+
+      <Route path="/logistics" element={<LogisticsLayout />}>
+        <Route path="sand/:projectId" element={<SandParametersPage />} />
+        <Route path="schematic/:projectId" element={<FlowLogisticsPage />} />
+        <Route path=":projectId" element={<SectionIndexRedirect section="logistics" />} />
       </Route>
 
       <Route path="/data" element={<DataLayout />}>
@@ -96,7 +111,6 @@ function ProjectRoutes() {
       <Route path="/flows" element={<FlowSchematicLayout />}>
         <Route path="technology/:projectId" element={<FlowTechnologyPage />} />
         <Route path="economic/:projectId" element={<FlowEconomicPage />} />
-        <Route path="logistics/:projectId" element={<FlowLogisticsPage />} />
         <Route path=":projectId" element={<FlowsIndexRedirect />} />
       </Route>
     </Route>
@@ -125,8 +139,11 @@ function AppRoutes() {
               <Route path="/report/new" element={<LegacyProjectRedirect suffix="/report/new" />} />
               <Route path="/report/:reportId" element={<LegacyPathPreserveRedirect />} />
               <Route path="/report" element={<LegacyProjectRedirect suffix="/report" />} />
+              <Route path="/parameters/sand" element={<LegacyProjectRedirect suffix="/logistics/sand" />} />
+              <Route path="/flows/logistics" element={<LegacyProjectRedirect suffix="/logistics/schematic" />} />
               <Route path="/parameters/*" element={<LegacyPathPreserveRedirect />} />
               <Route path="/flows/*" element={<LegacyPathPreserveRedirect />} />
+              <Route path="/logistics/*" element={<LegacyPathPreserveRedirect />} />
               <Route path="/data/*" element={<LegacyPathPreserveRedirect />} />
               <Route path="/rates" element={<LegacyProjectRedirect suffix="/parameters/rates" />} />
               <Route path="/import" element={<LegacyProjectRedirect suffix="/data/import" />} />

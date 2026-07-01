@@ -39,7 +39,7 @@ export function SandHaulLegDetails({
   if (!sandLogistics) {
     return (
       <span className="parameters-haul-leg-hint text-xs text-[var(--text-muted)]">
-        <ProjectLink to="/flows/logistics" className="text-[var(--primary)] hover:underline">
+        <ProjectLink to="/logistics/schematic" className="text-[var(--primary)] hover:underline">
           Расчёт
         </ProjectLink>
       </span>

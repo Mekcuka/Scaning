@@ -25,8 +25,8 @@ test.describe('Flows logistics', () => {
   test('logistics tab loads analyze action', async ({ page }) => {
     await loginViaUi(page, email);
 
-    await page.goto(`/flows/logistics/${projectId}`);
-    await expect(page).toHaveURL(new RegExp(`/flows/logistics/${projectId}`));
+    await page.goto(`/logistics/schematic/${projectId}`);
+    await expect(page).toHaveURL(new RegExp(`/logistics/schematic/${projectId}`));
     await expect(
       page.getByRole('button', { name: /Рассчитать логистику песка/i }),
     ).toBeVisible();
@@ -35,7 +35,7 @@ test.describe('Flows logistics', () => {
   test('analyze sand logistics from UI', async ({ page }) => {
     await loginViaUi(page, email);
 
-    await page.goto(`/flows/logistics/${projectId}`);
+    await page.goto(`/logistics/schematic/${projectId}`);
 
     await page.getByRole('button', { name: /Рассчитать логистику песка/i }).click();
     await expect(page.getByText(/подсетей с карьерами/i)).toBeVisible({ timeout: 90_000 });
@@ -45,8 +45,8 @@ test.describe('Flows logistics', () => {
   test('logistics page scrolls in app-main', async ({ page }) => {
     await loginViaUi(page, email);
 
-    await page.goto(`/flows/logistics/${projectId}`);
-    await expect(page).toHaveURL(new RegExp(`/flows/logistics/${projectId}`));
+    await page.goto(`/logistics/schematic/${projectId}`);
+    await expect(page).toHaveURL(new RegExp(`/logistics/schematic/${projectId}`));
 
     const main = page.locator('.app-main');
     await expect(main).toBeVisible();
@@ -60,7 +60,7 @@ test.describe('Flows logistics', () => {
 
   test('timeline year slider changes view slice', async ({ page }) => {
     await loginViaUi(page, email);
-    await page.goto(`/flows/logistics/${projectId}`);
+    await page.goto(`/logistics/schematic/${projectId}`);
 
     await expect(page.getByText(/подсетей с карьерами/i)).toBeVisible({ timeout: 20_000 });
 

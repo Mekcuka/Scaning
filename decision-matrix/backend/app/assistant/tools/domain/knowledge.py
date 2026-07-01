@@ -16,7 +16,7 @@ class ListWikiArticlesInput(BaseModel):
     tag: str | None = Field(default=None, description="Filter by tag (e.g. map, import)")
     tab_hint: str | None = Field(
         default=None,
-        description="Filter by UI tab hint (e.g. map, matrix, flows/logistics)",
+        description="Filter by UI tab hint (e.g. map, matrix, logistics/schematic)",
     )
 
 

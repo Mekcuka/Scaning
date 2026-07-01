@@ -79,7 +79,7 @@ export function MapPageFooter({
         <span>
           {rulerPointsLength === 0
             ? 'Линейка: клик — вершина'
-            : 'Двойной клик или «Готово» — завершить'}
+            : 'Двойной клик — завершить измерение'}
         </span>
       )}
       {!bulkProgress && geometrySavePending === 0 && drawMode === 'autoroad_network' && (
@@ -95,7 +95,7 @@ export function MapPageFooter({
         <span>
           {lineDraftLength === 0
             ? 'Линия: первая точка — клик по точечному объекту на карте'
-            : 'Промежуточные вершины — свободно; двойной ЛКМ/ПКМ, Enter или «Готово» — завершить (в пустом месте — узел)'}
+            : 'Промежуточные вершины — свободно; двойной ЛКМ/ПКМ или Enter — завершить (в пустом месте — узел)'}
         </span>
       )}
       {mapIn3d && (

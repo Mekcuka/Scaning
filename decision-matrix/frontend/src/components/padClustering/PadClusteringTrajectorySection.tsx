@@ -1,5 +1,8 @@
+import { useMemo } from 'react';
 import { Route } from 'lucide-react';
 import { Button } from 'antd';
+import type { ColumnsType } from 'antd/es/table';
+import { AppDataTable } from '../AppDataTable';
 import { countDesignedTrajectories } from '../../lib/padClusteringWorkflow';
 import type { ClearancePair } from '../../lib/api/wellTrajectoryApi';
 import type { usePadClusteringEditor } from '../../hooks/usePadClusteringEditor';
@@ -77,6 +80,39 @@ export function PadClusteringTrajectorySection({
     (w) => (w.survey?.stations?.length ?? 0) >= 2,
   ).length;
   const clearanceReady = designedForClearance >= 2;
+
+  const clearanceColumns = useMemo<ColumnsType<ClearancePair>>(
+    () => [
+      {
+        title: 'Скв. A',
+        key: 'well_a',
+        render: (_, pair) => pairWellLabel(pair, 'a'),
+      },
+      {
+        title: 'Скв. B',
+        key: 'well_b',
+        render: (_, pair) => pairWellLabel(pair, 'b'),
+      },
+      {
+        title: 'мин. SF',
+        key: 'min_sf',
+        render: (_, pair) => (
+          <span
+            className={
+              pair.min_sf != null && Number.isFinite(pair.min_sf)
+                ? pair.warning
+                  ? 'pad-clustering-sf-warn'
+                  : 'pad-clustering-sf-ok'
+                : 'pad-clustering-steps__hint'
+            }
+          >
+            {formatMinSf(pair.min_sf)}
+          </span>
+        ),
+      },
+    ],
+    [],
+  );
 
   return (
     <PadClusteringCollapsibleSection
@@ -260,36 +296,12 @@ export function PadClusteringTrajectorySection({
       {clearancePairs.length > 0 && (
         <div className="pad-clustering-subsection">
           <strong className="text-xs">Пары SF ({clearancePairs.length})</strong>
-          <table className="pad-clustering-table text-xs">
-            <thead>
-              <tr>
-                <th>Скв. A</th>
-                <th>Скв. B</th>
-                <th>мин. SF</th>
-              </tr>
-            </thead>
-            <tbody>
-              {clearancePairs.map((pair, i) => (
-                <tr key={`${pair.well_a}-${pair.well_b}-${i}`}>
-                  <td>{pairWellLabel(pair, 'a')}</td>
-                  <td>{pairWellLabel(pair, 'b')}</td>
-                  <td>
-                    <span
-                      className={
-                        pair.min_sf != null && Number.isFinite(pair.min_sf)
-                          ? pair.warning
-                            ? 'pad-clustering-sf-warn'
-                            : 'pad-clustering-sf-ok'
-                          : 'pad-clustering-steps__hint'
-                      }
-                    >
-                      {formatMinSf(pair.min_sf)}
-                    </span>
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
+          <AppDataTable
+            className="pad-clustering-table text-xs"
+            rowKey={(pair, index) => `${pair.well_a}-${pair.well_b}-${index}`}
+            columns={clearanceColumns}
+            dataSource={clearancePairs}
+          />
           {clearanceComputedAt && (
             <p className="pad-clustering-steps__hint">
               Антиколлизия (SF): {new Date(clearanceComputedAt).toLocaleString()}

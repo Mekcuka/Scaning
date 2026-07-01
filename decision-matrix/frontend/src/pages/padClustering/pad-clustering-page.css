@@ -944,37 +944,104 @@
 }
 
 .pad-clustering-bottomholes-table {
-  min-width: 34rem;
+  min-width: 0;
+  max-width: 100%;
+}
+
+.pad-clustering-bottomholes-table.app-data-table-wrap {
+  min-width: 0;
+}
+
+.pad-clustering-bottomholes-table.app-data-table .ant-table {
+  min-width: 0;
+}
+
+.pad-clustering-bottomholes-table.app-data-table table {
+  table-layout: fixed;
+  width: 100%;
+}
+
+.pad-clustering-bottomholes-table.app-data-table .ant-table-cell {
+  font-size: 0.625rem;
+  line-height: 1.25;
+  padding: 0.2rem 0.25rem !important;
+}
+
+.pad-clustering-bottomholes-table.app-data-table .ant-table-thead > tr > th {
+  font-size: 0.5625rem;
+  font-weight: 600;
+  text-transform: none;
+  letter-spacing: normal;
+  white-space: nowrap;
+}
+
+.pad-clustering-bottomholes-table.app-data-table .ant-table-thead > tr > th,
+.pad-clustering-bottomholes-table.app-data-table .ant-table-tbody > tr > td {
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.pad-clustering-bottomholes-table.app-data-table .ant-table-content {
+  overflow-x: visible !important;
 }
 
 .pad-clustering-bottomholes-table__name {
-  min-width: 4.5rem;
+  min-width: 0;
 }
 
 .pad-clustering-bottomholes-table__name-text {
   display: block;
   font-weight: 600;
-  font-size: 0.8125rem;
+  font-size: 0.625rem;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 .pad-clustering-bottomholes-table__sub {
   display: block;
-  margin-top: 0.1rem;
+  margin-top: 0.05rem;
   color: var(--text-muted, #64748b);
-  font-size: 0.625rem;
+  font-size: 0.5625rem;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 .pad-clustering-bottomholes-table__type {
   color: var(--text-muted, #64748b);
+  font-size: 0.625rem;
   white-space: nowrap;
-  font-size: 0.6875rem;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 .pad-clustering-bottomholes-table__input {
-  width: 100%;
-  min-width: 3.25rem;
-  padding: 0.25rem 0.35rem;
-  font-size: 0.75rem;
+  width: 39px;
+  min-width: 39px;
+  max-width: 39px;
+  padding: 0.1rem 0.2rem;
+  font-size: 0.625rem;
+}
+
+.pad-clustering-bottomholes-table__input.ant-input {
+  line-height: 1.25;
+  width: 39px;
+  min-width: 39px;
+  max-width: 39px;
+}
+
+.pad-clustering-bottomholes-table__input.app-select.ant-select {
+  width: 39px;
+  min-width: 39px;
+  max-width: 39px;
+}
+
+.pad-clustering-bottomholes-table__input.app-select.ant-select .ant-select-selector {
+  font-size: 0.625rem !important;
+  min-height: 1.35rem !important;
+  padding-inline: 0.2rem !important;
 }
 
 .pad-clustering-bottomholes-table__na {
@@ -1512,7 +1579,7 @@
   margin: 0 0.15rem;
 }
 
-.pad-clustering-geo-steps .pad-clustering-geo-action-btn {
+.pad-clustering-geo-steps .ant-btn.pad-clustering-geo-action-btn {
   align-self: center;
   white-space: nowrap;
 }
@@ -1755,36 +1822,17 @@
   gap: 0.45rem;
 }
 
-.pad-clustering-geo-action-btn {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  gap: 0.35rem;
+.pad-clustering-geo-panel .ant-btn.pad-clustering-geo-action-btn,
+.pad-clustering-geo-pipeline .ant-btn.pad-clustering-geo-action-btn {
   min-height: 2rem;
 }
 
-.pad-clustering-geo-action-btn--full {
+.pad-clustering-geo-action-btn--full.ant-btn {
   width: 100%;
 }
 
-.pad-clustering-geo-action-btn--accent {
-  border-color: color-mix(in srgb, var(--primary, #2563eb) 35%, var(--border));
-  background: color-mix(in srgb, var(--primary, #2563eb) 6%, var(--surface));
-}
-
-.pad-clustering-geo-action-btn--accent:not(:disabled):hover {
-  border-color: color-mix(in srgb, var(--primary, #2563eb) 55%, var(--border));
-  background: color-mix(in srgb, var(--primary, #2563eb) 10%, var(--surface));
-}
-
-.pad-clustering-geo-action-btn--loading {
+.pad-clustering-geo-action-btn--loading.ant-btn {
   opacity: 0.92;
-}
-
-.pad-clustering-geo-panel__action-bar .btn {
-  display: inline-flex;
-  align-items: center;
-  gap: 0.35rem;
 }
 
 .pad-clustering-geo-panel__result {
@@ -2178,6 +2226,7 @@
   flex: 1;
   min-height: 0;
   height: 100%;
+  gap: 1rem;
 }
 
 .pad-clustering-page--scroll {
@@ -2250,10 +2299,6 @@
 
 .pad-clustering-summary__col-subhead:first-of-type {
   border-left: none;
-}
-
-.pad-clustering-summary__col-head {
-  border-bottom: 1px solid var(--border);
 }
 
 .pad-clustering-summary__row-head--corner {
@@ -2401,6 +2446,47 @@
 
 .pad-clustering-summary__table-block:last-child {
   margin-bottom: 0;
+}
+
+/* Ant Table bridge — PadClusteringSummaryTable */
+.pad-clustering-summary__table-wrap .app-data-table-wrap {
+  min-width: 0;
+}
+
+.pad-clustering-summary__table.app-data-table .ant-table {
+  min-width: 640px;
+}
+
+.pad-clustering-summary__table.app-data-table .ant-table-thead > tr > th {
+  position: sticky;
+  top: 0;
+  z-index: 1;
+  background: var(--surface);
+  border-bottom: 1px solid var(--border);
+  vertical-align: bottom;
+  padding: 0.35rem 0.5rem;
+}
+
+.pad-clustering-summary__table.app-data-table .ant-table-tbody > tr > .pad-clustering-summary__row-head {
+  position: sticky;
+  left: 0;
+  z-index: 2;
+  background: var(--surface);
+  border-right: 1px solid var(--border);
+  font-weight: 500;
+  text-align: left;
+  white-space: nowrap;
+}
+
+.pad-clustering-summary__table--transposed.app-data-table
+  .ant-table-thead
+  > tr
+  > th.pad-clustering-summary__row-head--corner {
+  z-index: 3;
+}
+
+.pad-clustering-summary__table.app-data-table .ant-table-cell {
+  font-size: inherit;
 }
 
 .pad-clustering-profile__toolbar {

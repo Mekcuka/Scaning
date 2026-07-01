@@ -37,11 +37,14 @@
 | `/pad-clustering/workspace/{projectId}` | Кустование — **Куст** (раскладка, траектории, 3D); subnav: **Сводка**, **Профиль** | admin, analyst, data_manager, viewer |
 | `/parameters/{projectId}` | Параметры (index → последняя вкладка) | admin, analyst, viewer |
 | `/parameters/capacity/{projectId}` | Пропускная способность | ↑ |
-| `/parameters/sand/{projectId}` | Песок / логистика | ↑ |
+| `/logistics/{projectId}` | **Логистика** (index → последняя вкладка) | admin, analyst, viewer |
+| `/logistics/schematic/{projectId}` | Логистика песка — расчёт и схемы | ↑ |
+| `/logistics/sand/{projectId}` | Объём песка (таблица спроса) | ↑ |
+| `/parameters/sand/{projectId}` | *(legacy → `/logistics/sand`)* | ↑ |
 | `/parameters/earthwork/{projectId}` | Земляные работы (L/W/H, опорная, поворот) | ↑ |
 | `/parameters/entry-dates/{projectId}` | Даты ввода | ↑ |
 | `/parameters/rates/{projectId}` | Ставки (16 показателей) | ↑ |
-| `/flows/*/{projectId}` | Потоки (PFD) | admin, analyst, viewer |
+| `/flows/*/{projectId}` | Потоки (технология, экономика; legacy `/flows/logistics` → `/logistics/schematic`) | admin, analyst, viewer |
 | `/matrix/{projectId}` | Матрица | admin, analyst, viewer |
 | `/report/{projectId}` | Отчёты (одностраничники) | admin, analyst, viewer |
 | `/data/{projectId}` | **Данные** (вкладки) | по подмаршруту |

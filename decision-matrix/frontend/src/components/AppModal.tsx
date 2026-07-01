@@ -1,5 +1,5 @@
 import type { ReactNode } from 'react';
-import { Modal, Typography } from 'antd';
+import { Modal } from 'antd';
 
 interface AppModalProps {
   title?: string;
@@ -8,12 +8,14 @@ interface AppModalProps {
   onClose: () => void;
   children: ReactNode;
   footer?: ReactNode;
-  size?: 'sm' | 'md' | 'lg';
+  size?: 'xs' | 'sm' | 'md' | 'lg';
+  centered?: boolean;
   closeOnBackdrop?: boolean;
   overlayClassName?: string;
 }
 
 const MODAL_WIDTH: Record<NonNullable<AppModalProps['size']>, number> = {
+  xs: 360,
   sm: 480,
   md: 640,
   lg: 900,
@@ -27,18 +29,15 @@ export function AppModal({
   children,
   footer,
   size = 'md',
+  centered = true,
   closeOnBackdrop = true,
   overlayClassName,
 }: AppModalProps) {
   const titleNode =
     title || subtitle ? (
-      <div id={titleId}>
-        {title ? <span>{title}</span> : null}
-        {subtitle ? (
-          <Typography.Text type="secondary" className="block mt-1 text-sm font-normal">
-            {subtitle}
-          </Typography.Text>
-        ) : null}
+      <div id={titleId} className="app-modal-header__text">
+        {title ? <span className="app-modal-header__title">{title}</span> : null}
+        {subtitle ? <p className="app-modal-subtitle">{subtitle}</p> : null}
       </div>
     ) : undefined;
 
@@ -49,9 +48,16 @@ export function AppModal({
       onCancel={onClose}
       footer={footer !== undefined ? footer : null}
       width={MODAL_WIDTH[size]}
+      centered={centered}
       destroyOnHidden
       maskClosable={closeOnBackdrop}
-      wrapClassName={['app-modal-overlay', overlayClassName].filter(Boolean).join(' ')}
+      wrapClassName={[
+        'app-modal-overlay',
+        subtitle ? 'app-modal--with-subtitle' : '',
+        overlayClassName,
+      ]
+        .filter(Boolean)
+        .join(' ')}
     >
       {children}
     </Modal>

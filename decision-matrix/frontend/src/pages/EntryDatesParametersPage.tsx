@@ -14,10 +14,8 @@ import { useActiveProject } from '../hooks/useActiveProject';
 import { useProjectInfraObjects } from '../hooks/useProjectData';
 import { usePermissions } from '../hooks/usePermissions';
 import { queryKeys } from '../lib/queryKeys';
-import {
-  TableExcelExportBodyCell,
-  TableExcelExportButton,
-} from '../components/TableExcelExportButton';
+import type { ColumnsType } from 'antd/es/table';
+import { AppDataTable } from '../components/AppDataTable';
 import { entryDateTableExportColumns } from '../lib/tableExcelExportData';
 
 export function EntryDatesParametersPage() {
@@ -77,6 +75,42 @@ export function EntryDatesParametersPage() {
     onSettled: () => setSavingId(null),
   });
 
+  const columns = useMemo<ColumnsType<InfraObject>>(
+    () => [
+      {
+        title: 'Объект',
+        dataIndex: 'name',
+        key: 'name',
+        className: 'parameters-table__name',
+        onCell: () => ({ scope: 'row' as const }),
+      },
+      {
+        title: 'Подтип',
+        key: 'subtype',
+        render: (_, obj) => SUBTYPE_LABELS[obj.subtype] || obj.subtype,
+      },
+      {
+        title: 'Дата ввода',
+        key: 'entryDate',
+        render: (_, obj) => (
+          <Input
+            type="date"
+            className="parameters-table__input"
+            value={readEntryDateIso(obj.properties)}
+            readOnly={!canWriteProject}
+            disabled={savingId === obj.id || !canWriteProject}
+            onChange={(e) => {
+              if (e.target.value) {
+                saveMut.mutate({ object: obj, iso: e.target.value });
+              }
+            }}
+          />
+        ),
+      },
+    ],
+    [canWriteProject, saveMut, savingId],
+  );
+
   if (!projectId) {
     return (
       <div className="parameters-page">
@@ -123,51 +157,20 @@ export function EntryDatesParametersPage() {
             Нет объектов. Добавьте инфраструктуру на <ProjectLink to="/map">карте</ProjectLink>.
           </p>
         ) : (
-          <div className="table-wrap">
-            <table className="data-table parameters-table">
-              <thead>
-                <tr>
-                  <th scope="col">Объект</th>
-                  <th scope="col">Подтип</th>
-                  <th scope="col">Дата ввода</th>
-                  <th scope="col" className="table-excel-export-th">
-                    <TableExcelExportButton
-                      filename="parametry-data-vvoda.xlsx"
-                      sheetName="Дата ввода"
-                      columns={entryDateTableExportColumns()}
-                      rows={filteredObjects}
-                      disabled={filteredObjects.length === 0}
-                    />
-                  </th>
-                </tr>
-              </thead>
-              <tbody>
-                {filteredObjects.map((obj) => (
-                  <tr key={obj.id}>
-                    <th scope="row" className="parameters-table__name">
-                      {obj.name}
-                    </th>
-                    <td>{SUBTYPE_LABELS[obj.subtype] || obj.subtype}</td>
-                    <td>
-                      <Input
-                        type="date"
-                        className="parameters-table__input"
-                        value={readEntryDateIso(obj.properties)}
-                        readOnly={!canWriteProject}
-                        disabled={savingId === obj.id || !canWriteProject}
-                        onChange={(e) => {
-                          if (e.target.value) {
-                            saveMut.mutate({ object: obj, iso: e.target.value });
-                          }
-                        }}
-                      />
-                    </td>
-                    <TableExcelExportBodyCell />
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
+          <AppDataTable
+            className="parameters-table"
+            rowKey="id"
+            loading={isLoading}
+            columns={columns}
+            dataSource={filteredObjects}
+            excelExport={{
+              filename: 'parametry-data-vvoda.xlsx',
+              sheetName: 'Дата ввода',
+              columns: entryDateTableExportColumns(),
+              rows: filteredObjects,
+              disabled: filteredObjects.length === 0,
+            }}
+          />
         )}
       </Card>
     </div>

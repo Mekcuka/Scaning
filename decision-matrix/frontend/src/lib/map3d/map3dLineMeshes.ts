@@ -1,12 +1,6 @@
 import maplibregl from 'maplibre-gl';
 import * as THREE from 'three';
 import { resolveLine3dVisualStyle } from './map3dLineStyle';
-import {
-  tubeLengthStepMForQuality,
-  tubeMinSegmentsForQuality,
-  tubeRadialSegmentsForQuality,
-  type Map3dQuality,
-} from './map3dQuality';
 
 function hexToThreeColor(hex: string): THREE.Color {
   try {
@@ -24,16 +18,9 @@ function pathLengthMeters(points: THREE.Vector3[]): number {
   return d;
 }
 
-function tubularSegmentCount(
-  points: THREE.Vector3[],
-  cap: number,
-  stepM: number,
-  minSegments: number,
-): number {
+function tubularSegmentCount(points: THREE.Vector3[]): number {
   const len = pathLengthMeters(points);
-  const maxCap = Math.max(4, cap);
-  const step = Math.max(3, stepM);
-  return Math.max(minSegments, Math.min(maxCap, Math.ceil(len / step)));
+  return Math.max(12, Math.min(96, Math.ceil(len / 6)));
 }
 
 export function vertexToLocalMeters(
@@ -86,25 +73,13 @@ export type LineTubeBuildInput = {
   opacity: number;
   subtype: string;
   selected: boolean;
-  tubularSegmentCap?: number;
-  quality?: Map3dQuality;
 };
 
 /** Single flat-colored tube — no lights, outline, or caps (avoids edge artifacts). */
 export function createLineTubeGroup(
   input: LineTubeBuildInput,
 ): { group: THREE.Group; anchorLon: number; anchorLat: number; anchorAlt: number } | null {
-  const {
-    path,
-    alts,
-    radiusM,
-    colorHex,
-    opacity,
-    subtype,
-    selected,
-    tubularSegmentCap = 96,
-    quality = 'balanced',
-  } = input;
+  const { path, alts, radiusM, colorHex, opacity, subtype, selected } = input;
   if (path.length < 2) return null;
 
   const style = resolveLine3dVisualStyle(subtype, selected);
@@ -119,13 +94,7 @@ export function createLineTubeGroup(
   if (points.length < 2) return null;
 
   const curve = buildLineCurveFromPoints(points);
-  const segments = tubularSegmentCount(
-    points,
-    tubularSegmentCap,
-    tubeLengthStepMForQuality(quality),
-    tubeMinSegmentsForQuality(quality),
-  );
-  const radialSegments = tubeRadialSegmentsForQuality(style.radialSegments, quality);
+  const segments = tubularSegmentCount(points);
   const radius = radiusM * style.radiusMul;
   const color = hexToThreeColor(colorHex);
   if (selected) {
@@ -137,19 +106,16 @@ export function createLineTubeGroup(
     color,
     transparent: alpha < 1,
     opacity: alpha,
-    side: THREE.FrontSide,
+    side: THREE.DoubleSide,
     depthWrite: true,
     depthTest: true,
-    polygonOffset: true,
-    polygonOffsetFactor: 3,
-    polygonOffsetUnits: 3,
   });
 
   const geom = new THREE.TubeGeometry(
     curve,
     segments,
     radius,
-    radialSegments,
+    style.radialSegments,
     false,
   );
   const mesh = new THREE.Mesh(geom, mat);

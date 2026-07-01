@@ -39,8 +39,9 @@ http://localhost:5173/parameters/rates/{id-проекта}
 | Проекты | `/projects` | Список проектов, создание (admin/analyst) |
 | Карта | `/map/{projectId}` | 2D / **Площадки** / 3D — объекты и POI |
 | Кустование | `/pad-clustering/workspace/{projectId}` (subnav: **Куст**, **Сводка**, **Профиль**) | Раскладка устьев, траектории, 3D куста, read-only сводка, профиль MD–TVD |
-| Параметры | `/parameters/*/{projectId}` | Пропускная способность, **земляные работы**, **точки подключения**, песок, даты, **ставки** |
-| Потоки | `/flows/*/{projectId}` | Технологическая, экономическая схемы, логистика песка |
+| Параметры | `/parameters/*/{projectId}` | Пропускная способность, **земляные работы**, **точки подключения**, даты, **ставки** |
+| **Логистика** | `/logistics/*/{projectId}` | Схема логистики песка, **объём песка** (подвкладки) |
+| Потоки | `/flows/*/{projectId}` | Технологическая и экономическая схемы по POI |
 | Матрица | `/matrix/{projectId}` | Сравнение POI по стоимости и кандидатам |
 | Отчёты | `/report/{projectId}` | One-pager и печать |
 | **Данные** | `/data/*/{projectId}` | Импорт, экспорт, импорт 3D (подвкладки) |
@@ -63,6 +64,15 @@ http://localhost:5173/parameters/rates/{id-проекта}
 | Профиль траектории | `/pad-clustering/profile/{projectId}` |
 
 Legacy `/pad-clustering/{projectId}` → **Куст**.
+
+### Подвкладки «Логистика»
+
+| Вкладка | Маршрут |
+|---------|---------|
+| Логистика (схема) | `/logistics/schematic/{projectId}` |
+| Объём песка | `/logistics/sand/{projectId}` |
+
+Старые URL `/parameters/sand`, `/flows/logistics` перенаправляются на новые пути.
 
 Старые URL `/import`, `/export`, `/import-3d` и `/{projectId}/data/...` перенаправляются на `/data/.../{projectId}`.
 

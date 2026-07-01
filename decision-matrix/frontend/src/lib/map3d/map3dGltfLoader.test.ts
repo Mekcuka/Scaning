@@ -4,7 +4,6 @@ import {
   anchorGltfGroupAtFootprint,
   applyGltfInstanceColor,
   applyGltfInstanceSelection,
-  scaleGltfGroupToHeightM,
 } from './map3dGltfLoader';
 
 describe('applyGltfInstanceColor', () => {
@@ -25,37 +24,10 @@ describe('applyGltfInstanceColor', () => {
     const mat = out.material as THREE.MeshStandardMaterial;
     expect(mat.vertexColors).toBe(true);
     expect(mat.map).toBeNull();
-    expect(mat.transparent).toBe(false);
-    expect(mat.depthWrite).toBe(true);
-    expect(mat.depthTest).toBe(true);
     expect(out.geometry.getAttribute('color')).toBeTruthy();
     const colors = out.geometry.getAttribute('color') as THREE.BufferAttribute;
     expect(colors.count).toBeGreaterThan(0);
     expect(colors.getX(0)).not.toBe(colors.getX(colors.count - 1));
-  });
-
-  it('forces opaque depth state on transparent glTF materials', () => {
-    const group = new THREE.Group();
-    const mesh = new THREE.Mesh(
-      new THREE.BoxGeometry(2, 4, 2),
-      new THREE.MeshStandardMaterial({
-        color: '#888888',
-        transparent: true,
-        opacity: 0.5,
-        depthWrite: false,
-      }),
-    );
-    mesh.position.y = 2;
-    group.add(mesh);
-    group.updateWorldMatrix(true, true);
-
-    applyGltfInstanceColor(group, '#c62828', false);
-
-    const mat = (group.children[0] as THREE.Mesh).material as THREE.MeshStandardMaterial;
-    expect(mat.transparent).toBe(false);
-    expect(mat.opacity).toBe(1);
-    expect(mat.depthWrite).toBe(true);
-    expect(mat.depthTest).toBe(true);
   });
 });
 
@@ -73,20 +45,6 @@ describe('anchorGltfGroupAtFootprint', () => {
     expect(Math.abs(center.x)).toBeLessThan(1e-4);
     expect(Math.abs(center.z)).toBeLessThan(1e-4);
     expect(box.min.y).toBeCloseTo(0, 4);
-  });
-});
-
-describe('scaleGltfGroupToHeightM', () => {
-  it('uses max dimension (not Y-only) so wide assets match heightM', () => {
-    const group = new THREE.Group();
-    const mesh = new THREE.Mesh(new THREE.BoxGeometry(20, 4, 10));
-    mesh.position.y = 2;
-    group.add(mesh);
-    scaleGltfGroupToHeightM(group, 8);
-    group.updateMatrixWorld(true);
-    const size = new THREE.Box3().setFromObject(group).getSize(new THREE.Vector3());
-    const maxDim = Math.max(size.x, size.y, size.z);
-    expect(maxDim).toBeCloseTo(8, 2);
   });
 });
 

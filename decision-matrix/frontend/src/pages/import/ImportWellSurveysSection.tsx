@@ -1,7 +1,9 @@
-import type { RefObject } from 'react';
+import { useMemo, type RefObject } from 'react';
 import { Download, Route } from 'lucide-react';
 import { Button, Card, Form } from 'antd';
+import type { ColumnsType } from 'antd/es/table';
 import { AppSelect } from '../../components/AppSelect';
+import { AppDataTable } from '../../components/AppDataTable';
 import type { WellTrajectoryImportPreviewResponse } from '../../lib/api/wellTrajectoryApi';
 import { IMPORT_WELL_SURVEY_CSV_TEMPLATE } from './importWellSurveyCsvTemplate';
 
@@ -46,6 +48,33 @@ export function ImportWellSurveysSection({
   onCommit,
   embedded = false,
 }: Props) {
+  type WellPreviewRow = WellTrajectoryImportPreviewResponse['wells'][number];
+
+  const wellColumns = useMemo<ColumnsType<WellPreviewRow>>(
+    () => [
+      { title: 'well_name', dataIndex: 'name', key: 'name' },
+      {
+        title: 'станций',
+        dataIndex: 'station_count',
+        key: 'station_count',
+      },
+      {
+        title: 'matched index',
+        key: 'matched_index',
+        render: (_, row) => row.matched_index ?? '—',
+      },
+      {
+        title: 'warnings',
+        key: 'warnings',
+        className: 'text-xs',
+        render: (_, row) => (
+          <span style={{ color: 'var(--text-muted)' }}>{row.warnings.join('; ') || '—'}</span>
+        ),
+      },
+    ],
+    [],
+  );
+
   const content = (
     <>
       {!hasProjects && (
@@ -117,28 +146,11 @@ export function ImportWellSurveysSection({
           <p className="import-preview__title">
             Preview: {preview.well_count} скв. ({format ?? '?'})
           </p>
-          <table className="w-full text-sm border-collapse">
-            <thead>
-              <tr>
-                <th className="text-left p-2 border-b">well_name</th>
-                <th className="text-left p-2 border-b">станций</th>
-                <th className="text-left p-2 border-b">matched index</th>
-                <th className="text-left p-2 border-b">warnings</th>
-              </tr>
-            </thead>
-            <tbody>
-              {preview.wells.map((row) => (
-                <tr key={row.name}>
-                  <td className="p-2 border-b">{row.name}</td>
-                  <td className="p-2 border-b">{row.station_count}</td>
-                  <td className="p-2 border-b">{row.matched_index ?? '—'}</td>
-                  <td className="p-2 border-b text-xs" style={{ color: 'var(--text-muted)' }}>
-                    {row.warnings.join('; ') || '—'}
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
+          <AppDataTable
+            rowKey="name"
+            columns={wellColumns}
+            dataSource={preview.wells}
+          />
           {preview.errors.length > 0 && (
             <p className="text-sm mt-2" style={{ color: 'var(--danger, #c62828)' }}>
               {preview.errors.join('; ')}
@@ -153,7 +165,6 @@ export function ImportWellSurveysSection({
     <>
       <Button
         size="small"
-        className="export-option__btn"
         icon={<Download size={16} aria-hidden />}
         onClick={() => {
           const blob = new Blob([IMPORT_WELL_SURVEY_CSV_TEMPLATE], { type: 'text/csv;charset=utf-8' });
@@ -171,7 +182,7 @@ export function ImportWellSurveysSection({
         <Button
           type="primary"
           size="small"
-          className="export-option__btn export-option__btn--wide"
+          className="export-option__btn--wide"
           disabled={readOnly || busy || preview.wells.length === 0}
           loading={busy}
           onClick={() => void onCommit()}

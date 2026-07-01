@@ -1,5 +1,5 @@
 import { Trash2 } from 'lucide-react';
-import { Button, Space } from 'antd';
+import { Button } from 'antd';
 
 interface ObjectDetailPanelFooterProps {
   readOnly: boolean;
@@ -21,7 +21,7 @@ export function ObjectDetailPanelFooter({
   return (
     <footer className="object-detail-panel__footer">
       {!readOnly && (
-        <Space>
+        <>
           <Button
             type="primary"
             className="object-detail-panel__save"
@@ -42,7 +42,7 @@ export function ObjectDetailPanelFooter({
           >
             Удалить
           </Button>
-        </Space>
+        </>
       )}
     </footer>
   );

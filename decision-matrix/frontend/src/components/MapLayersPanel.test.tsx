@@ -54,34 +54,4 @@ describe('MapLayersPanel', () => {
     expect(screen.queryByText('Рельеф (3D)')).not.toBeInTheDocument();
     expect(screen.getByText('3D-модели объектов')).toBeInTheDocument();
   });
-
-  it('shows 3D quality presets when handler provided', () => {
-    render(
-      <MapLayersPanel
-        {...baseProps}
-        showModels
-        onShowModelsChange={vi.fn()}
-        modelsToggleEnabled
-        map3dQuality="balanced"
-        onMap3dQualityChange={vi.fn()}
-      />,
-    );
-    expect(screen.getByText('Качество 3D')).toBeInTheDocument();
-    expect(screen.getByRole('radio', { name: 'Стандарт' })).toHaveAttribute('aria-checked', 'true');
-    expect(screen.getByText('Рекомендуется для повседневной работы. Модели не меняются.')).toBeInTheDocument();
-  });
-
-  it('hides 3D quality when models are off', () => {
-    render(
-      <MapLayersPanel
-        {...baseProps}
-        showModels={false}
-        onShowModelsChange={vi.fn()}
-        modelsToggleEnabled
-        map3dQuality="balanced"
-        onMap3dQualityChange={vi.fn()}
-      />,
-    );
-    expect(screen.queryByText('Качество 3D')).not.toBeInTheDocument();
-  });
 });

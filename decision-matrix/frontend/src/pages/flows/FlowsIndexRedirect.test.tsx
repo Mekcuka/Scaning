@@ -15,7 +15,7 @@ function renderRedirect() {
   return renderPage(
     <Routes>
       <Route path="/flows/:projectId" element={<FlowsIndexRedirect />} />
-      <Route path="/flows/logistics/:projectId" element={<div>logistics-page</div>} />
+      <Route path="/logistics/schematic/:projectId" element={<div>logistics-page</div>} />
       <Route path="/flows/technology/:projectId" element={<div>technology-page</div>} />
       <Route path="/flows/economic/:projectId" element={<div>economic-page</div>} />
       <Route path="/flows/technology" element={<div>technology-bare</div>} />

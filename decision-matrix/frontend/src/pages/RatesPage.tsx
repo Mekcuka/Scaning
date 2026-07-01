@@ -2,6 +2,7 @@ import { useState, useEffect, useRef, useMemo } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { RotateCcw, Save } from 'lucide-react';
 import { Button, Card, Space } from 'antd';
+import type { ColumnsType } from 'antd/es/table';
 import { defaultProjectsRatesApi, type DistanceDefaults } from '../lib/api';
 import { useAppStore } from '../store';
 import { usePermissions } from '../hooks/usePermissions';
@@ -19,8 +20,14 @@ import {
 } from '../lib/specs';
 import type { DistanceParameterGroup, ParameterGroup } from '../lib/parameterCatalog';
 import { DeferredNumberInput } from '../components/DeferredNumberInput';
-import { TableExcelExportButton } from '../components/TableExcelExportButton';
+import { AppDataTable } from '../components/AppDataTable';
 import { ratesKeyValueExportColumns } from '../lib/tableExcelExportData';
+
+type RateTableRow = {
+  id: string;
+  label: string;
+  defaultValue: number;
+};
 
 export const RATES_PROJECT_SCOPE = '__project__';
 
@@ -35,46 +42,64 @@ function RatesGroupTable({
   getValue: (id: string, fallback: number) => number;
   onCommit: (id: string, value: number) => void;
 }) {
-  const exportRows = group.rows.map((row) => ({
+  const dataSource: RateTableRow[] = group.rows.map((row) => ({
+    id: row.id,
+    label: row.label,
+    defaultValue: row.defaultValue,
+  }));
+
+  const exportRows = dataSource.map((row) => ({
     label: row.label,
     value: getValue(row.id, row.defaultValue),
   }));
+
+  const columns = useMemo<ColumnsType<RateTableRow>>(
+    () => [
+      {
+        title: 'Параметр',
+        dataIndex: 'label',
+        key: 'label',
+        className: 'rates-table__label',
+        onCell: () => ({ scope: 'row' as const }),
+      },
+      {
+        title: group.unitLabel,
+        key: 'value',
+        className: 'rates-table__value',
+        render: (_, row) => (
+          <DeferredNumberInput
+            className="rates-input"
+            min={0}
+            groupDigits
+            readOnly={readOnly}
+            value={getValue(row.id, row.defaultValue)}
+            onCommit={(v) => onCommit(row.id, v as number)}
+          />
+        ),
+      },
+    ],
+    [group.unitLabel, getValue, onCommit, readOnly],
+  );
 
   return (
     <Card className="card--flush rates-group-card" styles={{ body: { padding: 0 } }}>
       <div className="rates-group-head">
         <h3>{group.label}</h3>
-        <div className="rates-group-head__actions">
-          <span className="rates-group-unit">{group.unitLabel}</span>
-          <TableExcelExportButton
-            filename={`stavki-${group.id}.xlsx`}
-            sheetName={group.label}
-            columns={ratesKeyValueExportColumns()}
-            rows={exportRows}
-          />
-        </div>
       </div>
-      <div className="table-wrap">
-        <table className="rates-table">
-          <tbody>
-            {group.rows.map((row) => (
-              <tr key={row.id}>
-                <th scope="row">{row.label}</th>
-                <td>
-                  <DeferredNumberInput
-                    className="rates-input"
-                    min={0}
-                    groupDigits
-                    readOnly={readOnly}
-                    value={getValue(row.id, row.defaultValue)}
-                    onCommit={(v) => onCommit(row.id, v as number)}
-                  />
-                </td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
-      </div>
+      <AppDataTable
+        className="rates-table"
+        rowKey="id"
+        showHeader={false}
+        columns={columns}
+        dataSource={dataSource}
+        tableExtra={<span className="rates-group-unit">{group.unitLabel}</span>}
+        excelExport={{
+          filename: `stavki-${group.id}.xlsx`,
+          sheetName: group.label,
+          columns: ratesKeyValueExportColumns(),
+          rows: exportRows,
+        }}
+      />
     </Card>
   );
 }
@@ -90,46 +115,68 @@ function DistanceGroupTable({
   values: DistanceDefaults;
   onCommit: (key: keyof DistanceDefaults, value: number) => void;
 }) {
+  const dataSource: RateTableRow[] = group.rows.map((row) => ({
+    id: row.id,
+    label: row.label,
+    defaultValue: row.defaultValue,
+  }));
+
   const exportRows = group.rows.map((row) => ({
     label: row.label,
     value: values[row.distanceKey] ?? row.defaultValue,
   }));
 
+  const columns = useMemo<ColumnsType<RateTableRow>>(
+    () => [
+      {
+        title: 'Параметр',
+        dataIndex: 'label',
+        key: 'label',
+        className: 'rates-table__label',
+        onCell: () => ({ scope: 'row' as const }),
+      },
+      {
+        title: group.unitLabel,
+        key: 'value',
+        className: 'rates-table__value',
+        render: (_, row) => {
+          const distanceKey = group.rows.find((r) => r.id === row.id)?.distanceKey;
+          if (!distanceKey) return null;
+          return (
+            <DeferredNumberInput
+              className="rates-input"
+              min={0}
+              groupDigits
+              readOnly={readOnly}
+              value={values[distanceKey] ?? row.defaultValue}
+              onCommit={(v) => onCommit(distanceKey, v as number)}
+            />
+          );
+        },
+      },
+    ],
+    [group.rows, group.unitLabel, onCommit, readOnly, values],
+  );
+
   return (
     <Card className="card--flush rates-group-card" styles={{ body: { padding: 0 } }}>
       <div className="rates-group-head">
         <h3>{group.label}</h3>
-        <div className="rates-group-head__actions">
-          <span className="rates-group-unit">{group.unitLabel}</span>
-          <TableExcelExportButton
-            filename={`stavki-rasstoyaniya-${group.id}.xlsx`}
-            sheetName={group.label}
-            columns={ratesKeyValueExportColumns()}
-            rows={exportRows}
-          />
-        </div>
       </div>
-      <div className="table-wrap">
-        <table className="rates-table">
-          <tbody>
-            {group.rows.map((row) => (
-              <tr key={row.id}>
-                <th scope="row">{row.label}</th>
-                <td>
-                  <DeferredNumberInput
-                    className="rates-input"
-                    min={0}
-                    groupDigits
-                    readOnly={readOnly}
-                    value={values[row.distanceKey] ?? row.defaultValue}
-                    onCommit={(v) => onCommit(row.distanceKey, v as number)}
-                  />
-                </td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
-      </div>
+      <AppDataTable
+        className="rates-table"
+        rowKey="id"
+        showHeader={false}
+        columns={columns}
+        dataSource={dataSource}
+        tableExtra={<span className="rates-group-unit">{group.unitLabel}</span>}
+        excelExport={{
+          filename: `stavki-rasstoyaniya-${group.id}.xlsx`,
+          sheetName: group.label,
+          columns: ratesKeyValueExportColumns(),
+          rows: exportRows,
+        }}
+      />
     </Card>
   );
 }
@@ -332,11 +379,6 @@ export function RatesPage() {
     <div className="rates-page">
       <header className="parameters-section-head rates-page-top">
         <div className="rates-page-top__main">
-          <p className="parameters-section-head__subtitle">
-            {isProjectScope
-              ? 'Шаблон проекта: расстояния, CAPEX, выручка и OPEX для новых POI'
-              : 'Значения POI наследуют шаблон проекта, если не переопределены'}
-          </p>
           <div className="rates-poi-select">
             <AppSelect
               ariaLabel="Объект"

@@ -1,0 +1,18 @@
+/* —— App modal mobile (≤1023px) —— */
+@media (max-width: 1023px) {
+  .app-modal-overlay {
+    align-items: flex-end;
+    padding: 0;
+  }
+
+  .app-modal-overlay .ant-modal-container,
+  .app-modal-overlay .ant-modal-content {
+    max-height: min(92vh, 720px);
+    border-radius: 14px 14px 0 0;
+    padding-bottom: env(safe-area-inset-bottom);
+  }
+
+  .app-modal-overlay .ant-modal {
+    max-width: none;
+  }
+}

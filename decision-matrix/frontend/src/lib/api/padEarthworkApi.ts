@@ -200,10 +200,13 @@ export const padEarthworkApi = {
       body: JSON.stringify({ sketch }),
     }),
   patchParams: (projectId: string, objectId: string, params: Partial<PadEarthworkParams>) =>
-    request(`/projects/${projectId}/infrastructure/objects/${objectId}/pad-earthwork/params`, {
-      method: 'PATCH',
-      body: JSON.stringify(params),
-    }),
+    request<InfraObject>(
+      `/projects/${projectId}/infrastructure/objects/${objectId}/pad-earthwork/params`,
+      {
+        method: 'PATCH',
+        body: JSON.stringify(params),
+      },
+    ),
   saveSketch: (
     projectId: string,
     objectId: string,

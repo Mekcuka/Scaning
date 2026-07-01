@@ -1,6 +1,10 @@
-/* —— Projects table: hide low-priority columns before full mobile layout —— */
+/* —— Projects table: responsive layout —— */
 @media (max-width: 1200px) {
-  table.data-table--projects {
+  .projects-table-card .table-wrap {
+    overflow-x: auto;
+  }
+
+  .app-data-table.data-table--projects {
     min-width: 36rem;
   }
 
@@ -8,9 +12,51 @@
     padding-inline: 16px;
   }
 
-  .data-table--projects .col-date,
-  .data-table--projects .col-cost {
+  .app-data-table.data-table--projects .col-date,
+  .app-data-table.data-table--projects .col-cost {
     display: none;
   }
 }
 
+@media (max-width: 1023px) {
+  .ant-card.projects-table-card .card-header.projects-table-card__header {
+    flex-wrap: wrap;
+  }
+
+  .projects-table-card__search {
+    flex: 1 1 100%;
+    max-width: none;
+    margin-left: 0;
+    order: 2;
+  }
+
+  .ant-card.projects-table-card .card-header.projects-table-card__header .projects-table-card__action-btn {
+    order: 3;
+    width: auto;
+    min-width: 35px;
+    padding-inline: 8px;
+  }
+
+  .projects-table-actions .ant-btn-default.ant-btn-sm:not(.p-2) {
+    padding-inline: 0.5rem;
+    font-size: 0.75rem;
+  }
+
+  .projects-table-card__title {
+    font-size: 0.9375rem;
+  }
+
+  .projects-table-card__btn-label {
+    display: none;
+  }
+
+  .projects-table-card__btn-icon {
+    margin-right: 0;
+  }
+
+  .app-data-table.data-table--projects .col-desc,
+  .app-data-table.data-table--projects .col-date,
+  .app-data-table.data-table--projects .col-cost {
+    display: none;
+  }
+}

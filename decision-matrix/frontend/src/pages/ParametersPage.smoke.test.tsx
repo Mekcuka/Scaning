@@ -23,6 +23,6 @@ describe('ParametersPage smoke', () => {
   it('renders heading when project is selected', async () => {
     renderWithProviders(<ParametersPage />);
     await waitFor(() => expect(screen.getByText('Открыть карту')).toBeInTheDocument());
-    expect(screen.getByText('Пропускная способность')).toBeInTheDocument();
+    expect(screen.getByRole('columnheader', { name: 'Пропускная способность' })).toBeInTheDocument();
   });
 });

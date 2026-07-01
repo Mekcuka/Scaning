@@ -319,7 +319,7 @@ export function InfraBottomholeDetailSection({
           <Button
             block
             size="small"
-            className="object-detail-panel__copy-btn object-detail-panel__copy-btn--block"
+            className="object-detail-panel__copy-btn"
             loading={designMut.isPending}
             onClick={() => designMut.mutate()}
           >

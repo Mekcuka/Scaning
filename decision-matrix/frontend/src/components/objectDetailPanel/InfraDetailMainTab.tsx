@@ -365,7 +365,7 @@ export function InfraDetailMainTab({
             <Button
               block
               size="small"
-              className="object-detail-panel__copy-btn object-detail-panel__copy-btn--block"
+              className="object-detail-panel__copy-btn"
               icon={<Copy size={14} aria-hidden />}
               onClick={() => void copyCoordinates()}
             >

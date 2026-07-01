@@ -2,10 +2,6 @@
 
 import { createDefaultSubtypeFilter } from '../api';
 import {
-  DEFAULT_MAP3D_QUALITY,
-  type Map3dQuality,
-} from '../map3d/map3dQuality';
-import {
   clampLineLodScaleThreshold,
   DEFAULT_LINE_LOD_SCALE_THRESHOLD,
 } from './mapLineLod';
@@ -34,8 +30,6 @@ export type MapLayerPreferences = {
   showWellBottomholes: boolean;
   /** 3D trajectory lines (MapLibre). */
   showWellTrajectories3d: boolean;
-  /** 3D rendering quality preset. */
-  map3dQuality: Map3dQuality;
 };
 
 const DEFAULT_RADIUS_VISIBLE: Record<string, boolean> = {
@@ -66,7 +60,6 @@ export function defaultMapLayerPreferences(): MapLayerPreferences {
     showWellTrajectories: true,
     showWellBottomholes: true,
     showWellTrajectories3d: true,
-    map3dQuality: DEFAULT_MAP3D_QUALITY,
   };
 }
 
@@ -96,11 +89,6 @@ function parseOpenSections(raw: unknown): MapLayerOpenSections {
     sources: typeof o.sources === 'boolean' ? o.sources : def.sources,
     radii: typeof o.radii === 'boolean' ? o.radii : def.radii,
   };
-}
-
-function parseMap3dQuality(raw: unknown): Map3dQuality {
-  if (raw === 'full' || raw === 'balanced' || raw === 'performance') return raw;
-  return DEFAULT_MAP3D_QUALITY;
 }
 
 export function loadMapLayerPreferences(projectId: string | null): MapLayerPreferences {
@@ -135,7 +123,6 @@ export function loadMapLayerPreferences(projectId: string | null): MapLayerPrefe
         typeof parsed.showWellTrajectories3d === 'boolean'
           ? parsed.showWellTrajectories3d
           : defaults.showWellTrajectories3d,
-      map3dQuality: parseMap3dQuality(parsed.map3dQuality),
     };
   } catch {
     return defaults;

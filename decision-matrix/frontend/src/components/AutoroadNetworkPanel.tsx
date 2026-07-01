@@ -156,16 +156,16 @@ export function AutoroadNetworkPanel({
             onClick={() => onPickModeChange('box')}
           />
         </div>
-        <button
-          type="button"
+        <Button
+          size="small"
           className="autoroad-network-panel__bulk-btn"
+          icon={<Plus size={12} aria-hidden />}
           disabled={visibleEligibleCount === 0 || pending}
           title="Добавить подходящие точки в видимой области"
           onClick={onAddVisible}
         >
-          <Plus size={12} aria-hidden />
           Видимые ({visibleEligibleCount})
-        </button>
+        </Button>
         {subtypeBulkOptions.length > 0 ? (
           <select
             className="autoroad-network-panel__subtype-select"
@@ -198,8 +198,9 @@ export function AutoroadNetworkPanel({
       />
 
       <div className="autoroad-network-panel__list-header">
-        <button
-          type="button"
+        <Button
+          type="text"
+          size="small"
           className="autoroad-network-panel__list-toggle"
           onClick={() => setListCollapsed((v) => !v)}
           aria-expanded={!listCollapsed}
@@ -207,7 +208,7 @@ export function AutoroadNetworkPanel({
           {listCollapsed ? <ChevronRight size={14} /> : <ChevronDown size={14} />}
           <span>Терминалы</span>
           <span className="autoroad-network-panel__list-count">{items.length}</span>
-        </button>
+        </Button>
         <Button
           type="text"
           size="small"
@@ -233,14 +234,14 @@ export function AutoroadNetworkPanel({
                 aria-label="Поиск терминала"
               />
               {query ? (
-                <button
-                  type="button"
+                <Button
+                  type="text"
+                  size="small"
                   className="map-group-panel__search-clear"
+                  icon={<X size={12} />}
                   onClick={() => setQuery('')}
                   aria-label="Очистить поиск"
-                >
-                  <X size={12} />
-                </button>
+                />
               ) : null}
             </label>
           )}
@@ -279,16 +280,16 @@ export function AutoroadNetworkPanel({
                       >
                         {TERMINAL_ROLE_LABELS[role]}
                       </span>
-                      <button
-                        type="button"
+                      <Button
+                        type="text"
+                        size="small"
                         className="autoroad-network-panel__item-remove"
+                        icon={<X size={12} />}
                         title="Убрать из списка"
                         aria-label={`Убрать ${item.name}`}
                         disabled={pending}
                         onClick={() => onRemoveItem(item.id)}
-                      >
-                        <X size={12} />
-                      </button>
+                      />
                     </li>
                   );
                 })}

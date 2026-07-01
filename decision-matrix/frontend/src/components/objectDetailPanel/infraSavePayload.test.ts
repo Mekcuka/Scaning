@@ -4,6 +4,7 @@ import {
   WELL_BOTTOMHOLE_HEEL_TVD_M,
   WELL_BOTTOMHOLE_TOE_TVD_M,
 } from '../../lib/wellBottomholeProperties';
+import { PAD_REFERENCE_ELEVATION_M } from '../../lib/infraPadEarthwork';
 import { buildInfraSavePayload, type InfraSaveDraft } from './infraSavePayload';
 import { EMPTY_BOTTOMHOLE_FORM_FIELDS } from './bottomholeFormFields';
 
@@ -80,5 +81,28 @@ describe('buildInfraSavePayload', () => {
     const props = payload.properties as Record<string, unknown>;
     expect(props[WELL_BOTTOMHOLE_HEEL_TVD_M]).toBe(1300);
     expect(props[WELL_BOTTOMHOLE_TOE_TVD_M]).toBe(1600);
+  });
+
+  it('keeps pad_reference_elevation_m from the object passed into the payload', () => {
+    const obj: InfraObject = {
+      id: 'pad-1',
+      layer_id: 'layer-1',
+      name: 'Куст',
+      subtype: 'oil_pad',
+      category: 'pad',
+      lon: 37.61,
+      lat: 55.71,
+      properties: { [PAD_REFERENCE_ELEVATION_M]: 135.14 },
+    };
+    const payload = buildInfraSavePayload(
+      baseDraft({
+        subtype: 'oil_pad',
+        name: 'Куст',
+        bottomholeFields: EMPTY_BOTTOMHOLE_FORM_FIELDS,
+      }),
+      obj,
+    );
+    const props = payload.properties as Record<string, unknown>;
+    expect(props[PAD_REFERENCE_ELEVATION_M]).toBe(135.14);
   });
 });

@@ -14,7 +14,7 @@
 | Кнопки, формы, модалки | `components/`; модалка + flow overlays → `components/app-modal/` |
 | Экран / фича | `features/<feature>.css` |
 | Карта (2D/3D) | `features/map/` — см. таблицу ниже |
-| Глобальный responsive | `responsive/` (осторожно с порядком) |
+| Глобальный responsive | `responsive/` — `projects-table`, `shell-mobile`, `tables-mobile`, `flow-mobile`, `map-mobile`, `modal-mobile` |
 
 ### `features/map/` — по префиксу класса
 
@@ -38,7 +38,8 @@
 | Префикс / зона | Файл |
 |----------------|------|
 | `.app-modal-*` | `app-modal/core.css` |
-| `.flow-schematic-*`, `.sand-logistics-flow-*`, `.sand-schematic-*` (поздний блок) | `app-modal/flow-overlays.css` |
+| `.flow-schematic-*` page/canvas | `features/flow-schematic-page.css` |
+| `.sand-logistics-flow-*`, `.sand-schematic-*` | `app-modal/flow-overlays.css` |
 | `.sand-logistics-timeline*` | `app-modal/sand-logistics.css` |
 | `.toast*`, `.measure-label`, `.sr-only`, mobile shell toggles | `app-modal/overlays.css` |
 
@@ -48,6 +49,7 @@
 
 ```bash
 npm run verify:css
+npm run audit:css
 npm run build
 npm test
 ```

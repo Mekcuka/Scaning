@@ -1,0 +1,145 @@
+/* —— Shell mobile (≤1023px) —— */
+@media (max-width: 1023px) {
+  .app-sidebar-toggle {
+    display: inline-flex;
+  }
+
+  .app-sidebar-backdrop {
+    position: fixed;
+    inset: 0;
+    z-index: 1190;
+    border: none;
+    padding: 0;
+    margin: 0;
+    background: rgba(7, 26, 46, 0.45);
+    cursor: pointer;
+  }
+
+  .app-sidebar {
+    position: fixed;
+    top: 0;
+    left: 0;
+    z-index: 1200;
+    transform: translateX(-100%);
+    transition: transform 0.22s ease;
+    box-shadow: var(--shadow-lg);
+  }
+
+  .app-sidebar--open {
+    transform: translateX(0);
+  }
+
+  .app-header {
+    padding: 8px 12px;
+    gap: 8px;
+    align-items: flex-start;
+  }
+
+  .app-header-page {
+    flex: 1 1 calc(100% - 2.75rem);
+    order: 1;
+  }
+
+  .app-header-page__title {
+    font-size: 1rem;
+    white-space: normal;
+  }
+
+  .app-header-page__subtitle {
+    white-space: normal;
+    display: -webkit-box;
+    -webkit-line-clamp: 2;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
+  }
+
+  .app-header-page-actions {
+    order: 2;
+    width: 100%;
+    flex: 1 1 100%;
+  }
+
+  .app-header-toolbar {
+    flex: 1 1 0;
+    gap: 8px;
+  }
+
+  .app-header-actions {
+    flex: 1 1 auto;
+    width: 100%;
+    max-width: calc(100% - 2.75rem);
+    margin-left: 0;
+  }
+
+  .app-header-project {
+    flex: 1 1 auto;
+    min-width: 0;
+  }
+
+  .app-header-project-label {
+    display: none;
+  }
+
+  .app-main {
+    padding: 12px !important;
+  }
+
+  .app-main--map {
+    padding: 0 !important;
+  }
+
+  .page-header {
+    margin-bottom: 16px;
+  }
+
+  .page-header h1 {
+    font-size: 1.25rem;
+  }
+
+  .stats-row,
+  .quick-actions {
+    grid-template-columns: 1fr;
+    gap: 10px;
+  }
+
+  .projects-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .page-title {
+    font-size: 1.25rem;
+  }
+
+  .page-toolbar {
+    margin-bottom: 16px;
+    gap: 10px;
+  }
+
+  .page-toolbar-actions {
+    width: 100%;
+    justify-content: stretch;
+  }
+
+  .page-toolbar-actions .ant-btn {
+    flex: 1 1 auto;
+    justify-content: center;
+  }
+
+  .toast-stack,
+  .toast-stack-bottom {
+    left: 12px;
+    right: 12px;
+    max-width: none;
+  }
+
+  .report-map-preview {
+    min-height: 200px !important;
+  }
+}
+
+@media (min-width: 1024px) {
+  .app-sidebar-toggle,
+  .app-sidebar-backdrop {
+    display: none;
+  }
+}

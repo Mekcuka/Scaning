@@ -1,3 +1,4 @@
+/* Историческое имя файла: содержит app-header, topbar-search, assistant panel — не только flow. */
 /* Подписи на рёбрах React Flow — absolute только внутри канвы */
 .react-flow__edgelabel-renderer .flow-edge-label {
   position: absolute;
@@ -163,7 +164,7 @@
   flex-shrink: 1;
 }
 
-.app-header-project .app-select--toolbar .app-select-trigger {
+.app-header-project .app-select--toolbar.ant-select .ant-select-selector {
   max-width: 100%;
 }
 

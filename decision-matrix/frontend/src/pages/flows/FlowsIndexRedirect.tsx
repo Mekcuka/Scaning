@@ -32,7 +32,7 @@ export function FlowsIndexRedirect() {
   }
   if (poisLoading) return null;
   if (pois.length === 0) {
-    return <Navigate to={projectPath(effectiveProjectId, '/flows/logistics')} replace />;
+    return <Navigate to={projectPath(effectiveProjectId, '/logistics/schematic')} replace />;
   }
   return <Navigate to={projectPath(effectiveProjectId, '/flows/technology')} replace />;
 }

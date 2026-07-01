@@ -22,6 +22,10 @@
   max-width: 320px;
 }
 
+.rates-distance-card.ant-card .card-header h2 {
+  margin: 0;
+}
+
 .rates-page-top h1 {
   margin: 0 0 4px;
 }
@@ -54,7 +58,7 @@
 
 .rates-groups-grid {
   display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
+  grid-template-columns: repeat(4, minmax(0, 1fr));
   gap: 12px;
   align-items: start;
 }
@@ -111,29 +115,21 @@
   flex-shrink: 0;
 }
 
-.table-excel-export-btn {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
+.table-excel-export-btn.ant-btn {
   width: 1.75rem;
   height: 1.75rem;
+  min-width: 1.75rem;
   padding: 0;
-  border: none;
-  border-radius: 4px;
-  background: transparent;
   color: var(--text-muted);
-  cursor: pointer;
-  transition: color 0.15s ease, background 0.15s ease;
 }
 
-.table-excel-export-btn:hover:not(:disabled) {
+.table-excel-export-btn.ant-btn:hover:not(:disabled) {
   color: var(--primary);
   background: var(--surface-2);
 }
 
-.table-excel-export-btn:disabled {
+.table-excel-export-btn.ant-btn:disabled {
   opacity: 0.35;
-  cursor: not-allowed;
 }
 
 th.table-excel-export-th {
@@ -156,34 +152,6 @@ td.table-excel-export-td {
   white-space: nowrap;
 }
 
-.rates-table {
-  width: 100%;
-  border-collapse: collapse;
-  font-size: 0.8125rem;
-}
-
-.rates-table th {
-  padding: 6px 10px 6px 14px;
-  font-weight: 500;
-  text-align: left;
-  color: var(--text-muted);
-  border-bottom: 1px solid var(--border);
-  vertical-align: middle;
-}
-
-.rates-table td {
-  padding: 4px 10px 4px 4px;
-  border-bottom: 1px solid var(--border);
-  width: 7rem;
-  text-align: right;
-  vertical-align: middle;
-}
-
-.rates-table tr:last-child th,
-.rates-table tr:last-child td {
-  border-bottom: none;
-}
-
 .rates-input,
 .ant-input-number.rates-input {
   max-width: 7.75rem;
@@ -194,5 +162,17 @@ td.table-excel-export-td {
   font-variant-numeric: tabular-nums;
   text-align: right;
   border-radius: 6px;
+}
+
+/* AppDataTable / Ant Design */
+.app-data-table.rates-table .ant-table-cell.rates-table__label {
+  text-align: left !important;
+  padding-inline: 12px 8px !important;
+}
+
+.app-data-table.rates-table .ant-table-cell.rates-table__value {
+  text-align: right !important;
+  width: 7.5rem;
+  padding-inline: 4px 10px !important;
 }
 

@@ -104,6 +104,7 @@ const TAB_HELP_CHIPS: { prefix: string; label: string; message: string }[] = [
   { prefix: '/map', label: 'Справка: карта', message: 'Как пользоваться картой 2D и панелью слоёв?' },
   { prefix: '/matrix', label: 'Справка: матрица', message: 'Как работает матрица решений?' },
   { prefix: '/flows/', label: 'Справка: потоки', message: 'Что показывают вкладки раздела Потоки?' },
+  { prefix: '/logistics/', label: 'Справка: логистика', message: 'Что настраивается в разделе Логистика?' },
   { prefix: '/import', label: 'Справка: импорт', message: 'Как импортировать данные и проект Искра?' },
   { prefix: '/parameters/', label: 'Справка: параметры', message: 'Что настраивается в разделе Параметры?' },
 ];

@@ -1,7 +1,9 @@
-import type { RefObject } from 'react';
+import { useMemo, type RefObject } from 'react';
 import { Upload } from 'lucide-react';
 import { Button, Card } from 'antd';
+import type { ColumnsType } from 'antd/es/table';
 import { formatCoord } from '../../lib/coords';
+import { AppDataTable } from '../../components/AppDataTable';
 import { IMPORT_CSV_TEMPLATE } from './importCsvTemplate';
 import type { ImportPreviewRejectedRow } from './importFormat';
 
@@ -34,6 +36,51 @@ export function ImportFilesSection({
   onFile,
   embedded = false,
 }: Props) {
+  const rejectedColumns = useMemo<ColumnsType<ImportPreviewRejectedRow>>(
+    () => [
+      {
+        title: 'Строка',
+        key: 'row',
+        className: 'align-top pr-2 whitespace-nowrap text-red-700',
+        render: (_, r) => `#${r.row}`,
+      },
+      {
+        title: 'Имя',
+        dataIndex: 'name',
+        key: 'name',
+        className: 'align-top pr-2',
+      },
+      {
+        title: 'Причина',
+        dataIndex: 'reason',
+        key: 'reason',
+        className: 'align-top text-red-700',
+      },
+    ],
+    [],
+  );
+
+  type PreviewRow = { key: number; name: string; subtype: string; coords: string };
+  const previewColumns = useMemo<ColumnsType<PreviewRow>>(
+    () => [
+      { title: 'Имя', dataIndex: 'name', key: 'name' },
+      { title: 'Подтип', dataIndex: 'subtype', key: 'subtype' },
+      { title: 'Координаты', dataIndex: 'coords', key: 'coords' },
+    ],
+    [],
+  );
+
+  const previewRows: PreviewRow[] = useMemo(
+    () =>
+      (preview?.rows.slice(0, 8) ?? []).map((r, i) => ({
+        key: i,
+        name: String(r.name),
+        subtype: String(r.subtype),
+        coords: `${formatCoord(r.lon as number)}, ${formatCoord(r.lat as number)}`,
+      })),
+    [preview?.rows],
+  );
+
   const content = (
     <>
       <label className="import-option__checkbox">
@@ -77,17 +124,12 @@ export function ImportFilesSection({
           {previewRejected.length > 0 && (
             <div className="mb-2">
               <div className="font-medium text-red-700 mb-1">Причины отклонения строк</div>
-              <table className="w-full">
-                <tbody>
-                  {previewRejected.slice(0, 6).map((r) => (
-                    <tr key={`${r.row}-${r.name}`}>
-                      <td className="align-top pr-2 whitespace-nowrap text-red-700">#{r.row}</td>
-                      <td className="align-top pr-2">{r.name}</td>
-                      <td className="align-top text-red-700">{r.reason}</td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
+              <AppDataTable
+                showHeader={false}
+                rowKey={(r) => `${r.row}-${r.name}`}
+                columns={rejectedColumns}
+                dataSource={previewRejected.slice(0, 6)}
+              />
             </div>
           )}
           {preview.errors.slice(0, 5).map((e, i) => (
@@ -95,19 +137,13 @@ export function ImportFilesSection({
               {e}
             </div>
           ))}
-          <table className="w-full mt-1">
-            <tbody>
-              {preview.rows.slice(0, 8).map((r, i) => (
-                <tr key={i}>
-                  <td>{String(r.name)}</td>
-                  <td>{String(r.subtype)}</td>
-                  <td>
-                    {formatCoord(r.lon as number)}, {formatCoord(r.lat as number)}
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
+          <AppDataTable
+            className="mt-1"
+            showHeader={false}
+            rowKey="key"
+            columns={previewColumns}
+            dataSource={previewRows}
+          />
         </div>
       )}
       <p className="import-option__footnote">
@@ -121,7 +157,6 @@ export function ImportFilesSection({
     <>
       <Button
         size="small"
-        className="export-option__btn"
         disabled={busy || readOnly}
         onClick={() => {
           const f = fileInputRef.current?.files?.[0];
@@ -132,7 +167,6 @@ export function ImportFilesSection({
       </Button>
       <Button
         size="small"
-        className="export-option__btn"
         onClick={() => {
           const blob = new Blob([IMPORT_CSV_TEMPLATE], { type: 'text/csv;charset=utf-8;' });
           const url = URL.createObjectURL(blob);

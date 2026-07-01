@@ -9,11 +9,14 @@ import {
   X,
 } from 'lucide-react';
 import { Button } from 'antd';
+import type { ColumnsType } from 'antd/es/table';
 import type { MapGroupSelectionItem } from './MapGroupSelectionPanel';
+import { AppDataTable } from '../AppDataTable';
 import { PadPlacementParamsSection } from './PadPlacementParamsSection';
 import type {
   PadPlacementComputeResponse,
   PadPlacementParams,
+  PadPlacementVariant,
 } from '../../lib/padPlacementTypes';
 import { findPadPlacementVariant } from '../../lib/padPlacementCompute';
 import { iconDataUrl } from '../../lib/mapIcons';
@@ -91,6 +94,45 @@ export function PadPlacementPanel({
       : computeResult
         ? `${computeResult.variants.length} вариант(ов)`
         : 'готово к расчёту';
+
+  const variantColumns = useMemo<ColumnsType<PadPlacementVariant>>(() => {
+    const cols: ColumnsType<PadPlacementVariant> = [
+      {
+        title: '№',
+        key: 'index',
+        render: (_, v) => v.variant_index + 1,
+      },
+      {
+        title: 'Кустов',
+        dataIndex: 'pad_count',
+        key: 'pad_count',
+      },
+      {
+        title: 'Σ MD, м',
+        key: 'sum_md',
+        render: (_, v) => Math.round(v.sum_md_m).toLocaleString('ru-RU'),
+      },
+    ];
+    if (params.sf_check) {
+      cols.push({
+        title: 'min SF',
+        key: 'min_sf',
+        render: (_, v) => {
+          const sfLow = v.min_sf != null && v.min_sf < (params.sf_threshold ?? 1);
+          if (v.min_sf == null) return '—';
+          return (
+            <span className={sfLow ? 'pad-placement-panel__sf-warn' : undefined}>
+              <span className="pad-placement-panel__sf-cell">
+                {sfLow ? <AlertTriangle size={11} aria-hidden /> : null}
+                {v.min_sf.toFixed(2)}
+              </span>
+            </span>
+          );
+        },
+      });
+    }
+    return cols;
+  }, [params.sf_check, params.sf_threshold]);
 
   return (
     <div
@@ -218,50 +260,18 @@ export function PadPlacementPanel({
               Клик по строке — предпросмотр на карте. Сортировка: меньше кустов → меньше Σ MD →
               SF.
             </p>
-            <div className="pad-placement-panel__table-wrap">
-              <table className="pad-placement-panel__table">
-                <thead>
-                  <tr>
-                    <th>№</th>
-                    <th>Кустов</th>
-                    <th>Σ MD, м</th>
-                    {params.sf_check ? <th>min SF</th> : null}
-                  </tr>
-                </thead>
-                <tbody>
-                  {computeResult.variants.map((v) => {
-                    const sfLow =
-                      params.sf_check &&
-                      v.min_sf != null &&
-                      v.min_sf < (params.sf_threshold ?? 1);
-                    const selected = selectedVariantIndex === v.variant_index;
-                    return (
-                      <tr
-                        key={v.variant_index}
-                        className={`pad-placement-panel__row${selected ? ' pad-placement-panel__row--selected' : ''}`}
-                        onClick={() => onSelectVariant(v.variant_index)}
-                      >
-                        <td>{v.variant_index + 1}</td>
-                        <td>{v.pad_count}</td>
-                        <td>{Math.round(v.sum_md_m).toLocaleString('ru-RU')}</td>
-                        {params.sf_check ? (
-                          <td className={sfLow ? 'pad-placement-panel__sf-warn' : undefined}>
-                            {v.min_sf != null ? (
-                              <span className="pad-placement-panel__sf-cell">
-                                {sfLow ? <AlertTriangle size={11} aria-hidden /> : null}
-                                {v.min_sf.toFixed(2)}
-                              </span>
-                            ) : (
-                              '—'
-                            )}
-                          </td>
-                        ) : null}
-                      </tr>
-                    );
-                  })}
-                </tbody>
-              </table>
-            </div>
+            <AppDataTable
+              className="pad-placement-panel__table"
+              rowKey="variant_index"
+              columns={variantColumns}
+              dataSource={computeResult.variants}
+              onRow={(v) => ({
+                onClick: () => onSelectVariant(v.variant_index),
+                className: `pad-placement-panel__row${
+                  selectedVariantIndex === v.variant_index ? ' pad-placement-panel__row--selected' : ''
+                }`,
+              })}
+            />
             {selectedVariant && selectedVariant.score_warnings.length > 0 ? (
               <ul className="pad-placement-panel__warnings">
                 {selectedVariant.score_warnings.slice(0, 4).map((w) => (

@@ -143,7 +143,6 @@ export function ImportPage() {
           >
             <Button
               size="small"
-              className="export-option__btn"
               disabled={workflow.busy || workflow.readOnly}
               onClick={() => {
                 const f = workflow.fileInputRef.current?.files?.[0];
@@ -154,7 +153,6 @@ export function ImportPage() {
             </Button>
             <Button
               size="small"
-              className="export-option__btn"
               disabled={workflow.readOnly}
               onClick={() => {
                 const input = workflow.fileInputRef.current;
@@ -199,7 +197,6 @@ export function ImportPage() {
             <Button
               type="primary"
               size="small"
-              className="export-option__btn"
               disabled={!projectId || workflow.readOnly}
               onClick={() => workflow.saveConnMut.mutate()}
             >
@@ -207,7 +204,6 @@ export function ImportPage() {
             </Button>
             <Button
               size="small"
-              className="export-option__btn"
               disabled={!projectId || !workflow.selectedConnId || workflow.readOnly}
               onClick={() =>
                 workflow.selectedConnId && workflow.testConnMut.mutate(workflow.selectedConnId)
@@ -217,7 +213,7 @@ export function ImportPage() {
             </Button>
             <Button
               size="small"
-              className="export-option__btn export-option__btn--wide"
+              className="export-option__btn--wide"
               disabled={!projectId || !workflow.selectedConnId || workflow.readOnly}
               onClick={() =>
                 workflow.selectedConnId && workflow.syncConnMut.mutate(workflow.selectedConnId)
@@ -266,7 +262,6 @@ export function ImportPage() {
           >
             <Button
               size="small"
-              className="export-option__btn"
               disabled={surveyWorkflow.readOnly}
               onClick={() => {
                 const blob = new Blob([IMPORT_WELL_SURVEY_CSV_TEMPLATE], {
@@ -286,7 +281,7 @@ export function ImportPage() {
               <Button
                 type="primary"
                 size="small"
-                className="export-option__btn export-option__btn--wide"
+                className="export-option__btn--wide"
                 disabled={
                   surveyWorkflow.readOnly ||
                   surveyWorkflow.busy ||
@@ -300,7 +295,6 @@ export function ImportPage() {
             ) : (
               <Button
                 size="small"
-                className="export-option__btn"
                 disabled={surveyWorkflow.readOnly || !surveyWorkflow.padId || surveyWorkflow.busy}
                 onClick={() => surveyWorkflow.fileInputRef.current?.click()}
               >

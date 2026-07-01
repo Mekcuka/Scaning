@@ -33,9 +33,16 @@ describe('sectionNavMemory', () => {
     expect(getLastSectionPath('parameters')).toBe('/parameters/capacity');
   });
 
-  it('remembers flows logistics', () => {
-    rememberSectionFromPath('/flows/logistics');
-    expect(getSavedSectionPath('flows')).toBe('/flows/logistics');
+  it('remembers logistics schematic sub-route', () => {
+    rememberSectionFromPath('/logistics/schematic');
+    expect(getSavedSectionPath('logistics')).toBe('/logistics/schematic');
+  });
+
+  it('migrates legacy flows logistics path', () => {
+    sessionStorage.setItem('dm-nav-last-section:flows', '/flows/logistics');
+    expect(getLastSectionPath('flows')).toBe('/flows/technology');
+    sessionStorage.setItem('dm-nav-last-section:logistics', '/flows/logistics');
+    expect(getLastSectionPath('logistics')).toBe('/logistics/schematic');
   });
 
   it('remembers data export sub-route', () => {

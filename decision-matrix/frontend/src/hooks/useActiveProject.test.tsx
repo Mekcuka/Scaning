@@ -85,7 +85,6 @@ describe('useActiveProject', () => {
 
     await waitFor(() => expect(result.current.isLoading).toBe(false));
 
-    expect(() => result.current.projects.length).not.toThrow();
     expect(result.current.projects).toEqual([]);
     expect(result.current.hasProjects).toBe(false);
   });

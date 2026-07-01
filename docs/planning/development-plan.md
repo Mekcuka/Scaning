@@ -236,7 +236,7 @@
 
 - [x] **Схема потоков (PFD)** — `/flows/*`, React Flow, маршруты по сети ([fluid-flow-schematic.md](../features/flows/fluid-flow-schematic.md))
 - [x] **Экономическая схема потоков** — вкладка «Потоки → Экономика»
-- [x] **Логистика песка** — `/flows/logistics`, timeline, analyze API
+- [x] **Логистика песка** — `/logistics/schematic` (ранее `/flows/logistics`), timeline, analyze API; **Объём песка** — `/logistics/sand` (ранее `/parameters/sand`)
 - [x] **Автосеть автодорог** — Steiner tree, UI «Сеть», BFF plan/apply ([autoroad-network-plan.md](../autoroad/autoroad-network-plan.md))
 - [x] **Импорт Искра** — `spark_import.py` ([spark-import-mapping.md](../features/import-export/spark-import-mapping.md))
 - [x] **Импорт 3D** — custom GLB, `/data/import-3d` ([map-3d-features.md](../features/map/map-3d-features.md))

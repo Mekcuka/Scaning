@@ -15,6 +15,7 @@ e2e/.ui-*.json
 e2e/.auth-*.json
 test-results/
 coverage/
+src/styles/css-audit-report.md
 
 # Editor directories and files
 .vscode/*

@@ -1,5 +1,5 @@
 import { useParams, Link, useNavigate } from 'react-router-dom';
-import { Button, Card } from 'antd';
+import { Button, Card, Tag } from 'antd';
 import { projectPath } from '../lib/projectRoutes';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useState, useEffect } from 'react';
@@ -237,11 +237,11 @@ export function ProjectDetailPage() {
                         <span className="project-detail-poi-nav__name">{poi.name}</span>
                         <span className="project-detail-poi-nav__meta">{poiSummaryLine(poi)}</span>
                       </span>
-                      <span
-                        className={`badge project-detail-fluid-badge--${poi.fluid_type === 'gas' ? 'gas' : 'oil'}`}
+                      <Tag
+                        className={`project-detail-fluid-badge--${poi.fluid_type === 'gas' ? 'gas' : 'oil'}`}
                       >
                         {fluidTypeLabel(poi.fluid_type)}
-                      </span>
+                      </Tag>
                     </button>
                   </li>
                 );
@@ -265,11 +265,11 @@ export function ProjectDetailPage() {
                 <div className="project-detail-panel__header-text">
                   <h2 className="project-detail-panel__title">{selectedPoi.name}</h2>
                   <div className="project-detail-panel__chips">
-                    <span
-                      className={`badge project-detail-fluid-badge--${selectedPoi.fluid_type === 'gas' ? 'gas' : 'oil'}`}
+                    <Tag
+                      className={`project-detail-fluid-badge--${selectedPoi.fluid_type === 'gas' ? 'gas' : 'oil'}`}
                     >
                       {fluidTypeLabel(selectedPoi.fluid_type)}
-                    </span>
+                    </Tag>
                     <span className="project-detail-panel__chip">{formatProductionShort(selectedPoi)}</span>
                     <span className="project-detail-panel__chip">{selectedPoi.pads_count} КП</span>
                     <span className="project-detail-panel__chip">

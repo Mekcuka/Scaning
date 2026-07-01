@@ -9,7 +9,7 @@
 | Док ↔ код (сводка) | [implementation-status.md](implementation-status.md) |
 | SOLID / границы модулей | [solid-refactoring-plan.md](solid-refactoring-plan.md), [module-boundaries.md](../architecture/module-boundaries.md) (фаза 0 + **compliance P2**, июнь 2026) |
 | CI lint (frontend) | **0 errors, 0 warnings** (июнь 2026; `eslint.config.js`, override `mapView/**`) |
-| Навигация (Параметры, Потоки, ставки внутри Параметров) | Согласовано (май 2026) |
+| Навигация (Параметры, **Логистика**, Потоки, ставки внутри Параметров) | Согласовано (июнь 2026) |
 | OpenLayers / Lucide | Согласовано |
 | Импорт отдельно от карты | Согласовано |
 | Экспорт инфраструктуры (`/data/export`) | Согласовано (июнь 2026, [project-export.md](../features/import-export/project-export.md)) |

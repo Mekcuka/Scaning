@@ -1,5 +1,5 @@
 import { useRef } from 'react';
-import { BoxSelect, CircleDot, LayoutGrid, MapPin, MousePointer2, Pencil, Route, Ruler } from 'lucide-react';
+import { BoxSelect, CircleDot, MapPin, MousePointer2, Pencil, Ruler } from 'lucide-react';
 import { AnchoredMenu } from '../../../components/AnchoredMenu';
 import type { DrawMode, SelectMode } from '../../../components/MapView';
 import {
@@ -20,7 +20,6 @@ export type MapPageToolbarDrawGroupProps = {
   onResetDrawingMenus: () => void;
   canWriteInfra: boolean;
   canWriteProject: boolean;
-  projectJobBusy: boolean;
   mapIn3d: boolean;
   infraFormSubtype: string;
   onInfraFormSubtypeChange: (subtype: string) => void;
@@ -42,7 +41,6 @@ export function MapPageToolbarDrawGroup({
   onResetDrawingMenus,
   canWriteInfra,
   canWriteProject,
-  projectJobBusy,
   mapIn3d,
   infraFormSubtype,
   onInfraFormSubtypeChange,
@@ -123,46 +121,6 @@ export function MapPageToolbarDrawGroup({
           <span className="map-tool-label">Группа</span>
         </MapToolbarButton>
       </div>
-      <MapToolbarButton
-        active={drawMode === 'autoroad_network'}
-        disabled={!canWriteInfra || mapIn3d || projectJobBusy}
-        title={
-          mapIn3d ? 'Только в режиме 2D' : 'Построить сеть автодорог между выбранными точками'
-        }
-        aria-label="Построить сеть автодорог"
-        onClick={() => {
-          if (drawMode === 'autoroad_network') {
-            onDrawModeChange('select');
-            return;
-          }
-          onResetDrawingMenus();
-          onDrawModeChange('autoroad_network');
-        }}
-      >
-        <Route size={14} className="shrink-0" aria-hidden />
-        <span className="map-tool-label">Сеть</span>
-      </MapToolbarButton>
-      <MapToolbarButton
-        active={drawMode === 'pad_placement'}
-        disabled={!canWriteInfra || mapIn3d || projectJobBusy}
-        title={
-          mapIn3d
-            ? 'Только в режиме 2D'
-            : 'Оптимизация размещения кустов по выбранным забоям'
-        }
-        aria-label="Оптимизация кустов"
-        onClick={() => {
-          if (drawMode === 'pad_placement') {
-            onDrawModeChange('select');
-            return;
-          }
-          onResetDrawingMenus();
-          onDrawModeChange('pad_placement');
-        }}
-      >
-        <LayoutGrid size={14} className="shrink-0" aria-hidden />
-        <span className="map-tool-label">Кусты</span>
-      </MapToolbarButton>
       <MapToolbarButton
         active={drawMode === 'poi'}
         disabled={!canWriteProject || mapIn3d}

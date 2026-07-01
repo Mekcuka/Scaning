@@ -1,6 +1,9 @@
+import { useMemo } from 'react';
 import { ChevronDown, Loader2 } from 'lucide-react';
-import { Card } from 'antd';
+import { Button, Card } from 'antd';
+import type { ColumnsType } from 'antd/es/table';
 import type { AssistantLlmProbeDetail, AssistantLlmProbeSlice } from '../../lib/api';
+import { AppDataTable } from '../AppDataTable';
 
 function statusChip(slice: AssistantLlmProbeSlice) {
   if (slice.ok) {
@@ -17,32 +20,13 @@ function statusChip(slice: AssistantLlmProbeSlice) {
   );
 }
 
-function ProbeRow({
-  label,
-  slice,
-  onFix,
-}: {
+type ProbeTableRow = {
+  key: string;
   label: string;
-  slice: AssistantLlmProbeSlice;
+  slice?: AssistantLlmProbeSlice;
+  ragMode?: string;
   onFix?: () => void;
-}) {
-  return (
-    <tr>
-      <th scope="row">{label}</th>
-      <td>{statusChip(slice)}</td>
-      <td className="admin-assistant-probe-table__hint">{slice.hint_ru}</td>
-      <td className="admin-assistant-probe-table__action">
-        {!slice.ok && onFix ? (
-          <button type="button" className="admin-assistant-metric-action" onClick={onFix}>
-            Как исправить
-          </button>
-        ) : (
-          '—'
-        )}
-      </td>
-    </tr>
-  );
-}
+};
 
 type Props = {
   probe: AssistantLlmProbeDetail | null;
@@ -59,10 +43,68 @@ export function AdminAssistantProbePanel({
   onToggle,
   onFixEmbeddings,
 }: Props) {
+  const probeRows = useMemo<ProbeTableRow[]>(() => {
+    if (!probe) return [];
+    return [
+      { key: 'models', label: 'Chat /models', slice: probe.chat.models },
+      { key: 'completion', label: 'Chat /completion', slice: probe.chat.completion },
+      {
+        key: 'embeddings',
+        label: 'Embeddings',
+        slice: probe.embeddings,
+        onFix: !probe.embeddings.ok ? onFixEmbeddings : undefined,
+      },
+      { key: 'rag', label: 'RAG mode', ragMode: probe.rag_mode },
+    ];
+  }, [onFixEmbeddings, probe]);
+
+  const columns = useMemo<ColumnsType<ProbeTableRow>>(
+    () => [
+      {
+        title: 'Проверка',
+        dataIndex: 'label',
+        key: 'label',
+        onCell: (row) => (row.ragMode == null ? { scope: 'row' as const } : {}),
+      },
+      {
+        title: 'Статус',
+        key: 'status',
+        render: (_, row) => {
+          if (row.ragMode != null) return <code>{row.ragMode}</code>;
+          return row.slice ? statusChip(row.slice) : null;
+        },
+      },
+      {
+        title: 'Подсказка',
+        key: 'hint',
+        className: 'admin-assistant-probe-table__hint',
+        render: (_, row) => row.slice?.hint_ru ?? (row.ragMode != null ? '—' : null),
+      },
+      {
+        title: 'Действие',
+        key: 'action',
+        className: 'admin-assistant-probe-table__action',
+        render: (_, row) => {
+          if (row.ragMode != null) return '—';
+          if (row.slice && !row.slice.ok && row.onFix) {
+            return (
+              <Button type="link" size="small" className="admin-assistant-metric-action" onClick={row.onFix}>
+                Как исправить
+              </Button>
+            );
+          }
+          return '—';
+        },
+      },
+    ],
+    [],
+  );
+
   return (
     <Card size="small" className="admin-assistant-probe-panel">
-      <button
-        type="button"
+      <Button
+        type="text"
+        block
         className="admin-assistant-probe-panel__toggle"
         onClick={onToggle}
         aria-expanded={expanded}
@@ -81,7 +123,7 @@ export function AdminAssistantProbePanel({
           <span className="admin-assistant-chip">упрощённый режим</span>
         )}
         <ChevronDown size={18} className={expanded ? 'admin-assistant-probe-panel__chev--open' : undefined} />
-      </button>
+      </Button>
       {expanded && (
         <div className="admin-assistant-probe-panel__body">
           {loading && !probe ? (
@@ -94,31 +136,12 @@ export function AdminAssistantProbePanel({
                   (run_local.py).
                 </div>
               )}
-              <table className="admin-assistant-probe-table">
-                <thead>
-                  <tr>
-                    <th scope="col">Проверка</th>
-                    <th scope="col">Статус</th>
-                    <th scope="col">Подсказка</th>
-                    <th scope="col">Действие</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  <ProbeRow label="Chat /models" slice={probe.chat.models} />
-                  <ProbeRow label="Chat /completion" slice={probe.chat.completion} />
-                  <ProbeRow
-                    label="Embeddings"
-                    slice={probe.embeddings}
-                    onFix={!probe.embeddings.ok ? onFixEmbeddings : undefined}
-                  />
-                  <tr>
-                    <th scope="row">RAG mode</th>
-                    <td colSpan={3}>
-                      <code>{probe.rag_mode}</code>
-                    </td>
-                  </tr>
-                </tbody>
-              </table>
+              <AppDataTable
+                className="admin-assistant-probe-table"
+                rowKey="key"
+                columns={columns}
+                dataSource={probeRows}
+              />
             </>
           ) : (
             <p className="admin-assistant-field__hint">

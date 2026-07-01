@@ -19,12 +19,10 @@ import { useProjectInfraObjects } from '../hooks/useProjectData';
 import { usePermissions } from '../hooks/usePermissions';
 import { queryKeys } from '../lib/queryKeys';
 import { useProjectSandLogistics } from '../hooks/useProjectSandLogistics';
+import type { ColumnsType } from 'antd/es/table';
 import { DeferredNumberInput } from '../components/DeferredNumberInput';
-import { SandHaulLegParameterCells } from '../components/logistics/SandHaulLegParameterCells';
-import {
-  TableExcelExportBodyCell,
-  TableExcelExportButton,
-} from '../components/TableExcelExportButton';
+import { AppDataTable } from '../components/AppDataTable';
+import { renderSandHaulLegCell } from '../components/logistics/SandHaulLegParameterCells';
 import { sandDemandTableExportColumns } from '../lib/tableExcelExportData';
 
 function fmtM3(v: number | null | undefined): string {
@@ -111,6 +109,106 @@ export function SandParametersPage() {
     },
   });
 
+  const columns = useMemo<ColumnsType<InfraObject>>(
+    () => [
+      {
+        title: 'Объект',
+        dataIndex: 'name',
+        key: 'name',
+        className: 'parameters-table__name',
+        onCell: () => ({ scope: 'row' as const }),
+      },
+      {
+        title: 'Подтип',
+        key: 'subtype',
+        render: (_, obj) => SUBTYPE_LABELS[obj.subtype] || obj.subtype,
+      },
+      {
+        title: 'Объём песка (спрос), м³',
+        key: 'demand',
+        render: (_, obj) => {
+          const isSaving = savingId === obj.id;
+          if (readSandVolumeInputMode(obj.properties) === 'yearly') {
+            return (
+              <span
+                className="text-sm text-[var(--text-muted)]"
+                title="Редактирование — карточка объекта на карте, вкладка Логистика"
+              >
+                План по годам
+              </span>
+            );
+          }
+          return (
+            <DeferredNumberInput
+              allowEmpty
+              min={0}
+              className="parameters-table__input"
+              placeholder="Не задан"
+              value={sandDemandDisplayValue(obj)}
+              readOnly={!canWriteProject}
+              disabled={isSaving || !canWriteProject}
+              onCommit={(v) => {
+                saveMut.mutate({
+                  object: obj,
+                  value: v === '' ? '' : typeof v === 'number' ? v : Number(v),
+                });
+              }}
+            />
+          );
+        },
+      },
+      {
+        title: 'План Σ, м³',
+        key: 'planTotal',
+        className: 'tabular-nums text-[var(--text-muted)]',
+        render: (_, obj) => {
+          const planTotal = sandDemandPlanTotalM3(obj.properties);
+          if (readSandVolumeInputMode(obj.properties) === 'yearly') {
+            return (
+              <span title="План по годам (редактирование — карточка на карте)">
+                {fmtM3(planTotal)} · по годам
+              </span>
+            );
+          }
+          return '—';
+        },
+      },
+      {
+        title: 'Спрос на дату',
+        key: 'demandOnDate',
+        className: 'tabular-nums',
+        render: (_, obj) => {
+          const calcRow = sandLogistics ? findSandLogisticsConsumer(sandLogistics, obj.id) : null;
+          const effectiveOnDate =
+            calcRow?.demand_m3 ??
+            (sandLogistics?.as_of ? effectiveSandDemandForObject(obj, sandLogistics.as_of) : null);
+          return sandLogistics?.as_of ? fmtM3(effectiveOnDate) : '—';
+        },
+      },
+      {
+        title: 'Карьер',
+        key: 'quarry',
+        className: 'parameters-table__haul-cell align-top',
+        render: (_, obj) => renderSandHaulLegCell(obj.id, sandLogistics, 'quarry'),
+      },
+      {
+        title: 'Объём, м³',
+        key: 'haulVolume',
+        align: 'right',
+        className: 'parameters-table__haul-cell align-top tabular-nums',
+        render: (_, obj) => renderSandHaulLegCell(obj.id, sandLogistics, 'volume'),
+      },
+      {
+        title: 'Расстояние, км',
+        key: 'haulDistance',
+        align: 'right',
+        className: 'parameters-table__haul-cell align-top tabular-nums text-[var(--text-muted)]',
+        render: (_, obj) => renderSandHaulLegCell(obj.id, sandLogistics, 'distance'),
+      },
+    ],
+    [canWriteProject, sandLogistics, saveMut, savingId],
+  );
+
   if (!projectId) {
     return (
       <div className="parameters-page">
@@ -159,100 +257,20 @@ export function SandParametersPage() {
             <ProjectLink to="/map">карте</ProjectLink> (кроме узлов и карьеров).
           </p>
         ) : (
-          <div className="table-wrap">
-            <table className="data-table parameters-table">
-              <thead>
-                <tr>
-                  <th scope="col">Объект</th>
-                  <th scope="col">Подтип</th>
-                  <th scope="col">Объём песка (спрос), м³</th>
-                  <th scope="col">План Σ, м³</th>
-                  <th scope="col">Спрос на дату</th>
-                  <th scope="col">Карьер</th>
-                  <th scope="col" className="text-right">
-                    Объём, м³
-                  </th>
-                  <th scope="col" className="text-right">
-                    Расстояние, км
-                  </th>
-                  <th scope="col" className="table-excel-export-th">
-                    <TableExcelExportButton
-                      filename="parametry-obem-peska.xlsx"
-                      sheetName="Объём песка"
-                      columns={sandDemandTableExportColumns(sandLogistics)}
-                      rows={filteredObjects}
-                      disabled={filteredObjects.length === 0}
-                    />
-                  </th>
-                </tr>
-              </thead>
-              <tbody>
-                {filteredObjects.map((obj) => {
-                  const isSaving = savingId === obj.id;
-                  const planTotal = sandDemandPlanTotalM3(obj.properties);
-                  const calcRow = sandLogistics
-                    ? findSandLogisticsConsumer(sandLogistics, obj.id)
-                    : null;
-                  const effectiveOnDate =
-                    calcRow?.demand_m3 ??
-                    (sandLogistics?.as_of
-                      ? effectiveSandDemandForObject(obj, sandLogistics.as_of)
-                      : null);
-                  return (
-                    <tr key={obj.id}>
-                      <th scope="row" className="parameters-table__name">
-                        {obj.name}
-                      </th>
-                      <td>{SUBTYPE_LABELS[obj.subtype] || obj.subtype}</td>
-                      <td>
-                        {readSandVolumeInputMode(obj.properties) === 'yearly' ? (
-                          <span
-                            className="text-sm text-[var(--text-muted)]"
-                            title="Редактирование — карточка объекта на карте, вкладка Логистика"
-                          >
-                            План по годам
-                          </span>
-                        ) : (
-                          <DeferredNumberInput
-                            allowEmpty
-                            min={0}
-                            className="parameters-table__input"
-                            placeholder="Не задан"
-                            value={sandDemandDisplayValue(obj)}
-                            readOnly={!canWriteProject}
-                            disabled={isSaving || !canWriteProject}
-                            onCommit={(v) => {
-                              saveMut.mutate({
-                                object: obj,
-                                value: v === '' ? '' : typeof v === 'number' ? v : Number(v),
-                              });
-                            }}
-                          />
-                        )}
-                      </td>
-                      <td className="tabular-nums text-[var(--text-muted)]">
-                        {readSandVolumeInputMode(obj.properties) === 'yearly' ? (
-                          <span title="План по годам (редактирование — карточка на карте)">
-                            {fmtM3(planTotal)} · по годам
-                          </span>
-                        ) : (
-                          '—'
-                        )}
-                      </td>
-                      <td className="tabular-nums">
-                        {sandLogistics?.as_of ? fmtM3(effectiveOnDate) : '—'}
-                      </td>
-                      <SandHaulLegParameterCells
-                        objectId={obj.id}
-                        sandLogistics={sandLogistics ?? undefined}
-                      />
-                      <TableExcelExportBodyCell />
-                    </tr>
-                  );
-                })}
-              </tbody>
-            </table>
-          </div>
+          <AppDataTable
+            className="parameters-table"
+            rowKey="id"
+            loading={isLoading}
+            columns={columns}
+            dataSource={filteredObjects}
+            excelExport={{
+              filename: 'parametry-obem-peska.xlsx',
+              sheetName: 'Объём песка',
+              columns: sandDemandTableExportColumns(sandLogistics),
+              rows: filteredObjects,
+              disabled: filteredObjects.length === 0,
+            }}
+          />
         )}
       </Card>
     </div>

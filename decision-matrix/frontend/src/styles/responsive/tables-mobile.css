@@ -1,0 +1,20 @@
+/* —— Tables & cards mobile (≤1023px) —— */
+@media (max-width: 1023px) {
+  .ant-card:not(.card--flush) .ant-card-body {
+    padding: 14px;
+  }
+
+  .card-header {
+    padding: 12px 14px;
+    flex-wrap: wrap;
+    gap: 8px;
+  }
+
+  .table-wrap {
+    -webkit-overflow-scrolling: touch;
+  }
+
+  .rates-group-card .table-wrap {
+    margin: 0;
+  }
+}

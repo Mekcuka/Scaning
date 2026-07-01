@@ -1,5 +1,5 @@
 import { useMemo, useState, type ReactNode } from 'react';
-import { ChevronDown, ChevronRight, Gauge, Sparkles, X, Zap } from 'lucide-react';
+import { ChevronDown, ChevronRight, X } from 'lucide-react';
 import { Button } from 'antd';
 import {
   BOTTOMHOLE_LAYER_SUBTYPES,
@@ -11,79 +11,6 @@ import {
   type LayerVisibilityUiEntry,
 } from '../lib/api';
 import type { MapLayerOpenSections } from '../lib/mapLayerPreferences';
-import type { Map3dQuality } from '../lib/map3d/map3dQuality';
-
-const MAP3D_QUALITY_OPTIONS: {
-  value: Map3dQuality;
-  label: string;
-  title: string;
-  hint: string;
-  Icon: typeof Sparkles;
-}[] = [
-  {
-    value: 'full',
-    label: 'Полное',
-    title: 'Максимальная детализация линий и траекторий',
-    hint: 'Детальные линии и траектории. Точечные модели одинаковы на всех пресетах.',
-    Icon: Sparkles,
-  },
-  {
-    value: 'balanced',
-    label: 'Стандарт',
-    title: 'Баланс качества и производительности',
-    hint: 'Рекомендуется для повседневной работы. Модели не меняются.',
-    Icon: Gauge,
-  },
-  {
-    value: 'performance',
-    label: 'Быстрое',
-    title: 'Упрощённые линии для слабых устройств',
-    hint: 'Упрощённые линии и траектории. Модели не меняются.',
-    Icon: Zap,
-  },
-];
-
-function Map3dQualitySelector({
-  value,
-  onChange,
-}: {
-  value: Map3dQuality;
-  onChange: (quality: Map3dQuality) => void;
-}) {
-  const active = MAP3D_QUALITY_OPTIONS.find((o) => o.value === value) ?? MAP3D_QUALITY_OPTIONS[1]!;
-  const hintId = 'map-layers-quality-hint';
-
-  return (
-    <div className="map-layers-quality map-layers-item--indent" aria-labelledby="map-layers-quality-label">
-      <span id="map-layers-quality-label" className="map-layers-quality-label">
-        Качество 3D
-      </span>
-      <div className="map-layers-quality-segments" role="radiogroup" aria-label="Качество 3D">
-        {MAP3D_QUALITY_OPTIONS.map(({ value: optionValue, label, title, Icon }) => {
-          const selected = value === optionValue;
-          return (
-            <button
-              key={optionValue}
-              type="button"
-              role="radio"
-              aria-checked={selected}
-              aria-describedby={hintId}
-              title={title}
-              className={`map-layers-quality-segment${selected ? ' map-layers-quality-segment--active' : ''}`}
-              onClick={() => onChange(optionValue)}
-            >
-              <Icon size={14} strokeWidth={1.75} aria-hidden />
-              <span>{label}</span>
-            </button>
-          );
-        })}
-      </div>
-      <p id={hintId} className="map-layers-quality-hint">
-        {active.hint}
-      </p>
-    </div>
-  );
-}
 
 type LayerRow = { id: string; name: string; is_visible: boolean };
 
@@ -115,8 +42,6 @@ type MapLayersPanelProps = {
   onShowWellBottomholesChange?: (visible: boolean) => void;
   showWellTrajectories3d?: boolean;
   onShowWellTrajectories3dChange?: (visible: boolean) => void;
-  map3dQuality?: Map3dQuality;
-  onMap3dQualityChange?: (quality: Map3dQuality) => void;
   /** When true, layer visibility toggles are disabled (persisted server-side). */
   layerVisibilityReadOnly?: boolean;
   /** Persisted accordion state (optional controlled mode). */
@@ -372,8 +297,6 @@ export function MapLayersPanel({
   onShowWellBottomholesChange,
   showWellTrajectories3d = true,
   onShowWellTrajectories3dChange,
-  map3dQuality = 'balanced',
-  onMap3dQualityChange,
   layerVisibilityReadOnly = false,
   openSections: openSectionsProp,
   onOpenSectionsChange,
@@ -434,18 +357,13 @@ export function MapLayersPanel({
       >
         <LayerRow label="Спутник" checked={showBasemap} onChange={onShowBasemapChange} />
         {onShowModelsChange ? (
-          <>
-            <LayerRow
-              label="3D-модели объектов"
-              checked={showModels}
-              onChange={onShowModelsChange}
-              disabled={!modelsToggleEnabled}
-              indent="indent"
-            />
-            {onMap3dQualityChange && modelsToggleEnabled && showModels ? (
-              <Map3dQualitySelector value={map3dQuality} onChange={onMap3dQualityChange} />
-            ) : null}
-          </>
+          <LayerRow
+            label="3D-модели объектов"
+            checked={showModels}
+            onChange={onShowModelsChange}
+            disabled={!modelsToggleEnabled}
+            indent="indent"
+          />
         ) : null}
       </Section>
 

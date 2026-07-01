@@ -24,7 +24,7 @@ describe('ParametersPage', () => {
     renderPage(<ParametersPage />);
     await waitFor(() => expect(screen.getByText('Открыть карту')).toBeInTheDocument());
     await waitFor(() =>
-      expect(screen.getByText('Пропускная способность')).toBeInTheDocument(),
+      expect(screen.getByRole('columnheader', { name: 'Пропускная способность' })).toBeInTheDocument(),
     );
   });
 });

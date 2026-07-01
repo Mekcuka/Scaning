@@ -1,5 +1,6 @@
 import { ChevronDown, ChevronRight } from 'lucide-react';
 import { useState } from 'react';
+import { Button } from 'antd';
 import { MapToolbarButton } from '../pages/map/mapPageToolbar/MapToolbarButton';
 import type {
   AutoroadPlannerOptions,
@@ -118,8 +119,9 @@ export function AutoroadNetworkParamsSection({
 
   return (
     <div className="autoroad-params border-t border-[var(--border)]">
-      <button
-        type="button"
+      <Button
+        type="text"
+        block
         className="autoroad-params__head"
         onClick={() => setOpen((v) => !v)}
         aria-expanded={open}
@@ -129,7 +131,7 @@ export function AutoroadNetworkParamsSection({
         {!open ? (
           <span className="autoroad-params__head-summary">{collapsedSummary}</span>
         ) : null}
-      </button>
+      </Button>
       {open ? (
         <div className="autoroad-params__body">
           <div className="autoroad-params__toolbar">

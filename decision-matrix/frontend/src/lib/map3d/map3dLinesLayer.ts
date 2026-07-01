@@ -4,7 +4,7 @@ import maplibregl, {
   type Map as MapLibreMap,
 } from 'maplibre-gl';
 import * as THREE from 'three';
-import { buildLineTubeGroupAsync } from './map3dLineGeometryBridge';
+import { createLineTubeGroup } from './map3dLineMeshes';
 import { buildTransmissionTowerMesh, createPowerLineGroup } from './map3dPowerLineMeshes';
 import { clonePowerLineTowerToHeight } from './map3dPowerLineStyle';
 import {
@@ -19,15 +19,6 @@ import { buildNormalizedLinePath3d } from './map3dLinePathBuild';
 import { resolvePowerLineEndpoints } from './map3dPowerLineEndpoints';
 import type { InfraObject } from '../api';
 import { buildMap3dLinearFeatureMatrix } from './map3dThreeMatrix';
-import { renderMap3dSceneOnce, type Map3dRenderItem } from './map3dLayerRender';
-import type { Map3dQuality } from './map3dQuality';
-import { cullingEnabledForQuality, tubeSegmentCapForQuality } from './map3dQuality';
-import {
-  clearViewportCullFreezeForMap,
-  freezeViewportCullForMap,
-  isLonLatInExpandedBounds,
-  shouldApplyViewportCull,
-} from './map3dViewportCull';
 
 export const MAP3D_LINES_LAYER_ID = 'dm-3d-lines';
 
@@ -36,8 +27,6 @@ type CachedLineAnchor = {
   translateY: number;
   translateZ: number;
   scale: number;
-  lon: number;
-  lat: number;
 };
 
 function disposeGroup(group: THREE.Group): void {
@@ -57,8 +46,6 @@ function buildAnchorTransform(lon: number, lat: number, altitudeM: number): Cach
     translateY: mc.y,
     translateZ: mc.z,
     scale: mc.meterInMercatorCoordinateUnits(),
-    lon,
-    lat,
   };
 }
 
@@ -66,7 +53,7 @@ type RenderableLine = {
   key: string;
   group: THREE.Group;
   anchor: CachedLineAnchor;
-  localMatrix: THREE.Matrix4;
+  selected: boolean;
 };
 
 export class Map3dLinesCustomLayer implements CustomLayerInterface {
@@ -84,17 +71,11 @@ export class Map3dLinesCustomLayer implements CustomLayerInterface {
   private infraObjects: InfraObject[] = [];
   private snapPool: InfraObject[] | undefined;
   private powerLineMeshGeneration = 0;
-  private tubeRebuildGeneration = 0;
   private visible = true;
   private moveEndHandler: (() => void) | null = null;
-  private moveStartHandler: (() => void) | null = null;
-  private selectedHighlightId: string | null = null;
-  private quality: Map3dQuality = 'balanced';
-  private cullingEnabled = true;
-  private tubularCap = 48;
-  private lastAltSignature = '';
 
   private readonly projMatrix = new THREE.Matrix4();
+  private readonly localMatrix = new THREE.Matrix4();
   private readonly rotX = new THREE.Matrix4();
   private lightsReady = false;
 
@@ -114,26 +95,6 @@ export class Map3dLinesCustomLayer implements CustomLayerInterface {
   setVisible(v: boolean): void {
     this.visible = v;
     this.map?.triggerRepaint();
-  }
-
-  setQuality(quality: Map3dQuality): void {
-    if (this.quality === quality) return;
-    this.quality = quality;
-    this.cullingEnabled = cullingEnabledForQuality(quality);
-    this.tubularCap = tubeSegmentCapForQuality(quality);
-    this.rebuildRenderables();
-  }
-
-  setHighlight(id: string | null): void {
-    this.selectedHighlightId = id;
-    this.map?.triggerRepaint();
-  }
-
-  private altSignature(): string {
-    const parts: string[] = [];
-    for (const inst of this.tubeInstances) parts.push(inst.alts.join(','));
-    for (const inst of this.powerLineInstances) parts.push(inst.alts.join(','));
-    return parts.join('|');
   }
 
   private refreshAltsFromTerrain(): void {
@@ -185,7 +146,7 @@ export class Map3dLinesCustomLayer implements CustomLayerInterface {
     inst: Map3dPowerLineInstance,
     gen: number,
   ): void {
-    const selected = this.selectedHighlightId === inst.id;
+    const selected = inst.selected;
     const towerH = built.towerH;
 
     for (const slot of built.towerSlots) {
@@ -216,7 +177,6 @@ export class Map3dLinesCustomLayer implements CustomLayerInterface {
   private rebuildRenderables(): void {
     this.powerLineMeshGeneration++;
     const plGen = this.powerLineMeshGeneration;
-    const tubeGen = ++this.tubeRebuildGeneration;
 
     for (const r of this.renderables) {
       this.scene.remove(r.group);
@@ -224,7 +184,26 @@ export class Map3dLinesCustomLayer implements CustomLayerInterface {
     }
     this.renderables = [];
 
-    void this.rebuildTubesAsync(tubeGen);
+    for (const inst of this.tubeInstances) {
+      const built = createLineTubeGroup({
+        path: inst.path,
+        alts: inst.alts,
+        radiusM: inst.radiusM,
+        colorHex: inst.color,
+        opacity: inst.opacity,
+        subtype: inst.subtype,
+        selected: inst.selected,
+      });
+      if (!built) continue;
+      const anchor = buildAnchorTransform(built.anchorLon, built.anchorLat, built.anchorAlt);
+      this.renderables.push({
+        key: `tube:${inst.id}`,
+        group: built.group,
+        anchor,
+        selected: inst.selected,
+      });
+      this.scene.add(built.group);
+    }
 
     for (const inst of this.powerLineInstances) {
       const built = createPowerLineGroup({
@@ -236,8 +215,7 @@ export class Map3dLinesCustomLayer implements CustomLayerInterface {
         colorHex: inst.color,
         opacity: inst.opacity,
         towerHeightM: inst.towerHeightM,
-        selected: this.selectedHighlightId === inst.id,
-        quality: this.quality,
+        selected: inst.selected,
       });
       if (!built) continue;
       const anchor = buildAnchorTransform(built.anchorLon, built.anchorLat, built.anchorAlt);
@@ -245,47 +223,11 @@ export class Map3dLinesCustomLayer implements CustomLayerInterface {
         key: `pl:${inst.id}`,
         group: built.group,
         anchor,
-        localMatrix: new THREE.Matrix4(),
+        selected: inst.selected,
       });
       this.scene.add(built.group);
       this.attachPowerLineTowers(built, inst, plGen);
     }
-
-    this.lastAltSignature = this.altSignature();
-  }
-
-  private async rebuildTubesAsync(gen: number): Promise<void> {
-    const jobs = this.tubeInstances.map(async (inst) => {
-      const built = await buildLineTubeGroupAsync({
-        path: inst.path,
-        alts: inst.alts,
-        radiusM: inst.radiusM,
-        colorHex: inst.color,
-        opacity: inst.opacity,
-        subtype: inst.subtype,
-        selected: this.selectedHighlightId === inst.id,
-        tubularSegmentCap: this.tubularCap,
-        quality: this.quality,
-      });
-      return { inst, built };
-    });
-
-    const results = await Promise.all(jobs);
-    if (gen !== this.tubeRebuildGeneration) return;
-
-    for (const { inst, built } of results) {
-      if (!built) continue;
-      const anchor = buildAnchorTransform(built.anchorLon, built.anchorLat, built.anchorAlt);
-      const entry: RenderableLine = {
-        key: `tube:${inst.id}`,
-        group: built.group,
-        anchor,
-        localMatrix: new THREE.Matrix4(),
-      };
-      this.renderables.push(entry);
-      this.scene.add(built.group);
-    }
-    this.map?.triggerRepaint();
   }
 
   setInstances(data: Map3dLineLayerData): void {
@@ -310,30 +252,16 @@ export class Map3dLinesCustomLayer implements CustomLayerInterface {
     this.ensureLights();
     this.rebuildRenderables();
 
-    this.moveStartHandler = () => {
-      freezeViewportCullForMap(map);
-    };
-    map.on('movestart', this.moveStartHandler);
-
     this.moveEndHandler = () => {
-      clearViewportCullFreezeForMap(map);
       this.refreshAltsFromTerrain();
-      const sig = this.altSignature();
-      if (sig !== this.lastAltSignature) {
-        this.rebuildRenderables();
-      }
+      this.rebuildRenderables();
       map.triggerRepaint();
     };
     map.on('moveend', this.moveEndHandler);
   }
 
   onRemove(): void {
-    if (this.map) {
-      if (this.moveStartHandler) this.map.off('movestart', this.moveStartHandler);
-      if (this.moveEndHandler) this.map.off('moveend', this.moveEndHandler);
-      clearViewportCullFreezeForMap(this.map);
-    }
-    this.moveStartHandler = null;
+    if (this.map && this.moveEndHandler) this.map.off('moveend', this.moveEndHandler);
     this.moveEndHandler = null;
     for (const r of this.renderables) disposeGroup(r.group);
     this.renderables = [];
@@ -347,21 +275,21 @@ export class Map3dLinesCustomLayer implements CustomLayerInterface {
     if (!this.map || !this.renderer || !this.visible || this.renderables.length === 0) return;
 
     this.projMatrix.fromArray(options.defaultProjectionData.mainMatrix);
-    const items: Map3dRenderItem[] = [];
 
     for (const r of this.renderables) {
-      if (
-        !shouldApplyViewportCull(this.map, this.cullingEnabled)
-        || isLonLatInExpandedBounds(this.map, r.anchor.lon, r.anchor.lat)
-      ) {
-        const instId = r.key.split(':')[1] ?? '';
-        const scaleMul = instId === this.selectedHighlightId ? 1.03 : 1;
-        buildMap3dLinearFeatureMatrix(r.anchor, scaleMul, r.localMatrix, this.rotX);
-        items.push({ group: r.group, localMatrix: r.localMatrix, depthPass: 'opaque' });
-      }
+      const scaleMul = r.selected ? 1.03 : 1;
+      buildMap3dLinearFeatureMatrix(r.anchor, scaleMul, this.localMatrix, this.rotX);
+      this.camera.projectionMatrix.copy(this.projMatrix).multiply(this.localMatrix);
+
+      for (const other of this.renderables) other.group.visible = false;
+      r.group.visible = true;
+
+      this.renderer.resetState();
+      this.renderer.clearDepth();
+      this.renderer.render(this.scene, this.camera);
     }
 
-    renderMap3dSceneOnce(this.renderer, this.scene, this.camera, this.projMatrix, items);
+    for (const r of this.renderables) r.group.visible = true;
     finishMap3dThreeFrame(this.renderer);
   }
 }

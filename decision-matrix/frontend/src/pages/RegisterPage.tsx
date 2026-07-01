@@ -52,51 +52,55 @@ export function RegisterPage() {
         <Typography.Paragraph type="secondary">
           Новые пользователи получают роль «Аналитик»
         </Typography.Paragraph>
-        <form onSubmit={handleSubmit(onSubmit)}>
-          <Form.Item
-            label="Email"
-            validateStatus={errors.email ? 'error' : undefined}
-            help={errors.email?.message}
-          >
-            <Controller
-              name="email"
-              control={control}
-              render={({ field }) => <Input {...field} type="email" />}
-            />
-          </Form.Item>
-          <Form.Item
-            label="Имя"
-            validateStatus={errors.username ? 'error' : undefined}
-            help={errors.username?.message}
-          >
-            <Controller
-              name="username"
-              control={control}
-              render={({ field }) => <Input {...field} />}
-            />
-          </Form.Item>
-          <Form.Item
-            label="Пароль"
-            validateStatus={errors.password ? 'error' : undefined}
-            help={errors.password?.message}
-          >
-            <Controller
-              name="password"
-              control={control}
-              render={({ field }) => <Input.Password {...field} />}
-            />
-          </Form.Item>
-          <Form.Item
-            label="Подтверждение пароля"
-            validateStatus={errors.confirm ? 'error' : undefined}
-            help={errors.confirm?.message}
-          >
-            <Controller
-              name="confirm"
-              control={control}
-              render={({ field }) => <Input.Password {...field} />}
-            />
-          </Form.Item>
+        <form className="auth-form" onSubmit={handleSubmit(onSubmit)}>
+          <Form layout="vertical" component="div" requiredMark={false}>
+            <Form.Item
+              label="Email"
+              validateStatus={errors.email ? 'error' : undefined}
+              help={errors.email?.message}
+            >
+              <Controller
+                name="email"
+                control={control}
+                render={({ field }) => (
+                  <Input {...field} type="email" className="auth-form__input" />
+                )}
+              />
+            </Form.Item>
+            <Form.Item
+              label="Имя"
+              validateStatus={errors.username ? 'error' : undefined}
+              help={errors.username?.message}
+            >
+              <Controller
+                name="username"
+                control={control}
+                render={({ field }) => <Input {...field} className="auth-form__input" />}
+              />
+            </Form.Item>
+            <Form.Item
+              label="Пароль"
+              validateStatus={errors.password ? 'error' : undefined}
+              help={errors.password?.message}
+            >
+              <Controller
+                name="password"
+                control={control}
+                render={({ field }) => <Input.Password {...field} className="auth-form__input" />}
+              />
+            </Form.Item>
+            <Form.Item
+              label="Подтверждение пароля"
+              validateStatus={errors.confirm ? 'error' : undefined}
+              help={errors.confirm?.message}
+            >
+              <Controller
+                name="confirm"
+                control={control}
+                render={({ field }) => <Input.Password {...field} className="auth-form__input" />}
+              />
+            </Form.Item>
+          </Form>
           {errors.root?.message && (
             <Alert type="error" message={errors.root.message} className="mb-4" showIcon />
           )}

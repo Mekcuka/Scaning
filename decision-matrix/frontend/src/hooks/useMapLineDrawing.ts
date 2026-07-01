@@ -403,41 +403,6 @@ export function useMapLineDrawing({
     return labels;
   }, [drawMode, rulerCompleted, rulerPoints]);
 
-  const drawActionsVisible = drawMode === 'line' || drawMode === 'ruler';
-  const drawStepBackDisabled =
-    drawMode === 'line'
-      ? lineDraft.length === 0
-      : drawMode === 'ruler'
-        ? rulerPoints.length === 0
-        : true;
-  const drawFinishDisabled =
-    drawMode === 'line'
-      ? lineDraft.length < 2 || createInfraMut.isPending
-      : drawMode === 'ruler'
-        ? rulerPoints.length < 2
-        : true;
-  const drawResetDisabled =
-    drawMode === 'line'
-      ? lineDraft.length === 0
-      : drawMode === 'ruler'
-        ? rulerPoints.length === 0 && rulerCompleted.length === 0
-        : true;
-
-  const handleDrawStepBack = useCallback(() => {
-    if (drawMode === 'line') setLineDraft((d) => d.slice(0, -1));
-    else if (drawMode === 'ruler') setRulerPoints((d) => d.slice(0, -1));
-  }, [drawMode]);
-
-  const handleDrawFinish = useCallback(() => {
-    if (drawMode === 'line') void finishLineDraft(lineDraft, lineDraftFinishAt());
-    else if (drawMode === 'ruler') finishRulerMeasurement(false);
-  }, [drawMode, finishLineDraft, lineDraft, lineDraftFinishAt, finishRulerMeasurement]);
-
-  const handleDrawReset = useCallback(() => {
-    if (drawMode === 'line') clearLineDraft();
-    else if (drawMode === 'ruler') clearRulerState();
-  }, [drawMode, clearLineDraft, clearRulerState]);
-
   const resetDrawingMenus = useCallback(() => {
     clearLineDraft();
   }, [clearLineDraft]);
@@ -468,12 +433,5 @@ export function useMapLineDrawing({
     lineDraftFinishAt,
     measureCursorLabel,
     measureAnchorLabels,
-    drawActionsVisible,
-    drawStepBackDisabled,
-    drawFinishDisabled,
-    drawResetDisabled,
-    handleDrawStepBack,
-    handleDrawFinish,
-    handleDrawReset,
   };
 }

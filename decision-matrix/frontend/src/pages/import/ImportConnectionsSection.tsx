@@ -94,7 +94,6 @@ export function ImportConnectionsSection({
       <Button
         type="primary"
         size="small"
-        className="export-option__btn"
         disabled={!projectId || readOnly}
         onClick={() => saveConnMut.mutate()}
       >
@@ -102,7 +101,6 @@ export function ImportConnectionsSection({
       </Button>
       <Button
         size="small"
-        className="export-option__btn"
         disabled={!projectId || !selectedConnId || readOnly}
         onClick={() => selectedConnId && testConnMut.mutate(selectedConnId)}
       >
@@ -110,7 +108,7 @@ export function ImportConnectionsSection({
       </Button>
       <Button
         size="small"
-        className="export-option__btn export-option__btn--wide"
+        className="export-option__btn--wide"
         disabled={!projectId || !selectedConnId || readOnly}
         onClick={() => selectedConnId && syncConnMut.mutate(selectedConnId)}
       >

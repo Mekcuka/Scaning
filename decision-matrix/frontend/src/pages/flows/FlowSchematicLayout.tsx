@@ -1,19 +1,18 @@
 import { useMemo, useState } from 'react';
 import { useSyncAssistantUiContext } from '../../lib/assistant/assistantContext';
-import { Outlet, useLocation } from 'react-router-dom';
-import { Alert, Button, Card, Spin } from 'antd';
+import { Outlet } from 'react-router-dom';
+import { Alert, Card, Spin } from 'antd';
 import { ProjectLink } from '../../components/ProjectLink';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useActiveProject } from '../../hooks/useActiveProject';
 import { useProjectPois } from '../../hooks/useProjectData';
 import { queryKeys } from '../../lib/queryKeys';
-import { Coins, Truck, Workflow } from 'lucide-react';
+import { Coins, Workflow } from 'lucide-react';
 import { AppSelect } from '../../components/AppSelect';
 import { defaultFlowSchematicApi, defaultProjectsPoiWriteApi, type POI } from '../../lib/api';
 import type { FlowSchematicDto } from '../../lib/flowSchematic';
 import { WARNING_LABELS } from '../../lib/flowSchematic';
 import { useAppStore } from '../../store';
-import { stripProjectPrefix } from '../../lib/projectRoutes';
 import { useProjectPathBuilder } from '../../hooks/useProjectPath';
 import { FlowSchematicProvider } from './flowSchematicContext';
 import { SubnavTabs } from '../../components/layout/SubnavTabs';
@@ -21,7 +20,6 @@ import { SubnavTabs } from '../../components/layout/SubnavTabs';
 const TABS = [
   { suffix: '/flows/technology', label: 'Технологический поток', icon: Workflow },
   { suffix: '/flows/economic', label: 'Экономический поток', icon: Coins },
-  { suffix: '/flows/logistics', label: 'Логистика', icon: Truck },
 ] as const;
 
 export function FlowSchematicLayout() {
@@ -30,11 +28,6 @@ export function FlowSchematicLayout() {
   const pushToast = useAppStore((s) => s.pushToast);
   const queryClient = useQueryClient();
   const [selectedPoiId, setSelectedPoiId] = useState('');
-  const location = useLocation();
-  const logicalPath = stripProjectPrefix(location.pathname);
-  const isLogisticsRoute =
-    logicalPath === '/flows/logistics' ||
-    logicalPath.startsWith('/flows/logistics/');
 
   const { data: pois = [], isLoading: poisLoading } = useProjectPois(projectId);
 
@@ -206,31 +199,26 @@ export function FlowSchematicLayout() {
               }))}
             />
 
-            {isLogisticsRoute || showPoiFlows ? (
-              <Outlet />
-            ) : poisLoading ? (
-              <Card className="text-center">
-                <Spin />
-                <span className="ml-2 text-[var(--text-muted)]">Загрузка…</span>
-              </Card>
-            ) : (
-              <Card className="text-center space-y-3">
-                <p className="text-[var(--text-muted)]">
-                  В проекте нет точек интереса. Добавьте POI на{' '}
-                  <ProjectLink to="/map" className="underline">
-                    карте
-                  </ProjectLink>
-                  , чтобы открыть технологический и экономический потоки.
-                </p>
-                <p>
-                  <ProjectLink to="/flows/logistics">
-                    <Button type="primary" size="small">
-                      Открыть логистику песка
-                    </Button>
-                  </ProjectLink>
-                </p>
-              </Card>
-            )}
+            <div className="parameters-layout__body">
+              {showPoiFlows ? (
+                <Outlet />
+              ) : poisLoading ? (
+                <Card className="text-center">
+                  <Spin />
+                  <span className="ml-2 text-[var(--text-muted)]">Загрузка…</span>
+                </Card>
+              ) : (
+                <Card className="text-center space-y-3">
+                  <p className="text-[var(--text-muted)]">
+                    В проекте нет точек интереса. Добавьте POI на{' '}
+                    <ProjectLink to="/map" className="underline">
+                      карте
+                    </ProjectLink>
+                    , чтобы открыть технологический и экономический потоки.
+                  </p>
+                </Card>
+              )}
+            </div>
           </>
         )}
       </div>

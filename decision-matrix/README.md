@@ -163,7 +163,8 @@ decision-matrix/
 | RBAC (4 роли, project access, admin API + stats) | ✅ |
 | Auth UI (login, register, admin page) | ✅ |
 | Проекты, POI, пороги, visibility `published` | ✅ |
-| Параметры: ставки (16), пропускная способность, песок, даты ввода | ✅ |
+| Параметры: ставки (16), пропускная способность, земляные работы, даты ввода | ✅ |
+| Логистика: схема песка, объём песка (`/logistics`) | ✅ |
 | Инфраструктура + PostGIS / haversine (слои, точки, линии) | ✅ |
 | Анализ окружения POI (persist + candidates + override) | ✅ |
 | Карта 2D OpenLayers (рисование, поиск, радиусы, линии POI→external) | ✅ |
@@ -171,7 +172,7 @@ decision-matrix/
 | Матрица (таблица + карточки, eng-бейджи, фильтр превышений) | ✅ |
 | Импорт: CSV, GeoJSON, KML, Shapefile, Spark, API connections, async | ✅ |
 | **Экспорт** (`/data/export`): координаты точечных/всех объектов, GeoJSON проекта (Excel, CSV, `.geojson`) | ✅ |
-| Потоки PFD (`/flows`) | ✅ |
+| Потоки (`/flows`: технология, экономика) | ✅ |
 | Граф сети (build/list nodes/edges) | ✅ |
 | Одностраничник (CRUD, PDF print, PPTX export) | ✅ |
 | Песок / логистика (analyze API + UI) | ✅ |

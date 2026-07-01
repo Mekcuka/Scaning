@@ -1,4 +1,5 @@
 import { RotateCcw, Shapes, Sparkles, Square } from 'lucide-react';
+import { Button } from 'antd';
 import {
   PAD_SIZE_PRESETS,
   rectangleToPolygon,
@@ -86,34 +87,34 @@ export function PadEarthworkSketchPlanToolbar({
     <>
       <div className="pad-earthwork-sketch-modal__shape-toggle" role="group" aria-label="Тип контура">
         {showGenerator && (
-          <button
-            type="button"
+          <Button
+            type={shapeMode === 'generator' ? 'primary' : 'default'}
             className={`pad-earthwork-sketch-modal__shape-btn${shapeMode === 'generator' ? ' pad-earthwork-sketch-modal__shape-btn--active' : ''}`}
             disabled={readOnly}
             onClick={() => handleShapeModeChange('generator')}
+            icon={<Sparkles size={16} aria-hidden />}
           >
-            <Sparkles size={16} aria-hidden />
             Генератор
-          </button>
+          </Button>
         )}
-        <button
-          type="button"
+        <Button
+          type={shapeMode === 'polygon' ? 'primary' : 'default'}
           className={`pad-earthwork-sketch-modal__shape-btn${shapeMode === 'polygon' ? ' pad-earthwork-sketch-modal__shape-btn--active' : ''}`}
           disabled={readOnly}
           onClick={() => handleShapeModeChange('polygon')}
+          icon={<Shapes size={16} aria-hidden />}
         >
-          <Shapes size={16} aria-hidden />
           Произвольная
-        </button>
-        <button
-          type="button"
+        </Button>
+        <Button
+          type={shapeMode === 'rectangle' ? 'primary' : 'default'}
           className={`pad-earthwork-sketch-modal__shape-btn${shapeMode === 'rectangle' ? ' pad-earthwork-sketch-modal__shape-btn--active' : ''}`}
           disabled={readOnly}
           onClick={() => handleShapeModeChange('rectangle')}
+          icon={<Square size={16} aria-hidden />}
         >
-          <Square size={16} aria-hidden />
           Прямоугольник
-        </button>
+        </Button>
       </div>
 
       {shapeMode === 'rectangle' ? (
@@ -184,34 +185,34 @@ export function PadEarthworkSketchPlanToolbar({
         <div className="pad-earthwork-sketch-modal__presets">
           <span className="pad-earthwork-sketch-modal__presets-label">Типовые размеры:</span>
           {PAD_SIZE_PRESETS.map((p) => (
-            <button
+            <Button
               key={p.label}
-              type="button"
+              size="small"
               className="pad-earthwork-sketch-modal__preset-chip"
               disabled={readOnly}
               onClick={() => applyRectanglePreset(p.length_m, p.width_m)}
             >
               {p.label} м
-            </button>
+            </Button>
           ))}
           {!readOnly && (
             <>
-              <button
-                type="button"
+              <Button
+                size="small"
                 className="pad-earthwork-sketch-modal__preset-chip"
                 onClick={splitToPolygon}
               >
                 Разбить в полигон
-              </button>
-              <button
-                type="button"
+              </Button>
+              <Button
+                size="small"
                 className="pad-earthwork-sketch-modal__preset-chip pad-earthwork-sketch-modal__preset-chip--ghost"
                 title="Сбросить к 120×80 м"
                 onClick={handleResetSketch}
+                icon={<RotateCcw size={14} aria-hidden />}
               >
-                <RotateCcw size={14} aria-hidden />
                 Сброс
-              </button>
+              </Button>
             </>
           )}
         </div>
@@ -220,8 +221,8 @@ export function PadEarthworkSketchPlanToolbar({
       {shapeMode === 'polygon' && !readOnly && (
         <div className="pad-earthwork-sketch-modal__presets">
           <span className="pad-earthwork-sketch-modal__presets-label">Контур:</span>
-          <button
-            type="button"
+          <Button
+            size="small"
             className="pad-earthwork-sketch-modal__preset-chip"
             onClick={() => {
               updateSketch(rectangleToPolygon(rectangleSketch));
@@ -229,22 +230,22 @@ export function PadEarthworkSketchPlanToolbar({
             }}
           >
             Из прямоугольника
-          </button>
-          <button
-            type="button"
+          </Button>
+          <Button
+            size="small"
             className="pad-earthwork-sketch-modal__preset-chip pad-earthwork-sketch-modal__preset-chip--ghost"
             onClick={handleClearPolygon}
           >
             Очистить
-          </button>
-          <button
-            type="button"
+          </Button>
+          <Button
+            size="small"
             className="pad-earthwork-sketch-modal__preset-chip pad-earthwork-sketch-modal__preset-chip--ghost"
             onClick={handleResetSketch}
+            icon={<RotateCcw size={14} aria-hidden />}
           >
-            <RotateCcw size={14} aria-hidden />
             Сброс
-          </button>
+          </Button>
         </div>
       )}
     </>

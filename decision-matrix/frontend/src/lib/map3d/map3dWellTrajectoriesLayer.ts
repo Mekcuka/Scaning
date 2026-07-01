@@ -17,23 +17,12 @@ import type {
   Map3dWellTrajectoryLayerData,
 } from './map3dWellTrajectoryInstances';
 import { buildMap3dLinearFeatureMatrix } from './map3dThreeMatrix';
-import { renderMap3dSceneOnce, type Map3dRenderItem } from './map3dLayerRender';
-import type { Map3dQuality } from './map3dQuality';
-import { cullingEnabledForQuality, tubeSegmentCapForQuality } from './map3dQuality';
-import {
-  clearViewportCullFreezeForMap,
-  freezeViewportCullForMap,
-  isLonLatInExpandedBounds,
-  shouldApplyViewportCull,
-} from './map3dViewportCull';
 
 type CachedAnchor = {
   translateX: number;
   translateY: number;
   translateZ: number;
   scale: number;
-  lon: number;
-  lat: number;
 };
 
 function disposeGroup(group: THREE.Group): void {
@@ -53,8 +42,6 @@ function buildAnchorTransform(lon: number, lat: number, altitudeM: number): Cach
     translateY: mc.y,
     translateZ: mc.z,
     scale: mc.meterInMercatorCoordinateUnits(),
-    lon,
-    lat,
   };
 }
 
@@ -92,8 +79,6 @@ type RenderableItem = {
   key: string;
   group: THREE.Group;
   anchor: CachedAnchor;
-  depthPass: 'opaque' | 'overlay';
-  localMatrix: THREE.Matrix4;
 };
 
 export class Map3dWellTrajectoriesCustomLayer implements CustomLayerInterface {
@@ -113,14 +98,10 @@ export class Map3dWellTrajectoriesCustomLayer implements CustomLayerInterface {
   private renderables: RenderableItem[] = [];
   private visible = true;
   private lightsReady = false;
-  private quality: Map3dQuality = 'balanced';
-  private cullingEnabled = true;
-  private tubularCap = 48;
 
   private readonly projMatrix = new THREE.Matrix4();
+  private readonly localMatrix = new THREE.Matrix4();
   private readonly rotX = new THREE.Matrix4();
-  private moveStartHandler: (() => void) | null = null;
-  private moveEndHandler: (() => void) | null = null;
 
   private ensureLights(): void {
     if (this.lightsReady) return;
@@ -137,17 +118,6 @@ export class Map3dWellTrajectoriesCustomLayer implements CustomLayerInterface {
     this.map?.triggerRepaint();
   }
 
-  setQuality(quality: Map3dQuality): void {
-    this.quality = quality;
-    this.cullingEnabled = cullingEnabledForQuality(quality);
-    this.tubularCap = tubeSegmentCapForQuality(quality);
-    this.rebuildRenderables();
-  }
-
-  setHighlight(_id: string | null): void {
-    this.map?.triggerRepaint();
-  }
-
   private addTubeRenderable(inst: Map3dWellTrajectoryInstance, keyPrefix: string): void {
     const built = createLineTubeGroup({
       path: inst.path,
@@ -157,8 +127,6 @@ export class Map3dWellTrajectoriesCustomLayer implements CustomLayerInterface {
       opacity: inst.opacity,
       subtype: 'well_trajectory',
       selected: false,
-      tubularSegmentCap: this.tubularCap,
-      quality: this.quality,
     });
     if (!built) return;
     const anchor = buildAnchorTransform(built.anchorLon, built.anchorLat, built.anchorAlt);
@@ -166,8 +134,6 @@ export class Map3dWellTrajectoriesCustomLayer implements CustomLayerInterface {
       key: `${keyPrefix}:${inst.id}`,
       group: built.group,
       anchor,
-      depthPass: 'opaque',
-      localMatrix: new THREE.Matrix4(),
     });
     this.scene.add(built.group);
   }
@@ -180,14 +146,10 @@ export class Map3dWellTrajectoriesCustomLayer implements CustomLayerInterface {
     this.renderables = [];
 
     for (const inst of this.layerData.planLines) {
-      if (inst.path.length > 0) {
-        this.addTubeRenderable(inst, 'plan');
-      }
+      this.addTubeRenderable(inst, 'plan');
     }
     for (const inst of this.layerData.trajectories) {
-      if (inst.path.length > 0) {
-        this.addTubeRenderable(inst, 'traj');
-      }
+      this.addTubeRenderable(inst, 'traj');
     }
     for (const inst of this.layerData.bottomholes) {
       const built = createBottomholeSphereGroup(inst);
@@ -197,8 +159,6 @@ export class Map3dWellTrajectoriesCustomLayer implements CustomLayerInterface {
         key: `bh:${inst.id}`,
         group: built.group,
         anchor,
-        depthPass: 'overlay',
-        localMatrix: new THREE.Matrix4(),
       });
       this.scene.add(built.group);
     }
@@ -221,26 +181,9 @@ export class Map3dWellTrajectoriesCustomLayer implements CustomLayerInterface {
     this.renderer = acquireMap3dThreeRenderer(map, gl);
     this.ensureLights();
     this.rebuildRenderables();
-
-    this.moveStartHandler = () => {
-      freezeViewportCullForMap(map);
-    };
-    this.moveEndHandler = () => {
-      clearViewportCullFreezeForMap(map);
-      map.triggerRepaint();
-    };
-    map.on('movestart', this.moveStartHandler);
-    map.on('moveend', this.moveEndHandler);
   }
 
   onRemove(): void {
-    if (this.map) {
-      if (this.moveStartHandler) this.map.off('movestart', this.moveStartHandler);
-      if (this.moveEndHandler) this.map.off('moveend', this.moveEndHandler);
-      clearViewportCullFreezeForMap(this.map);
-    }
-    this.moveStartHandler = null;
-    this.moveEndHandler = null;
     for (const r of this.renderables) disposeGroup(r.group);
     this.renderables = [];
     this.scene.clear();
@@ -253,25 +196,20 @@ export class Map3dWellTrajectoriesCustomLayer implements CustomLayerInterface {
     if (!this.map || !this.renderer || !this.visible || this.renderables.length === 0) return;
 
     this.projMatrix.fromArray(options.defaultProjectionData.mainMatrix);
-    const items: Map3dRenderItem[] = [];
 
     for (const r of this.renderables) {
-      if (
-        !shouldApplyViewportCull(this.map, this.cullingEnabled)
-        || isLonLatInExpandedBounds(this.map, r.anchor.lon, r.anchor.lat)
-      ) {
-        buildMap3dLinearFeatureMatrix(r.anchor, 1, r.localMatrix, this.rotX);
-        items.push({
-          group: r.group,
-          localMatrix: r.localMatrix,
-          depthPass: r.depthPass,
-        });
-      }
+      buildMap3dLinearFeatureMatrix(r.anchor, 1, this.localMatrix, this.rotX);
+      this.camera.projectionMatrix.copy(this.projMatrix).multiply(this.localMatrix);
+
+      for (const other of this.renderables) other.group.visible = false;
+      r.group.visible = true;
+
+      this.renderer.resetState();
+      this.renderer.clearDepth();
+      this.renderer.render(this.scene, this.camera);
     }
 
-    renderMap3dSceneOnce(this.renderer, this.scene, this.camera, this.projMatrix, items, {
-      clearDepth: false,
-    });
+    for (const r of this.renderables) r.group.visible = true;
     finishMap3dThreeFrame(this.renderer);
   }
 }

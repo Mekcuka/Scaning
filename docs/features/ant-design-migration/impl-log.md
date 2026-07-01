@@ -186,5 +186,88 @@
 - `antTheme.ts`: `Card`, `Tabs`, `Form` component tokens
 
 ### B16.7 QA
-- E2E smoke: scroll в `.app-main` на parameters и flows/logistics
+- E2E smoke: scroll в `.app-main` на parameters и logistics/schematic
 - `verify:css`, lint, test; snapshot регенерирован
+
+## B17 — AppDataTable и миграция таблиц (2026-06-30)
+
+### B17.1 Wrapper
+- `AppDataTable.tsx` — Ant `Table` с дефолтами проекта, toolbar + `TableExcelExportButton`
+- `AppDataTable.test.tsx` — базовые тесты
+- `cards-tables.css` — bridge `.app-data-table-wrap`, `.app-data-table-toolbar`, thead/cell
+
+### B17.2–17.3 CRUD / projects
+- `ImportHistorySection`, `ReportListPage`, `ProjectsPage`, `DashboardPage`
+- `ProjectsDataTable.tsx` — общие колонки projects/dashboard
+- `projects-table.css` — селекторы `.app-data-table.data-table--projects`
+
+### B17.4 Parameters
+- `ParametersPage`, `SandParametersPage`, `EarthworkParametersPage`, `EntryDatesParametersPage`
+- `SandHaulLegParameterCells` → `renderSandHaulLegCell` для колонок Ant Table
+
+### B17.5 Logistics / analysis
+- `SandLogisticsQuarryTable`, `SandLogisticsConsumerTable`, `SandHaulLegTable`
+- `MapAnalysisPanel`, `AnalysisEnvironmentTable` — Ant Table + Tag для статусов
+
+### B17.6 Matrix
+- `MatrixPage` table view → `AppDataTable` с section rows (colSpan), inline `AppSelect`, `Tag`
+
+### B17.7 Pad clustering profile
+- `PadClusteringProfilePage` → `AppDataTable` для станций профиля
+
+## B18 — Кнопки карты (2026-06-30)
+
+- `MapDisplayModeToggle` → Ant `Segmented` + bridge `toolbar.css`
+- `PoiCreateForm` fluid/advanced → Ant `Button` + bridge `poi-create-form.css`
+- `PadEarthworkSketchPlanToolbar` shape/preset → Ant `Button`
+
+## B19 — CSS cleanup (2026-06-30)
+
+- `app-select.css` — удалены legacy `.app-select-trigger` / menu / option; bridge `.app-select.ant-select`
+- `dashboard.css` — project-status на `.ant-select-selector`
+- `badge` → `Tag` в Matrix и `AnalysisEnvironmentTable`
+- `PadClusteringSummaryTable` filter → `AppSelect`
+- `TableExcelExportBodyCell` — deprecated
+
+## B20 — QA (2026-06-30)
+
+- `MapDisplayModeToggle.test.tsx` обновлён под Segmented
+- `npm run lint`, `npm run test`, `npm run verify:css`
+- Статус миграции in-scope: **completed**
+
+## Post-scope cleanup (2026-06-30)
+
+### Таблицы → AppDataTable
+- `RatesPage` — группы CAPEX/OPEX/выручка/расстояние на `AppDataTable` + excel toolbar
+- `AdminUsersPage`, `AdminJobsPage`
+- `ImportFilesSection`, `ImportWellSurveysSection`
+- `PadClusteringBottomholesSection`, `PadClusteringTrajectorySection` (пары SF)
+- `PadPlacementPanel` (варианты расчёта, `onRow` для выбора)
+- `InfraWellTrajectorySection` (пары SF)
+- `import3d/ModelsList.tsx`
+- `AdminAssistantProbePanel`
+
+### Пропущено
+- `PadClusteringSummaryTable` — транспонированная таблица с групповыми заголовками, сортировкой и фильтрами в `<th>`; полная миграция на Ant Table потребует переработки UX. Обновлены только кнопки сортировки → Ant `Button`.
+
+### Autoroad panel
+- `AutoroadNetworkPanel` — bulk/ collapse / search clear / remove → Ant `Button`
+- `AutoroadNetworkParamsSection` — collapse head → Ant `Button`
+- Bridge CSS в `autoroad-panel.css` (`.ant-btn` на legacy-классах)
+
+### CSS / deprecated
+- `export.css`, `flow-schematic.css` — `.app-select-trigger` → `.ant-select-selector`
+- `ProjectDetailPage` — fluid badges → Ant `Tag` + `project-detail-fluid-badge--*`
+- Удалены неиспользуемые `.badge*` из `cards-tables.css`; snapshot регенерирован
+- Удалены `TableExcelExportBodyCell`, `SandHaulLegParameterCells` (deprecated)
+
+### QA
+- `AdminUsersPage.test.tsx` — селекторы под Ant Table (measure row)
+- `npm run lint` — OK (warnings pre-existing)
+- `npm run test` — 6 падений MapPage* (pre-existing: toolbar/autoroad); AdminUsers зелёный
+- `npm run verify:css` — OK после regenerate snapshot
+
+### Post-scope cleanup (MapPage tests + PadClusteringSummaryTable)
+- **MapPage tests** — селекторы обновлены под toolbar «Расчёт» (`MapPageToolbarCalculationsGroup`): `clickAnalyzeAllPois` / `clickAnalyzeSelectedPoi` / `clickAutoroadNetworkTool` в `test/pages/mapCalculationsMenu.ts`; `MapDisplayModeToggle` уже на `getByLabelText`.
+- **PadClusteringSummaryTable** — нативная `<table>` → `AppDataTable` (Ant `Table`): объекты в строках, метрики в колонках; сортировка и `AppSelect`-фильтры в `title` колонок; групповые заголовки через `children`; bridge CSS `.ant-table` в `pad-clustering-page.css`.
+- **QA:** `npm run lint` OK; `npm run test -- --run` 1278/1278; `npm run verify:css` OK.

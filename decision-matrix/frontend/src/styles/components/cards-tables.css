@@ -38,34 +38,6 @@
   min-width: 0;
 }
 
-.badge {
-  display: inline-block;
-  padding: 2px 8px;
-  border-radius: 999px;
-  font-size: 0.75rem;
-  font-weight: 500;
-}
-
-.badge-success { background: #dcfce7; color: #166534; }
-.badge-warning { background: #fef3c7; color: #92400e; }
-.badge-danger { background: #fee2e2; color: #991b1b; }
-.badge-muted { background: #f1f5f9; color: #64748b; }
-
-[data-theme="dark"] .badge-success { background: #14532d; color: #bbf7d0; }
-[data-theme="dark"] .badge-warning { background: #78350f; color: #fde68a; }
-[data-theme="dark"] .badge-danger { background: #7f1d1d; color: #fecaca; }
-
-.form-group {
-  margin-bottom: 12px;
-}
-.form-group label {
-  display: block;
-  font-size: 0.8125rem;
-  font-weight: 500;
-  margin-bottom: 4px;
-  color: var(--text-muted);
-}
-
 input[type='number'] {
   -moz-appearance: textfield;
   appearance: textfield;
@@ -80,9 +52,185 @@ input[type='number']::-webkit-inner-spin-button {
 .table-wrap {
   overflow-x: auto;
 }
-table.data-table {
+
+.projects-table-card .table-wrap {
+  overflow-x: visible;
+}
+
+.app-data-table.data-table--projects .ant-table-content {
+  overflow-x: visible !important;
+}
+
+.app-data-table.data-table--projects .ant-table {
+  table-layout: fixed;
   width: 100%;
-  border-collapse: collapse;
+}
+
+.app-data-table.data-table--projects .col-name {
+  width: 14%;
+  min-width: 7rem;
+}
+
+.app-data-table.data-table--projects .col-desc {
+  width: 30%;
+}
+
+.app-data-table.data-table--projects .col-poi {
+  width: 3.5rem;
+}
+
+.app-data-table.data-table--projects .col-date,
+.app-data-table.data-table--projects .col-cost {
+  width: 5.5rem;
+}
+
+.app-data-table.data-table--projects .col-status {
+  width: 8.5rem;
+}
+
+.app-data-table.data-table--projects .col-owner {
+  width: 9rem;
+  max-width: 9rem;
+}
+
+.app-data-table.data-table--projects .col-actions {
+  width: 9.5rem;
+  white-space: nowrap;
+}
+
+.app-data-table.data-table--projects .col-center {
+  text-align: center;
+}
+
+.app-data-table.data-table--projects td.col-status .project-status-select {
+  margin-inline: auto;
+}
+
+/* Компактнее типографика таблицы проектов (Dashboard / Projects) */
+.projects-table-card .app-data-table.data-table--projects .ant-table-thead > tr > th {
+  font-size: 0.6875rem;
+  padding: 6px 10px;
+}
+
+.projects-table-card .app-data-table.data-table--projects .ant-table-cell {
+  font-size: 0.8125rem;
+  padding: 6px 10px;
+}
+
+.projects-table-card .app-data-table.data-table--projects .ant-table-cell.col-date {
+  font-size: 12px;
+  line-height: 16px;
+  color: var(--text-muted);
+  font-variant-numeric: tabular-nums;
+}
+
+.projects-table-card .app-data-table.data-table--projects .project-status-select.ant-select .ant-select-selector {
+  font-size: 0.6875rem;
+  min-height: 22px;
+  padding: 2px 20px 2px 8px;
+}
+
+.projects-table-card .app-data-table.data-table--projects .ant-btn-sm {
+  font-size: 0.75rem;
+}
+
+/* Шапка карточки проектов (Projects / Dashboard) */
+.projects-table-actions {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 0.5rem;
+  flex-wrap: nowrap;
+}
+
+.projects-table-card {
+  min-width: 0;
+}
+
+.ant-card.projects-table-card .card-header {
+  gap: 12px;
+  min-width: 0;
+  flex-wrap: nowrap;
+}
+
+.projects-table-card__title {
+  flex: 1 1 auto;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.projects-table-card__action-btn {
+  flex-shrink: 0;
+  white-space: nowrap;
+  height: 35px;
+  width: 120px;
+  padding-inline: 8px;
+  line-height: 24px;
+  vertical-align: top;
+}
+
+.projects-table-card__search {
+  flex: 1 1 12rem;
+  min-width: 10rem;
+  max-width: 220px;
+  margin-left: auto;
+}
+
+.projects-table-card__btn-icon {
+  margin-right: 0.25rem;
+}
+
+.projects-table-card__btn-label {
+  font-size: 16px;
+}
+
+/* Ant Design Table bridge (AppDataTable) */
+.app-data-table-wrap {
+  width: 100%;
+  min-width: 0;
+}
+
+.app-data-table-toolbar {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 8px;
+  padding: 8px 12px;
+  border-bottom: 1px solid var(--border);
+  background: var(--surface-2);
+}
+
+.app-data-table-toolbar__main {
+  flex: 1;
+  min-width: 0;
+}
+
+.app-data-table.ant-table-wrapper {
+  width: 100%;
+}
+
+.ant-card.card--flush .app-data-table .ant-table-container {
+  border-radius: 0;
+}
+
+/* AppDataTable default bridge (feature pages override via modifiers) */
+.app-data-table .ant-table-thead > tr > th {
+  background: var(--bg);
+  font-weight: 600;
+  color: var(--text-muted);
+  font-size: 0.75rem;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+}
+
+.app-data-table .ant-table-tbody > tr > td,
+.app-data-table .ant-table-tbody > tr > th {
+  border-bottom: 1px solid var(--border);
+}
+
+.app-data-table .ant-table-cell {
   font-size: 0.875rem;
 }
 

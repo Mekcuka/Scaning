@@ -1,7 +1,10 @@
 import { useMemo, useState } from 'react';
 import { Search } from 'lucide-react';
 import { Button, Input } from 'antd';
+import type { ColumnsType } from 'antd/es/table';
 
+import { AppSelect } from '../AppSelect';
+import { AppDataTable } from '../AppDataTable';
 import type { TransposedSummaryTable } from '../../lib/padClusteringSummaryRows';
 import {
   SUMMARY_ROW_SORT_KEY,
@@ -22,6 +25,12 @@ type Props = {
 type SortState = {
   key: string;
   direction: SummarySortDirection;
+};
+
+type SummaryDataRow = {
+  key: string;
+  label: string;
+  [paramKey: string]: string | undefined;
 };
 
 function SortIndicator({
@@ -48,9 +57,6 @@ function ColumnHeader({
   filterValue,
   onFilterChange,
   className,
-  rowSpan,
-  colSpan,
-  scope,
   sortable,
 }: {
   label: string;
@@ -61,52 +67,43 @@ function ColumnHeader({
   filterValue?: string;
   onFilterChange?: (key: string, value: string) => void;
   className?: string;
-  rowSpan?: number;
-  colSpan?: number;
-  scope?: 'col' | 'colgroup';
   sortable: boolean;
 }) {
   const active = sort.key === columnKey;
   const showFilter = filterOptions != null && filterOptions.length > 0 && onFilterChange != null;
 
   return (
-    <th
-      scope={scope ?? 'col'}
-      rowSpan={rowSpan}
-      colSpan={colSpan}
-      className={`${className ?? ''} ${sortable ? 'pad-clustering-summary__col-head--sortable' : ''}`.trim()}
+    <div
+      className={`pad-clustering-summary__header-stack ${className ?? ''} ${sortable ? 'pad-clustering-summary__col-head--sortable' : ''}`.trim()}
       aria-sort={sortable && active ? (sort.direction === 'asc' ? 'ascending' : 'descending') : 'none'}
     >
-      <div className="pad-clustering-summary__header-stack">
-        {sortable ? (
-          <button
-            type="button"
-            className="pad-clustering-summary__sort-btn"
-            onClick={() => onSort(columnKey)}
-          >
-            <span>{label}</span>
-            <SortIndicator active={active} direction={sort.direction} />
-          </button>
-        ) : (
-          <span className="pad-clustering-summary__header-label">{label}</span>
-        )}
-        {showFilter ? (
-          <select
-            className="app-select pad-clustering-summary__header-filter"
-            value={filterValue ?? ''}
-            onChange={(event) => onFilterChange(columnKey, event.target.value)}
-            aria-label={`Фильтр: ${label}`}
-          >
-            <option value="">Все</option>
-            {filterOptions.map((option) => (
-              <option key={option} value={option}>
-                {option}
-              </option>
-            ))}
-          </select>
-        ) : null}
-      </div>
-    </th>
+      {sortable ? (
+        <Button
+          type="text"
+          size="small"
+          className="pad-clustering-summary__sort-btn"
+          onClick={() => onSort(columnKey)}
+        >
+          <span>{label}</span>
+          <SortIndicator active={active} direction={sort.direction} />
+        </Button>
+      ) : (
+        <span className="pad-clustering-summary__header-label">{label}</span>
+      )}
+      {showFilter ? (
+        <AppSelect
+          variant="compact"
+          className="pad-clustering-summary__header-filter"
+          value={filterValue ?? ''}
+          ariaLabel={`Фильтр: ${label}`}
+          onChange={(value) => onFilterChange(columnKey, value)}
+          options={[
+            { value: '', label: 'Все' },
+            ...filterOptions.map((option) => ({ value: option, label: option })),
+          ]}
+        />
+      ) : null}
+    </div>
   );
 }
 
@@ -152,30 +149,94 @@ export function PadClusteringSummaryTable({
     setColumnFilters({});
   };
 
-  const renderColumnHeader = (
-    label: string,
-    columnKey: string,
-    className?: string,
-    rowSpan?: number,
-    colSpan?: number,
-    scope?: 'col' | 'colgroup',
-  ) => (
-    <ColumnHeader
-      key={columnKey}
-      label={label}
-      columnKey={columnKey}
-      sort={sort}
-      onSort={handleSort}
-      filterOptions={filterOptionsByKey[columnKey]}
-      filterValue={columnFilters[columnKey]}
-      onFilterChange={handleFilterChange}
-      className={className}
-      rowSpan={rowSpan}
-      colSpan={colSpan}
-      scope={scope}
-      sortable={sortable}
-    />
+  const dataSource = useMemo<SummaryDataRow[]>(
+    () =>
+      visibleRows.map((row) => ({
+        key: row.key,
+        label: row.label,
+        ...row.values,
+      })),
+    [visibleRows],
   );
+
+  const columns = useMemo<ColumnsType<SummaryDataRow>>(() => {
+    const mkHeader = (label: string, columnKey: string, className?: string) => (
+      <ColumnHeader
+        label={label}
+        columnKey={columnKey}
+        sort={sort}
+        onSort={handleSort}
+        filterOptions={filterOptionsByKey[columnKey]}
+        filterValue={columnFilters[columnKey]}
+        onFilterChange={handleFilterChange}
+        className={className}
+        sortable={sortable}
+      />
+    );
+
+    const labelColumn: ColumnsType<SummaryDataRow>[number] = {
+      title: mkHeader(rowHeaderLabel, SUMMARY_ROW_SORT_KEY, 'pad-clustering-summary__row-head'),
+      dataIndex: 'label',
+      key: SUMMARY_ROW_SORT_KEY,
+      fixed: 'left',
+      className: 'pad-clustering-summary__row-head',
+      onHeaderCell: () => ({
+        className: [
+          'pad-clustering-summary__row-head',
+          'pad-clustering-summary__row-head--corner',
+          hasGroupedColumns ? 'pad-clustering-summary__row-head--grouped' : '',
+        ]
+          .filter(Boolean)
+          .join(' '),
+        ...(hasGroupedColumns ? { rowSpan: 2 } : {}),
+      }),
+      onCell: () => ({ className: 'pad-clustering-summary__row-head' }),
+      render: (label: string) => label,
+    };
+
+    const metricColumns: ColumnsType<SummaryDataRow> = table.columns.map((col) => {
+      if (col.kind === 'single') {
+        return {
+          title: mkHeader(col.label, col.key, 'pad-clustering-summary__col-head'),
+          dataIndex: col.key,
+          key: col.key,
+          className: 'pad-clustering-summary__col-head',
+          onHeaderCell: () => ({
+            className: 'pad-clustering-summary__col-head',
+            ...(hasGroupedColumns ? { rowSpan: 2 } : {}),
+          }),
+          render: (value: string | undefined) => value ?? '—',
+        };
+      }
+
+      return {
+        title: col.label,
+        key: `group-${col.label}`,
+        className: 'pad-clustering-summary__col-group',
+        onHeaderCell: () => ({ className: 'pad-clustering-summary__col-group' }),
+        children: col.columns.map((child) => ({
+          title: mkHeader(child.label, child.key, 'pad-clustering-summary__col-subhead'),
+          dataIndex: child.key,
+          key: child.key,
+          className: 'pad-clustering-summary__col-subhead',
+          onHeaderCell: () => ({ className: 'pad-clustering-summary__col-subhead' }),
+          render: (value: string | undefined) => value ?? '—',
+        })),
+      };
+    });
+
+    return [labelColumn, ...metricColumns];
+  }, [
+    columnFilters,
+    filterOptionsByKey,
+    handleFilterChange,
+    handleSort,
+    hasGroupedColumns,
+    rowHeaderLabel,
+    sort,
+    sortable,
+    table.columns,
+  ]);
 
   return (
     <section className="pad-clustering-summary__section">
@@ -216,75 +277,13 @@ export function PadClusteringSummaryTable({
             Нет строк по заданным фильтрам.
           </p>
         ) : (
-          <table className="pad-clustering-table text-xs pad-clustering-summary__table pad-clustering-summary__table--transposed">
-            <thead>
-              {hasGroupedColumns ? (
-                <>
-                  <tr>
-                    {renderColumnHeader(
-                      rowHeaderLabel,
-                      SUMMARY_ROW_SORT_KEY,
-                      'pad-clustering-summary__row-head pad-clustering-summary__row-head--corner',
-                      2,
-                    )}
-                    {table.columns.map((col) =>
-                      col.kind === 'single' ? (
-                        renderColumnHeader(
-                          col.label,
-                          col.key,
-                          'pad-clustering-summary__col-head',
-                          2,
-                        )
-                      ) : (
-                        <th
-                          key={col.label}
-                          scope="colgroup"
-                          colSpan={col.columns.length}
-                          className="pad-clustering-summary__col-group"
-                        >
-                          {col.label}
-                        </th>
-                      ),
-                    )}
-                  </tr>
-                  <tr>
-                    {table.columns.flatMap((col) =>
-                      col.kind === 'group'
-                        ? col.columns.map((child) =>
-                            renderColumnHeader(
-                              child.label,
-                              child.key,
-                              'pad-clustering-summary__col-subhead',
-                            ),
-                          )
-                        : [],
-                    )}
-                  </tr>
-                </>
-              ) : (
-                <tr>
-                  {renderColumnHeader(rowHeaderLabel, SUMMARY_ROW_SORT_KEY, 'pad-clustering-summary__row-head')}
-                  {table.columns.map((col) =>
-                    col.kind === 'single'
-                      ? renderColumnHeader(col.label, col.key, 'pad-clustering-summary__col-head')
-                      : null,
-                  )}
-                </tr>
-              )}
-            </thead>
-            <tbody>
-              {visibleRows.map((row) => (
-                <tr key={row.key}>
-                  <th scope="row" className="pad-clustering-summary__row-head">
-                    {row.label}
-                  </th>
-                  {table.paramLabels.map((key) => (
-                    <td key={key}>{row.values[key] ?? '—'}</td>
-                  ))}
-                </tr>
-              ))}
-            </tbody>
-          </table>
+          <AppDataTable<SummaryDataRow>
+            className="pad-clustering-table text-xs pad-clustering-summary__table pad-clustering-summary__table--transposed"
+            rowKey="key"
+            columns={columns}
+            dataSource={dataSource}
+            emptyText="Нет строк по заданным фильтрам."
+          />
         )}
       </div>
     </section>

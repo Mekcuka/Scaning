@@ -33,7 +33,7 @@ import {
   writeSandLogisticsCache,
 } from '../../hooks/useProjectSandLogistics';
 import { useProjectInfraObjects } from '../../hooks/useProjectData';
-import { useFlowSchematicContext } from './flowSchematicContext';
+import { useActiveProject } from '../../hooks/useActiveProject';
 import { useAppStore } from '../../store';
 
 function formatCalculatedAtRu(iso: string | null | undefined): string | null {
@@ -50,7 +50,7 @@ function formatCalculatedAtRu(iso: string | null | undefined): string | null {
 }
 
 export function FlowLogisticsPage() {
-  const { projectId } = useFlowSchematicContext();
+  const { projectId } = useActiveProject();
   const pushToast = useAppStore((s) => s.pushToast);
   const queryClient = useQueryClient();
 
@@ -237,26 +237,36 @@ export function FlowLogisticsPage() {
             />
           </label>
           {autoBounds && (
+            <div className="flow-logistics-actions shrink-0">
+              <Button
+                onClick={() => {
+                  setHorizonTo(autoBounds.horizonTo);
+                  if (projectId) saveSandLogisticsHorizonTo(projectId, autoBounds.horizonTo);
+                }}
+              >
+                Подставить автоматически
+              </Button>
+              <Button
+                type="primary"
+                disabled={!projectId}
+                loading={analyzeMut.isPending}
+                onClick={() => analyzeMut.mutate()}
+              >
+                {analyzeMut.isPending ? 'Расчёт…' : 'Рассчитать логистику песка'}
+              </Button>
+            </div>
+          )}
+          {!autoBounds && (
             <Button
-              size="small"
+              type="primary"
               className="shrink-0"
-              onClick={() => {
-                setHorizonTo(autoBounds.horizonTo);
-                if (projectId) saveSandLogisticsHorizonTo(projectId, autoBounds.horizonTo);
-              }}
+              disabled={!projectId}
+              loading={analyzeMut.isPending}
+              onClick={() => analyzeMut.mutate()}
             >
-              Подставить автоматически
+              {analyzeMut.isPending ? 'Расчёт…' : 'Рассчитать логистику песка'}
             </Button>
           )}
-          <Button
-            type="primary"
-            className="shrink-0"
-            disabled={!projectId}
-            loading={analyzeMut.isPending}
-            onClick={() => analyzeMut.mutate()}
-          >
-            {analyzeMut.isPending ? 'Расчёт…' : 'Рассчитать логистику песка'}
-          </Button>
         </div>
       </div>
 

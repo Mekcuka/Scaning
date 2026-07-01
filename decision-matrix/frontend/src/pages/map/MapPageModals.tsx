@@ -51,7 +51,8 @@ export function MapPageModals({
           title={deleteConfirm.title}
           titleId="delete-confirm-title"
           onClose={() => setDeleteConfirm(null)}
-          size="sm"
+          size="xs"
+          overlayClassName="app-modal-overlay--confirm"
           footer={
             <Space>
               <Button onClick={() => setDeleteConfirm(null)} disabled={deletePending}>
@@ -72,8 +73,8 @@ export function MapPageModals({
             </Space>
           }
         >
-          <p className="text-sm mb-2">{deleteConfirm.message}</p>
-          <p className="text-xs" style={{ color: 'var(--text-muted)' }}>
+          <p className="text-sm mb-1">{deleteConfirm.message}</p>
+          <p className="text-xs mb-0" style={{ color: 'var(--text-muted)' }}>
             Отменить действие можно через Ctrl+Z.
           </p>
         </AppModal>

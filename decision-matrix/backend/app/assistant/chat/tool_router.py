@@ -52,6 +52,8 @@ _TAB_CATEGORIES: dict[str, frozenset[str]] = {
     "flows/technology": frozenset({CAT_FLOW, CAT_ANALYSIS, CAT_PROJECTS}),
     "flows/economic": frozenset({CAT_FLOW, CAT_RATES, CAT_PROJECTS}),
     "flows/logistics": frozenset({CAT_FLOW, CAT_PROJECTS}),
+    "logistics/schematic": frozenset({CAT_FLOW, CAT_PROJECTS}),
+    "logistics/sand": frozenset({CAT_FLOW, CAT_PROJECTS}),
     "admin/jobs": frozenset({CAT_ADMIN, CAT_JOBS}),
     "admin/users": frozenset({CAT_ADMIN}),
     "project-detail": frozenset({CAT_ANALYSIS, CAT_PROJECTS}),

@@ -1,6 +1,5 @@
 import type { MapPageCanvasProps } from '../../../pages/map/MapPageCanvas';
 import type { MapPageFooterProps } from '../../../pages/map/MapPageFooter';
-import type { MapPageHeaderProps } from '../../../pages/map/MapPageHeader';
 import type { MapPageLayersSidebarProps } from '../../../pages/map/MapPageLayersSidebar';
 import type { MapPageModalsProps } from '../../../pages/map/MapPageModals';
 import type { MapPageSidePanelsProps } from '../../../pages/map/MapPageSidePanels';
@@ -18,7 +17,6 @@ export type MapData = ReturnType<typeof useMapPageMapData>;
 export type MapActions = ReturnType<typeof useMapPageMapActions>;
 
 export type MapPageSections = {
-  header: MapPageHeaderProps;
   toolbar: MapPageToolbarProps;
   layersSidebar: MapPageLayersSidebarProps;
   canvas: MapPageCanvasProps;

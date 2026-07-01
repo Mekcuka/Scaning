@@ -18,7 +18,10 @@ def wants_flow_summary(messages: list[ChatMessage], request: ChatRequest) -> boo
 
 
 def wants_sand_summary(messages: list[ChatMessage], request: ChatRequest) -> bool:
-    if request.active_tab == "flows/logistics":
+    tab = request.active_tab or ""
+    if tab in ("flows/logistics", "logistics/schematic", "logistics/sand"):
+        return True
+    if tab.startswith("logistics/"):
         return True
     return any(h in last_user_text(messages) for h in _SAND_HINTS)
 

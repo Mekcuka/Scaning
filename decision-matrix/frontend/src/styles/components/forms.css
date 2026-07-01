@@ -1,3 +1,21 @@
+/* Auth (login / register) — одинаковая ширина email и password */
+.auth-form .ant-form-item-control-input-content > .auth-form__input,
+.auth-form .ant-form-item-control-input-content > .auth-form__input.ant-input-affix-wrapper {
+  width: 100%;
+}
+
+/* Form group — layout + Ant inputs */
+.form-group {
+  margin-bottom: 12px;
+}
+.form-group label {
+  display: block;
+  font-size: 0.8125rem;
+  font-weight: 500;
+  margin-bottom: 4px;
+  color: var(--text-muted);
+}
+
 /* Layout modifiers on Ant Design inputs */
 .ant-input.input--mono,
 textarea.ant-input.input--mono {
@@ -41,8 +59,9 @@ textarea.ant-input.input--mono {
 
 .pad-clustering-bottomholes-table__input.ant-input,
 .pad-clustering-bottomholes-table__input.app-select {
-  width: 100%;
-  min-width: 0;
+  width: 39px;
+  min-width: 39px;
+  max-width: 39px;
 }
 
 /* Admin assistant — mono fields */

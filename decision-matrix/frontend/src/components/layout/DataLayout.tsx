@@ -36,7 +36,9 @@ export function DataLayout() {
           ),
         }))}
       />
-      <Outlet />
+      <div className="parameters-layout__body">
+        <Outlet />
+      </div>
     </div>
   );
 }

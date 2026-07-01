@@ -3,18 +3,14 @@ import { useQuery } from '@tanstack/react-query';
 import { Link } from 'react-router-dom';
 import { Button, Card } from 'antd';
 import { ProjectLink } from '../components/ProjectLink';
-import { FileOutput, Grid3X3, Map, Plus, Trash2 } from 'lucide-react';
+import { FileOutput, Grid3X3, Map, Plus } from 'lucide-react';
 import { defaultProjectsListApi, type Project } from '../lib/api';
 import { queryKeys } from '../lib/queryKeys';
 import { normalizeProjectsList } from '../lib/normalizeProjectsList';
+import { ProjectsDataTable } from '../components/ProjectsDataTable';
 import {
-  ellipsisText,
   filterProjectsByQuery,
   filterProjectsOwnedByUser,
-  formatProjectDate,
-  PROJECT_TABLE_DESC_MAX,
-  PROJECT_TABLE_NAME_MAX,
-  projectStatus,
 } from '../lib/projectDisplay';
 import { useAuthStore, useAppStore } from '../store';
 import { ProjectsTableCardHeader } from '../components/ProjectsTableCardHeader';
@@ -126,7 +122,7 @@ export function DashboardPage() {
           onSearchChange={setProjectSearch}
           actions={
             <Link to="/projects">
-              <Button type="primary" size="small">
+              <Button type="primary" size="small" className="projects-table-card__action-btn">
                 Список
               </Button>
             </Link>
@@ -140,80 +136,18 @@ export function DashboardPage() {
                 : 'Ничего не найдено по запросу поиска.'}
             </p>
           ) : (
-            <table className="data-table data-table--projects">
-              <thead>
-                <tr>
-                  <th className="col-name">Название</th>
-                  <th className="col-desc">Описание</th>
-                  <th className="col-center col-poi">POI</th>
-                  <th className="col-center col-status">Статус</th>
-                  <th className="col-owner">Создал</th>
-                  <th className="col-center col-date">Дата</th>
-                  <th className="col-actions" aria-label="Действия" />
-                </tr>
-              </thead>
-              <tbody>
-                {filtered.map((p) => {
-                  const st = projectStatus(p.status);
-                  return (
-                    <tr key={p.id}>
-                      <td className="cell-ellipsis">
-                        <Link
-                          to={`/projects/${p.id}`}
-                          className="cell-ellipsis__inner font-medium hover:underline min-w-0"
-                          style={{ color: 'var(--primary)' }}
-                          title={p.name}
-                          onClick={() => openProject(p)}
-                        >
-                          {ellipsisText(p.name, PROJECT_TABLE_NAME_MAX)}
-                        </Link>
-                      </td>
-                      <td
-                        className="cell-ellipsis"
-                        title={p.description?.trim() || undefined}
-                        style={{ color: 'var(--text-muted)' }}
-                      >
-                        {ellipsisText(p.description, PROJECT_TABLE_DESC_MAX)}
-                      </td>
-                      <td className="tabular col-center col-poi">{p.poi_count}</td>
-                      <td className="col-center col-status">
-                        <span className={`status ${st.className}`}>{st.label}</span>
-                      </td>
-                      <td
-                        className="col-owner cell-ellipsis"
-                        title={p.owner_name || undefined}
-                        style={{ color: 'var(--text-muted)' }}
-                      >
-                        {p.owner_name?.trim() || '—'}
-                      </td>
-                      <td
-                        className="tabular col-center col-date"
-                        style={{ color: 'var(--text-muted)' }}
-                      >
-                        {formatProjectDate(p.created_at)}
-                      </td>
-                      <td className="col-actions">
-                        <div className="projects-table-actions">
-                          <Link to={`/projects/${p.id}`} onClick={() => openProject(p)}>
-                            <Button size="small">Открыть</Button>
-                          </Link>
-                          {canDeleteProject(user?.role, user?.id, p) && (
-                            <Button
-                              size="small"
-                              icon={<Trash2 size={14} className="text-red-600" />}
-                              onClick={(e) => openDeleteDialog(p, e)}
-                              disabled={deleteMut.isPending}
-                              title="Удалить проект"
-                              aria-label={`Удалить ${p.name}`}
-                            />
-                          )}
-                        </div>
-                      </td>
-                    </tr>
-                  );
-                })}
-              </tbody>
-            </table>
+            <ProjectsDataTable
+              projects={filtered}
+              onOpenProject={openProject}
+              canDelete={(p) => canDeleteProject(user?.role, user?.id, p)}
+              onDelete={(p, e) => openDeleteDialog(p, e)}
+              deletePending={deleteMut.isPending}
+              emptyText={
+                myProjects.length === 0
+                  ? 'У вас пока нет проектов. Создайте первый через «Новый проект».'
+                  : 'Ничего не найдено по запросу поиска.'
+              }
+            />
           )}
         </div>
       </Card>

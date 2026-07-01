@@ -64,7 +64,7 @@ export function FlowNode({ id, data, selected }: NodeProps<Node<FlowNodeData>>) 
       />
       <div
         className={`flow-schematic-node px-3 py-2 rounded-lg text-sm shadow-sm text-center ${
-          isSeparator ? 'min-w-[130px]' : 'min-w-[120px] max-w-[220px]'
+          isSeparator ? 'min-w-[130px] max-w-[150px] w-fit' : 'min-w-[120px] max-w-[220px]'
         }`}
         style={{
           background: bg,
@@ -85,6 +85,7 @@ export function FlowNode({ id, data, selected }: NodeProps<Node<FlowNodeData>>) 
           >
             <span className="whitespace-nowrap">Нефть:</span>
             <DeferredNumberInput
+              native
               value={separationPercent}
               integer
               min={1}

@@ -49,6 +49,11 @@ export function buildAntTheme(mode: 'light' | 'dark'): ThemeConfig {
         labelColor: isDark ? '#8fa8c4' : '#5a6d85',
         itemMarginBottom: 16,
       },
+      Button: {
+        primaryShadow: 'none',
+        defaultShadow: 'none',
+        dangerShadow: 'none',
+      },
     },
   };
 }

@@ -125,7 +125,7 @@ describe('MapPage 3D display optimization', () => {
     saveMapLayerPreferences('p1', prefs);
 
     await renderMap();
-    await userEvent.click(screen.getByRole('button', { name: 'Карта 3D' }));
+    await userEvent.click(screen.getByLabelText('Карта 3D'));
 
     await waitFor(() => expect(screen.getByTestId('mock-map-3d')).toBeInTheDocument());
     expect(map3dPropsRef.current?.showBasemap).toBe(false);
@@ -136,11 +136,11 @@ describe('MapPage 3D display optimization', () => {
   it('keeps 3D host mounted (hidden) after switching back to 2D', async () => {
     await renderMap();
 
-    await userEvent.click(screen.getByRole('button', { name: 'Карта 3D' }));
+    await userEvent.click(screen.getByLabelText('Карта 3D'));
     await waitFor(() => expect(screen.getByTestId('mock-map-3d')).toBeInTheDocument());
     const hostAfterFirst3d = map3dHost();
 
-    await userEvent.click(screen.getByRole('button', { name: 'Карта 2D' }));
+    await userEvent.click(screen.getByLabelText('Карта 2D'));
     await waitFor(() => expect(screen.queryByTestId('mock-map-3d')).not.toBeVisible());
 
     const hostWhile2d = map3dHost();
@@ -148,7 +148,7 @@ describe('MapPage 3D display optimization', () => {
     expect(hostWhile2d).toBe(hostAfterFirst3d);
     expect(hostWhile2d).toHaveStyle({ visibility: 'hidden' });
 
-    await userEvent.click(screen.getByRole('button', { name: 'Карта 3D' }));
+    await userEvent.click(screen.getByLabelText('Карта 3D'));
     await waitFor(() => expect(screen.getByTestId('mock-map-3d')).toBeVisible());
     expect(map3dHost()).toBe(hostAfterFirst3d);
   });

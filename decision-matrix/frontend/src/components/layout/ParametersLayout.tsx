@@ -1,11 +1,10 @@
-import { LandPlot, Calendar, Coins, Gauge, Mountain, Link2 } from 'lucide-react';
+import { LandPlot, Calendar, Coins, Gauge, Link2 } from 'lucide-react';
 import { Outlet } from 'react-router-dom';
 import { useProjectPathBuilder } from '../../hooks/useProjectPath';
 import { SubnavTabs } from './SubnavTabs';
 
 const TABS = [
   { suffix: '/parameters/capacity', label: 'Пропускная способность', icon: Gauge },
-  { suffix: '/parameters/sand', label: 'Объём песка', icon: Mountain },
   { suffix: '/parameters/earthwork', label: 'Земляные работы', icon: LandPlot },
   { suffix: '/parameters/footprint-connections', label: 'Точки подключения', icon: Link2 },
   { suffix: '/parameters/entry-dates', label: 'Дата ввода', icon: Calendar },
@@ -30,7 +29,9 @@ export function ParametersLayout() {
           ),
         }))}
       />
-      <Outlet />
+      <div className="parameters-layout__body">
+        <Outlet />
+      </div>
     </div>
   );
 }

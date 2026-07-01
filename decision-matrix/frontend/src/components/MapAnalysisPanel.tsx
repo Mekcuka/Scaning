@@ -1,4 +1,6 @@
-import { Card } from 'antd';
+import { useMemo } from 'react';
+import type { ColumnsType } from 'antd/es/table';
+import { Button, Card } from 'antd';
 import type { AnalysisResult, AnalysisRow, POI } from '../lib/api';
 import {
   formatAnalysisKm,
@@ -7,6 +9,7 @@ import {
   statusLabelRu,
   subtypeDisplayLabel,
 } from '../lib/analysisDisplay';
+import { AppDataTable } from './AppDataTable';
 
 type Props = {
   rows: AnalysisRow[];
@@ -30,9 +33,76 @@ export function MapAnalysisPanel({
   isAnalyzing,
   onPickCandidate,
 }: Props) {
-  if (isAnalyzing || rows.length === 0) return null;
-
   const { external } = groupAnalysisRows(rows);
+
+  const columns = useMemo<ColumnsType<AnalysisRow>>(
+    () => [
+      {
+        title: 'Подтип',
+        key: 'subtype',
+        className: 'font-medium whitespace-nowrap',
+        render: (_, row) => subtypeDisplayLabel(row.subtype),
+      },
+      {
+        title: 'Объект',
+        key: 'object_name',
+        className: 'max-w-[72px] truncate',
+        render: (_, row) => row.object_name || '—',
+        onCell: (row) => ({ title: row.object_name || undefined }),
+      },
+      {
+        title: 'км',
+        key: 'distance_km',
+        align: 'right',
+        width: 36,
+        className: 'tabular-nums',
+        render: (_, row) => formatAnalysisKm(row.distance_km),
+      },
+      {
+        title: 'Лим',
+        key: 'limit_km',
+        align: 'right',
+        width: 36,
+        className: 'tabular-nums',
+        render: (_, row) => formatAnalysisKm(row.limit_km),
+      },
+      {
+        title: 'Статус',
+        key: 'status',
+        render: (_, row) => {
+          const delta =
+            row.status === 'exceeds_limit' && row.distance_km != null && row.limit_km != null
+              ? row.distance_km - row.limit_km
+              : null;
+          const cost = rowCostMln(row, rawAnalysisItems);
+          const canPick = row.status !== 'not_required';
+          return (
+            <div className="flex items-center justify-between gap-1 min-w-0">
+              <span className="truncate" title={statusShort(row.status, delta)}>
+                {statusShort(row.status, delta)}
+                {cost != null && cost > 0 ? (
+                  <span style={{ color: 'var(--text-muted)' }}> · {cost}</span>
+                ) : null}
+              </span>
+              {canPick && (
+                <Button
+                  type="link"
+                  size="small"
+                  className="shrink-0 whitespace-nowrap !text-[10px] !h-auto !p-0"
+                  onClick={() => onPickCandidate(row.subtype)}
+                >
+                  Другой
+                </Button>
+              )}
+            </div>
+          );
+        },
+      },
+    ],
+    [onPickCandidate, rawAnalysisItems],
+  );
+
+  if (isAnalyzing || rows.length === 0) return null;
   if (external.length === 0) return null;
 
   return (
@@ -50,59 +120,12 @@ export function MapAnalysisPanel({
       >
         Внешние
       </div>
-      <div className="table-wrap -mx-0.5">
-        <table className="data-table map-analysis-compact w-full">
-          <thead>
-            <tr>
-              <th>Подтип</th>
-              <th>Объект</th>
-              <th className="text-right w-9">км</th>
-              <th className="text-right w-9">Лим</th>
-              <th>Статус</th>
-            </tr>
-          </thead>
-          <tbody>
-            {external.map((row) => {
-              const delta =
-                row.status === 'exceeds_limit' && row.distance_km != null && row.limit_km != null
-                  ? row.distance_km - row.limit_km
-                  : null;
-              const cost = rowCostMln(row, rawAnalysisItems);
-              const canPick = row.status !== 'not_required';
-              return (
-                <tr key={row.subtype}>
-                  <td className="font-medium whitespace-nowrap">{subtypeDisplayLabel(row.subtype)}</td>
-                  <td className="max-w-[72px] truncate" title={row.object_name || undefined}>
-                    {row.object_name || '—'}
-                  </td>
-                  <td className="text-right tabular-nums">{formatAnalysisKm(row.distance_km)}</td>
-                  <td className="text-right tabular-nums">{formatAnalysisKm(row.limit_km)}</td>
-                  <td>
-                    <div className="flex items-center justify-between gap-1 min-w-0">
-                      <span className="truncate" title={statusShort(row.status, delta)}>
-                        {statusShort(row.status, delta)}
-                        {cost != null && cost > 0 ? (
-                          <span style={{ color: 'var(--text-muted)' }}> · {cost}</span>
-                        ) : null}
-                      </span>
-                      {canPick && (
-                        <button
-                          type="button"
-                          className="shrink-0 text-blue-600 hover:underline whitespace-nowrap"
-                          style={{ fontSize: '10px' }}
-                          onClick={() => onPickCandidate(row.subtype)}
-                        >
-                          Другой
-                        </button>
-                      )}
-                    </div>
-                  </td>
-                </tr>
-              );
-            })}
-          </tbody>
-        </table>
-      </div>
+      <AppDataTable
+        className="map-analysis-compact w-full -mx-0.5"
+        rowKey="subtype"
+        columns={columns}
+        dataSource={external}
+      />
     </Card>
   );
 }

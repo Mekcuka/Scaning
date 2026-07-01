@@ -1,6 +1,5 @@
 import * as THREE from 'three';
 import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
-import { DRACOLoader } from 'three/addons/loaders/DRACOLoader.js';
 import { MAP3D_OBJECT_SCALE } from './map3dConfig';
 import { fetchProjectCustomGlbBlob, isProjectCustomGlbFileUrl } from './map3dCustomGlbFetch';
 import { isCustomGltfAssetId, resolveGltfAssetDef } from './map3dCustomAssets';
@@ -13,16 +12,7 @@ import {
 
 const loader = new GLTFLoader();
 loader.setWithCredentials(true);
-const dracoLoader = new DRACOLoader();
-dracoLoader.setDecoderPath('https://www.gstatic.com/draco/versioned/decoders/1.5.7/');
-loader.setDRACOLoader(dracoLoader);
 const prototypeCache = new Map<string, Promise<THREE.Group>>();
-/** Colored normalized template (assetId + colorHex) — height scale applied per instance clone. */
-const coloredTemplateCache = new Map<string, Promise<THREE.Group>>();
-
-function coloredTemplateKey(assetId: string, colorHex: string): string {
-  return `${assetId.trim().toLowerCase()}:${colorHex.trim().toLowerCase()}`;
-}
 
 const _worldPos = new THREE.Vector3();
 
@@ -32,71 +22,6 @@ function stripMaps(mat: THREE.MeshStandardMaterial): void {
   mat.roughnessMap = null;
   mat.metalnessMap = null;
   mat.aoMap = null;
-  mat.alphaMap = null;
-}
-
-/** Bundled Kenney GLB often has alphaMode BLEND — breaks depth inside multi-mesh models. */
-function ensureOpaqueBundledMaterial(
-  mat: THREE.MeshStandardMaterial,
-  selected: boolean,
-): void {
-  stripMaps(mat);
-  mat.vertexColors = true;
-  mat.color.set('#ffffff');
-  mat.emissive.set(selected ? '#ffffff' : '#000000');
-  mat.emissiveIntensity = selected ? 0.18 : 0;
-  mat.roughness = 0.72;
-  mat.metalness = 0.05;
-  mat.transparent = false;
-  mat.opacity = 1;
-  mat.alphaTest = 0;
-  mat.depthWrite = true;
-  mat.depthTest = true;
-  mat.side = THREE.FrontSide;
-  mat.polygonOffset = true;
-  mat.polygonOffsetFactor = 1;
-  mat.polygonOffsetUnits = 1;
-}
-
-function ensureOpaqueLambertMaterial(mat: THREE.MeshLambertMaterial): void {
-  mat.map = null;
-  mat.vertexColors = true;
-  mat.color.set('#ffffff');
-  mat.transparent = false;
-  mat.opacity = 1;
-  mat.depthWrite = true;
-  mat.depthTest = true;
-  mat.side = THREE.FrontSide;
-}
-
-function ensureOpaqueBasicMaterial(mat: THREE.MeshBasicMaterial): void {
-  mat.map = null;
-  mat.vertexColors = true;
-  mat.color.set('#ffffff');
-  mat.transparent = false;
-  mat.opacity = 1;
-  mat.depthWrite = true;
-  mat.depthTest = true;
-  mat.side = THREE.FrontSide;
-}
-
-function sanitizePrototypeMaterial(m: THREE.Material): void {
-  if (m instanceof THREE.MeshStandardMaterial) {
-    m.transparent = false;
-    m.opacity = 1;
-    m.alphaTest = 0;
-    m.depthWrite = true;
-    m.depthTest = true;
-    m.side = THREE.FrontSide;
-    return;
-  }
-  if (m instanceof THREE.MeshLambertMaterial || m instanceof THREE.MeshBasicMaterial) {
-    m.transparent = false;
-    m.opacity = 1;
-    m.depthWrite = true;
-    m.depthTest = true;
-    m.side = THREE.FrontSide;
-  }
 }
 
 /** Height-based vertex colors + no Kenney atlas — visible multi-tone palette. */
@@ -130,11 +55,21 @@ function applyMeshVertexPalette(
   const setupMaterial = (m: THREE.Material): THREE.Material => {
     const mat = m.clone();
     if (mat instanceof THREE.MeshStandardMaterial) {
-      ensureOpaqueBundledMaterial(mat, selected);
+      stripMaps(mat);
+      mat.vertexColors = true;
+      mat.color.set('#ffffff');
+      mat.emissive.set(selected ? '#ffffff' : '#000000');
+      mat.emissiveIntensity = selected ? 0.18 : 0;
+      mat.roughness = 0.72;
+      mat.metalness = 0.05;
     } else if (mat instanceof THREE.MeshLambertMaterial) {
-      ensureOpaqueLambertMaterial(mat);
+      mat.map = null;
+      mat.vertexColors = true;
+      mat.color.set('#ffffff');
     } else if (mat instanceof THREE.MeshBasicMaterial) {
-      ensureOpaqueBasicMaterial(mat);
+      mat.map = null;
+      mat.vertexColors = true;
+      mat.color.set('#ffffff');
     }
     return mat;
   };
@@ -170,21 +105,9 @@ export function applyGltfInstanceSelection(group: THREE.Group, selected: boolean
     if (mat instanceof THREE.MeshStandardMaterial) {
       mat.emissive.set(selected ? '#ffffff' : '#000000');
       mat.emissiveIntensity = selected ? 0.12 : 0;
-      if (mat.opacity >= 1) {
-        mat.transparent = false;
-        mat.depthWrite = true;
-      }
-      mat.depthTest = true;
-      mat.side = THREE.FrontSide;
     } else if (mat instanceof THREE.MeshLambertMaterial) {
       mat.emissive.set(selected ? '#ffffff' : '#000000');
       mat.emissiveIntensity = selected ? 0.1 : 0;
-      if (mat.opacity >= 1) {
-        mat.transparent = false;
-        mat.depthWrite = true;
-      }
-      mat.depthTest = true;
-      mat.side = THREE.FrontSide;
     }
     return mat;
   };
@@ -208,9 +131,9 @@ function applyGltfInstanceAppearance(
 ): void {
   if (isCustomGltfAssetId(assetId)) {
     applyGltfInstanceSelection(group, selected);
-    return;
+  } else {
+    applyGltfInstanceColor(group, colorHex, selected);
   }
-  applyGltfInstanceColor(group, colorHex, selected);
 }
 
 /** Footprint center on lon/lat (XZ=0), base on ground (Y=0) — MapLibre anchor point. */
@@ -247,7 +170,7 @@ function normalizePrototype(scene: THREE.Group, def: Map3dGltfAssetDef): THREE.G
     mesh.receiveShadow = false;
     const mats = Array.isArray(mesh.material) ? mesh.material : [mesh.material];
     for (const m of mats) {
-      if (m) sanitizePrototypeMaterial(m);
+      if (m && 'side' in m) (m as THREE.Material).side = THREE.FrontSide;
     }
   });
 
@@ -287,48 +210,16 @@ export function loadGltfPrototype(assetId: string): Promise<THREE.Group> {
   return pending;
 }
 
-/** Cached colored clone at normalized prototype height (no per-instance height scale). */
-export function loadColoredGltfTemplate(assetId: string, colorHex: string): Promise<THREE.Group> {
-  const key = coloredTemplateKey(assetId, colorHex);
-  let pending = coloredTemplateCache.get(key);
-  if (!pending) {
-    pending = loadGltfPrototype(assetId).then((proto) => {
-      const group = proto.clone(true);
-      applyGltfInstanceAppearance(group, assetId, colorHex, false);
-      return group;
-    }).catch((err) => {
-      coloredTemplateCache.delete(key);
-      throw err;
-    });
-    coloredTemplateCache.set(key, pending);
-  }
-  return pending;
-}
-
 /** Instance-ready clone (normalized scale; bundled assets use layer palette, custom GLB keeps textures). */
 export async function cloneGltfModel(
   assetId: string,
   colorHex: string,
   selected = false,
 ): Promise<THREE.Group> {
-  const group = (await loadColoredGltfTemplate(assetId, colorHex)).clone(true);
-  if (selected) {
-    applyGltfInstanceAppearance(group, assetId, colorHex, true);
-  }
+  const proto = await loadGltfPrototype(assetId);
+  const group = proto.clone(true);
+  applyGltfInstanceAppearance(group, assetId, colorHex, selected);
   return group;
-}
-
-/** Scale an already-normalized glTF group to the target scene height (meters). */
-export function scaleGltfGroupToHeightM(group: THREE.Group, heightM: number): void {
-  group.updateMatrixWorld(true);
-  const box = new THREE.Box3().setFromObject(group);
-  const size = box.getSize(new THREE.Vector3());
-  // Match normalizePrototype (max axis) — Y-only scaling breaks assets oriented along X/Z.
-  const h = Math.max(size.x, size.y, size.z, 0.001);
-  if (heightM > 0 && Number.isFinite(heightM)) {
-    group.scale.multiplyScalar(heightM / h);
-    anchorGltfGroupAtFootprint(group);
-  }
 }
 
 /** Clone and scale so the model's height matches `heightM` (scene meters, incl. MAP3D scales). */
@@ -339,11 +230,15 @@ export async function cloneGltfModelToHeight(
   selected = false,
 ): Promise<THREE.Group> {
   const group = await cloneGltfModel(assetId, colorHex, selected);
-  scaleGltfGroupToHeightM(group, heightM);
+  const box = new THREE.Box3().setFromObject(group);
+  const h = Math.max(box.max.y - box.min.y, 0.001);
+  if (heightM > 0 && Number.isFinite(heightM)) {
+    group.scale.multiplyScalar(heightM / h);
+    anchorGltfGroupAtFootprint(group);
+  }
   return group;
 }
 
 export function clearGltfPrototypeCache(): void {
   prototypeCache.clear();
-  coloredTemplateCache.clear();
 }

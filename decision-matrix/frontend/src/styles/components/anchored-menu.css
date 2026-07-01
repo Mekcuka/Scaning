@@ -1,0 +1,24 @@
+/* AnchoredMenu — портальные выпадающие списки (тулбар карты, поиск, ассистент) */
+.app-anchored-menu {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  box-shadow: var(--shadow-lg);
+  overflow: hidden;
+  color: var(--text);
+}
+
+.app-anchored-menu--flat {
+  padding-block: 4px;
+}
+
+.app-anchored-menu--flat > button {
+  background: transparent;
+  border: none;
+  color: inherit;
+  cursor: pointer;
+}
+
+.app-anchored-menu--flat > button:hover {
+  background: color-mix(in srgb, var(--bg) 65%, var(--surface));
+}

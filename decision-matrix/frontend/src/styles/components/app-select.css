@@ -1,247 +1,38 @@
-/* —— Custom select (AppSelect) —— */
-.app-select {
-  position: relative;
-  display: inline-flex;
-  align-items: center;
-  gap: 2px;
-  border: 1px solid var(--border);
-  border-radius: 8px;
-  background: var(--surface);
-  transition:
-    border-color 0.15s ease,
-    box-shadow 0.15s ease,
-    background 0.15s ease;
-}
-
-.app-select:hover:not(.app-select--disabled) {
-  border-color: color-mix(in srgb, var(--primary) 40%, var(--border));
-}
-
-.app-select-open,
-.app-select:focus-within:not(.app-select--disabled) {
-  border-color: var(--primary);
-  box-shadow: 0 0 0 2px color-mix(in srgb, var(--primary) 22%, transparent);
-}
-
-.app-select--full {
-  width: 100%;
-  max-width: none;
-}
-
-.app-select--disabled {
-  opacity: 0.6;
-  pointer-events: none;
-}
-
-.app-select--placeholder .app-select-label {
-  color: var(--text-muted);
-  font-weight: 500;
-}
-
-.app-select-icon {
-  display: inline-flex;
-  align-items: center;
-  flex-shrink: 0;
-  pointer-events: none;
-}
-
-.app-select-trigger {
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
-  margin: 0;
-  padding: 0 10px 0 8px;
-  border: none;
-  background: transparent;
-  font-size: 0.875rem;
-  font-weight: 500;
-  line-height: 1.2;
-  color: var(--text);
-  cursor: pointer;
-  text-align: left;
-}
-
-.app-select-trigger:focus {
-  outline: none;
-}
-
-.app-select-label {
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-  flex: 1;
+/* —— AppSelect bridge (Ant Design Select) —— */
+.app-select.ant-select {
   min-width: 0;
 }
 
-.app-select-chevron {
-  flex-shrink: 0;
-  color: var(--text-muted);
-  transition: transform 0.2s ease;
-}
-
-.app-select-open .app-select-chevron {
-  transform: rotate(180deg);
-  color: var(--primary);
-}
-
-/* default — form fields */
-.app-select--default {
-  min-height: 38px;
-}
-
-.app-select--default .app-select-trigger {
+.app-select--default.ant-select {
   width: 100%;
-  min-height: 36px;
-  padding: 0 32px 0 12px;
 }
 
-.app-select--full.app-select--default {
-  display: flex;
-}
-
-/* sm / toolbar — compact inline pickers (header, map tools) */
-.app-select--sm,
-.app-select--toolbar {
-  min-height: 32px;
+.app-select--sm.ant-select,
+.app-select--toolbar.ant-select {
   max-width: min(240px, 32vw);
-  padding-right: 4px;
   flex-shrink: 0;
 }
 
-.app-select--sm .app-select-icon,
-.app-select--toolbar .app-select-icon {
-  margin-left: 9px;
-  color: var(--primary);
-  opacity: 0.92;
+.app-select--compact.ant-select {
+  width: 100%;
 }
 
-.app-select--sm .app-select-trigger,
-.app-select--toolbar .app-select-trigger {
-  min-height: 30px;
-  min-width: 5.5rem;
-  max-width: min(188px, 32vw);
-  padding: 0 8px 0 10px;
-  font-size: 0.8125rem;
+.app-select--toolbar.ant-select.ant-select-borderless .ant-select-selector {
   font-weight: 600;
+  font-size: 0.8125rem;
 }
 
-.app-select--sm:has(.app-select-icon) .app-select-trigger,
-.app-select--toolbar .app-select-trigger {
-  padding: 0 8px 0 4px;
-}
-
-/* compact — map object panel */
-.app-select--compact {
-  min-height: 30px;
-  width: 100%;
-}
-
-.app-select--compact .app-select-trigger {
-  width: 100%;
-  min-height: 28px;
-  padding: 0 26px 0 8px;
+.app-select--compact.ant-select .ant-select-selector {
   font-size: 0.75rem;
 }
 
-.app-anchored-menu,
-.app-select-menu {
-  width: max-content;
-  max-width: min(320px, calc(100vw - 16px));
-  max-height: min(280px, 40vh);
-  border: 1px solid var(--border);
-  border-radius: 10px;
-  background: var(--surface);
-  box-shadow: var(--shadow-lg);
-  overflow-y: auto;
-  overscroll-behavior: contain;
-  animation: app-select-menu-in 0.16s ease-out;
-}
-
-.app-select-menu {
-  padding: 6px;
-}
-
-.app-select-menu-list {
-  margin: 0;
-  padding: 0;
-  list-style: none;
-}
-
-.app-anchored-menu--flat {
-  padding: 0;
-  /* Keep scroll from .app-anchored-menu; overflow:hidden clipped long subtype lists. */
-  overflow-x: hidden;
-  overflow-y: auto;
-  font-size: 0.875rem;
-}
-
-@keyframes app-select-menu-in {
-  from {
-    opacity: 0;
-    transform: translateY(-4px);
-  }
-  to {
-    opacity: 1;
-    transform: translateY(0);
-  }
-}
-
-.app-select-option {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 10px;
-  width: 100%;
-  padding: 8px 10px;
-  border: none;
-  border-radius: 7px;
-  background: transparent;
+.app-select--sm.ant-select .ant-select-selector,
+.app-select--toolbar.ant-select .ant-select-selector {
   font-size: 0.8125rem;
-  font-weight: 500;
-  color: var(--text);
-  text-align: left;
-  cursor: pointer;
-  transition: background 0.12s ease;
-}
-
-.app-select-option:disabled {
-  opacity: 0.45;
-  cursor: not-allowed;
-}
-
-.app-select-option-label {
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-  flex: 1;
-  min-width: 0;
-}
-
-.app-select-option:hover:not(:disabled),
-.app-select-option-active {
-  background: var(--surface-2);
-}
-
-.app-select-option-selected {
-  background: color-mix(in srgb, var(--primary) 12%, var(--surface));
-  color: var(--primary);
   font-weight: 600;
 }
 
-.app-select-option-selected:hover:not(:disabled) {
-  background: color-mix(in srgb, var(--primary) 18%, var(--surface));
-}
-
-.app-select-option-check {
-  flex-shrink: 0;
-  color: var(--primary);
-}
-
-[data-theme="dark"] .app-anchored-menu,
-[data-theme="dark"] .app-select-menu {
-  background: var(--surface-2);
-  border-color: var(--surface-3);
-}
+/* Project status / matrix engineering — see dashboard.css, matrix.css */
 
 .map-tool-btn.active,
 .map-tool-btn.ant-btn-primary {
@@ -420,4 +211,3 @@
   padding-top: 12px;
   border-top: 1px solid var(--border);
 }
-

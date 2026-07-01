@@ -53,7 +53,8 @@ summary: Краткое описание в 1–2 предложения для 
 | `pad-placement-optimization` | [pad-placement-optimization.md](articles/pad-placement-optimization.md) | **Оптимизация размещения кустов** (✅) |
 | `parameters-earthwork` | [parameters-earthwork.md](articles/parameters-earthwork.md) | Параметры → Земляные работы |
 | `parameters-footprint-connections` | [parameters-footprint-connections.md](articles/parameters-footprint-connections.md) | Точки подключения |
-| `flows-overview` | [flows-overview.md](articles/flows-overview.md) | Схемы потоков |
+| `flows-overview` | [flows-overview.md](articles/flows-overview.md) | Потоки — технология и экономика |
+| `logistics-overview` | [logistics-overview.md](articles/logistics-overview.md) | Логистика — схема и объёмы песка |
 | `import-spark` | [import-spark.md](articles/import-spark.md) | Импорт данных и Искра |
 | `import-3d` | [import-3d.md](articles/import-3d.md) | Импорт 3D |
 | `background-jobs` | [background-jobs.md](articles/background-jobs.md) | Фоновые задачи |

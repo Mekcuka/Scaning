@@ -11,6 +11,8 @@ type Props = {
   menuAlign?: 'left' | 'right';
   /** Fixed menu width (px). Left edge aligns to anchor. */
   width?: number;
+  /** Menu width equals anchor width (does not grow with content). */
+  matchAnchorWidth?: boolean;
   role?: string;
   ariaLabel?: string;
   zIndex?: number;
@@ -24,6 +26,7 @@ export function AnchoredMenu({
   className = '',
   menuAlign = 'left',
   width,
+  matchAnchorWidth = false,
   role,
   ariaLabel,
   zIndex = 1200,
@@ -39,10 +42,16 @@ export function AnchoredMenu({
     const update = () => {
       const anchor = anchorRef.current;
       if (!anchor) return;
+      const anchorWidth = anchor.getBoundingClientRect().width;
+      const resolvedWidth = matchAnchorWidth
+        ? anchorWidth
+        : width
+          ? Math.max(width, anchorWidth)
+          : undefined;
       setPos(
         computeAnchoredMenuPosition(anchor, {
           menuAlign,
-          minWidth: width ? Math.max(width, anchor.getBoundingClientRect().width) : undefined,
+          minWidth: resolvedWidth,
         })
       );
     };
@@ -53,7 +62,7 @@ export function AnchoredMenu({
       window.removeEventListener('resize', update);
       window.removeEventListener('scroll', update, true);
     };
-  }, [open, anchorRef, menuAlign, width]);
+  }, [open, anchorRef, menuAlign, width, matchAnchorWidth]);
 
   useEffect(() => {
     if (!open) return;
@@ -77,6 +86,11 @@ export function AnchoredMenu({
 
   if (!open || !pos || typeof document === 'undefined') return null;
 
+  const anchorWidth = anchorRef.current?.getBoundingClientRect().width;
+  const fixedWidth = matchAnchorWidth
+    ? anchorWidth
+    : width;
+
   return createPortal(
     <div
       id={menuId}
@@ -87,8 +101,9 @@ export function AnchoredMenu({
         position: 'fixed',
         top: pos.top,
         left: pos.left,
-        minWidth: pos.minWidth,
-        width: width ?? undefined,
+        minWidth: fixedWidth ?? pos.minWidth,
+        width: fixedWidth ?? undefined,
+        maxWidth: fixedWidth ?? undefined,
         transform: pos.openUp ? 'translateY(-100%)' : undefined,
         zIndex,
       }}

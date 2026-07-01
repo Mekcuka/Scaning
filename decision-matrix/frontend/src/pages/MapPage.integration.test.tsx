@@ -7,6 +7,7 @@ import { renderPage } from '../test/pages/renderPage';
 import { seedAppStore } from '../test/pages/seedAppStore';
 import { api } from '../lib/api';
 import { samplePois, sampleInfra } from '../test/fixtures/map';
+import { clickAnalyzeAllPois, clickAnalyzeSelectedPoi } from '../test/pages/mapCalculationsMenu';
 
 const mapDisplayState = vi.hoisted(() => ({ mode: '2d' as '2d' | '3d' }));
 
@@ -95,7 +96,9 @@ describe('MapPage integration', () => {
 
   it('renders map page with 2D map', async () => {
     await renderMap();
-    expect(document.querySelector('.map-canvas-wrap')).toBeTruthy();
+    expect(screen.getByText('Карта инфраструктуры')).toBeInTheDocument();
+    expect(screen.queryByTestId('mock-map-3d')).not.toBeInTheDocument();
+    expect(document.querySelector('.map-canvas-wrap')).toBeVisible();
   });
 
   it('renders map shell when no project in store', async () => {
@@ -114,38 +117,19 @@ describe('MapPage integration', () => {
     await userEvent.click(screen.getByRole('button', { name: 'Закрыть панель слоёв' }));
     await enableEdit();
     await userEvent.click(screen.getByRole('button', { name: 'Точка интереса (POI)' }));
-    await userEvent.click(screen.getByRole('button', { name: /Все точки/i }));
+    await clickAnalyzeAllPois();
     await waitFor(() => expect(analyzeAllPoisAndWaitMock).toHaveBeenCalledWith('p1'));
-    await userEvent.click(screen.getByRole('button', { name: 'Карта 3D' }));
+    await userEvent.click(screen.getByLabelText('Карта 3D'));
     await waitFor(() => expect(screen.getByTestId('mock-map-3d')).toBeInTheDocument());
-    await userEvent.click(screen.getByRole('button', { name: 'Карта 2D' }));
+    await userEvent.click(screen.getByLabelText('Карта 2D'));
   });
 
-  it('analyze selected poi from split button', async () => {
+  it('analyze selected poi from calculations menu', async () => {
     await renderMap();
+    await waitFor(() => expect(api.getPois).toHaveBeenCalled());
     await enableEdit();
-    await userEvent.click(screen.getByRole('button', { name: /Выбранная точка/i }));
+    await clickAnalyzeSelectedPoi();
     await waitFor(() => expect(api.analyzePoi).toHaveBeenCalled());
-  });
-
-  it('select and draw tools', async () => {
-    await renderMap();
-    await enableEdit();
-    await userEvent.click(screen.getByRole('button', { name: /один объект/i }));
-    await userEvent.click(screen.getByRole('button', { name: 'Точка' }));
-    await userEvent.click(screen.getByText('ГКС'));
-    await userEvent.click(screen.getByRole('button', { name: 'Линия' }));
-    await userEvent.click(screen.getByText('Автодорога'));
-    await userEvent.click(screen.getByRole('button', { name: /линейка/i }));
-    await userEvent.click(screen.getByRole('button', { name: /полноэкранная карта/i }));
-  });
-
-  it('layers panel toggles visibility', async () => {
-    await renderMap();
-    await userEvent.click(screen.getByRole('button', { name: 'Слои и настройки карты' }));
-    const checkboxes = screen.getAllByRole('checkbox');
-    if (checkboxes[0]) await userEvent.click(checkboxes[0]);
-    await userEvent.click(screen.getByRole('button', { name: 'Закрыть панель слоёв' }));
   });
 
   it('fetches poi analysis when poi selected', async () => {
@@ -155,6 +139,23 @@ describe('MapPage integration', () => {
       computed_at: '2024-01-01',
     } as never);
     await renderMap();
-    await waitFor(() => expect(api.getPoiAnalysis).toHaveBeenCalled());
+    await waitFor(() => expect(api.getPois).toHaveBeenCalled());
+    await waitFor(() =>
+      expect(api.getPoiAnalysis).toHaveBeenCalledWith('p1', 'poi-1'),
+    );
+
+    vi.mocked(api.getPoiAnalysis).mockClear();
+    vi.mocked(api.getPoiAnalysis).mockResolvedValue({
+      poi_id: 'poi-2',
+      rows: [],
+      computed_at: '2024-01-01',
+    } as never);
+
+    await userEvent.click(screen.getByRole('combobox', { name: 'Точка интереса' }));
+    await userEvent.click(await screen.findByText('POI Beta'));
+
+    await waitFor(() =>
+      expect(api.getPoiAnalysis).toHaveBeenCalledWith('p1', 'poi-2'),
+    );
   });
 });

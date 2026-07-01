@@ -47,7 +47,3 @@ export function TableExcelExportButton<T>({
   );
 }
 
-/** Пустая ячейка в строке данных под колонку «Скачать» в thead. */
-export function TableExcelExportBodyCell() {
-  return <td className="table-excel-export-td" aria-hidden="true" />;
-}

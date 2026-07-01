@@ -4,10 +4,10 @@ import { usePageHeader } from '../components/layout/pageHeaderContext';
 import { useMapPageOrchestrator } from '../hooks/useMapPageOrchestrator';
 import { MapPageCanvas } from './map/MapPageCanvas';
 import { MapPageFooter } from './map/MapPageFooter';
-import { MapPageAnalyzeActions } from './map/MapPageHeader';
 import { MapPageLayersSidebar } from './map/MapPageLayersSidebar';
 import { MapPageModals } from './map/MapPageModals';
 import { MapPageSidePanels } from './map/MapPageSidePanels';
+import { MapPageToolbarSearch } from './map/mapPageToolbar/MapPageToolbarSearch';
 import { MapPageToolbar } from './map/MapPageToolbar';
 
 export function MapPage() {
@@ -18,10 +18,6 @@ export function MapPage() {
 
   return (
     <div className="map-page flex flex-1 flex-col min-h-0 overflow-hidden">
-      <div className="map-page-actions shrink-0 flex justify-end mb-3">
-        <MapPageAnalyzeActions {...sections.header} />
-      </div>
-
       <DevPortBanner />
 
       <Card
@@ -36,6 +32,16 @@ export function MapPage() {
           <div className="map-main-column">
             <div className="map-canvas-wrap" ref={mapCanvasRef}>
               <MapPageCanvas {...sections.canvas} />
+              {sections.toolbar.projectId && !sections.toolbar.mapIn3d && (
+                <MapPageToolbarSearch
+                  searchQ={sections.toolbar.searchQ}
+                  onSearchQChange={sections.toolbar.onSearchQChange}
+                  searchOpen={sections.toolbar.searchOpen}
+                  onSearchOpenChange={sections.toolbar.onSearchOpenChange}
+                  searchSuggestions={sections.toolbar.searchSuggestions}
+                  onPickSearchResult={sections.toolbar.onPickSearchResult}
+                />
+              )}
               <MapPageSidePanels {...sections.sidePanels} />
             </div>
 

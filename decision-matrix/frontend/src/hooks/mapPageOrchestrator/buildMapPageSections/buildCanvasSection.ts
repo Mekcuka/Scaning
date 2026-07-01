@@ -99,7 +99,6 @@ export function buildCanvasSection(
     showWellTrajectories: layerPrefs.showWellTrajectories,
     showWellBottomholes: layerPrefs.showWellBottomholes,
     showWellTrajectories3d: layerPrefs.showWellTrajectories3d,
-    map3dQuality: layerPrefs.map3dQuality,
     isBottomholeDrawActive: actions.isBottomholeDrawActive,
     gsHeelDraft: actions.gsHeelDraft,
     onViewStateSnapshot: (s) => {

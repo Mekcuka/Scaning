@@ -72,7 +72,5 @@ export function buildLayersSidebarSection(
     showWellTrajectories3d: params.layerPrefs.showWellTrajectories3d,
     onShowWellTrajectories3dChange: (visible) =>
       setLayerPrefs((p) => ({ ...p, showWellTrajectories3d: visible })),
-    map3dQuality: params.layerPrefs.map3dQuality,
-    onMap3dQualityChange: (quality) => setLayerPrefs((p) => ({ ...p, map3dQuality: quality })),
   };
 }

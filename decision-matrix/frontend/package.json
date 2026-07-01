@@ -10,6 +10,7 @@
     "typecheck": "tsc -b --noEmit",
     "test": "vitest run",
     "verify:css": "node scripts/verify-css-cascade.mjs",
+    "audit:css": "node scripts/audit-css-selectors.mjs",
     "test:coverage": "vitest run --coverage",
     "test:e2e": "playwright test",
     "codegen:api": "echo 'API types live in src/lib/api/types.ts; export OpenAPI from /api/v1/openapi.json when schema changes'",

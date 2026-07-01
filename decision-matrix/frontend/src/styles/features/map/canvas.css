@@ -12,6 +12,29 @@
   min-width: 0;
 }
 
+/* Поиск объектов — справа от OL zoom (+/–/fit) */
+.map-canvas-search {
+  position: absolute;
+  top: 8px;
+  left: 36px;
+  z-index: 4;
+  width: 220px;
+  max-width: min(220px, calc(100% - 52px));
+  pointer-events: none;
+}
+
+.map-canvas-search input {
+  width: 100%;
+  pointer-events: auto;
+  background: color-mix(in srgb, var(--surface) 94%, transparent);
+  box-shadow: var(--shadow);
+}
+
+.map-canvas-search .app-anchored-menu,
+.map-canvas-search > svg {
+  pointer-events: auto;
+}
+
 .map-3d-host {
   position: absolute;
   inset: 0;
@@ -20,5 +43,19 @@
   min-height: 0;
   min-width: 0;
   z-index: 1;
+}
+
+.map-3d-host--active {
+  z-index: 2;
+  pointer-events: auto;
+}
+
+.map-3d-host--active .maplibregl-canvas-container,
+.map-3d-host--active .maplibregl-canvas {
+  pointer-events: auto;
+}
+
+.map-3d-host--active .map-container--3d {
+  pointer-events: auto;
 }
 

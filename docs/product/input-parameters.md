@@ -26,7 +26,9 @@
 
 **Денежные ставки:** ввод и хранение в **тыс. ₽** (`rate_thousand_rub`); в матрице и отчётах — **млн ₽** (÷ 1000).
 
-**Экран «Параметры»** (`/parameters/*`, роли admin / analyst / viewer): массовое редактирование полей объектов проекта по вкладкам — пропускная способность (`/parameters/capacity`), **земляные работы** (`/parameters/earthwork`), **точки подключения** (`/parameters/footprint-connections`), объём песка (`/parameters/sand`), дата ввода (`/parameters/entry-dates`), ставки строительства (`/parameters/rates`). Excel-выгрузка на вкладках с таблицами (кроме «Точки подключения»).
+**Экран «Параметры»** (`/parameters/*`, роли admin / analyst / viewer): массовое редактирование полей объектов проекта по вкладкам — пропускная способность (`/parameters/capacity`), **земляные работы** (`/parameters/earthwork`), **точки подключения** (`/parameters/footprint-connections`), дата ввода (`/parameters/entry-dates`), ставки строительства (`/parameters/rates`). Excel-выгрузка на вкладках с таблицами (кроме «Точки подключения»).
+
+**Экран «Логистика»** (`/logistics/*`, те же роли): **схема логистики песка** (`/logistics/schematic`), **объём песка** (`/logistics/sand`) — таблица спроса с Excel-выгрузкой. Legacy: `/parameters/sand`, `/flows/logistics` → редирект.
 
 **Подтипы инфраструктуры (8 + КП):** `autoroad`, `oil_pipeline`, `water_pipeline`, `power_line`, `gas_processing`, `gtes`, `substation`, `refinery` + вычисляемые **кустовые площадки** (`pads`, без поиска на карте). Подтип `marine_terminal` (морской порт как внешний объект) **снят** — транспорт «Морской порт» остаётся только в `eng_transport`.
 
@@ -253,7 +255,7 @@ Geodesic-расстояние от POI до Point-объекта. Таблица
 | `sand_volume_by_year` | mvp | object | `properties` | Карта → вкладка **Логистика** | План спроса по календарным годам, м³; в расчёте — накопительная сумма на `as_of` |
 | `sand_volume_mode` | mvp | string | `properties` | Карта → вкладка **Логистика** | `single` — объём на дату ввода; `yearly` — план по годам (взаимоисключающие) |
 
-См. [map-objects-and-spatial-calculations.md](../features/map/map-objects-and-spatial-calculations.md) §1.7, расчёт — вкладка **Потоки → Логистика**.
+См. [map-objects-and-spatial-calculations.md](../features/map/map-objects-and-spatial-calculations.md) §1.7, расчёт — **Логистика → Логистика** (`/logistics/schematic`).
 
 | ID | Статус | Тип | Хранение | UI | Примечание |
 |----|--------|-----|----------|-----|------------|

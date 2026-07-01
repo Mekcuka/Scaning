@@ -2,6 +2,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { padEarthworkApi, type PadEarthworkComputeResult, type PadTerrainMode } from '../../lib/api/padEarthworkApi';
 import type { InfraObject } from '../../lib/api';
+import { upsertInfraObjectInQueries } from '../../lib/mapQueries';
 import {
   clampNdsDeg,
   DEFAULT_PAD_NDS_DEG,
@@ -9,11 +10,18 @@ import {
   hasSavedPadSketch,
   padParamsFromObject,
   readDemStatusFromProperties,
-  resolveGeneratorNdsDeg,
   sketchSavedAtFromObject,
 } from '../../lib/infraPadEarthwork';
 import { parseSketchFromLast, parseWellsLocalFromLast, planFromFormFields } from '../../lib/padEarthworkSketch';
 import { formatPadDemError, parsePositive } from './infraPadEarthworkSectionUtils';
+import {
+  currentPadEarthworkFormFields,
+  padEarthworkFormFieldsEqual,
+  padEarthworkFormFieldsFromLastParams,
+  padEarthworkFormFieldsFromObject,
+  type PadEarthworkFormFields,
+} from './padEarthworkFormFields';
+import type { PadEarthworkDetailBridge } from './padEarthworkDetailBridge';
 
 export type UseInfraPadEarthworkSectionArgs = {
   projectId: string;
@@ -26,6 +34,7 @@ export type UseInfraPadEarthworkSectionArgs = {
   padWellsPerGroup: string;
   padWellSpacingM: string;
   padGroupSpacingM: string;
+  onBridgeChange?: (bridge: PadEarthworkDetailBridge | null) => void;
 };
 
 export function useInfraPadEarthworkSection({
@@ -39,6 +48,7 @@ export function useInfraPadEarthworkSection({
   padWellsPerGroup,
   padWellSpacingM,
   padGroupSpacingM,
+  onBridgeChange,
 }: UseInfraPadEarthworkSectionArgs) {
   const queryClient = useQueryClient();
   const initial = padParamsFromObject(infraObject);
@@ -47,6 +57,9 @@ export function useInfraPadEarthworkSection({
   const [heightM, setHeightM] = useState(initial.heightM);
   const [rotationDeg, setRotationDeg] = useState(initial.rotationDeg);
   const [referenceElevationM, setReferenceElevationM] = useState(initial.referenceElevationM);
+  const [paramsBaseline, setParamsBaseline] = useState<PadEarthworkFormFields>(() =>
+    padEarthworkFormFieldsFromObject(infraObject),
+  );
   const [result, setResult] = useState<PadEarthworkComputeResult | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [sketchOpen, setSketchOpen] = useState(false);
@@ -80,31 +93,19 @@ export function useInfraPadEarthworkSection({
 
   useEffect(() => {
     if (sketchOpen) return;
-    const p = padParamsFromObject(infraObject);
-    setLengthM(p.lengthM);
-    setWidthM(p.widthM);
-    setHeightM(p.heightM);
-    setRotationDeg(p.rotationDeg);
-    setReferenceElevationM(p.referenceElevationM);
-  }, [infraObject, sketchOpen]);
-
-  useEffect(() => {
-    if (sketchOpen) return;
-    if (last?.params) {
-      const p = last.params;
-      setLengthM(String(p.length_m));
-      setWidthM(String(p.width_m));
-      setHeightM(String(p.height_m));
-      setRotationDeg(
-        resolveGeneratorNdsDeg(
-          String(p.rotation_deg ?? DEFAULT_PAD_NDS_DEG),
-          savedWellsLocal.length > 0,
-        ),
-      );
-      setReferenceElevationM(String(p.reference_elevation_m));
-    }
+    const fromObject = padEarthworkFormFieldsFromObject(infraObject);
+    const next =
+      last?.params != null
+        ? padEarthworkFormFieldsFromLastParams(last.params, savedWellsLocal.length > 0)
+        : fromObject;
+    setLengthM(next.lengthM);
+    setWidthM(next.widthM);
+    setHeightM(next.heightM);
+    setRotationDeg(next.rotationDeg);
+    setReferenceElevationM(next.referenceElevationM);
+    setParamsBaseline(next);
     if (last?.result) setResult(last.result);
-  }, [last, sketchOpen, savedWellsLocal.length]);
+  }, [infraObject, last, sketchOpen, savedWellsLocal.length]);
 
   const skipPadWellParamsReset = useRef(true);
   useEffect(() => {
@@ -201,6 +202,57 @@ export function useInfraPadEarthworkSection({
   const fillM3 = result?.volumes.fill_m3;
   const sketchSavedAt = last?.sketch_saved_at ?? sketchSavedAtFromObject(infraObject.properties);
   const hasSavedSketch = Boolean(savedSketch) || hasSavedPadSketch(infraObject.properties);
+
+  const isParamsDirty = useMemo(
+    () =>
+      !padEarthworkFormFieldsEqual(
+        currentPadEarthworkFormFields({
+          lengthM,
+          widthM,
+          heightM,
+          rotationDeg,
+          referenceElevationM,
+        }),
+        paramsBaseline,
+      ),
+    [lengthM, widthM, heightM, rotationDeg, referenceElevationM, paramsBaseline],
+  );
+
+  const saveParamsIfDirty = useCallback(async (): Promise<InfraObject | undefined> => {
+    if (!isParamsDirty) return undefined;
+    const params = buildParams();
+    if (!params) throw new Error('Укажите длину, ширину, высоту и опорную отметку');
+    const updated = await padEarthworkApi.patchParams(projectId, infraObject.id, params);
+    upsertInfraObjectInQueries(queryClient, projectId, updated);
+    setParamsBaseline(
+      currentPadEarthworkFormFields({
+        lengthM,
+        widthM,
+        heightM,
+        rotationDeg,
+        referenceElevationM,
+      }),
+    );
+    invalidatePadQueries();
+    return updated;
+  }, [
+    isParamsDirty,
+    buildParams,
+    projectId,
+    infraObject.id,
+    lengthM,
+    widthM,
+    heightM,
+    rotationDeg,
+    referenceElevationM,
+    invalidatePadQueries,
+  ]);
+
+  useEffect(() => {
+    if (!onBridgeChange) return;
+    onBridgeChange({ isParamsDirty, saveParamsIfDirty });
+    return () => onBridgeChange(null);
+  }, [onBridgeChange, isParamsDirty, saveParamsIfDirty]);
 
   return {
     lengthM,

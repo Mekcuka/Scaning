@@ -1,7 +1,8 @@
-import { Fragment, useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { useMutation, useQueries, useQueryClient } from '@tanstack/react-query';
-import { LayoutGrid, Table, Zap } from 'lucide-react';
-import { Button, Card, Space } from 'antd';
+import type { ColumnsType } from 'antd/es/table';
+import { LayoutGrid, Table as TableIcon, Zap } from 'lucide-react';
+import { Button, Card, Space, Tag } from 'antd';
 import {
   defaultMapAnalysisApi,
   defaultProjectsPoiWriteApi,
@@ -22,10 +23,19 @@ import { useAppStore } from '../store';
 import { usePermissions } from '../hooks/usePermissions';
 import { queryKeys } from '../lib/queryKeys';
 import { AppSelect } from '../components/AppSelect';
+import { AppDataTable } from '../components/AppDataTable';
 import { MatrixCardsPanel } from '../components/matrix/MatrixCardsPanel';
+import type { MatrixRow } from '../lib/matrixData';
 import { getMatrixSectionOrder } from '../lib/matrixCardView';
 import { useIsMobile } from '../hooks/useMediaQuery';
 import { usePageHeader } from '../components/layout/pageHeaderContext';
+
+type MatrixTableRecord =
+  | { key: string; rowType: 'section'; section: string }
+  | { key: string; rowType: 'data'; matrixRow: MatrixRow };
+
+const MATRIX_LABEL_COL_WIDTH = 220;
+const MATRIX_POI_COL_WIDTH = 264;
 
 function initialMatrixViewMode(isMobile: boolean): 'table' | 'cards' {
   return isMobile ? 'cards' : 'table';
@@ -91,6 +101,22 @@ export function MatrixPage() {
 
   const colCount = columnNames.length + 1;
 
+  const matrixTableWidth = useMemo(
+    () => MATRIX_LABEL_COL_WIDTH + columnNames.length * MATRIX_POI_COL_WIDTH,
+    [columnNames.length],
+  );
+
+  const matrixTableData = useMemo<MatrixTableRecord[]>(() => {
+    const data: MatrixTableRecord[] = [];
+    for (const section of sections) {
+      data.push({ key: `section-${section}`, rowType: 'section', section });
+      for (const row of matrixRows.filter((r) => r.section === section)) {
+        data.push({ key: `${row.section}-${row.label}`, rowType: 'data', matrixRow: row });
+      }
+    }
+    return data;
+  }, [matrixRows, sections]);
+
   const analyzeMut = useMutation({
     mutationFn: () => analyzeAllPoisAndWait(projectId!),
     onSuccess: async (batch) => {
@@ -144,6 +170,121 @@ export function MatrixPage() {
     },
   });
 
+  const matrixColumns = useMemo<ColumnsType<MatrixTableRecord>>(() => {
+    const poiColumns: ColumnsType<MatrixTableRecord> = columnNames.map((name, i) => ({
+      title: <span className="matrix-table__poi-title">{name}</span>,
+      key: `poi-${i}`,
+      width: MATRIX_POI_COL_WIDTH,
+      onHeaderCell: () => ({
+        className: [
+          'matrix-table__poi-col',
+          safeSelectedCol === i ? 'matrix-table__poi-col--selected' : '',
+        ]
+          .filter(Boolean)
+          .join(' '),
+        onClick: () => setSelectedCol(i),
+        title: poisByColumn[i]?.name,
+      }),
+      onCell: (record) => {
+        if (record.rowType === 'section') {
+          return { colSpan: 0 };
+        }
+        return {
+          className: [
+            'matrix-table__poi-col',
+            safeSelectedCol === i ? 'matrix-table__poi-col--selected' : '',
+          ]
+            .filter(Boolean)
+            .join(' '),
+        };
+      },
+      render: (_, record) => {
+        if (record.rowType === 'section') return null;
+        const row = record.matrixRow;
+        const cell = row.cells[i];
+        const poi = poisByColumn[i];
+        const engKey = row.engineeringKey;
+        const engEditable =
+          engKey && poi && engineeringAppliesToFluid(engKey, poi.fluid_type);
+
+        const cellClass = [
+          row.total ? 'matrix-table__cell--total' : '',
+          cell.status === 'exceeds_limit' ? 'matrix-table__cell--exceed' : '',
+          cell.text === '—' ? 'matrix-table__cell--empty' : '',
+          engEditable ? 'matrix-eng-cell' : '',
+        ]
+          .filter(Boolean)
+          .join(' ');
+
+        const content = engEditable ? (
+          <AppSelect
+            variant="compact"
+            className="matrix-eng-select"
+            ariaLabel={`${row.label}: ${poi.name}`}
+            value={String(poi[engKey] ?? '')}
+            readOnly={!canWriteProject}
+            disabled={updateEngMut.isPending || !canWriteProject}
+            onChange={(value) => {
+              if (value === poi[engKey]) return;
+              updateEngMut.mutate({
+                poiId: poi.id,
+                key: engKey,
+                value,
+              });
+            }}
+            options={engineeringOptionsForKey(engKey)}
+          />
+        ) : cell.badge ? (
+          <Tag>{cell.text}</Tag>
+        ) : cell.subtext ? (
+          <div className="matrix-cell-stacked">
+            <div className="matrix-cell-cost">{cell.text}</div>
+            <div className="matrix-cell-detail">{cell.subtext}</div>
+          </div>
+        ) : (
+          cell.text
+        );
+
+        return engEditable ? (
+          <div className={cellClass} onClick={(e) => e.stopPropagation()}>
+            {content}
+          </div>
+        ) : (
+          <span className={cellClass}>{content}</span>
+        );
+      },
+    }));
+
+    return [
+      {
+        title: 'Параметр',
+        key: 'label',
+        width: MATRIX_LABEL_COL_WIDTH,
+        ellipsis: true,
+        className: 'matrix-table__label-col',
+        onCell: (record) => {
+          if (record.rowType === 'section') {
+            return {
+              colSpan: colCount,
+              className: 'matrix-table__section-cell',
+            };
+          }
+          return { className: 'matrix-table__label-cell' };
+        },
+        render: (_, record) =>
+          record.rowType === 'section' ? record.section : record.matrixRow.label,
+      },
+      ...poiColumns,
+    ];
+  }, [
+    canWriteProject,
+    colCount,
+    columnNames,
+    poisByColumn,
+    safeSelectedCol,
+    updateEngMut,
+  ]);
+
   usePageHeader(
     {
       title: 'Матрица решений',
@@ -178,7 +319,7 @@ export function MatrixPage() {
           <Space>
             <Button
               type={viewMode === 'table' ? 'primary' : 'default'}
-              icon={<Table size={16} />}
+              icon={<TableIcon size={16} />}
               onClick={() => {
                 setViewModeTouched(true);
                 setViewMode('table');
@@ -207,91 +348,28 @@ export function MatrixPage() {
               </p>
             </Card>
           ) : viewMode === 'table' ? (
-            <Card className="matrix-table-wrap" styles={{ body: { padding: 0 } }}>
-              <table className="data-table matrix-table">
-                <thead>
-                  <tr>
-                    <th>Параметр</th>
-                    {columnNames.map((name, i) => (
-                      <th
-                        key={poisByColumn[i]?.id ?? name + i}
-                        className={`cursor-pointer ${safeSelectedCol === i ? 'bg-blue-50' : ''}`}
-                        onClick={() => setSelectedCol(i)}
-                        title={poisByColumn[i]?.name}
-                      >
-                        {name}
-                      </th>
-                    ))}
-                  </tr>
-                </thead>
-                <tbody>
-                  {sections.map((section) => (
-                      <Fragment key={section}>
-                        <tr>
-                          <td colSpan={colCount} className="font-semibold bg-gray-50 text-xs uppercase tracking-wide">
-                            {section}
-                          </td>
-                        </tr>
-                        {matrixRows
-                          .filter((r) => r.section === section)
-                          .map((row) => (
-                            <tr key={`${row.section}-${row.label}`}>
-                              <td>{row.label}</td>
-                              {row.cells.map((cell, i) => {
-                                const poi = poisByColumn[i];
-                                const engKey = row.engineeringKey;
-                                const engEditable =
-                                  engKey &&
-                                  poi &&
-                                  engineeringAppliesToFluid(engKey, poi.fluid_type);
-
-                                return (
-                                  <td
-                                    key={poisByColumn[i]?.id ?? i}
-                                    className={`${row.total ? 'font-bold' : ''} ${
-                                      cell.status === 'exceeds_limit' ? 'text-red-600' : ''
-                                    } ${safeSelectedCol === i ? 'bg-blue-50/50' : ''} ${
-                                      engEditable ? 'matrix-eng-cell' : ''
-                                    }`}
-                                    onClick={engEditable ? (e) => e.stopPropagation() : undefined}
-                                  >
-                                    {engEditable ? (
-                                      <AppSelect
-                                        variant="compact"
-                                        className="matrix-eng-select"
-                                        ariaLabel={`${row.label}: ${poi.name}`}
-                                        value={String(poi[engKey] ?? '')}
-                                        readOnly={!canWriteProject}
-                                        disabled={updateEngMut.isPending || !canWriteProject}
-                                        onChange={(value) => {
-                                          if (value === poi[engKey]) return;
-                                          updateEngMut.mutate({
-                                            poiId: poi.id,
-                                            key: engKey,
-                                            value,
-                                          });
-                                        }}
-                                        options={engineeringOptionsForKey(engKey)}
-                                      />
-                                    ) : cell.badge ? (
-                                      <span className="badge badge-secondary">{cell.text}</span>
-                                    ) : cell.subtext ? (
-                                      <div className="matrix-cell-stacked">
-                                        <div className="matrix-cell-cost">{cell.text}</div>
-                                        <div className="matrix-cell-detail">{cell.subtext}</div>
-                                      </div>
-                                    ) : (
-                                      cell.text
-                                    )}
-                                  </td>
-                                );
-                              })}
-                            </tr>
-                          ))}
-                      </Fragment>
-                    ))}
-                </tbody>
-              </table>
+            <Card
+              className="matrix-table-wrap"
+              style={{ width: matrixTableWidth, maxWidth: '100%' }}
+              styles={{ body: { padding: 0 } }}
+            >
+              <AppDataTable
+                className="matrix-table"
+                rowKey="key"
+                tableLayout="fixed"
+                scroll={{}}
+                columns={matrixColumns}
+                dataSource={matrixTableData}
+                onRow={(record) => {
+                  if (record.rowType === 'section') {
+                    return { className: 'matrix-table__section-row' };
+                  }
+                  if (record.matrixRow.total) {
+                    return { className: 'matrix-table__row--total' };
+                  }
+                  return {};
+                }}
+              />
             </Card>
           ) : (
             <MatrixCardsPanel

@@ -15,6 +15,7 @@ import { seedAppStore } from '../test/pages/seedAppStore';
 import { api } from '../lib/api';
 import { sampleInfra, samplePois } from '../test/fixtures/map';
 import { makeInfraLine, makeInfraPoint } from '../test/fixtures/infra';
+import { clickAutoroadNetworkTool } from '../test/pages/mapCalculationsMenu';
 import type { MockMapViewProps } from '../test/mocks/MockMapView';
 
 const mapCapture = vi.hoisted(() => ({
@@ -184,7 +185,7 @@ describe('MapPage mock MapView integration', () => {
   it('switches to footprints via toolbar and keeps MapView mounted', async () => {
     await renderMap();
     expect(mapProps().infraSymbology).toBe('points');
-    await userEvent.click(screen.getByRole('button', { name: 'Карта площадок' }));
+    await userEvent.click(screen.getByLabelText('Карта площадок'));
     await waitFor(() => expect(mapProps().infraSymbology).toBe('footprints'));
     expect(screen.getByTestId('mock-map-view')).toBeInTheDocument();
   });
@@ -554,7 +555,7 @@ describe('MapPage mock MapView integration', () => {
 
     await renderMap();
     await enableEdit();
-    await userEvent.click(screen.getByRole('button', { name: /построить сеть автодорог/i }));
+    await clickAutoroadNetworkTool();
 
     await waitFor(() =>
       expect(screen.getByRole('region', { name: 'Построение сети автодорог' })).toBeInTheDocument(),
@@ -597,7 +598,7 @@ describe('MapPage mock MapView integration', () => {
 
     await renderMap();
     await enableEdit();
-    await userEvent.click(screen.getByRole('button', { name: /построить сеть автодорог/i }));
+    await clickAutoroadNetworkTool();
 
     const panel = await screen.findByRole('region', { name: 'Построение сети автодорог' });
 

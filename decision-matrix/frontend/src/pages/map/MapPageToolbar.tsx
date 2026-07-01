@@ -1,8 +1,7 @@
 import { MapPoiSelect } from '../../components/MapPoiSelect';
-import { MapPageToolbarDrawActions } from './mapPageToolbar/MapPageToolbarDrawActions';
+import { MapPageToolbarCalculationsGroup } from './mapPageToolbar/MapPageToolbarCalculationsGroup';
 import { MapPageToolbarDrawGroup } from './mapPageToolbar/MapPageToolbarDrawGroup';
 import { MapPageToolbarEditGroup } from './mapPageToolbar/MapPageToolbarEditGroup';
-import { MapPageToolbarSearch } from './mapPageToolbar/MapPageToolbarSearch';
 import { MapPageToolbarViewGroup } from './mapPageToolbar/MapPageToolbarViewGroup';
 import type { MapPageToolbarProps } from './mapPageToolbar/types';
 
@@ -55,19 +54,11 @@ export function MapPageToolbar(props: MapPageToolbarProps) {
     onBottomholeMenuOpenChange,
     onClearLineDraft,
     onClearRuler,
-    drawActionsVisible,
-    drawStepBackDisabled,
-    drawFinishDisabled,
-    drawResetDisabled,
-    onDrawStepBack,
-    onDrawFinish,
-    onDrawReset,
-    searchQ,
-    onSearchQChange,
-    searchOpen,
-    onSearchOpenChange,
-    searchSuggestions,
-    onPickSearchResult,
+    poisCount,
+    selectedPoiName,
+    analyzePending,
+    onAnalyzeAll,
+    onAnalyzeSelected,
   } = props;
 
   return (
@@ -81,15 +72,6 @@ export function MapPageToolbar(props: MapPageToolbarProps) {
         mapFullscreen={mapFullscreen}
         onToggleFullscreen={onToggleFullscreen}
       />
-      {projectId && pois.length > 0 && (
-        <div className="map-tools-group map-tools-group--poi">
-          <MapPoiSelect
-            pois={pois}
-            value={selectedPoiId ?? pois[0].id}
-            onChange={onSelectedPoiIdChange}
-          />
-        </div>
-      )}
       <MapPageToolbarEditGroup
         mapEditEnabled={mapEditEnabled}
         onToggleMapEdit={onToggleMapEdit}
@@ -108,6 +90,22 @@ export function MapPageToolbar(props: MapPageToolbarProps) {
         deletePending={deletePending}
         onDelete={onDelete}
       />
+      <MapPageToolbarCalculationsGroup
+        projectId={projectId}
+        poisCount={poisCount}
+        selectedPoiId={selectedPoiId}
+        selectedPoiName={selectedPoiName}
+        canWriteProject={canWriteProject}
+        canWriteInfra={canWriteInfra}
+        analyzePending={analyzePending}
+        onAnalyzeAll={onAnalyzeAll}
+        onAnalyzeSelected={onAnalyzeSelected}
+        drawMode={drawMode}
+        onDrawModeChange={onDrawModeChange}
+        onResetDrawingMenus={onResetDrawingMenus}
+        projectJobBusy={projectJobBusy}
+        mapIn3d={mapIn3d}
+      />
       <MapPageToolbarDrawGroup
         drawMode={drawMode}
         onDrawModeChange={onDrawModeChange}
@@ -116,7 +114,6 @@ export function MapPageToolbar(props: MapPageToolbarProps) {
         onResetDrawingMenus={onResetDrawingMenus}
         canWriteInfra={canWriteInfra}
         canWriteProject={canWriteProject}
-        projectJobBusy={projectJobBusy}
         mapIn3d={mapIn3d}
         infraFormSubtype={infraFormSubtype}
         onInfraFormSubtypeChange={onInfraFormSubtypeChange}
@@ -129,26 +126,19 @@ export function MapPageToolbar(props: MapPageToolbarProps) {
         onClearLineDraft={onClearLineDraft}
         onClearRuler={onClearRuler}
       />
-      <MapPageToolbarDrawActions
-        drawMode={drawMode}
-        drawActionsVisible={drawActionsVisible}
-        drawStepBackDisabled={drawStepBackDisabled}
-        drawFinishDisabled={drawFinishDisabled}
-        drawResetDisabled={drawResetDisabled}
-        onDrawStepBack={onDrawStepBack}
-        onDrawFinish={onDrawFinish}
-        onDrawReset={onDrawReset}
-      />
-      {projectId && (
-        <MapPageToolbarSearch
-          searchQ={searchQ}
-          onSearchQChange={onSearchQChange}
-          searchOpen={searchOpen}
-          onSearchOpenChange={onSearchOpenChange}
-          searchSuggestions={searchSuggestions}
-          onPickSearchResult={onPickSearchResult}
-        />
-      )}
+      {projectId && pois.length > 0 ? (
+        <>
+          <span className="map-tools-sep map-tools-sep--poi" aria-hidden />
+          <div className="map-tools-group map-tools-group--poi">
+            <span className="map-tools-group--poi__label">POI</span>
+            <MapPoiSelect
+              pois={pois}
+              value={selectedPoiId ?? pois[0].id}
+              onChange={onSelectedPoiIdChange}
+            />
+          </div>
+        </>
+      ) : null}
     </div>
   );
 }

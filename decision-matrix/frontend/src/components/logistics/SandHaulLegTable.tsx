@@ -1,4 +1,7 @@
+import { useMemo } from 'react';
+import type { ColumnsType } from 'antd/es/table';
 import { ProjectLink } from '../../components/ProjectLink';
+import { AppDataTable } from '../../components/AppDataTable';
 import type { SandLogisticsResult } from '../../lib/api';
 import { formatEntryDateRu } from '../../lib/infraEntryDate';
 import {
@@ -7,6 +10,7 @@ import {
   findSandLogisticsConsumer,
   formatHaulLegKm,
   formatHaulLegM3,
+  type SandHaulLegRow,
 } from '../../lib/sandLogisticsHaulLegs';
 
 type Props = {
@@ -21,6 +25,35 @@ export function SandHaulLegTable({ objectId, sandLogistics, asOf, compact = fals
   const consumer = findSandLogisticsConsumer(sandLogistics, objectId);
   const warnings = consumerSandLogisticsWarnings(sandLogistics, objectId);
 
+  const columns = useMemo<ColumnsType<SandHaulLegRow>>(
+    () => [
+      {
+        title: 'Карьер',
+        key: 'quarry',
+        render: (_, row) => (
+          <span className={compact ? 'sand-haul-leg-table__name' : 'font-medium'}>
+            {row.quarry_name || '—'}
+          </span>
+        ),
+      },
+      {
+        title: compact ? 'м³' : 'Объём, м³',
+        key: 'volume',
+        align: 'right',
+        className: 'tabular-nums',
+        render: (_, row) => formatHaulLegM3(row.allocated_m3),
+      },
+      {
+        title: compact ? 'км' : 'Расстояние, км',
+        key: 'distance',
+        align: 'right',
+        className: 'tabular-nums text-[var(--text-muted)]',
+        render: (_, row) => formatHaulLegKm(row.distance_km),
+      },
+    ],
+    [compact],
+  );
+
   const hintClass = compact
     ? 'text-xs object-detail-panel__hint leading-snug'
     : 'text-sm object-detail-panel__hint';
@@ -29,7 +62,7 @@ export function SandHaulLegTable({ objectId, sandLogistics, asOf, compact = fals
     return (
       <p className={hintClass}>
         Выполните расчёт логистики на вкладке{' '}
-        <ProjectLink to="/flows/logistics" className="text-[var(--primary)] hover:underline">
+        <ProjectLink to="/logistics/schematic" className="text-[var(--primary)] hover:underline">
           Потоки → Логистика
         </ProjectLink>
         .
@@ -42,7 +75,7 @@ export function SandHaulLegTable({ objectId, sandLogistics, asOf, compact = fals
       <p className={hintClass}>
         Объект не найден в результатах расчёта. Проверьте подключение к сети автодорог и
         повторите расчёт на{' '}
-        <ProjectLink to="/flows/logistics" className="text-[var(--primary)] hover:underline">
+        <ProjectLink to="/logistics/schematic" className="text-[var(--primary)] hover:underline">
           Потоки → Логистика
         </ProjectLink>
         .
@@ -84,30 +117,12 @@ export function SandHaulLegTable({ objectId, sandLogistics, asOf, compact = fals
           ))}
         </ul>
       )}
-      <div className={compact ? 'sand-haul-leg-table-wrap' : 'table-wrap'}>
-        <table className={compact ? 'sand-haul-leg-table' : 'data-table w-full text-sm'}>
-          <thead>
-            <tr>
-              <th>Карьер</th>
-              <th className="text-right">{compact ? 'м³' : 'Объём, м³'}</th>
-              <th className="text-right">{compact ? 'км' : 'Расстояние, км'}</th>
-            </tr>
-          </thead>
-          <tbody>
-            {rows.map((row) => (
-              <tr key={row.quarry_id}>
-                <td className={compact ? 'sand-haul-leg-table__name' : 'font-medium'}>
-                  {row.quarry_name || '—'}
-                </td>
-                <td className="text-right tabular-nums">{formatHaulLegM3(row.allocated_m3)}</td>
-                <td className="text-right tabular-nums text-[var(--text-muted)]">
-                  {formatHaulLegKm(row.distance_km)}
-                </td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
-      </div>
+      <AppDataTable
+        className={compact ? 'sand-haul-leg-table' : 'w-full text-sm'}
+        rowKey="quarry_id"
+        columns={columns}
+        dataSource={rows}
+      />
       {asOf ? (
         <p
           className={

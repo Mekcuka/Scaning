@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { ChevronDown, Droplets, Flame } from 'lucide-react';
-import { Input } from 'antd';
+import { Button, Input } from 'antd';
 
 import {
   POI_WATER_VOLUME_UNIT,
@@ -52,26 +52,26 @@ export function PoiCreateForm({ value, onChange, readOnly }: Props) {
           <div className="poi-create-form__fluid-group">
             <span className="poi-create-form__label">Флюид</span>
             <div className="poi-create-form__fluid-toggle" role="group" aria-label="Тип флюида">
-              <button
-                type="button"
+              <Button
+                type={isOil ? 'primary' : 'default'}
                 className={`poi-create-form__fluid-btn${isOil ? ' poi-create-form__fluid-btn--active poi-create-form__fluid-btn--oil' : ''}`}
                 aria-pressed={isOil}
                 disabled={readOnly}
                 onClick={() => patch({ fluid_type: 'oil' })}
+                icon={<Droplets size={13} aria-hidden />}
               >
-                <Droplets size={13} aria-hidden />
                 Нефть
-              </button>
-              <button
-                type="button"
+              </Button>
+              <Button
+                type={!isOil ? 'primary' : 'default'}
                 className={`poi-create-form__fluid-btn${!isOil ? ' poi-create-form__fluid-btn--active poi-create-form__fluid-btn--gas' : ''}`}
                 aria-pressed={!isOil}
                 disabled={readOnly}
                 onClick={() => patch({ fluid_type: 'gas' })}
+                icon={<Flame size={13} aria-hidden />}
               >
-                <Flame size={13} aria-hidden />
                 Газ
-              </button>
+              </Button>
             </div>
           </div>
         </div>
@@ -156,8 +156,8 @@ export function PoiCreateForm({ value, onChange, readOnly }: Props) {
       )}
 
       <div className="poi-create-form__advanced">
-        <button
-          type="button"
+        <Button
+          type="text"
           className="poi-create-form__advanced-toggle"
           onClick={() => setEngineeringOpen((v) => !v)}
           aria-expanded={engineeringOpen}
@@ -169,7 +169,7 @@ export function PoiCreateForm({ value, onChange, readOnly }: Props) {
             className={engineeringOpen ? 'poi-create-form__chev--open' : undefined}
             aria-hidden
           />
-        </button>
+        </Button>
         {engineeringOpen && (
           <div className="poi-create-form__advanced-body">
             <PoiEngineeringSection value={value} patch={patch} readOnly={readOnly} flat />

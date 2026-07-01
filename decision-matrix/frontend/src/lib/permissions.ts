@@ -62,6 +62,7 @@ export const NAV_VISIBILITY: Record<string, UserRole[]> = {
   '/map': ['admin', 'analyst', 'data_manager', 'viewer'],
   '/pad-clustering': ['admin', 'analyst', 'data_manager', 'viewer'],
   '/parameters': ['admin', 'analyst', 'viewer'],
+  '/logistics': ['admin', 'analyst', 'viewer'],
   '/flows': ['admin', 'analyst', 'viewer'],
   '/matrix': ['admin', 'analyst', 'viewer'],
   '/report': ['admin', 'analyst', 'viewer'],

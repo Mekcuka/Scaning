@@ -42,8 +42,8 @@ describe('AdminUsersPage', () => {
     expect(screen.getByText('Администрирование')).toBeInTheDocument();
     await waitFor(() => expect(screen.getByText('a@test.ru')).toBeInTheDocument());
     expect(screen.getAllByText(/Пользователи/i).length).toBeGreaterThan(0);
-    expect(screen.getByText('Зарегистрирован')).toBeInTheDocument();
-    expect(screen.getByText('Последний вход')).toBeInTheDocument();
+    expect(screen.getAllByText('Зарегистрирован').length).toBeGreaterThan(0);
+    expect(screen.getAllByText('Последний вход').length).toBeGreaterThan(0);
     expect(
       screen.getByText(new Date('2024-06-01T10:00:00.000Z').toLocaleString('ru-RU')),
     ).toBeInTheDocument();

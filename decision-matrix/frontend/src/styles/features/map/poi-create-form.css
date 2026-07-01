@@ -60,10 +60,9 @@
   flex: 1;
 }
 
-.poi-create-form__name-input {
+.poi-create-form__name-input.ant-input {
   font-size: 0.9375rem;
   font-weight: 500;
-  padding: 0.5rem 0.65rem;
 }
 
 .poi-create-form__fluid-group {
@@ -80,43 +79,33 @@
   overflow: hidden;
 }
 
-.poi-create-form__fluid-btn {
+.poi-create-form__fluid-btn.ant-btn {
   display: inline-flex;
   align-items: center;
   gap: 0.25rem;
+  height: auto;
   padding: 0.45rem 0.7rem;
   border: none;
-  background: var(--surface);
-  color: var(--text-muted);
-  font: inherit;
+  border-radius: 0;
   font-size: 0.8125rem;
   font-weight: 500;
-  cursor: pointer;
-  transition: background 0.15s, color 0.15s;
+  box-shadow: none;
 }
 
 .poi-create-form__fluid-btn + .poi-create-form__fluid-btn {
   border-left: 1px solid var(--border);
 }
 
-.poi-create-form__fluid-btn:hover:not(:disabled) {
-  color: var(--text);
-  background: var(--surface-2);
-}
-
-.poi-create-form__fluid-btn:disabled {
-  opacity: 0.6;
-  cursor: default;
-}
-
-.poi-create-form__fluid-btn--oil.poi-create-form__fluid-btn--active {
+.poi-create-form__fluid-btn--oil.poi-create-form__fluid-btn--active.ant-btn-primary {
   background: color-mix(in srgb, #1d4ed8 10%, var(--surface));
   color: #2563eb;
+  border-color: transparent;
 }
 
-.poi-create-form__fluid-btn--gas.poi-create-form__fluid-btn--active {
+.poi-create-form__fluid-btn--gas.poi-create-form__fluid-btn--active.ant-btn-primary {
   background: color-mix(in srgb, #059669 10%, var(--surface));
   color: #059669;
+  border-color: transparent;
 }
 
 /* Number fields */
@@ -275,27 +264,13 @@
   color: var(--text-muted);
 }
 
-.app-modal-header__text {
-  display: flex;
-  flex-direction: column;
-  gap: 2px;
-  min-width: 0;
-}
-
-.app-modal-subtitle {
-  margin: 0;
-  font-size: 0.8125rem;
-  font-weight: 400;
-  line-height: 1.35;
-  color: var(--text-muted);
-}
-
+.app-modal-overlay--poi-create .ant-modal-container,
 .app-modal-overlay--poi-create .ant-modal-content {
   max-height: min(92vh, 680px);
 }
 
 .app-modal-overlay--poi-create .ant-modal-header {
-  padding: 16px 18px;
+  padding: 12px 8px 16px 18px;
   border-bottom-color: color-mix(in srgb, var(--primary) 12%, var(--border));
 }
 

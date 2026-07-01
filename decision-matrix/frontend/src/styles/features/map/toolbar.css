@@ -11,6 +11,18 @@
   pointer-events: none;
 }
 
+.map-container--3d .maplibregl-ctrl-fitview {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  line-height: 1;
+}
+
+.map-container--3d .maplibregl-ctrl-fitview svg {
+  display: block;
+  pointer-events: none;
+}
+
 .map-tools {
   display: flex;
   flex-wrap: wrap;
@@ -50,23 +62,91 @@
   display: none;
 }
 
-.map-tools-group--search {
+/* Выбор POI — в конце тулбара, контрастная рамка и читаемое имя */
+.map-tools-sep--poi {
   margin-left: auto;
-  flex: 1 1 10rem;
-  min-width: 120px;
-  max-width: 220px;
 }
 
-.map-tools-group--search input {
-  width: 100%;
+.map-tools-group--poi {
+  width: min(280px, 28vw);
+  max-width: 280px;
+  flex: 0 1 280px;
+  gap: 8px;
 }
 
-.map-tool-btn {
+.map-tools-group--poi__label {
+  flex-shrink: 0;
+  font-size: 0.6875rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--text-muted);
+  white-space: nowrap;
+}
+
+.map-tools-group--poi .app-select-wrap--toolbar {
+  flex: 1 1 auto;
+  min-width: 0;
+  min-height: 32px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--surface-2);
+  overflow: hidden;
+  box-shadow: 0 1px 2px color-mix(in srgb, var(--text) 6%, transparent);
+}
+
+.map-tools-group--poi .app-select-icon {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  gap: 6px;
-  padding: 6px 10px !important;
+  align-self: stretch;
+  padding-inline: 8px;
+  color: var(--primary);
+  background: color-mix(in srgb, var(--primary) 10%, var(--surface));
+  border-right: 1px solid var(--border);
+}
+
+.map-tools-group--poi .app-select--toolbar {
+  flex: 1 1 auto !important;
+  min-width: 0 !important;
+  max-width: none !important;
+  width: auto !important;
+}
+
+.map-tools-group--poi .app-select--toolbar.ant-select {
+  max-width: none;
+}
+
+.map-tools-group--poi .ant-select-selector {
+  min-height: 32px !important;
+  padding-inline: 8px 28px !important;
+  align-items: center !important;
+  overflow: hidden;
+  background: transparent !important;
+}
+
+.map-tools-group--poi .ant-select-selection-item,
+.map-tools-group--poi .ant-select-content-value {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: 0.8125rem;
+  font-weight: 600;
+  line-height: 1.25;
+  color: var(--text);
+}
+
+.map-tools-group--poi .app-select-wrap--toolbar:focus-within {
+  border-color: var(--primary);
+  box-shadow: 0 0 0 2px color-mix(in srgb, var(--primary) 18%, transparent);
+}
+
+.map-tools .ant-btn.map-tool-btn,
+.map-tools-group .ant-btn.map-tool-btn,
+.map-tools-draw-actions .ant-btn.map-tool-btn,
+.autoroad-network-panel__pick-toggle .ant-btn.map-tool-btn,
+.autoroad-params__scope .ant-btn.map-tool-btn,
+.autoroad-params__solver .ant-btn.map-tool-btn {
   min-height: 32px;
 }
 
@@ -74,49 +154,26 @@
   white-space: nowrap;
 }
 
-/* 2D/3D icon toggle: always visible (unlike map-layers-toggle, which is mobile-only). */
-.map-display-mode-toggle {
-  display: inline-flex;
+/* 2D/3D icon toggle (Ant Segmented bridge) */
+.map-display-mode-toggle.ant-segmented {
   flex-shrink: 0;
-  align-items: center;
-  gap: 2px;
   padding: 2px;
   border: 1px solid var(--border);
   border-radius: 8px;
   background: color-mix(in srgb, var(--surface-2) 88%, var(--surface));
 }
 
-.map-display-mode-btn {
+.map-display-mode-toggle.ant-segmented .ant-segmented-item-label {
   display: inline-flex;
   align-items: center;
   justify-content: center;
   min-width: 2rem;
   min-height: 2rem;
   padding: 6px 8px;
-  border: 0;
-  border-radius: 6px;
-  background: transparent;
-  color: var(--text-muted);
-  cursor: pointer;
-  transition:
-    background 0.15s ease,
-    color 0.15s ease,
-    box-shadow 0.15s ease;
+  line-height: 1;
 }
 
-.map-display-mode-btn:hover:not(.map-display-mode-btn--active) {
-  background: color-mix(in srgb, var(--primary) 8%, transparent);
-  color: var(--text);
-}
-
-.map-display-mode-btn:focus-visible {
-  outline: none;
-  box-shadow: 0 0 0 2px color-mix(in srgb, var(--primary) 35%, transparent);
-}
-
-.map-display-mode-btn--active {
-  background: var(--primary);
-  color: var(--primary-contrast, #fff);
+.map-display-mode-toggle.ant-segmented .ant-segmented-item-selected {
   box-shadow: 0 1px 2px color-mix(in srgb, var(--primary) 35%, transparent);
 }
 
@@ -129,9 +186,8 @@
   background: var(--border);
 }
 
-.map-tool-btn--action {
+.map-tool-btn--action.ant-btn {
   min-width: 5.25rem;
-  justify-content: center;
   white-space: nowrap;
 }
 

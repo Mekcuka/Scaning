@@ -240,6 +240,7 @@ export function ObjectDetailPanel({
                 setPadWellSpacingM={panel.setPadWellSpacingM}
                 padGroupSpacingM={panel.padGroupSpacingM}
                 setPadGroupSpacingM={panel.setPadGroupSpacingM}
+                onPadEarthworkBridgeChange={panel.onPadEarthworkBridgeChange}
               />
             )}
 

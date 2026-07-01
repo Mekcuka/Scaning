@@ -191,7 +191,7 @@ function GeoActionButton({
   onClick: () => void;
 }) {
   const buttonType =
-    variant === 'primary' ? 'primary' : variant === 'ghost' ? 'text' : 'default';
+    variant === 'primary' || accent ? 'primary' : variant === 'ghost' ? 'text' : 'default';
 
   return (
     <Button
@@ -200,7 +200,8 @@ function GeoActionButton({
       block={fullWidth}
       className={[
         'pad-clustering-geo-action-btn',
-        accent ? 'pad-clustering-geo-action-btn--accent' : '',
+        fullWidth ? 'pad-clustering-geo-action-btn--full' : '',
+        loading ? 'pad-clustering-geo-action-btn--loading' : '',
       ]
         .filter(Boolean)
         .join(' ')}
@@ -980,13 +981,13 @@ export function PadClusteringPyWellGeoPanel({
                 {lateralMode === 'azim_dip' ? (
                   <>
                     <GeoField label="Azim, °">
-                      <Input className="input" disabled={readOnly} value={lateralAzim} onChange={(e) => setLateralAzim(e.target.value)} />
+                      <Input disabled={readOnly} value={lateralAzim} onChange={(e) => setLateralAzim(e.target.value)} />
                     </GeoField>
                     <GeoField label="Dip, °">
-                      <Input className="input" disabled={readOnly} value={lateralDip} onChange={(e) => setLateralDip(e.target.value)} />
+                      <Input disabled={readOnly} value={lateralDip} onChange={(e) => setLateralDip(e.target.value)} />
                     </GeoField>
                     <GeoField label="Длина, м">
-                      <Input className="input" disabled={readOnly} value={lateralLength} onChange={(e) => setLateralLength(e.target.value)} />
+                      <Input disabled={readOnly} value={lateralLength} onChange={(e) => setLateralLength(e.target.value)} />
                     </GeoField>
                   </>
                 ) : null}
@@ -1196,22 +1197,22 @@ export function PadClusteringPyWellGeoPanel({
           {azimMode === 'azim_dip_to_vector' ? (
             <>
               <GeoField label="Azim, °">
-                <Input className="input" value={azimDeg} onChange={(e) => setAzimDeg(e.target.value)} />
+                <Input value={azimDeg} onChange={(e) => setAzimDeg(e.target.value)} />
               </GeoField>
               <GeoField label="Dip, °">
-                <Input className="input" value={dipDeg} onChange={(e) => setDipDeg(e.target.value)} />
+                <Input value={dipDeg} onChange={(e) => setDipDeg(e.target.value)} />
               </GeoField>
             </>
           ) : (
             <>
               <GeoField label="X">
-                <Input className="input" value={vecX} onChange={(e) => setVecX(e.target.value)} />
+                <Input value={vecX} onChange={(e) => setVecX(e.target.value)} />
               </GeoField>
               <GeoField label="Y">
-                <Input className="input" value={vecY} onChange={(e) => setVecY(e.target.value)} />
+                <Input value={vecY} onChange={(e) => setVecY(e.target.value)} />
               </GeoField>
               <GeoField label="Z">
-                <Input className="input" value={vecZ} onChange={(e) => setVecZ(e.target.value)} />
+                <Input value={vecZ} onChange={(e) => setVecZ(e.target.value)} />
               </GeoField>
             </>
           )}

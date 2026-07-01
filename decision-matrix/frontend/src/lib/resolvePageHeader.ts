@@ -29,10 +29,12 @@ export function resolvePageHeader(pathname: string): PageHeaderConfig | null {
     return { title: 'Кустование' };
   }
   if (path.startsWith('/parameters')) {
+    return { title: 'Параметры' };
+  }
+  if (path.startsWith('/logistics')) {
     return {
-      title: 'Параметры',
-      subtitle:
-        'Пропускная способность, земляные работы, точки подключения, объёмы песка, даты ввода и ставки по POI',
+      title: 'Логистика',
+      subtitle: 'Объёмы песка по объектам и расчёт логистики по подсетям автодорог',
     };
   }
   if (path === '/import' || path === '/data/import') {
@@ -77,8 +79,7 @@ export function resolvePageHeader(pathname: string): PageHeaderConfig | null {
   if (path.startsWith('/flows')) {
     return {
       title: 'Схема потоков',
-      subtitle:
-        'Технологический и экономический потоки — по точке интереса; логистика песка — по проекту',
+      subtitle: 'Технологический и экономический потоки по точке интереса',
     };
   }
   if (path.startsWith('/admin')) {

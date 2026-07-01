@@ -15,6 +15,7 @@ export function deriveActiveTab(pathname: string): string | null {
   if (path === '/projects' || path === '/') return null;
   if (path.startsWith('/projects/')) return 'project-detail';
   if (path.startsWith('/parameters/')) return path.slice(1);
+  if (path.startsWith('/logistics/')) return path.slice(1);
   if (path.startsWith('/flows/')) return path.slice(1);
   if (path.startsWith('/admin/')) return path.slice(1);
   if (path.startsWith('/report')) return path.slice(1) || 'report';

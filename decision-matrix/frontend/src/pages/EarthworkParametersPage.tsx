@@ -18,11 +18,9 @@ import { useActiveProject } from '../hooks/useActiveProject';
 import { useProjectInfraObjects } from '../hooks/useProjectData';
 import { usePermissions } from '../hooks/usePermissions';
 import { queryKeys } from '../lib/queryKeys';
+import type { ColumnsType } from 'antd/es/table';
 import { DeferredNumberInput } from '../components/DeferredNumberInput';
-import {
-  TableExcelExportBodyCell,
-  TableExcelExportButton,
-} from '../components/TableExcelExportButton';
+import { AppDataTable } from '../components/AppDataTable';
 import { earthworkTableExportColumns } from '../lib/tableExcelExportData';
 
 const EARTHWORK_COLUMNS: { field: PadEarthworkParamField; label: string; min?: number; max?: number }[] = [
@@ -113,6 +111,48 @@ export function EarthworkParametersPage() {
     },
   });
 
+  const columns = useMemo<ColumnsType<InfraObject>>(
+    () => [
+      {
+        title: 'Объект',
+        dataIndex: 'name',
+        key: 'name',
+        className: 'parameters-table__name',
+        onCell: () => ({ scope: 'row' as const }),
+      },
+      {
+        title: 'Подтип',
+        key: 'subtype',
+        render: (_, obj) => SUBTYPE_LABELS[obj.subtype] || obj.subtype,
+      },
+      ...EARTHWORK_COLUMNS.map((col) => ({
+        title: col.label,
+        key: col.field,
+        render: (_: unknown, obj: InfraObject) => {
+          const isSaving = savingId === obj.id;
+          return (
+            <DeferredNumberInput
+              allowEmpty
+              min={col.min}
+              max={col.max}
+              className="parameters-table__input"
+              placeholder="—"
+              value={padParamDisplayValue(obj, col.field)}
+              readOnly={!canWriteProject}
+              disabled={isSaving || !canWriteProject}
+              onCommit={(v) => {
+                const parsed = parsePadParamCommit(col.field, v);
+                if (parsed === undefined) return;
+                saveMut.mutate({ object: obj, field: col.field, value: parsed });
+              }}
+            />
+          );
+        },
+      })),
+    ],
+    [canWriteProject, saveMut, savingId],
+  );
+
   if (!projectId) {
     return (
       <div className="parameters-page">
@@ -161,63 +201,20 @@ export function EarthworkParametersPage() {
             <ProjectLink to="/map">карте</ProjectLink> (кроме «Узел» и «Карьер песка»).
           </p>
         ) : (
-          <div className="table-wrap">
-            <table className="data-table parameters-table">
-              <thead>
-                <tr>
-                  <th scope="col">Объект</th>
-                  <th scope="col">Подтип</th>
-                  {EARTHWORK_COLUMNS.map((col) => (
-                    <th key={col.field} scope="col">
-                      {col.label}
-                    </th>
-                  ))}
-                  <th scope="col" className="table-excel-export-th">
-                    <TableExcelExportButton
-                      filename="parametry-zemlyanye-raboty.xlsx"
-                      sheetName="Земляные работы"
-                      columns={earthworkTableExportColumns()}
-                      rows={filteredObjects}
-                      disabled={filteredObjects.length === 0}
-                    />
-                  </th>
-                </tr>
-              </thead>
-              <tbody>
-                {filteredObjects.map((obj) => {
-                  const isSaving = savingId === obj.id;
-                  return (
-                    <tr key={obj.id}>
-                      <th scope="row" className="parameters-table__name">
-                        {obj.name}
-                      </th>
-                      <td>{SUBTYPE_LABELS[obj.subtype] || obj.subtype}</td>
-                      {EARTHWORK_COLUMNS.map((col) => (
-                        <td key={col.field}>
-                          <DeferredNumberInput
-                            allowEmpty
-                            min={col.min}
-                            max={col.max}
-                            className="parameters-table__input"
-                            placeholder="—"
-                            value={padParamDisplayValue(obj, col.field)}
-                            readOnly={!canWriteProject}
-                            disabled={isSaving || !canWriteProject}
-                            onCommit={(v) => {
-                              const parsed = parsePadParamCommit(col.field, v);
-                              if (parsed === undefined) return;
-                              saveMut.mutate({ object: obj, field: col.field, value: parsed });
-                            }}
-                          />
-                        </td>
-                      ))}
-                      <TableExcelExportBodyCell />
-                    </tr>
-                  );
-                })}
-              </tbody>
-            </table>
-          </div>
+          <AppDataTable
+            className="parameters-table"
+            rowKey="id"
+            loading={isLoading}
+            columns={columns}
+            dataSource={filteredObjects}
+            excelExport={{
+              filename: 'parametry-zemlyanye-raboty.xlsx',
+              sheetName: 'Земляные работы',
+              columns: earthworkTableExportColumns(),
+              rows: filteredObjects,
+              disabled: filteredObjects.length === 0,
+            }}
+          />
         )}
       </Card>
     </div>

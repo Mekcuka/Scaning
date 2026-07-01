@@ -2,7 +2,9 @@ import { useEffect, useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { keepPreviousData, useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { RefreshCw } from 'lucide-react';
+import type { ColumnsType } from 'antd/es/table';
 import { Button, Card, Input, Select, Space, Spin, Tag, Typography } from 'antd';
+import { AppDataTable } from '../components/AppDataTable';
 import { defaultAdminJobsApi, type ProjectJobAdminItem } from '../lib/api';
 import {
   ACTIVE_JOB_STATUSES as ACTIVE_STATUSES,
@@ -165,8 +167,88 @@ export function AdminJobsPage() {
     if (page > totalPages) setPage(totalPages);
   }, [list, page, totalPages]);
 
+  const jobColumns = useMemo<ColumnsType<ProjectJobAdminItem>>(
+    () => [
+      {
+        title: 'Создана',
+        key: 'created_at',
+        render: (_, job) => <span className="whitespace-nowrap">{formatDt(job.created_at)}</span>,
+      },
+      {
+        title: 'Проект',
+        key: 'project',
+        render: (_, job) => (
+          <Link to={`/projects/${job.project_id}`}>
+            {job.project_name || job.project_id?.slice(0, 8) || '—'}
+          </Link>
+        ),
+      },
+      {
+        title: 'Кто',
+        key: 'user',
+        render: (_, job) => (
+          <>
+            <div>{job.user_email || '—'}</div>
+            {job.user_username ? (
+              <Typography.Text type="secondary" className="text-xs">
+                {job.user_username}
+              </Typography.Text>
+            ) : null}
+          </>
+        ),
+      },
+      {
+        title: 'Тип',
+        key: 'job_type',
+        render: (_, job) => jobTypeLabel(job.job_type),
+      },
+      {
+        title: 'Статус',
+        key: 'status',
+        render: (_, job) => (
+          <Tag color={statusTagColor(job.status)}>{STATUS_LABELS[job.status] ?? job.status}</Tag>
+        ),
+      },
+      {
+        title: 'Длительность',
+        key: 'duration',
+        render: (_, job) => (
+          <span className="whitespace-nowrap">{formatDuration(job.started_at, job.finished_at)}</span>
+        ),
+      },
+      {
+        title: 'Ошибка',
+        key: 'error',
+        className: 'max-w-[12rem]',
+        render: (_, job) => (
+          <span title={job.error_message ?? undefined}>{truncate(job.error_message)}</span>
+        ),
+      },
+      {
+        title: 'Действия',
+        key: 'actions',
+        render: (_, job) => {
+          const canCancel = job.status === 'pending' || job.status === 'running';
+          return canCancel ? (
+            <Button
+              size="small"
+              disabled={cancelMutation.isPending}
+              title="Отменить задачу"
+              onClick={() => cancelMutation.mutate(job.id)}
+            >
+              Отменить
+            </Button>
+          ) : (
+            <Typography.Text type="secondary">—</Typography.Text>
+          );
+        },
+      },
+    ],
+    [cancelMutation],
+  );
+
   return (
-    <div className="page-stack">
+    <div className="page-stack admin-jobs-page">
       <Card className="mb-4">
         <div className="flex flex-wrap items-center justify-between gap-3 mb-3">
           <Typography.Title level={5} className="!mb-0">
@@ -291,74 +373,12 @@ export function AdminJobsPage() {
                 </Space>
               )}
             </div>
-            <div className="overflow-x-auto">
-              <table className="w-full text-sm">
-                <thead>
-                  <tr className="border-b" style={{ borderColor: 'var(--border)' }}>
-                    <th className="text-left py-2 px-2">Создана</th>
-                    <th className="text-left py-2 px-2">Проект</th>
-                    <th className="text-left py-2 px-2">Кто</th>
-                    <th className="text-left py-2 px-2">Тип</th>
-                    <th className="text-left py-2 px-2">Статус</th>
-                    <th className="text-left py-2 px-2">Длительность</th>
-                    <th className="text-left py-2 px-2">Ошибка</th>
-                    <th className="text-left py-2 px-2">Действия</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {(list?.items ?? []).map((job) => {
-                    const canCancel = job.status === 'pending' || job.status === 'running';
-                    return (
-                      <tr key={job.id} className="border-b" style={{ borderColor: 'var(--border)' }}>
-                        <td className="py-2 px-2 whitespace-nowrap">{formatDt(job.created_at)}</td>
-                        <td className="py-2 px-2">
-                          <Link to={`/projects/${job.project_id}`}>{job.project_name || job.project_id?.slice(0, 8) || '—'}</Link>
-                        </td>
-                        <td className="py-2 px-2">
-                          <div>{job.user_email || '—'}</div>
-                          {job.user_username && (
-                            <Typography.Text type="secondary" className="text-xs">
-                              {job.user_username}
-                            </Typography.Text>
-                          )}
-                        </td>
-                        <td className="py-2 px-2">{jobTypeLabel(job.job_type)}</td>
-                        <td className="py-2 px-2">
-                          <Tag color={statusTagColor(job.status)}>
-                            {STATUS_LABELS[job.status] ?? job.status}
-                          </Tag>
-                        </td>
-                        <td className="py-2 px-2 whitespace-nowrap">
-                          {formatDuration(job.started_at, job.finished_at)}
-                        </td>
-                        <td className="py-2 px-2 max-w-[12rem]" title={job.error_message ?? undefined}>
-                          {truncate(job.error_message)}
-                        </td>
-                        <td className="py-2 px-2">
-                          {canCancel ? (
-                            <Button
-                              size="small"
-                              disabled={cancelMutation.isPending}
-                              title="Отменить задачу"
-                              onClick={() => cancelMutation.mutate(job.id)}
-                            >
-                              Отменить
-                            </Button>
-                          ) : (
-                            <Typography.Text type="secondary">—</Typography.Text>
-                          )}
-                        </td>
-                      </tr>
-                    );
-                  })}
-                </tbody>
-              </table>
-            </div>
-            {(list?.items.length ?? 0) === 0 && (
-              <Typography.Paragraph type="secondary" className="py-4 text-center mb-0">
-                Задач не найдено
-              </Typography.Paragraph>
-            )}
+            <AppDataTable
+              rowKey="id"
+              columns={jobColumns}
+              dataSource={list?.items ?? []}
+              emptyText="Задач не найдено"
+            />
           </>
         )}
       </Card>

@@ -68,41 +68,49 @@ export function LoginPage() {
             <Typography.Text type="secondary">{APP_TAGLINE}</Typography.Text>
           </div>
         </div>
-        <form onSubmit={handleSubmit(onSubmit)}>
-          <Form.Item
-            label="Email"
-            validateStatus={errors.email ? 'error' : undefined}
-            help={errors.email?.message}
-            className="mb-4"
-          >
-            <Controller
-              name="email"
-              control={control}
-              render={({ field }) => (
-                <Input {...field} type="email" autoComplete="email" id="login-email" aria-label="Email" />
-              )}
-            />
-          </Form.Item>
-          <Form.Item
-            label="Пароль"
-            validateStatus={errors.password ? 'error' : undefined}
-            help={errors.password?.message}
-            className="mb-4"
-          >
-            <Controller
-              name="password"
-              control={control}
-              render={({ field }) => (
-                <Input.Password
-                  {...field}
-                  autoComplete="current-password"
-                  id="login-password"
-                  aria-label="Пароль"
-                  iconRender={(visible) => (visible ? <EyeOutlined /> : <EyeInvisibleOutlined />)}
-                />
-              )}
-            />
-          </Form.Item>
+        <form className="auth-form" onSubmit={handleSubmit(onSubmit)}>
+          <Form layout="vertical" component="div" requiredMark={false}>
+            <Form.Item
+              label="Email"
+              validateStatus={errors.email ? 'error' : undefined}
+              help={errors.email?.message}
+            >
+              <Controller
+                name="email"
+                control={control}
+                render={({ field }) => (
+                  <Input
+                    {...field}
+                    type="email"
+                    autoComplete="email"
+                    id="login-email"
+                    aria-label="Email"
+                    className="auth-form__input"
+                  />
+                )}
+              />
+            </Form.Item>
+            <Form.Item
+              label="Пароль"
+              validateStatus={errors.password ? 'error' : undefined}
+              help={errors.password?.message}
+            >
+              <Controller
+                name="password"
+                control={control}
+                render={({ field }) => (
+                  <Input.Password
+                    {...field}
+                    autoComplete="current-password"
+                    id="login-password"
+                    aria-label="Пароль"
+                    className="auth-form__input"
+                    iconRender={(visible) => (visible ? <EyeOutlined /> : <EyeInvisibleOutlined />)}
+                  />
+                )}
+              />
+            </Form.Item>
+          </Form>
           {errors.root?.message && (
             <Alert type="error" message={errors.root.message} className="mb-4" showIcon />
           )}

@@ -5,6 +5,7 @@ import { Button } from 'antd';
 
 import {
   wellTrajectoryApi,
+  type ClearancePair,
   type WellTrajectory,
 } from '../../lib/api/wellTrajectoryApi';
 import { readWellTrajectoryStepM } from '../../lib/padClusteringCalcSettings';
@@ -24,6 +25,8 @@ import {
 } from '../../lib/wellBottomholeProperties';
 
 import { PanelSection, PanelSubsection, StatChip } from './panelUi';
+import { AppDataTable } from '../AppDataTable';
+import type { ColumnsType } from 'antd/es/table';
 import { translateWellTrajectoryUserMessage } from '../../lib/wellTrajectoryUserMessages';
 
 interface InfraWellTrajectorySectionProps {
@@ -142,6 +145,39 @@ export function InfraWellTrajectorySection({
   const bottomholesReady = logicalBottomholeWells > 0;
   const designReady = designedCount > 0;
   const clearanceDone = clearancePairs.length > 0;
+
+  const clearanceColumns = useMemo<ColumnsType<ClearancePair>>(
+    () => [
+      {
+        title: 'Скв. A',
+        key: 'well_a',
+        render: (_, pair) => pairWellLabel(pair, 'a', infraObject.id),
+      },
+      {
+        title: 'Скв. B',
+        key: 'well_b',
+        render: (_, pair) => pairWellLabel(pair, 'b', infraObject.id),
+      },
+      {
+        title: 'мин. SF',
+        key: 'min_sf',
+        render: (_, pair) => (
+          <span
+            className={
+              pair.min_sf != null && Number.isFinite(pair.min_sf)
+                ? pair.warning
+                  ? 'odp-traj-sf odp-traj-sf--warn'
+                  : 'odp-traj-sf odp-traj-sf--ok'
+                : 'object-detail-panel__meta'
+            }
+          >
+            {formatMinSf(pair.min_sf)}
+          </span>
+        ),
+      },
+    ],
+    [infraObject.id],
+  );
 
   return (
     <PanelSection title="Траектории скважин" card>
@@ -325,36 +361,12 @@ export function InfraWellTrajectorySection({
       {clearancePairs.length > 0 && (
         <PanelSubsection title={`Пары SF (${clearancePairs.length})`}>
           <div className="odp-traj-table-wrap">
-            <table className="odp-traj-table">
-              <thead>
-                <tr>
-                  <th>Скв. A</th>
-                  <th>Скв. B</th>
-                  <th>мин. SF</th>
-                </tr>
-              </thead>
-              <tbody>
-                {clearancePairs.map((pair, i) => (
-                  <tr key={`${pair.well_a}-${pair.well_b}-${i}`}>
-                    <td>{pairWellLabel(pair, 'a', infraObject.id)}</td>
-                    <td>{pairWellLabel(pair, 'b', infraObject.id)}</td>
-                    <td>
-                      <span
-                        className={
-                          pair.min_sf != null && Number.isFinite(pair.min_sf)
-                            ? pair.warning
-                              ? 'odp-traj-sf odp-traj-sf--warn'
-                              : 'odp-traj-sf odp-traj-sf--ok'
-                            : 'object-detail-panel__meta'
-                        }
-                      >
-                        {formatMinSf(pair.min_sf)}
-                      </span>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
+          <AppDataTable
+            className="odp-traj-table"
+            rowKey={(pair, index) => `${pair.well_a}-${pair.well_b}-${index}`}
+            columns={clearanceColumns}
+            dataSource={clearancePairs}
+          />
           </div>
         </PanelSubsection>
       )}

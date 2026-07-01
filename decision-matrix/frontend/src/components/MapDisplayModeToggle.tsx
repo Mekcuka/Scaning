@@ -1,4 +1,5 @@
 import { Box, Map, Shapes } from 'lucide-react';
+import { Segmented } from 'antd';
 import type { MapDisplayMode } from '../hooks/useMapDisplayMode';
 
 type MapDisplayModeToggleProps = {
@@ -21,27 +22,20 @@ const MODES: {
 /** Icon-only 2D / footprints / 3D map view switch. */
 export function MapDisplayModeToggle({ mode, onChange, className = '' }: MapDisplayModeToggleProps) {
   return (
-    <div
+    <Segmented
       className={`map-display-mode-toggle ${className}`.trim()}
-      role="group"
+      value={mode}
+      onChange={(value) => onChange(value as MapDisplayMode)}
       aria-label="Режим карты"
-    >
-      {MODES.map(({ value, title, label, Icon }) => {
-        const active = mode === value;
-        return (
-          <button
-            key={value}
-            type="button"
-            className={`map-display-mode-btn${active ? ' map-display-mode-btn--active' : ''}`}
-            title={title}
-            aria-label={label}
-            aria-pressed={active}
-            onClick={() => onChange(value)}
-          >
+      options={MODES.map(({ value, title, label, Icon }) => ({
+        value,
+        title,
+        label: (
+          <span className="map-display-mode-btn__inner" aria-label={label}>
             <Icon size={15} strokeWidth={1.75} className="shrink-0" aria-hidden />
-          </button>
-        );
-      })}
-    </div>
+          </span>
+        ),
+      }))}
+    />
   );
 }

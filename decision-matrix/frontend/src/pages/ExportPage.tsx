@@ -128,7 +128,6 @@ export function ExportPage() {
             <Button
               type="primary"
               size="small"
-              className="export-option__btn"
               disabled={pointDisabled}
               icon={<FileSpreadsheet size={16} aria-hidden />}
               onClick={workflow.exportPointsExcel}
@@ -137,7 +136,6 @@ export function ExportPage() {
             </Button>
             <Button
               size="small"
-              className="export-option__btn"
               disabled={pointDisabled}
               icon={<Download size={16} aria-hidden />}
               onClick={workflow.exportPointsCsv}
@@ -159,7 +157,7 @@ export function ExportPage() {
             <Button
               type="primary"
               size="small"
-              className="export-option__btn export-option__btn--wide"
+              className="export-option__btn--wide"
               disabled={disabled}
               icon={<Download size={16} aria-hidden />}
               onClick={workflow.exportGeoJson}
@@ -185,7 +183,6 @@ export function ExportPage() {
             <Button
               type="primary"
               size="small"
-              className="export-option__btn"
               disabled={disabled}
               icon={<FileSpreadsheet size={16} aria-hidden />}
               onClick={workflow.exportAllExcel}
@@ -194,7 +191,6 @@ export function ExportPage() {
             </Button>
             <Button
               size="small"
-              className="export-option__btn"
               disabled={disabled}
               icon={<Download size={16} aria-hidden />}
               onClick={workflow.exportAllCsv}

@@ -41,21 +41,12 @@
 .object-detail-panel__save {
   width: 100%;
   min-height: 36px;
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
   font-size: 0.8125rem;
 }
 
-.object-detail-panel__delete {
+.object-detail-panel__footer .ant-btn.object-detail-panel__delete {
   width: 100%;
   min-height: 36px;
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  gap: 6px;
-  padding-inline: 10px !important;
-  color: #b91c1c;
 }
 
 .object-detail-panel__readonly-hint {

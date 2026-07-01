@@ -5,10 +5,11 @@
 
 import { projectPath, stripProjectPrefix } from './projectRoutes';
 
-export type NavSection = 'parameters' | 'flows' | 'admin' | 'data' | 'pad-clustering';
+export type NavSection = 'parameters' | 'logistics' | 'flows' | 'admin' | 'data' | 'pad-clustering';
 
 const SECTION_PREFIX: Record<NavSection, string> = {
   parameters: '/parameters',
+  logistics: '/logistics',
   flows: '/flows',
   admin: '/admin',
   data: '/data',
@@ -17,6 +18,7 @@ const SECTION_PREFIX: Record<NavSection, string> = {
 
 const SECTION_DEFAULT: Record<NavSection, string> = {
   parameters: '/parameters/capacity',
+  logistics: '/logistics/schematic',
   flows: '/flows/technology',
   admin: '/admin/users',
   data: '/data/export',
@@ -26,13 +28,13 @@ const SECTION_DEFAULT: Record<NavSection, string> = {
 const ALLOWED_PATHS: Record<NavSection, readonly string[]> = {
   parameters: [
     '/parameters/capacity',
-    '/parameters/sand',
     '/parameters/earthwork',
     '/parameters/footprint-connections',
     '/parameters/entry-dates',
     '/parameters/rates',
   ],
-  flows: ['/flows/technology', '/flows/economic', '/flows/logistics'],
+  logistics: ['/logistics/sand', '/logistics/schematic'],
+  flows: ['/flows/technology', '/flows/economic'],
   admin: ['/admin/users', '/admin/jobs', '/admin/assistant'],
   data: ['/data/import', '/data/export', '/data/import-3d'],
   'pad-clustering': [
@@ -40,6 +42,11 @@ const ALLOWED_PATHS: Record<NavSection, readonly string[]> = {
     '/pad-clustering/summary',
     '/pad-clustering/profile',
   ],
+};
+
+const LEGACY_PATH_MIGRATIONS: Record<string, string> = {
+  '/parameters/sand': '/logistics/sand',
+  '/flows/logistics': '/logistics/schematic',
 };
 
 const STORAGE_KEY = 'dm-nav-last-section';
@@ -54,13 +61,18 @@ export function pathBelongsToSection(pathname: string, section: NavSection): boo
   return logical === prefix || logical.startsWith(`${prefix}/`);
 }
 
+function migrateLegacyNavPath(pathname: string): string {
+  return LEGACY_PATH_MIGRATIONS[pathname] ?? pathname;
+}
+
 function isAllowedSectionPath(pathname: string, section: NavSection): boolean {
-  return (ALLOWED_PATHS[section] as readonly string[]).includes(pathname);
+  const migrated = migrateLegacyNavPath(pathname);
+  return (ALLOWED_PATHS[section] as readonly string[]).includes(migrated);
 }
 
 /** Persist sub-route when user navigates inside a section. */
 export function rememberSectionFromPath(pathname: string): void {
-  const logical = stripProjectPrefix(pathname);
+  const logical = migrateLegacyNavPath(stripProjectPrefix(pathname));
   for (const section of Object.keys(SECTION_PREFIX) as NavSection[]) {
     const prefix = SECTION_PREFIX[section];
     if (logical !== prefix && pathBelongsToSection(logical, section)) {
@@ -79,8 +91,11 @@ export function rememberSectionFromPath(pathname: string): void {
 export function getLastSectionPath(section: NavSection): string {
   try {
     const saved = sessionStorage.getItem(storageKey(section));
-    if (saved && isAllowedSectionPath(saved, section)) {
-      return saved;
+    if (saved) {
+      const migrated = migrateLegacyNavPath(saved);
+      if (isAllowedSectionPath(migrated, section)) {
+        return migrated;
+      }
     }
   } catch {
     /* ignore */
@@ -88,12 +103,15 @@ export function getLastSectionPath(section: NavSection): string {
   return SECTION_DEFAULT[section];
 }
 
-/** Saved flows path only (no default) — for index redirect before POI heuristic. */
+/** Saved sub-route only (no default) — for index redirect before POI heuristic. */
 export function getSavedSectionPath(section: NavSection): string | null {
   try {
     const saved = sessionStorage.getItem(storageKey(section));
-    if (saved && isAllowedSectionPath(saved, section)) {
-      return saved;
+    if (saved) {
+      const migrated = migrateLegacyNavPath(saved);
+      if (isAllowedSectionPath(migrated, section)) {
+        return migrated;
+      }
     }
   } catch {
     /* ignore */

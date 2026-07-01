@@ -16,11 +16,9 @@ import { useActiveProject } from '../hooks/useActiveProject';
 import { useProjectInfraObjects } from '../hooks/useProjectData';
 import { usePermissions } from '../hooks/usePermissions';
 import { queryKeys } from '../lib/queryKeys';
+import type { ColumnsType } from 'antd/es/table';
 import { DeferredNumberInput } from '../components/DeferredNumberInput';
-import {
-  TableExcelExportBodyCell,
-  TableExcelExportButton,
-} from '../components/TableExcelExportButton';
+import { AppDataTable } from '../components/AppDataTable';
 import { capacityTableExportColumns } from '../lib/tableExcelExportData';
 
 function capacityDisplayValue(obj: InfraObject): number | '' {
@@ -103,6 +101,63 @@ export function ParametersPage() {
     },
   });
 
+  const columns = useMemo<ColumnsType<InfraObject>>(
+    () => [
+      {
+        title: 'Объект',
+        dataIndex: 'name',
+        key: 'name',
+        className: 'parameters-table__name',
+        onCell: () => ({ scope: 'row' as const }),
+      },
+      {
+        title: 'Подтип',
+        key: 'subtype',
+        render: (_, obj) => SUBTYPE_LABELS[obj.subtype] || obj.subtype,
+      },
+      {
+        title: 'Ед. изм.',
+        key: 'unit',
+        className: 'parameters-table__unit',
+        render: (_, obj) => {
+          const effective = effectiveThroughputCapacity(obj.subtype, obj.properties);
+          return capacityUnitLabel(effective.unit);
+        },
+      },
+      {
+        title: 'Пропускная способность',
+        key: 'capacity',
+        render: (_, obj) => {
+          const effective = effectiveThroughputCapacity(obj.subtype, obj.properties);
+          const isSaving = savingId === obj.id;
+          return (
+            <DeferredNumberInput
+              allowEmpty
+              min={0}
+              className="parameters-table__input"
+              placeholder="Не задана"
+              title={
+                effective.isStored
+                  ? undefined
+                  : 'Норматив для подтипа (задаётся при создании объекта на карте)'
+              }
+              value={capacityDisplayValue(obj)}
+              readOnly={!canWriteProject}
+              disabled={isSaving || !canWriteProject}
+              onCommit={(v) => {
+                saveMut.mutate({
+                  object: obj,
+                  value: v === '' ? '' : typeof v === 'number' ? v : Number(v),
+                });
+              }}
+            />
+          );
+        },
+      },
+    ],
+    [canWriteProject, saveMut, savingId],
+  );
+
   if (!projectId) {
     return (
       <div className="parameters-page">
@@ -149,66 +204,20 @@ export function ParametersPage() {
             <ProjectLink to="/map">карте</ProjectLink>.
           </p>
         ) : (
-          <div className="table-wrap">
-            <table className="data-table parameters-table">
-              <thead>
-                <tr>
-                  <th scope="col">Объект</th>
-                  <th scope="col">Подтип</th>
-                  <th scope="col">Ед. изм.</th>
-                  <th scope="col">Пропускная способность</th>
-                  <th scope="col" className="table-excel-export-th">
-                    <TableExcelExportButton
-                      filename="parametry-propusknaya-sposobnost.xlsx"
-                      sheetName="Пропускная способность"
-                      columns={capacityTableExportColumns()}
-                      rows={filteredObjects}
-                      disabled={filteredObjects.length === 0}
-                    />
-                  </th>
-                </tr>
-              </thead>
-              <tbody>
-                {filteredObjects.map((obj) => {
-                  const effective = effectiveThroughputCapacity(obj.subtype, obj.properties);
-                  const unitLabel = capacityUnitLabel(effective.unit);
-                  const isSaving = savingId === obj.id;
-                  return (
-                    <tr key={obj.id}>
-                      <th scope="row" className="parameters-table__name">
-                        {obj.name}
-                      </th>
-                      <td>{SUBTYPE_LABELS[obj.subtype] || obj.subtype}</td>
-                      <td className="parameters-table__unit">{unitLabel}</td>
-                      <td>
-                        <DeferredNumberInput
-                          allowEmpty
-                          min={0}
-                          className="parameters-table__input"
-                          placeholder="Не задана"
-                          title={
-                            effective.isStored
-                              ? undefined
-                              : 'Норматив для подтипа (задаётся при создании объекта на карте)'
-                          }
-                          value={capacityDisplayValue(obj)}
-                          readOnly={!canWriteProject}
-                          disabled={isSaving || !canWriteProject}
-                          onCommit={(v) => {
-                            saveMut.mutate({
-                              object: obj,
-                              value: v === '' ? '' : typeof v === 'number' ? v : Number(v),
-                            });
-                          }}
-                        />
-                      </td>
-                      <TableExcelExportBodyCell />
-                    </tr>
-                  );
-                })}
-              </tbody>
-            </table>
-          </div>
+          <AppDataTable
+            className="parameters-table"
+            rowKey="id"
+            loading={isLoading}
+            columns={columns}
+            dataSource={filteredObjects}
+            excelExport={{
+              filename: 'parametry-propusknaya-sposobnost.xlsx',
+              sheetName: 'Пропускная способность',
+              columns: capacityTableExportColumns(),
+              rows: filteredObjects,
+              disabled: filteredObjects.length === 0,
+            }}
+          />
         )}
       </Card>
     </div>

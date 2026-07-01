@@ -43,7 +43,6 @@ export function ExportOptionCard({
   return (
     <Card
       className={`export-option export-option--${accent}${disabled ? ' export-option--disabled' : ''}`}
-      styles={{ body: { padding: 0 } }}
     >
       <div className="export-option__head">
         <span className="export-option__icon" aria-hidden>

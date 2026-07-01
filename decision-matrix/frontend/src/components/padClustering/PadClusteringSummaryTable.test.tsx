@@ -61,8 +61,9 @@ describe('PadClusteringSummaryTable', () => {
 
   it('renders column filters in every header', () => {
     render(<PadClusteringSummaryTable title="Забои" table={table} rowHeaderLabel="Объект" />);
-    expect(screen.getByLabelText('Фильтр: Объект')).toBeInTheDocument();
-    expect(screen.getByLabelText('Фильтр: Роль')).toBeInTheDocument();
-    expect(screen.getByLabelText('Фильтр: TVD, м')).toBeInTheDocument();
+    // Ant Table may duplicate header cells for fixed-column scroll sync.
+    for (const label of ['Объект', 'Роль', 'TVD, м'] as const) {
+      expect(screen.getAllByLabelText(`Фильтр: ${label}`).length).toBeGreaterThanOrEqual(1);
+    }
   });
 });

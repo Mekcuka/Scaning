@@ -22,7 +22,8 @@ export function DeleteProjectConfirmModal({
       title="Удалить проект?"
       titleId="delete-project-confirm-title"
       onClose={onClose}
-      size="sm"
+      size="xs"
+      overlayClassName="app-modal-overlay--confirm"
       closeOnBackdrop={!isPending}
       footer={
         <Space>

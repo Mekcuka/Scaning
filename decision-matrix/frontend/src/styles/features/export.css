@@ -1,4 +1,8 @@
-/* Export page */
+/* Export page — ImportPage shares `export-page` layout (import-page export-page) */
+.export-page {
+  min-width: 0;
+}
+
 .export-page .page-header {
   margin-bottom: 20px;
 }
@@ -80,6 +84,10 @@
   overflow: hidden;
 }
 
+.ant-card.export-setup .ant-card-body {
+  padding: 0;
+}
+
 .export-setup__header {
   display: grid;
   grid-template-columns: minmax(0, 1fr) minmax(280px, 400px);
@@ -117,7 +125,7 @@
   margin-left: 10px;
 }
 
-.export-setup__header .export-project-select .app-select-trigger {
+.export-setup__header .export-project-select.ant-select .ant-select-selector {
   min-height: 46px;
   padding: 0 50px 0 8px;
 }
@@ -218,7 +226,7 @@
   justify-content: center;
 }
 
-.export-project-select .app-select-trigger {
+.export-project-select.ant-select .ant-select-selector {
   position: relative;
   min-height: 54px;
   padding: 0 56px 0 10px;
@@ -320,17 +328,11 @@
 }
 
 .export-option {
-  display: flex;
-  flex-direction: column;
-  gap: 14px;
-  min-height: 100%;
-  padding: 18px;
   transition: border-color 0.15s, box-shadow 0.15s;
 }
 
 .ant-card.export-option {
   min-height: 100%;
-  padding: 0;
 }
 
 .ant-card.export-option .ant-card-body {
@@ -451,12 +453,12 @@
   margin-top: auto;
 }
 
-.export-option__btn {
+.export-option__actions .ant-btn {
   flex: 1 1 calc(50% - 4px);
-  justify-content: center;
+  min-width: 0;
 }
 
-.export-option__btn--wide {
+.export-option__actions .ant-btn.export-option__btn--wide {
   flex-basis: 100%;
 }
 
@@ -476,7 +478,7 @@
 }
 
 @media (max-width: 640px) {
-  .export-option__btn {
+  .export-option__actions .ant-btn {
     flex-basis: 100%;
   }
 }
