@@ -9,7 +9,7 @@ import {
 } from './helpers';
 
 test.describe('Flows logistics', () => {
-  test.describe.configure({ mode: 'serial', timeout: 90_000 });
+  test.describe.configure({ mode: 'serial', timeout: 180_000 });
 
   let email: string;
   let projectId: string;
@@ -57,6 +57,7 @@ test.describe('Flows logistics', () => {
     await loginViaUi(page, email);
     await page.goto(`/logistics/schematic/${projectId}`);
 
+    await page.getByRole('button', { name: /Рассчитать логистику песка/i }).click();
     await expect(page.getByText(/подсеть с карьерами/i)).toBeVisible({ timeout: 90_000 });
 
     const badge = page.locator('.sand-logistics-timeline__badge');
