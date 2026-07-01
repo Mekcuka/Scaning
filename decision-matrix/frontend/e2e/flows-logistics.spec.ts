@@ -57,14 +57,17 @@ test.describe('Flows logistics', () => {
     await loginViaUi(page, email);
     await page.goto(`/logistics/schematic/${projectId}`);
 
-    await expect(page.getByText(/подсетей с карьерами/i)).toBeVisible({ timeout: 20_000 });
+    await page.getByRole('button', { name: /Рассчитать логистику песка/i }).click();
+    await expect(page.getByText(/подсеть с карьерами/i)).toBeVisible({ timeout: 90_000 });
 
-    const slider = page.getByRole('slider', { name: 'Год среза для схемы' });
-    await expect(slider).toBeVisible({ timeout: 15_000 });
+    const badge = page.locator('.sand-logistics-timeline__badge');
+    await expect(badge).toBeVisible({ timeout: 15_000 });
+    const before = await badge.textContent();
 
-    const before = await page.locator('.sand-logistics-timeline__badge').textContent();
-    await slider.fill('0');
-    await expect(page.locator('.sand-logistics-timeline__badge')).not.toHaveText(before ?? '');
+    const stepNext = page.getByRole('button', { name: 'Следующий год' });
+    await expect(stepNext).toBeEnabled({ timeout: 15_000 });
+    await stepNext.click();
+    await expect(badge).not.toHaveText(before ?? '');
   });
 });
 

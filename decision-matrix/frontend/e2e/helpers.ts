@@ -421,7 +421,7 @@ export async function seedSandLogisticsNetwork(
 
     properties: {
 
-      entry_date: '2025-01-01',
+      entry_date: '2028-01-01',
 
       sand_volume_mode: 'single',
 
