@@ -603,6 +603,31 @@ export async function hoverMapLonLat(
   await viewport.hover({ position: pos, force: true });
 }
 
+/** Narrow viewport so .app-main content overflows and can scroll. */
+export async function expectAppMainScrollable(page: Page): Promise<void> {
+  await page.setViewportSize({ width: 1280, height: 560 });
+  const main = page.locator('.app-main');
+  await expect(main).toBeVisible();
+  await expect
+    .poll(async () => main.evaluate((el) => el.scrollHeight > el.clientHeight))
+    .toBe(true);
+  await main.evaluate((el) => {
+    el.scrollTop = el.scrollHeight;
+  });
+  expect(await main.evaluate((el) => el.scrollTop)).toBeGreaterThan(0);
+}
+
+/** Opens map toolbar «Расчёт» menu. */
+export async function openMapCalculationsMenu(page: Page): Promise<void> {
+  await page.getByRole('button', { name: 'Расчёт' }).click();
+}
+
+/** Enters pad placement mode from the calculations menu. */
+export async function enterPadPlacementMode(page: Page): Promise<void> {
+  await openMapCalculationsMenu(page);
+  await page.getByRole('button', { name: 'Оптимизация кустов' }).click();
+}
+
 export function waitForInfraObjectCreate(page: Page, subtype: string) {
   return page.waitForResponse(
     async (r) => {

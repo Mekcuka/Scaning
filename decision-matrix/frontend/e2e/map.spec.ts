@@ -73,8 +73,7 @@ test.describe('Map', () => {
     await page.waitForTimeout(200);
 
     const createPromise = waitForInfraObjectCreate(page, 'autoroad');
-    await expect(page.getByRole('button', { name: 'Готово' })).toBeEnabled({ timeout: 15_000 });
-    await page.getByRole('button', { name: 'Готово' }).click();
+    await dblclickMapLonLat(page, viewport, 37.61, 55.76);
 
     const createRes = await createPromise;
     expect((await createRes.json()).subtype).toBe('autoroad');

@@ -3,6 +3,7 @@ import {
   loginViaApi,
   loginViaUi,
   seedSandLogisticsNetwork,
+  expectAppMainScrollable,
   setupE2eSession,
   type CsrfHolder,
 } from './helpers';
@@ -48,14 +49,7 @@ test.describe('Flows logistics', () => {
     await page.goto(`/logistics/schematic/${projectId}`);
     await expect(page).toHaveURL(new RegExp(`/logistics/schematic/${projectId}`));
 
-    const main = page.locator('.app-main');
-    await expect(main).toBeVisible();
-    const canScroll = await main.evaluate((el) => el.scrollHeight > el.clientHeight);
-    expect(canScroll).toBe(true);
-    await main.evaluate((el) => {
-      el.scrollTop = el.scrollHeight;
-    });
-    expect(await main.evaluate((el) => el.scrollTop)).toBeGreaterThan(0);
+    await expectAppMainScrollable(page);
   });
 
   test('timeline year slider changes view slice', async ({ page }) => {

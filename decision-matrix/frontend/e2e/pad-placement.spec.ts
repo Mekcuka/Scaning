@@ -2,6 +2,7 @@ import { test, expect, type APIRequestContext } from '@playwright/test';
 import {
   cleanupE2eProjects,
   enableMapEdit,
+  enterPadPlacementMode,
   fitMapToAllObjects,
   loginViaApi,
   loginViaUi,
@@ -45,7 +46,7 @@ test.describe('Pad placement (map)', () => {
     await enableMapEdit(page);
     await fitMapToAllObjects(page);
 
-    await page.getByRole('button', { name: 'Оптимизация кустов' }).click();
+    await enterPadPlacementMode(page);
     const panel = page.getByRole('region', { name: 'Оптимизация размещения кустов' });
     await expect(panel).toBeVisible({ timeout: 15_000 });
 
