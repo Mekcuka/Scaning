@@ -492,6 +492,20 @@
   background: rgb(37 99 235 / 0.1);
 }
 
+.object-detail-panel__section-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  margin-bottom: 8px;
+}
+
+.object-detail-panel__section-head .object-detail-panel__section-title {
+  margin-bottom: 0;
+  flex: 1;
+  min-width: 0;
+}
+
 .object-detail-panel__meta--badge {
   display: flex;
   flex-wrap: wrap;

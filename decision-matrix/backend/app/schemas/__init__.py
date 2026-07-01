@@ -524,6 +524,7 @@ class Map3dCustomModelApplyPreview(BaseModel):
 
 class Render3DEffective(BaseModel):
     height_m: float
+    diameter_m: float | None = None
     base_m: float
     visible: bool
     scale: float = 1.0

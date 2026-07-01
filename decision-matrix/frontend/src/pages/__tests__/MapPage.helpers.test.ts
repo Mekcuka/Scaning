@@ -1,0 +1,46 @@
+import { describe, expect, it } from 'vitest';
+import { mergeInfraPropertiesForSave } from '../../lib/mergeInfraPropertiesForSave';
+import { lineCoordsOrEndpoints, sameCoord, linkCoordMatch } from '../../lib/infraLinks';
+import { makeInfraLine, makeInfraPoint } from '../../test/fixtures/infra';
+
+describe('MapPage helpers', () => {
+  it('mergeInfraPropertiesForSave merges throughput and preserves extra props', () => {
+    const props = mergeInfraPropertiesForSave('gas_processing', { foo: 1 });
+    expect(props.foo).toBe(1);
+    expect(props.throughput_capacity_annual).toBe(1200);
+    expect(props.capacity_unit).toBe('thousand_m3_per_year');
+  });
+
+  it('lineCoordsOrEndpoints from coordinates', () => {
+    const line = makeInfraLine({
+      coordinates: [
+        [1, 2],
+        [3, 4],
+      ],
+    });
+    expect(lineCoordsOrEndpoints(line)).toEqual([
+      [1, 2],
+      [3, 4],
+    ]);
+  });
+
+  it('lineCoordsOrEndpoints from endpoints', () => {
+    const line = makeInfraPoint({
+      end_lon: 37.7,
+      end_lat: 55.76,
+    });
+    expect(lineCoordsOrEndpoints(line)).toEqual([
+      [line.lon, line.lat],
+      [37.7, 55.76],
+    ]);
+  });
+
+  it('lineCoordsOrEndpoints returns null for point only', () => {
+    expect(lineCoordsOrEndpoints(makeInfraPoint())).toBeNull();
+  });
+
+  it('sameCoord and linkCoordMatch compare coordinates', () => {
+    expect(sameCoord(1, 1.0000001)).toBe(true);
+    expect(linkCoordMatch(37.6000001, 37.6)).toBe(true);
+  });
+});

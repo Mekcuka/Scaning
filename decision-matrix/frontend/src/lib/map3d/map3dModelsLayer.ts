@@ -43,13 +43,22 @@ function disposeGroup(group: THREE.Group): void {
   });
 }
 
+/** Mercator transform on pivot; model keeps position/scale from GLB footprint anchoring. */
+function wrapModelPivot(model: THREE.Group): THREE.Group {
+  const pivot = new THREE.Group();
+  pivot.add(model);
+  return pivot;
+}
+
 /** Sample terrain once per instance update (not every animation frame). */
 export function altitudeForModelPlacement(
   map: MapLibreMap,
   lon: number,
   lat: number,
   baseM: number,
+  options?: { absoluteBase?: boolean },
 ): number {
+  if (options?.absoluteBase) return baseM;
   const m = map as MapWithTerrainQuery;
   if (map.getTerrain() && typeof m.queryTerrainElevation === 'function') {
     const elev = m.queryTerrainElevation([lon, lat]);
@@ -63,8 +72,9 @@ function buildCachedTransform(
   lon: number,
   lat: number,
   baseM: number,
+  absoluteBase = false,
 ): CachedModelTransform {
-  const alt = altitudeForModelPlacement(map, lon, lat, baseM);
+  const alt = altitudeForModelPlacement(map, lon, lat, baseM, { absoluteBase });
   const mc = maplibregl.MercatorCoordinate.fromLngLat([lon, lat], alt);
   return {
     translateX: mc.x,
@@ -105,7 +115,10 @@ export class Map3dModelsCustomLayer implements CustomLayerInterface {
     if (!map) return;
     this.transformCache.clear();
     for (const inst of this.instances) {
-      this.transformCache.set(inst.id, buildCachedTransform(map, inst.lon, inst.lat, inst.baseM));
+      this.transformCache.set(
+        inst.id,
+        buildCachedTransform(map, inst.lon, inst.lat, inst.baseM, inst.baseFromDem),
+      );
     }
   }
 
@@ -131,8 +144,6 @@ export class Map3dModelsCustomLayer implements CustomLayerInterface {
   private proceduralPlaceholder(inst: Map3dModelInstance): THREE.Group {
     const heightM = effectiveRender3dHeightM({
       heightM: inst.heightM,
-      baseM: inst.baseM,
-      visible: true,
       scale: inst.scale,
     });
     return createProceduralModelMesh(
@@ -144,14 +155,20 @@ export class Map3dModelsCustomLayer implements CustomLayerInterface {
     );
   }
 
-  private replaceInstanceGroup(id: string, group: THREE.Group): void {
+  private mountInstancePivot(model: THREE.Group): THREE.Group {
+    const pivot = wrapModelPivot(model);
+    this.scene.add(pivot);
+    return pivot;
+  }
+
+  private replaceInstanceGroup(id: string, model: THREE.Group): void {
     const prev = this.objectGroups.get(id);
     if (prev) {
       this.scene.remove(prev);
       disposeGroup(prev);
     }
-    this.objectGroups.set(id, group);
-    this.scene.add(group);
+    const pivot = this.mountInstancePivot(model);
+    this.objectGroups.set(id, pivot);
     this.map?.triggerRepaint();
   }
 
@@ -170,15 +187,12 @@ export class Map3dModelsCustomLayer implements CustomLayerInterface {
       const assetId = inst.catalog.gltfAssetId;
       if (!assetId) {
         const placeholder = this.proceduralPlaceholder(inst);
-        this.objectGroups.set(inst.id, placeholder);
-        this.scene.add(placeholder);
+        this.objectGroups.set(inst.id, this.mountInstancePivot(placeholder));
         continue;
       }
 
       const heightM = effectiveRender3dHeightM({
         heightM: inst.heightM,
-        baseM: inst.baseM,
-        visible: true,
         scale: inst.scale,
       });
 
@@ -195,8 +209,7 @@ export class Map3dModelsCustomLayer implements CustomLayerInterface {
           .catch(() => {
             if (gen !== this.meshLoadGeneration) return;
             const placeholder = this.proceduralPlaceholder(inst);
-            this.objectGroups.set(inst.id, placeholder);
-            this.scene.add(placeholder);
+            this.objectGroups.set(inst.id, this.mountInstancePivot(placeholder));
             this.map?.triggerRepaint();
           });
         continue;
@@ -213,8 +226,7 @@ export class Map3dModelsCustomLayer implements CustomLayerInterface {
         .catch(() => {
           if (gen !== this.meshLoadGeneration) return;
           const placeholder = this.proceduralPlaceholder(inst);
-          this.objectGroups.set(inst.id, placeholder);
-          this.scene.add(placeholder);
+          this.objectGroups.set(inst.id, this.mountInstancePivot(placeholder));
           this.map?.triggerRepaint();
         });
     }
@@ -234,6 +246,7 @@ export class Map3dModelsCustomLayer implements CustomLayerInterface {
     this.rebuildSceneMeshes();
 
     this.moveEndHandler = () => {
+      if (!map.getTerrain()) return;
       this.rebuildTransformCache();
       map.triggerRepaint();
     };
@@ -262,11 +275,14 @@ export class Map3dModelsCustomLayer implements CustomLayerInterface {
     if (!this.map || !this.renderer || !this.visible || this.instances.length === 0) return;
 
     this.projMatrix.fromArray(options.defaultProjectionData.mainMatrix);
+    this.camera.projectionMatrix.copy(this.projMatrix);
+    this.camera.matrixWorld.identity();
+    this.camera.matrixWorldInverse.identity();
 
     for (const inst of this.instances) {
-      const group = this.objectGroups.get(inst.id);
+      const pivot = this.objectGroups.get(inst.id);
       const t = this.transformCache.get(inst.id);
-      if (!group || !t) continue;
+      if (!pivot || !t) continue;
 
       const scaleMul = inst.selected ? 1.08 : 1;
       if (shouldRenderPointAsPowerLineTower(inst.subtype)) {
@@ -274,18 +290,17 @@ export class Map3dModelsCustomLayer implements CustomLayerInterface {
       } else {
         buildMap3dPointModelMatrix(t, scaleMul, this.localMatrix, this.rotX);
       }
-
-      this.camera.projectionMatrix.copy(this.projMatrix).multiply(this.localMatrix);
-
-      for (const g of this.objectGroups.values()) g.visible = false;
-      group.visible = true;
-
-      this.renderer.resetState();
-      this.renderer.clearDepth();
-      this.renderer.render(this.scene, this.camera);
+      pivot.matrix.copy(this.localMatrix);
+      pivot.matrixAutoUpdate = false;
+      pivot.matrixWorldNeedsUpdate = true;
+      pivot.visible = true;
     }
 
-    for (const g of this.objectGroups.values()) g.visible = true;
+    this.scene.updateMatrixWorld(true);
+
+    this.renderer.resetState();
+    this.renderer.clearDepth();
+    this.renderer.render(this.scene, this.camera);
     finishMap3dThreeFrame(this.renderer);
   }
 }

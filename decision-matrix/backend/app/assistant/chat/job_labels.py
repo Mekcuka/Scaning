@@ -12,6 +12,7 @@ JOB_TYPE_LABELS: dict[str, str] = {
     "well_trajectory_import": "Импорт инклинометрии",
     "pad_placement_compute": "Оптимизация кустов",
     "pad_placement_apply": "Применение кустов",
+    "line_elevation_profile_compute": "Профиль высот линий",
 }
 
 JOB_STATUS_LABELS: dict[str, str] = {

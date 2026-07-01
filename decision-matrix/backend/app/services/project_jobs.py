@@ -30,6 +30,7 @@ JOB_TYPE_WELL_TRAJECTORY_COMPUTE = "well_trajectory_compute"
 JOB_TYPE_WELL_TRAJECTORY_IMPORT = "well_trajectory_import"
 JOB_TYPE_PAD_PLACEMENT_COMPUTE = "pad_placement_compute"
 JOB_TYPE_PAD_PLACEMENT_APPLY = "pad_placement_apply"
+JOB_TYPE_LINE_ELEVATION_PROFILE_COMPUTE = "line_elevation_profile_compute"
 
 ALLOWED_JOB_TYPES = frozenset(
     {
@@ -42,6 +43,7 @@ ALLOWED_JOB_TYPES = frozenset(
         JOB_TYPE_WELL_TRAJECTORY_IMPORT,
         JOB_TYPE_PAD_PLACEMENT_COMPUTE,
         JOB_TYPE_PAD_PLACEMENT_APPLY,
+        JOB_TYPE_LINE_ELEVATION_PROFILE_COMPUTE,
     }
 )
 

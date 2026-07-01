@@ -40,7 +40,6 @@ export function buildCanvasSection(
   return {
     map3dRef: shell.map3dRef,
     map3dFeatureEnabled,
-    map3dKeepMounted: actions.map3dKeepMounted,
     mapIn3d,
     infraSymbology: mapInFootprints ? 'footprints' : 'points',
     showPoisOnMap,

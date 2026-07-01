@@ -13,6 +13,7 @@ export function shouldLogHttpPath(path: string, method: string): boolean {
   if (/\/pad-placement\//.test(path)) return true;
   if (/\/infrastructure\/autoroad-connect/.test(path)) return true;
   if (/\/sand-logistics\/analyze/.test(path)) return true;
+  if (/\/infrastructure\/line-elevation-profile\/compute/.test(path)) return true;
   if (/\/pois\/analyze-all/.test(path)) return true;
   if (/\/pois\/[^/]+\/analyze/.test(path)) return true;
   if (/\/projects\/[^/]+\/jobs$/.test(path)) return true;

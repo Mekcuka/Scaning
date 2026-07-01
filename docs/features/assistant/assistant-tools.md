@@ -190,6 +190,8 @@ Tools доступны из **веб-чата** (панель в header), Python
 
 **Ответ:** `ProjectJobResponse` (status, progress, result, error_message, …).
 
+Подписи `job_type` в ответах и чате — русские (см. `app/assistant/chat/job_labels.py`), в т.ч. `line_elevation_profile_compute` → «Профиль высот линий». Полный перечень типов — [task-log-panel.md](../jobs/task-log-panel.md), [background-jobs.md](../../wiki/articles/background-jobs.md).
+
 ---
 
 ### 3.8 `list_project_jobs`

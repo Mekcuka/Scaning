@@ -86,7 +86,7 @@ export function useMapDetailSave({
               ? { coordinates: data.coordinates as number[][] }
               : {}),
             ...(data.properties && typeof data.properties === 'object'
-              ? { properties: { ...(o.properties ?? {}), ...(data.properties as Record<string, unknown>) } }
+              ? { properties: data.properties as Record<string, unknown> }
               : {}),
           };
         });

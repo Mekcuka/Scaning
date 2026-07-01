@@ -57,6 +57,7 @@ interface InfraDetailMainTabProps {
   bottomholePadOptions?: InfraObject[];
   bottomholeInfraObjects?: InfraObject[];
   lineLengthLabel: string | null;
+  lineLengthFromProfile?: boolean;
   lineCoords: [number, number][] | null;
   lon: string;
   setLon: (value: string) => void;
@@ -122,6 +123,7 @@ export function InfraDetailMainTab({
   bottomholePadOptions = [],
   bottomholeInfraObjects = [],
   lineLengthLabel,
+  lineLengthFromProfile = false,
   lineCoords,
   lon,
   setLon,
@@ -331,7 +333,11 @@ export function InfraDetailMainTab({
         <PanelSection title={isLine ? 'Геометрия линии' : 'Координаты'} card>
           {isLine && (lineLengthLabel || (lineCoords && lineCoords.length > 2)) && (
             <div className="object-detail-panel__stats">
-              {lineLengthLabel && <StatChip>Длина: {lineLengthLabel}</StatChip>}
+              {lineLengthLabel && (
+                <StatChip title={lineLengthFromProfile ? 'По профилю ЦМР' : undefined}>
+                  Длина: {lineLengthLabel}
+                </StatChip>
+              )}
               {lineCoords && lineCoords.length > 2 && (
                 <StatChip>Вершин: {lineCoords.length}</StatChip>
               )}

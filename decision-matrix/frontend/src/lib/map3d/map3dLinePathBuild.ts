@@ -1,6 +1,7 @@
 import type { InfraObject } from '../api';
 import { linePathForDisplay } from '../infraGeometry';
 import { lineEndpointAttachmentsFromObject } from '../lineEndpointRules';
+import { buildLinePath3dFromProfile, hasLineProfileFor3d } from './map3dLineProfilePath';
 import { altitudeForModelPlacement } from './map3dModelsLayer';
 import { scaleMap3dMeters } from './map3dConfig';
 import { resolveRender3D } from './render3d';
@@ -15,7 +16,9 @@ export function lineEndpointAttachAltitudeM(
   obj: InfraObject,
 ): number {
   const render = resolveRender3D(obj.subtype, obj.properties);
-  const groundM = altitudeForModelPlacement(map, obj.lon, obj.lat, render.baseM);
+  const groundM = altitudeForModelPlacement(map, obj.lon, obj.lat, render.baseM, {
+    absoluteBase: render.baseFromDem,
+  });
   if (lineSubtype === 'power_line') {
     return groundM + scaleMap3dMeters(render.heightM) * LINE_ENDPOINT_ATTACH_HEIGHT_FRAC;
   }
@@ -76,10 +79,17 @@ export function buildNormalizedLinePath3d(
   options?: { planCorridorAlts?: boolean },
 ): NormalizedLinePath3d | null {
   const pool = snapPool ?? infraObjects;
+  const render = resolveRender3D(line.subtype, line.properties);
+  const attachments = lineEndpointAttachmentsFromObject(line, pool, pool);
+
+  if (hasLineProfileFor3d(line)) {
+    const profileBuilt = buildLinePath3dFromProfile(line, render, { map, attachments });
+    if (profileBuilt) return profileBuilt;
+  }
+
   const path = linePathForDisplay(line, pool);
   if (!path) return null;
 
-  const attachments = lineEndpointAttachmentsFromObject(line, pool, pool);
   let alts = path.map((p) => altitudeForModelPlacement(map, p[0], p[1], baseM));
 
   if (attachments?.startAttach) {

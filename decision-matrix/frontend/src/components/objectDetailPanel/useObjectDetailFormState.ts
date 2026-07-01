@@ -58,6 +58,7 @@ export function useObjectDetailFormState(
   const [entryDate, setEntryDate] = useState('');
   const [capacityValue, setCapacityValue] = useState<number | ''>('');
   const [render3dHeight, setRender3dHeight] = useState('');
+  const [render3dDiameter, setRender3dDiameter] = useState('');
   const [render3dBase, setRender3dBase] = useState('');
   const [render3dScale, setRender3dScale] = useState(String(DEFAULT_RENDER_3D_SCALE));
   const [render3dVisible, setRender3dVisible] = useState(true);
@@ -74,6 +75,7 @@ export function useObjectDetailFormState(
   const [pointFootprintLineConnections, setPointFootprintLineConnections] = useState<
     import('../../lib/padFootprintLineAttach').PointFootprintLineConnections
   >({});
+  const [lineProfileStepM, setLineProfileStepM] = useState('');
   const [infraTab, setInfraTab] = useState<InfraDetailTab>('main');
   const [poiTab, setPoiTab] = useState<PoiDetailTab>('basic');
   const [bottomholeFields, setBottomholeFields] = useState<BottomholeFormFields>(
@@ -84,6 +86,8 @@ export function useObjectDetailFormState(
   infraObjectsRef.current = infraObjects;
 
   const syncKey = selectionSyncKey(selection);
+  const infraPropsSnapshot =
+    selection.kind === 'infra' ? JSON.stringify(selection.object.properties ?? {}) : '';
 
   useEffect(() => {
     if (selection.kind === 'poi') {
@@ -125,6 +129,7 @@ export function useObjectDetailFormState(
     setEntryDate(draft.entryDate);
     setCapacityValue(draft.capacityValue);
     setRender3dHeight(draft.render3dHeight);
+    setRender3dDiameter(draft.render3dDiameter);
     setRender3dBase(draft.render3dBase);
     setRender3dScale(draft.render3dScale);
     setRender3dVisible(draft.render3dVisible);
@@ -139,6 +144,7 @@ export function useObjectDetailFormState(
     setPadMarginTopM(draft.padMarginTopM);
     setPadMarginEndM(draft.padMarginEndM);
     setPointFootprintLineConnections(draft.pointFootprintLineConnections);
+    setLineProfileStepM(draft.lineProfileStepM);
     setBottomholeFields(
       isBottomholeSubtype(selection.object.subtype)
         ? bottomholeFormFieldsFromInfraObject(selection.object)
@@ -147,6 +153,24 @@ export function useObjectDetailFormState(
     setInfraTab(draft.infraTab);
     setPoiTab(draft.poiTab);
   }, [syncKey, map3dCustomModels, selection]);
+
+  /** После сохранения / refetch — подтянуть 3D-поля с сервера (тот же объект). */
+  useEffect(() => {
+    if (selection.kind !== 'infra') return;
+    const draft = createInfraFormDraftFromObject(
+      selection.object,
+      map3dCustomModels,
+      infraObjectsRef.current,
+    );
+    setRender3dHeight(draft.render3dHeight);
+    setRender3dDiameter(draft.render3dDiameter);
+    setRender3dBase(draft.render3dBase);
+    setRender3dScale(draft.render3dScale);
+    setRender3dVisible(draft.render3dVisible);
+    setRender3dStyle(draft.render3dStyle);
+    setRender3dModelId(draft.render3dModelId);
+    setLineProfileStepM(draft.lineProfileStepM);
+  }, [infraPropsSnapshot, map3dCustomModels, selection]);
 
   useEffect(() => {
     if (selection.kind !== 'infra') return;
@@ -236,6 +260,8 @@ export function useObjectDetailFormState(
     setCapacityValue,
     render3dHeight,
     setRender3dHeight,
+    render3dDiameter,
+    setRender3dDiameter,
     render3dBase,
     setRender3dBase,
     render3dScale,
@@ -264,6 +290,8 @@ export function useObjectDetailFormState(
     setPadMarginEndM,
     pointFootprintLineConnections,
     setPointFootprintLineConnections,
+    lineProfileStepM,
+    setLineProfileStepM,
     infraTab,
     setInfraTab,
     poiTab,

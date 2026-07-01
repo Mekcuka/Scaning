@@ -58,5 +58,6 @@ summary: Краткое описание в 1–2 предложения для 
 | `import-spark` | [import-spark.md](articles/import-spark.md) | Импорт данных и Искра |
 | `import-3d` | [import-3d.md](articles/import-3d.md) | Импорт 3D |
 | `background-jobs` | [background-jobs.md](articles/background-jobs.md) | Фоновые задачи |
+| `line-elevation-profile` | [line-elevation-profile.md](articles/line-elevation-profile.md) | **Профиль высот линий** (ЦМР, пикеты) |
 | `assistant-chat` | [assistant-chat.md](articles/assistant-chat.md) | AI-помощник |
 | `roles-rbac` | [roles-rbac.md](articles/roles-rbac.md) | Роли и доступ |

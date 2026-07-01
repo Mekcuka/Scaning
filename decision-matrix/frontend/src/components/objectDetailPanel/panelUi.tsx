@@ -7,17 +7,24 @@ export function PanelSection({
   children,
   card = false,
   hideTitle = false,
+  headerAction,
 }: {
   title: string;
   children: ReactNode;
   card?: boolean;
   hideTitle?: boolean;
+  headerAction?: ReactNode;
 }) {
   return (
     <section
       className={`object-detail-panel__section${card ? ' object-detail-panel__section--card' : ''}`}
     >
-      {!hideTitle && <h3 className="object-detail-panel__section-title">{title}</h3>}
+      {!hideTitle && (
+        <div className="object-detail-panel__section-head">
+          <h3 className="object-detail-panel__section-title">{title}</h3>
+          {headerAction}
+        </div>
+      )}
       <div className="object-detail-panel__section-body">{children}</div>
     </section>
   );
@@ -147,8 +154,12 @@ export function ReadOnlyValue({
   );
 }
 
-export function StatChip({ children }: { children: ReactNode }) {
-  return <span className="object-detail-panel__stat-chip">{children}</span>;
+export function StatChip({ children, title }: { children: ReactNode; title?: string }) {
+  return (
+    <span className="object-detail-panel__stat-chip" title={title}>
+      {children}
+    </span>
+  );
 }
 
 export function DetailPanelTabs<T extends string>({

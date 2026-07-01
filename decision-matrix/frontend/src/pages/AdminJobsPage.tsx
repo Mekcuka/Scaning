@@ -8,6 +8,7 @@ import { AppDataTable } from '../components/AppDataTable';
 import { defaultAdminJobsApi, type ProjectJobAdminItem } from '../lib/api';
 import {
   ACTIVE_JOB_STATUSES as ACTIVE_STATUSES,
+  JOB_TYPE_LABELS,
   jobStatusLabel,
   jobTypeLabel,
 } from '../lib/taskLog/jobLabels';
@@ -15,12 +16,7 @@ import { useAppStore } from '../store';
 
 const JOB_STATUSES = ['pending', 'running', 'completed', 'failed', 'cancelled'] as const;
 
-const JOB_TYPES = [
-  'sand_logistics_analyze',
-  'poi_analyze_all',
-  'autoroad_connect',
-  'import_file',
-] as const;
+const JOB_TYPES = Object.keys(JOB_TYPE_LABELS);
 
 const STATUS_LABELS: Record<string, string> = {
   pending: jobStatusLabel('pending'),

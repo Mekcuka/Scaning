@@ -3,7 +3,7 @@ import { isLineSubtype } from '../infraGeometry';
 import { isBottomholeSubtype } from '../wellBottomholeProperties';
 import { layerMaps, layerVisible, resolveColor } from './geoJson';
 import { buildNormalizedLinePath3d } from './map3dLinePathBuild';
-import { scaleMap3dMeters } from './map3dConfig';
+import { resolveLineTubeRadiusM } from './map3dLineTubeRadius';
 import { resolveRender3D } from './render3d';
 
 export type Map3dLineInstance = {
@@ -23,18 +23,6 @@ export type Map3dLineInstance = {
   baseM: number;
   selected: boolean;
 };
-
-const LINE_RADIUS_M: Record<string, number> = {
-  autoroad: 4,
-  oil_pipeline: 2.5,
-  gas_pipeline: 2.5,
-  water_pipeline: 2,
-  power_line: 1.5,
-  methanol_pipeline: 2,
-  additional_line: 2,
-};
-
-const DEFAULT_RADIUS_M = 2.5;
 
 export function buildMap3dLineInstances(
   map: import('maplibre-gl').Map,
@@ -68,12 +56,7 @@ export function buildMap3dLineInstances(
     );
     if (!built) continue;
     const { path, alts } = built;
-    const height = render.heightM;
-    const radius = scaleMap3dMeters(
-      (LINE_RADIUS_M[obj.subtype] ??
-        Math.max(1.2, Math.min(6, height > 0 ? height * 0.35 : DEFAULT_RADIUS_M))) *
-        render.scale,
-    );
+    const radius = resolveLineTubeRadiusM(obj.subtype, render);
 
     out.push({
       id: obj.id,

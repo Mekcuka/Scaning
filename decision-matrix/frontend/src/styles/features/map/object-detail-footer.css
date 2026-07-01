@@ -287,3 +287,192 @@
 .odp-traj-sf--warn {
   color: #b45309;
 }
+
+.odp-line-profile__compute {
+  margin-top: 8px;
+}
+
+.odp-line-profile__empty {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+  padding: 14px 10px;
+  text-align: center;
+  border-radius: 8px;
+  border: 1px dashed color-mix(in srgb, var(--primary) 24%, var(--border));
+  background: color-mix(in srgb, var(--primary) 4%, var(--surface));
+}
+
+.odp-line-profile__empty-icon {
+  color: color-mix(in srgb, var(--primary) 70%, var(--text-muted));
+}
+
+.odp-line-profile__empty strong {
+  font-size: 0.8125rem;
+  font-weight: 600;
+  color: var(--text);
+}
+
+.odp-line-profile__empty p {
+  margin: 0;
+  max-width: 16rem;
+  font-size: 0.6875rem;
+  line-height: 1.45;
+  color: var(--text-muted);
+}
+
+.odp-line-profile__mode-toggle.ant-segmented {
+  flex-shrink: 0;
+  margin: 0;
+  padding: 2px;
+  border: 1px solid var(--odp-control-border, color-mix(in srgb, var(--text-muted) 32%, var(--border)));
+  border-radius: var(--odp-control-radius, 6px);
+  background: color-mix(in srgb, var(--surface-2) 55%, var(--odp-control-bg, var(--surface)));
+}
+
+.odp-line-profile__mode-toggle.ant-segmented .ant-segmented-item-label {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
+  min-height: 1.625rem;
+  padding: 3px 9px;
+  font-size: 0.6875rem;
+  font-weight: 500;
+  line-height: 1.2;
+  color: var(--text-muted);
+  transition: color 0.15s ease;
+}
+
+.odp-line-profile__mode-toggle.ant-segmented
+  .ant-segmented-item:hover:not(.ant-segmented-item-selected)
+  .ant-segmented-item-label {
+  color: var(--text);
+}
+
+.odp-line-profile__mode-toggle.ant-segmented .ant-segmented-item-selected .ant-segmented-item-label {
+  color: var(--primary);
+  font-weight: 600;
+}
+
+.odp-line-profile__mode-toggle.ant-segmented .ant-segmented-thumb {
+  background: color-mix(in srgb, var(--primary) 10%, var(--surface));
+  border: 1px solid color-mix(in srgb, var(--primary) 42%, var(--border));
+  border-radius: calc(var(--odp-control-radius, 6px) - 2px);
+  box-shadow: var(--odp-control-shadow, 0 1px 2px rgba(7, 26, 46, 0.08));
+}
+
+.odp-line-profile__mode-label {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.odp-line-profile__mode-icon {
+  flex-shrink: 0;
+  color: currentColor;
+  opacity: 0.72;
+}
+
+.odp-line-profile__mode-toggle.ant-segmented .ant-segmented-item-selected .odp-line-profile__mode-icon {
+  opacity: 1;
+}
+
+.odp-line-profile__summary {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  min-width: 0;
+}
+
+.odp-line-profile__stats {
+  margin-bottom: 0;
+}
+
+.odp-line-profile__meta {
+  margin: 0;
+  font-size: 0.625rem;
+  line-height: 1.35;
+  color: var(--text-muted);
+  overflow-wrap: anywhere;
+}
+
+.odp-line-profile__meta-sep {
+  margin: 0 0.35em;
+  opacity: 0.65;
+}
+
+.odp-line-profile__dem-banner {
+  margin: 6px 0 0;
+  padding: 6px 8px;
+  border-radius: 6px;
+  font-size: 0.625rem;
+  line-height: 1.4;
+  color: var(--text-muted);
+  background: color-mix(in srgb, var(--text-muted) 8%, var(--surface));
+  border: 1px solid color-mix(in srgb, var(--text-muted) 18%, var(--border));
+}
+
+.odp-line-profile__view {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  min-height: 0;
+  margin-top: 8px;
+  overflow: hidden;
+}
+
+.odp-line-profile__chart {
+  min-width: 0;
+  height: 200px;
+  flex: 0 0 auto;
+}
+
+.odp-line-profile__table-wrap {
+  flex: 1;
+  min-width: 0;
+  min-height: 0;
+  max-height: 248px;
+  overflow: hidden;
+}
+
+.odp-line-profile__tooltip {
+  padding: 6px 8px;
+  border-radius: 6px;
+  font-size: 0.6875rem;
+  line-height: 1.35;
+  color: var(--text);
+  background: var(--surface);
+  border: 1px solid var(--border);
+  box-shadow: 0 2px 8px rgb(0 0 0 / 0.08);
+}
+
+.odp-line-profile__tooltip-row {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.odp-line-profile__tooltip-row + .odp-line-profile__tooltip-row {
+  margin-top: 2px;
+}
+
+.odp-line-profile__tooltip-label {
+  color: var(--text-muted);
+}
+
+.odp-line-profile__tooltip-value {
+  font-variant-numeric: tabular-nums;
+  font-weight: 500;
+}
+
+.odp-line-profile__table .ant-table-thead > tr > th {
+  font-size: 0.6875rem;
+  white-space: nowrap;
+}
+
+.odp-line-profile__table .ant-table-tbody > tr > td {
+  font-size: 0.6875rem;
+  font-variant-numeric: tabular-nums;
+}

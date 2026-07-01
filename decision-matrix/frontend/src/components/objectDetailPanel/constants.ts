@@ -1,7 +1,7 @@
-import { Box, Calculator, GitBranch, Settings2, Truck, Wrench, type LucideIcon } from 'lucide-react';
+import { Box, Calculator, GitBranch, LineChart, Settings2, Truck, Wrench, type LucideIcon } from 'lucide-react';
 import type { PoiFormValues, PoiSectionId } from '../../lib/poiParams';
 
-export type InfraDetailTab = 'main' | 'logistics' | 'trajectories' | 'extra';
+export type InfraDetailTab = 'main' | 'logistics' | 'trajectories' | 'profile' | 'extra';
 export type PoiDetailTab = 'basic' | 'engineering' | 'calculation';
 
 export const POI_TAB_SECTIONS: Record<PoiDetailTab, PoiSectionId[]> = {
@@ -59,6 +59,7 @@ export const INFRA_TAB_ICONS: Record<InfraDetailTab, LucideIcon> = {
   main: Settings2,
   logistics: Truck,
   trajectories: GitBranch,
+  profile: LineChart,
   extra: Box,
 };
 

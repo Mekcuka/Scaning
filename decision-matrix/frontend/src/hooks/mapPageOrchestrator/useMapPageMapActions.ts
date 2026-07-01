@@ -1,4 +1,5 @@
 import { useMapAnalysisActions } from './actions/useMapAnalysisActions';
+import { useMapLineElevationProfileActions } from './actions/useMapLineElevationProfileActions';
 
 import { useMapAutoroadActions } from './actions/useMapAutoroadActions';
 import { useMapPadPlacementActions } from './actions/useMapPadPlacementActions';
@@ -75,6 +76,7 @@ export function useMapPageMapActions(params: MapPageActionsParams) {
   const selection = useMapSelectionActions(params);
 
   const analysis = useMapAnalysisActions(params);
+  const lineProfile = useMapLineElevationProfileActions(params);
 
   const display = useMapDisplayActions(params);
 
@@ -109,6 +111,8 @@ export function useMapPageMapActions(params: MapPageActionsParams) {
     ...selection,
 
     ...analysis,
+
+    ...lineProfile,
 
     ...display,
 

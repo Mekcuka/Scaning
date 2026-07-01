@@ -124,7 +124,13 @@ export interface InfraObject {
   end_lat?: number | null;
   coordinates?: number[][] | null;
   properties?: Record<string, unknown>;
-  render_3d_effective?: { height_m: number; base_m: number; visible: boolean; scale: number };
+  render_3d_effective?: {
+    height_m: number;
+    diameter_m?: number | null;
+    base_m: number;
+    visible: boolean;
+    scale: number;
+  };
 }
 
 export interface InfraObjectCreate {

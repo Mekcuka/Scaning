@@ -253,6 +253,7 @@ export class Map3dLinesCustomLayer implements CustomLayerInterface {
     this.rebuildRenderables();
 
     this.moveEndHandler = () => {
+      if (!map.getTerrain()) return;
       this.refreshAltsFromTerrain();
       this.rebuildRenderables();
       map.triggerRepaint();
@@ -275,21 +276,21 @@ export class Map3dLinesCustomLayer implements CustomLayerInterface {
     if (!this.map || !this.renderer || !this.visible || this.renderables.length === 0) return;
 
     this.projMatrix.fromArray(options.defaultProjectionData.mainMatrix);
+    this.camera.projectionMatrix.copy(this.projMatrix);
+    this.camera.matrixWorld.identity();
+    this.camera.matrixWorldInverse.identity();
 
     for (const r of this.renderables) {
       const scaleMul = r.selected ? 1.03 : 1;
       buildMap3dLinearFeatureMatrix(r.anchor, scaleMul, this.localMatrix, this.rotX);
-      this.camera.projectionMatrix.copy(this.projMatrix).multiply(this.localMatrix);
-
-      for (const other of this.renderables) other.group.visible = false;
+      r.group.matrix.copy(this.localMatrix);
+      r.group.matrixAutoUpdate = false;
       r.group.visible = true;
-
-      this.renderer.resetState();
-      this.renderer.clearDepth();
-      this.renderer.render(this.scene, this.camera);
     }
 
-    for (const r of this.renderables) r.group.visible = true;
+    this.renderer.resetState();
+    this.renderer.clearDepth();
+    this.renderer.render(this.scene, this.camera);
     finishMap3dThreeFrame(this.renderer);
   }
 }

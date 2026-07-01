@@ -14,20 +14,20 @@ import {
   effectiveThroughputCapacity,
   pointShowsThroughputCapacity,
 } from '../../lib/infraCapacity';
+import { objectShowsEntryDate } from '../../lib/infraEntryDate';
 import { isEarthworkEligibleSubtype, isPadSubtype } from '../../lib/infraPadEarthwork';
 import { pointShowsPadWellFields } from '../../lib/infraPadWells';
 import {
   isSandQuarrySubtype,
   pointShowsSandDemand,
 } from '../../lib/infraSandVolumes';
-import { objectShowsEntryDate } from '../../lib/infraEntryDate';
+import { lineProfileEligible, readLineProfileTotalLengthM } from '../../lib/lineElevationProfile';
 import {
   bottomholesLinkedToPad,
   isBottomholeSubtype,
   logicalWellCountFromBottomholes,
   readBottomholeLinkedPadId,
 } from '../../lib/wellBottomholeProperties';
-import type { BottomholeFormFields } from './bottomholeFormFields';
 import { buildRender3dModelOptions } from '../../lib/map3d/render3dModelOptions';
 import { useProjectSandLogistics } from '../../hooks/useProjectSandLogistics';
 import { useActiveProject } from '../../hooks/useActiveProject';
@@ -86,6 +86,7 @@ export function useObjectDetailInfraDerived(params: {
       entryDate: form.entryDate,
       capacityValue: form.capacityValue,
       render3dHeight: form.render3dHeight,
+      render3dDiameter: form.render3dDiameter,
       render3dBase: form.render3dBase,
       render3dScale: form.render3dScale,
       render3dVisible: form.render3dVisible,
@@ -101,6 +102,7 @@ export function useObjectDetailInfraDerived(params: {
       padMarginEndM: form.padMarginEndM,
       pointFootprintLineConnections: form.pointFootprintLineConnections,
       bottomholeFields: form.bottomholeFields,
+      lineProfileStepM: form.lineProfileStepM,
     }),
     [form, effectivePadWellCount],
   );
@@ -129,10 +131,13 @@ export function useObjectDetailInfraDerived(params: {
   const lineCoords = infraObject
     ? (getLineCoordinates(infraObject) as [number, number][] | null)
     : null;
+  const profileLengthM = infraObject ? readLineProfileTotalLengthM(infraObject) : null;
+  const geodesicLengthM =
+    lineCoords && lineCoords.length >= 2 ? lineLengthMeters(lineCoords) : null;
+  const effectiveLineLengthM = profileLengthM ?? geodesicLengthM;
   const lineLengthLabel =
-    lineCoords && lineCoords.length >= 2
-      ? formatLengthMeters(lineLengthMeters(lineCoords))
-      : null;
+    effectiveLineLengthM != null ? formatLengthMeters(effectiveLineLengthM) : null;
+  const lineLengthFromProfile = profileLengthM != null;
 
   const subtypeLabel = SUBTYPE_LABELS[form.subtype] || form.subtype;
   const layerName = layers.find((l) => l.id === form.layerId)?.name;
@@ -159,6 +164,8 @@ export function useObjectDetailInfraDerived(params: {
     !isLine;
   const showTrajectoriesSection =
     selection.kind === 'infra' && isPadSubtype(form.subtype) && !isLine;
+  const showProfileTab =
+    selection.kind === 'infra' && isLine && lineProfileEligible(form.subtype);
   const showPadWellCountField =
     selection.kind === 'infra' && pointShowsPadWellFields(form.subtype) && !isLine;
 
@@ -222,6 +229,7 @@ export function useObjectDetailInfraDerived(params: {
     linkedBottomholePad,
     lineCoords,
     lineLengthLabel,
+    lineLengthFromProfile,
     subtypeLabel,
     layerName,
     sparkType,
@@ -232,6 +240,7 @@ export function useObjectDetailInfraDerived(params: {
     showSandDemandField,
     showPadEarthworkSection,
     showTrajectoriesSection,
+    showProfileTab,
     showPadWellCountField,
     padWellCount: effectivePadWellCount,
     padWellCountDerivedFromBottomholes,

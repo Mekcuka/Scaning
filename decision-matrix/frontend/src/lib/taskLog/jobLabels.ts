@@ -8,6 +8,7 @@ export const JOB_TYPE_LABELS: Record<string, string> = {
   pad_placement_apply: 'Применение кустов',
   well_trajectory_compute: 'Anti-collision (SF)',
   well_trajectory_import: 'Импорт инклинометрии',
+  line_elevation_profile_compute: 'Профиль высот линий',
 };
 
 /** Подписи для автоматически созданных HTTP-flow (последние сегменты path). */
@@ -20,6 +21,7 @@ export const HTTP_FLOW_PATH_LABELS: Record<string, string> = {
   'autoroad-network/apply': 'Сеть автодорог: применение',
   'pad-placement/compute': 'Оптимизация кустов: расчёт',
   'pad-placement/apply': 'Оптимизация кустов: применение',
+  'infrastructure/line-elevation-profile/compute': 'Профиль высот линий',
 };
 
 export const JOB_STATUS_LABELS: Record<string, string> = {

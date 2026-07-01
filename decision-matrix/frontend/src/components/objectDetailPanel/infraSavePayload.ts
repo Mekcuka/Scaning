@@ -33,7 +33,9 @@ import {
   DEFAULT_RENDER_3D_SCALE,
   MAX_RENDER_3D_SCALE,
   MIN_RENDER_3D_SCALE,
+  RENDER_3D_BASE_FROM_DEM_KEY,
   RENDER_3D_BASE_KEY,
+  RENDER_3D_DIAMETER_KEY,
   RENDER_3D_HEIGHT_KEY,
   RENDER_3D_MODEL_ID_KEY,
   RENDER_3D_SCALE_KEY,
@@ -44,6 +46,11 @@ import {
   writePointFootprintLineConnections,
   type PointFootprintLineConnections,
 } from '../../lib/padFootprintLineAttach';
+import {
+  clampLineProfileStepM,
+  LINE_ELEVATION_PROFILE_STEP_M,
+  lineProfileEligible,
+} from '../../lib/lineElevationProfile';
 
 export type InfraSaveDraft = {
   name: string;
@@ -62,6 +69,7 @@ export type InfraSaveDraft = {
   entryDate: string;
   capacityValue: number | '';
   render3dHeight: string;
+  render3dDiameter: string;
   render3dBase: string;
   render3dScale: string;
   render3dVisible: boolean;
@@ -77,6 +85,7 @@ export type InfraSaveDraft = {
   padMarginEndM: string;
   pointFootprintLineConnections: PointFootprintLineConnections;
   bottomholeFields: BottomholeFormFields;
+  lineProfileStepM: string;
 };
 
 export function buildInfraSavePayload(
@@ -100,6 +109,7 @@ export function buildInfraSavePayload(
     entryDate,
     capacityValue,
     render3dHeight,
+    render3dDiameter,
     render3dBase,
     render3dScale,
     render3dVisible,
@@ -115,6 +125,7 @@ export function buildInfraSavePayload(
     padMarginEndM,
     pointFootprintLineConnections,
     bottomholeFields,
+    lineProfileStepM,
   } = draft;
 
   const payload: Record<string, unknown> = {
@@ -156,17 +167,39 @@ export function buildInfraSavePayload(
     );
   }
   const h = render3dHeight.trim() ? parseFloat(render3dHeight) : null;
+  const d = render3dDiameter.trim() ? parseFloat(render3dDiameter.replace(',', '.')) : null;
   const b = render3dBase.trim() ? parseFloat(render3dBase) : null;
-  if (h != null && Number.isFinite(h) && h >= 0) props[RENDER_3D_HEIGHT_KEY] = h;
-  if (b != null && Number.isFinite(b) && b >= 0) props[RENDER_3D_BASE_KEY] = b;
+  const isTubeLine = isLineSubtype(subtype) && subtype !== 'power_line';
+  if (isTubeLine) {
+    if (d != null && Number.isFinite(d) && d > 0) {
+      props[RENDER_3D_DIAMETER_KEY] = d;
+    }
+  } else if (h != null && Number.isFinite(h) && h >= 0) {
+    props[RENDER_3D_HEIGHT_KEY] = h;
+  }
+  if (b != null && Number.isFinite(b) && b >= 0) {
+    props[RENDER_3D_BASE_KEY] = b;
+    const origRaw = object.properties?.[RENDER_3D_BASE_KEY];
+    const origBase =
+      typeof origRaw === 'number'
+        ? origRaw
+        : typeof origRaw === 'string' && origRaw.trim()
+          ? Number(origRaw.replace(',', '.'))
+          : 0;
+    const baseChanged = !Number.isFinite(origBase) || Math.abs(origBase - b) > 1e-6;
+    if (baseChanged) {
+      props[RENDER_3D_BASE_FROM_DEM_KEY] = false;
+    } else if (object.properties?.[RENDER_3D_BASE_FROM_DEM_KEY] === true) {
+      props[RENDER_3D_BASE_FROM_DEM_KEY] = true;
+    }
+  }
   const scRaw = render3dScale.trim().replace(',', '.');
   const sc = scRaw ? parseFloat(scRaw) : null;
   if (sc != null && Number.isFinite(sc) && sc > 0) {
     const clamped = Math.min(MAX_RENDER_3D_SCALE, Math.max(MIN_RENDER_3D_SCALE, sc));
-    if (Math.abs(clamped - DEFAULT_RENDER_3D_SCALE) < 1e-6) delete props[RENDER_3D_SCALE_KEY];
-    else props[RENDER_3D_SCALE_KEY] = clamped;
-  } else if (!scRaw) {
-    delete props[RENDER_3D_SCALE_KEY];
+    props[RENDER_3D_SCALE_KEY] = clamped;
+  } else {
+    props[RENDER_3D_SCALE_KEY] = DEFAULT_RENDER_3D_SCALE;
   }
   props[RENDER_3D_VISIBLE_KEY] = render3dVisible;
   if (!isLineSubtype(subtype)) {
@@ -194,6 +227,13 @@ export function buildInfraSavePayload(
   if (isBottomholeSubtype(subtype)) {
     props = { ...props, ...bottomholeFormFieldsToProperties(bottomholeFields) };
     props = stripSandVolumeProperties(props);
+  }
+  if (isLineSubtype(subtype) && lineProfileEligible(subtype)) {
+    const stepRaw = (lineProfileStepM ?? '').trim();
+    const step = stepRaw
+      ? clampLineProfileStepM(lineProfileStepM)
+      : clampLineProfileStepM(undefined);
+    props[LINE_ELEVATION_PROFILE_STEP_M] = step;
   }
   payload.properties = props;
 

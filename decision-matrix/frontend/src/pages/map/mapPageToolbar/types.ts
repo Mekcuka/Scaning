@@ -61,4 +61,6 @@ export type MapPageToolbarProps = {
   analyzePending: boolean;
   onAnalyzeAll: () => void;
   onAnalyzeSelected: () => void;
+  lineProfileComputePending?: boolean;
+  onLineProfileCompute?: () => void;
 };

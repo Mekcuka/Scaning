@@ -132,6 +132,7 @@ def infra_to_response(obj: InfrastructureObject) -> InfraObjectResponse:
         properties=props,
         render_3d_effective=Render3DEffective(
             height_m=r3d.height_m,
+            diameter_m=r3d.diameter_m,
             base_m=r3d.base_m,
             visible=r3d.visible,
             scale=r3d.scale,

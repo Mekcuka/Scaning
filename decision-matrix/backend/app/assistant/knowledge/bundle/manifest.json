@@ -1,6 +1,6 @@
 {
   "version": 1,
-  "article_count": 15,
+  "article_count": 16,
   "articles": [
     {
       "slug": "assistant-chat",
@@ -42,7 +42,7 @@
         "data_manager"
       ],
       "file": "articles/background-jobs.md",
-      "char_count": 1080
+      "char_count": 1510
     },
     {
       "slug": "flows-overview",
@@ -110,6 +110,29 @@
       "char_count": 1547
     },
     {
+      "slug": "line-elevation-profile",
+      "title": "Профиль высот линий",
+      "summary": "Расчёт отметок рельефа вдоль трубопроводов, дорог и других линий; таблица пикетов и Excel; один ЦМР на проект.",
+      "tags": [
+        "map",
+        "infrastructure",
+        "dem",
+        "lines",
+        "profile"
+      ],
+      "tab_hints": [
+        "map"
+      ],
+      "roles": [
+        "viewer",
+        "analyst",
+        "admin",
+        "data_manager"
+      ],
+      "file": "articles/line-elevation-profile.md",
+      "char_count": 2171
+    },
+    {
       "slug": "logistics-overview",
       "title": "Логистика — схема и объёмы песка",
       "summary": "Раздел Логистика — расчёт распределения песка по подсетям и массовое редактирование объёмов спроса.",
@@ -155,7 +178,7 @@
         "data_manager"
       ],
       "file": "articles/map-2d.md",
-      "char_count": 4711
+      "char_count": 4920
     },
     {
       "slug": "matrix",

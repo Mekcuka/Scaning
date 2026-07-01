@@ -109,6 +109,7 @@ export function useObjectDetailPanel({
     readOnly,
     showLogisticsTab: derived.showLogisticsTab,
     showTrajectoriesTab: derived.showTrajectoriesSection,
+    showProfileTab: derived.showProfileTab,
     infraTab: form.infraTab,
     setInfraTab: form.setInfraTab,
     poiTab: form.poiTab,

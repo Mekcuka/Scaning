@@ -23,6 +23,7 @@ from app.models import (
     ProjectSandLogisticsResult,
     OnePager,
 )
+from app.services.line_elevation_profile.project_dem_repository import delete_project_line_dem_files
 from app.services.map3d_custom_models import map3d_models_root
 
 
@@ -48,6 +49,7 @@ async def delete_project_cascade(db: AsyncSession, project_id: UUID) -> bool:
     )
     await db.execute(delete(ProjectMap3dModel).where(ProjectMap3dModel.project_id == project_id))
 
+    await delete_project_line_dem_files(db, project_id)
     result = await db.execute(delete(Project).where(Project.id == project_id))
     if result.rowcount > 0:
         shutil.rmtree(map3d_models_root() / str(project_id), ignore_errors=True)

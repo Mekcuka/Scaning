@@ -88,5 +88,7 @@ export function buildToolbarSection(
     analyzePending: actions.analyzePending,
     onAnalyzeAll: () => actions.analyzeAllMut.mutate(),
     onAnalyzeSelected: () => actions.analyzeSelectedMut.mutate(),
+    lineProfileComputePending: actions.lineProfileComputePending,
+    onLineProfileCompute: actions.computeLineProfile,
   };
 }

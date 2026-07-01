@@ -295,10 +295,11 @@ flowchart LR
 | `import_file` | Async-импорт CSV/GeoJSON/KML/Spark (`import_logs.project_job_id`) |
 | `sand_logistics_analyze` | Расчёт логистики песка |
 | `poi_analyze_all` | Анализ всех POI проекта |
+| `line_elevation_profile_compute` | Профиль высот линий (ЦМР + сэмплинг всех линий) |
 
 **Сериализация:** не более **одной** активной задачи (`pending` / `running`) на `project_id` — второй запрос → **409** с `active_job_id`. В воркере дополнительно `pg_advisory_xact_lock` на проект.
 
-**API:** `POST /projects/{id}/jobs`, `GET /projects/{id}/jobs/{job_id}`, `GET /projects/{id}/jobs/active`, `POST /projects/{id}/jobs/{job_id}/cancel`. Для **admin:** `GET /admin/jobs`, `GET /admin/jobs/health`, `POST /admin/jobs/{id}/cancel` (UI: `/admin/jobs`). Существующие endpoint (`autoroad-connect` apply, `sand-logistics/analyze`, `pois/analyze-all`, `import/*/async`) при включённой очереди возвращают **202** и `{ job_id, job_type, status }`; UI опрашивает job до `completed` и читает `result`.
+**API:** `POST /projects/{id}/jobs`, `GET /projects/{id}/jobs/{job_id}`, `GET /projects/{id}/jobs/active`, `POST /projects/{id}/jobs/{job_id}/cancel`. Для **admin:** `GET /admin/jobs`, `GET /admin/jobs/health`, `POST /admin/jobs/{id}/cancel` (UI: `/admin/jobs`). Существующие endpoint (`autoroad-connect` apply, `sand-logistics/analyze`, `pois/analyze-all`, `infrastructure/line-elevation-profile/compute`, `import/*/async`) при включённой очереди возвращают **202** и `{ job_id, job_type, status }`; UI опрашивает job до `completed` и читает `result`.
 
 **Постановка в очередь:** `services/job_queue.py` — `create_pool(..., default_queue_name=ARQ_QUEUE_NAME)` и `enqueue_job(..., _queue_name=ARQ_QUEUE_NAME)`; worker слушает ту же очередь (`WorkerSettings.queue_name`). Имя по умолчанию: `decision-matrix` (не `arq:queue`).
 
@@ -343,6 +344,16 @@ flowchart LR
 В **логистике песка** в отгрузку попадают только объекты и участки автодорог с `entry_date ≤ as_of` (дата расчёта, выбирается на **Логистика → Логистика**). Остальные отображаются в таблицах с пометкой «не введён», без отгрузки; спрос по годам может быть виден в плане, но не учитывается до ввода.
 
 Код: `app/geo/entry_date.py`, frontend `lib/infraEntryDate.ts`, **Параметры → Дата ввода**, карточка объекта на карте.
+
+### 1.10 Высотный профиль линейных объектов
+
+Ручной расчёт отметок ЦМР вдоль polyline **линейных** объектов (все `LINE_SUBTYPES`, **кроме** `well_bottomhole_gs`). Один GeoTIFF на проект (`project_line_dem`, миграция `027`); BBOX — по всем infra-объектам **без** забоев.
+
+**UI:** меню **Расчёт** на карте → **Рассчитать профиль**; карточка линии → вкладка **Профиль** (шаг 10–1000 м, default 100, таблица пикетов + Excel). График — вне MVP.
+
+**API:** `POST .../infrastructure/line-elevation-profile/compute`, `GET .../objects/{id}/line-elevation-profile`. При ARQ — job `line_elevation_profile_compute` («Профиль высот линий»).
+
+Код: `app/services/line_elevation_profile/`, `InfraDetailProfileTab`, `lib/lineElevationProfile.ts`. Спецификация: [line-elevation-profile.md](../line-elevation-profile/line-elevation-profile.md).
 
 ---
 

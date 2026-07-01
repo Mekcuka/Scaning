@@ -17,6 +17,9 @@ import {
   RENDER_3D_STYLE_KEY,
   resolveRender3D,
 } from '../../lib/map3d/render3d';
+import { resolvedLineDiameterM } from '../../lib/map3d/map3dLineTubeRadius';
+import { isLineSubtype } from '../../lib/infraGeometry';
+import { readLineProfileStepM } from '../../lib/lineElevationProfile';
 import { render3dModelSelectValue } from '../../lib/map3d/render3dModelOptions';
 import type { InfraDetailTab, PoiDetailTab } from './constants';
 import { capacityDraftFromObject } from './helpers';
@@ -54,6 +57,7 @@ export type InfraFormDraft = {
   entryDate: string;
   capacityValue: number | '';
   render3dHeight: string;
+  render3dDiameter: string;
   render3dBase: string;
   render3dScale: string;
   render3dVisible: boolean;
@@ -68,6 +72,7 @@ export type InfraFormDraft = {
   padMarginTopM: string;
   padMarginEndM: string;
   pointFootprintLineConnections: PointFootprintLineConnections;
+  lineProfileStepM: string;
   infraTab: InfraDetailTab;
   poiTab: PoiDetailTab;
 };
@@ -145,7 +150,14 @@ export function createInfraFormDraftFromObject(
     sandVolumeMode,
     entryDate: objectShowsEntryDate(o.subtype) ? readEntryDateIso(o.properties) : '',
     capacityValue: capacityDraftFromObject(o),
-    render3dHeight: String(r3.heightM),
+    render3dHeight:
+      isLineSubtype(o.subtype) && o.subtype !== 'power_line'
+        ? ''
+        : String(r3.heightM),
+    render3dDiameter:
+      isLineSubtype(o.subtype) && o.subtype !== 'power_line'
+        ? String(resolvedLineDiameterM(o.subtype, r3))
+        : '',
     render3dBase: String(r3.baseM),
     render3dScale: String(r3.scale),
     render3dVisible: r3.visible,
@@ -153,6 +165,9 @@ export function createInfraFormDraftFromObject(
     render3dModelId: render3dModelSelectValue(o.subtype, map3dCustomModels, rawMid),
     ...padWellFormStringsFromObject(o.properties),
     pointFootprintLineConnections: readPointFootprintLineConnections(o.properties),
+    lineProfileStepM: isLineSubtype(o.subtype)
+      ? String(readLineProfileStepM(o.properties))
+      : '',
     infraTab: 'main',
     poiTab: 'basic',
   };

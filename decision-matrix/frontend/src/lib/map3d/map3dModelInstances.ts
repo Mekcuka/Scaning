@@ -23,6 +23,8 @@ export type Map3dModelInstance = {
   lat: number;
   heightM: number;
   baseM: number;
+  /** When true, baseM is absolute AMSL from line profile DEM. */
+  baseFromDem: boolean;
   /** Uniform 3D size multiplier (from render_3d_scale). */
   scale: number;
   color: string;
@@ -79,6 +81,7 @@ export function buildMap3dModelInstances(input: {
       lat: obj.lat,
       heightM: render.heightM,
       baseM: render.baseM,
+      baseFromDem: render.baseFromDem,
       scale: render.scale,
       color: resolveColor(st, obj.layer_id, maps),
       catalog,
@@ -101,6 +104,7 @@ export function buildMap3dModelInstances(input: {
         lat: poi.lat,
         heightM: render.heightM,
         baseM: render.baseM,
+        baseFromDem: false,
         scale: render.scale,
         color: MAP_SUBTYPE_COLORS.poi,
         catalog,

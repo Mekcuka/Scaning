@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import hashlib
+import logging
 import os
 import uuid
 from datetime import UTC, datetime
@@ -14,6 +15,11 @@ import httpx
 from fastapi import HTTPException
 
 from app.core.config import settings
+
+logger = logging.getLogger(__name__)
+
+SYNTHETIC_DEM_SOURCE = "synthetic:dev_flat"
+SYNTHETIC_DEM_ELEVATION_M = 100.0
 from app.core.http_client import get_http_client, run_on_main_loop
 from app.core.http_retry import retry_microservice_call
 from app.services.pad_earthwork.gdal_proj import configure_rasterio_proj
@@ -37,6 +43,65 @@ def _validate_opentopography_api_key(key: str) -> None:
     if not key:
         raise HTTPException(status_code=503, detail="dem_api_not_configured")
     raise HTTPException(status_code=503, detail="dem_api_key_invalid_format")
+
+
+def _is_production_environment() -> bool:
+    return settings.ENVIRONMENT.strip().lower() == "production"
+
+
+def synthetic_dem_allowed() -> bool:
+    """Flat placeholder DEM for local dev when OpenTopography key is missing."""
+    if _is_production_environment():
+        return False
+    key = _normalize_opentopography_api_key(settings.OPENTOPOGRAPHY_API_KEY or "")
+    if key:
+        return False
+    if settings.DEM_ALLOW_SYNTHETIC:
+        return True
+    return settings.ENVIRONMENT.strip().lower() == "development"
+
+
+def cached_synthetic_dem_should_upgrade(cached_source: str | None) -> bool:
+    """True when on-disk cache is synthetic but OpenTopography key is now configured."""
+    if not cached_source or not str(cached_source).startswith("synthetic:"):
+        return False
+    key = _normalize_opentopography_api_key(settings.OPENTOPOGRAPHY_API_KEY or "")
+    return bool(key)
+
+
+def make_synthetic_flat_dem_geotiff(
+    bbox: tuple[float, float, float, float],
+    *,
+    elevation: float = SYNTHETIC_DEM_ELEVATION_M,
+    width: int = 32,
+    height: int = 32,
+) -> bytes:
+    """In-memory flat GeoTIFF covering bbox (WGS84) for dev without OpenTopography."""
+    configure_rasterio_proj()
+    try:
+        import numpy as np
+        import rasterio
+        from rasterio.io import MemoryFile
+        from rasterio.transform import from_bounds
+    except ImportError as exc:
+        raise HTTPException(status_code=503, detail="rasterio_not_available") from exc
+
+    west, south, east, north = bbox
+    data = np.full((height, width), float(elevation), dtype=np.float32)
+    transform = from_bounds(west, south, east, north, width, height)
+    profile = {
+        "driver": "GTiff",
+        "dtype": "float32",
+        "width": width,
+        "height": height,
+        "count": 1,
+        "crs": "+proj=longlat +datum=WGS84 +no_defs",
+        "transform": transform,
+    }
+    with MemoryFile() as memfile:
+        with memfile.open(**profile) as dataset:
+            dataset.write(data, 1)
+        return memfile.read()
 
 
 def pad_dem_root() -> Path:
@@ -168,6 +233,13 @@ async def fetch_opentopography_dem_async(
     demtype: str | None = None,
     api_key: str | None = None,
 ) -> bytes:
+    key = _normalize_opentopography_api_key(api_key or settings.OPENTOPOGRAPHY_API_KEY or "")
+    if not key and synthetic_dem_allowed():
+        logger.warning("Используется синтетический ЦМР (dev) — ключ OpenTopography не задан")
+        raw = make_synthetic_flat_dem_geotiff(bbox)
+        validate_geotiff(raw)
+        return raw
+
     params, timeout, _key = _dem_fetch_params(bbox, demtype=demtype, api_key=api_key)
 
     async def _call() -> bytes:
@@ -190,6 +262,9 @@ def fetch_opentopography_dem(
     api_key: str | None = None,
 ) -> bytes:
     """Sync wrapper for callers in worker threads."""
+    key = _normalize_opentopography_api_key(api_key or settings.OPENTOPOGRAPHY_API_KEY or "")
+    if not key and synthetic_dem_allowed():
+        return make_synthetic_flat_dem_geotiff(bbox)
     _params, timeout, _key = _dem_fetch_params(bbox, demtype=demtype, api_key=api_key)
     return run_on_main_loop(
         fetch_opentopography_dem_async(bbox, demtype=demtype, api_key=api_key),
@@ -227,5 +302,7 @@ def store_dem_file(project_id: UUID, raw: bytes, asset_id: str | None = None) ->
 
 
 def dem_source_label(demtype: str | None = None) -> str:
+    if synthetic_dem_allowed():
+        return SYNTHETIC_DEM_SOURCE
     dt = (demtype or settings.OPENTOPOGRAPHY_DEM_TYPE or "COP30").strip()
     return f"opentopography:{dt}"

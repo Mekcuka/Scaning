@@ -7,7 +7,10 @@ from dataclasses import dataclass
 from pathlib import Path
 
 RENDER_3D_HEIGHT_KEY = "render_3d_height_m"
+RENDER_3D_DIAMETER_KEY = "render_3d_diameter_m"
 RENDER_3D_BASE_KEY = "render_3d_base_m"
+# When true, render_3d_base_m is absolute AMSL from project line DEM (not terrain offset).
+RENDER_3D_BASE_FROM_DEM_KEY = "render_3d_base_from_dem"
 RENDER_3D_VISIBLE_KEY = "render_3d_visible"
 RENDER_3D_STYLE_KEY = "render_3d_style"
 RENDER_3D_MODEL_ID_KEY = "render_3d_model_id"
@@ -21,6 +24,10 @@ MAX_RENDER_3D_SCALE = 10.0
 _NULLABLE_PROPERTY_KEYS = frozenset({
     RENDER_3D_MODEL_ID_KEY,
     RENDER_3D_STYLE_KEY,
+    RENDER_3D_SCALE_KEY,
+    RENDER_3D_HEIGHT_KEY,
+    RENDER_3D_DIAMETER_KEY,
+    RENDER_3D_BASE_KEY,
     "well_bottomhole_linked_pad_id",
     "well_bottomhole_well_index",
     "well_bottomhole_target_azi",
@@ -100,6 +107,7 @@ def _parse_visible(raw: object | None) -> bool:
 @dataclass(frozen=True)
 class Render3DConfig:
     height_m: float
+    diameter_m: float | None
     base_m: float
     visible: bool
     scale: float
@@ -108,9 +116,11 @@ class Render3DConfig:
 def read_render_3d(subtype: str, properties: dict | None) -> Render3DConfig:
     props = properties or {}
     height_override = _parse_nonneg_float(props.get(RENDER_3D_HEIGHT_KEY))
+    diameter_override = _parse_positive_float(props.get(RENDER_3D_DIAMETER_KEY))
     base_override = _parse_nonneg_float(props.get(RENDER_3D_BASE_KEY))
     return Render3DConfig(
         height_m=height_override if height_override is not None else default_height_for_subtype(subtype),
+        diameter_m=diameter_override,
         base_m=base_override if base_override is not None else 0.0,
         visible=_parse_visible(props.get(RENDER_3D_VISIBLE_KEY)),
         scale=_parse_render_3d_scale(props.get(RENDER_3D_SCALE_KEY)),
@@ -121,6 +131,7 @@ def render_3d_effective_dict(subtype: str, properties: dict | None) -> dict[str,
     cfg = read_render_3d(subtype, properties)
     return {
         "height_m": cfg.height_m,
+        "diameter_m": cfg.diameter_m,
         "base_m": cfg.base_m,
         "visible": cfg.visible,
         "scale": cfg.scale,

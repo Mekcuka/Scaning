@@ -20,6 +20,7 @@ export function useObjectDetailPanelTabs(params: {
   readOnly: boolean;
   showLogisticsTab: boolean;
   showTrajectoriesTab: boolean;
+  showProfileTab: boolean;
   infraTab: InfraDetailTab;
   setInfraTab: (tab: InfraDetailTab) => void;
   poiTab: PoiDetailTab;
@@ -35,6 +36,7 @@ export function useObjectDetailPanelTabs(params: {
     readOnly,
     showLogisticsTab,
     showTrajectoriesTab,
+    showProfileTab,
     infraTab,
     setInfraTab,
     isPoi,
@@ -56,9 +58,12 @@ export function useObjectDetailPanelTabs(params: {
     if (showTrajectoriesTab) {
       tabs.push({ id: 'trajectories', label: 'Траектории', icon: INFRA_TAB_ICONS.trajectories });
     }
+    if (showProfileTab) {
+      tabs.push({ id: 'profile', label: 'Профиль', icon: INFRA_TAB_ICONS.profile });
+    }
     tabs.push({ id: 'extra', label: '3D', icon: INFRA_TAB_ICONS.extra });
     return tabs;
-  }, [showLogisticsTab, showTrajectoriesTab]);
+  }, [showLogisticsTab, showTrajectoriesTab, showProfileTab]);
 
   useEffect(() => {
     if (!infraTabs.some((t) => t.id === infraTab)) {

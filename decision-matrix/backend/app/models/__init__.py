@@ -83,6 +83,9 @@ class Project(Base):
     sand_logistics_result: Mapped["ProjectSandLogisticsResult | None"] = relationship(
         back_populates="project", uselist=False, cascade="all, delete-orphan"
     )
+    line_dem: Mapped["ProjectLineDem | None"] = relationship(
+        back_populates="project", uselist=False, cascade="all, delete-orphan"
+    )
 
 
 class ProjectMap3dModel(Base):
@@ -313,6 +316,29 @@ class InfrastructureObject(Base):
         cascade="all, delete-orphan",
         passive_deletes=True,
     )
+
+
+class ProjectLineDem(Base):
+    __tablename__ = "project_line_dem"
+
+    id: Mapped[uuid.UUID] = mapped_column(Uuid, primary_key=True, default=uuid.uuid4)
+    project_id: Mapped[uuid.UUID] = mapped_column(
+        Uuid, ForeignKey("projects.id", ondelete="CASCADE"), unique=True, index=True
+    )
+    bbox_hash: Mapped[str] = mapped_column(String(16), nullable=False)
+    bbox_west: Mapped[float] = mapped_column(Float, nullable=False)
+    bbox_south: Mapped[float] = mapped_column(Float, nullable=False)
+    bbox_east: Mapped[float] = mapped_column(Float, nullable=False)
+    bbox_north: Mapped[float] = mapped_column(Float, nullable=False)
+    source: Mapped[str] = mapped_column(String(64), nullable=False)
+    file_size_bytes: Mapped[int] = mapped_column(Integer, nullable=False)
+    fetched_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now(), onupdate=func.now()
+    )
+
+    project: Mapped["Project"] = relationship(back_populates="line_dem")
 
 
 class InfraObjectPadDem(Base):

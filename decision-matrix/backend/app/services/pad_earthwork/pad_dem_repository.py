@@ -16,6 +16,7 @@ from app.core.config import settings
 from app.models import InfraObjectPadDem, InfrastructureObject
 from app.services.pad_earthwork.dem_store import (
     bbox_hash,
+    cached_synthetic_dem_should_upgrade,
     compute_dem_bbox,
     dem_file_path,
     dem_source_label,
@@ -169,7 +170,7 @@ async def ensure_pad_dem(
 
     if row is not None and row.bbox_hash == bhash:
         path = dem_file_path(project_id, str(row.id))
-        if path.is_file():
+        if path.is_file() and not cached_synthetic_dem_should_upgrade(row.source):
             return str(row.id), path, {}
 
     raw = await fetch_opentopography_dem_async(bbox)

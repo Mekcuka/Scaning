@@ -6,7 +6,7 @@ export default defineConfig({
   test: {
     environment: 'jsdom',
     setupFiles: ['./src/test/setup.ts'],
-    include: ['src/**/*.{test,spec}.{ts,tsx}'],
+    include: ['src/**/__tests__/**/*.{test,spec}.{ts,tsx}'],
     testTimeout: 60_000,
     hookTimeout: 30_000,
     coverage: {
@@ -14,7 +14,7 @@ export default defineConfig({
       reporter: ['text', 'json-summary'],
       include: ['src/**/*.{ts,tsx}'],
       exclude: [
-        'src/**/*.{test,spec}.{ts,tsx}',
+        'src/**/__tests__/**/*.{test,spec}.{ts,tsx}',
         'src/test/**',
         'src/**/*.d.ts',
         'src/main.tsx',

@@ -9,6 +9,7 @@ import { ObjectDetailPanelFooter } from './objectDetailPanel/ObjectDetailPanelFo
 import { InfraDetailMainTab } from './objectDetailPanel/InfraDetailMainTab';
 import { InfraDetailLogisticsTab } from './objectDetailPanel/InfraDetailLogisticsTab';
 import { InfraDetailExtraTab } from './objectDetailPanel/InfraDetailExtraTab';
+import { InfraDetailProfileTab } from './objectDetailPanel/InfraDetailProfileTab';
 import { InfraDetailTrajectoriesTab } from './objectDetailPanel/InfraDetailTrajectoriesTab';
 import {
   PointFootprintLineConnectionsSection,
@@ -169,6 +170,7 @@ export function ObjectDetailPanel({
                 bottomholeInfraObjects={infraObjects}
                 copyCoordinatesText={panel.copyCoordinatesText}
                 lineLengthLabel={panel.lineLengthLabel}
+                lineLengthFromProfile={panel.lineLengthFromProfile}
                 lineCoords={panel.lineCoords}
                 lon={panel.lon}
                 setLon={panel.setLon}
@@ -254,11 +256,23 @@ export function ObjectDetailPanel({
               />
             )}
 
+            {panel.infraTab === 'profile' && (
+              <InfraDetailProfileTab
+                projectId={panel.mapProjectId}
+                infraObject={panel.infraObject}
+                readOnly={readOnly}
+                lineProfileStepM={panel.lineProfileStepM}
+                setLineProfileStepM={panel.setLineProfileStepM}
+              />
+            )}
+
             {panel.infraTab === 'extra' && (
               <InfraDetailExtraTab
                 readOnly={readOnly}
                 render3dHeight={panel.render3dHeight}
                 setRender3dHeight={panel.setRender3dHeight}
+                render3dDiameter={panel.render3dDiameter}
+                setRender3dDiameter={panel.setRender3dDiameter}
                 render3dBase={panel.render3dBase}
                 setRender3dBase={panel.setRender3dBase}
                 render3dScale={panel.render3dScale}

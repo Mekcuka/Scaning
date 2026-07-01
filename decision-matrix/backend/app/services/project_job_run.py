@@ -33,6 +33,7 @@ from app.services.project_jobs import (
     JOB_TYPE_WELL_TRAJECTORY_IMPORT,
     JOB_TYPE_PAD_PLACEMENT_COMPUTE,
     JOB_TYPE_PAD_PLACEMENT_APPLY,
+    JOB_TYPE_LINE_ELEVATION_PROFILE_COMPUTE,
     mark_job_completed,
     mark_job_failed,
     try_claim_pending_job,
@@ -277,6 +278,13 @@ async def _run_pad_placement_apply(db: AsyncSession, job: ProjectJob) -> dict[st
     return result.model_dump(mode="json")
 
 
+async def _run_line_elevation_profile_compute(db: AsyncSession, job: ProjectJob) -> dict[str, Any]:
+    from app.services.line_elevation_profile.profile_compute import compute_line_elevation_profiles
+
+    result = await compute_line_elevation_profiles(db, job.project_id)
+    return result.model_dump(mode="json")
+
+
 async def execute_project_job(job_id: UUID) -> None:
     async with async_session() as db:
         job = await db.get(ProjectJob, job_id)
@@ -395,4 +403,6 @@ async def _dispatch_run(db: AsyncSession, job: ProjectJob) -> dict[str, Any]:
         return await _run_pad_placement_compute(db, job)
     elif job.job_type == JOB_TYPE_PAD_PLACEMENT_APPLY:
         return await _run_pad_placement_apply(db, job)
+    elif job.job_type == JOB_TYPE_LINE_ELEVATION_PROFILE_COMPUTE:
+        return await _run_line_elevation_profile_compute(db, job)
     raise ValueError(f"Unsupported job_type: {job.job_type}")

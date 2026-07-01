@@ -56,6 +56,7 @@
 | `import_file` | Импорт файла |
 | `sand_logistics_analyze` | Логистика песка |
 | `poi_analyze_all` | Анализ POI |
+| `line_elevation_profile_compute` | Профиль высот линий |
 
 Список подгружается с API `GET /api/v1/projects/{id}/jobs?limit=30`; активная задача опрашивается каждые ~2 с.
 
@@ -68,6 +69,7 @@
 - `/autoroad-network/request`, `/compute`, `/apply`, `/plan`
 - `/infrastructure/autoroad-connect`
 - `/sand-logistics/analyze`
+- `/infrastructure/line-elevation-profile/compute`
 - `/pois/analyze-all`, `/pois/{id}/analyze`
 - `/import/...` (в т.ч. async)
 - `POST /projects/{id}/jobs`

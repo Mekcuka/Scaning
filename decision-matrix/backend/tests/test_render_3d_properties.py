@@ -51,3 +51,27 @@ def test_merge_infra_properties_patch_clears_bottomhole_nullable_keys():
 
 def test_normalize_assigned_subtypes_legacy_pad():
     assert normalize_assigned_subtypes(["pad"]) == ["oil_pad"]
+
+
+def test_read_render_3d_diameter_m():
+    from app.geo.render_3d_properties import RENDER_3D_DIAMETER_KEY, read_render_3d
+
+    cfg = read_render_3d("oil_pipeline", {RENDER_3D_DIAMETER_KEY: 0.8})
+    assert cfg.diameter_m == 0.8
+
+
+def test_merge_infra_properties_patch_clears_render_3d_diameter():
+    from app.geo.render_3d_properties import RENDER_3D_DIAMETER_KEY, merge_infra_properties_patch
+
+    existing = {RENDER_3D_DIAMETER_KEY: 6.0}
+    merged = merge_infra_properties_patch(existing, {RENDER_3D_DIAMETER_KEY: None})
+    assert RENDER_3D_DIAMETER_KEY not in merged
+
+
+def test_merge_infra_properties_patch_clears_render_3d_scale():
+    from app.geo.render_3d_properties import RENDER_3D_SCALE_KEY
+
+    existing = {RENDER_3D_SCALE_KEY: 10.0, "sand_volume_m3": 10}
+    merged = merge_infra_properties_patch(existing, {RENDER_3D_SCALE_KEY: None})
+    assert RENDER_3D_SCALE_KEY not in merged
+    assert merged["sand_volume_m3"] == 10

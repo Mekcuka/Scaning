@@ -3,6 +3,7 @@
 from app.services.project_jobs import (
     JOB_TYPE_AUTOROAD_CONNECT,
     JOB_TYPE_IMPORT_FILE,
+    JOB_TYPE_LINE_ELEVATION_PROFILE_COMPUTE,
     JOB_TYPE_PAD_EARTHWORK_COMPUTE,
     JOB_TYPE_PAD_PLACEMENT_APPLY,
     JOB_TYPE_PAD_PLACEMENT_COMPUTE,
@@ -61,5 +62,10 @@ JOB_STEPS: dict[str, list[tuple[str, str]]] = {
     JOB_TYPE_PAD_PLACEMENT_APPLY: [
         ("load_variant", "Загрузка варианта"),
         ("apply_objects", "Применение к объектам проекта"),
+    ],
+    JOB_TYPE_LINE_ELEVATION_PROFILE_COMPUTE: [
+        ("fetch_dem", "Загрузка цифровой модели рельефа"),
+        ("sample_lines", "Сэмплинг профилей линий"),
+        ("persist_properties", "Сохранение в свойства объектов"),
     ],
 }

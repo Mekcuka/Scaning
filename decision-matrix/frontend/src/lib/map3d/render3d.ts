@@ -3,7 +3,11 @@ import { catalogEntryForModelId, catalogEntryForSubtype } from './map3dModelCata
 import { defaultHeightForSubtype } from './extrusionHeights';
 
 export const RENDER_3D_HEIGHT_KEY = 'render_3d_height_m';
+/** Outer tube diameter (m) for linear infra (pipelines, roads). */
+export const RENDER_3D_DIAMETER_KEY = 'render_3d_diameter_m';
 export const RENDER_3D_BASE_KEY = 'render_3d_base_m';
+/** Absolute AMSL from project line DEM profile compute (not terrain offset). */
+export const RENDER_3D_BASE_FROM_DEM_KEY = 'render_3d_base_from_dem';
 export const RENDER_3D_VISIBLE_KEY = 'render_3d_visible';
 export const RENDER_3D_STYLE_KEY = 'render_3d_style';
 export const RENDER_3D_MODEL_ID_KEY = 'render_3d_model_id';
@@ -16,13 +20,19 @@ export const MAX_RENDER_3D_SCALE = 10;
 
 export type Render3DConfig = {
   heightM: number;
+  /** Explicit outer diameter (m); null → catalog default for line tubes. */
+  diameterM: number | null;
   baseM: number;
+  /** When true, baseM is absolute AMSL (from line profile DEM), not added to MapLibre terrain. */
+  baseFromDem: boolean;
   visible: boolean;
   scale: number;
 };
 
 /** Scene height (m) after L2 height × scale — same basis as fill-extrusion. */
-export function effectiveRender3dHeightM(render: Render3DConfig): number {
+export function effectiveRender3dHeightM(
+  render: Pick<Render3DConfig, 'heightM' | 'scale'>,
+): number {
   return render.heightM * render.scale;
 }
 
@@ -43,6 +53,12 @@ function readPositiveScale(props: Record<string, unknown> | undefined): number {
   return Math.min(MAX_RENDER_3D_SCALE, Math.max(MIN_RENDER_3D_SCALE, raw));
 }
 
+function readBoolean(props: Record<string, unknown> | undefined, key: string): boolean {
+  if (!props) return false;
+  const v = props[key];
+  return v === true || v === 'true';
+}
+
 /** Resolve 3D render params: L2 properties override L1 subtype defaults. */
 export function resolveRender3D(
   subtype: string,
@@ -50,6 +66,7 @@ export function resolveRender3D(
 ): Render3DConfig {
   const props = properties ?? undefined;
   const heightOverride = readNumber(props, RENDER_3D_HEIGHT_KEY);
+  const diameterOverride = readNumber(props, RENDER_3D_DIAMETER_KEY);
   const baseOverride = readNumber(props, RENDER_3D_BASE_KEY);
   const visibleRaw = props?.[RENDER_3D_VISIBLE_KEY];
   const visible =
@@ -57,7 +74,9 @@ export function resolveRender3D(
 
   return {
     heightM: heightOverride ?? defaultHeightForSubtype(subtype),
+    diameterM: diameterOverride != null && diameterOverride > 0 ? diameterOverride : null,
     baseM: baseOverride ?? 0,
+    baseFromDem: readBoolean(props, RENDER_3D_BASE_FROM_DEM_KEY),
     visible,
     scale: readPositiveScale(props),
   };

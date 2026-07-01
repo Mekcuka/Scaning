@@ -51,6 +51,9 @@ class Settings(BaseSettings):
     OPENTOPOGRAPHY_API_KEY: str = ""
     OPENTOPOGRAPHY_DEM_TYPE: str = "COP30"
     OPENTOPOGRAPHY_TIMEOUT_SECONDS: int = 120
+    # Local dev without OpenTopography key: flat synthetic GeoTIFF (never in production).
+    DEM_ALLOW_SYNTHETIC: bool = False
+    LINE_PROFILE_DEM_DATA_ROOT: str = ""
     PAD_DEM_DATA_ROOT: str = ""
     PAD_DEM_BBOX_PADDING_M: float = 50.0
     PAD_DEM_MIN_BBOX_SIDE_M: float = 300.0

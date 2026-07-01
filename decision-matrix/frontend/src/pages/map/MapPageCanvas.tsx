@@ -24,7 +24,6 @@ type AutoroadPreviewLine = { coordinates: number[][]; kind: string };
 export type MapPageCanvasProps = {
   map3dRef: MutableRefObject<MapView3DHandle | null>;
   map3dFeatureEnabled: boolean;
-  map3dKeepMounted: boolean;
   mapIn3d: boolean;
   infraSymbology: 'points' | 'footprints';
   showPoisOnMap: boolean;
@@ -107,7 +106,6 @@ export type MapPageCanvasProps = {
 export function MapPageCanvas({
   map3dRef,
   map3dFeatureEnabled,
-  map3dKeepMounted,
   mapIn3d,
   infraSymbology,
   showPoisOnMap,
@@ -211,15 +209,8 @@ export function MapPageCanvas({
 
   return (
     <>
-      {map3dFeatureEnabled && (map3dKeepMounted || mapIn3d) && (
-        <div
-          className={`map-3d-host${mapIn3d ? ' map-3d-host--active' : ''}`}
-          style={{
-            visibility: mapIn3d ? 'visible' : 'hidden',
-            pointerEvents: mapIn3d ? 'auto' : 'none',
-          }}
-          aria-hidden={!mapIn3d}
-        >
+      {map3dFeatureEnabled && mapIn3d && (
+        <div className="map-3d-host map-3d-host--active">
           <Suspense
             fallback={
               <div

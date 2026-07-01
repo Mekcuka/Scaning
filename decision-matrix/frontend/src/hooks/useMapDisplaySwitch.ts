@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState, type MutableRefObject } from 'react';
+import { useCallback, type MutableRefObject } from 'react';
 import type { DrawMode } from '../components/MapView';
 import type { MapView3DHandle } from '../components/MapView3D';
 import type { MapDisplayMode } from './useMapDisplayMode';
@@ -43,12 +43,6 @@ export function useMapDisplaySwitch({
   setPointMenuOpen,
   setLineMenuOpen,
 }: UseMapDisplaySwitchParams) {
-  const [map3dKeepMounted, setMap3dKeepMounted] = useState(false);
-
-  useEffect(() => {
-    if (mapIn3d) setMap3dKeepMounted(true);
-  }, [mapIn3d]);
-
   const switchToOlMode = useCallback(
     (mode: '2d' | 'footprints') => {
       const snap = map3dRef.current?.getViewSnapshot();
@@ -126,7 +120,7 @@ export function useMapDisplaySwitch({
     ],
   );
 
-  return { map3dKeepMounted, switchMapDisplayMode };
+  return { switchMapDisplayMode };
 }
 
 /** @deprecated use useMapDisplaySwitch */

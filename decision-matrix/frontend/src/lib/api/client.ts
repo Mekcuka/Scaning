@@ -4,6 +4,7 @@ import {
   getRefreshToken,
   persistAuthTokens,
 } from '../authSession';
+import { formatDemApiError } from '../demApiErrors';
 import { taskLog, isMultiStepHttpFlowActive } from '../taskLog/store';
 import {
   extractProjectIdFromPath,
@@ -125,6 +126,9 @@ const API_ERROR_MESSAGES_RU: Record<string, string> = {
 
 export function formatApiError(detail: unknown, fallback: string): string {
   if (typeof detail === 'string') {
+    if (detail.includes('dem_')) {
+      return formatDemApiError(detail);
+    }
     if (detail === 'Insufficient permissions') return fallback;
     if (/Batch paste limit is/i.test(detail)) {
       const m = /got (\d+)/i.exec(detail);

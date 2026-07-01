@@ -59,6 +59,8 @@ export function MapPageToolbar(props: MapPageToolbarProps) {
     analyzePending,
     onAnalyzeAll,
     onAnalyzeSelected,
+    lineProfileComputePending,
+    onLineProfileCompute,
   } = props;
 
   return (
@@ -105,6 +107,8 @@ export function MapPageToolbar(props: MapPageToolbarProps) {
         onResetDrawingMenus={onResetDrawingMenus}
         projectJobBusy={projectJobBusy}
         mapIn3d={mapIn3d}
+        lineProfileComputePending={lineProfileComputePending}
+        onLineProfileCompute={onLineProfileCompute}
       />
       <MapPageToolbarDrawGroup
         drawMode={drawMode}

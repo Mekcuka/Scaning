@@ -14,6 +14,13 @@ import {
   RENDER_3D_STYLE_KEY,
   resolveRender3D,
 } from '../../lib/map3d/render3d';
+import { resolvedLineDiameterM } from '../../lib/map3d/map3dLineTubeRadius';
+import { isLineSubtype } from '../../lib/infraGeometry';
+import {
+  clampLineProfileStepM,
+  lineProfileEligible,
+  readLineProfileStepM,
+} from '../../lib/lineElevationProfile';
 import { render3dModelSelectValue } from '../../lib/map3d/render3dModelOptions';
 import { poiToFormValues, type PoiFormValues } from '../../lib/poiParams';
 import { POI_TAB_FIELDS, type InfraDetailTab, type PoiDetailTab } from './constants';
@@ -24,7 +31,7 @@ import {
   type PointFootprintLineConnections,
 } from '../../lib/padFootprintLineAttach';
 import { isEarthworkEligibleSubtype } from '../../lib/infraPadEarthwork';
-import { bottomholeFormFieldsDirty } from './bottomholeFormFields';
+import { bottomholeFormFieldsDirty, type BottomholeFormFields } from './bottomholeFormFields';
 
 export type InfraDirtyDraft = {
   name: string;
@@ -43,6 +50,7 @@ export type InfraDirtyDraft = {
   entryDate: string;
   capacityValue: number | '';
   render3dHeight: string;
+  render3dDiameter: string;
   render3dBase: string;
   render3dScale: string;
   render3dVisible: boolean;
@@ -58,6 +66,7 @@ export type InfraDirtyDraft = {
   padMarginEndM: string;
   pointFootprintLineConnections: PointFootprintLineConnections;
   bottomholeFields: BottomholeFormFields;
+  lineProfileStepM: string;
 };
 
 function sandFieldsDirty(
@@ -81,12 +90,28 @@ function sandFieldsDirty(
   );
 }
 
+function lineProfileStepDirty(
+  infraObject: InfraObject,
+  draft: InfraDirtyDraft,
+  isLine: boolean,
+): boolean {
+  return (
+    isLine &&
+    lineProfileEligible(infraObject.subtype) &&
+    draft.lineProfileStepM.trim() !== '' &&
+    String(readLineProfileStepM(infraObject.properties)) !==
+      String(clampLineProfileStepM(draft.lineProfileStepM))
+  );
+}
+
 function render3dFieldsDirty(
   infraObject: InfraObject,
   draft: InfraDirtyDraft,
   map3dCustomModels: Map3dCustomModel[],
 ): boolean {
   const origR3 = resolveRender3D(infraObject.subtype, infraObject.properties);
+  const isTubeLine =
+    isLineSubtype(infraObject.subtype) && infraObject.subtype !== 'power_line';
   const origStyle = (infraObject.properties?.[RENDER_3D_STYLE_KEY] as string) || '';
   const origModelId = (infraObject.properties?.[RENDER_3D_MODEL_ID_KEY] as string) || '';
   const origModelSelect = render3dModelSelectValue(
@@ -94,8 +119,11 @@ function render3dFieldsDirty(
     map3dCustomModels,
     origModelId,
   );
+  const primaryDimDirty = isTubeLine
+    ? draft.render3dDiameter !== String(resolvedLineDiameterM(infraObject.subtype, origR3))
+    : draft.render3dHeight !== String(origR3.heightM);
   return (
-    draft.render3dHeight !== String(origR3.heightM) ||
+    primaryDimDirty ||
     draft.render3dBase !== String(origR3.baseM) ||
     draft.render3dScale !== String(origR3.scale) ||
     draft.render3dVisible !== origR3.visible ||
@@ -139,6 +167,7 @@ export function computeInfraIsDirty(
     infraObject.subtype === 'well_bottomhole_gs' &&
     (draft.endLon !== (infraObject.end_lon != null ? formatCoord(infraObject.end_lon) : '') ||
       draft.endLat !== (infraObject.end_lat != null ? formatCoord(infraObject.end_lat) : ''));
+  const profileStepDirty = lineProfileStepDirty(infraObject, draft, isLine);
   return (
     draft.name !== infraObject.name ||
     draft.description !== origDesc ||
@@ -153,7 +182,8 @@ export function computeInfraIsDirty(
     r3Dirty ||
     attachDirty ||
     bottomholeDirty ||
-    gsEndDirty
+    gsEndDirty ||
+    profileStepDirty
   );
 }
 
@@ -207,6 +237,8 @@ export function computeInfraTabDirty(
       return render3dFieldsDirty(infraObject, draft, map3dCustomModels);
     case 'trajectories':
       return false;
+    case 'profile':
+      return lineProfileStepDirty(infraObject, draft, isLine);
     default:
       return false;
   }

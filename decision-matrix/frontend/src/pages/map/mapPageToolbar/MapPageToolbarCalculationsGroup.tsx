@@ -1,5 +1,5 @@
 import { useRef, useState } from 'react';
-import { Calculator, ChevronDown, LayoutGrid, Route, Zap } from 'lucide-react';
+import { Calculator, ChevronDown, LayoutGrid, LineChart, Route, Zap } from 'lucide-react';
 import { AnchoredMenu } from '../../../components/AnchoredMenu';
 import type { DrawMode } from '../../../components/MapView';
 import { MapToolbarButton } from './MapToolbarButton';
@@ -19,6 +19,8 @@ export type MapPageToolbarCalculationsGroupProps = {
   onResetDrawingMenus: () => void;
   projectJobBusy: boolean;
   mapIn3d: boolean;
+  lineProfileComputePending?: boolean;
+  onLineProfileCompute?: () => void;
 };
 
 function menuItemClass(active: boolean, disabled?: boolean): string {
@@ -46,6 +48,8 @@ export function MapPageToolbarCalculationsGroup({
   onResetDrawingMenus,
   projectJobBusy,
   mapIn3d,
+  lineProfileComputePending = false,
+  onLineProfileCompute,
 }: MapPageToolbarCalculationsGroupProps) {
   const menuAnchorRef = useRef<HTMLDivElement>(null);
   const [menuOpen, setMenuOpen] = useState(false);
@@ -84,6 +88,7 @@ export function MapPageToolbarCalculationsGroup({
 
   const networkDisabled = mapIn3d || projectJobBusy || analyzePending;
   const padsDisabled = mapIn3d || projectJobBusy || analyzePending;
+  const profileDisabled = mapIn3d || projectJobBusy || analyzePending || lineProfileComputePending;
   const analyzeSelectedDisabled = !selectedPoiId || analyzePending;
 
   return (
@@ -91,7 +96,7 @@ export function MapPageToolbarCalculationsGroup({
       <div ref={menuAnchorRef} className="inline-block">
         <MapToolbarButton
           active={calcModeActive || menuOpen}
-          loading={analyzePending}
+          loading={analyzePending || lineProfileComputePending}
           title="Запуск расчётов"
           aria-label="Расчёт"
           aria-expanded={menuOpen}
@@ -195,6 +200,23 @@ export function MapPageToolbarCalculationsGroup({
             >
               <LayoutGrid size={14} className="shrink-0" aria-hidden />
               <span className="truncate">Оптимизация кустов</span>
+            </button>
+          )}
+          {canWriteInfra && onLineProfileCompute && (
+            <button
+              type="button"
+              className={menuItemClass(false, profileDisabled)}
+              disabled={profileDisabled}
+              title="Рассчитать высотный профиль линейных объектов по ЦМР"
+              onClick={() => {
+                closeMenu();
+                onLineProfileCompute();
+              }}
+            >
+              <LineChart size={14} className="shrink-0" aria-hidden />
+              <span className="truncate">
+                {lineProfileComputePending ? 'Расчёт…' : 'Рассчитать профиль'}
+              </span>
             </button>
           )}
         </AnchoredMenu>
